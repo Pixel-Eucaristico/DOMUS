@@ -8,7 +8,7 @@ App fintech de orcamento pessoal focado em Android. Monorepo com Expo SDK 54, Ty
 /apps/mobile          -> (root-level app/ directory via Expo Router)
 /packages/core        -> Nucleo financeiro (tipos, contas, transacoes, orcamento, projecoes)
 /packages/storage     -> Persistencia local (a implementar)
-/packages/sync        -> Sincronizacao (a implementar)
+/packages/sync        -> Sincronizacao P2P via WebRTC + Event Sourcing
 /packages/ai          -> Inteligencia artificial (a implementar)
 /packages/parsers     -> Parsers de extratos (a implementar)
 /packages/wishlist    -> Lista de desejos (a implementar)
@@ -29,13 +29,15 @@ App fintech de orcamento pessoal focado em Android. Monorepo com Expo SDK 54, Ty
 
 ## Recent Changes
 - 2026-02-11: Projeto inicial criado com estrutura monorepo
-- 2026-02-11: Nucleo financeiro implementado em /packages/core com:
-  - Modelos: Account, Transaction, Installment, Category, BudgetBreakdown
-  - Logica de contas: create, applyToBalance, applyTransfer
-  - Logica de transacoes: createTransaction com suporte a parcelas
-  - Orcamento 50/30/20: calculate503020, getIdeal503020
-  - Projecoes: projectFutureBalance
-  - 33 testes unitarios passando (vitest)
+- 2026-02-11: Nucleo financeiro implementado em /packages/core (33 testes)
+- 2026-02-12: Sistema de sync P2P implementado em /packages/sync (46 testes):
+  - Event Sourcing: EventStore com append, getEventsSince, replayEvents, assinatura digital
+  - WebRTC: WebRTCManager com STUN publico, data channels, QR signaling
+  - Mesh: MeshManager com broadcast, syncWithPeer, heartbeat, peer discovery
+  - Protocolo: HANDSHAKE, EVENT_BATCH, PEER_LIST, HEARTBEAT
+  - Conflitos: lastWriteWins com desempate por deviceId, deduplicacao
+  - Crypto: CryptoAdapter abstrato + SimpleCrypto para testes
+  - Identidade: deviceId, networkId, chave pub/priv
 
 ## Architecture Decisions
 - Sem backend/servidor - app local apenas
@@ -43,6 +45,11 @@ App fintech de orcamento pessoal focado em Android. Monorepo com Expo SDK 54, Ty
 - Vitest para testes unitarios
 - Expo Router para navegacao file-based
 - React Query + AsyncStorage para estado (futuro)
+- Sync P2P: WebRTC com STUN publico, signaling via QR code, arquitetura mesh
+- Event Sourcing: eventos imutaveis, assinados, ordenados por timestamp
 
 ## Testing
-- Rodar testes: `npx vitest run packages/core/__tests__/`
+- Rodar todos os testes: `npx vitest run packages/`
+- Testes core: `npx vitest run packages/core/__tests__/`
+- Testes sync: `npx vitest run packages/sync/__tests__/`
+- Total: 79 testes passando
