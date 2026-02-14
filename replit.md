@@ -11,7 +11,7 @@ Gamificacao e o CORE do sistema (XP, niveis, streaks, arquetipos, seasons).
 /packages/domain      -> Reducers e regras de negocio (contas, transacoes, 50/30/20, replay)
 /packages/storage     -> EventStore SQLite (persistencia local via expo-sqlite)
 /packages/core        -> Nucleo financeiro legado (tipos, contas, transacoes, orcamento, projecoes)
-/packages/sync        -> Sincronizacao P2P via WebRTC + Event Sourcing
+/packages/sync        -> Sincronizacao P2P (pacote legado WebRTC, nao usado na UI)
 /packages/parsers     -> Parsers de nota fiscal (NFC-e, SEFAZ, OCR) + classificacao
 /packages/gamification -> XP engine, level engine, streak engine, reducer
 /packages/season      -> Seasons mensais, avaliacao, badges, evolucao de arquetipo
@@ -24,9 +24,8 @@ Gamificacao e o CORE do sistema (XP, niveis, streaks, arquetipos, seasons).
 /app/(tabs)           -> Tab screens: index (Home), accounts, season
 /app/add-transaction.tsx -> Modal para nova transacao
 /app/onboarding.tsx   -> Onboarding flow (7 dias adaptivos)
-/app/sync.tsx         -> Tela de sincronizacao P2P (QR pairing, peers, sync manual)
-/src/context          -> AppStateProvider (estado global via Event Sourcing), SyncProvider (P2P sync)
-/src/services         -> webrtcFactory.ts (adapter browser WebRTC)
+/app/sync.tsx         -> Tela de sincronizacao mobile-first (exportar/importar arquivo, QR code)
+/src/context          -> AppStateProvider (estado global via Event Sourcing), SyncProvider (file + QR sync)
 /src/components       -> Componentes reutilizaveis do app
 /src/hooks            -> Custom hooks
 /src/modules          -> Modulos de funcionalidades
@@ -154,13 +153,15 @@ Gamificacao e o CORE do sistema (XP, niveis, streaks, arquetipos, seasons).
   - HomeScreen crashava ao criar primeira conta
   - Corrigidos todos os imports em 6 arquivos
 
-- 2026-02-14: Sync P2P UI implementada:
-  - app/sync.tsx: tela de sincronizacao com QR pairing (gerar oferta, escanear resposta, peers conectados, sync manual)
-  - src/context/SyncProvider.tsx: contexto com identidade do dispositivo, conexoes WebRTC, gerar/escanear QR
-  - src/services/webrtcFactory.ts: adapter browser WebRTC (RTCPeerConnection, ICE gathering, compressao SDP)
-  - Acesso via botao no header do HomeScreen (icone sync)
-  - WebRTC funciona apenas no web (browser API), degradacao graciosa no mobile
-  - expo-camera instalado para scanner QR
+- 2026-02-14: Sync mobile-first reimplementado (substituiu WebRTC):
+  - app/sync.tsx: tela de sincronizacao com 2 metodos: arquivo (exportar/importar) e QR code
+  - src/context/SyncProvider.tsx: SyncProvider com exportToFile, importFromFile, getQRData, importFromQR
+  - Arquivo: exporta JSON bundle via system share sheet (WhatsApp, Bluetooth, etc), importa via document picker
+  - QR Code: ate ~50 eventos recentes comprimidos em QR, scanner via expo-camera
+  - expo-file-system (File/Paths API), expo-sharing, expo-document-picker instalados
+  - Deduplicacao automatica por ID na importacao
+  - AppStateProvider ganhou importEvents() e getAllEvents() para merge de eventos
+  - webrtcFactory.ts obsoleto (mantido no codebase)
 
 ## Architecture Decisions
 - Sem backend/servidor - app 100% offline, local apenas
@@ -170,7 +171,7 @@ Gamificacao e o CORE do sistema (XP, niveis, streaks, arquetipos, seasons).
 - Estado NUNCA salvo no banco - sempre reconstruido via replayEvents
 - Dominio totalmente separado da UI (/packages vs /app)
 - Expo Router para navegacao file-based
-- Sync P2P: WebRTC com STUN publico, signaling via QR code, arquitetura mesh, UI implementada em app/sync.tsx
+- Sync mobile-first: arquivo JSON via share sheet + QR code para eventos recentes, sem WebRTC
 - Nota fiscal: request direto ao SEFAZ, fallback OCR, classificacao keyword+AI
 - Classificacao: keyword primeiro (confianca >= 0.7), Gemini como fallback, correcao manual via evento
 - Storage: expo-sqlite com tabela unica events, payload como JSON string, DatabaseAdapter abstrato
