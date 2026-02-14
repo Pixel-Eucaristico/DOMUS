@@ -52,6 +52,8 @@ interface DerivedState {
 interface AppStateContextValue extends DerivedState {
   dispatch: (event: AnyEvent) => void;
   dispatchDomainEvent: (event: DomainEvent) => void;
+  importEvents: (events: SyncEvent[]) => Promise<number>;
+  getAllEvents: () => SyncEvent[];
 }
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
@@ -199,6 +201,35 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const importEvents = useCallback(
+    async (events: SyncEvent[]): Promise<number> => {
+      const store = await getEventStore();
+      const existingIds = new Set(allEvents.map((e) => e.id));
+      const newEvents: SyncEvent[] = [];
+
+      for (const evt of events) {
+        if (!existingIds.has(evt.id)) {
+          store?.appendEvent(evt);
+          newEvents.push(evt);
+          existingIds.add(evt.id);
+        }
+      }
+
+      if (newEvents.length > 0) {
+        setAllEvents((prev) => {
+          const merged = [...prev, ...newEvents];
+          merged.sort((a, b) => a.timestamp - b.timestamp);
+          return merged;
+        });
+      }
+
+      return newEvents.length;
+    },
+    [allEvents],
+  );
+
+  const getAllEventsCallback = useCallback(() => allEvents, [allEvents]);
+
   const dispatchDomainEvent = useCallback(
     (event: DomainEvent) => {
       dispatch(event);
@@ -268,8 +299,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       loading,
       dispatch,
       dispatchDomainEvent,
+      importEvents,
+      getAllEvents: getAllEventsCallback,
     }),
-    [domain, gamification, onboarding, season, archetype, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent],
+    [domain, gamification, onboarding, season, archetype, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, importEvents, getAllEventsCallback],
   );
 
   return (

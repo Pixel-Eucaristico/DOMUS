@@ -4,307 +4,312 @@ import React, {
   useState,
   useCallback,
   useEffect,
-  useRef,
   useMemo,
   type ReactNode,
 } from "react";
-import { Platform } from "react-native";
+import { Platform, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { WebRTCManager } from "@packages/sync/src/webrtcManager";
-import { MeshManager } from "@packages/sync/src/meshManager";
-import { EventStore } from "@packages/sync/src/eventStore";
-import { createSimpleCrypto } from "@packages/sync/src/crypto";
-import type {
-  DeviceIdentity,
-  PeerInfo,
-  RTCSignalOffer,
-  RTCSignalAnswer,
-  SyncMessage,
-} from "@packages/sync/src/types";
-import {
-  createBrowserPeerConnectionFactory,
-  isWebRTCAvailable,
-  compressSignal,
-  decompressSignal,
-} from "@/src/services/webrtcFactory";
+import { File as ExpoFile, Paths } from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import * as DocumentPicker from "expo-document-picker";
+import { useAppState } from "@/src/context/AppStateProvider";
+import type { SyncEvent } from "@packages/storage/src/eventStore";
 
-const IDENTITY_KEY = "domus_device_identity";
+const DEVICE_ID_KEY = "domus_device_id";
+const LAST_SYNC_KEY = "domus_last_sync_ts";
 
-type SyncStatus = "idle" | "creating_offer" | "waiting_answer" | "processing_answer" | "connecting" | "syncing" | "connected" | "error";
+type SyncStatus = "idle" | "exporting" | "importing" | "success" | "error";
 
 interface SyncContextValue {
-  identity: DeviceIdentity | null;
-  peers: PeerInfo[];
+  deviceId: string | null;
   syncStatus: SyncStatus;
   lastSyncTime: number | null;
   errorMessage: string | null;
-  webrtcAvailable: boolean;
-  offerQRData: string | null;
-  answerQRData: string | null;
-  createOffer: () => Promise<void>;
-  processScannedOffer: (data: string) => Promise<void>;
-  processScannedAnswer: (data: string) => Promise<void>;
-  syncManual: () => void;
-  addLocalEvents: (events: Array<{ id: string; type: string; payload: unknown; timestamp: number; deviceId: string; signature: string }>) => void;
-  getEventStore: () => EventStore | null;
-  resetSync: () => void;
+  eventCount: number;
+  exportToFile: () => Promise<void>;
+  importFromFile: () => Promise<void>;
+  getQRData: (maxEvents?: number) => string | null;
+  importFromQR: (data: string) => Promise<number>;
+  resetStatus: () => void;
 }
 
 const SyncContext = createContext<SyncContextValue | null>(null);
 
-function generateId(): string {
+function generateDeviceId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
 }
 
-function generateNetworkId(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let result = "";
-  for (let i = 0; i < 6; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+async function loadOrCreateDeviceId(): Promise<string> {
+  try {
+    const stored = await AsyncStorage.getItem(DEVICE_ID_KEY);
+    if (stored) return stored;
+  } catch {}
+
+  const id = generateDeviceId();
+  try {
+    await AsyncStorage.setItem(DEVICE_ID_KEY, id);
+  } catch {}
+  return id;
 }
 
-async function loadOrCreateIdentity(): Promise<DeviceIdentity> {
-  try {
-    const stored = await AsyncStorage.getItem(IDENTITY_KEY);
-    if (stored) {
-      return JSON.parse(stored) as DeviceIdentity;
-    }
-  } catch {}
+interface SyncBundle {
+  v: number;
+  deviceId: string;
+  exportedAt: number;
+  events: SyncEvent[];
+}
 
-  const crypto = createSimpleCrypto();
-  const { publicKey, privateKey } = await crypto.generateKeyPair();
-  const identity: DeviceIdentity = {
-    deviceId: generateId(),
-    networkId: generateNetworkId(),
-    publicKey,
-    privateKey,
+function createBundle(deviceId: string, events: SyncEvent[]): SyncBundle {
+  return {
+    v: 1,
+    deviceId,
+    exportedAt: Date.now(),
+    events,
   };
+}
 
+function parseBundle(data: string): SyncBundle | null {
   try {
-    await AsyncStorage.setItem(IDENTITY_KEY, JSON.stringify(identity));
-  } catch {}
+    const parsed = JSON.parse(data);
+    if (parsed && parsed.v === 1 && Array.isArray(parsed.events)) {
+      return parsed as SyncBundle;
+    }
+    if (Array.isArray(parsed)) {
+      return {
+        v: 1,
+        deviceId: "unknown",
+        exportedAt: Date.now(),
+        events: parsed as SyncEvent[],
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
-  return identity;
+function compressForQR(events: SyncEvent[]): string {
+  const compact = events.map((e) => ({
+    i: e.id,
+    t: e.type,
+    p: e.payload,
+    ts: e.timestamp,
+    d: e.deviceId,
+    s: e.signature,
+  }));
+  return JSON.stringify({ v: 1, e: compact });
+}
+
+function decompressFromQR(data: string): SyncEvent[] | null {
+  try {
+    const parsed = JSON.parse(data);
+    if (parsed && parsed.v === 1 && Array.isArray(parsed.e)) {
+      return parsed.e.map((c: any) => ({
+        id: c.i,
+        type: c.t,
+        payload: c.p,
+        timestamp: c.ts,
+        deviceId: c.d,
+        signature: c.s,
+      }));
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export function SyncProvider({ children }: { children: ReactNode }) {
-  const [identity, setIdentity] = useState<DeviceIdentity | null>(null);
-  const [peers, setPeers] = useState<PeerInfo[]>([]);
+  const { getAllEvents, importEvents } = useAppState();
+  const [deviceId, setDeviceId] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [offerQRData, setOfferQRData] = useState<string | null>(null);
-  const [answerQRData, setAnswerQRData] = useState<string | null>(null);
-  const [webrtcAvailable] = useState(() => isWebRTCAvailable());
 
-  const webrtcRef = useRef<WebRTCManager | null>(null);
-  const meshRef = useRef<MeshManager | null>(null);
-  const eventStoreRef = useRef<EventStore | null>(null);
+  const allEvents = getAllEvents();
+  const eventCount = allEvents.length;
 
   useEffect(() => {
-    loadOrCreateIdentity().then(setIdentity);
+    loadOrCreateDeviceId().then(setDeviceId);
+    AsyncStorage.getItem(LAST_SYNC_KEY).then((val) => {
+      if (val) setLastSyncTime(parseInt(val, 10));
+    });
   }, []);
 
-  useEffect(() => {
-    if (!identity || !webrtcAvailable) return;
-
-    const crypto = createSimpleCrypto();
-    const store = new EventStore(identity.deviceId, identity.privateKey, crypto);
-    eventStoreRef.current = store;
-
-    const factory = createBrowserPeerConnectionFactory(identity.deviceId, identity.networkId);
-
-    const webrtc = new WebRTCManager({
-      deviceId: identity.deviceId,
-      networkId: identity.networkId,
-      connectionFactory: factory,
-      onMessage: (peerId: string, message: SyncMessage) => {
-        meshRef.current?.handleMessage(peerId, message);
-      },
-      onPeerConnected: (peerId: string) => {
-        meshRef.current?.onPeerConnected(peerId, "");
-        setSyncStatus("connected");
-        updatePeersList();
-      },
-      onPeerDisconnected: (peerId: string) => {
-        meshRef.current?.onPeerDisconnected(peerId);
-        updatePeersList();
-        const connectedIds = webrtcRef.current?.getConnectedPeerIds() ?? [];
-        if (connectedIds.length === 0) {
-          setSyncStatus("idle");
-        }
-      },
-    });
-    webrtcRef.current = webrtc;
-
-    const mesh = new MeshManager({
-      deviceId: identity.deviceId,
-      publicKey: identity.publicKey,
-      networkId: identity.networkId,
-      webrtc,
-      eventStore: store,
-      onSyncComplete: (_peerId: string, eventsReceived: number) => {
-        if (eventsReceived > 0) {
-          setLastSyncTime(Date.now());
-        }
-        updatePeersList();
-      },
-    });
-    meshRef.current = mesh;
-    mesh.startHeartbeat(30000);
-
-    return () => {
-      mesh.stopHeartbeat();
-      webrtc.disconnectAll();
-    };
-  }, [identity, webrtcAvailable]);
-
-  const updatePeersList = useCallback(() => {
-    if (meshRef.current) {
-      setPeers([...meshRef.current.getKnownPeers()]);
-    }
+  const saveLastSync = useCallback(async (ts: number) => {
+    setLastSyncTime(ts);
+    try {
+      await AsyncStorage.setItem(LAST_SYNC_KEY, ts.toString());
+    } catch {}
   }, []);
 
-  const createOffer = useCallback(async () => {
-    if (!webrtcRef.current || !identity) return;
+  const exportToFile = useCallback(async () => {
+    if (!deviceId) return;
 
     try {
-      setSyncStatus("creating_offer");
-      setErrorMessage(null);
-      const offer = await webrtcRef.current.createOffer();
-      const compressed = compressSignal(offer);
-      setOfferQRData(compressed);
-      setSyncStatus("waiting_answer");
-    } catch (err) {
-      setSyncStatus("error");
-      setErrorMessage(err instanceof Error ? err.message : "Erro ao criar oferta");
-    }
-  }, [identity]);
-
-  const processScannedOffer = useCallback(async (data: string) => {
-    if (!webrtcRef.current || !identity) return;
-
-    try {
-      setSyncStatus("processing_answer");
+      setSyncStatus("exporting");
       setErrorMessage(null);
 
-      const signal = decompressSignal(data);
-      if (!signal || signal.type !== "offer") {
-        setSyncStatus("error");
-        setErrorMessage("QR code invalido: nao e uma oferta");
+      const events = getAllEvents();
+      const bundle = createBundle(deviceId, events);
+      const json = JSON.stringify(bundle);
+
+      if (Platform.OS === "web") {
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `domus-sync-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setSyncStatus("success");
         return;
       }
 
-      const answer = await webrtcRef.current.acceptOffer(signal);
-      const compressed = compressSignal(answer);
-      setAnswerQRData(compressed);
-      setSyncStatus("connecting");
+      const file = new ExpoFile(Paths.cache, `domus-sync-${Date.now()}.json`);
+      file.write(json);
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(file.uri, {
+          mimeType: "application/json",
+          dialogTitle: "Exportar dados DOMUS",
+          UTI: "public.json",
+        });
+      } else {
+        Alert.alert(
+          "Arquivo salvo",
+          "O arquivo foi salvo no cache do app. O compartilhamento nao esta disponivel neste dispositivo.",
+        );
+      }
+
+      setSyncStatus("success");
+      await saveLastSync(Date.now());
     } catch (err) {
       setSyncStatus("error");
-      setErrorMessage(err instanceof Error ? err.message : "Erro ao processar oferta");
+      setErrorMessage(err instanceof Error ? err.message : "Erro ao exportar");
     }
-  }, [identity]);
+  }, [deviceId, getAllEvents, saveLastSync]);
 
-  const processScannedAnswer = useCallback(async (data: string) => {
-    if (!webrtcRef.current) return;
-
+  const importFromFile = useCallback(async () => {
     try {
-      setSyncStatus("connecting");
+      setSyncStatus("importing");
       setErrorMessage(null);
 
-      const signal = decompressSignal(data);
-      if (!signal || signal.type !== "answer") {
-        setSyncStatus("error");
-        setErrorMessage("QR code invalido: nao e uma resposta");
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "application/json",
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        setSyncStatus("idle");
         return;
       }
 
-      await webrtcRef.current.completeConnection(signal);
-      setSyncStatus("connected");
-      setOfferQRData(null);
-      setAnswerQRData(null);
+      const asset = result.assets[0];
+      let content: string;
+
+      if (Platform.OS === "web") {
+        const response = await fetch(asset.uri);
+        content = await response.text();
+      } else {
+        const importedFile = new ExpoFile(asset.uri);
+        content = await importedFile.text();
+      }
+
+      const bundle = parseBundle(content);
+      if (!bundle) {
+        setSyncStatus("error");
+        setErrorMessage("Arquivo invalido. Use um arquivo exportado pelo DOMUS.");
+        return;
+      }
+
+      const imported = await importEvents(bundle.events);
+
+      setSyncStatus("success");
+      await saveLastSync(Date.now());
+
+      Alert.alert(
+        "Importacao concluida",
+        imported > 0
+          ? `${imported} evento(s) novo(s) importado(s) com sucesso.`
+          : "Nenhum evento novo encontrado. Os dados ja estavam sincronizados.",
+      );
     } catch (err) {
       setSyncStatus("error");
-      setErrorMessage(err instanceof Error ? err.message : "Erro ao completar conexao");
+      setErrorMessage(err instanceof Error ? err.message : "Erro ao importar");
     }
-  }, []);
+  }, [importEvents, saveLastSync]);
 
-  const syncManual = useCallback(() => {
-    if (!meshRef.current || !webrtcRef.current) return;
+  const getQRData = useCallback(
+    (maxEvents: number = 50): string | null => {
+      const events = getAllEvents();
+      if (events.length === 0) return null;
 
-    const connectedIds = webrtcRef.current.getConnectedPeerIds();
-    if (connectedIds.length === 0) return;
+      const recent = events.slice(-maxEvents);
+      const compressed = compressForQR(recent);
 
-    setSyncStatus("syncing");
-    for (const peerId of connectedIds) {
-      meshRef.current.syncWithPeer(peerId);
-    }
-    setLastSyncTime(Date.now());
-    setSyncStatus("connected");
-    updatePeersList();
-  }, [updatePeersList]);
-
-  const addLocalEvents = useCallback(
-    (events: Array<{ id: string; type: string; payload: unknown; timestamp: number; deviceId: string; signature: string }>) => {
-      if (!eventStoreRef.current || !meshRef.current) return;
-
-      for (const evt of events) {
-        const added = eventStoreRef.current.addRemoteEvent(evt);
-        if (added) {
-          meshRef.current.broadcastEvent(evt);
+      if (compressed.length > 2500) {
+        const fewer = events.slice(-Math.floor(maxEvents / 2));
+        const smaller = compressForQR(fewer);
+        if (smaller.length > 2500) {
+          const minimal = events.slice(-5);
+          return compressForQR(minimal);
         }
+        return smaller;
       }
+
+      return compressed;
     },
-    [],
+    [getAllEvents],
   );
 
-  const getEventStore = useCallback(() => {
-    return eventStoreRef.current;
-  }, []);
+  const importFromQR = useCallback(
+    async (data: string): Promise<number> => {
+      const events = decompressFromQR(data);
+      if (!events || events.length === 0) {
+        Alert.alert("QR invalido", "Nao foi possivel ler os dados do QR code.");
+        return 0;
+      }
 
-  const resetSync = useCallback(() => {
-    setOfferQRData(null);
-    setAnswerQRData(null);
+      const imported = await importEvents(events);
+      if (imported > 0) {
+        await saveLastSync(Date.now());
+      }
+      return imported;
+    },
+    [importEvents, saveLastSync],
+  );
+
+  const resetStatus = useCallback(() => {
     setSyncStatus("idle");
     setErrorMessage(null);
   }, []);
 
   const value = useMemo<SyncContextValue>(
     () => ({
-      identity,
-      peers,
+      deviceId,
       syncStatus,
       lastSyncTime,
       errorMessage,
-      webrtcAvailable,
-      offerQRData,
-      answerQRData,
-      createOffer,
-      processScannedOffer,
-      processScannedAnswer,
-      syncManual,
-      addLocalEvents,
-      getEventStore,
-      resetSync,
+      eventCount,
+      exportToFile,
+      importFromFile,
+      getQRData,
+      importFromQR,
+      resetStatus,
     }),
     [
-      identity,
-      peers,
+      deviceId,
       syncStatus,
       lastSyncTime,
       errorMessage,
-      webrtcAvailable,
-      offerQRData,
-      answerQRData,
-      createOffer,
-      processScannedOffer,
-      processScannedAnswer,
-      syncManual,
-      addLocalEvents,
-      getEventStore,
-      resetSync,
+      eventCount,
+      exportToFile,
+      importFromFile,
+      getQRData,
+      importFromQR,
+      resetStatus,
     ],
   );
 

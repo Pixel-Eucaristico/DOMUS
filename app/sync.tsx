@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   Platform,
-  TextInput,
   Alert,
   ActivityIndicator,
 } from "react-native";
@@ -20,36 +19,16 @@ import { useSync } from "@/src/context/SyncProvider";
 import { useAppState } from "@/src/context/AppStateProvider";
 import type { BarcodeScanningResult } from "expo-camera";
 
-type ScreenMode = "main" | "show_qr" | "scan_qr" | "show_answer";
-
-const STATUS_LABELS: Record<string, string> = {
-  idle: "Desconectado",
-  creating_offer: "Criando convite...",
-  waiting_answer: "Aguardando resposta...",
-  processing_answer: "Processando...",
-  connecting: "Conectando...",
-  syncing: "Sincronizando...",
-  connected: "Conectado",
-  error: "Erro",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  idle: "#9CA3AF",
-  creating_offer: "#F59E0B",
-  waiting_answer: "#F59E0B",
-  processing_answer: "#F59E0B",
-  connecting: "#3B82F6",
-  syncing: "#3B82F6",
-  connected: "#10B981",
-  error: "#EF4444",
-};
+type ScreenMode = "main" | "show_qr" | "scan_qr";
 
 function formatTime(ts: number | null): string {
   if (!ts) return "Nunca";
   const d = new Date(ts);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
   const h = String(d.getHours()).padStart(2, "0");
   const m = String(d.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
+  return `${day}/${month} ${h}:${m}`;
 }
 
 function truncateId(id: string): string {
@@ -62,31 +41,26 @@ export default function SyncScreen() {
   const router = useRouter();
   const { theme } = useAppState();
   const {
-    identity,
-    peers,
+    deviceId,
     syncStatus,
     lastSyncTime,
     errorMessage,
-    webrtcAvailable,
-    offerQRData,
-    answerQRData,
-    createOffer,
-    processScannedOffer,
-    processScannedAnswer,
-    syncManual,
-    resetSync,
+    eventCount,
+    exportToFile,
+    importFromFile,
+    getQRData,
+    importFromQR,
+    resetStatus,
   } = useSync();
 
   const [mode, setMode] = useState<ScreenMode>("main");
-  const [manualInput, setManualInput] = useState("");
-  const [scanTarget, setScanTarget] = useState<"offer" | "answer">("offer");
+  const [qrData, setQrData] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<string | null>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const scannedRef = useRef(false);
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
-
-  const connectedPeers = peers.filter((p) => p.connected);
 
   const haptic = () => {
     if (Platform.OS !== "web") {
@@ -94,32 +68,29 @@ export default function SyncScreen() {
     }
   };
 
-  const handleCreateOffer = useCallback(async () => {
+  const handleExport = useCallback(async () => {
     haptic();
-    await createOffer();
-    setMode("show_qr");
-  }, [createOffer]);
+    await exportToFile();
+  }, [exportToFile]);
 
-  const handleScanOffer = useCallback(async () => {
+  const handleImport = useCallback(async () => {
     haptic();
-    setScanTarget("offer");
-    scannedRef.current = false;
+    await importFromFile();
+  }, [importFromFile]);
 
-    if (Platform.OS !== "web") {
-      if (!cameraPermission?.granted) {
-        const result = await requestCameraPermission();
-        if (!result.granted) {
-          Alert.alert("Permissao necessaria", "Permita o acesso a camera para escanear QR codes.");
-          return;
-        }
-      }
+  const handleShowQR = useCallback(() => {
+    haptic();
+    const data = getQRData(50);
+    if (!data) {
+      Alert.alert("Sem dados", "Nao ha eventos para sincronizar via QR.");
+      return;
     }
-    setMode("scan_qr");
-  }, [cameraPermission, requestCameraPermission]);
+    setQrData(data);
+    setMode("show_qr");
+  }, [getQRData]);
 
-  const handleScanAnswer = useCallback(async () => {
+  const handleScanQR = useCallback(async () => {
     haptic();
-    setScanTarget("answer");
     scannedRef.current = false;
 
     if (Platform.OS !== "web") {
@@ -140,179 +111,63 @@ export default function SyncScreen() {
       scannedRef.current = true;
       haptic();
 
-      const data = result.data;
-      if (scanTarget === "offer") {
-        await processScannedOffer(data);
-        setMode("show_answer");
-      } else {
-        await processScannedAnswer(data);
-        setMode("main");
-      }
-    },
-    [scanTarget, processScannedOffer, processScannedAnswer],
-  );
-
-  const handleManualSubmit = useCallback(async () => {
-    if (!manualInput.trim()) return;
-    haptic();
-
-    if (scanTarget === "offer") {
-      await processScannedOffer(manualInput.trim());
-      setMode("show_answer");
-    } else {
-      await processScannedAnswer(manualInput.trim());
+      const count = await importFromQR(result.data);
+      setImportResult(
+        count > 0
+          ? `${count} evento(s) importado(s)`
+          : "Nenhum evento novo"
+      );
       setMode("main");
-    }
-    setManualInput("");
-  }, [manualInput, scanTarget, processScannedOffer, processScannedAnswer]);
+    },
+    [importFromQR],
+  );
 
   const handleBack = () => {
     haptic();
     if (mode === "main") {
       router.back();
     } else {
-      resetSync();
       setMode("main");
+      setQrData(null);
     }
   };
 
-  if (!webrtcAvailable) {
-    return (
-      <View style={[s.root, { backgroundColor: theme.background }]}>
-        <View style={[s.topBar, { paddingTop: insets.top + webTopInset + 12 }]}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Feather name="arrow-left" size={24} color={theme.textColor} />
-          </Pressable>
-          <Text style={[s.topBarTitle, { color: theme.textColor }]}>Sincronizar</Text>
-          <View style={{ width: 24 }} />
-        </View>
-        <View style={s.unavailableContainer}>
-          <MaterialCommunityIcons name="access-point-off" size={64} color={theme.secondaryText} />
-          <Text style={[s.unavailableTitle, { color: theme.textColor }]}>
-            WebRTC indisponivel
-          </Text>
-          <Text style={[s.unavailableDesc, { color: theme.secondaryText }]}>
-            A sincronizacao P2P requer WebRTC, disponivel no navegador web. Abra o app pelo navegador para usar esta funcionalidade.
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (mode === "show_qr" && offerQRData) {
+  if (mode === "show_qr" && qrData) {
     return (
       <View style={[s.root, { backgroundColor: theme.background }]}>
         <View style={[s.topBar, { paddingTop: insets.top + webTopInset + 12 }]}>
           <Pressable onPress={handleBack} hitSlop={12}>
             <Feather name="arrow-left" size={24} color={theme.textColor} />
           </Pressable>
-          <Text style={[s.topBarTitle, { color: theme.textColor }]}>Convite</Text>
+          <Text style={[s.topBarTitle, { color: theme.textColor }]}>QR de Sync</Text>
           <View style={{ width: 24 }} />
         </View>
         <ScrollView contentContainerStyle={s.qrContainer}>
           <View style={[s.qrCard, { backgroundColor: theme.cardBackground }]}>
             <View style={s.qrBadge}>
-              <Feather name="wifi" size={16} color="#FFFFFF" />
-              <Text style={s.qrBadgeText}>OFERTA</Text>
+              <Ionicons name="sync" size={16} color="#FFFFFF" />
+              <Text style={s.qrBadgeText}>EVENTOS RECENTES</Text>
             </View>
             <View style={s.qrCodeWrapper}>
               <QRCode
-                value={offerQRData}
-                size={220}
+                value={qrData}
+                size={240}
                 backgroundColor="transparent"
                 color={theme.textColor}
               />
             </View>
             <Text style={[s.qrHint, { color: theme.secondaryText }]}>
-              Escaneie este QR no outro dispositivo para parear
+              Escaneie este QR no outro celular para importar os eventos recentes
             </Text>
           </View>
 
           <Pressable
             style={[s.actionBtn, { backgroundColor: theme.primaryColor }]}
-            onPress={handleScanAnswer}
+            onPress={handleBack}
           >
-            <Feather name="camera" size={20} color="#FFFFFF" />
-            <Text style={s.actionBtnText}>Escanear resposta</Text>
+            <Feather name="check" size={20} color="#FFFFFF" />
+            <Text style={s.actionBtnText}>Voltar</Text>
           </Pressable>
-
-          <View style={s.manualSection}>
-            <Text style={[s.manualLabel, { color: theme.secondaryText }]}>
-              Ou cole a resposta manualmente:
-            </Text>
-            <TextInput
-              style={[s.manualInput, { borderColor: theme.border, color: theme.textColor, backgroundColor: theme.cardBackground }]}
-              value={manualInput}
-              onChangeText={setManualInput}
-              placeholder="Cole os dados da resposta aqui..."
-              placeholderTextColor={theme.secondaryText}
-              multiline
-            />
-            {manualInput.trim().length > 0 && (
-              <Pressable
-                style={[s.submitBtn, { backgroundColor: theme.accentColor }]}
-                onPress={() => {
-                  setScanTarget("answer");
-                  handleManualSubmit();
-                }}
-              >
-                <Feather name="check" size={18} color="#FFFFFF" />
-                <Text style={s.submitBtnText}>Processar resposta</Text>
-              </Pressable>
-            )}
-          </View>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  if (mode === "show_answer" && answerQRData) {
-    return (
-      <View style={[s.root, { backgroundColor: theme.background }]}>
-        <View style={[s.topBar, { paddingTop: insets.top + webTopInset + 12 }]}>
-          <Pressable onPress={handleBack} hitSlop={12}>
-            <Feather name="arrow-left" size={24} color={theme.textColor} />
-          </Pressable>
-          <Text style={[s.topBarTitle, { color: theme.textColor }]}>Resposta</Text>
-          <View style={{ width: 24 }} />
-        </View>
-        <ScrollView contentContainerStyle={s.qrContainer}>
-          <View style={[s.qrCard, { backgroundColor: theme.cardBackground }]}>
-            <View style={[s.qrBadge, { backgroundColor: "#10B981" }]}>
-              <Feather name="check-circle" size={16} color="#FFFFFF" />
-              <Text style={s.qrBadgeText}>RESPOSTA</Text>
-            </View>
-            <View style={s.qrCodeWrapper}>
-              <QRCode
-                value={answerQRData}
-                size={220}
-                backgroundColor="transparent"
-                color={theme.textColor}
-              />
-            </View>
-            <Text style={[s.qrHint, { color: theme.secondaryText }]}>
-              Mostre este QR para o dispositivo que criou o convite
-            </Text>
-          </View>
-
-          {syncStatus === "connecting" && (
-            <View style={s.connectingRow}>
-              <ActivityIndicator size="small" color={theme.primaryColor} />
-              <Text style={[s.connectingText, { color: theme.secondaryText }]}>
-                Estabelecendo conexao...
-              </Text>
-            </View>
-          )}
-
-          {syncStatus === "connected" && (
-            <Pressable
-              style={[s.actionBtn, { backgroundColor: theme.primaryColor }]}
-              onPress={() => setMode("main")}
-            >
-              <Feather name="check" size={20} color="#FFFFFF" />
-              <Text style={s.actionBtnText}>Conectado! Ver peers</Text>
-            </Pressable>
-          )}
         </ScrollView>
       </View>
     );
@@ -325,9 +180,7 @@ export default function SyncScreen() {
           <Pressable onPress={handleBack} hitSlop={12}>
             <Feather name="arrow-left" size={24} color="#FFFFFF" />
           </Pressable>
-          <Text style={[s.topBarTitle, { color: "#FFFFFF" }]}>
-            {scanTarget === "offer" ? "Escanear convite" : "Escanear resposta"}
-          </Text>
+          <Text style={[s.topBarTitle, { color: "#FFFFFF" }]}>Escanear QR</Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -341,37 +194,31 @@ export default function SyncScreen() {
             <View style={s.scanOverlay}>
               <View style={s.scanFrame} />
               <Text style={s.scanHint}>
-                Aponte para o QR code do outro dispositivo
+                Aponte para o QR code do outro celular
               </Text>
             </View>
           </CameraView>
         ) : (
-          <View style={s.webScanFallback}>
+          <View style={s.webFallback}>
             <MaterialCommunityIcons name="qrcode-scan" size={48} color="#9CA3AF" />
-            <Text style={s.webScanTitle}>Camera indisponivel no web</Text>
-            <Text style={s.webScanDesc}>Cole os dados do QR code abaixo:</Text>
-            <TextInput
-              style={s.webScanInput}
-              value={manualInput}
-              onChangeText={setManualInput}
-              placeholder="Cole os dados aqui..."
-              placeholderTextColor="#6B7280"
-              multiline
-            />
-            {manualInput.trim().length > 0 && (
-              <Pressable
-                style={[s.actionBtn, { backgroundColor: "#1B5E63" }]}
-                onPress={handleManualSubmit}
-              >
-                <Feather name="check" size={20} color="#FFFFFF" />
-                <Text style={s.actionBtnText}>Processar</Text>
-              </Pressable>
-            )}
+            <Text style={s.webFallbackTitle}>Camera indisponivel no web</Text>
+            <Text style={s.webFallbackDesc}>
+              Use a opcao "Importar arquivo" no celular para sincronizar
+            </Text>
+            <Pressable
+              style={[s.actionBtn, { backgroundColor: "#1B5E63", marginTop: 20 }]}
+              onPress={handleBack}
+            >
+              <Feather name="arrow-left" size={20} color="#FFFFFF" />
+              <Text style={s.actionBtnText}>Voltar</Text>
+            </Pressable>
           </View>
         )}
       </View>
     );
   }
+
+  const isLoading = syncStatus === "exporting" || syncStatus === "importing";
 
   return (
     <View style={[s.root, { backgroundColor: theme.background }]}>
@@ -389,143 +236,169 @@ export default function SyncScreen() {
       >
         <View style={[s.statusCard, { backgroundColor: theme.cardBackground }]}>
           <View style={s.statusRow}>
-            <View style={[s.statusDot, { backgroundColor: STATUS_COLORS[syncStatus] || "#9CA3AF" }]} />
-            <Text style={[s.statusLabel, { color: theme.textColor }]}>
-              {STATUS_LABELS[syncStatus] || syncStatus}
-            </Text>
+            <View style={[s.iconCircle, { backgroundColor: `${theme.primaryColor}15` }]}>
+              <Feather name="smartphone" size={20} color={theme.primaryColor} />
+            </View>
+            <View style={s.statusInfo}>
+              <Text style={[s.statusLabel, { color: theme.textColor }]}>
+                Este dispositivo
+              </Text>
+              {deviceId && (
+                <Text style={[s.deviceIdText, { color: theme.secondaryText }]}>
+                  ID: {truncateId(deviceId)}
+                </Text>
+              )}
+            </View>
           </View>
-          {identity && (
-            <View style={s.deviceRow}>
-              <Feather name="smartphone" size={14} color={theme.secondaryText} />
-              <Text style={[s.deviceId, { color: theme.secondaryText }]}>
-                {truncateId(identity.deviceId)}
+
+          <View style={s.statsRow}>
+            <View style={s.statItem}>
+              <Text style={[s.statValue, { color: theme.textColor }]}>{eventCount}</Text>
+              <Text style={[s.statLabel, { color: theme.secondaryText }]}>eventos</Text>
+            </View>
+            <View style={[s.statDivider, { backgroundColor: theme.border }]} />
+            <View style={s.statItem}>
+              <Text style={[s.statValue, { color: theme.textColor }]}>
+                {lastSyncTime ? formatTime(lastSyncTime) : "--"}
               </Text>
+              <Text style={[s.statLabel, { color: theme.secondaryText }]}>ultimo sync</Text>
             </View>
-          )}
-          {lastSyncTime && (
-            <View style={s.deviceRow}>
-              <Feather name="clock" size={14} color={theme.secondaryText} />
-              <Text style={[s.deviceId, { color: theme.secondaryText }]}>
-                Ultimo sync: {formatTime(lastSyncTime)}
-              </Text>
-            </View>
-          )}
-          {errorMessage && (
-            <View style={[s.errorBanner, { backgroundColor: `${theme.danger}15` }]}>
-              <Feather name="alert-circle" size={14} color={theme.danger} />
-              <Text style={[s.errorText, { color: theme.danger }]}>{errorMessage}</Text>
-            </View>
-          )}
+          </View>
         </View>
 
-        <View style={s.actionsSection}>
+        {(errorMessage || importResult) && (
+          <View
+            style={[
+              s.banner,
+              {
+                backgroundColor: errorMessage
+                  ? `${theme.danger}12`
+                  : `${theme.success}12`,
+              },
+            ]}
+          >
+            <Feather
+              name={errorMessage ? "alert-circle" : "check-circle"}
+              size={16}
+              color={errorMessage ? theme.danger : theme.success}
+            />
+            <Text
+              style={[
+                s.bannerText,
+                { color: errorMessage ? theme.danger : theme.success },
+              ]}
+            >
+              {errorMessage || importResult}
+            </Text>
+            <Pressable
+              onPress={() => {
+                resetStatus();
+                setImportResult(null);
+              }}
+              hitSlop={8}
+            >
+              <Feather name="x" size={14} color={theme.secondaryText} />
+            </Pressable>
+          </View>
+        )}
+
+        {isLoading && (
+          <View style={[s.loadingBanner, { backgroundColor: theme.cardBackground }]}>
+            <ActivityIndicator size="small" color={theme.primaryColor} />
+            <Text style={[s.loadingText, { color: theme.secondaryText }]}>
+              {syncStatus === "exporting" ? "Exportando dados..." : "Importando dados..."}
+            </Text>
+          </View>
+        )}
+
+        <View style={s.sectionHeader}>
+          <Text style={[s.sectionTitle, { color: theme.textColor }]}>Via arquivo</Text>
+          <Text style={[s.sectionDesc, { color: theme.secondaryText }]}>
+            Compartilhe por WhatsApp, Bluetooth ou qualquer app
+          </Text>
+        </View>
+
+        <View style={s.actionsRow}>
           <Pressable
             style={({ pressed }) => [
-              s.pairBtn,
+              s.actionCard,
               { backgroundColor: theme.primaryColor },
               pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
             ]}
-            onPress={handleCreateOffer}
+            onPress={handleExport}
+            disabled={isLoading}
           >
-            <View style={s.pairBtnIcon}>
-              <MaterialCommunityIcons name="qrcode" size={28} color="#FFFFFF" />
+            <View style={s.actionCardIcon}>
+              <Feather name="upload" size={24} color="#FFFFFF" />
             </View>
-            <View style={s.pairBtnContent}>
-              <Text style={s.pairBtnTitle}>Gerar convite</Text>
-              <Text style={s.pairBtnDesc}>Crie um QR para outro dispositivo escanear</Text>
-            </View>
-            <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.5)" />
+            <Text style={s.actionCardTitle}>Exportar</Text>
+            <Text style={s.actionCardDesc}>Enviar dados</Text>
           </Pressable>
 
           <Pressable
             style={({ pressed }) => [
-              s.pairBtn,
+              s.actionCard,
               { backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.border },
               pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
             ]}
-            onPress={handleScanOffer}
+            onPress={handleImport}
+            disabled={isLoading}
           >
-            <View style={[s.pairBtnIcon, { backgroundColor: `${theme.primaryColor}20` }]}>
-              <Feather name="camera" size={24} color={theme.primaryColor} />
+            <View style={[s.actionCardIcon, { backgroundColor: `${theme.primaryColor}15` }]}>
+              <Feather name="download" size={24} color={theme.primaryColor} />
             </View>
-            <View style={s.pairBtnContent}>
-              <Text style={[s.pairBtnTitle, { color: theme.textColor }]}>Escanear convite</Text>
-              <Text style={[s.pairBtnDesc, { color: theme.secondaryText }]}>
-                Leia o QR de outro dispositivo
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={theme.secondaryText} />
+            <Text style={[s.actionCardTitle, { color: theme.textColor }]}>Importar</Text>
+            <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Receber dados</Text>
           </Pressable>
         </View>
 
-        <View style={[s.peersSection, { backgroundColor: theme.cardBackground }]}>
-          <View style={s.peersHeader}>
-            <Text style={[s.peersTitle, { color: theme.textColor }]}>
-              Peers conectados
-            </Text>
-            <View style={[s.peersBadge, { backgroundColor: connectedPeers.length > 0 ? `${theme.success}20` : `${theme.secondaryText}15` }]}>
-              <Text style={[s.peersBadgeText, { color: connectedPeers.length > 0 ? theme.success : theme.secondaryText }]}>
-                {connectedPeers.length}
-              </Text>
-            </View>
-          </View>
-
-          {peers.length === 0 ? (
-            <View style={s.emptyPeers}>
-              <MaterialCommunityIcons name="access-point-network" size={36} color={theme.secondaryText} />
-              <Text style={[s.emptyPeersText, { color: theme.secondaryText }]}>
-                Nenhum peer pareado ainda
-              </Text>
-            </View>
-          ) : (
-            <View style={s.peerList}>
-              {peers.map((peer) => (
-                <View
-                  key={peer.deviceId}
-                  style={[s.peerRow, { borderBottomColor: theme.border }]}
-                >
-                  <View style={[s.peerIcon, { backgroundColor: peer.connected ? `${theme.success}15` : `${theme.secondaryText}10` }]}>
-                    <Feather
-                      name={peer.connected ? "wifi" : "wifi-off"}
-                      size={16}
-                      color={peer.connected ? theme.success : theme.secondaryText}
-                    />
-                  </View>
-                  <View style={s.peerInfo}>
-                    <Text style={[s.peerId, { color: theme.textColor }]}>
-                      {truncateId(peer.deviceId)}
-                    </Text>
-                    <Text style={[s.peerStatus, { color: peer.connected ? theme.success : theme.secondaryText }]}>
-                      {peer.connected ? "Online" : "Offline"}
-                    </Text>
-                  </View>
-                  {peer.lastSeen > 0 && (
-                    <Text style={[s.peerTime, { color: theme.secondaryText }]}>
-                      {formatTime(peer.lastSeen)}
-                    </Text>
-                  )}
-                </View>
-              ))}
-            </View>
-          )}
+        <View style={s.sectionHeader}>
+          <Text style={[s.sectionTitle, { color: theme.textColor }]}>Via QR Code</Text>
+          <Text style={[s.sectionDesc, { color: theme.secondaryText }]}>
+            Rapido para poucos eventos recentes
+          </Text>
         </View>
 
-        {connectedPeers.length > 0 && (
+        <View style={s.actionsRow}>
           <Pressable
             style={({ pressed }) => [
-              s.syncBtn,
-              { backgroundColor: theme.accentColor },
+              s.actionCard,
+              { backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.border },
               pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
             ]}
-            onPress={() => {
-              haptic();
-              syncManual();
-            }}
+            onPress={handleShowQR}
+            disabled={isLoading}
           >
-            <Ionicons name="sync" size={22} color="#FFFFFF" />
-            <Text style={s.syncBtnText}>Sincronizar agora</Text>
+            <View style={[s.actionCardIcon, { backgroundColor: `${theme.accentColor}15` }]}>
+              <MaterialCommunityIcons name="qrcode" size={24} color={theme.accentColor} />
+            </View>
+            <Text style={[s.actionCardTitle, { color: theme.textColor }]}>Mostrar QR</Text>
+            <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Gerar codigo</Text>
           </Pressable>
-        )}
+
+          <Pressable
+            style={({ pressed }) => [
+              s.actionCard,
+              { backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.border },
+              pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+            ]}
+            onPress={handleScanQR}
+            disabled={isLoading}
+          >
+            <View style={[s.actionCardIcon, { backgroundColor: `${theme.accentColor}15` }]}>
+              <Feather name="camera" size={24} color={theme.accentColor} />
+            </View>
+            <Text style={[s.actionCardTitle, { color: theme.textColor }]}>Escanear QR</Text>
+            <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Ler codigo</Text>
+          </Pressable>
+        </View>
+
+        <View style={[s.infoCard, { backgroundColor: theme.cardBackground }]}>
+          <Feather name="info" size={16} color={theme.secondaryText} />
+          <Text style={[s.infoText, { color: theme.secondaryText }]}>
+            A sincronizacao funciona por troca de eventos. Exporte no celular A, importe no celular B, e vice-versa. Eventos duplicados sao ignorados automaticamente.
+          </Text>
+        </View>
       </ScrollView>
     </View>
   );
@@ -546,31 +419,13 @@ const s = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    gap: 16,
+    gap: 12,
     paddingTop: 8,
-  },
-  unavailableContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 40,
-    gap: 16,
-  },
-  unavailableTitle: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 20,
-    textAlign: "center" as const,
-  },
-  unavailableDesc: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 14,
-    textAlign: "center" as const,
-    lineHeight: 22,
   },
   statusCard: {
     borderRadius: 16,
     padding: 18,
-    gap: 10,
+    gap: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -580,202 +435,171 @@ const s = StyleSheet.create({
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 14,
   },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  statusInfo: {
+    flex: 1,
+    gap: 2,
   },
   statusLabel: {
     fontFamily: "DMSans_600SemiBold",
     fontSize: 16,
   },
-  deviceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingLeft: 20,
-  },
-  deviceId: {
+  deviceIdText: {
     fontFamily: "DMSans_400Regular",
-    fontSize: 13,
+    fontSize: 12,
   },
-  errorBanner: {
+  statsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    padding: 10,
-    borderRadius: 10,
-    marginTop: 4,
+    justifyContent: "center",
+    gap: 0,
   },
-  errorText: {
+  statItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 2,
+  },
+  statValue: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 18,
+  },
+  statLabel: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    marginHorizontal: 12,
+  },
+  banner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 14,
+    borderRadius: 12,
+  },
+  bannerText: {
     fontFamily: "DMSans_500Medium",
     fontSize: 13,
     flex: 1,
   },
-  actionsSection: {
-    gap: 10,
-  },
-  pairBtn: {
+  loadingBanner: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 16,
-    padding: 16,
-    gap: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  pairBtnIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.15)",
     justifyContent: "center",
-    alignItems: "center",
+    gap: 10,
+    padding: 14,
+    borderRadius: 12,
   },
-  pairBtnContent: {
-    flex: 1,
+  loadingText: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 14,
+  },
+  sectionHeader: {
     gap: 2,
+    marginTop: 8,
   },
-  pairBtnTitle: {
+  sectionTitle: {
     fontFamily: "DMSans_600SemiBold",
     fontSize: 15,
-    color: "#FFFFFF",
   },
-  pairBtnDesc: {
+  sectionDesc: {
     fontFamily: "DMSans_400Regular",
     fontSize: 12,
-    color: "rgba(255,255,255,0.65)",
   },
-  peersSection: {
+  actionsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  actionCard: {
+    flex: 1,
     borderRadius: 16,
     padding: 18,
+    alignItems: "center",
+    gap: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 2,
   },
-  peersHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 14,
-  },
-  peersTitle: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 16,
-  },
-  peersBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  peersBadgeText: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 13,
-  },
-  emptyPeers: {
-    alignItems: "center",
-    paddingVertical: 28,
-    gap: 10,
-  },
-  emptyPeersText: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 14,
-    textAlign: "center" as const,
-  },
-  peerList: {
-    gap: 0,
-  },
-  peerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    gap: 12,
-  },
-  peerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  peerInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  peerId: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 14,
-  },
-  peerStatus: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 12,
-  },
-  peerTime: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 12,
-  },
-  syncBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
+  actionCardIcon: {
+    width: 48,
+    height: 48,
     borderRadius: 14,
-    paddingVertical: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 4,
   },
-  syncBtnText: {
+  actionCardTitle: {
     fontFamily: "DMSans_600SemiBold",
-    fontSize: 16,
+    fontSize: 14,
     color: "#FFFFFF",
+  },
+  actionCardDesc: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 11,
+    color: "rgba(255,255,255,0.7)",
+  },
+  infoCard: {
+    flexDirection: "row",
+    gap: 10,
+    padding: 14,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  infoText: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    lineHeight: 18,
+    flex: 1,
   },
   qrContainer: {
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingHorizontal: 24,
+    paddingTop: 20,
     gap: 20,
   },
   qrCard: {
     borderRadius: 20,
-    padding: 28,
+    padding: 24,
     alignItems: "center",
-    gap: 18,
+    gap: 16,
+    width: "100%",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-    width: "100%",
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   qrBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#3B82F6",
+    backgroundColor: "#1B5E63",
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
   },
   qrBadgeText: {
-    fontFamily: "DMSans_700Bold",
+    fontFamily: "DMSans_600SemiBold",
     fontSize: 11,
     color: "#FFFFFF",
-    letterSpacing: 1.5,
+    letterSpacing: 0.5,
   },
   qrCodeWrapper: {
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 12,
     backgroundColor: "#FFFFFF",
   },
   qrHint: {
@@ -783,64 +607,21 @@ const s = StyleSheet.create({
     fontSize: 13,
     textAlign: "center" as const,
     lineHeight: 20,
-    paddingHorizontal: 12,
   },
   actionBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    borderRadius: 14,
-    paddingVertical: 16,
+    gap: 8,
+    paddingVertical: 14,
     paddingHorizontal: 24,
+    borderRadius: 14,
     width: "100%",
   },
   actionBtnText: {
     fontFamily: "DMSans_600SemiBold",
     fontSize: 15,
     color: "#FFFFFF",
-  },
-  manualSection: {
-    width: "100%",
-    gap: 10,
-    paddingBottom: 40,
-  },
-  manualLabel: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 13,
-  },
-  manualInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontFamily: "DMSans_400Regular",
-    fontSize: 13,
-    minHeight: 80,
-    textAlignVertical: "top",
-  },
-  submitBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    borderRadius: 12,
-    paddingVertical: 12,
-  },
-  submitBtnText: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 14,
-    color: "#FFFFFF",
-  },
-  connectingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 8,
-  },
-  connectingText: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 14,
   },
   camera: {
     flex: 1,
@@ -849,52 +630,39 @@ const s = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.3)",
   },
   scanFrame: {
-    width: 260,
-    height: 260,
-    borderWidth: 3,
+    width: 250,
+    height: 250,
+    borderWidth: 2,
     borderColor: "#FFFFFF",
     borderRadius: 20,
-    backgroundColor: "transparent",
   },
   scanHint: {
     fontFamily: "DMSans_500Medium",
     fontSize: 14,
     color: "#FFFFFF",
-    marginTop: 24,
+    marginTop: 20,
     textAlign: "center" as const,
+    paddingHorizontal: 40,
   },
-  webScanFallback: {
+  webFallback: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 32,
-    gap: 14,
+    paddingHorizontal: 40,
+    gap: 12,
   },
-  webScanTitle: {
+  webFallbackTitle: {
     fontFamily: "DMSans_600SemiBold",
     fontSize: 18,
     color: "#FFFFFF",
   },
-  webScanDesc: {
+  webFallbackDesc: {
     fontFamily: "DMSans_400Regular",
     fontSize: 14,
     color: "#9CA3AF",
-  },
-  webScanInput: {
-    width: "100%",
-    borderWidth: 1,
-    borderColor: "#374151",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontFamily: "DMSans_400Regular",
-    fontSize: 13,
-    color: "#FFFFFF",
-    backgroundColor: "#1F2937",
-    minHeight: 100,
-    textAlignVertical: "top",
+    textAlign: "center" as const,
   },
 });
