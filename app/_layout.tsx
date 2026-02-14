@@ -14,6 +14,7 @@ import {
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { AppStateProvider } from "@/src/context/AppStateProvider";
+import { SyncProvider } from "@/src/context/SyncProvider";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -27,6 +28,10 @@ function RootLayoutNav() {
       />
       <Stack.Screen
         name="onboarding"
+        options={{ headerShown: false, presentation: "modal" }}
+      />
+      <Stack.Screen
+        name="sync"
         options={{ headerShown: false, presentation: "modal" }}
       />
     </Stack>
@@ -57,7 +62,9 @@ export default function RootLayout() {
         <GestureHandlerRootView>
           <KeyboardProvider>
             <AppStateProvider>
-              <RootLayoutNav />
+              <SyncProvider>
+                <RootLayoutNav />
+              </SyncProvider>
             </AppStateProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>

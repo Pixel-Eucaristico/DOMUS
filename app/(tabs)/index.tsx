@@ -110,12 +110,20 @@ export default function HomeScreen() {
               {levelInfo.level}
             </Text>
           </View>
-          <Pressable
-            style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
-            onPress={() => router.push("/season")}
-          >
-            <Feather name="award" size={22} color={theme.primaryColor} />
-          </Pressable>
+          <View style={s.headerActions}>
+            <Pressable
+              style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
+              onPress={() => router.push("/sync")}
+            >
+              <MaterialCommunityIcons name="access-point" size={22} color={theme.primaryColor} />
+            </Pressable>
+            <Pressable
+              style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
+              onPress={() => router.push("/season")}
+            >
+              <Feather name="award" size={22} color={theme.primaryColor} />
+            </Pressable>
+          </View>
         </View>
 
         <View style={s.statsRow}>
@@ -300,6 +308,10 @@ const s = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 24,
     marginBottom: 4,
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: 8,
   },
   greeting: { fontFamily: "DMSans_700Bold", fontSize: 28, letterSpacing: 2 },
   subtitle: { fontFamily: "DMSans_400Regular", fontSize: 14, marginTop: 2 },
