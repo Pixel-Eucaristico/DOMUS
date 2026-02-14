@@ -7,7 +7,7 @@ App fintech de orcamento pessoal focado em Android. Monorepo com Expo SDK 54, Ty
 ```
 /apps/mobile          -> (root-level app/ directory via Expo Router)
 /packages/core        -> Nucleo financeiro (tipos, contas, transacoes, orcamento, projecoes)
-/packages/storage     -> Persistencia local (a implementar)
+/packages/storage     -> Persistencia local (SQLite via expo-sqlite)
 /packages/sync        -> Sincronizacao P2P via WebRTC + Event Sourcing
 /packages/ai          -> Inteligencia artificial (a implementar)
 /packages/parsers     -> Parsers de nota fiscal (NFC-e, SEFAZ, OCR) + classificacao
@@ -49,6 +49,15 @@ App fintech de orcamento pessoal focado em Android. Monorepo com Expo SDK 54, Ty
   - Pipeline: importFromQRCode, importFromImage, importFromHtml
   - Nao cria transacoes diretamente - emite evento para dominio
 
+- 2026-02-14: Storage SQLite implementado em /packages/storage (23 testes):
+  - SQLiteEventStore: initDatabase, appendEvent, getAllEvents, getEventsSince, eventExists, replayEvents
+  - DatabaseAdapter: interface abstrata para SQLite e testes
+  - createMemoryAdapter: adapter in-memory para testes unitarios
+  - createSQLiteAdapter: adapter real usando expo-sqlite
+  - Tabela events: id, type, payload (JSON), timestamp, deviceId, signature
+  - INSERT OR IGNORE para deduplicacao
+  - Estado nunca salvo no banco - apenas via replayEvents
+
 ## Architecture Decisions
 - Sem backend/servidor - app local apenas
 - TypeScript strict: true
@@ -59,10 +68,12 @@ App fintech de orcamento pessoal focado em Android. Monorepo com Expo SDK 54, Ty
 - Event Sourcing: eventos imutaveis, assinados, ordenados por timestamp
 - Nota fiscal: request direto ao SEFAZ, fallback OCR, classificacao keyword+AI
 - Classificacao: keyword primeiro (confianca >= 0.7), Gemini como fallback, correcao manual via evento
+- Storage: expo-sqlite com tabela unica events, payload como JSON string, DatabaseAdapter abstrato
 
 ## Testing
 - Rodar todos os testes: `npx vitest run packages/`
 - Testes core: `npx vitest run packages/core/__tests__/`
 - Testes sync: `npx vitest run packages/sync/__tests__/`
 - Testes parsers: `npx vitest run packages/parsers/__tests__/`
-- Total: 137 testes passando (33 core + 46 sync + 58 parsers)
+- Testes storage: `npx vitest run packages/storage/__tests__/`
+- Total: 160 testes passando (33 core + 46 sync + 58 parsers + 23 storage)
