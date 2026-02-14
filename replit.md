@@ -24,7 +24,9 @@ Gamificacao e o CORE do sistema (XP, niveis, streaks, arquetipos, seasons).
 /app/(tabs)           -> Tab screens: index (Home), accounts, season
 /app/add-transaction.tsx -> Modal para nova transacao
 /app/onboarding.tsx   -> Onboarding flow (7 dias adaptivos)
-/src/context          -> AppStateProvider (estado global via Event Sourcing)
+/app/sync.tsx         -> Tela de sincronizacao P2P (QR pairing, peers, sync manual)
+/src/context          -> AppStateProvider (estado global via Event Sourcing), SyncProvider (P2P sync)
+/src/services         -> webrtcFactory.ts (adapter browser WebRTC)
 /src/components       -> Componentes reutilizaveis do app
 /src/hooks            -> Custom hooks
 /src/modules          -> Modulos de funcionalidades
@@ -152,6 +154,14 @@ Gamificacao e o CORE do sistema (XP, niveis, streaks, arquetipos, seasons).
   - HomeScreen crashava ao criar primeira conta
   - Corrigidos todos os imports em 6 arquivos
 
+- 2026-02-14: Sync P2P UI implementada:
+  - app/sync.tsx: tela de sincronizacao com QR pairing (gerar oferta, escanear resposta, peers conectados, sync manual)
+  - src/context/SyncProvider.tsx: contexto com identidade do dispositivo, conexoes WebRTC, gerar/escanear QR
+  - src/services/webrtcFactory.ts: adapter browser WebRTC (RTCPeerConnection, ICE gathering, compressao SDP)
+  - Acesso via botao no header do HomeScreen (icone sync)
+  - WebRTC funciona apenas no web (browser API), degradacao graciosa no mobile
+  - expo-camera instalado para scanner QR
+
 ## Architecture Decisions
 - Sem backend/servidor - app 100% offline, local apenas
 - TypeScript strict: true
@@ -160,7 +170,7 @@ Gamificacao e o CORE do sistema (XP, niveis, streaks, arquetipos, seasons).
 - Estado NUNCA salvo no banco - sempre reconstruido via replayEvents
 - Dominio totalmente separado da UI (/packages vs /app)
 - Expo Router para navegacao file-based
-- Sync P2P futuro: WebRTC com STUN publico, signaling via QR code, arquitetura mesh
+- Sync P2P: WebRTC com STUN publico, signaling via QR code, arquitetura mesh, UI implementada em app/sync.tsx
 - Nota fiscal: request direto ao SEFAZ, fallback OCR, classificacao keyword+AI
 - Classificacao: keyword primeiro (confianca >= 0.7), Gemini como fallback, correcao manual via evento
 - Storage: expo-sqlite com tabela unica events, payload como JSON string, DatabaseAdapter abstrato
