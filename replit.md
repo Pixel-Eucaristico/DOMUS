@@ -1,8 +1,9 @@
-# OrcaFacil
+# DOMUS (formerly OrcaFacil)
 
 ## Overview
 App fintech de orcamento pessoal focado em Android. Monorepo com Expo SDK 54, TypeScript strict, Expo Router.
 Arquitetura Event Sourcing + Offline-First radical. Sem backend, sem servidor, 100% local.
+Gamificacao e o CORE do sistema (XP, niveis, streaks, arquetipos, seasons).
 
 ## Project Structure
 ```
@@ -20,6 +21,10 @@ Arquitetura Event Sourcing + Offline-First radical. Sem backend, sem servidor, 1
 /packages/ai          -> Inteligencia artificial (placeholder - Gemini opcional)
 /packages/wishlist    -> Lista de desejos (placeholder)
 /app                  -> Camada UI separada do dominio (Expo Router)
+/app/(tabs)           -> Tab screens: index (Home), accounts, season
+/app/add-transaction.tsx -> Modal para nova transacao
+/app/onboarding.tsx   -> Onboarding flow (7 dias adaptivos)
+/src/context          -> AppStateProvider (estado global via Event Sourcing)
 /src/components       -> Componentes reutilizaveis do app
 /src/hooks            -> Custom hooks
 /src/modules          -> Modulos de funcionalidades
@@ -130,6 +135,23 @@ Arquitetura Event Sourcing + Offline-First radical. Sem backend, sem servidor, 1
   - Jornada completa: onboarding -> criar conta -> registrar renda -> gastos -> 50/30/20 -> XP -> level -> streak -> arquetipo -> tema -> season -> evolucao
   - Valida reconstrucao de estado via replay em todos os pacotes
 
+- 2026-02-14: Camada UI completa implementada (5 telas funcionais):
+  - AppStateProvider em /src/context/AppStateProvider.tsx: estado global via Event Sourcing, replayAllEvents, dispatch/dispatchDomainEvent
+  - HomeScreen (app/(tabs)/index.tsx): XP, nivel, streak, arquetipo, saldo total, orcamento 50/30/20, transacoes recentes, FAB para nova transacao
+  - AccountsScreen (app/(tabs)/accounts.tsx): lista de contas, modal de criacao (corrente/poupanca/carteira/cartao), dispatch ACCOUNT_CREATED
+  - SeasonScreen (app/(tabs)/season.tsx): progresso da season, arquetipo atual, badges, historico, tone engine
+  - AddTransactionScreen (app/add-transaction.tsx): modal com tipo (despesa/receita/transferencia), valor, categoria 50/30/20, parcelas, conta
+  - OnboardingFlow (app/onboarding.tsx): 7 dias adaptivos, missoes por dificuldade, progresso visual
+  - Tab layout com 3 abas: Inicio, Contas, Temporada (com BlurView/NativeTabs)
+  - Tema automatico por arquetipo (6 paletas elegantes)
+  - XP automatico ao criar transacao (+10 XP), streak atualizado diariamente, level-up automatico
+  - Gamificacao integrada: dispatchDomainEvent emite eventos de XP, streak e level junto com eventos financeiros
+
+- 2026-02-14: Bug fix - AppStateProvider movido de app/context/ para src/context/:
+  - Expo Router tratava o arquivo como rota, causando crash "missing default export"
+  - HomeScreen crashava ao criar primeira conta
+  - Corrigidos todos os imports em 6 arquivos
+
 ## Architecture Decisions
 - Sem backend/servidor - app 100% offline, local apenas
 - TypeScript strict: true
@@ -150,6 +172,10 @@ Arquitetura Event Sourcing + Offline-First radical. Sem backend, sem servidor, 1
 - Onboarding NUNCA pune usuario - dificuldade so pode diminuir ou manter baseado em performance
 - Season = mes calendario, avaliacao automatica, re-avaliacao de arquetipo
 - Tema muda automaticamente com evolucao do arquetipo (elegante, sobrio, premium)
+- AppStateProvider DEVE ficar em /src/context/ (nunca em /app/) para nao ser tratado como rota pelo Expo Router
+- UI usa useAppState() hook para acessar estado derivado do AppStateProvider
+- Telas apenas dispatcham eventos (dispatchDomainEvent para financeiros, dispatch para gamificacao/onboarding/season)
+- XP automaticamente concedido ao criar transacao, streak atualizado diariamente, level-up automatico
 
 ## Testing
 - Rodar todos os testes: `npx vitest run packages/`
