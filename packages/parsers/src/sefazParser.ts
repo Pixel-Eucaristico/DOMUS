@@ -159,7 +159,7 @@ function extractDate(html: string): Date | null {
 }
 
 function extractInvoiceId(html: string): string | null {
-  const chaveMatch = html.match(/(?:chave|chNFe)[:\s]*(\d{44})/i);
+  const chaveMatch = html.match(/(?:chave[\s\w]*acesso|chave|chNFe)[:\s]*(\d{44})/i);
   if (chaveMatch?.[1]) return chaveMatch[1];
 
   const numMatch = html.match(/(?:n[uú]mero|nNF)[:\s]*(\d+)/i);
