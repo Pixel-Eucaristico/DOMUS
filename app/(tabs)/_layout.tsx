@@ -2,11 +2,12 @@ import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs } from "expo-router";
 import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
 import { BlurView } from "expo-blur";
-import { Platform, StyleSheet, useColorScheme, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Platform, StyleSheet, View } from "react-native";
+import { Ionicons, Feather } from "@expo/vector-icons";
 import React from "react";
 
-import Colors from "@/constants/colors";
+const TINT = "#1B5E63";
+const INACTIVE = "#9CA3AF";
 
 function NativeTabLayout() {
   return (
@@ -15,27 +16,33 @@ function NativeTabLayout() {
         <Icon sf={{ default: "house", selected: "house.fill" }} />
         <Label>Inicio</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="accounts">
+        <Icon sf={{ default: "creditcard", selected: "creditcard.fill" }} />
+        <Label>Contas</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="season">
+        <Icon sf={{ default: "star", selected: "star.fill" }} />
+        <Label>Temporada</Label>
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
 
 function ClassicTabLayout() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
   const isWeb = Platform.OS === "web";
   const isIOS = Platform.OS === "ios";
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.light.tint,
-        tabBarInactiveTintColor: Colors.light.tabIconDefault,
+        tabBarActiveTintColor: TINT,
+        tabBarInactiveTintColor: INACTIVE,
         headerShown: false,
         tabBarStyle: {
           position: "absolute" as const,
-          backgroundColor: isIOS ? "transparent" : isDark ? "#000" : "#FFFFFF",
+          backgroundColor: isIOS ? "transparent" : "#FFFFFF",
           borderTopWidth: isWeb ? 1 : 0,
-          borderTopColor: isDark ? "#333" : "#E5E7EB",
+          borderTopColor: "#E5E7EB",
           elevation: 0,
           ...(isWeb ? { height: 84 } : {}),
         },
@@ -43,7 +50,7 @@ function ClassicTabLayout() {
           isIOS ? (
             <BlurView
               intensity={100}
-              tint={isDark ? "dark" : "light"}
+              tint="light"
               style={StyleSheet.absoluteFill}
             />
           ) : isWeb ? (
@@ -51,6 +58,10 @@ function ClassicTabLayout() {
               style={[StyleSheet.absoluteFill, { backgroundColor: "#FFFFFF" }]}
             />
           ) : null,
+        tabBarLabelStyle: {
+          fontFamily: "DMSans_500Medium",
+          fontSize: 11,
+        },
       }}
     >
       <Tabs.Screen
@@ -58,7 +69,25 @@ function ClassicTabLayout() {
         options={{
           title: "Inicio",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+            <Feather name="home" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="accounts"
+        options={{
+          title: "Contas",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="layers" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="season"
+        options={{
+          title: "Temporada",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="award" size={size} color={color} />
           ),
         }}
       />

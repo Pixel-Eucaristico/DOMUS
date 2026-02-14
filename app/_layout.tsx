@@ -13,6 +13,7 @@ import {
 } from "@expo-google-fonts/dm-sans";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
+import { AppStateProvider } from "@/src/context/AppStateProvider";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -20,6 +21,14 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: "Voltar" }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="add-transaction"
+        options={{ headerShown: false, presentation: "modal" }}
+      />
+      <Stack.Screen
+        name="onboarding"
+        options={{ headerShown: false, presentation: "modal" }}
+      />
     </Stack>
   );
 }
@@ -47,7 +56,9 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView>
           <KeyboardProvider>
-            <RootLayoutNav />
+            <AppStateProvider>
+              <RootLayoutNav />
+            </AppStateProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
