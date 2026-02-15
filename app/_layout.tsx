@@ -1,3 +1,4 @@
+import "@/src/modules/cryptoPolyfill";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
