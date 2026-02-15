@@ -12,6 +12,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { useSync } from "@/src/context/SyncProvider";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -61,6 +62,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { domain, gamification, levelInfo, budget, totalBalance, archetype, theme, onboarding, loading } =
     useAppState();
+  const { syncStatus, isAutoSyncEnabled } = useSync();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
@@ -116,6 +118,23 @@ export default function HomeScreen() {
               onPress={() => router.push("/sync")}
             >
               <MaterialCommunityIcons name="access-point" size={22} color={theme.primaryColor} />
+              {isAutoSyncEnabled && (
+                <View
+                  style={[
+                    s.syncDot,
+                    {
+                      backgroundColor:
+                        syncStatus === "connected"
+                          ? "#22C55E"
+                          : syncStatus === "syncing"
+                            ? "#F59E0B"
+                            : syncStatus === "offline"
+                              ? "#EF4444"
+                              : "#9CA3AF",
+                    },
+                  ]}
+                />
+              )}
             </Pressable>
             <Pressable
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
@@ -326,6 +345,16 @@ const s = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
+  },
+  syncDot: {
+    position: "absolute" as const,
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
   },
   statsRow: {
     flexDirection: "row",

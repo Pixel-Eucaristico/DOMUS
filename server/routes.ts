@@ -1,9 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "node:http";
+import { registerSyncRoutes } from "./syncRoutes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  registerSyncRoutes(app);
 
   const httpServer = createServer(app);
 

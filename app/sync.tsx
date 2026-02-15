@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback } from "react";
 import {
   StyleSheet,
   View,
@@ -6,20 +6,16 @@ import {
   Pressable,
   ScrollView,
   Platform,
-  Alert,
+  TextInput,
   ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import QRCode from "react-native-qrcode-svg";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import * as Clipboard from "expo-clipboard";
 import { useSync } from "@/src/context/SyncProvider";
 import { useAppState } from "@/src/context/AppStateProvider";
-import type { BarcodeScanningResult } from "expo-camera";
-
-type ScreenMode = "main" | "show_qr" | "scan_qr";
 
 function formatTime(ts: number | null): string {
   if (!ts) return "Nunca";
@@ -31,9 +27,32 @@ function formatTime(ts: number | null): string {
   return `${day}/${month} ${h}:${m}`;
 }
 
-function truncateId(id: string): string {
-  if (id.length <= 12) return id;
-  return id.slice(0, 6) + "..." + id.slice(-4);
+function StatusDot({ status }: { status: string }) {
+  const color =
+    status === "connected"
+      ? "#22C55E"
+      : status === "syncing"
+        ? "#F59E0B"
+        : status === "offline"
+          ? "#EF4444"
+          : "#9CA3AF";
+
+  return <View style={[styles.dot, { backgroundColor: color }]} />;
+}
+
+function statusLabel(status: string): string {
+  switch (status) {
+    case "connected":
+      return "Sincronizado";
+    case "syncing":
+      return "Sincronizando...";
+    case "offline":
+      return "Sem conexao";
+    case "error":
+      return "Erro";
+    default:
+      return "Desconectado";
+  }
 }
 
 export default function SyncScreen() {
@@ -42,22 +61,24 @@ export default function SyncScreen() {
   const { theme } = useAppState();
   const {
     deviceId,
+    groupId,
     syncStatus,
     lastSyncTime,
     errorMessage,
     eventCount,
-    exportToFile,
-    importFromFile,
-    getQRData,
-    importFromQR,
+    peerCount,
+    isAutoSyncEnabled,
+    createGroup,
+    joinGroup,
+    leaveGroup,
+    pushNow,
+    pullNow,
     resetStatus,
   } = useSync();
 
-  const [mode, setMode] = useState<ScreenMode>("main");
-  const [qrData, setQrData] = useState<string | null>(null);
-  const [importResult, setImportResult] = useState<string | null>(null);
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const scannedRef = useRef(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [showJoinInput, setShowJoinInput] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
@@ -68,343 +89,305 @@ export default function SyncScreen() {
     }
   };
 
-  const handleExport = useCallback(async () => {
+  const handleCreateGroup = useCallback(async () => {
     haptic();
-    await exportToFile();
-  }, [exportToFile]);
+    setActionLoading(true);
+    await createGroup();
+    setActionLoading(false);
+  }, [createGroup]);
 
-  const handleImport = useCallback(async () => {
+  const handleJoinGroup = useCallback(async () => {
     haptic();
-    await importFromFile();
-  }, [importFromFile]);
-
-  const handleShowQR = useCallback(() => {
-    haptic();
-    const data = getQRData(50);
-    if (!data) {
-      Alert.alert("Sem dados", "Nao ha eventos para sincronizar via QR.");
-      return;
+    if (joinCode.trim().length < 4) return;
+    setActionLoading(true);
+    const ok = await joinGroup(joinCode.trim().toUpperCase());
+    setActionLoading(false);
+    if (ok) {
+      setJoinCode("");
+      setShowJoinInput(false);
     }
-    setQrData(data);
-    setMode("show_qr");
-  }, [getQRData]);
+  }, [joinGroup, joinCode]);
 
-  const handleScanQR = useCallback(async () => {
+  const handleLeaveGroup = useCallback(async () => {
     haptic();
-    scannedRef.current = false;
+    await leaveGroup();
+  }, [leaveGroup]);
 
-    if (Platform.OS !== "web") {
-      if (!cameraPermission?.granted) {
-        const result = await requestCameraPermission();
-        if (!result.granted) {
-          Alert.alert("Permissao necessaria", "Permita o acesso a camera para escanear QR codes.");
-          return;
-        }
-      }
-    }
-    setMode("scan_qr");
-  }, [cameraPermission, requestCameraPermission]);
-
-  const handleBarcodeScan = useCallback(
-    async (result: BarcodeScanningResult) => {
-      if (scannedRef.current) return;
-      scannedRef.current = true;
-      haptic();
-
-      const count = await importFromQR(result.data);
-      setImportResult(
-        count > 0
-          ? `${count} evento(s) importado(s)`
-          : "Nenhum evento novo"
-      );
-      setMode("main");
-    },
-    [importFromQR],
-  );
-
-  const handleBack = () => {
+  const handleCopyCode = useCallback(async () => {
+    if (!groupId) return;
     haptic();
-    if (mode === "main") {
-      router.back();
-    } else {
-      setMode("main");
-      setQrData(null);
-    }
-  };
+    await Clipboard.setStringAsync(groupId);
+  }, [groupId]);
 
-  if (mode === "show_qr" && qrData) {
-    return (
-      <View style={[s.root, { backgroundColor: theme.background }]}>
-        <View style={[s.topBar, { paddingTop: insets.top + webTopInset + 12 }]}>
-          <Pressable onPress={handleBack} hitSlop={12}>
-            <Feather name="arrow-left" size={24} color={theme.textColor} />
-          </Pressable>
-          <Text style={[s.topBarTitle, { color: theme.textColor }]}>QR de Sync</Text>
-          <View style={{ width: 24 }} />
-        </View>
-        <ScrollView contentContainerStyle={s.qrContainer}>
-          <View style={[s.qrCard, { backgroundColor: theme.cardBackground }]}>
-            <View style={s.qrBadge}>
-              <Ionicons name="sync" size={16} color="#FFFFFF" />
-              <Text style={s.qrBadgeText}>EVENTOS RECENTES</Text>
-            </View>
-            <View style={s.qrCodeWrapper}>
-              <QRCode
-                value={qrData}
-                size={240}
-                backgroundColor="transparent"
-                color={theme.textColor}
-              />
-            </View>
-            <Text style={[s.qrHint, { color: theme.secondaryText }]}>
-              Escaneie este QR no outro celular para importar os eventos recentes
-            </Text>
-          </View>
+  const handlePush = useCallback(async () => {
+    haptic();
+    await pushNow();
+  }, [pushNow]);
 
-          <Pressable
-            style={[s.actionBtn, { backgroundColor: theme.primaryColor }]}
-            onPress={handleBack}
-          >
-            <Feather name="check" size={20} color="#FFFFFF" />
-            <Text style={s.actionBtnText}>Voltar</Text>
-          </Pressable>
-        </ScrollView>
-      </View>
-    );
-  }
+  const handlePull = useCallback(async () => {
+    haptic();
+    await pullNow();
+  }, [pullNow]);
 
-  if (mode === "scan_qr") {
-    return (
-      <View style={[s.root, { backgroundColor: "#000" }]}>
-        <View style={[s.topBar, { paddingTop: insets.top + webTopInset + 12, backgroundColor: "rgba(0,0,0,0.5)" }]}>
-          <Pressable onPress={handleBack} hitSlop={12}>
-            <Feather name="arrow-left" size={24} color="#FFFFFF" />
-          </Pressable>
-          <Text style={[s.topBarTitle, { color: "#FFFFFF" }]}>Escanear QR</Text>
-          <View style={{ width: 24 }} />
-        </View>
-
-        {Platform.OS !== "web" ? (
-          <CameraView
-            style={s.camera}
-            facing="back"
-            barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-            onBarcodeScanned={handleBarcodeScan}
-          >
-            <View style={s.scanOverlay}>
-              <View style={s.scanFrame} />
-              <Text style={s.scanHint}>
-                Aponte para o QR code do outro celular
-              </Text>
-            </View>
-          </CameraView>
-        ) : (
-          <View style={s.webFallback}>
-            <MaterialCommunityIcons name="qrcode-scan" size={48} color="#9CA3AF" />
-            <Text style={s.webFallbackTitle}>Camera indisponivel no web</Text>
-            <Text style={s.webFallbackDesc}>
-              Use a opcao "Importar arquivo" no celular para sincronizar
-            </Text>
-            <Pressable
-              style={[s.actionBtn, { backgroundColor: "#1B5E63", marginTop: 20 }]}
-              onPress={handleBack}
-            >
-              <Feather name="arrow-left" size={20} color="#FFFFFF" />
-              <Text style={s.actionBtnText}>Voltar</Text>
-            </Pressable>
-          </View>
-        )}
-      </View>
-    );
-  }
-
-  const isLoading = syncStatus === "exporting" || syncStatus === "importing";
+  const isBusy = syncStatus === "syncing" || actionLoading;
 
   return (
-    <View style={[s.root, { backgroundColor: theme.background }]}>
-      <View style={[s.topBar, { paddingTop: insets.top + webTopInset + 12 }]}>
-        <Pressable onPress={handleBack} hitSlop={12}>
+    <View style={[styles.root, { backgroundColor: theme.background }]}>
+      <View style={[styles.topBar, { paddingTop: insets.top + webTopInset + 12 }]}>
+        <Pressable onPress={() => { haptic(); router.back(); }} hitSlop={12}>
           <Feather name="arrow-left" size={24} color={theme.textColor} />
         </Pressable>
-        <Text style={[s.topBarTitle, { color: theme.textColor }]}>Sincronizar</Text>
+        <Text style={[styles.topBarTitle, { color: theme.textColor }]}>Sincronizar</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView
-        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + webBottomInset + 24 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + webBottomInset + 24 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[s.statusCard, { backgroundColor: theme.cardBackground }]}>
-          <View style={s.statusRow}>
-            <View style={[s.iconCircle, { backgroundColor: `${theme.primaryColor}15` }]}>
-              <Feather name="smartphone" size={20} color={theme.primaryColor} />
+        <View style={[styles.statusCard, { backgroundColor: theme.cardBackground }]}>
+          <View style={styles.statusRow}>
+            <View style={[styles.iconCircle, { backgroundColor: `${theme.primaryColor}15` }]}>
+              {isAutoSyncEnabled ? (
+                <Ionicons name="sync" size={22} color={theme.primaryColor} />
+              ) : (
+                <Feather name="wifi-off" size={22} color={theme.secondaryText} />
+              )}
             </View>
-            <View style={s.statusInfo}>
-              <Text style={[s.statusLabel, { color: theme.textColor }]}>
-                Este dispositivo
-              </Text>
-              {deviceId && (
-                <Text style={[s.deviceIdText, { color: theme.secondaryText }]}>
-                  ID: {truncateId(deviceId)}
+            <View style={styles.statusInfo}>
+              <View style={styles.statusLabelRow}>
+                <StatusDot status={syncStatus} />
+                <Text style={[styles.statusLabelText, { color: theme.textColor }]}>
+                  {statusLabel(syncStatus)}
+                </Text>
+              </View>
+              {groupId && (
+                <Text style={[styles.groupIdText, { color: theme.secondaryText }]}>
+                  Grupo: {groupId}
                 </Text>
               )}
             </View>
           </View>
 
-          <View style={s.statsRow}>
-            <View style={s.statItem}>
-              <Text style={[s.statValue, { color: theme.textColor }]}>{eventCount}</Text>
-              <Text style={[s.statLabel, { color: theme.secondaryText }]}>eventos</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: theme.textColor }]}>{eventCount}</Text>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>eventos</Text>
             </View>
-            <View style={[s.statDivider, { backgroundColor: theme.border }]} />
-            <View style={s.statItem}>
-              <Text style={[s.statValue, { color: theme.textColor }]}>
+            <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: theme.textColor }]}>{peerCount}</Text>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>dispositivos</Text>
+            </View>
+            <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: theme.textColor }]}>
                 {lastSyncTime ? formatTime(lastSyncTime) : "--"}
               </Text>
-              <Text style={[s.statLabel, { color: theme.secondaryText }]}>ultimo sync</Text>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>ultimo sync</Text>
             </View>
           </View>
         </View>
 
-        {(errorMessage || importResult) && (
-          <View
-            style={[
-              s.banner,
-              {
-                backgroundColor: errorMessage
-                  ? `${theme.danger}12`
-                  : `${theme.success}12`,
-              },
-            ]}
-          >
-            <Feather
-              name={errorMessage ? "alert-circle" : "check-circle"}
-              size={16}
-              color={errorMessage ? theme.danger : theme.success}
-            />
-            <Text
-              style={[
-                s.bannerText,
-                { color: errorMessage ? theme.danger : theme.success },
-              ]}
-            >
-              {errorMessage || importResult}
-            </Text>
-            <Pressable
-              onPress={() => {
-                resetStatus();
-                setImportResult(null);
-              }}
-              hitSlop={8}
-            >
+        {errorMessage && (
+          <View style={[styles.banner, { backgroundColor: `${theme.danger}12` }]}>
+            <Feather name="alert-circle" size={16} color={theme.danger} />
+            <Text style={[styles.bannerText, { color: theme.danger }]}>{errorMessage}</Text>
+            <Pressable onPress={resetStatus} hitSlop={8}>
               <Feather name="x" size={14} color={theme.secondaryText} />
             </Pressable>
           </View>
         )}
 
-        {isLoading && (
-          <View style={[s.loadingBanner, { backgroundColor: theme.cardBackground }]}>
-            <ActivityIndicator size="small" color={theme.primaryColor} />
-            <Text style={[s.loadingText, { color: theme.secondaryText }]}>
-              {syncStatus === "exporting" ? "Exportando dados..." : "Importando dados..."}
-            </Text>
-          </View>
+        {!isAutoSyncEnabled ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.textColor }]}>
+                Conectar dispositivos
+              </Text>
+              <Text style={[styles.sectionDesc, { color: theme.secondaryText }]}>
+                Crie um grupo ou entre em um existente para sincronizar automaticamente
+              </Text>
+            </View>
+
+            <View style={styles.actionsRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionCard,
+                  { backgroundColor: theme.primaryColor },
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+                ]}
+                onPress={handleCreateGroup}
+                disabled={isBusy}
+              >
+                {isBusy ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <View style={styles.actionCardIcon}>
+                      <Feather name="plus" size={24} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.actionCardTitle}>Criar grupo</Text>
+                    <Text style={styles.actionCardDesc}>Novo codigo</Text>
+                  </>
+                )}
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionCard,
+                  { backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.border },
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+                ]}
+                onPress={() => { haptic(); setShowJoinInput(true); }}
+                disabled={isBusy}
+              >
+                <View style={[styles.actionCardIcon, { backgroundColor: `${theme.primaryColor}15` }]}>
+                  <Feather name="log-in" size={24} color={theme.primaryColor} />
+                </View>
+                <Text style={[styles.actionCardTitle, { color: theme.textColor }]}>Entrar</Text>
+                <Text style={[styles.actionCardDesc, { color: theme.secondaryText }]}>Com codigo</Text>
+              </Pressable>
+            </View>
+
+            {showJoinInput && (
+              <View style={[styles.joinCard, { backgroundColor: theme.cardBackground }]}>
+                <Text style={[styles.joinLabel, { color: theme.textColor }]}>
+                  Codigo do grupo
+                </Text>
+                <View style={styles.joinInputRow}>
+                  <TextInput
+                    style={[
+                      styles.joinInput,
+                      {
+                        color: theme.textColor,
+                        borderColor: theme.border,
+                        backgroundColor: theme.background,
+                      },
+                    ]}
+                    value={joinCode}
+                    onChangeText={(text) => setJoinCode(text.toUpperCase())}
+                    placeholder="EX: ABC123"
+                    placeholderTextColor={theme.secondaryText}
+                    autoCapitalize="characters"
+                    maxLength={8}
+                    autoFocus
+                  />
+                  <Pressable
+                    style={[
+                      styles.joinBtn,
+                      {
+                        backgroundColor: joinCode.trim().length >= 4 ? theme.primaryColor : theme.border,
+                      },
+                    ]}
+                    onPress={handleJoinGroup}
+                    disabled={joinCode.trim().length < 4 || isBusy}
+                  >
+                    {isBusy ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Feather name="check" size={20} color="#FFFFFF" />
+                    )}
+                  </Pressable>
+                </View>
+                <Pressable onPress={() => { setShowJoinInput(false); setJoinCode(""); }}>
+                  <Text style={[styles.cancelText, { color: theme.secondaryText }]}>Cancelar</Text>
+                </Pressable>
+              </View>
+            )}
+
+            <View style={[styles.infoCard, { backgroundColor: theme.cardBackground }]}>
+              <Feather name="info" size={16} color={theme.secondaryText} />
+              <Text style={[styles.infoText, { color: theme.secondaryText }]}>
+                Crie um grupo no celular A, depois entre com o codigo no celular B. A partir dai, todos os dados sincronizam automaticamente em tempo real.
+              </Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={[styles.connectedCard, { backgroundColor: theme.cardBackground }]}>
+              <View style={styles.connectedRow}>
+                <View style={[styles.codeBadge, { backgroundColor: `${theme.primaryColor}12` }]}>
+                  <Text style={[styles.codeText, { color: theme.primaryColor }]}>{groupId}</Text>
+                </View>
+                <Pressable onPress={handleCopyCode} hitSlop={10}>
+                  <Feather name="copy" size={18} color={theme.secondaryText} />
+                </Pressable>
+              </View>
+              <Text style={[styles.connectedHint, { color: theme.secondaryText }]}>
+                Compartilhe este codigo com outro celular para parear
+              </Text>
+            </View>
+
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.textColor }]}>Sync automatico</Text>
+              <Text style={[styles.sectionDesc, { color: theme.secondaryText }]}>
+                Seus dados sincronizam a cada 10 segundos e ao criar eventos
+              </Text>
+            </View>
+
+            <View style={styles.actionsRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionCard,
+                  { backgroundColor: theme.primaryColor },
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+                ]}
+                onPress={handlePush}
+                disabled={isBusy}
+              >
+                {isBusy ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <View style={styles.actionCardIcon}>
+                      <Feather name="upload-cloud" size={24} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.actionCardTitle}>Enviar tudo</Text>
+                    <Text style={styles.actionCardDesc}>Push manual</Text>
+                  </>
+                )}
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionCard,
+                  { backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.border },
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+                ]}
+                onPress={handlePull}
+                disabled={isBusy}
+              >
+                <View style={[styles.actionCardIcon, { backgroundColor: `${theme.primaryColor}15` }]}>
+                  <Feather name="download-cloud" size={24} color={theme.primaryColor} />
+                </View>
+                <Text style={[styles.actionCardTitle, { color: theme.textColor }]}>Buscar</Text>
+                <Text style={[styles.actionCardDesc, { color: theme.secondaryText }]}>Pull manual</Text>
+              </Pressable>
+            </View>
+
+            <Pressable
+              style={[styles.leaveBtn, { borderColor: theme.danger }]}
+              onPress={handleLeaveGroup}
+            >
+              <Feather name="log-out" size={16} color={theme.danger} />
+              <Text style={[styles.leaveBtnText, { color: theme.danger }]}>Sair do grupo</Text>
+            </Pressable>
+
+            <View style={[styles.infoCard, { backgroundColor: theme.cardBackground }]}>
+              <Feather name="info" size={16} color={theme.secondaryText} />
+              <Text style={[styles.infoText, { color: theme.secondaryText }]}>
+                A sincronizacao acontece automaticamente. Novos eventos sao enviados ao servidor quando criados e buscados a cada 10 segundos. Os dados ficam armazenados localmente no celular e funcionam offline.
+              </Text>
+            </View>
+          </>
         )}
-
-        <View style={s.sectionHeader}>
-          <Text style={[s.sectionTitle, { color: theme.textColor }]}>Via arquivo</Text>
-          <Text style={[s.sectionDesc, { color: theme.secondaryText }]}>
-            Compartilhe por WhatsApp, Bluetooth ou qualquer app
-          </Text>
-        </View>
-
-        <View style={s.actionsRow}>
-          <Pressable
-            style={({ pressed }) => [
-              s.actionCard,
-              { backgroundColor: theme.primaryColor },
-              pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-            ]}
-            onPress={handleExport}
-            disabled={isLoading}
-          >
-            <View style={s.actionCardIcon}>
-              <Feather name="upload" size={24} color="#FFFFFF" />
-            </View>
-            <Text style={s.actionCardTitle}>Exportar</Text>
-            <Text style={s.actionCardDesc}>Enviar dados</Text>
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [
-              s.actionCard,
-              { backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.border },
-              pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-            ]}
-            onPress={handleImport}
-            disabled={isLoading}
-          >
-            <View style={[s.actionCardIcon, { backgroundColor: `${theme.primaryColor}15` }]}>
-              <Feather name="download" size={24} color={theme.primaryColor} />
-            </View>
-            <Text style={[s.actionCardTitle, { color: theme.textColor }]}>Importar</Text>
-            <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Receber dados</Text>
-          </Pressable>
-        </View>
-
-        <View style={s.sectionHeader}>
-          <Text style={[s.sectionTitle, { color: theme.textColor }]}>Via QR Code</Text>
-          <Text style={[s.sectionDesc, { color: theme.secondaryText }]}>
-            Rapido para poucos eventos recentes
-          </Text>
-        </View>
-
-        <View style={s.actionsRow}>
-          <Pressable
-            style={({ pressed }) => [
-              s.actionCard,
-              { backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.border },
-              pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-            ]}
-            onPress={handleShowQR}
-            disabled={isLoading}
-          >
-            <View style={[s.actionCardIcon, { backgroundColor: `${theme.accentColor}15` }]}>
-              <MaterialCommunityIcons name="qrcode" size={24} color={theme.accentColor} />
-            </View>
-            <Text style={[s.actionCardTitle, { color: theme.textColor }]}>Mostrar QR</Text>
-            <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Gerar codigo</Text>
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [
-              s.actionCard,
-              { backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.border },
-              pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-            ]}
-            onPress={handleScanQR}
-            disabled={isLoading}
-          >
-            <View style={[s.actionCardIcon, { backgroundColor: `${theme.accentColor}15` }]}>
-              <Feather name="camera" size={24} color={theme.accentColor} />
-            </View>
-            <Text style={[s.actionCardTitle, { color: theme.textColor }]}>Escanear QR</Text>
-            <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Ler codigo</Text>
-          </Pressable>
-        </View>
-
-        <View style={[s.infoCard, { backgroundColor: theme.cardBackground }]}>
-          <Feather name="info" size={16} color={theme.secondaryText} />
-          <Text style={[s.infoText, { color: theme.secondaryText }]}>
-            A sincronizacao funciona por troca de eventos. Exporte no celular A, importe no celular B, e vice-versa. Eventos duplicados sao ignorados automaticamente.
-          </Text>
-        </View>
       </ScrollView>
     </View>
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   root: { flex: 1 },
   topBar: {
     flexDirection: "row",
@@ -438,21 +421,28 @@ const s = StyleSheet.create({
     gap: 14,
   },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
   },
-  statusInfo: {
-    flex: 1,
-    gap: 2,
+  statusInfo: { flex: 1, gap: 4 },
+  statusLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
-  statusLabel: {
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusLabelText: {
     fontFamily: "DMSans_600SemiBold",
     fontSize: 16,
   },
-  deviceIdText: {
+  groupIdText: {
     fontFamily: "DMSans_400Regular",
     fontSize: 12,
   },
@@ -460,26 +450,11 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 0,
   },
-  statItem: {
-    flex: 1,
-    alignItems: "center",
-    gap: 2,
-  },
-  statValue: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 18,
-  },
-  statLabel: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 12,
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-    marginHorizontal: 12,
-  },
+  statItem: { flex: 1, alignItems: "center", gap: 2 },
+  statValue: { fontFamily: "DMSans_700Bold", fontSize: 16 },
+  statLabel: { fontFamily: "DMSans_400Regular", fontSize: 11 },
+  statDivider: { width: 1, height: 28, marginHorizontal: 8 },
   banner: {
     flexDirection: "row",
     alignItems: "center",
@@ -487,45 +462,19 @@ const s = StyleSheet.create({
     padding: 14,
     borderRadius: 12,
   },
-  bannerText: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 13,
-    flex: 1,
-  },
-  loadingBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    padding: 14,
-    borderRadius: 12,
-  },
-  loadingText: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 14,
-  },
-  sectionHeader: {
-    gap: 2,
-    marginTop: 8,
-  },
-  sectionTitle: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 15,
-  },
-  sectionDesc: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 12,
-  },
-  actionsRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
+  bannerText: { fontFamily: "DMSans_500Medium", fontSize: 13, flex: 1 },
+  sectionHeader: { gap: 2, marginTop: 8 },
+  sectionTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 15 },
+  sectionDesc: { fontFamily: "DMSans_400Regular", fontSize: 12 },
+  actionsRow: { flexDirection: "row", gap: 10 },
   actionCard: {
     flex: 1,
     borderRadius: 16,
     padding: 18,
     alignItems: "center",
+    justifyContent: "center",
     gap: 8,
+    minHeight: 120,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -551,6 +500,81 @@ const s = StyleSheet.create({
     fontSize: 11,
     color: "rgba(255,255,255,0.7)",
   },
+  joinCard: {
+    borderRadius: 16,
+    padding: 18,
+    gap: 12,
+  },
+  joinLabel: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 14,
+  },
+  joinInputRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "center",
+  },
+  joinInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 18,
+    letterSpacing: 3,
+    textAlign: "center" as const,
+  },
+  joinBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cancelText: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 13,
+    textAlign: "center" as const,
+  },
+  connectedCard: {
+    borderRadius: 16,
+    padding: 18,
+    gap: 10,
+  },
+  connectedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  codeBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  codeText: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 22,
+    letterSpacing: 4,
+  },
+  connectedHint: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+  },
+  leaveBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  leaveBtnText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 14,
+  },
   infoCard: {
     flexDirection: "row",
     gap: 10,
@@ -563,106 +587,5 @@ const s = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     flex: 1,
-  },
-  qrContainer: {
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    gap: 20,
-  },
-  qrCard: {
-    borderRadius: 20,
-    padding: 24,
-    alignItems: "center",
-    gap: 16,
-    width: "100%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  qrBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#1B5E63",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  qrBadgeText: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 11,
-    color: "#FFFFFF",
-    letterSpacing: 0.5,
-  },
-  qrCodeWrapper: {
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: "#FFFFFF",
-  },
-  qrHint: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 13,
-    textAlign: "center" as const,
-    lineHeight: 20,
-  },
-  actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 14,
-    width: "100%",
-  },
-  actionBtnText: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 15,
-    color: "#FFFFFF",
-  },
-  camera: {
-    flex: 1,
-  },
-  scanOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
-  scanFrame: {
-    width: 250,
-    height: 250,
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-    borderRadius: 20,
-  },
-  scanHint: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 14,
-    color: "#FFFFFF",
-    marginTop: 20,
-    textAlign: "center" as const,
-    paddingHorizontal: 40,
-  },
-  webFallback: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 40,
-    gap: 12,
-  },
-  webFallbackTitle: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 18,
-    color: "#FFFFFF",
-  },
-  webFallbackDesc: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 14,
-    color: "#9CA3AF",
-    textAlign: "center" as const,
   },
 });
