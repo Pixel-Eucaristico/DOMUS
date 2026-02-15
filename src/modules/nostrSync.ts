@@ -13,6 +13,8 @@ const DEFAULT_RELAYS = [
   "wss://relay.nostr.bg",
 ];
 
+const RELAY_TIMEOUT_MS = 8000;
+
 export interface NostrSyncKeys {
   privateKey: Uint8Array;
   publicKey: string;
@@ -34,7 +36,7 @@ function hexToBytes(hex: string): Uint8Array {
 }
 
 async function sha256(data: Uint8Array): Promise<Uint8Array> {
-  const digest = await crypto.subtle.digest("SHA-256", data);
+  const digest = await crypto.subtle.digest("SHA-256", data.buffer as ArrayBuffer);
   return new Uint8Array(digest);
 }
 
@@ -45,9 +47,13 @@ async function hkdfDerive(
   length: number,
 ): Promise<Uint8Array> {
   const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey("raw", ikm, "HKDF", false, [
-    "deriveBits",
-  ]);
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    ikm.buffer as ArrayBuffer,
+    "HKDF",
+    false,
+    ["deriveBits"],
+  );
   const derived = await crypto.subtle.deriveBits(
     {
       name: "HKDF",
@@ -130,6 +136,15 @@ async function decryptPayload(
   return new TextDecoder().decode(plainBytes);
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timeout: ${label} (${ms}ms)`)), ms);
+    promise
+      .then((val) => { clearTimeout(timer); resolve(val); })
+      .catch((err) => { clearTimeout(timer); reject(err); });
+  });
+}
+
 let _pool: SimplePool | null = null;
 
 function getPool(): SimplePool {
@@ -141,6 +156,55 @@ function getPool(): SimplePool {
 
 export function getRelays(): string[] {
   return [...DEFAULT_RELAYS];
+}
+
+export async function testRelayConnection(): Promise<{ connected: string[]; failed: string[] }> {
+  const connected: string[] = [];
+  const failed: string[] = [];
+
+  const results = await Promise.allSettled(
+    DEFAULT_RELAYS.map(async (relay) => {
+      return withTimeout(
+        new Promise<string>((resolve, reject) => {
+          try {
+            const ws = new WebSocket(relay);
+            const timer = setTimeout(() => {
+              ws.close();
+              reject(new Error("timeout"));
+            }, 5000);
+            ws.onopen = () => {
+              clearTimeout(timer);
+              ws.close();
+              resolve(relay);
+            };
+            ws.onerror = () => {
+              clearTimeout(timer);
+              reject(new Error("connection failed"));
+            };
+          } catch (e) {
+            reject(e);
+          }
+        }),
+        6000,
+        `relay ${relay}`,
+      );
+    }),
+  );
+
+  for (const r of results) {
+    if (r.status === "fulfilled") {
+      connected.push(r.value);
+    }
+  }
+
+  const connectedSet = new Set(connected);
+  for (const relay of DEFAULT_RELAYS) {
+    if (!connectedSet.has(relay)) {
+      failed.push(relay);
+    }
+  }
+
+  return { connected, failed };
 }
 
 export async function publishSyncEvents(
@@ -163,7 +227,7 @@ export async function publishSyncEvents(
 
     const encrypted = await encryptPayload(payload, keys.encryptionKey);
 
-    const nostrEvent: UnsignedEvent = {
+    const nostrEvent = {
       kind: DOMUS_KIND,
       created_at: Math.floor(evt.timestamp / 1000),
       tags: [
@@ -172,12 +236,17 @@ export async function publishSyncEvents(
         ["device", deviceId],
       ],
       content: encrypted,
-    };
+      pubkey: keys.publicKey,
+    } as UnsignedEvent;
 
     const signed = finalizeEvent(nostrEvent, keys.privateKey);
 
     try {
-      await Promise.any(pool.publish(getRelays(), signed));
+      await withTimeout(
+        Promise.any(pool.publish(getRelays(), signed)),
+        RELAY_TIMEOUT_MS,
+        "publish event",
+      );
       published++;
     } catch {
       console.log("Failed to publish event to any relay:", evt.id);
@@ -206,7 +275,11 @@ export async function pullSyncEvents(
   };
 
   try {
-    const nostrEvents = await pool.querySync(getRelays(), filter);
+    const nostrEvents = await withTimeout(
+      pool.querySync(getRelays(), filter),
+      RELAY_TIMEOUT_MS,
+      "pull events",
+    );
     const syncEvents: SyncEvent[] = [];
 
     for (const ne of nostrEvents) {
@@ -255,9 +328,9 @@ export function subscribeToSyncEvents(
       sinceUnix > 0 ? sinceUnix : Math.floor(Date.now() / 1000) - 60,
   };
 
-  const sub = pool.subscribeMany(getRelays(), [filter], {
-    onevent(nostrEvent) {
-      const deviceTag = nostrEvent.tags.find((t) => t[0] === "device");
+  const sub = pool.subscribeMany(getRelays(), [filter] as any, {
+    onevent(nostrEvent: any) {
+      const deviceTag = nostrEvent.tags.find((t: string[]) => t[0] === "device");
       if (deviceTag && deviceTag[1] === deviceId) return;
 
       decryptPayload(nostrEvent.content, keys.encryptionKey)

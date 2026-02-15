@@ -18,6 +18,7 @@ import {
   subscribeToSyncEvents,
   closePool,
   getRelays,
+  testRelayConnection,
   type NostrSyncKeys,
 } from "@/src/modules/nostrSync";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
@@ -264,6 +265,17 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
     try {
       setSyncStatus("syncing");
+      setErrorMessage(null);
+
+      const relayTest = await testRelayConnection();
+      if (relayTest.connected.length === 0) {
+        setSyncStatus("error");
+        setErrorMessage(
+          `Nenhum relay acessivel. Verifique sua conexao com a internet. Relays testados: ${relayTest.failed.length}`,
+        );
+        return null;
+      }
+
       const code = generateGroupCode();
       const keys = await deriveKeysFromCode(code);
 
@@ -274,8 +286,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
       const currentEvents = getAllEvents();
       if (currentEvents.length > 0) {
-        await pushEvents(keys, deviceId, currentEvents);
-        lastPushCountRef.current = currentEvents.length;
+        try {
+          await pushEvents(keys, deviceId, currentEvents);
+          lastPushCountRef.current = currentEvents.length;
+        } catch {
+          // push failed but group was created successfully
+        }
       }
 
       setSyncStatus("connected");
@@ -283,7 +299,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       return code;
     } catch (err) {
       setSyncStatus("error");
-      setErrorMessage("Falha ao conectar nos relays");
+      setErrorMessage("Falha ao criar grupo. Tente novamente.");
       return null;
     }
   }, [deviceId, getAllEvents, pushEvents, saveLastSync]);
@@ -294,6 +310,17 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
       try {
         setSyncStatus("syncing");
+        setErrorMessage(null);
+
+        const relayTest = await testRelayConnection();
+        if (relayTest.connected.length === 0) {
+          setSyncStatus("error");
+          setErrorMessage(
+            `Nenhum relay acessivel. Verifique sua conexao com a internet. Relays testados: ${relayTest.failed.length}`,
+          );
+          return false;
+        }
+
         const normalizedCode = code.trim().toUpperCase();
         const keys = await deriveKeysFromCode(normalizedCode);
 
@@ -304,17 +331,26 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
         const currentEvents = getAllEvents();
         if (currentEvents.length > 0) {
-          await pushEvents(keys, deviceId, currentEvents);
-          lastPushCountRef.current = currentEvents.length;
+          try {
+            await pushEvents(keys, deviceId, currentEvents);
+            lastPushCountRef.current = currentEvents.length;
+          } catch {
+            // push failed but join continues
+          }
         }
 
-        await pullFromRelays(keys, deviceId, 0);
+        try {
+          await pullFromRelays(keys, deviceId, 0);
+        } catch {
+          // pull failed but group was joined
+        }
+
         setSyncStatus("connected");
         await saveLastSync(Date.now());
         return true;
       } catch (err) {
         setSyncStatus("error");
-        setErrorMessage("Falha ao conectar nos relays Nostr");
+        setErrorMessage("Falha ao entrar no grupo. Verifique o codigo e tente novamente.");
         return false;
       }
     },
