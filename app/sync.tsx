@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -8,13 +8,20 @@ import {
   Platform,
   TextInput,
   ActivityIndicator,
+  Modal,
+  Dimensions,
+  Share,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import QRCode from "react-native-qrcode-svg";
 import { useSync } from "@/src/context/SyncProvider";
 import { useAppState } from "@/src/context/AppStateProvider";
+
+const SCREEN_W = Dimensions.get("window").width;
 
 function formatTime(ts: number | null): string {
   if (!ts) return "Nunca";
@@ -54,6 +61,121 @@ function statusLabel(status: string): string {
   }
 }
 
+function QRScannerModal({
+  visible,
+  onClose,
+  onScanned,
+  theme,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onScanned: (code: string) => void;
+  theme: any;
+}) {
+  const [permission, requestPermission] = useCameraPermissions();
+  const insets = useSafeAreaInsets();
+  const scannedRef = useRef(false);
+
+  const handleBarCodeScanned = useCallback(
+    (result: any) => {
+      if (scannedRef.current) return;
+      const data = result?.data;
+      if (!data) return;
+
+      const code = data.startsWith("domus://") ? data.replace("domus://", "") : data;
+      const cleaned = code.trim().toUpperCase();
+      if (cleaned.length >= 4 && cleaned.length <= 8) {
+        scannedRef.current = true;
+        if (Platform.OS !== "web") {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        onScanned(cleaned);
+      }
+    },
+    [onScanned],
+  );
+
+  const handleClose = useCallback(() => {
+    scannedRef.current = false;
+    onClose();
+  }, [onClose]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={handleClose}
+    >
+      <View style={[styles.scannerRoot, { backgroundColor: "#000" }]}>
+        <View
+          style={[
+            styles.scannerHeader,
+            { paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0) + 12 },
+          ]}
+        >
+          <Pressable onPress={handleClose} hitSlop={12}>
+            <Feather name="x" size={28} color="#FFFFFF" />
+          </Pressable>
+          <Text style={styles.scannerTitle}>Escanear QR Code</Text>
+          <View style={{ width: 28 }} />
+        </View>
+
+        {!permission ? (
+          <View style={styles.scannerCenter}>
+            <ActivityIndicator size="large" color="#FFFFFF" />
+          </View>
+        ) : !permission.granted ? (
+          <View style={styles.scannerCenter}>
+            <Feather name="camera-off" size={48} color="#9CA3AF" />
+            <Text style={styles.scannerPermText}>
+              Permita o acesso a camera para escanear o QR Code do grupo
+            </Text>
+            {permission.canAskAgain ? (
+              <Pressable
+                style={[styles.scannerPermBtn, { backgroundColor: theme.primaryColor }]}
+                onPress={requestPermission}
+              >
+                <Text style={styles.scannerPermBtnText}>Permitir Camera</Text>
+              </Pressable>
+            ) : (
+              <Text style={[styles.scannerPermText, { fontSize: 12, marginTop: 8 }]}>
+                Va em Configuracoes do dispositivo para permitir a camera
+              </Text>
+            )}
+          </View>
+        ) : (
+          <View style={styles.scannerCameraWrap}>
+            <CameraView
+              style={StyleSheet.absoluteFillObject}
+              facing="back"
+              barcodeScannerSettings={{
+                barcodeTypes: ["qr"],
+              }}
+              onBarcodeScanned={handleBarCodeScanned}
+            />
+            <View style={styles.scannerOverlay}>
+              <View style={styles.scannerFrameOuter}>
+                <View style={styles.scannerFrame}>
+                  <View style={[styles.scannerCorner, styles.cornerTL]} />
+                  <View style={[styles.scannerCorner, styles.cornerTR]} />
+                  <View style={[styles.scannerCorner, styles.cornerBL]} />
+                  <View style={[styles.scannerCorner, styles.cornerBR]} />
+                </View>
+              </View>
+              <Text style={styles.scannerHint}>
+                Aponte para o QR Code exibido no outro dispositivo
+              </Text>
+            </View>
+          </View>
+        )}
+      </View>
+    </Modal>
+  );
+}
+
 export default function SyncScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -78,6 +200,8 @@ export default function SyncScreen() {
   const [joinCode, setJoinCode] = useState("");
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
@@ -107,6 +231,22 @@ export default function SyncScreen() {
     }
   }, [joinGroup, joinCode]);
 
+  const handleScanResult = useCallback(
+    async (code: string) => {
+      setShowScanner(false);
+      setJoinCode(code);
+      setShowJoinInput(true);
+      setActionLoading(true);
+      const ok = await joinGroup(code);
+      setActionLoading(false);
+      if (ok) {
+        setJoinCode("");
+        setShowJoinInput(false);
+      }
+    },
+    [joinGroup],
+  );
+
   const handleLeaveGroup = useCallback(async () => {
     haptic();
     await leaveGroup();
@@ -118,6 +258,8 @@ export default function SyncScreen() {
     try {
       if (Platform.OS === "web" && navigator?.clipboard) {
         await navigator.clipboard.writeText(groupId);
+      } else if (Platform.OS !== "web") {
+        await Share.share({ message: `domus://${groupId}` });
       }
     } catch {}
   }, [groupId]);
@@ -133,6 +275,7 @@ export default function SyncScreen() {
   }, [pullNow]);
 
   const isBusy = syncStatus === "syncing" || actionLoading;
+  const qrValue = groupId ? `domus://${groupId}` : "";
 
   return (
     <View style={[styles.root, { backgroundColor: theme.background }]}>
@@ -253,6 +396,24 @@ export default function SyncScreen() {
               </Pressable>
             </View>
 
+            {Platform.OS !== "web" && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.qrScanBtn,
+                  { backgroundColor: theme.cardBackground, borderColor: theme.border },
+                  pressed && { opacity: 0.85 },
+                ]}
+                onPress={() => { haptic(); setShowScanner(true); }}
+                disabled={isBusy}
+              >
+                <MaterialCommunityIcons name="qrcode-scan" size={22} color={theme.primaryColor} />
+                <Text style={[styles.qrScanBtnText, { color: theme.textColor }]}>
+                  Escanear QR Code
+                </Text>
+                <Feather name="chevron-right" size={18} color={theme.secondaryText} />
+              </Pressable>
+            )}
+
             {showJoinInput && (
               <View style={[styles.joinCard, { backgroundColor: theme.cardBackground }]}>
                 <Text style={[styles.joinLabel, { color: theme.textColor }]}>
@@ -302,7 +463,7 @@ export default function SyncScreen() {
             <View style={[styles.infoCard, { backgroundColor: theme.cardBackground }]}>
               <Feather name="info" size={16} color={theme.secondaryText} />
               <Text style={[styles.infoText, { color: theme.secondaryText }]}>
-                Crie um grupo no celular A, depois entre com o codigo no celular B. Os dados sao sincronizados via relays publicos Nostr com criptografia ponta-a-ponta. Sem servidor central.
+                Crie um grupo no celular A, depois entre com o codigo ou escaneie o QR Code no celular B. Os dados sao sincronizados via relays publicos Nostr com criptografia ponta-a-ponta. Sem servidor central.
               </Text>
             </View>
           </>
@@ -313,12 +474,17 @@ export default function SyncScreen() {
                 <View style={[styles.codeBadge, { backgroundColor: `${theme.primaryColor}12` }]}>
                   <Text style={[styles.codeText, { color: theme.primaryColor }]}>{groupId}</Text>
                 </View>
-                <Pressable onPress={handleCopyCode} hitSlop={10}>
-                  <Feather name="copy" size={18} color={theme.secondaryText} />
-                </Pressable>
+                <View style={styles.connectedActions}>
+                  <Pressable onPress={() => { haptic(); setShowQRModal(true); }} hitSlop={10}>
+                    <MaterialCommunityIcons name="qrcode" size={22} color={theme.secondaryText} />
+                  </Pressable>
+                  <Pressable onPress={handleCopyCode} hitSlop={10}>
+                    <Feather name="share-2" size={18} color={theme.secondaryText} />
+                  </Pressable>
+                </View>
               </View>
               <Text style={[styles.connectedHint, { color: theme.secondaryText }]}>
-                Compartilhe este codigo com outro celular para parear
+                Compartilhe o codigo ou mostre o QR para parear outro celular
               </Text>
             </View>
 
@@ -386,6 +552,50 @@ export default function SyncScreen() {
           </>
         )}
       </ScrollView>
+
+      <QRScannerModal
+        visible={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScanned={handleScanResult}
+        theme={theme}
+      />
+
+      <Modal
+        visible={showQRModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowQRModal(false)}
+      >
+        <Pressable style={styles.qrModalOverlay} onPress={() => setShowQRModal(false)}>
+          <View style={[styles.qrModalContent, { backgroundColor: theme.cardBackground }]}>
+            <Text style={[styles.qrModalTitle, { color: theme.textColor }]}>
+              QR Code do Grupo
+            </Text>
+            <View style={styles.qrCodeWrap}>
+              <QRCode
+                value={qrValue || "domus://"}
+                size={SCREEN_W * 0.55}
+                backgroundColor="#FFFFFF"
+                color="#000000"
+              />
+            </View>
+            <View style={[styles.qrCodeLabel, { backgroundColor: `${theme.primaryColor}12` }]}>
+              <Text style={[styles.qrCodeLabelText, { color: theme.primaryColor }]}>
+                {groupId}
+              </Text>
+            </View>
+            <Text style={[styles.qrModalHint, { color: theme.secondaryText }]}>
+              Escaneie com o outro celular para parear
+            </Text>
+            <Pressable
+              style={[styles.qrModalCloseBtn, { backgroundColor: theme.primaryColor }]}
+              onPress={() => setShowQRModal(false)}
+            >
+              <Text style={styles.qrModalCloseBtnText}>Fechar</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -503,6 +713,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "rgba(255,255,255,0.7)",
   },
+  qrScanBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  qrScanBtnText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 14,
+    flex: 1,
+  },
   joinCard: {
     borderRadius: 16,
     padding: 18,
@@ -550,6 +773,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  connectedActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
   codeBadge: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -590,5 +818,131 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     flex: 1,
+  },
+  scannerRoot: { flex: 1 },
+  scannerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    zIndex: 10,
+  },
+  scannerTitle: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 18,
+    color: "#FFFFFF",
+  },
+  scannerCenter: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+    gap: 20,
+  },
+  scannerPermText: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 14,
+    color: "#9CA3AF",
+    textAlign: "center" as const,
+    lineHeight: 22,
+  },
+  scannerPermBtn: {
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  scannerPermBtnText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: "#FFFFFF",
+  },
+  scannerCameraWrap: {
+    flex: 1,
+    position: "relative" as const,
+  },
+  scannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 32,
+  },
+  scannerFrameOuter: {
+    width: 260,
+    height: 260,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  scannerFrame: {
+    width: 220,
+    height: 220,
+    position: "relative" as const,
+  },
+  scannerCorner: {
+    position: "absolute" as const,
+    width: 30,
+    height: 30,
+    borderColor: "#FFFFFF",
+  },
+  cornerTL: { top: 0, left: 0, borderTopWidth: 3, borderLeftWidth: 3 },
+  cornerTR: { top: 0, right: 0, borderTopWidth: 3, borderRightWidth: 3 },
+  cornerBL: { bottom: 0, left: 0, borderBottomWidth: 3, borderLeftWidth: 3 },
+  cornerBR: { bottom: 0, right: 0, borderBottomWidth: 3, borderRightWidth: 3 },
+  scannerHint: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 14,
+    color: "rgba(255,255,255,0.8)",
+    textAlign: "center" as const,
+    paddingHorizontal: 40,
+  },
+  qrModalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.6)",
+    padding: 24,
+  },
+  qrModalContent: {
+    borderRadius: 24,
+    padding: 28,
+    alignItems: "center",
+    gap: 16,
+    width: "100%",
+    maxWidth: 360,
+  },
+  qrModalTitle: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 18,
+  },
+  qrCodeWrap: {
+    backgroundColor: "#FFFFFF",
+    padding: 20,
+    borderRadius: 16,
+  },
+  qrCodeLabel: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  qrCodeLabelText: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 20,
+    letterSpacing: 4,
+  },
+  qrModalHint: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    textAlign: "center" as const,
+  },
+  qrModalCloseBtn: {
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  qrModalCloseBtnText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 14,
+    color: "#FFFFFF",
   },
 });
