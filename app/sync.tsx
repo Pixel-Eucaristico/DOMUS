@@ -13,7 +13,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import * as Clipboard from "expo-clipboard";
 import { useSync } from "@/src/context/SyncProvider";
 import { useAppState } from "@/src/context/AppStateProvider";
 
@@ -116,7 +115,11 @@ export default function SyncScreen() {
   const handleCopyCode = useCallback(async () => {
     if (!groupId) return;
     haptic();
-    await Clipboard.setStringAsync(groupId);
+    try {
+      if (Platform.OS === "web" && navigator?.clipboard) {
+        await navigator.clipboard.writeText(groupId);
+      }
+    } catch {}
   }, [groupId]);
 
   const handlePush = useCallback(async () => {
