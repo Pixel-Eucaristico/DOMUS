@@ -101,10 +101,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     AsyncStorage.getItem(LAST_SYNC_KEY).then((val) => {
       if (val) setLastSyncTime(parseInt(val, 10));
     });
-    AsyncStorage.getItem(GROUP_CODE_KEY).then((val) => {
+    AsyncStorage.getItem(GROUP_CODE_KEY).then(async (val) => {
       if (val) {
         setGroupCode(val);
-        keysRef.current = deriveKeysFromCode(val);
+        keysRef.current = await deriveKeysFromCode(val);
       }
     });
     AsyncStorage.getItem(LAST_PULL_TS_KEY).then((val) => {
@@ -265,7 +265,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     try {
       setSyncStatus("syncing");
       const code = generateGroupCode();
-      const keys = deriveKeysFromCode(code);
+      const keys = await deriveKeysFromCode(code);
 
       keysRef.current = keys;
       setGroupCode(code);
@@ -295,7 +295,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       try {
         setSyncStatus("syncing");
         const normalizedCode = code.trim().toUpperCase();
-        const keys = deriveKeysFromCode(normalizedCode);
+        const keys = await deriveKeysFromCode(normalizedCode);
 
         keysRef.current = keys;
         setGroupCode(normalizedCode);

@@ -1,9 +1,5 @@
-import { finalizeEvent, type UnsignedEvent } from "nostr-tools/pure";
+import { finalizeEvent, type UnsignedEvent, getPublicKey } from "nostr-tools/pure";
 import { SimplePool, type SubCloser } from "nostr-tools/pool";
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
-import { sha256 } from "@noble/hashes/sha256";
-import { hkdf } from "@noble/hashes/hkdf";
-import { getPublicKey } from "nostr-tools/pure";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 
 const DOMUS_KIND = 29333;
@@ -23,11 +19,68 @@ export interface NostrSyncKeys {
   encryptionKey: Uint8Array;
 }
 
-export function deriveKeysFromCode(groupCode: string): NostrSyncKeys {
-  const seed = sha256(new TextEncoder().encode(`domus-group:${groupCode.toUpperCase()}`));
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
-  const privateKey = hkdf(sha256, seed, "domus-nostr-identity", "nostr-private-key", 32);
-  const encryptionKey = hkdf(sha256, seed, "domus-payload-encryption", "aes-key", 32);
+function hexToBytes(hex: string): Uint8Array {
+  const result = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    result[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+  }
+  return result;
+}
+
+async function sha256(data: Uint8Array): Promise<Uint8Array> {
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return new Uint8Array(digest);
+}
+
+async function hkdfDerive(
+  ikm: Uint8Array,
+  salt: string,
+  info: string,
+  length: number,
+): Promise<Uint8Array> {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey("raw", ikm, "HKDF", false, [
+    "deriveBits",
+  ]);
+  const derived = await crypto.subtle.deriveBits(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: enc.encode(salt),
+      info: enc.encode(info),
+    },
+    keyMaterial,
+    length * 8,
+  );
+  return new Uint8Array(derived);
+}
+
+export async function deriveKeysFromCode(
+  groupCode: string,
+): Promise<NostrSyncKeys> {
+  const enc = new TextEncoder();
+  const seed = await sha256(
+    enc.encode(`domus-group:${groupCode.toUpperCase()}`),
+  );
+
+  const privateKey = await hkdfDerive(
+    seed,
+    "domus-nostr-identity",
+    "nostr-private-key",
+    32,
+  );
+  const encryptionKey = await hkdfDerive(
+    seed,
+    "domus-payload-encryption",
+    "aes-key",
+    32,
+  );
 
   const publicKey = getPublicKey(privateKey);
 
@@ -42,32 +95,36 @@ function xorEncryptDecrypt(data: Uint8Array, key: Uint8Array): Uint8Array {
   return result;
 }
 
-function encryptPayload(payload: string, encKey: Uint8Array): string {
+async function encryptPayload(
+  payload: string,
+  encKey: Uint8Array,
+): Promise<string> {
   const nonce = new Uint8Array(16);
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    crypto.getRandomValues(nonce);
-  } else {
-    for (let i = 0; i < 16; i++) nonce[i] = Math.floor(Math.random() * 256);
-  }
+  crypto.getRandomValues(nonce);
 
-  const expandedKey = sha256(new Uint8Array([...encKey, ...nonce]));
+  const expandedKey = await sha256(
+    new Uint8Array([...encKey, ...nonce]),
+  );
 
   const plainBytes = new TextEncoder().encode(payload);
   const cipherBytes = xorEncryptDecrypt(plainBytes, expandedKey);
 
-  const nonceHex = bytesToHex(nonce);
-  const cipherHex = bytesToHex(cipherBytes);
-  return `${nonceHex}:${cipherHex}`;
+  return `${bytesToHex(nonce)}:${bytesToHex(cipherBytes)}`;
 }
 
-function decryptPayload(encrypted: string, encKey: Uint8Array): string {
+async function decryptPayload(
+  encrypted: string,
+  encKey: Uint8Array,
+): Promise<string> {
   const [nonceHex, cipherHex] = encrypted.split(":");
   if (!nonceHex || !cipherHex) throw new Error("Invalid encrypted format");
 
   const nonce = hexToBytes(nonceHex);
   const cipherBytes = hexToBytes(cipherHex);
 
-  const expandedKey = sha256(new Uint8Array([...encKey, ...nonce]));
+  const expandedKey = await sha256(
+    new Uint8Array([...encKey, ...nonce]),
+  );
   const plainBytes = xorEncryptDecrypt(cipherBytes, expandedKey);
 
   return new TextDecoder().decode(plainBytes);
@@ -104,7 +161,7 @@ export async function publishSyncEvents(
       signature: evt.signature || "",
     });
 
-    const encrypted = encryptPayload(payload, keys.encryptionKey);
+    const encrypted = await encryptPayload(payload, keys.encryptionKey);
 
     const nostrEvent: UnsignedEvent = {
       kind: DOMUS_KIND,
@@ -137,7 +194,8 @@ export async function pullSyncEvents(
 ): Promise<SyncEvent[]> {
   const pool = getPool();
 
-  const sinceUnix = sinceTimestamp > 0 ? Math.floor(sinceTimestamp / 1000) - 5 : 0;
+  const sinceUnix =
+    sinceTimestamp > 0 ? Math.floor(sinceTimestamp / 1000) - 5 : 0;
 
   const filter = {
     kinds: [DOMUS_KIND],
@@ -156,7 +214,7 @@ export async function pullSyncEvents(
       if (deviceTag && deviceTag[1] === deviceId) continue;
 
       try {
-        const decrypted = decryptPayload(ne.content, keys.encryptionKey);
+        const decrypted = await decryptPayload(ne.content, keys.encryptionKey);
         const parsed = JSON.parse(decrypted);
         syncEvents.push({
           id: parsed.id,
@@ -186,13 +244,15 @@ export function subscribeToSyncEvents(
 ): SubCloser {
   const pool = getPool();
 
-  const sinceUnix = sinceTimestamp > 0 ? Math.floor(sinceTimestamp / 1000) - 5 : 0;
+  const sinceUnix =
+    sinceTimestamp > 0 ? Math.floor(sinceTimestamp / 1000) - 5 : 0;
 
   const filter = {
     kinds: [DOMUS_KIND],
     authors: [keys.publicKey],
     "#t": [DOMUS_APP_TAG],
-    since: sinceUnix > 0 ? sinceUnix : Math.floor(Date.now() / 1000) - 60,
+    since:
+      sinceUnix > 0 ? sinceUnix : Math.floor(Date.now() / 1000) - 60,
   };
 
   const sub = pool.subscribeMany(getRelays(), [filter], {
@@ -200,18 +260,19 @@ export function subscribeToSyncEvents(
       const deviceTag = nostrEvent.tags.find((t) => t[0] === "device");
       if (deviceTag && deviceTag[1] === deviceId) return;
 
-      try {
-        const decrypted = decryptPayload(nostrEvent.content, keys.encryptionKey);
-        const parsed = JSON.parse(decrypted);
-        onEvent({
-          id: parsed.id,
-          type: parsed.type,
-          payload: parsed.payload,
-          timestamp: parsed.timestamp,
-          deviceId: parsed.deviceId,
-          signature: parsed.signature || "",
-        });
-      } catch {}
+      decryptPayload(nostrEvent.content, keys.encryptionKey)
+        .then((decrypted) => {
+          const parsed = JSON.parse(decrypted);
+          onEvent({
+            id: parsed.id,
+            type: parsed.type,
+            payload: parsed.payload,
+            timestamp: parsed.timestamp,
+            deviceId: parsed.deviceId,
+            signature: parsed.signature || "",
+          });
+        })
+        .catch(() => {});
     },
   });
 
