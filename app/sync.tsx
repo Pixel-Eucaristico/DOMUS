@@ -137,7 +137,7 @@ export default function SyncScreen() {
   return (
     <View style={[styles.root, { backgroundColor: theme.background }]}>
       <View style={[styles.topBar, { paddingTop: insets.top + webTopInset + 12 }]}>
-        <Pressable onPress={() => { haptic(); router.back(); }} hitSlop={12}>
+        <Pressable testID="sync-back-button" onPress={() => { haptic(); router.canGoBack() ? router.back() : router.replace("/"); }} hitSlop={12}>
           <Feather name="arrow-left" size={24} color={theme.textColor} />
         </Pressable>
         <Text style={[styles.topBarTitle, { color: theme.textColor }]}>Sincronizar</Text>

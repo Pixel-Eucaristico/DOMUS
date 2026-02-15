@@ -114,6 +114,7 @@ export default function HomeScreen() {
           </View>
           <View style={s.headerActions}>
             <Pressable
+              testID="sync-button"
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
               onPress={() => router.push("/sync")}
             >

@@ -1,205 +1,49 @@
-# DOMUS (formerly OrcaFacil)
+# DOMUS
 
 ## Overview
-App fintech de orcamento pessoal focado em Android. Monorepo com Expo SDK 54, TypeScript strict, Expo Router.
-Arquitetura Event Sourcing + Offline-First radical. Sem backend, sem servidor, 100% local.
-Gamificacao e o CORE do sistema (XP, niveis, streaks, arquetipos, seasons).
+DOMUS is a personal finance fintech application focused on Android, built as a monorepo with Expo SDK 54 and strict TypeScript. Its core principle is an Event Sourcing and "Offline-First" architecture, ensuring full functionality without an internet connection, with synchronization handled via a relay server. A key differentiator and central feature of DOMUS is its robust gamification system, encompassing XP, levels, streaks, archetypes, and seasonal challenges, designed to engage users and encourage financial discipline. The project aims to provide a comprehensive, engaging, and resilient personal finance management experience.
 
-## Project Structure
-```
-/packages/events      -> Tipagem global de eventos (DomainEvent, EventType, factory)
-/packages/domain      -> Reducers e regras de negocio (contas, transacoes, 50/30/20, replay)
-/packages/storage     -> EventStore SQLite (persistencia local via expo-sqlite)
-/packages/core        -> Nucleo financeiro legado (tipos, contas, transacoes, orcamento, projecoes)
-/packages/sync        -> Sincronizacao P2P (pacote legado WebRTC, nao usado na UI)
-/packages/parsers     -> Parsers de nota fiscal (NFC-e, SEFAZ, OCR) + classificacao
-/packages/gamification -> XP engine, level engine, streak engine, reducer
-/packages/season      -> Seasons mensais, avaliacao, badges, evolucao de arquetipo
-/packages/personality -> 6 arquetipos, deteccao de perfil, tone engine, evolucao
-/packages/onboarding  -> 7 dias adaptivos, missoes por dificuldade, adaptive engine
-/packages/theme       -> Temas por arquetipo (6 paletas elegantes/sobrias)
-/packages/ai          -> Inteligencia artificial (placeholder - Gemini opcional)
-/packages/wishlist    -> Lista de desejos (placeholder)
-/app                  -> Camada UI separada do dominio (Expo Router)
-/app/(tabs)           -> Tab screens: index (Home), accounts, season
-/app/add-transaction.tsx -> Modal para nova transacao
-/app/onboarding.tsx   -> Onboarding flow (7 dias adaptivos)
-/app/sync.tsx         -> Tela de sincronizacao mobile-first (exportar/importar arquivo, QR code)
-/src/context          -> AppStateProvider (estado global via Event Sourcing), SyncProvider (file + QR sync)
-/src/components       -> Componentes reutilizaveis do app
-/src/hooks            -> Custom hooks
-/src/modules          -> Modulos de funcionalidades
-/src/services         -> Servicos
-/src/theme            -> Tema (cores, espacamento)
-/src/types            -> Tipos globais do app
-```
+## User Preferences
+I prefer detailed explanations of proposed changes.
+I want iterative development.
+Ask before making major changes.
+I like functional programming paradigms where applicable.
+Do not make changes to the `packages/sync` folder, as it contains legacy WebRTC code not actively used in the UI.
 
-## Theme
-- primary: #1B5E63
-- secondary: #4CAF50
-- background: #F4F6F8
-- danger: #E53935
-- Font: DM Sans
+## System Architecture
+**UI/UX Decisions:**
+- **Color Scheme:** Six elegant and sober color palettes are defined, each corresponding to a user archetype (e.g., Explorer (teal), Organizer (indigo)). The theme automatically adjusts with archetype evolution.
+- **Font:** DM Sans.
+- **Navigation:** Leverages Expo Router for file-based navigation, including tab-based screens (`(tabs)`) and modals.
+- **Component Reusability:** Emphasizes reusable components, custom hooks, and functional modules.
 
-## Recent Changes
-- 2026-02-11: Projeto inicial criado com estrutura monorepo
-- 2026-02-11: Nucleo financeiro implementado em /packages/core (33 testes)
-- 2026-02-12: Sistema de sync P2P implementado em /packages/sync (46 testes):
-  - Event Sourcing: EventStore com append, getEventsSince, replayEvents, assinatura digital
-  - WebRTC: WebRTCManager com STUN publico, data channels, QR signaling
-  - Mesh: MeshManager com broadcast, syncWithPeer, heartbeat, peer discovery
-  - Protocolo: HANDSHAKE, EVENT_BATCH, PEER_LIST, HEARTBEAT
-  - Conflitos: lastWriteWins com desempate por deviceId, deduplicacao
-  - Crypto: CryptoAdapter abstrato + SimpleCrypto para testes
-  - Identidade: deviceId, networkId, chave pub/priv
+**Technical Implementations:**
+- **Monorepo Structure:** Organized into `/packages` for domain-specific logic (events, domain, storage, gamification, season, personality, onboarding, theme, parsers) and `/app` for the UI layer.
+- **Event Sourcing:** The core state management relies on immutable, typed, and signed events. The application state is always reconstructed by replaying events from the `EventStore`, never directly persisted.
+- **Offline-First:** The application's core functionality is entirely offline. Synchronization occurs via a relay server when an internet connection is available and a sync group is active.
+- **Strict TypeScript:** Ensures strong typing and code quality across the entire codebase.
+- **Gamification Core:** XP engine (transaction logging, budget adherence, missions, streaks, season bonuses), level engine, streak engine, season engine (monthly calendar seasons, archetype evaluation, badges), and personality engine (6 archetypes detected by financial behavior, tone engine for adaptive messaging, archetype evolution).
+- **Onboarding:** A 7-day adaptive mission system with varying difficulty levels (easy/normal/challenging) that adjusts based on user completion rates, designed to never punish the user.
+- **Invoice Parsing:** Supports QR code scanning for NFC-e, direct SEFAZ HTML parsing, and OCR as a fallback. Classification uses keywords and optionally AI (Gemini) with manual correction.
+- **Financial Core:** Manages accounts (checking, savings, wallet, credit card), transactions (income, expense, transfer), and budget allocation (50/30/20 rule). Handles installment plans.
 
-- 2026-02-14: Modulo de nota fiscal implementado em /packages/parsers (58 testes):
-  - QR Code: parseNFCeQRCode, isValidSefazUrl, extractUrlFromQRData
-  - SEFAZ: parseSefazHtml, fetchAndParseSefaz (extrai items, total, data, chave acesso)
-  - OCR: parseOCRText, parseFromImage (fallback via ML Kit adapter)
-  - Classificacao: classifyByKeyword (70+ palavras-chave PT-BR), createGeminiClassifier, createHybridClassifier
-  - Eventos: INVOICE_IMPORTED, AI_CLASSIFICATION_CORRECTED
-  - Reducer: invoiceReducer para replay via EventStore (imutavel)
-  - Pipeline: importFromQRCode, importFromImage, importFromHtml
-  - Nao cria transacoes diretamente - emite evento para dominio
+**System Design Choices:**
+- **Separation of Concerns:** A clear distinction between domain logic (`/packages`) and the UI (`/app`).
+- **State Management:** Global state managed by `AppStateProvider` using Event Sourcing, exposed via `useAppState()` hook. Screens dispatch events rather than directly modifying state.
+- **Data Persistence:** Local `EventStore` uses `expo-sqlite` with a single `events` table, storing event payloads as JSON strings.
+- **Testing:** Comprehensive unit tests using Vitest across all packages, including an integration test for the full user journey.
 
-- 2026-02-14: Storage SQLite implementado em /packages/storage (23 testes):
-  - SQLiteEventStore: initDatabase, appendEvent, getAllEvents, getEventsSince, eventExists, replayEvents
-  - DatabaseAdapter: interface abstrata para SQLite e testes
-  - createMemoryAdapter: adapter in-memory para testes unitarios
-  - createSQLiteAdapter: adapter real usando expo-sqlite
-  - Tabela events: id, type, payload (JSON), timestamp, deviceId, signature
-  - INSERT OR IGNORE para deduplicacao
-  - Estado nunca salvo no banco - apenas via replayEvents
-
-- 2026-02-14: Pacotes events + domain implementados (70 testes):
-  - /packages/events (12 testes):
-    - EVENT_TYPES: ACCOUNT_CREATED, ACCOUNT_UPDATED, ACCOUNT_DELETED, TRANSACTION_CREATED, TRANSACTION_UPDATED, TRANSACTION_DELETED, CATEGORY_CREATED
-    - ACCOUNT_TYPES: checking, savings, wallet, credit_card
-    - TRANSACTION_TYPES: income, expense, transfer
-    - CATEGORY_GROUPS: needs, wants, savings (50/30/20)
-    - DomainEvent union type, createEvent factory, generateId
-    - InstallmentInfo para parcelamentos
-  - /packages/domain (58 testes):
-    - domainReducer: processa todos os eventos, imutavel, aplica/reverte saldos
-    - createAccountEvent: corrente, poupanca, carteira, cartao credito (com limite, fechamento, vencimento)
-    - createTransactionEvent: gera N eventos para parcelamento, distribui resto na ultima parcela
-    - calculate503020: breakdown mensal necessidades/desejos/investimentos
-    - replayEvents / replayEventsSince: reconstroi estado completo a partir de eventos
-    - getCreditUsage / getAvailableCredit: calcula uso do cartao
-    - Conta credit_card nao altera balance em despesas (fatura separada)
-
-- 2026-02-14: Modulo de nota fiscal implementado em /packages/parsers (58 testes):
-  - QR Code: parseNFCeQRCode, isValidSefazUrl, extractUrlFromQRData
-  - SEFAZ: parseSefazHtml, fetchAndParseSefaz (extrai items, total, data, chave acesso)
-  - OCR: parseOCRText, parseFromImage (fallback via ML Kit adapter)
-  - Classificacao: classifyByKeyword (70+ palavras-chave PT-BR), createGeminiClassifier, createHybridClassifier
-  - Eventos: INVOICE_IMPORTED, AI_CLASSIFICATION_CORRECTED
-  - Reducer: invoiceReducer para replay via EventStore (imutavel)
-  - Pipeline: importFromQRCode, importFromImage, importFromHtml
-  - Nao cria transacoes diretamente - emite evento para dominio
-
-- 2026-02-14: Gamification implementado em /packages/gamification (77 testes):
-  - XP Engine: 6 fontes de XP (transaction_logged=10, budget_adherence=5-50, mission_completed=50, daily_consistency=15, streak_bonus=0-50, season_bonus=100)
-  - Level Engine: formula 100*1.5^(level-1), getLevelInfo, shouldLevelUp
-  - Streak Engine: updateStreak (consecutivo +1, gap reseta a 1), isStreakActive, longestStreak preservado
-  - Reducer: gamificationReducer imutavel, replayGamificationEvents reconstroi estado
-  - Budget adherence XP: perfeito 50/30/20 = 50xp, desvios graduais ate 5xp
-
-- 2026-02-14: Season implementado em /packages/season (36 testes):
-  - Season Engine: createSeasonId, startSeason, endSeason, evaluateSeason, shouldEndSeason
-  - Eventos: SEASON_STARTED, SEASON_ENDED, SEASON_EVALUATED, ARCHETYPE_EVOLVED, SEASON_BADGE_EARNED
-  - Reducer: seasonReducer imutavel, replaySeasonEvents, historico de seasons
-  - Mes calendario = 1 season, avaliacao automatica no fim
-
-- 2026-02-14: Personality implementado em /packages/personality (39 testes):
-  - 6 arquetipos: EXPLORER, ORGANIZER, PLANNER, STRATEGIST, INVESTOR, INDEPENDENT
-  - Deteccao por prioridade: INDEPENDENT (all>=80) > INVESTOR > STRATEGIST > PLANNER > ORGANIZER > EXPLORER
-  - ArchetypeScores: consistency, budgetAdherence, wishlistUsage, desireControl, monthlyPlanning (0-100)
-  - Tone Engine: motivational (Explorer/Organizer), technical (Planner/Strategist), strategic (Investor/Independent)
-  - Evolucao: shouldEvolve detecta mudanca, evolveArchetype com razao PT-BR
-
-- 2026-02-14: Onboarding implementado em /packages/onboarding (47 testes):
-  - 7 dias de missoes adaptivas com 3 niveis (easy/normal/challenging)
-  - Adaptive Engine: ajusta dificuldade baseado em taxa de conclusao, NUNCA pune
-  - Missoes: create_account, set_income, log_expense, review_budget, set_goal, log_3_transactions, check_503020
-  - Reducer: onboardingReducer imutavel, deduplicacao de steps/days
-  - Mensagens de encorajamento adaptativas por faixa de performance
-
-- 2026-02-14: Theme implementado em /packages/theme (37 testes):
-  - 6 paletas por arquetipo: explorer (teal), organizer (indigo), planner (navy), strategist (purple), investor (emerald), independent (dark)
-  - Cores elegantes e sobrias (sem cores saturadas/infantis)
-  - ThemeColors: primaryColor, accentColor, background, textColor, secondaryText, cardBackground, border, success, warning, danger
-  - getThemeForArchetype, getDefaultTheme (explorer), isValidArchetypeTheme
-
-- 2026-02-14: Teste de integracao completo em /packages/__tests__/integration.test.ts (18 testes):
-  - Jornada completa: onboarding -> criar conta -> registrar renda -> gastos -> 50/30/20 -> XP -> level -> streak -> arquetipo -> tema -> season -> evolucao
-  - Valida reconstrucao de estado via replay em todos os pacotes
-
-- 2026-02-14: Camada UI completa implementada (5 telas funcionais):
-  - AppStateProvider em /src/context/AppStateProvider.tsx: estado global via Event Sourcing, replayAllEvents, dispatch/dispatchDomainEvent
-  - HomeScreen (app/(tabs)/index.tsx): XP, nivel, streak, arquetipo, saldo total, orcamento 50/30/20, transacoes recentes, FAB para nova transacao
-  - AccountsScreen (app/(tabs)/accounts.tsx): lista de contas, modal de criacao (corrente/poupanca/carteira/cartao), dispatch ACCOUNT_CREATED
-  - SeasonScreen (app/(tabs)/season.tsx): progresso da season, arquetipo atual, badges, historico, tone engine
-  - AddTransactionScreen (app/add-transaction.tsx): modal com tipo (despesa/receita/transferencia), valor, categoria 50/30/20, parcelas, conta
-  - OnboardingFlow (app/onboarding.tsx): 7 dias adaptivos, missoes por dificuldade, progresso visual
-  - Tab layout com 3 abas: Inicio, Contas, Temporada (com BlurView/NativeTabs)
-  - Tema automatico por arquetipo (6 paletas elegantes)
-  - XP automatico ao criar transacao (+10 XP), streak atualizado diariamente, level-up automatico
-  - Gamificacao integrada: dispatchDomainEvent emite eventos de XP, streak e level junto com eventos financeiros
-
-- 2026-02-14: Bug fix - AppStateProvider movido de app/context/ para src/context/:
-  - Expo Router tratava o arquivo como rota, causando crash "missing default export"
-  - HomeScreen crashava ao criar primeira conta
-  - Corrigidos todos os imports em 6 arquivos
-
-- 2026-02-14: Sync mobile-first reimplementado (substituiu WebRTC):
-  - app/sync.tsx: tela de sincronizacao com 2 metodos: arquivo (exportar/importar) e QR code
-  - src/context/SyncProvider.tsx: SyncProvider com exportToFile, importFromFile, getQRData, importFromQR
-  - Arquivo: exporta JSON bundle via system share sheet (WhatsApp, Bluetooth, etc), importa via document picker
-  - QR Code: ate ~50 eventos recentes comprimidos em QR, scanner via expo-camera
-  - expo-file-system (File/Paths API), expo-sharing, expo-document-picker instalados
-  - Deduplicacao automatica por ID na importacao
-  - AppStateProvider ganhou importEvents() e getAllEvents() para merge de eventos
-  - webrtcFactory.ts obsoleto (mantido no codebase)
-
-## Architecture Decisions
-- Sem backend/servidor - app 100% offline, local apenas
-- TypeScript strict: true
-- Vitest para testes unitarios
-- Event Sourcing: eventos imutaveis, tipados, assinados, ordenados por timestamp
-- Estado NUNCA salvo no banco - sempre reconstruido via replayEvents
-- Dominio totalmente separado da UI (/packages vs /app)
-- Expo Router para navegacao file-based
-- Sync mobile-first: arquivo JSON via share sheet + QR code para eventos recentes, sem WebRTC
-- Nota fiscal: request direto ao SEFAZ, fallback OCR, classificacao keyword+AI
-- Classificacao: keyword primeiro (confianca >= 0.7), Gemini como fallback, correcao manual via evento
-- Storage: expo-sqlite com tabela unica events, payload como JSON string, DatabaseAdapter abstrato
-- IA: Gemini opcional, chave fornecida pelo usuario
-
-## Architecture Decisions (continued)
-- Gamificacao e o CORE do sistema, nao um add-on
-- 6 arquetipos com ordem de prioridade: INDEPENDENT > INVESTOR > STRATEGIST > PLANNER > ORGANIZER > EXPLORER
-- Onboarding NUNCA pune usuario - dificuldade so pode diminuir ou manter baseado em performance
-- Season = mes calendario, avaliacao automatica, re-avaliacao de arquetipo
-- Tema muda automaticamente com evolucao do arquetipo (elegante, sobrio, premium)
-- AppStateProvider DEVE ficar em /src/context/ (nunca em /app/) para nao ser tratado como rota pelo Expo Router
-- UI usa useAppState() hook para acessar estado derivado do AppStateProvider
-- Telas apenas dispatcham eventos (dispatchDomainEvent para financeiros, dispatch para gamificacao/onboarding/season)
-- XP automaticamente concedido ao criar transacao, streak atualizado diariamente, level-up automatico
-
-## Testing
-- Rodar todos os testes: `npx vitest run packages/`
-- Testes events: `npx vitest run packages/events/__tests__/`
-- Testes domain: `npx vitest run packages/domain/__tests__/`
-- Testes core: `npx vitest run packages/core/__tests__/`
-- Testes sync: `npx vitest run packages/sync/__tests__/`
-- Testes parsers: `npx vitest run packages/parsers/__tests__/`
-- Testes storage: `npx vitest run packages/storage/__tests__/`
-- Testes gamification: `npx vitest run packages/gamification/__tests__/`
-- Testes season: `npx vitest run packages/season/__tests__/`
-- Testes personality: `npx vitest run packages/personality/__tests__/`
-- Testes onboarding: `npx vitest run packages/onboarding/__tests__/`
-- Testes theme: `npx vitest run packages/theme/__tests__/`
-- Teste integracao: `npx vitest run packages/__tests__/`
-- Total: 484 testes passando (12 events + 58 domain + 33 core + 46 sync + 58 parsers + 23 storage + 77 gamification + 36 season + 39 personality + 47 onboarding + 37 theme + 18 integracao)
+## External Dependencies
+- **Expo SDK 54:** The primary framework for building the cross-platform application.
+- **Expo Router:** For file-based navigation within the Expo application.
+- **expo-sqlite:** Used for local data persistence via SQLite.
+- **expo-camera:** For QR code scanning functionality.
+- **expo-file-system:** For file system operations, particularly for exporting/importing JSON bundles.
+- **expo-sharing:** For sharing exported JSON bundles via system share sheets.
+- **expo-document-picker:** For importing JSON bundles.
+- **Express.js:** Used for the backend relay synchronization server.
+- **PostgreSQL:** The database for the backend sync server.
+- **Drizzle ORM:** Used with `pg` (Node.js PostgreSQL client) for database interactions on the backend.
+- **Google Gemini (optional):** An AI model used for invoice classification as a fallback or enhancement to keyword-based classification.
+- **ML Kit (via adapter):** Used as a fallback for OCR in invoice parsing.
+- **Vitest:** The testing framework.
