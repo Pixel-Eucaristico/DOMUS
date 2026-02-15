@@ -21,7 +21,8 @@ import QRCode from "react-native-qrcode-svg";
 import { useSync } from "@/src/context/SyncProvider";
 import { useAppState } from "@/src/context/AppStateProvider";
 
-const SCREEN_W = Dimensions.get("window").width;
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
+const QR_SIZE = Math.min(SCREEN_W * 0.5, SCREEN_H * 0.3, 220);
 
 function formatTime(ts: number | null): string {
   if (!ts) return "Nunca";
@@ -567,33 +568,41 @@ export default function SyncScreen() {
         onRequestClose={() => setShowQRModal(false)}
       >
         <Pressable style={styles.qrModalOverlay} onPress={() => setShowQRModal(false)}>
-          <View style={[styles.qrModalContent, { backgroundColor: theme.cardBackground }]}>
-            <Text style={[styles.qrModalTitle, { color: theme.textColor }]}>
-              QR Code do Grupo
-            </Text>
-            <View style={styles.qrCodeWrap}>
-              <QRCode
-                value={qrValue || "domus://"}
-                size={SCREEN_W * 0.55}
-                backgroundColor="#FFFFFF"
-                color="#000000"
-              />
-            </View>
-            <View style={[styles.qrCodeLabel, { backgroundColor: `${theme.primaryColor}12` }]}>
-              <Text style={[styles.qrCodeLabelText, { color: theme.primaryColor }]}>
-                {groupId}
-              </Text>
-            </View>
-            <Text style={[styles.qrModalHint, { color: theme.secondaryText }]}>
-              Escaneie com o outro celular para parear
-            </Text>
+          <ScrollView
+            contentContainerStyle={styles.qrModalScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
             <Pressable
-              style={[styles.qrModalCloseBtn, { backgroundColor: theme.primaryColor }]}
-              onPress={() => setShowQRModal(false)}
+              style={[styles.qrModalContent, { backgroundColor: theme.cardBackground }]}
+              onPress={(e) => e.stopPropagation()}
             >
-              <Text style={styles.qrModalCloseBtnText}>Fechar</Text>
+              <Text style={[styles.qrModalTitle, { color: theme.textColor }]}>
+                QR Code do Grupo
+              </Text>
+              <View style={styles.qrCodeWrap}>
+                <QRCode
+                  value={qrValue || "domus://"}
+                  size={QR_SIZE}
+                  backgroundColor="#FFFFFF"
+                  color="#000000"
+                />
+              </View>
+              <View style={[styles.qrCodeLabel, { backgroundColor: `${theme.primaryColor}12` }]}>
+                <Text style={[styles.qrCodeLabelText, { color: theme.primaryColor }]}>
+                  {groupId}
+                </Text>
+              </View>
+              <Text style={[styles.qrModalHint, { color: theme.secondaryText }]}>
+                Escaneie com o outro celular para parear
+              </Text>
+              <Pressable
+                style={[styles.qrModalCloseBtn, { backgroundColor: theme.primaryColor }]}
+                onPress={() => setShowQRModal(false)}
+              >
+                <Text style={styles.qrModalCloseBtnText}>Fechar</Text>
+              </Pressable>
             </Pressable>
-          </View>
+          </ScrollView>
         </Pressable>
       </Modal>
     </View>
@@ -897,18 +906,21 @@ const styles = StyleSheet.create({
   },
   qrModalOverlay: {
     flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  qrModalScrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.6)",
     padding: 24,
   },
   qrModalContent: {
     borderRadius: 24,
-    padding: 28,
+    padding: 24,
     alignItems: "center",
-    gap: 16,
+    gap: 14,
     width: "100%",
-    maxWidth: 360,
+    maxWidth: 340,
   },
   qrModalTitle: {
     fontFamily: "DMSans_700Bold",

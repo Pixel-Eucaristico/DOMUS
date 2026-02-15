@@ -2,7 +2,7 @@ import { finalizeEvent, type UnsignedEvent, getPublicKey } from "nostr-tools/pur
 import { SimplePool, type SubCloser } from "nostr-tools/pool";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 
-const DOMUS_KIND = 29333;
+const DOMUS_KIND = 30333;
 const DOMUS_APP_TAG = "domus-sync";
 
 const DEFAULT_RELAYS = [
