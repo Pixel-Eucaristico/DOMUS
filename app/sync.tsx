@@ -65,7 +65,7 @@ export default function SyncScreen() {
     lastSyncTime,
     errorMessage,
     eventCount,
-    peerCount,
+    relayCount,
     isAutoSyncEnabled,
     createGroup,
     joinGroup,
@@ -179,8 +179,8 @@ export default function SyncScreen() {
             </View>
             <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.textColor }]}>{peerCount}</Text>
-              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>dispositivos</Text>
+              <Text style={[styles.statValue, { color: theme.textColor }]}>{relayCount}</Text>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>relays</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
             <View style={styles.statItem}>
@@ -302,7 +302,7 @@ export default function SyncScreen() {
             <View style={[styles.infoCard, { backgroundColor: theme.cardBackground }]}>
               <Feather name="info" size={16} color={theme.secondaryText} />
               <Text style={[styles.infoText, { color: theme.secondaryText }]}>
-                Crie um grupo no celular A, depois entre com o codigo no celular B. A partir dai, todos os dados sincronizam automaticamente em tempo real.
+                Crie um grupo no celular A, depois entre com o codigo no celular B. Os dados sao sincronizados via relays publicos Nostr com criptografia ponta-a-ponta. Sem servidor central.
               </Text>
             </View>
           </>
@@ -325,7 +325,7 @@ export default function SyncScreen() {
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.textColor }]}>Sync automatico</Text>
               <Text style={[styles.sectionDesc, { color: theme.secondaryText }]}>
-                Seus dados sincronizam a cada 10 segundos e ao criar eventos
+                Seus dados sincronizam via relays Nostr a cada 15 segundos e ao criar eventos
               </Text>
             </View>
 
@@ -380,7 +380,7 @@ export default function SyncScreen() {
             <View style={[styles.infoCard, { backgroundColor: theme.cardBackground }]}>
               <Feather name="info" size={16} color={theme.secondaryText} />
               <Text style={[styles.infoText, { color: theme.secondaryText }]}>
-                A sincronizacao acontece automaticamente. Novos eventos sao enviados ao servidor quando criados e buscados a cada 10 segundos. Os dados ficam armazenados localmente no celular e funcionam offline.
+                Sync descentralizado via Nostr. Eventos encriptados sao publicados em relays publicos e buscados automaticamente. Nenhum servidor central. Seus dados ficam locais e funcionam offline.
               </Text>
             </View>
           </>

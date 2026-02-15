@@ -8,18 +8,27 @@ import React, {
   useMemo,
   type ReactNode,
 } from "react";
-import { Platform, Alert, AppState as RNAppState } from "react-native";
+import { Platform, AppState as RNAppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAppState } from "@/src/context/AppStateProvider";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import {
+  deriveKeysFromCode,
+  publishSyncEvents,
+  pullSyncEvents,
+  subscribeToSyncEvents,
+  closePool,
+  getRelays,
+  type NostrSyncKeys,
+} from "@/src/modules/nostrSync";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
+import type { SubCloser } from "nostr-tools/pool";
 
 const DEVICE_ID_KEY = "domus_device_id";
 const LAST_SYNC_KEY = "domus_last_sync_ts";
-const GROUP_ID_KEY = "domus_sync_group_id";
-const SERVER_TS_KEY = "domus_sync_server_ts";
+const GROUP_CODE_KEY = "domus_nostr_group_code";
+const LAST_PULL_TS_KEY = "domus_nostr_last_pull_ts";
 
-const PULL_INTERVAL_MS = 10_000;
+const PULL_INTERVAL_MS = 15_000;
 
 type SyncStatus = "idle" | "syncing" | "connected" | "offline" | "error";
 
@@ -30,7 +39,7 @@ interface SyncContextValue {
   lastSyncTime: number | null;
   errorMessage: string | null;
   eventCount: number;
-  peerCount: number;
+  relayCount: number;
   isAutoSyncEnabled: boolean;
   createGroup: () => Promise<string | null>;
   joinGroup: (code: string) => Promise<boolean>;
@@ -44,6 +53,15 @@ const SyncContext = createContext<SyncContextValue | null>(null);
 
 function generateDeviceId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
+}
+
+function generateGroupCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
 }
 
 async function loadOrCreateDeviceId(): Promise<string> {
@@ -61,32 +79,41 @@ async function loadOrCreateDeviceId(): Promise<string> {
 export function SyncProvider({ children }: { children: ReactNode }) {
   const { getAllEvents, importEvents } = useAppState();
   const [deviceId, setDeviceId] = useState<string | null>(null);
-  const [groupId, setGroupId] = useState<string | null>(null);
+  const [groupCode, setGroupCode] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [peerCount, setPeerCount] = useState(0);
-  const [serverTs, setServerTs] = useState(0);
+  const [lastPullTs, setLastPullTs] = useState(0);
 
   const pullTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const subRef = useRef<SubCloser | null>(null);
   const lastPushCountRef = useRef(0);
+  const keysRef = useRef<NostrSyncKeys | null>(null);
 
   const allEvents = getAllEvents();
   const eventCount = allEvents.length;
+  const relayCount = getRelays().length;
 
-  const isAutoSyncEnabled = !!groupId;
+  const isAutoSyncEnabled = !!groupCode;
 
   useEffect(() => {
     loadOrCreateDeviceId().then(setDeviceId);
     AsyncStorage.getItem(LAST_SYNC_KEY).then((val) => {
       if (val) setLastSyncTime(parseInt(val, 10));
     });
-    AsyncStorage.getItem(GROUP_ID_KEY).then((val) => {
-      if (val) setGroupId(val);
+    AsyncStorage.getItem(GROUP_CODE_KEY).then((val) => {
+      if (val) {
+        setGroupCode(val);
+        keysRef.current = deriveKeysFromCode(val);
+      }
     });
-    AsyncStorage.getItem(SERVER_TS_KEY).then((val) => {
-      if (val) setServerTs(parseInt(val, 10));
+    AsyncStorage.getItem(LAST_PULL_TS_KEY).then((val) => {
+      if (val) setLastPullTs(parseInt(val, 10));
     });
+
+    return () => {
+      closePool();
+    };
   }, []);
 
   const saveLastSync = useCallback(async (ts: number) => {
@@ -96,64 +123,36 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
-  const saveServerTs = useCallback(async (ts: number) => {
-    setServerTs(ts);
+  const saveLastPullTs = useCallback(async (ts: number) => {
+    setLastPullTs(ts);
     try {
-      await AsyncStorage.setItem(SERVER_TS_KEY, ts.toString());
+      await AsyncStorage.setItem(LAST_PULL_TS_KEY, ts.toString());
     } catch {}
   }, []);
 
   const pushEvents = useCallback(
-    async (gid: string, did: string, events: SyncEvent[]) => {
+    async (keys: NostrSyncKeys, did: string, events: SyncEvent[]) => {
       if (events.length === 0) return;
       try {
-        const res = await apiRequest("POST", "/api/sync/push", {
-          groupId: gid,
-          deviceId: did,
-          events: events.map((e) => ({
-            id: e.id,
-            type: e.type,
-            payload: e.payload,
-            timestamp: e.timestamp,
-            deviceId: e.deviceId,
-            signature: e.signature || "",
-          })),
-        });
-        const data = await res.json();
-        if (data.serverTimestamp) {
-          await saveServerTs(data.serverTimestamp);
-        }
+        await publishSyncEvents(keys, did, events);
       } catch (err) {
-        console.log("Push failed:", err);
+        console.log("Push to relays failed:", err);
         throw err;
       }
     },
-    [saveServerTs],
+    [],
   );
 
-  const pullEvents = useCallback(
-    async (gid: string, did: string, since: number): Promise<number> => {
+  const pullFromRelays = useCallback(
+    async (keys: NostrSyncKeys, did: string, since: number): Promise<number> => {
       try {
-        const url = `/api/sync/pull?groupId=${encodeURIComponent(gid)}&deviceId=${encodeURIComponent(did)}&since=${since}`;
-        const res = await apiRequest("GET", url);
-        const data = await res.json();
+        const syncEvents = await pullSyncEvents(keys, did, since);
 
-        if (data.serverTimestamp) {
-          await saveServerTs(data.serverTimestamp);
-        }
-
-        if (data.events && data.events.length > 0) {
-          const syncEvents: SyncEvent[] = data.events.map((e: any) => ({
-            id: e.id,
-            type: e.type,
-            payload: e.payload,
-            timestamp: e.timestamp,
-            deviceId: e.deviceId,
-            signature: e.signature || "",
-          }));
-
+        if (syncEvents.length > 0) {
           const imported = await importEvents(syncEvents);
           if (imported > 0) {
+            const maxTs = Math.max(...syncEvents.map((e) => e.timestamp));
+            await saveLastPullTs(maxTs);
             await saveLastSync(Date.now());
           }
           return imported;
@@ -161,38 +160,45 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
         return 0;
       } catch (err) {
-        console.log("Pull failed:", err);
+        console.log("Pull from relays failed:", err);
         throw err;
       }
     },
-    [importEvents, saveLastSync, saveServerTs],
+    [importEvents, saveLastSync, saveLastPullTs],
   );
 
   const doSync = useCallback(async () => {
-    if (!groupId || !deviceId) return;
+    if (!groupCode || !deviceId || !keysRef.current) return;
 
     try {
+      setSyncStatus("syncing");
+      const keys = keysRef.current;
+
       const currentEvents = getAllEvents();
       const newEvents = currentEvents.slice(lastPushCountRef.current);
 
       if (newEvents.length > 0) {
-        await pushEvents(groupId, deviceId, newEvents);
+        await pushEvents(keys, deviceId, newEvents);
         lastPushCountRef.current = currentEvents.length;
       }
 
-      await pullEvents(groupId, deviceId, serverTs);
+      await pullFromRelays(keys, deviceId, lastPullTs);
       setSyncStatus("connected");
       setErrorMessage(null);
     } catch {
       setSyncStatus("offline");
     }
-  }, [groupId, deviceId, getAllEvents, pushEvents, pullEvents, serverTs]);
+  }, [groupCode, deviceId, getAllEvents, pushEvents, pullFromRelays, lastPullTs]);
 
   useEffect(() => {
-    if (!groupId || !deviceId) {
+    if (!groupCode || !deviceId || !keysRef.current) {
       if (pullTimerRef.current) {
         clearInterval(pullTimerRef.current);
         pullTimerRef.current = null;
+      }
+      if (subRef.current) {
+        subRef.current.close();
+        subRef.current = null;
       }
       return;
     }
@@ -201,29 +207,48 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
     pullTimerRef.current = setInterval(doSync, PULL_INTERVAL_MS);
 
+    try {
+      subRef.current = subscribeToSyncEvents(
+        keysRef.current,
+        deviceId,
+        lastPullTs,
+        async (event) => {
+          try {
+            await importEvents([event]);
+            await saveLastSync(Date.now());
+            setSyncStatus("connected");
+          } catch {}
+        },
+      );
+    } catch {}
+
     return () => {
       if (pullTimerRef.current) {
         clearInterval(pullTimerRef.current);
         pullTimerRef.current = null;
       }
+      if (subRef.current) {
+        subRef.current.close();
+        subRef.current = null;
+      }
     };
-  }, [groupId, deviceId, doSync]);
+  }, [groupCode, deviceId]);
 
   useEffect(() => {
-    if (!groupId || !deviceId) return;
+    if (!groupCode || !deviceId || !keysRef.current) return;
 
     if (eventCount > lastPushCountRef.current) {
-      pushEvents(groupId, deviceId, allEvents.slice(lastPushCountRef.current))
+      pushEvents(keysRef.current, deviceId, allEvents.slice(lastPushCountRef.current))
         .then(() => {
           lastPushCountRef.current = eventCount;
           setSyncStatus("connected");
         })
         .catch(() => setSyncStatus("offline"));
     }
-  }, [eventCount, groupId, deviceId, allEvents, pushEvents]);
+  }, [eventCount, groupCode, deviceId, allEvents, pushEvents]);
 
   useEffect(() => {
-    if (!groupId || !deviceId) return;
+    if (!groupCode || !deviceId) return;
 
     const sub = RNAppState.addEventListener("change", (state) => {
       if (state === "active") {
@@ -232,57 +257,33 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     });
 
     return () => sub.remove();
-  }, [groupId, deviceId, doSync]);
-
-  useEffect(() => {
-    if (!groupId) {
-      setPeerCount(0);
-      return;
-    }
-
-    const fetchPeers = async () => {
-      try {
-        const res = await apiRequest("GET", `/api/sync/groups/${groupId}/devices`);
-        const data = await res.json();
-        setPeerCount(data.devices?.length || 0);
-      } catch {}
-    };
-
-    fetchPeers();
-    const timer = setInterval(fetchPeers, 30_000);
-    return () => clearInterval(timer);
-  }, [groupId]);
+  }, [groupCode, deviceId, doSync]);
 
   const createGroup = useCallback(async (): Promise<string | null> => {
     if (!deviceId) return null;
 
     try {
       setSyncStatus("syncing");
-      const res = await apiRequest("POST", "/api/sync/groups", { deviceId });
-      const data = await res.json();
+      const code = generateGroupCode();
+      const keys = deriveKeysFromCode(code);
 
-      if (data.groupId) {
-        setGroupId(data.groupId);
-        await AsyncStorage.setItem(GROUP_ID_KEY, data.groupId);
-        lastPushCountRef.current = 0;
+      keysRef.current = keys;
+      setGroupCode(code);
+      await AsyncStorage.setItem(GROUP_CODE_KEY, code);
+      lastPushCountRef.current = 0;
 
-        const currentEvents = getAllEvents();
-        if (currentEvents.length > 0) {
-          await pushEvents(data.groupId, deviceId, currentEvents);
-          lastPushCountRef.current = currentEvents.length;
-        }
-
-        setSyncStatus("connected");
-        await saveLastSync(Date.now());
-        return data.groupId;
+      const currentEvents = getAllEvents();
+      if (currentEvents.length > 0) {
+        await pushEvents(keys, deviceId, currentEvents);
+        lastPushCountRef.current = currentEvents.length;
       }
 
-      setSyncStatus("error");
-      setErrorMessage("Falha ao criar grupo");
-      return null;
+      setSyncStatus("connected");
+      await saveLastSync(Date.now());
+      return code;
     } catch (err) {
       setSyncStatus("error");
-      setErrorMessage("Sem conexao com o servidor");
+      setErrorMessage("Falha ao conectar nos relays");
       return null;
     }
   }, [deviceId, getAllEvents, pushEvents, saveLastSync]);
@@ -293,90 +294,91 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
       try {
         setSyncStatus("syncing");
-        const res = await apiRequest("POST", `/api/sync/groups/${code}/join`, { deviceId });
-        const data = await res.json();
+        const normalizedCode = code.trim().toUpperCase();
+        const keys = deriveKeysFromCode(normalizedCode);
 
-        if (data.joined) {
-          setGroupId(data.groupId);
-          await AsyncStorage.setItem(GROUP_ID_KEY, data.groupId);
-          lastPushCountRef.current = 0;
+        keysRef.current = keys;
+        setGroupCode(normalizedCode);
+        await AsyncStorage.setItem(GROUP_CODE_KEY, normalizedCode);
+        lastPushCountRef.current = 0;
 
-          const currentEvents = getAllEvents();
-          if (currentEvents.length > 0) {
-            await pushEvents(data.groupId, deviceId, currentEvents);
-            lastPushCountRef.current = currentEvents.length;
-          }
-
-          await pullEvents(data.groupId, deviceId, 0);
-          setSyncStatus("connected");
-          await saveLastSync(Date.now());
-          return true;
+        const currentEvents = getAllEvents();
+        if (currentEvents.length > 0) {
+          await pushEvents(keys, deviceId, currentEvents);
+          lastPushCountRef.current = currentEvents.length;
         }
 
-        setSyncStatus("error");
-        setErrorMessage("Codigo de grupo invalido");
-        return false;
+        await pullFromRelays(keys, deviceId, 0);
+        setSyncStatus("connected");
+        await saveLastSync(Date.now());
+        return true;
       } catch (err) {
         setSyncStatus("error");
-        setErrorMessage("Grupo nao encontrado ou sem conexao");
+        setErrorMessage("Falha ao conectar nos relays Nostr");
         return false;
       }
     },
-    [deviceId, getAllEvents, pushEvents, pullEvents, saveLastSync],
+    [deviceId, getAllEvents, pushEvents, pullFromRelays, saveLastSync],
   );
 
   const leaveGroup = useCallback(async () => {
-    setGroupId(null);
+    if (subRef.current) {
+      subRef.current.close();
+      subRef.current = null;
+    }
+    closePool();
+
+    setGroupCode(null);
+    keysRef.current = null;
     setSyncStatus("idle");
     setErrorMessage(null);
-    setPeerCount(0);
-    setServerTs(0);
+    setLastPullTs(0);
     lastPushCountRef.current = 0;
-    await AsyncStorage.removeItem(GROUP_ID_KEY);
-    await AsyncStorage.removeItem(SERVER_TS_KEY);
+    await AsyncStorage.removeItem(GROUP_CODE_KEY);
+    await AsyncStorage.removeItem(LAST_PULL_TS_KEY);
   }, []);
 
   const pushNow = useCallback(async () => {
-    if (!groupId || !deviceId) return;
+    if (!groupCode || !deviceId || !keysRef.current) return;
     try {
       setSyncStatus("syncing");
       const events = getAllEvents();
-      await pushEvents(groupId, deviceId, events);
+      await pushEvents(keysRef.current, deviceId, events);
       lastPushCountRef.current = events.length;
       setSyncStatus("connected");
       await saveLastSync(Date.now());
     } catch {
       setSyncStatus("offline");
     }
-  }, [groupId, deviceId, getAllEvents, pushEvents, saveLastSync]);
+  }, [groupCode, deviceId, getAllEvents, pushEvents, saveLastSync]);
 
   const pullNow = useCallback(async (): Promise<number> => {
-    if (!groupId || !deviceId) return 0;
+    if (!groupCode || !deviceId || !keysRef.current) return 0;
     try {
       setSyncStatus("syncing");
-      const count = await pullEvents(groupId, deviceId, serverTs);
+      const count = await pullFromRelays(keysRef.current, deviceId, lastPullTs);
       setSyncStatus("connected");
       return count;
     } catch {
       setSyncStatus("offline");
       return 0;
     }
-  }, [groupId, deviceId, pullEvents, serverTs]);
+  }, [groupCode, deviceId, pullFromRelays, lastPullTs]);
 
   const resetStatus = useCallback(() => {
-    setSyncStatus(groupId ? "connected" : "idle");
+    setSyncStatus(groupCode ? "connected" : "idle");
     setErrorMessage(null);
-  }, [groupId]);
+  }, [groupCode]);
 
   const value = useMemo<SyncContextValue>(
     () => ({
       deviceId,
-      groupId,
+      groupId: groupCode,
       syncStatus,
       lastSyncTime,
       errorMessage,
       eventCount,
-      peerCount,
+      relayCount,
       isAutoSyncEnabled,
       createGroup,
       joinGroup,
@@ -387,12 +389,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }),
     [
       deviceId,
-      groupId,
+      groupCode,
       syncStatus,
       lastSyncTime,
       errorMessage,
       eventCount,
-      peerCount,
+      relayCount,
       isAutoSyncEnabled,
       createGroup,
       joinGroup,
