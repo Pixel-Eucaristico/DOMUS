@@ -467,7 +467,7 @@ export function subscribeToSyncEvents(
       sinceUnix > 0 ? sinceUnix : Math.floor(Date.now() / 1000) - 60,
   };
 
-  const sub = pool.subscribeMany(getRelays(), [filter] as any, {
+  const sub = pool.subscribeMany(getRelays(), filter as any, {
     onevent(nostrEvent: any) {
       const deviceTag = nostrEvent.tags.find((t: string[]) => t[0] === "device");
       if (deviceTag && deviceTag[1] === deviceId) return;
