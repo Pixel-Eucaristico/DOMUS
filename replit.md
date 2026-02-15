@@ -1,7 +1,7 @@
 # DOMUS
 
 ## Overview
-DOMUS is a personal finance fintech application focused on Android, built as a monorepo with Expo SDK 54 and strict TypeScript. Its core principle is an Event Sourcing and "Offline-First" architecture, ensuring full functionality without an internet connection, with synchronization handled via a relay server. A key differentiator and central feature of DOMUS is its robust gamification system, encompassing XP, levels, streaks, archetypes, and seasonal challenges, designed to engage users and encourage financial discipline. The project aims to provide a comprehensive, engaging, and resilient personal finance management experience.
+DOMUS is a personal finance fintech application focused on Android, built as a monorepo with Expo SDK 54 and strict TypeScript. Its core principle is an Event Sourcing and "Offline-First" architecture, ensuring full functionality without an internet connection, with synchronization handled via the Nostr protocol over public relays (decentralized, no owned server required). A key differentiator and central feature of DOMUS is its robust gamification system, encompassing XP, levels, streaks, archetypes, and seasonal challenges, designed to engage users and encourage financial discipline. The project aims to provide a comprehensive, engaging, and resilient personal finance management experience.
 
 ## User Preferences
 I prefer detailed explanations of proposed changes.
@@ -20,7 +20,8 @@ Do not make changes to the `packages/sync` folder, as it contains legacy WebRTC 
 **Technical Implementations:**
 - **Monorepo Structure:** Organized into `/packages` for domain-specific logic (events, domain, storage, gamification, season, personality, onboarding, theme, parsers) and `/app` for the UI layer.
 - **Event Sourcing:** The core state management relies on immutable, typed, and signed events. The application state is always reconstructed by replaying events from the `EventStore`, never directly persisted.
-- **Offline-First:** The application's core functionality is entirely offline. Synchronization occurs via a relay server when an internet connection is available and a sync group is active.
+- **Offline-First:** The application's core functionality is entirely offline. Synchronization occurs via the Nostr protocol over public relays when an internet connection is available and a sync group is active.
+- **Nostr Sync (`src/modules/nostrSync.ts`):** Decentralized P2P sync using public Nostr relays (no owned server). Group code derives a secp256k1 keypair (for signing) and an AES encryption key via HKDF (Web Crypto API). Events are encrypted with XOR cipher (nonce-based) before publishing as kind 29333 Nostr events. Devices filter by their own deviceId tag to avoid processing self-published events. Default relays: relay.damus.io, nos.lol, relay.nostr.band, nostr.mom, relay.nostr.bg.
 - **Strict TypeScript:** Ensures strong typing and code quality across the entire codebase.
 - **Gamification Core:** XP engine (transaction logging, budget adherence, missions, streaks, season bonuses), level engine, streak engine, season engine (monthly calendar seasons, archetype evaluation, badges), and personality engine (6 archetypes detected by financial behavior, tone engine for adaptive messaging, archetype evolution).
 - **Onboarding:** A 7-day adaptive mission system with varying difficulty levels (easy/normal/challenging) that adjusts based on user completion rates, designed to never punish the user.
@@ -41,8 +42,9 @@ Do not make changes to the `packages/sync` folder, as it contains legacy WebRTC 
 - **expo-file-system:** For file system operations, particularly for exporting/importing JSON bundles.
 - **expo-sharing:** For sharing exported JSON bundles via system share sheets.
 - **expo-document-picker:** For importing JSON bundles.
-- **Express.js:** Used for the backend relay synchronization server.
-- **PostgreSQL:** The database for the backend sync server.
+- **nostr-tools:** Library for Nostr protocol interactions (event signing, relay pool management).
+- **Express.js:** Used for the backend server (serves Expo static files and landing page; sync routes removed in favor of Nostr).
+- **PostgreSQL:** Available for backend data if needed (sync no longer uses it).
 - **Drizzle ORM:** Used with `pg` (Node.js PostgreSQL client) for database interactions on the backend.
 - **Google Gemini (optional):** An AI model used for invoice classification as a fallback or enhancement to keyword-based classification.
 - **ML Kit (via adapter):** Used as a fallback for OCR in invoice parsing.
