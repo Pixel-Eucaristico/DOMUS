@@ -28,8 +28,9 @@ const DEVICE_ID_KEY = "domus_device_id";
 const LAST_SYNC_KEY = "domus_last_sync_ts";
 const GROUP_CODE_KEY = "domus_nostr_group_code";
 const LAST_PULL_TS_KEY = "domus_nostr_last_pull_ts";
+const LAST_PUSH_HASH_KEY = "domus_nostr_last_push_hash";
 
-const PULL_INTERVAL_MS = 15_000;
+const PULL_INTERVAL_MS = 8_000;
 
 type SyncStatus = "idle" | "syncing" | "connected" | "offline" | "error";
 
@@ -77,6 +78,17 @@ async function loadOrCreateDeviceId(): Promise<string> {
   return id;
 }
 
+function computeEventHash(events: SyncEvent[]): string {
+  if (events.length === 0) return "empty";
+  const ids = events.map((e) => e.id).sort().join(",");
+  let hash = 0;
+  for (let i = 0; i < ids.length; i++) {
+    const c = ids.charCodeAt(i);
+    hash = ((hash << 5) - hash + c) | 0;
+  }
+  return `${events.length}-${hash.toString(36)}`;
+}
+
 export function SyncProvider({ children }: { children: ReactNode }) {
   const { getAllEvents, importEvents } = useAppState();
   const [deviceId, setDeviceId] = useState<string | null>(null);
@@ -88,8 +100,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   const pullTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const subRef = useRef<SubCloser | null>(null);
-  const lastPushCountRef = useRef(0);
   const keysRef = useRef<NostrSyncKeys | null>(null);
+  const lastPushHashRef = useRef<string>("empty");
+  const isImportingRef = useRef(false);
 
   const allEvents = getAllEvents();
   const eventCount = allEvents.length;
@@ -111,6 +124,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     AsyncStorage.getItem(LAST_PULL_TS_KEY).then((val) => {
       if (val) setLastPullTs(parseInt(val, 10));
     });
+    AsyncStorage.getItem(LAST_PUSH_HASH_KEY).then((val) => {
+      if (val) lastPushHashRef.current = val;
+    });
 
     return () => {
       closePool();
@@ -131,17 +147,33 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
-  const pushEvents = useCallback(
-    async (keys: NostrSyncKeys, did: string, events: SyncEvent[]) => {
-      if (events.length === 0) return;
+  const getMyEvents = useCallback(
+    (did: string): SyncEvent[] => {
+      return getAllEvents().filter((e) => e.deviceId === did);
+    },
+    [getAllEvents],
+  );
+
+  const pushMyEvents = useCallback(
+    async (keys: NostrSyncKeys, did: string, force: boolean = false) => {
+      const myEvents = getMyEvents(did);
+      if (myEvents.length === 0) return;
+
+      const hash = computeEventHash(myEvents);
+      if (!force && hash === lastPushHashRef.current) return;
+
       try {
-        await publishSyncEvents(keys, did, events);
+        await publishSyncEvents(keys, did, myEvents);
+        lastPushHashRef.current = hash;
+        try {
+          await AsyncStorage.setItem(LAST_PUSH_HASH_KEY, hash);
+        } catch {}
       } catch (err) {
         console.log("Push to relays failed:", err);
         throw err;
       }
     },
-    [],
+    [getMyEvents],
   );
 
   const pullFromRelays = useCallback(
@@ -150,7 +182,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         const syncEvents = await pullSyncEvents(keys, did, since);
 
         if (syncEvents.length > 0) {
+          isImportingRef.current = true;
           const imported = await importEvents(syncEvents);
+          isImportingRef.current = false;
           if (imported > 0) {
             const maxTs = Math.max(...syncEvents.map((e) => e.timestamp));
             await saveLastPullTs(maxTs);
@@ -161,6 +195,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
         return 0;
       } catch (err) {
+        isImportingRef.current = false;
         console.log("Pull from relays failed:", err);
         throw err;
       }
@@ -175,21 +210,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setSyncStatus("syncing");
       const keys = keysRef.current;
 
-      const currentEvents = getAllEvents();
-      const newEvents = currentEvents.slice(lastPushCountRef.current);
-
-      if (newEvents.length > 0) {
-        await pushEvents(keys, deviceId, newEvents);
-        lastPushCountRef.current = currentEvents.length;
-      }
-
+      await pushMyEvents(keys, deviceId);
       await pullFromRelays(keys, deviceId, lastPullTs);
       setSyncStatus("connected");
       setErrorMessage(null);
     } catch {
       setSyncStatus("offline");
     }
-  }, [groupCode, deviceId, getAllEvents, pushEvents, pullFromRelays, lastPullTs]);
+  }, [groupCode, deviceId, pushMyEvents, pullFromRelays, lastPullTs]);
 
   useEffect(() => {
     if (!groupCode || !deviceId || !keysRef.current) {
@@ -215,10 +243,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         lastPullTs,
         async (event) => {
           try {
+            isImportingRef.current = true;
             await importEvents([event]);
+            isImportingRef.current = false;
             await saveLastSync(Date.now());
             setSyncStatus("connected");
-          } catch {}
+          } catch {
+            isImportingRef.current = false;
+          }
         },
       );
     } catch {}
@@ -237,16 +269,18 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!groupCode || !deviceId || !keysRef.current) return;
+    if (isImportingRef.current) return;
 
-    if (eventCount > lastPushCountRef.current) {
-      pushEvents(keysRef.current, deviceId, allEvents.slice(lastPushCountRef.current))
-        .then(() => {
-          lastPushCountRef.current = eventCount;
-          setSyncStatus("connected");
-        })
-        .catch(() => setSyncStatus("offline"));
-    }
-  }, [eventCount, groupCode, deviceId, allEvents, pushEvents]);
+    const myEvents = getMyEvents(deviceId);
+    const hash = computeEventHash(myEvents);
+    if (hash === lastPushHashRef.current) return;
+
+    pushMyEvents(keysRef.current, deviceId)
+      .then(() => {
+        setSyncStatus("connected");
+      })
+      .catch(() => setSyncStatus("offline"));
+  }, [eventCount, groupCode, deviceId, getMyEvents, pushMyEvents]);
 
   useEffect(() => {
     if (!groupCode || !deviceId) return;
@@ -282,17 +316,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       keysRef.current = keys;
       setGroupCode(code);
       await AsyncStorage.setItem(GROUP_CODE_KEY, code);
-      lastPushCountRef.current = 0;
+      lastPushHashRef.current = "empty";
 
-      const currentEvents = getAllEvents();
-      if (currentEvents.length > 0) {
-        try {
-          await pushEvents(keys, deviceId, currentEvents);
-          lastPushCountRef.current = currentEvents.length;
-        } catch {
-          // push failed but group was created successfully
-        }
-      }
+      try {
+        await pushMyEvents(keys, deviceId, true);
+      } catch {}
 
       setSyncStatus("connected");
       await saveLastSync(Date.now());
@@ -302,7 +330,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setErrorMessage("Falha ao criar grupo. Tente novamente.");
       return null;
     }
-  }, [deviceId, getAllEvents, pushEvents, saveLastSync]);
+  }, [deviceId, pushMyEvents, saveLastSync]);
 
   const joinGroup = useCallback(
     async (code: string): Promise<boolean> => {
@@ -327,23 +355,15 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         keysRef.current = keys;
         setGroupCode(normalizedCode);
         await AsyncStorage.setItem(GROUP_CODE_KEY, normalizedCode);
-        lastPushCountRef.current = 0;
+        lastPushHashRef.current = "empty";
 
-        const currentEvents = getAllEvents();
-        if (currentEvents.length > 0) {
-          try {
-            await pushEvents(keys, deviceId, currentEvents);
-            lastPushCountRef.current = currentEvents.length;
-          } catch {
-            // push failed but join continues
-          }
-        }
+        try {
+          await pushMyEvents(keys, deviceId, true);
+        } catch {}
 
         try {
           await pullFromRelays(keys, deviceId, 0);
-        } catch {
-          // pull failed but group was joined
-        }
+        } catch {}
 
         setSyncStatus("connected");
         await saveLastSync(Date.now());
@@ -354,7 +374,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         return false;
       }
     },
-    [deviceId, getAllEvents, pushEvents, pullFromRelays, saveLastSync],
+    [deviceId, pushMyEvents, pullFromRelays, saveLastSync],
   );
 
   const leaveGroup = useCallback(async () => {
@@ -369,24 +389,23 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setSyncStatus("idle");
     setErrorMessage(null);
     setLastPullTs(0);
-    lastPushCountRef.current = 0;
+    lastPushHashRef.current = "empty";
     await AsyncStorage.removeItem(GROUP_CODE_KEY);
     await AsyncStorage.removeItem(LAST_PULL_TS_KEY);
+    await AsyncStorage.removeItem(LAST_PUSH_HASH_KEY);
   }, []);
 
   const pushNow = useCallback(async () => {
     if (!groupCode || !deviceId || !keysRef.current) return;
     try {
       setSyncStatus("syncing");
-      const events = getAllEvents();
-      await pushEvents(keysRef.current, deviceId, events);
-      lastPushCountRef.current = events.length;
+      await pushMyEvents(keysRef.current, deviceId, true);
       setSyncStatus("connected");
       await saveLastSync(Date.now());
     } catch {
       setSyncStatus("offline");
     }
-  }, [groupCode, deviceId, getAllEvents, pushEvents, saveLastSync]);
+  }, [groupCode, deviceId, pushMyEvents, saveLastSync]);
 
   const pullNow = useCallback(async (): Promise<number> => {
     if (!groupCode || !deviceId || !keysRef.current) return 0;

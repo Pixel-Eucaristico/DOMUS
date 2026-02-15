@@ -13,7 +13,8 @@ const DEFAULT_RELAYS = [
   "wss://relay.nostr.bg",
 ];
 
-const RELAY_TIMEOUT_MS = 8000;
+const RELAY_TIMEOUT_MS = 5000;
+const BATCH_SIZE = 20;
 
 export interface NostrSyncKeys {
   privateKey: Uint8Array;
@@ -351,28 +352,38 @@ export async function publishSyncEvents(
   deviceId: string,
   events: SyncEvent[],
 ): Promise<number> {
+  if (events.length === 0) return 0;
+
   const pool = getPool();
+  const relays = getRelays();
   let published = 0;
 
-  for (const evt of events) {
-    const payload = JSON.stringify({
-      id: evt.id,
-      type: evt.type,
-      payload: evt.payload,
-      timestamp: evt.timestamp,
-      deviceId: evt.deviceId,
-      signature: evt.signature || "",
-    });
+  for (let batchStart = 0; batchStart < events.length; batchStart += BATCH_SIZE) {
+    const batch = events.slice(batchStart, batchStart + BATCH_SIZE);
+    const batchIndex = Math.floor(batchStart / BATCH_SIZE);
 
-    const encrypted = await encryptPayload(payload, keys.encryptionKey);
+    const batchPayload = JSON.stringify(
+      batch.map((evt) => ({
+        id: evt.id,
+        type: evt.type,
+        payload: evt.payload,
+        timestamp: evt.timestamp,
+        deviceId: evt.deviceId,
+        signature: evt.signature || "",
+      })),
+    );
+
+    const batchId = `sync-${deviceId}-${batchIndex}`;
+    const encrypted = await encryptPayload(batchPayload, keys.encryptionKey);
 
     const nostrEvent = {
       kind: DOMUS_KIND,
-      created_at: Math.floor(evt.timestamp / 1000),
+      created_at: Math.floor(Date.now() / 1000),
       tags: [
-        ["d", evt.id],
+        ["d", batchId],
         ["t", DOMUS_APP_TAG],
         ["device", deviceId],
+        ["batch", String(batch.length)],
       ],
       content: encrypted,
       pubkey: keys.publicKey,
@@ -382,17 +393,41 @@ export async function publishSyncEvents(
 
     try {
       await withTimeout(
-        Promise.any(pool.publish(getRelays(), signed)),
+        Promise.any(pool.publish(relays, signed)),
         RELAY_TIMEOUT_MS,
-        "publish event",
+        "publish batch",
       );
-      published++;
+      published += batch.length;
     } catch {
-      console.log("Failed to publish event to any relay:", evt.id);
+      console.log("Failed to publish batch:", batchId);
     }
   }
 
   return published;
+}
+
+function parseSyncPayload(decrypted: string): SyncEvent[] {
+  const parsed = JSON.parse(decrypted);
+  if (Array.isArray(parsed)) {
+    return parsed.map((p: any) => ({
+      id: p.id,
+      type: p.type,
+      payload: p.payload,
+      timestamp: p.timestamp,
+      deviceId: p.deviceId,
+      signature: p.signature || "",
+    }));
+  }
+  return [
+    {
+      id: parsed.id,
+      type: parsed.type,
+      payload: parsed.payload,
+      timestamp: parsed.timestamp,
+      deviceId: parsed.deviceId,
+      signature: parsed.signature || "",
+    },
+  ];
 }
 
 export async function pullSyncEvents(
@@ -427,15 +462,8 @@ export async function pullSyncEvents(
 
       try {
         const decrypted = await decryptPayload(ne.content, keys.encryptionKey);
-        const parsed = JSON.parse(decrypted);
-        syncEvents.push({
-          id: parsed.id,
-          type: parsed.type,
-          payload: parsed.payload,
-          timestamp: parsed.timestamp,
-          deviceId: parsed.deviceId,
-          signature: parsed.signature || "",
-        });
+        const events = parseSyncPayload(decrypted);
+        syncEvents.push(...events);
       } catch {
         console.log("Failed to decrypt/parse event:", ne.id);
       }
@@ -474,15 +502,10 @@ export function subscribeToSyncEvents(
 
       decryptPayload(nostrEvent.content, keys.encryptionKey)
         .then((decrypted) => {
-          const parsed = JSON.parse(decrypted);
-          onEvent({
-            id: parsed.id,
-            type: parsed.type,
-            payload: parsed.payload,
-            timestamp: parsed.timestamp,
-            deviceId: parsed.deviceId,
-            signature: parsed.signature || "",
-          });
+          const events = parseSyncPayload(decrypted);
+          for (const evt of events) {
+            onEvent(evt);
+          }
         })
         .catch(() => {});
     },

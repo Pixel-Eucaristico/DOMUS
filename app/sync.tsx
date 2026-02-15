@@ -492,7 +492,7 @@ export default function SyncScreen() {
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.textColor }]}>Sync automatico</Text>
               <Text style={[styles.sectionDesc, { color: theme.secondaryText }]}>
-                Seus dados sincronizam via relays Nostr a cada 15 segundos e ao criar eventos
+                Seus dados sincronizam via relays Nostr a cada 8 segundos e ao criar eventos
               </Text>
             </View>
 
