@@ -1,4 +1,4 @@
-import React, {
+import {
   createContext,
   useContext,
   useState,
@@ -8,7 +8,7 @@ import React, {
   type ReactNode,
 } from "react";
 import { Platform } from "react-native";
-import type { DomainEvent, AccountPayload, TransactionPayload, CategoryPayload } from "@packages/events/src/types";
+import type { DomainEvent} from "@packages/events/src/types";
 import { EVENT_TYPES } from "@packages/events/src/types";
 import { domainReducer } from "@packages/domain/src/reducer";
 import { createInitialState, type AppState } from "@packages/domain/src/state";
@@ -16,9 +16,9 @@ import { calculate503020, type BudgetBreakdown } from "@packages/domain/src/tran
 import type { GamificationEvent, GamificationState } from "@packages/gamification/src/types";
 import { GAMIFICATION_EVENTS } from "@packages/gamification/src/types";
 import { gamificationReducer, createInitialGamificationState } from "@packages/gamification/src/reducer";
-import { calculateLevel, getLevelInfo, shouldLevelUp, type LevelInfo } from "@packages/gamification/src/levelEngine";
-import { getXpForAction, calculateBudgetAdherenceXp, calculateStreakBonusXp, createXpPayload } from "@packages/gamification/src/xpEngine";
-import { updateStreak, createInitialStreak, type StreakState } from "@packages/gamification/src/streakEngine";
+import { getLevelInfo, shouldLevelUp, type LevelInfo } from "@packages/gamification/src/levelEngine";
+import { createXpPayload } from "@packages/gamification/src/xpEngine";
+import { updateStreak, type StreakState } from "@packages/gamification/src/streakEngine";
 import type { OnboardingEvent, OnboardingState } from "@packages/onboarding/src/types";
 import { ONBOARDING_EVENTS } from "@packages/onboarding/src/types";
 import { onboardingReducer, createInitialOnboardingState } from "@packages/onboarding/src/reducer";
@@ -27,10 +27,9 @@ import { SEASON_EVENTS } from "@packages/season/src/types";
 import type { SeasonEvent } from "@packages/season/src/types";
 import { seasonReducer, createInitialSeasonState } from "@packages/season/src/reducer";
 import { detectArchetype, calculateScores } from "@packages/personality/src/profileDetector";
-import { getThemeForArchetype, getDefaultTheme, type ThemeColors } from "@packages/theme";
+import { getThemeForArchetype, type ThemeColors } from "@packages/theme";
 import type { ArchetypeType } from "@packages/personality/src/types";
-import { ARCHETYPES } from "@packages/personality/src/types";
-import { createEvent, generateId } from "@packages/events/src/factory";
+import { generateId } from "@packages/events/src/factory";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { SQLiteEventStore } from "@packages/storage/src/eventStore";
 
@@ -54,6 +53,7 @@ interface AppStateContextValue extends DerivedState {
   dispatchDomainEvent: (event: DomainEvent) => void;
   importEvents: (events: SyncEvent[]) => Promise<number>;
   getAllEvents: () => SyncEvent[];
+  localEventCount: number;
 }
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
@@ -115,6 +115,7 @@ async function getEventStore(): Promise<SQLiteEventStore | null> {
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [allEvents, setAllEvents] = useState<SyncEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [localEventCount, setLocalEventCount] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -197,6 +198,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       });
 
       setAllEvents((prev) => [...prev, syncEvt]);
+      setLocalEventCount((c) => c + 1);
     },
     [],
   );
@@ -232,6 +234,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const dispatchDomainEvent = useCallback(
     (event: DomainEvent) => {
+      // Usar o deviceId do evento para os eventos de gamificação derivados
+      // Isso garante que os eventos de gamificação são associados ao dispositivo correto
+      // e não causam loops de sincronização quando importados por outros dispositivos
+      const originDeviceId = event.deviceId || "local";
+
       dispatch(event);
 
       if (event.type === EVENT_TYPES.TRANSACTION_CREATED) {
@@ -241,7 +248,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           type: GAMIFICATION_EVENTS.XP_GAINED,
           payload: xpPayload,
           timestamp: Date.now(),
-          deviceId: "local",
+          deviceId: originDeviceId,
           signature: "",
         } as GamificationEvent;
         dispatch(xpEvent);
@@ -258,7 +265,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           type: GAMIFICATION_EVENTS.STREAK_UPDATED,
           payload: streakResult,
           timestamp: Date.now(),
-          deviceId: "local",
+          deviceId: originDeviceId,
           signature: "",
         } as GamificationEvent;
         dispatch(streakEvent);
@@ -275,7 +282,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
               totalXp: newTotalXp,
             },
             timestamp: Date.now(),
-            deviceId: "local",
+            deviceId: originDeviceId,
             signature: "",
           } as GamificationEvent;
           dispatch(levelEvent);
@@ -301,8 +308,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       dispatchDomainEvent,
       importEvents,
       getAllEvents: getAllEventsCallback,
+      localEventCount,
     }),
-    [domain, gamification, onboarding, season, archetype, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, importEvents, getAllEventsCallback],
+    [domain, gamification, onboarding, season, archetype, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, importEvents, getAllEventsCallback, localEventCount],
   );
 
   return (

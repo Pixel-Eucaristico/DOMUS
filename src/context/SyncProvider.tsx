@@ -8,7 +8,7 @@ import React, {
   useMemo,
   type ReactNode,
 } from "react";
-import { Platform, AppState as RNAppState } from "react-native";
+import { AppState as RNAppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAppState } from "@/src/context/AppStateProvider";
 import {
@@ -90,7 +90,7 @@ function computeEventHash(events: SyncEvent[]): string {
 }
 
 export function SyncProvider({ children }: { children: ReactNode }) {
-  const { getAllEvents, importEvents } = useAppState();
+  const { getAllEvents, importEvents, localEventCount } = useAppState();
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [groupCode, setGroupCode] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
@@ -103,6 +103,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const keysRef = useRef<NostrSyncKeys | null>(null);
   const lastPushHashRef = useRef<string>("empty");
   const isImportingRef = useRef(false);
+  const isPushingRef = useRef(false);
+  const pushDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allEvents = getAllEvents();
   const eventCount = allEvents.length;
@@ -183,6 +185,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
         if (syncEvents.length > 0) {
           isImportingRef.current = true;
+          // Cancelar qualquer push pendente enquanto importamos
+          if (pushDebounceRef.current) {
+            clearTimeout(pushDebounceRef.current);
+            pushDebounceRef.current = null;
+          }
           const imported = await importEvents(syncEvents);
           isImportingRef.current = false;
           if (imported > 0) {
@@ -269,18 +276,40 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!groupCode || !deviceId || !keysRef.current) return;
-    if (isImportingRef.current) return;
 
-    const myEvents = getMyEvents(deviceId);
-    const hash = computeEventHash(myEvents);
-    if (hash === lastPushHashRef.current) return;
+    // Limpar debounce anterior
+    if (pushDebounceRef.current) {
+      clearTimeout(pushDebounceRef.current);
+    }
 
-    pushMyEvents(keysRef.current, deviceId)
-      .then(() => {
-        setSyncStatus("connected");
-      })
-      .catch(() => setSyncStatus("offline"));
-  }, [eventCount, groupCode, deviceId, getMyEvents, pushMyEvents]);
+    // Usar debounce de 500ms para evitar pushes em cascata
+    pushDebounceRef.current = setTimeout(() => {
+      // Não fazer push se estiver a importar ou já a fazer push
+      if (isImportingRef.current || isPushingRef.current) return;
+      if (!keysRef.current || !deviceId) return;
+
+      const myEvents = getMyEvents(deviceId);
+      const hash = computeEventHash(myEvents);
+      if (hash === lastPushHashRef.current) return;
+
+      isPushingRef.current = true;
+      pushMyEvents(keysRef.current, deviceId)
+        .then(() => {
+          isPushingRef.current = false;
+          setSyncStatus("connected");
+        })
+        .catch(() => {
+          isPushingRef.current = false;
+          setSyncStatus("offline");
+        });
+    }, 500);
+
+    return () => {
+      if (pushDebounceRef.current) {
+        clearTimeout(pushDebounceRef.current);
+      }
+    };
+  }, [localEventCount, groupCode, deviceId, getMyEvents, pushMyEvents]);
 
   useEffect(() => {
     if (!groupCode || !deviceId) return;
