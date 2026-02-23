@@ -146,6 +146,12 @@ export default function HomeScreen() {
             </Pressable>
             <Pressable
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
+              onPress={() => router.push("/import-invoice")}
+            >
+              <Feather name="maximize" size={22} color={theme.primaryColor} />
+            </Pressable>
+            <Pressable
+              style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
               onPress={() => router.push("/season")}
             >
               <Feather name="award" size={22} color={theme.primaryColor} />

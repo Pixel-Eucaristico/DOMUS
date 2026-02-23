@@ -8,7 +8,7 @@ export interface OCRParseResult {
   invoiceId: string;
   date: Date | null;
   items: InvoiceItem[];
-  total: number;
+  totalAmount: number;
   confidence: number;
 }
 
@@ -26,13 +26,13 @@ function parseDecimal(value: string): number {
 export function parseOCRText(ocrResult: OCRResult): OCRParseResult {
   const lines = ocrResult.text.split("\n").map((l) => l.trim()).filter(Boolean);
   const items: InvoiceItem[] = [];
-  let total = 0;
+  let totalAmount = 0;
   let date: Date | null = null;
 
   for (const line of lines) {
     const totalMatch = line.match(TOTAL_LINE_PATTERN);
     if (totalMatch?.[1]) {
-      total = parseDecimal(totalMatch[1]);
+      totalAmount = parseDecimal(totalMatch[1]);
       continue;
     }
 
@@ -46,14 +46,16 @@ export function parseOCRText(ocrResult: OCRResult): OCRParseResult {
 
     const itemMatch = line.match(ITEM_LINE_PATTERN);
     if (itemMatch) {
-      const name = itemMatch[1]!.trim();
+      const description = itemMatch[1]!.trim();
       const quantity = parseDecimal(itemMatch[2]!);
       const unitPrice = parseDecimal(itemMatch[3]!);
-      if (name.length > 1 && quantity > 0 && unitPrice > 0) {
+      const totalPrice = itemMatch[4] ? parseDecimal(itemMatch[4]) : quantity * unitPrice;
+      if (description.length > 1 && quantity > 0 && unitPrice > 0) {
         items.push({
-          name,
+          description,
           quantity,
-          price: unitPrice,
+          unitPrice,
+          totalPrice,
         });
         continue;
       }
@@ -61,23 +63,28 @@ export function parseOCRText(ocrResult: OCRResult): OCRParseResult {
 
     const simpleMatch = line.match(SIMPLE_ITEM_PATTERN);
     if (simpleMatch) {
-      const name = simpleMatch[1]!.trim();
+      const description = simpleMatch[1]!.trim();
       const price = parseDecimal(simpleMatch[2]!);
-      if (name.length > 2 && price > 0 && !isHeaderOrFooter(name)) {
-        items.push({ name, quantity: 1, price });
+      if (description.length > 2 && price > 0 && !isHeaderOrFooter(description)) {
+        items.push({
+          description,
+          quantity: 1,
+          unitPrice: price,
+          totalPrice: price,
+        });
       }
     }
   }
 
-  if (total === 0 && items.length > 0) {
-    total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  if (totalAmount === 0 && items.length > 0) {
+    totalAmount = items.reduce((sum, i) => sum + i.totalPrice, 0);
   }
 
   return {
     invoiceId: generateId(),
     date,
     items,
-    total: Math.round(total * 100) / 100,
+    totalAmount: Math.round(totalAmount * 100) / 100,
     confidence: ocrResult.confidence,
   };
 }

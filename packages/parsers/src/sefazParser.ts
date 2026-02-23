@@ -1,4 +1,4 @@
-import type { InvoiceItem, SefazFetcher } from "./types";
+import type { InvoiceItem, InvoiceEmitter, SefazFetcher } from "./types";
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
@@ -8,25 +8,27 @@ export interface SefazParseResult {
   invoiceId: string;
   date: Date | null;
   items: InvoiceItem[];
-  total: number;
+  totalAmount: number;
+  emitter: InvoiceEmitter;
 }
 
 const ITEM_PATTERNS = [
   /<span[^>]*class="[^"]*txtTit[^"]*"[^>]*>(.*?)<\/span>[\s\S]*?<span[^>]*class="[^"]*Rqtd[^"]*"[^>]*>.*?(\d+[\.,]?\d*)\s*<\/span>[\s\S]*?<span[^>]*class="[^"]*RvlUnit[^"]*"[^>]*>.*?(\d+[\.,]?\d*)\s*<\/span>[\s\S]*?<span[^>]*class="[^"]*valor[^"]*"[^>]*>.*?(\d+[\.,]?\d*)\s*<\/span>/gi,
-  /<td[^>]*>\s*(.*?)\s*<\/td>\s*<td[^>]*>\s*(\d+[\.,]?\d*)\s*<\/td>\s*<td[^>]*>\s*R?\$?\s*(\d+[\.,]?\d*)\s*<\/td>\s*<td[^>]*>\s*R?\$?\s*(\d+[\.,]?\d*)\s*<\/td>/gi,
+  /<tr[^>]*>[\s\S]*?<td[^>]*class="[^"]*fixo-prod-serv-descricao[^"]*"[^>]*>([\s\S]*?)<\/td>[\s\S]*?<td[^>]*class="[^"]*fixo-prod-serv-qtd[^"]*"[^>]*>([\s\S]*?)<\/td>[\s\S]*?<td[^>]*class="[^"]*fixo-prod-serv-uc[^"]*"[^>]*>([\s\S]*?)<\/td>[\s\S]*?<td[^>]*class="[^"]*fixo-prod-serv-vb[^"]*"[^>]*>([\s\S]*?)<\/td>/gi,
 ];
 
 const TOTAL_PATTERNS = [
   /<span[^>]*class="[^"]*totalNumb[^"]*"[^>]*>\s*R?\$?\s*([\d.,]+)\s*<\/span>/i,
-  /(?:valor\s*total|total\s*(?:da\s*)?nota|total\s*r\$)\s*:?\s*R?\$?\s*([\d.,]+)/i,
-  /<span[^>]*id="[^"]*totalNota[^"]*"[^>]*>\s*R?\$?\s*([\d.,]+)\s*<\/span>/i,
+  /valor\s*total\s*da\s*nota\s*:?\s*R?\$?\s*([\d.,]+)/i,
 ];
 
 const DATE_PATTERNS = [
-  /(?:emiss[aã]o|data)[:\s]*(\d{2}\/\d{2}\/\d{4})/i,
-  /(\d{2}\/\d{2}\/\d{4})\s*\d{2}:\d{2}/,
-  /(\d{4}-\d{2}-\d{2})T/,
+  /(?:emissão|data)[:\s]*(\d{2}\/\d{2}\/\d{4})/i,
+  /(\d{2}\/\d{2}\/\d{4})\s*\d{2}:\d{2}:\d{2}/,
 ];
+
+const EMITTER_NAME_PATTERN = /<div[^>]*id="[^"]*txtNome[^"]*"[^>]*>(.*?)<\/div>/i;
+const EMITTER_CNPJ_PATTERN = /CNPJ:\s*(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/i;
 
 function parseDecimal(value: string): number {
   const cleaned = value.replace(/\./g, "").replace(",", ".");
@@ -63,15 +65,17 @@ function parseDate(dateStr: string): Date | null {
 
 export function parseSefazHtml(html: string): SefazParseResult {
   const items = extractItems(html);
-  const total = extractTotal(html) ?? items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const totalAmount = extractTotal(html) ?? items.reduce((sum, i) => sum + i.totalPrice, 0);
   const date = extractDate(html);
   const invoiceId = extractInvoiceId(html) ?? generateId();
+  const emitter = extractEmitter(html);
 
   return {
     invoiceId,
     date,
     items,
-    total: Math.round(total * 100) / 100,
+    totalAmount: Math.round(totalAmount * 100) / 100,
+    emitter,
   };
 }
 
@@ -82,58 +86,34 @@ function extractItems(html: string): InvoiceItem[] {
     pattern.lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(html)) !== null) {
-      const name = cleanProductName(match[1]!);
+      const description = cleanProductName(match[1]!);
       const quantity = parseDecimal(match[2]!);
-      const _unitPrice = parseDecimal(match[3]!);
+      const unitPrice = parseDecimal(match[3]!);
       const totalPrice = parseDecimal(match[4]!);
 
-      if (name && quantity > 0) {
+      if (description && quantity > 0) {
         items.push({
-          name,
+          description,
           quantity,
-          price: Math.round((totalPrice / quantity) * 100) / 100,
+          unitPrice,
+          totalPrice,
         });
       }
     }
     if (items.length > 0) break;
   }
 
-  if (items.length === 0) {
-    const fallbackItems = extractItemsFallback(html);
-    items.push(...fallbackItems);
-  }
-
   return items;
 }
 
-function extractItemsFallback(html: string): InvoiceItem[] {
-  const items: InvoiceItem[] = [];
-  const prodPattern = /<span[^>]*class="[^"]*txtTit[^"]*"[^>]*>([\s\S]*?)<\/span>/gi;
-  const valPattern = /<span[^>]*class="[^"]*valor[^"]*"[^>]*>\s*R?\$?\s*([\d.,]+)\s*<\/span>/gi;
+function extractEmitter(html: string): InvoiceEmitter {
+  const nameMatch = html.match(EMITTER_NAME_PATTERN);
+  const cnpjMatch = html.match(EMITTER_CNPJ_PATTERN);
 
-  const names: string[] = [];
-  const values: number[] = [];
-
-  let m: RegExpExecArray | null;
-  while ((m = prodPattern.exec(html)) !== null) {
-    names.push(cleanProductName(m[1]!));
-  }
-  while ((m = valPattern.exec(html)) !== null) {
-    values.push(parseDecimal(m[1]!));
-  }
-
-  const count = Math.min(names.length, values.length);
-  for (let i = 0; i < count; i++) {
-    if (names[i] && values[i]! > 0) {
-      items.push({
-        name: names[i]!,
-        quantity: 1,
-        price: values[i]!,
-      });
-    }
-  }
-
-  return items;
+  return {
+    name: nameMatch ? cleanProductName(nameMatch[1]!) : "Desconhecido",
+    cnpj: cnpjMatch ? cnpjMatch[1]!.replace(/\D/g, "") : "",
+  };
 }
 
 function extractTotal(html: string): number | null {

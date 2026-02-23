@@ -7,11 +7,17 @@ export interface InvoiceState {
 
 export interface StoredInvoice {
   invoiceId: string;
+  source: "SEFAZ_QR" | "OCR_FALLBACK";
+  emitter: {
+    cnpj: string;
+    name: string;
+  };
   date: string;
   items: InvoiceItem[];
-  total: number;
-  source: "qrcode" | "ocr" | "manual";
+  totalAmount: number;
   importedAt: number;
+  confirmed: boolean;
+  confirmedAt?: number;
 }
 
 export function createInitialInvoiceState(): InvoiceState {
@@ -20,7 +26,7 @@ export function createInitialInvoiceState(): InvoiceState {
 
 export function invoiceReducer(
   state: InvoiceState,
-  event: { type: string; payload: unknown; timestamp: number },
+  event: { type: string; payload: any; timestamp: number },
 ): InvoiceState {
   switch (event.type) {
     case EVENT_TYPES.INVOICE_IMPORTED: {
@@ -28,33 +34,27 @@ export function invoiceReducer(
       const newInvoices = new Map(state.invoices);
       newInvoices.set(payload.invoiceId, {
         invoiceId: payload.invoiceId,
+        source: payload.source,
+        emitter: payload.emitter,
         date: payload.date,
         items: [...payload.items],
-        total: payload.total,
-        source: payload.source,
+        totalAmount: payload.totalAmount,
         importedAt: event.timestamp,
+        confirmed: false,
       });
       return { invoices: newInvoices };
     }
 
-    case EVENT_TYPES.AI_CLASSIFICATION_CORRECTED: {
-      const payload = event.payload as AIClassificationCorrectedPayload;
+    case EVENT_TYPES.INVOICE_CONFIRMED: {
+      const payload = event.payload as InvoiceConfirmedPayload;
       const invoice = state.invoices.get(payload.invoiceId);
       if (!invoice) return state;
-
-      const updatedItems = [...invoice.items];
-      if (payload.itemIndex >= 0 && payload.itemIndex < updatedItems.length) {
-        updatedItems[payload.itemIndex] = {
-          ...updatedItems[payload.itemIndex]!,
-          categoryId: payload.newCategoryId,
-          categoryConfidence: 1.0,
-        };
-      }
 
       const newInvoices = new Map(state.invoices);
       newInvoices.set(payload.invoiceId, {
         ...invoice,
-        items: updatedItems,
+        confirmed: true,
+        confirmedAt: event.timestamp,
       });
       return { invoices: newInvoices };
     }

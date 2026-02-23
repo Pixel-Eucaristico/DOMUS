@@ -1,8 +1,8 @@
 export type {
-  Invoice,
   InvoiceItem,
+  InvoiceEmitter,
   InvoiceImportedPayload,
-  AIClassificationCorrectedPayload,
+  InvoiceConfirmedPayload,
   ClassificationResult,
   ClassifierAdapter,
   OCRResult,
@@ -20,6 +20,12 @@ export type { SefazParseResult } from "./src/sefazParser";
 export { parseOCRText, parseFromImage } from "./src/ocrParser";
 export type { OCRParseResult } from "./src/ocrParser";
 
+export { QRScannerService } from "./src/qrScannerService";
+export { SefazService } from "./src/sefazService";
+export { OCRService } from "./src/ocrService";
+export { InvoiceParser } from "./src/invoiceParser";
+export { createInvoiceImportedEvent, createInvoiceConfirmedEvent } from "./src/invoiceEventFactory";
+
 export {
   classifyByKeyword,
   createKeywordClassifier,
@@ -33,16 +39,3 @@ export {
   createInitialInvoiceState,
 } from "./src/invoiceReducer";
 export type { InvoiceState, StoredInvoice } from "./src/invoiceReducer";
-
-export {
-  importFromQRCode,
-  importFromImage,
-  importFromHtml,
-  createClassificationCorrectionEvent,
-} from "./src/importInvoice";
-export type {
-  ImportFromQRCodeOptions,
-  ImportFromImageOptions,
-  ImportFromHtmlOptions,
-  ImportResult,
-} from "./src/importInvoice";

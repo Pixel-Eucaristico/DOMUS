@@ -154,18 +154,36 @@ export function calculate503020(
     if (tx.type === "income") {
       totalIncome += tx.amount;
     } else if (tx.type === "expense") {
-      const cat = categories[tx.categoryId];
-      const group = cat?.group ?? "wants";
-      switch (group) {
-        case "needs":
-          needs += tx.amount;
-          break;
-        case "wants":
-          wants += tx.amount;
-          break;
-        case "savings":
-          savings += tx.amount;
-          break;
+      if (tx.items && tx.items.length > 0) {
+        for (const item of tx.items) {
+          const cat = categories[item.categoryId];
+          const group = cat?.group ?? "wants";
+          switch (group) {
+            case "needs":
+              needs += item.amount;
+              break;
+            case "wants":
+              wants += item.amount;
+              break;
+            case "savings":
+              savings += item.amount;
+              break;
+          }
+        }
+      } else {
+        const cat = categories[tx.categoryId];
+        const group = cat?.group ?? "wants";
+        switch (group) {
+          case "needs":
+            needs += tx.amount;
+            break;
+          case "wants":
+            wants += tx.amount;
+            break;
+          case "savings":
+            savings += tx.amount;
+            break;
+        }
       }
     }
   }

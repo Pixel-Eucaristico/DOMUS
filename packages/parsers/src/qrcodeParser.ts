@@ -1,5 +1,5 @@
-const SEFAZ_URL_PATTERN = /https?:\/\/(?:www\.)?(?:nfce\.)?(?:\w+\.)?(?:sefaz|fazenda|nfce)\.\w+\.gov\.br\S*/i;
-const CHAVE_ACESSO_PATTERN = /(?:chNFe|p)=(\d{44})/;
+const SEFAZ_URL_PATTERN = /https?:\/\/(?:www\.)?(?:nfce\.)?(?:\w+\.)?(?:sefaz|fazenda|nfce|receita)\.\w+\.gov\.br\S*/i;
+const CHAVE_ACESSO_PATTERN = /(?:chNFe|p|chAcesso|p)=([0-9]{44})/;
 
 export interface QRCodeData {
   url: string;

@@ -1,38 +1,35 @@
 export interface InvoiceItem {
-  name: string;
+  description: string;
   quantity: number;
-  price: number;
-  categoryId?: string;
-  categoryConfidence?: number;
+  unitPrice: number;
+  totalPrice: number;
 }
 
-export interface Invoice {
-  invoiceId: string;
-  date: Date;
-  items: InvoiceItem[];
-  total: number;
-  source: "qrcode" | "ocr" | "manual";
-  rawUrl?: string;
+export interface InvoiceEmitter {
+  cnpj: string;
+  name: string;
 }
 
 export interface InvoiceImportedPayload {
   invoiceId: string;
-  items: InvoiceItem[];
-  total: number;
+  source: "SEFAZ_QR" | "OCR_FALLBACK";
+  emitter: InvoiceEmitter;
   date: string;
-  source: "qrcode" | "ocr" | "manual";
+  items: InvoiceItem[];
+  totalAmount: number;
+  rawHtmlHash?: string;
+  confidenceScore?: number;
 }
 
-export interface AIClassificationCorrectedPayload {
+export interface InvoiceConfirmedPayload {
   invoiceId: string;
-  itemIndex: number;
-  oldCategoryId: string;
-  newCategoryId: string;
+  date: string;
+  totalAmount: number;
 }
 
 export const EVENT_TYPES = {
   INVOICE_IMPORTED: "INVOICE_IMPORTED",
-  AI_CLASSIFICATION_CORRECTED: "AI_CLASSIFICATION_CORRECTED",
+  INVOICE_CONFIRMED: "INVOICE_CONFIRMED",
 } as const;
 
 export interface ClassificationResult {

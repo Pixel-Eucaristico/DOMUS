@@ -94,6 +94,38 @@ export function domainReducer(state: AppState, event: DomainEvent): AppState {
       };
     }
 
+    case EVENT_TYPES.INVOICE_IMPORTED: {
+      const payload = event.payload;
+      return {
+        ...state,
+        invoices: {
+          ...state.invoices,
+          [payload.invoiceId]: {
+            ...payload,
+            importedAt: event.timestamp,
+            confirmed: false,
+          },
+        },
+      };
+    }
+
+    case EVENT_TYPES.INVOICE_CONFIRMED: {
+      const payload = event.payload;
+      const invoice = state.invoices[payload.invoiceId];
+      if (!invoice) return state;
+      return {
+        ...state,
+        invoices: {
+          ...state.invoices,
+          [payload.invoiceId]: {
+            ...invoice,
+            confirmed: true,
+            confirmedAt: event.timestamp,
+          },
+        },
+      };
+    }
+
     default:
       return state;
   }

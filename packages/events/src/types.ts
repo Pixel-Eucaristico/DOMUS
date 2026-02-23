@@ -6,6 +6,8 @@ export const EVENT_TYPES = {
   TRANSACTION_UPDATED: "TRANSACTION_UPDATED",
   TRANSACTION_DELETED: "TRANSACTION_DELETED",
   CATEGORY_CREATED: "CATEGORY_CREATED",
+  INVOICE_IMPORTED: "INVOICE_IMPORTED",
+  INVOICE_CONFIRMED: "INVOICE_CONFIRMED",
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
@@ -54,6 +56,12 @@ export interface AccountPayload {
   color?: string;
 }
 
+export interface TransactionItem {
+  description: string;
+  amount: number;
+  categoryId: string;
+}
+
 export interface TransactionPayload {
   id: string;
   accountId: string;
@@ -62,6 +70,7 @@ export interface TransactionPayload {
   categoryId: string;
   date: string;
   description?: string;
+  items?: TransactionItem[];
   installments?: number;
   targetAccountId?: string;
   installmentInfo?: InstallmentInfo;
@@ -71,6 +80,35 @@ export interface CategoryPayload {
   id: string;
   name: string;
   group: CategoryGroup;
+}
+
+export interface InvoiceItemPayload {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export interface InvoiceEmitter {
+  cnpj: string;
+  name: string;
+}
+
+export interface InvoiceImportedPayload {
+  invoiceId: string;
+  source: "SEFAZ_QR" | "OCR_FALLBACK";
+  emitter: InvoiceEmitter;
+  date: string;
+  items: InvoiceItemPayload[];
+  totalAmount: number;
+  rawHtmlHash?: string;
+  confidenceScore?: number;
+}
+
+export interface InvoiceConfirmedPayload {
+  invoiceId: string;
+  date: string;
+  totalAmount: number;
 }
 
 interface BaseEvent {
@@ -116,6 +154,16 @@ export interface CategoryCreatedEvent extends BaseEvent {
   payload: CategoryPayload;
 }
 
+export interface InvoiceImportedEvent extends BaseEvent {
+  type: typeof EVENT_TYPES.INVOICE_IMPORTED;
+  payload: InvoiceImportedPayload;
+}
+
+export interface InvoiceConfirmedEvent extends BaseEvent {
+  type: typeof EVENT_TYPES.INVOICE_CONFIRMED;
+  payload: InvoiceConfirmedPayload;
+}
+
 export type DomainEvent =
   | AccountCreatedEvent
   | AccountUpdatedEvent
@@ -123,4 +171,6 @@ export type DomainEvent =
   | TransactionCreatedEvent
   | TransactionUpdatedEvent
   | TransactionDeletedEvent
-  | CategoryCreatedEvent;
+  | CategoryCreatedEvent
+  | InvoiceImportedEvent
+  | InvoiceConfirmedEvent;
