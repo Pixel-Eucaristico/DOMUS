@@ -18,16 +18,38 @@ export function calculateBudgetAdherenceXp(
   wantsPercent: number,
   savingsPercent: number,
 ): number {
-  const needsDiff = Math.abs(needsPercent - 50);
-  const wantsDiff = Math.abs(wantsPercent - 30);
-  const savingsDiff = Math.abs(savingsPercent - 20);
-  const totalDiff = needsDiff + wantsDiff + savingsDiff;
+  // If all percentages are zero, there's no data to evaluate.
+  if (needsPercent === 0 && wantsPercent === 0 && savingsPercent === 0) {
+    return 0;
+  }
 
-  if (totalDiff <= 5) return 50;
-  if (totalDiff <= 10) return 35;
-  if (totalDiff <= 20) return 25;
-  if (totalDiff <= 30) return 15;
-  return 5;
+  let xp = 0;
+
+  // 1. Penalty for overspending in Needs (> 50%) - Smaller penalty
+  if (needsPercent > 50) {
+    const diff = needsPercent - 50;
+    xp -= diff * 1; // 1 XP per 1% overspent
+  }
+
+  // 2. Penalty for overspending in Wants (> 30%) - Larger penalty
+  if (wantsPercent > 30) {
+    const diff = wantsPercent - 30;
+    xp -= diff * 4; // 4 XP per 1% overspent
+  }
+
+  // 3. Reward primarily for Savings (Goal is >= 20%)
+  // "somente poupança que gratifica"
+  if (savingsPercent >= 20) {
+    const extra = savingsPercent - 20;
+    xp += 30; // Base reward for meeting the goal
+    xp += extra * 2; // Extra reward for saving more
+  } else {
+    // Penalty for not meeting the savings goal
+    const miss = 20 - savingsPercent;
+    xp -= miss * 2; // 2 XP per 1% missing
+  }
+
+  return Math.round(xp);
 }
 
 export function calculateStreakBonusXp(currentStreak: number): number {

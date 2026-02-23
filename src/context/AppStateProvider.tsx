@@ -18,7 +18,7 @@ import type { GamificationEvent, GamificationState } from "@packages/gamificatio
 import { GAMIFICATION_EVENTS } from "@packages/gamification/src/types";
 import { gamificationReducer, createInitialGamificationState } from "@packages/gamification/src/reducer";
 import { getLevelInfo, shouldLevelUp, type LevelInfo } from "@packages/gamification/src/levelEngine";
-import { createXpPayload } from "@packages/gamification/src/xpEngine";
+import { createXpPayload, getXpForAction, calculateBudgetAdherenceXp } from "@packages/gamification/src/xpEngine";
 import { updateStreak, type StreakState } from "@packages/gamification/src/streakEngine";
 import type { OnboardingEvent, OnboardingState } from "@packages/onboarding/src/types";
 import { ONBOARDING_EVENTS } from "@packages/onboarding/src/types";
@@ -200,10 +200,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     const scores = calculateScores({
       transactionCount: txCount,
       daysActive: gamification.currentStreak || 1,
-      budgetAdherencePercent:
-        budget.needsPercent > 0
-          ? 100 - Math.abs(budget.needsPercent - 50) - Math.abs(budget.wantsPercent - 30) - Math.abs(budget.savingsPercent - 20)
-          : 0,
+      budgetAdherencePercent: budget.adherenceScore,
       wishlistItemsTracked: 0,
       desiresSaved: 0,
       monthsPlanned: season.history.length,
@@ -301,7 +298,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       dispatch(event);
 
       if (event.type === EVENT_TYPES.TRANSACTION_CREATED) {
-        const xpPayload = createXpPayload("transaction_logged");
+        const baseLoggingXp = getXpForAction("transaction_logged");
+        const budgetBonus = calculateBudgetAdherenceXp(
+          budget.needsPercent,
+          budget.wantsPercent,
+          budget.savingsPercent,
+        );
+        const totalXpGain = baseLoggingXp + budgetBonus;
+
+        const xpPayload = createXpPayload("transaction_logged", totalXpGain);
         const xpEvent: GamificationEvent = {
           id: generateId(),
           type: GAMIFICATION_EVENTS.XP_GAINED,
@@ -329,13 +334,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         } as GamificationEvent;
         dispatch(streakEvent);
 
-        const newTotalXp = gamification.totalXp + xpPayload.amount;
+        const newTotalXp = gamification.totalXp + totalXpGain;
         const levelCheck = shouldLevelUp(gamification.totalXp, newTotalXp);
         if (levelCheck.leveledUp) {
           const levelEvent: GamificationEvent = {
             id: generateId(),
             type: GAMIFICATION_EVENTS.LEVEL_UP,
-            payload: {         previousLevel: levelCheck.previousLevel,
+            payload: {
+              previousLevel: levelCheck.previousLevel,
               newLevel: levelCheck.newLevel,
               totalXp: newTotalXp,
             },

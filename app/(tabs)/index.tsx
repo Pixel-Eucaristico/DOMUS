@@ -25,12 +25,14 @@ function BudgetBar({
   label,
   percent,
   ideal,
+  idealAmount,
   color,
   amount,
 }: {
   label: string;
   percent: number;
   ideal: number;
+  idealAmount: number;
   color: string;
   amount: number;
 }) {
@@ -41,7 +43,7 @@ function BudgetBar({
         <View style={[s.budgetDot, { backgroundColor: color }]} />
         <Text style={s.budgetLabel}>{label}</Text>
         <Text style={s.budgetPercent}>
-          {percent}% <Text style={s.budgetIdeal}>(ideal {ideal}%)</Text>
+          {percent}% <Text style={s.budgetIdeal}>(meta {ideal}%)</Text>
         </Text>
       </View>
       <View style={s.budgetBarBg}>
@@ -52,7 +54,10 @@ function BudgetBar({
           ]}
         />
       </View>
-      <Text style={s.budgetAmount}>{formatCurrency(amount)}</Text>
+      <View style={s.budgetFooter}>
+        <Text style={s.budgetAmount}>{formatCurrency(amount)}</Text>
+        <Text style={s.budgetIdealValue}>Meta: {formatCurrency(idealAmount)}</Text>
+      </View>
     </View>
   );
 }
@@ -71,6 +76,8 @@ export default function HomeScreen() {
   const recentTxs = Object.values(domain.transactions)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5);
+
+  const incomeBase = budget.totalIncome > 0 ? budget.totalIncome : (budget.needs + budget.wants + budget.savings);
 
   const handleAddPress = () => {
     if (Platform.OS !== "web") {
@@ -207,6 +214,7 @@ export default function HomeScreen() {
                 label="Necessidades"
                 percent={budget.needsPercent}
                 ideal={50}
+                idealAmount={incomeBase * 0.5}
                 color={theme.primaryColor}
                 amount={budget.needs}
               />
@@ -214,6 +222,7 @@ export default function HomeScreen() {
                 label="Desejos"
                 percent={budget.wantsPercent}
                 ideal={30}
+                idealAmount={incomeBase * 0.3}
                 color={theme.accentColor}
                 amount={budget.wants}
               />
@@ -221,6 +230,7 @@ export default function HomeScreen() {
                 label="Poupanca"
                 percent={budget.savingsPercent}
                 ideal={20}
+                idealAmount={incomeBase * 0.2}
                 color={theme.warning}
                 amount={budget.savings}
               />
@@ -449,7 +459,9 @@ const s = StyleSheet.create({
   budgetIdeal: { fontFamily: "DMSans_400Regular", fontSize: 11, color: "#9CA3AF" },
   budgetBarBg: { height: 6, borderRadius: 3, backgroundColor: "#F3F4F6" },
   budgetBarFill: { height: 6, borderRadius: 3, minWidth: 2 },
-  budgetAmount: { fontFamily: "DMSans_400Regular", fontSize: 12, color: "#6B7280", textAlign: "right" as const },
+  budgetFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  budgetAmount: { fontFamily: "DMSans_600SemiBold", fontSize: 12, color: "#374151" },
+  budgetIdealValue: { fontFamily: "DMSans_400Regular", fontSize: 11, color: "#6B7280" },
   emptyState: { alignItems: "center", paddingVertical: 24, gap: 8 },
   emptyText: { fontFamily: "DMSans_400Regular", fontSize: 14, textAlign: "center" as const },
   txList: { gap: 0 },

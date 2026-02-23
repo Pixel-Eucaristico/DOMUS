@@ -74,32 +74,32 @@ describe("XP Engine", () => {
   });
 
   describe("calculateBudgetAdherenceXp", () => {
-    it("returns 50xp for perfect 50/30/20 split", () => {
-      expect(calculateBudgetAdherenceXp(50, 30, 20)).toBe(50);
+    it("returns base reward (30xp) for perfect 50/30/20 split", () => {
+      expect(calculateBudgetAdherenceXp(50, 30, 20)).toBe(30);
     });
 
-    it("returns 50xp for small deviations (51/30/19)", () => {
-      expect(calculateBudgetAdherenceXp(51, 30, 19)).toBe(50);
+    it("penalizes 1xp per 1% over in Needs", () => {
+      expect(calculateBudgetAdherenceXp(60, 20, 20)).toBe(20); // -10 penalty from base 30
     });
 
-    it("returns 50xp for small deviations (50/31/19)", () => {
-      expect(calculateBudgetAdherenceXp(50, 31, 19)).toBe(50);
+    it("penalizes 4xp per 1% over in Wants", () => {
+      expect(calculateBudgetAdherenceXp(40, 40, 20)).toBe(-10); // -40 penalty from base 30
     });
 
-    it("returns 35xp for small deviations within 10", () => {
-      expect(calculateBudgetAdherenceXp(55, 28, 17)).toBe(35);
+    it("penalizes 2xp per 1% below in Savings", () => {
+      expect(calculateBudgetAdherenceXp(50, 30, 10)).toBe(-20); // -20 penalty from no reward base (miss * 2)
     });
 
-    it("returns 25xp for moderate deviations within 20", () => {
-      expect(calculateBudgetAdherenceXp(60, 25, 15)).toBe(25);
+    it("heavily penalizes extreme overspending in Wants", () => {
+      expect(calculateBudgetAdherenceXp(40, 50, 10)).toBe(-100); // 30 (Wants over 10 -> -80) NO, wait.
+      // Needs: 40 (ok)
+      // Wants: 50 (20 over 30 -> -80 penalty)
+      // Savings: 10 (10 below 20 -> -20 penalty)
+      // Total: -100
     });
 
-    it("returns 15xp for larger deviations within 30", () => {
-      expect(calculateBudgetAdherenceXp(65, 20, 15)).toBe(15);
-    });
-
-    it("returns 5xp for extreme deviations beyond 30", () => {
-      expect(calculateBudgetAdherenceXp(80, 10, 10)).toBe(5);
+    it("returns 0 if no data is present (0/0/0)", () => {
+      expect(calculateBudgetAdherenceXp(0, 0, 0)).toBe(0);
     });
   });
 

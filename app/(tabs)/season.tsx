@@ -57,7 +57,7 @@ export default function SeasonScreen() {
       season.currentSeason.seasonId,
       gamification.totalXp,
       levelInfo.level,
-      100 - Math.abs(budget.needsPercent - 50) - Math.abs(budget.wantsPercent - 30) - Math.abs(budget.savingsPercent - 20),
+      budget.adherenceScore,
       gamification.currentStreak,
       archetype,
     );
@@ -185,7 +185,7 @@ export default function SeasonScreen() {
               <View style={st.seasonStatItem}>
                 <Feather name="target" size={18} color={theme.success} />
                 <Text style={[st.seasonStatValue, { color: theme.textColor }]}>
-                  {Math.max(0, 100 - Math.abs(budget.needsPercent - 50) - Math.abs(budget.wantsPercent - 30) - Math.abs(budget.savingsPercent - 20))}
+                  {budget.adherenceScore}
                 </Text>
                 <Text style={[st.seasonStatLabel, { color: theme.secondaryText }]}>
                   Score

@@ -127,6 +127,8 @@ export interface BudgetBreakdown {
   needsPercent: number;
   wantsPercent: number;
   savingsPercent: number;
+  totalIncome: number;
+  adherenceScore: number;
 }
 
 export function calculate503020(
@@ -138,38 +140,60 @@ export function calculate503020(
   let needs = 0;
   let wants = 0;
   let savings = 0;
+  let totalIncome = 0;
 
-  const monthExpenses = transactions.filter((t) => {
-    if (t.type !== "expense") return false;
-    const d = new Date(t.date);
-    return d.getMonth() === month && d.getFullYear() === year;
-  });
+  for (const tx of transactions) {
+    // Parse YYYY-MM-DD manually to avoid timezone issues with new Date()
+    const parts = tx.date.split("-");
+    if (parts.length < 2) continue;
+    const y = parseInt(parts[0]!, 10);
+    const m = parseInt(parts[1]!, 10) - 1; // 0-indexed month
 
-  for (const tx of monthExpenses) {
-    const cat = categories[tx.categoryId];
-    const group = cat?.group ?? "wants";
-    switch (group) {
-      case "needs":
-        needs += tx.amount;
-        break;
-      case "wants":
-        wants += tx.amount;
-        break;
-      case "savings":
-        savings += tx.amount;
-        break;
+    if (m !== month || y !== year) continue;
+
+    if (tx.type === "income") {
+      totalIncome += tx.amount;
+    } else if (tx.type === "expense") {
+      const cat = categories[tx.categoryId];
+      const group = cat?.group ?? "wants";
+      switch (group) {
+        case "needs":
+          needs += tx.amount;
+          break;
+        case "wants":
+          wants += tx.amount;
+          break;
+        case "savings":
+          savings += tx.amount;
+          break;
+      }
     }
   }
 
-  const total = needs + wants + savings;
+  const denominator = totalIncome > 0 ? totalIncome : (needs + wants + savings);
+  const needsPercent = denominator > 0 ? Math.round((needs / denominator) * 100) : 0;
+  const wantsPercent = denominator > 0 ? Math.round((wants / denominator) * 100) : 0;
+  const savingsPercent = denominator > 0 ? Math.round((savings / denominator) * 100) : 0;
+
+  // Adherence Score: Start at 100, penalize overspending in Needs/Wants and undersaving in Savings.
+  let adherenceScore = 0;
+  if (denominator > 0) {
+    let score = 100;
+    if (needsPercent > 50) score -= (needsPercent - 50) * 2;
+    if (wantsPercent > 30) score -= (wantsPercent - 30) * 2;
+    if (savingsPercent < 20) score -= (20 - savingsPercent) * 2;
+    adherenceScore = Math.max(0, Math.min(100, score));
+  }
 
   return {
     needs,
     wants,
     savings,
-    needsPercent: total > 0 ? Math.round((needs / total) * 100) : 0,
-    wantsPercent: total > 0 ? Math.round((wants / total) * 100) : 0,
-    savingsPercent: total > 0 ? Math.round((savings / total) * 100) : 0,
+    totalIncome,
+    needsPercent,
+    wantsPercent,
+    savingsPercent,
+    adherenceScore,
   };
 }
 

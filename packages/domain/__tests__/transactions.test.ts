@@ -267,6 +267,82 @@ describe("calculate503020", () => {
     expect(result.wants).toBe(100);
   });
 
+  it("calculates percentages based on total income when present", () => {
+    const transactions = [
+      {
+        id: "t1",
+        accountId: "a1",
+        type: "income" as const,
+        amount: 4000,
+        categoryId: "cat-salary",
+        date: "2026-02-01",
+      },
+      {
+        id: "t2",
+        accountId: "a1",
+        type: "expense" as const,
+        amount: 1000,
+        categoryId: "cat-food",
+        date: "2026-02-10",
+      },
+      {
+        id: "t3",
+        accountId: "a1",
+        type: "expense" as const,
+        amount: 600,
+        categoryId: "cat-fun",
+        date: "2026-02-15",
+      },
+      {
+        id: "t4",
+        accountId: "a1",
+        type: "expense" as const,
+        amount: 400,
+        categoryId: "cat-invest",
+        date: "2026-02-20",
+      },
+    ];
+
+    const result = calculate503020(transactions, categories, 1, 2026);
+    expect(result.needs).toBe(1000);
+    expect(result.wants).toBe(600);
+    expect(result.savings).toBe(400);
+    expect(result.totalIncome).toBe(4000);
+    // 1000 / 4000 = 25%
+    expect(result.needsPercent).toBe(25);
+    // 600 / 4000 = 15%
+    expect(result.wantsPercent).toBe(15);
+    // 400 / 4000 = 10%
+    expect(result.savingsPercent).toBe(10);
+  });
+
+  it("strictly categorizes savings (does not include unspent income)", () => {
+    const transactions = [
+      {
+        id: "t1",
+        accountId: "a1",
+        type: "income" as const,
+        amount: 5000,
+        categoryId: "cat-salary",
+        date: "2026-02-01",
+      },
+      {
+        id: "t2",
+        accountId: "a1",
+        type: "expense" as const,
+        amount: 2500,
+        categoryId: "cat-food",
+        date: "2026-02-10",
+      },
+    ];
+
+    const result = calculate503020(transactions, categories, 1, 2026);
+    expect(result.needs).toBe(2500);
+    expect(result.savings).toBe(0); // No savings transactions registered
+    expect(result.savingsPercent).toBe(0);
+    expect(result.totalIncome).toBe(5000);
+  });
+
   it("handles empty transactions", () => {
     const result = calculate503020([], categories, 1, 2026);
     expect(result.needsPercent).toBe(0);

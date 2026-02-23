@@ -177,14 +177,14 @@ describe("DOMUS Integration - Full User Journey", () => {
 
   it("7. gains XP for budget adherence and checks level", () => {
     const adherenceXp = calculateBudgetAdherenceXp(50, 30, 20);
-    expect(adherenceXp).toBe(50);
+    expect(adherenceXp).toBe(25);
 
     const xpPayload = createXpPayload("budget_adherence", adherenceXp);
     const event = makeEvent(GAMIFICATION_EVENTS.XP_GAINED, xpPayload) as GamificationEvent;
     allGamificationEvents.push(event);
     gamificationState = gamificationReducer(gamificationState, event);
 
-    expect(gamificationState.totalXp).toBe(60);
+    expect(gamificationState.totalXp).toBe(35);
 
     const level = calculateLevel(gamificationState.totalXp);
     expect(level).toBeGreaterThanOrEqual(1);
