@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { createAccountEvent } from "@packages/domain/src/accounts";
@@ -41,6 +42,7 @@ function accountTypeIcon(t: AccountType): string {
 
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { domain, theme, dispatchDomainEvent } = useAppState();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
@@ -117,9 +119,13 @@ export default function AccountsScreen() {
         ) : (
           <View style={s.accountList}>
             {accounts.map((acc) => (
-              <View
+              <Pressable
                 key={acc.id}
-                style={[s.accountCard, { backgroundColor: theme.cardBackground }]}
+                style={({ pressed }) => [
+                  s.accountCard, 
+                  { backgroundColor: theme.cardBackground, opacity: pressed ? 0.7 : 1 }
+                ]}
+                onPress={() => router.push({ pathname: "/transactions", params: { accountId: acc.id } })}
               >
                 <View style={s.accountCardTop}>
                   <View
@@ -162,7 +168,7 @@ export default function AccountsScreen() {
                     ? `Limite: ${formatCurrency(acc.creditLimit ?? 0)}`
                     : formatCurrency(acc.balance)}
                 </Text>
-              </View>
+              </Pressable>
             ))}
           </View>
         )}

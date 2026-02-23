@@ -207,7 +207,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           await AsyncStorage.setItem(LAST_PUSH_HASH_KEY, hash);
         } catch {}
       } catch (err) {
-        console.log("Push to relays failed:", err);
         throw err;
       }
     },
@@ -222,7 +221,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const pullFromRelays = useCallback(
     async (keys: NostrSyncKeys, did: string, since: number): Promise<number> => {
       try {
-        const syncEvents = await pullSyncEvents(keys, did, since);
+        // Se temos zero eventos locais, assumimos que é uma recuperação (ex: novo dispositivo ou perda de dados)
+        // e pedimos para incluir nossos próprios eventos antigos.
+        const isRecovery = allEventsRef.current.length === 0;
+        const syncEvents = await pullSyncEvents(keys, did, since, isRecovery);
 
         if (syncEvents.length > 0) {
           // Marcar como importando para bloquear push automático durante o import
@@ -249,7 +251,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         return 0;
       } catch (err) {
         isImportingRef.current = false;
-        console.log("Pull from relays failed:", err);
         throw err;
       }
     },
@@ -273,8 +274,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     try {
       setSyncStatus("syncing");
 
-      // Se o sync inicial ainda não foi concluído com sucesso, tenta pull completo (since=0)
-      const pullSince = initialSyncDoneRef.current ? lastPullTsRef.current : 0;
+      // Se não temos eventos locais ou o sync inicial ainda não foi concluído, fazemos pull completo.
+      const pullSince = (initialSyncDoneRef.current && allEventsRef.current.length > 0) ? lastPullTsRef.current : 0;
 
       // Push: publica se houver mudanças ou ocasionalmente para garantir persistência
       await pushMyEvents(currentKeys, currentDeviceId, false);
@@ -283,14 +284,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       const imported = await pullFromRelays(currentKeys, currentDeviceId, pullSince);
       
       if (!initialSyncDoneRef.current && (imported > 0 || pullSince === 0)) {
-        console.log(`[Sync] Initial sync completed. Received ${imported} events.`);
         initialSyncDoneRef.current = true;
       }
 
       setSyncStatus("connected");
       setErrorMessage(null);
     } catch (err) {
-      console.log("[Sync] periodic sync error:", err);
+      console.warn("[Sync] periodic sync failed (offline):", err);
       setSyncStatus("offline");
     }
   }, [groupCode, deviceId, pushMyEvents, pullFromRelays]);
@@ -324,13 +324,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       pushMyEvents(keys, did, true)
         .then(() => pullFromRelays(keys, did, 0))
         .then((imported) => {
-          console.log(`[Sync] Initial pull complete. Imported: ${imported}`);
           initialSyncDoneRef.current = true;
           setSyncStatus("connected");
           setErrorMessage(null);
         })
         .catch((err) => {
-          console.log("[Sync] Initial sync failed, will retry in background:", err);
+          console.warn("[Sync] Initial sync failed:", err);
           setSyncStatus("offline");
         });
     }
@@ -405,7 +404,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       // Só pula o push se o hash for igual E o sincronismo inicial já tiver sido feito com sucesso.
       if (hash === lastPushHashRef.current && initialSyncDoneRef.current) return;
 
-      console.log(`[Sync] Device ${deviceId} triggering push for ${myEvents.length} events (Hash: ${hash})`);
       isPushingRef.current = true;
       pushMyEvents(keys, deviceId, false)
         .then(() => {
@@ -510,6 +508,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
         try {
           // Pull desde o início (since=0) para obter todos os eventos históricos
+          // A lógica de recovery dentro de pullFromRelays garantirá que pegamos tudo se estivermos vazios.
           await pullFromRelays(derivedKeys, deviceId, 0);
         } catch {}
 

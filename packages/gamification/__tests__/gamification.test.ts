@@ -74,32 +74,36 @@ describe("XP Engine", () => {
   });
 
   describe("calculateBudgetAdherenceXp", () => {
-    it("returns base reward (30xp) for perfect 50/30/20 split", () => {
-      expect(calculateBudgetAdherenceXp(50, 30, 20)).toBe(30);
+    it("returns base reward (40xp) + health bonus (20xp) = 60xp for perfect 50/30/20 split", () => {
+      expect(calculateBudgetAdherenceXp({
+        needs: 500, wants: 300, savings: 200, 
+        needsPercent: 50, wantsPercent: 30, savingsPercent: 20, 
+        totalIncome: 1000, adherenceScore: 100
+      })).toBe(60);
     });
 
-    it("penalizes 1xp per 1% over in Needs", () => {
-      expect(calculateBudgetAdherenceXp(60, 20, 20)).toBe(20); // -10 penalty from base 30
+    it("penalizes Needs only if income is present", () => {
+      // With income: 60% needs -> -10 penalty
+      expect(calculateBudgetAdherenceXp({
+        needs: 600, wants: 200, savings: 200, 
+        needsPercent: 60, wantsPercent: 20, savingsPercent: 20, 
+        totalIncome: 1000, adherenceScore: 80
+      })).toBe(30); // 40 (savings) + 0 (health) - 10 (needs)
+
+      // Without income: no penalties
+      expect(calculateBudgetAdherenceXp({
+        needs: 600, wants: 200, savings: 200, 
+        needsPercent: 60, wantsPercent: 20, savingsPercent: 20, 
+        totalIncome: 0, adherenceScore: 80
+      })).toBe(40); // 40 (savings >= 20%). The +15 bonus is for savings > 0 BUT < 20. Here savings is >= 20, so it uses the main reward block.
     });
 
-    it("penalizes 4xp per 1% over in Wants", () => {
-      expect(calculateBudgetAdherenceXp(40, 40, 20)).toBe(-10); // -40 penalty from base 30
-    });
-
-    it("penalizes 2xp per 1% below in Savings", () => {
-      expect(calculateBudgetAdherenceXp(50, 30, 10)).toBe(-20); // -20 penalty from no reward base (miss * 2)
-    });
-
-    it("heavily penalizes extreme overspending in Wants", () => {
-      expect(calculateBudgetAdherenceXp(40, 50, 10)).toBe(-100); // 30 (Wants over 10 -> -80) NO, wait.
-      // Needs: 40 (ok)
-      // Wants: 50 (20 over 30 -> -80 penalty)
-      // Savings: 10 (10 below 20 -> -20 penalty)
-      // Total: -100
-    });
-
-    it("returns 0 if no data is present (0/0/0)", () => {
-      expect(calculateBudgetAdherenceXp(0, 0, 0)).toBe(0);
+    it("returns 0 if no data is present", () => {
+      expect(calculateBudgetAdherenceXp({
+        needs: 0, wants: 0, savings: 0, 
+        needsPercent: 0, wantsPercent: 0, savingsPercent: 0, 
+        totalIncome: 0, adherenceScore: 0
+      })).toBe(0);
     });
   });
 

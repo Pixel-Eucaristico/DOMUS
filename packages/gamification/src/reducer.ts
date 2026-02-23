@@ -22,8 +22,8 @@ export function gamificationReducer(
       const { amount, source } = event.payload;
       return {
         ...state,
-        totalXp: state.totalXp + amount,
-        seasonXp: state.seasonXp + amount,
+        totalXp: Math.max(0, state.totalXp + amount),
+        seasonXp: Math.max(0, state.seasonXp + amount),
         xpHistory: [
           ...state.xpHistory,
           { amount, source, timestamp: event.timestamp },

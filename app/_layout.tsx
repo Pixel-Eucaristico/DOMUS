@@ -35,6 +35,10 @@ function RootLayoutNav() {
         name="sync"
         options={{ headerShown: false, presentation: "modal" }}
       />
+      <Stack.Screen
+        name="transactions"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 }

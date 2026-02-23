@@ -39,47 +39,62 @@ export default function SeasonScreen() {
   const monthProgress = Math.round((dayOfMonth / daysInMonth) * 100);
 
   const handleStartSeason = () => {
-    const payload = startSeason(currentYear, currentMonth);
-    const event = {
-      id: generateId(),
-      type: SEASON_EVENTS.SEASON_STARTED,
-      payload,
-      timestamp: Date.now(),
-      deviceId: "local",
-      signature: "",
-    };
-    dispatch(event as any);
+    try {
+      const payload = startSeason(currentYear, currentMonth);
+      const event = {
+        id: generateId(),
+        type: SEASON_EVENTS.SEASON_STARTED,
+        payload,
+        timestamp: Date.now(),
+        deviceId: "local",
+        signature: "",
+      };
+      dispatch(event as any);
+    } catch (err) {
+      console.error("Failed to start season:", err);
+    }
   };
 
   const handleEvaluate = () => {
-    if (!season.currentSeason) return;
-    const evalPayload = evaluateSeason(
-      season.currentSeason.seasonId,
-      gamification.totalXp,
-      levelInfo.level,
-      budget.adherenceScore,
-      gamification.currentStreak,
-      archetype,
-    );
-    const evalEvent = {
-      id: generateId(),
-      type: SEASON_EVENTS.SEASON_EVALUATED,
-      payload: evalPayload,
-      timestamp: Date.now(),
-      deviceId: "local",
-      signature: "",
-    };
-    dispatch(evalEvent as any);
+    try {
+      if (!season.currentSeason) return;
+      
+      const currentScore = budget?.adherenceScore ?? 0;
+      const currentXp = gamification?.totalXp ?? 0;
+      const currentLevel = levelInfo?.level ?? 1;
+      const currentStreak = gamification?.currentStreak ?? 0;
 
-    const endEvent = {
-      id: generateId(),
-      type: SEASON_EVENTS.SEASON_ENDED,
-      payload: { seasonId: season.currentSeason.seasonId, endDate: new Date().toISOString().split("T")[0]! },
-      timestamp: Date.now(),
-      deviceId: "local",
-      signature: "",
-    };
-    dispatch(endEvent as any);
+      const evalPayload = evaluateSeason(
+        season.currentSeason.seasonId,
+        currentXp,
+        currentLevel,
+        currentScore,
+        currentStreak,
+        archetype || "EXPLORER",
+      );
+      
+      const evalEvent = {
+        id: generateId(),
+        type: SEASON_EVENTS.SEASON_EVALUATED,
+        payload: evalPayload,
+        timestamp: Date.now(),
+        deviceId: "local",
+        signature: "",
+      };
+      dispatch(evalEvent as any);
+
+      const endEvent = {
+        id: generateId(),
+        type: SEASON_EVENTS.SEASON_ENDED,
+        payload: { seasonId: season.currentSeason.seasonId, endDate: new Date().toISOString().split("T")[0]! },
+        timestamp: Date.now(),
+        deviceId: "local",
+        signature: "",
+      };
+      dispatch(endEvent as any);
+    } catch (err) {
+      console.error("Failed to evaluate season:", err);
+    }
   };
 
   const MONTHS = [

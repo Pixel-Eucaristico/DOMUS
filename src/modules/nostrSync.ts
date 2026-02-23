@@ -232,7 +232,6 @@ export async function deriveKeysFromCode(
 ): Promise<NostrSyncKeys> {
   // Normalização agressiva para garantir chaves idênticas em todos os dispositivos
   const normalized = groupCode.trim().toUpperCase();
-  console.log(`[NostrSync] Deriving keys for group: "${normalized}"`);
   
   const seed = await sha256(
     stringToBytes(`domus-group:${normalized}`),
@@ -307,6 +306,24 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
+/**
+ * Implementação manual de Promise.any para compatibilidade com ambientes mais antigos
+ */
+async function promiseAny<T>(promises: Promise<T>[]): Promise<T> {
+  if (promises.length === 0) return Promise.reject(new Error("No promises provided"));
+  return new Promise((resolve, reject) => {
+    let errors: any[] = [];
+    promises.forEach((p) => {
+      p.then(resolve).catch((err) => {
+        errors.push(err);
+        if (errors.length === promises.length) {
+          reject(new Error("All relays failed to publish"));
+        }
+      });
+    });
+  });
+}
+
 let _pool: SimplePool | null = null;
 
 function getPool(): SimplePool {
@@ -324,45 +341,45 @@ export async function testRelayConnection(): Promise<{ connected: string[]; fail
   const connected: string[] = [];
   const failed: string[] = [];
 
-  const results = await Promise.allSettled(
+  const results = await Promise.all(
     DEFAULT_RELAYS.map(async (relay) => {
-      return withTimeout(
-        new Promise<string>((resolve, reject) => {
-          try {
-            const ws = new WebSocket(relay);
-            const timer = setTimeout(() => {
-              try { ws.close(); } catch {}
-              reject(new Error("timeout"));
-            }, 5000);
-            ws.onopen = () => {
-              clearTimeout(timer);
-              try { ws.close(); } catch {}
-              resolve(relay);
-            };
-            ws.onerror = () => {
-              clearTimeout(timer);
-              reject(new Error("connection failed"));
-            };
-          } catch (e) {
-            reject(e);
-          }
-        }),
-        6000,
-        `relay ${relay}`,
-      );
+      try {
+        await withTimeout(
+          new Promise<void>((resolve, reject) => {
+            try {
+              const ws = new WebSocket(relay);
+              const timer = setTimeout(() => {
+                try { ws.close(); } catch {}
+                reject(new Error("timeout"));
+              }, 5000);
+              ws.onopen = () => {
+                clearTimeout(timer);
+                try { ws.close(); } catch {}
+                resolve();
+              };
+              ws.onerror = () => {
+                clearTimeout(timer);
+                reject(new Error("connection failed"));
+              };
+            } catch (e) {
+              reject(e);
+            }
+          }),
+          6000,
+          `relay ${relay}`,
+        );
+        return { status: "fulfilled", relay };
+      } catch (err) {
+        return { status: "rejected", relay };
+      }
     }),
   );
 
   for (const r of results) {
     if (r.status === "fulfilled") {
-      connected.push(r.value);
-    }
-  }
-
-  const connectedSet = new Set(connected);
-  for (const relay of DEFAULT_RELAYS) {
-    if (!connectedSet.has(relay)) {
-      failed.push(relay);
+      connected.push((r as any).relay);
+    } else {
+      failed.push((r as any).relay);
     }
   }
 
@@ -414,16 +431,15 @@ export async function publishSyncEvents(
     const signed = finalizeEvent(nostrEvent, keys.privateKey);
 
     try {
-      console.log(`[NostrSync] Publishing batch ${batchId} with ${batch.length} events to relays...`);
+      const publishPromises = pool.publish(relays, signed);
       await withTimeout(
-        Promise.any(pool.publish(relays, signed)),
+        promiseAny(publishPromises),
         RELAY_TIMEOUT_MS,
         "publish batch",
       );
       published += batch.length;
-      console.log(`[NostrSync] Successfully published batch ${batchId}`);
     } catch (err) {
-      console.log(`[NostrSync] Failed to publish batch ${batchId}:`, err);
+      console.warn(`[NostrSync] Failed to publish batch ${batchId} to any relay.`);
     }
   }
 
@@ -458,27 +474,21 @@ export async function pullSyncEvents(
   keys: NostrSyncKeys,
   deviceId: string,
   sinceTimestamp: number,
+  includeMyEvents: boolean = false,
 ): Promise<SyncEvent[]> {
   const pool = getPool();
   const relays = getRelays();
 
-  console.log(`[NostrSync] Pulling events for pubkey: ${keys.publicKey.substring(0, 10)}...`);
-
-  // Para eventos substituíveis (Kind 30333), não usamos 'since' no filtro principal
-  // porque queremos sempre a versão mais recente de cada batch, independentemente
-  // de quando foi publicada. O filtro por timestamp é feito localmente se necessário.
   const filter = {
     kinds: [DOMUS_KIND],
     authors: [keys.publicKey],
     limit: 500,
   };
 
-  // Tentar pull em cada relay individualmente e combinar resultados
-  // Isso garante que mesmo que alguns relays falhem, os dados são obtidos dos que funcionam
   const seenIds = new Set<string>();
   const syncEvents: SyncEvent[] = [];
 
-  const relayResults = await Promise.allSettled(
+  const relayResults = await Promise.all(
     relays.map(async (relay) => {
       try {
         const events = await withTimeout(
@@ -486,40 +496,30 @@ export async function pullSyncEvents(
           PULL_TIMEOUT_MS,
           `pull from ${relay}`,
         );
-        console.log(`[NostrSync] Received ${events.length} events from ${relay}`);
-        return events;
+        return { status: "fulfilled", value: events };
       } catch (err) {
-        console.log(`[NostrSync] Error pulling from ${relay}:`, err);
-        return [];
+        return { status: "rejected", reason: err };
       }
     }),
   );
 
   for (const result of relayResults) {
     if (result.status !== "fulfilled") continue;
-    const nostrEvents = result.value;
+    const nostrEvents = (result as any).value;
 
     for (const ne of nostrEvents) {
-      // Ignorar eventos já processados (de outros relays)
       if (seenIds.has(ne.id)) continue;
       seenIds.add(ne.id);
 
-      // Filtrar por tag localmente (compatibilidade com relays que não suportam "#t")
-      const hasAppTag = ne.tags.some((t) => t[0] === "t" && t[1] === DOMUS_APP_TAG);
+      const hasAppTag = ne.tags.some((t: string[]) => t[0] === "t" && t[1] === DOMUS_APP_TAG);
       if (!hasAppTag) continue;
-
-      // Ignorar eventos publicados por este dispositivo
-      const deviceTag = ne.tags.find((t) => t[0] === "device");
-      if (deviceTag && deviceTag[1] === deviceId) continue;
 
       try {
         const decrypted = await decryptPayload(ne.content, keys.encryptionKey);
         const events = parseSyncPayload(decrypted);
-        console.log(`[NostrSync] Successfully pulled and decrypted ${events.length} events from batch ${ne.id.substring(0,8)}`);
         syncEvents.push(...events);
       } catch (err) {
-        // Evento não pertence a este grupo ou erro de decriptação
-        console.log(`[NostrSync] Decrypt failed for event ${ne.id.substring(0,8)}. This is normal for other groups using same kind.`);
+        // Ignorar falhas de decriptação (eventos de outros grupos)
       }
     }
   }
@@ -548,9 +548,6 @@ export function subscribeToSyncEvents(
 
   const sub = pool.subscribeMany(getRelays(), filter as any, {
     onevent(nostrEvent: any) {
-      const deviceTag = nostrEvent.tags.find((t: string[]) => t[0] === "device");
-      if (deviceTag && deviceTag[1] === deviceId) return;
-
       decryptPayload(nostrEvent.content, keys.encryptionKey)
         .then((decrypted) => {
           const events = parseSyncPayload(decrypted);

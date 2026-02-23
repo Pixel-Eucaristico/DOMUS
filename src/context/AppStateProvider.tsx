@@ -61,6 +61,7 @@ interface AppStateContextValue extends DerivedState {
 const AppStateContext = createContext<AppStateContextValue | null>(null);
 
 const DEVICE_ID_KEY = "domus_device_id";
+const EVENTS_BACKUP_KEY = "domus_events_v1";
 
 function generateDeviceId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
@@ -125,6 +126,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const allEventsRef = React.useRef(allEvents);
   useEffect(() => {
     allEventsRef.current = allEvents;
+    if (Platform.OS === "web" && allEvents.length > 0) {
+      AsyncStorage.setItem(EVENTS_BACKUP_KEY, JSON.stringify(allEvents));
+    }
   }, [allEvents]);
   
   const [loading, setLoading] = useState(true);
@@ -146,13 +150,24 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       }
       if (mounted) setDeviceId(did);
 
-      const store = await getEventStore();
-      if (store && mounted) {
-        const events = store.getAllEvents();
-        console.log(`[AppState] Loaded ${events.length} events from store`);
-        
+      let events: SyncEvent[] = [];
+
+      if (Platform.OS === "web") {
+        const backup = await AsyncStorage.getItem(EVENTS_BACKUP_KEY);
+        if (backup) {
+          try {
+            events = JSON.parse(backup);
+          } catch {}
+        }
+      } else {
+        const store = await getEventStore();
+        if (store) {
+          events = store.getAllEvents();
+        }
+      }
+
+      if (mounted) {
         // Migrar eventos "local" para o novo deviceId para que possam ser sincronizados corretamente.
-        // Isso garante que eventos criados antes do deviceId ser persistido sejam atribuídos a este dispositivo.
         let migratedCount = 0;
         const migratedEvents = events.map((e) => {
           if (e.deviceId === "local" || !e.deviceId) {
@@ -162,13 +177,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return e;
         });
         
-        if (migratedCount > 0) {
-          console.log(`[AppState] Migrated ${migratedCount} local events to deviceId: ${did}`);
-        }
-        
         setAllEvents(migratedEvents);
+        setLoading(false);
       }
-      if (mounted) setLoading(false);
     })();
     return () => { mounted = false; };
   }, []);
@@ -194,6 +205,54 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     () => getLevelInfo(gamification.totalXp),
     [gamification.totalXp],
   );
+
+  // Mecanismo de recuperação de XP: Se o usuário tem transações mas o XP está zerado ou muito baixo 
+  // (devido ao bug de penalidade do início do mês), gera um evento de compensação único.
+  useEffect(() => {
+    if (!loading && allEvents.length > 0 && deviceId) {
+      const txCount = Object.keys(domain.transactions).length;
+      const currentXp = gamification.totalXp;
+      const hasRecovery = allEvents.some(e => e.id.startsWith("xp-recovery-"));
+
+      // Se tem transações mas o XP é 0 (ou quase 0), é o bug do início do mês.
+      // Precisamos dar um "empurrão" inicial para destravar o nível.
+      if (txCount > 0 && currentXp <= 5 && !hasRecovery) {
+        const recoveryAmount = Math.max(50, txCount * 30); // Garante pelo menos Nível 1 avançado
+        const recoveryEvent = {
+          id: `xp-recovery-${generateId()}`,
+          type: GAMIFICATION_EVENTS.XP_GAINED,
+          payload: { 
+            amount: recoveryAmount, 
+            source: "streak_bonus", 
+            description: "Correção de XP Domus" 
+          },
+          timestamp: Date.now(),
+          deviceId: deviceId,
+          signature: "",
+        };
+
+        const syncEvt: SyncEvent = {
+          id: recoveryEvent.id,
+          type: recoveryEvent.type as string,
+          payload: recoveryEvent.payload,
+          timestamp: recoveryEvent.timestamp,
+          deviceId: deviceId,
+          signature: "",
+        };
+
+        getEventStore().then((store) => {
+          store?.appendEvent(syncEvt);
+        });
+
+        setAllEvents((prev) => {
+          const next = [...prev, syncEvt];
+          next.sort((a, b) => a.timestamp - b.timestamp);
+          return next;
+        });
+        setLocalEventCount((c) => c + 1);
+      }
+    }
+  }, [loading, allEvents.length, domain.transactions, gamification.totalXp, deviceId]);
 
   const archetype = useMemo<ArchetypeType>(() => {
     const txCount = Object.keys(domain.transactions).length;
@@ -241,7 +300,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         store?.appendEvent(syncEvt);
       });
 
-      setAllEvents((prev) => [...prev, syncEvt]);
+      setAllEvents((prev) => {
+        const next = [...prev, syncEvt];
+        next.sort((a, b) => a.timestamp - b.timestamp);
+        return next;
+      });
       // Incrementar contador de eventos locais para disparar push no SyncProvider
       setLocalEventCount((c) => c + 1);
     },
@@ -284,77 +347,108 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const getAllEventsCallback = useCallback(() => allEvents, [allEvents]);
 
-  /**
-   * dispatchDomainEvent: cria um evento de domínio LOCAL e gera eventos de gamificação associados.
-   * Os eventos de gamificação (XP, Streak, Level Up) são gerados APENAS para ações locais,
-   * nunca para eventos importados de outros dispositivos.
-   * Isto é fundamental para evitar o loop de sincronização.
-   */
-  const dispatchDomainEvent = useCallback(
-    (event: DomainEvent) => {
-      // Usar o deviceId do evento original para os eventos de gamificação
-      const originDeviceId = (event.deviceId && event.deviceId !== "local") ? event.deviceId : (deviceId || "local");
-
-      dispatch(event);
-
-      if (event.type === EVENT_TYPES.TRANSACTION_CREATED) {
-        const baseLoggingXp = getXpForAction("transaction_logged");
-        const budgetBonus = calculateBudgetAdherenceXp(
-          budget.needsPercent,
-          budget.wantsPercent,
-          budget.savingsPercent,
-        );
-        const totalXpGain = baseLoggingXp + budgetBonus;
-
-        const xpPayload = createXpPayload("transaction_logged", totalXpGain);
-        const xpEvent: GamificationEvent = {
-          id: generateId(),
-          type: GAMIFICATION_EVENTS.XP_GAINED,
-          payload: xpPayload,
-          timestamp: Date.now(),
-          deviceId: originDeviceId,
-          signature: "",
-        } as GamificationEvent;
-        dispatch(xpEvent);
-
-        const today = todayStr();
-        const currentStreak: StreakState = {
-          currentStreak: gamification.currentStreak,
-          longestStreak: gamification.longestStreak,
-          lastActiveDate: gamification.lastActiveDate,
-        };
-        const streakResult = updateStreak(currentStreak, today);
-        const streakEvent: GamificationEvent = {
-          id: generateId(),
-          type: GAMIFICATION_EVENTS.STREAK_UPDATED,
-          payload: streakResult,
-          timestamp: Date.now(),
-          deviceId: originDeviceId,
-          signature: "",
-        } as GamificationEvent;
-        dispatch(streakEvent);
-
-        const newTotalXp = gamification.totalXp + totalXpGain;
-        const levelCheck = shouldLevelUp(gamification.totalXp, newTotalXp);
-        if (levelCheck.leveledUp) {
-          const levelEvent: GamificationEvent = {
-            id: generateId(),
-            type: GAMIFICATION_EVENTS.LEVEL_UP,
-            payload: {
-              previousLevel: levelCheck.previousLevel,
-              newLevel: levelCheck.newLevel,
-              totalXp: newTotalXp,
-            },
-            timestamp: Date.now(),
-            deviceId: originDeviceId,
-            signature: "",
-          } as GamificationEvent;
-          dispatch(levelEvent);
+    /**
+     * dispatchDomainEvent: cria um evento de domínio LOCAL e gera eventos de gamificação associados.
+     * Os eventos de gamificação (XP, Streak, Level Up) são gerados APENAS para ações locais,
+     * nunca para eventos importados de outros dispositivos.
+     * Isto é fundamental para evitar o loop de sincronização.
+     */
+    const dispatchDomainEvent = useCallback(
+      (event: DomainEvent) => {
+        // Usar o deviceId do evento original para os eventos de gamificação
+        const originDeviceId = (event.deviceId && event.deviceId !== "local") ? event.deviceId : (deviceId || "local");
+  
+        dispatch(event);
+  
+        // Não processar gamificação para eventos que não são locais
+        if (event.deviceId !== "local" && event.deviceId !== deviceId && event.deviceId !== undefined && event.deviceId !== null) return;
+  
+        if (
+          event.type === EVENT_TYPES.TRANSACTION_CREATED ||
+          event.type === EVENT_TYPES.TRANSACTION_UPDATED ||
+          event.type === EVENT_TYPES.TRANSACTION_DELETED
+        ) {
+          // Prever o próximo estado das transações para calcular o XP correto baseado no novo orçamento
+          const nextTransactions = { ...domain.transactions };
+          if (event.type === EVENT_TYPES.TRANSACTION_CREATED) {
+            nextTransactions[event.payload.id] = event.payload as any;
+          } else if (event.type === EVENT_TYPES.TRANSACTION_UPDATED) {
+            const existing = nextTransactions[event.payload.id];
+            if (existing) {
+              nextTransactions[event.payload.id] = { ...existing, ...event.payload } as any;
+            }
+          } else if (event.type === EVENT_TYPES.TRANSACTION_DELETED) {
+            delete nextTransactions[event.payload.id];
+          }
+  
+          const now = new Date();
+                  const nextBudget = calculate503020(
+                    Object.values(nextTransactions),
+                    domain.categories,
+                    now.getMonth(),
+                    now.getFullYear(),
+                  );
+          
+                  const baseLoggingXp = event.type === EVENT_TYPES.TRANSACTION_CREATED ? getXpForAction("transaction_logged") : 0;
+                  const budgetBonus = calculateBudgetAdherenceXp(nextBudget);
+                  const totalXpGain = baseLoggingXp + budgetBonus;  
+          if (totalXpGain !== 0) {
+            const xpPayload = createXpPayload("transaction_logged", totalXpGain);
+            const xpEvent: GamificationEvent = {
+              id: generateId(),
+              type: GAMIFICATION_EVENTS.XP_GAINED,
+              payload: xpPayload,
+              timestamp: Date.now(),
+              deviceId: originDeviceId,
+              signature: "",
+            } as GamificationEvent;
+            dispatch(xpEvent);
+          }
+  
+          // Lógica de Streak apenas para novas transações
+          if (event.type === EVENT_TYPES.TRANSACTION_CREATED) {
+            const today = todayStr();
+            const currentStreak: StreakState = {
+              currentStreak: gamification.currentStreak,
+              longestStreak: gamification.longestStreak,
+              lastActiveDate: gamification.lastActiveDate,
+            };
+            const streakResult = updateStreak(currentStreak, today);
+            const streakEvent: GamificationEvent = {
+              id: generateId(),
+              type: GAMIFICATION_EVENTS.STREAK_UPDATED,
+              payload: streakResult,
+              timestamp: Date.now(),
+              deviceId: originDeviceId,
+              signature: "",
+            } as GamificationEvent;
+            dispatch(streakEvent);
+          }
+  
+          // Lógica de Level Up baseada no ganho total (aproximada para feedback imediato)
+          const currentTotalXp = gamification.totalXp;
+          const estimatedNewTotalXp = Math.max(0, currentTotalXp + totalXpGain);
+          const levelCheck = shouldLevelUp(currentTotalXp, estimatedNewTotalXp);
+          
+          if (levelCheck.leveledUp) {
+            const levelEvent: GamificationEvent = {
+              id: generateId(),
+              type: GAMIFICATION_EVENTS.LEVEL_UP,
+              payload: {
+                previousLevel: levelCheck.previousLevel,
+                newLevel: levelCheck.newLevel,
+                totalXp: estimatedNewTotalXp,
+              },
+              timestamp: Date.now(),
+              deviceId: originDeviceId,
+              signature: "",
+            } as GamificationEvent;
+            dispatch(levelEvent);
+          }
         }
-      }
-    },
-    [dispatch, gamification, deviceId],
-  );
+      },
+      [dispatch, gamification, deviceId, domain.transactions, domain.categories],
+    );
 
   const value = useMemo<AppStateContextValue>(
     () => ({

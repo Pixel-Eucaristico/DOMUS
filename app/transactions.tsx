@@ -1,0 +1,315 @@
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  Platform,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useAppState } from "@/src/context/AppStateProvider";
+
+function formatCurrency(v: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(v);
+}
+
+export default function TransactionsScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { accountId } = useLocalSearchParams<{ accountId?: string }>();
+  const { domain, theme } = useAppState();
+  const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const webBottomInset = Platform.OS === "web" ? 34 : 0;
+
+  const [vMonth, setVMonth] = useState(new Date().getMonth());
+  const [vYear, setVYear] = useState(new Date().getFullYear());
+
+  const targetAccount = accountId ? domain.accounts[accountId] : null;
+
+  const MONTHS = [
+    "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  ];
+
+  const prevMonth = () => {
+    if (vMonth === 0) {
+      setVMonth(11);
+      setVYear(vYear - 1);
+    } else {
+      setVMonth(vMonth - 1);
+    }
+  };
+
+  const nextMonth = () => {
+    if (vMonth === 11) {
+      setVMonth(0);
+      setVYear(vYear + 1);
+    } else {
+      setVMonth(vMonth + 1);
+    }
+  };
+
+  const filteredTransactions = Object.values(domain.transactions)
+    .filter((tx) => {
+      // Filter by account if specified
+      if (accountId && tx.accountId !== accountId && tx.targetAccountId !== accountId) {
+        return false;
+      }
+      // Filter by date
+      const parts = tx.date.split("-");
+      if (parts.length < 2) return false;
+      const y = parseInt(parts[0]!, 10);
+      const m = parseInt(parts[1]!, 10) - 1;
+      return y === vYear && m === vMonth;
+    })
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const monthIncome = filteredTransactions
+    .filter((t) => t.type === "income" || (t.type === "transfer" && t.targetAccountId === accountId))
+    .reduce((sum, t) => sum + t.amount, 0);
+    
+  const monthExpense = filteredTransactions
+    .filter((t) => t.type === "expense" || (t.type === "transfer" && t.accountId === accountId))
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  return (
+    <View style={[s.root, { backgroundColor: theme.background }]}>
+      <View style={[s.header, { paddingTop: insets.top + webTopInset + 16 }]}>
+        <View style={s.headerTop}>
+          <Pressable style={s.backBtn} onPress={() => router.back()}>
+            <Feather name="arrow-left" size={24} color={theme.textColor} />
+          </Pressable>
+          <View style={s.headerTitleContainer}>
+            <Text style={[s.title, { color: theme.textColor }]}>
+              {targetAccount ? targetAccount.name : "Historico Total"}
+            </Text>
+            {targetAccount && (
+              <Text style={[s.subtitle, { color: theme.secondaryText }]}>
+                {targetAccount.type === "credit_card" ? "Cartão de Crédito" : "Conta Bancária"}
+              </Text>
+            )}
+          </View>
+        </View>
+
+        <View style={s.monthSwitcher}>
+          <Pressable style={[s.monthBtn, { backgroundColor: theme.cardBackground }]} onPress={prevMonth}>
+            <Feather name="chevron-left" size={20} color={theme.primaryColor} />
+          </Pressable>
+          <View style={s.monthLabelContainer}>
+            <Text style={[s.monthLabel, { color: theme.textColor }]}>
+              {MONTHS[vMonth]} {vYear}
+            </Text>
+          </View>
+          <Pressable style={[s.monthBtn, { backgroundColor: theme.cardBackground }]} onPress={nextMonth}>
+            <Feather name="chevron-right" size={20} color={theme.primaryColor} />
+          </Pressable>
+        </View>
+
+        <View style={s.summaryRow}>
+          <View style={[s.summaryBox, { backgroundColor: theme.cardBackground }]}>
+            <View style={[s.summaryCircle, { backgroundColor: `${theme.success}15` }]}>
+              <Feather name="arrow-up" size={18} color={theme.success} />
+            </View>
+            <View style={s.summaryTextContainer}>
+              <Text style={[s.summaryLabel, { color: theme.secondaryText }]}>Entradas</Text>
+              <Text style={[s.summaryValue, { color: theme.textColor }]}>{formatCurrency(monthIncome)}</Text>
+            </View>
+          </View>
+          <View style={[s.summaryBox, { backgroundColor: theme.cardBackground }]}>
+            <View style={[s.summaryCircle, { backgroundColor: `${theme.danger}15` }]}>
+              <Feather name="arrow-down" size={18} color={theme.danger} />
+            </View>
+            <View style={s.summaryTextContainer}>
+              <Text style={[s.summaryLabel, { color: theme.secondaryText }]}>Saídas</Text>
+              <Text style={[s.summaryValue, { color: theme.textColor }]}>{formatCurrency(monthExpense)}</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={[
+          s.content,
+          {
+            paddingBottom: insets.bottom + webBottomInset + 32,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {filteredTransactions.length === 0 ? (
+          <View style={s.emptyHistory}>
+            <Feather name="inbox" size={48} color={theme.secondaryText} style={{ marginBottom: 16 }} />
+            <Text style={[s.emptyHistoryText, { color: theme.secondaryText }]}>
+              Nenhuma transação encontrada para este período.
+            </Text>
+          </View>
+        ) : (
+          <View style={s.txList}>
+            {filteredTransactions.map((tx) => {
+              const cat = domain.categories[tx.categoryId];
+              const isExpense = tx.type === "expense" || (tx.type === "transfer" && tx.accountId === accountId);
+              const isIncome = tx.type === "income" || (tx.type === "transfer" && tx.targetAccountId === accountId);
+              const acc = domain.accounts[tx.accountId];
+              const targetAcc = tx.targetAccountId ? domain.accounts[tx.targetAccountId] : null;
+              
+              let typeIcon = isExpense ? "arrow-down-left" : "arrow-up-right";
+              let typeColor = isExpense ? theme.danger : theme.success;
+              if (tx.type === "transfer") {
+                typeIcon = "repeat";
+                typeColor = theme.primaryColor;
+              }
+
+              return (
+                <Pressable 
+                  key={tx.id} 
+                  style={({ pressed }) => [
+                    s.txRow, 
+                    { borderBottomColor: theme.border, opacity: pressed ? 0.7 : 1 }
+                  ]}
+                  onPress={() => router.push({ pathname: "/add-transaction", params: { txId: tx.id } })}
+                >
+                  <View style={[s.txIcon, { backgroundColor: `${typeColor}12` }]}>
+                    <Feather name={typeIcon as any} size={18} color={typeColor} />
+                  </View>
+                  <View style={s.txMain}>
+                    <Text style={[s.txDesc, { color: theme.textColor }]} numberOfLines={1}>
+                      {tx.description || cat?.name || tx.type}
+                    </Text>
+                    <View style={s.txSub}>
+                      {!accountId && <Text style={[s.txAcc, { color: theme.secondaryText }]}>{acc?.name || "Conta"} • </Text>}
+                      {tx.type === "transfer" && (
+                        <Text style={[s.txAcc, { color: theme.secondaryText }]}>
+                          {acc?.name} → {targetAcc?.name} • 
+                        </Text>
+                      )}
+                      <Text style={[s.txDate, { color: theme.secondaryText }]}>
+                        {tx.date.split("-").reverse().join("/")}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={[s.txValue, { color: typeColor }]}>
+                    {isExpense ? "-" : isIncome ? "+" : ""} {formatCurrency(tx.amount)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  root: { flex: 1 },
+  header: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    backgroundColor: "transparent",
+    gap: 16,
+  },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitleContainer: { flex: 1 },
+  title: { fontFamily: "DMSans_700Bold", fontSize: 24 },
+  subtitle: { fontFamily: "DMSans_400Regular", fontSize: 13, marginTop: 2 },
+  content: { padding: 20 },
+  monthSwitcher: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "space-between",
+    backgroundColor: "rgba(0,0,0,0.03)",
+    borderRadius: 16,
+    padding: 6,
+  },
+  monthBtn: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 12, 
+    justifyContent: "center", 
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  monthLabelContainer: { flex: 1, alignItems: "center" },
+  monthLabel: { fontFamily: "DMSans_700Bold", fontSize: 16 },
+  summaryRow: { flexDirection: "row", gap: 12 },
+  summaryBox: { 
+    flex: 1, 
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12, 
+    borderRadius: 18, 
+    gap: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  summaryCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  summaryTextContainer: { flex: 1 },
+  summaryLabel: { fontFamily: "DMSans_500Medium", fontSize: 11 },
+  summaryValue: { fontFamily: "DMSans_700Bold", fontSize: 15, marginTop: 1 },
+  emptyHistory: { 
+    paddingVertical: 60, 
+    alignItems: "center", 
+    justifyContent: "center",
+    opacity: 0.6,
+  },
+  emptyHistoryText: { 
+    fontFamily: "DMSans_400Regular", 
+    fontSize: 16, 
+    textAlign: "center" as const,
+    maxWidth: 250,
+    lineHeight: 22,
+  },
+  txList: { gap: 4 },
+  txRow: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    paddingVertical: 16, 
+    borderBottomWidth: 1, 
+    gap: 14 
+  },
+  txIcon: { 
+    width: 42, 
+    height: 42, 
+    borderRadius: 14, 
+    justifyContent: "center", 
+    alignItems: "center" 
+  },
+  txMain: { flex: 1 },
+  txDesc: { fontFamily: "DMSans_600SemiBold", fontSize: 15 },
+  txSub: { flexDirection: "row", alignItems: "center", marginTop: 4 },
+  txAcc: { fontFamily: "DMSans_400Regular", fontSize: 12 },
+  txDate: { fontFamily: "DMSans_400Regular", fontSize: 12 },
+  txValue: { fontFamily: "DMSans_700Bold", fontSize: 16 },
+});

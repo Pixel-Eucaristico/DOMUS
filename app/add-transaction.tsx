@@ -12,10 +12,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
-import { createTransactionEvent } from "@packages/domain/src/transactions";
+import { createTransactionEvent, updateTransactionEvent, deleteTransactionEvent } from "@packages/domain/src/transactions";
 import { createEvent, generateId } from "@packages/events/src/factory";
 import { EVENT_TYPES, CATEGORY_GROUPS } from "@packages/events/src/types";
 import type { CategoryCreatedEvent, TransactionType, CategoryGroup } from "@packages/events/src/types";
@@ -53,26 +53,56 @@ function groupColor(g: CategoryGroup, theme: any): string {
   switch (g) {
     case "needs": return theme.primaryColor;
     case "wants": return theme.accentColor;
-    case "savings": return theme.warning;
+    case "savings": return theme.success;
   }
 }
 
 export default function AddTransactionScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { txId } = useLocalSearchParams<{ txId?: string }>();
   const { domain, theme, dispatchDomainEvent, dispatch } = useAppState();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
-  const [txType, setTxType] = useState<TransactionType>("expense");
-  const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState(0);
-  const [installments, setInstallments] = useState("1");
-  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
-  const [targetAccountId, setTargetAccountId] = useState<string>("");
+  const editingTx = txId ? domain.transactions[txId] : null;
+
+  const [txType, setTxType] = useState<TransactionType>(editingTx?.type || "expense");
+  const [amount, setAmount] = useState(editingTx?.amount.toString() || "");
+  const [description, setDescription] = useState(editingTx?.description || "");
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    if (editingTx) {
+      const cat = domain.categories[editingTx.categoryId];
+      const idx = CATEGORY_OPTIONS.findIndex((o) => o.name === cat?.name);
+      return idx !== -1 ? idx : 0;
+    }
+    return 0;
+  });
+  const [installments, setInstallments] = useState(editingTx?.installments?.toString() || "1");
+  const [selectedAccountId, setSelectedAccountId] = useState<string>(editingTx?.accountId || "");
+  const [targetAccountId, setTargetAccountId] = useState<string>(editingTx?.targetAccountId || "");
 
   const accounts = Object.values(domain.accounts);
   const defaultAccountId = selectedAccountId || accounts[0]?.id || "";
+
+  const handleDelete = () => {
+    if (!txId) return;
+    Alert.alert(
+      "Excluir transacao",
+      "Tem certeza que deseja remover esta transacao?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { 
+          text: "Excluir", 
+          style: "destructive",
+          onPress: () => {
+            const event = deleteTransactionEvent(txId);
+            dispatchDomainEvent(event);
+            router.back();
+          }
+        }
+      ]
+    );
+  };
 
   const handleSave = () => {
     const amountNum = parseFloat(amount.replace(",", "."));
@@ -102,22 +132,34 @@ export default function AddTransactionScreen() {
       dispatch(catEvent);
     }
 
-    const installmentNum = parseInt(installments, 10) || 1;
-    const today = new Date().toISOString().split("T")[0]!;
+    if (txId) {
+      const event = updateTransactionEvent(txId, {
+        accountId: defaultAccountId,
+        type: txType,
+        amount: amountNum,
+        categoryId: catId,
+        description: description || cat.name,
+        targetAccountId: txType === "transfer" ? targetAccountId || undefined : undefined,
+      });
+      dispatchDomainEvent(event);
+    } else {
+      const installmentNum = parseInt(installments, 10) || 1;
+      const today = new Date().toISOString().split("T")[0]!;
 
-    const events = createTransactionEvent({
-      accountId: defaultAccountId,
-      type: txType,
-      amount: amountNum,
-      categoryId: catId,
-      date: today,
-      description: description || cat.name,
-      installments: installmentNum,
-      targetAccountId: txType === "transfer" ? targetAccountId || undefined : undefined,
-    });
+      const events = createTransactionEvent({
+        accountId: defaultAccountId,
+        type: txType,
+        amount: amountNum,
+        categoryId: catId,
+        date: today,
+        description: description || cat.name,
+        installments: installmentNum,
+        targetAccountId: txType === "transfer" ? targetAccountId || undefined : undefined,
+      });
 
-    for (const evt of events) {
-      dispatchDomainEvent(evt);
+      for (const evt of events) {
+        dispatchDomainEvent(evt);
+      }
     }
 
     if (Platform.OS !== "web") {
@@ -145,7 +187,7 @@ export default function AddTransactionScreen() {
             <Feather name="x" size={24} color={theme.textColor} />
           </Pressable>
           <Text style={[s.pageTitle, { color: theme.textColor }]}>
-            Nova transacao
+            {txId ? "Editar transacao" : "Nova transacao"}
           </Text>
           <Pressable onPress={handleSave} hitSlop={12}>
             <Feather name="check" size={24} color={theme.primaryColor} />
@@ -343,8 +385,20 @@ export default function AddTransactionScreen() {
           onPress={handleSave}
         >
           <Feather name="check" size={20} color="#FFF" />
-          <Text style={s.saveBtnText}>Salvar transacao</Text>
+          <Text style={s.saveBtnText}>
+            {txId ? "Atualizar transacao" : "Salvar transacao"}
+          </Text>
         </Pressable>
+
+        {txId && (
+          <Pressable
+            style={[s.deleteBtn, { borderColor: theme.danger }]}
+            onPress={handleDelete}
+          >
+            <Feather name="trash-2" size={18} color={theme.danger} />
+            <Text style={[s.deleteBtnText, { color: theme.danger }]}>Excluir transacao</Text>
+          </Pressable>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -427,4 +481,15 @@ const s = StyleSheet.create({
     marginTop: 8,
   },
   saveBtnText: { fontFamily: "DMSans_700Bold", fontSize: 16, color: "#FFF" },
+  deleteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  deleteBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
 });

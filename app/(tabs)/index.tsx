@@ -174,10 +174,10 @@ export default function HomeScreen() {
         <View style={s.xpBarContainer}>
           <View style={s.xpBarHeader}>
             <Text style={[s.xpBarTitle, { color: theme.textColor }]}>
-              Progresso Nivel {levelInfo.level}
+              Nível {levelInfo.level}
             </Text>
             <Text style={[s.xpBarInfo, { color: theme.secondaryText }]}>
-              {levelInfo.currentXp}/{levelInfo.xpForNextLevel} XP
+              {Math.round(levelInfo.progress * 100)}% para o próximo nível
             </Text>
           </View>
           <View style={[s.xpBarBg, { backgroundColor: theme.border }]}>
@@ -185,12 +185,13 @@ export default function HomeScreen() {
               style={[
                 s.xpBarFill,
                 {
-                  width: `${Math.round(levelInfo.progress * 100)}%` as any,
+                  width: `${Math.max(4, Math.round(levelInfo.progress * 100))}%` as any,
                   backgroundColor: theme.accentColor,
                 },
               ]}
             />
           </View>
+          <Text style={s.xpTotalMini}>{gamification.totalXp} XP acumulado</Text>
         </View>
 
         <View style={[s.balanceCard, { backgroundColor: theme.primaryColor }]}>
@@ -231,7 +232,7 @@ export default function HomeScreen() {
                 percent={budget.savingsPercent}
                 ideal={20}
                 idealAmount={incomeBase * 0.2}
-                color={theme.warning}
+                color={theme.success}
                 amount={budget.savings}
               />
             </View>
@@ -245,7 +246,10 @@ export default function HomeScreen() {
           )}
         </View>
 
-        <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
+        <Pressable 
+          style={[s.card, { backgroundColor: theme.cardBackground }]}
+          onPress={() => router.push("/transactions")}
+        >
           <View style={s.cardHeader}>
             <Text style={[s.cardTitle, { color: theme.textColor }]}>
               Ultimas transacoes
@@ -260,7 +264,14 @@ export default function HomeScreen() {
                 const cat = domain.categories[tx.categoryId];
                 const isExpense = tx.type === "expense";
                 return (
-                  <View key={tx.id} style={[s.txRow, { borderBottomColor: theme.border }]}>
+                  <Pressable 
+                    key={tx.id} 
+                    style={({ pressed }) => [
+                      s.txRow, 
+                      { borderBottomColor: theme.border, opacity: pressed ? 0.7 : 1 }
+                    ]}
+                    onPress={() => router.push({ pathname: "/add-transaction", params: { txId: tx.id } })}
+                  >
                     <View
                       style={[
                         s.txIcon,
@@ -294,7 +305,7 @@ export default function HomeScreen() {
                       {isExpense ? "-" : "+"}
                       {formatCurrency(tx.amount)}
                     </Text>
-                  </View>
+                  </Pressable>
                 );
               })}
             </View>
@@ -306,7 +317,7 @@ export default function HomeScreen() {
               </Text>
             </View>
           )}
-        </View>
+        </Pressable>
       </ScrollView>
 
       <Pressable
@@ -398,6 +409,7 @@ const s = StyleSheet.create({
   },
   xpBarTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 13 },
   xpBarInfo: { fontFamily: "DMSans_400Regular", fontSize: 12 },
+  xpTotalMini: { fontFamily: "DMSans_400Regular", fontSize: 10, color: "#9CA3AF", marginTop: 4, textAlign: "right" },
   xpBarBg: { height: 8, borderRadius: 4 },
   xpBarFill: { height: 8, borderRadius: 4, minWidth: 4 },
   balanceCard: {
