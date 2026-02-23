@@ -217,7 +217,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       // Se tem transações mas o XP é 0 (ou quase 0), é o bug do início do mês.
       // Precisamos dar um "empurrão" inicial para destravar o nível.
       if (txCount > 0 && currentXp <= 5 && !hasRecovery) {
-        const recoveryAmount = Math.max(50, txCount * 30); // Garante pelo menos Nível 1 avançado
+        const recoveryAmount = Math.max(30, txCount * 15); // Rebalanceado: ~15-20 XP por transação anterior
         const recoveryEvent = {
           id: `xp-recovery-${generateId()}`,
           type: GAMIFICATION_EVENTS.XP_GAINED,
