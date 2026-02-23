@@ -8,12 +8,14 @@ const DOMUS_APP_TAG = "domus-sync";
 const DEFAULT_RELAYS = [
   "wss://relay.damus.io",
   "wss://nos.lol",
-  "wss://relay.nostr.band",
-  "wss://nostr.mom",
-  "wss://relay.nostr.bg",
+  "wss://relay.snort.social",
+  "wss://relay.primal.net",
+  "wss://relay.nostr.com.br",
+  "wss://nostr.bitcoiner.social",
 ];
 
-const RELAY_TIMEOUT_MS = 5000;
+const RELAY_TIMEOUT_MS = 8000;
+const PULL_TIMEOUT_MS = 25000; // Timeout longo para pull histórico
 const BATCH_SIZE = 20;
 
 export interface NostrSyncKeys {
@@ -49,11 +51,8 @@ function getRandomBytes(length: number): Uint8Array {
 }
 
 async function sha256(data: Uint8Array): Promise<Uint8Array> {
-  if (typeof globalThis.crypto !== "undefined" && globalThis.crypto.subtle) {
-    const digest = await globalThis.crypto.subtle.digest("SHA-256", data as any);
-    return new Uint8Array(digest);
-  }
-
+  // Usar sempre a implementação JS manual para consistência absoluta entre 
+  // Mobile e Web, garantindo que as chaves derivadas do código do grupo sejam idênticas.
   return jsSha256(data);
 }
 
@@ -208,12 +207,35 @@ async function hkdfDerive(
   return okm.slice(0, length);
 }
 
+function stringToBytes(str: string): Uint8Array {
+  // Implementação manual de UTF-8 encoding para garantir consistência absoluta
+  // entre ambientes Mobile (React Native/Hermes) e Web, evitando dependência de TextEncoder.
+  const utf8 = [];
+  for (let i = 0; i < str.length; i++) {
+    let charcode = str.charCodeAt(i);
+    if (charcode < 0x80) utf8.push(charcode);
+    else if (charcode < 0x800) {
+      utf8.push(0xc0 | (charcode >> 6), 0x80 | (charcode & 0x3f));
+    } else if (charcode < 0xd800 || charcode >= 0xe000) {
+      utf8.push(0xe0 | (charcode >> 12), 0x80 | ((charcode >> 6) & 0x3f), 0x80 | (charcode & 0x3f));
+    } else {
+      i++;
+      charcode = 0x10000 + (((charcode & 0x3ff) << 10) | (str.charCodeAt(i) & 0x3ff));
+      utf8.push(0xf0 | (charcode >> 18), 0x80 | ((charcode >> 12) & 0x3f), 0x80 | ((charcode >> 6) & 0x3f), 0x80 | (charcode & 0x3f));
+    }
+  }
+  return new Uint8Array(utf8);
+}
+
 export async function deriveKeysFromCode(
   groupCode: string,
 ): Promise<NostrSyncKeys> {
-  const enc = new TextEncoder();
+  // Normalização agressiva para garantir chaves idênticas em todos os dispositivos
+  const normalized = groupCode.trim().toUpperCase();
+  console.log(`[NostrSync] Deriving keys for group: "${normalized}"`);
+  
   const seed = await sha256(
-    enc.encode(`domus-group:${groupCode.toUpperCase()}`),
+    stringToBytes(`domus-group:${normalized}`),
   );
 
   const privateKey = await hkdfDerive(
@@ -392,14 +414,16 @@ export async function publishSyncEvents(
     const signed = finalizeEvent(nostrEvent, keys.privateKey);
 
     try {
+      console.log(`[NostrSync] Publishing batch ${batchId} with ${batch.length} events to relays...`);
       await withTimeout(
         Promise.any(pool.publish(relays, signed)),
         RELAY_TIMEOUT_MS,
         "publish batch",
       );
       published += batch.length;
-    } catch {
-      console.log("Failed to publish batch:", batchId);
+      console.log(`[NostrSync] Successfully published batch ${batchId}`);
+    } catch (err) {
+      console.log(`[NostrSync] Failed to publish batch ${batchId}:`, err);
     }
   }
 
@@ -436,44 +460,71 @@ export async function pullSyncEvents(
   sinceTimestamp: number,
 ): Promise<SyncEvent[]> {
   const pool = getPool();
+  const relays = getRelays();
 
-  const sinceUnix =
-    sinceTimestamp > 0 ? Math.floor(sinceTimestamp / 1000) - 5 : 0;
+  console.log(`[NostrSync] Pulling events for pubkey: ${keys.publicKey.substring(0, 10)}...`);
 
+  // Para eventos substituíveis (Kind 30333), não usamos 'since' no filtro principal
+  // porque queremos sempre a versão mais recente de cada batch, independentemente
+  // de quando foi publicada. O filtro por timestamp é feito localmente se necessário.
   const filter = {
     kinds: [DOMUS_KIND],
     authors: [keys.publicKey],
-    "#t": [DOMUS_APP_TAG],
-    ...(sinceUnix > 0 ? { since: sinceUnix } : {}),
     limit: 500,
   };
 
-  try {
-    const nostrEvents = await withTimeout(
-      pool.querySync(getRelays(), filter),
-      RELAY_TIMEOUT_MS,
-      "pull events",
-    );
-    const syncEvents: SyncEvent[] = [];
+  // Tentar pull em cada relay individualmente e combinar resultados
+  // Isso garante que mesmo que alguns relays falhem, os dados são obtidos dos que funcionam
+  const seenIds = new Set<string>();
+  const syncEvents: SyncEvent[] = [];
+
+  const relayResults = await Promise.allSettled(
+    relays.map(async (relay) => {
+      try {
+        const events = await withTimeout(
+          pool.querySync([relay], filter),
+          PULL_TIMEOUT_MS,
+          `pull from ${relay}`,
+        );
+        console.log(`[NostrSync] Received ${events.length} events from ${relay}`);
+        return events;
+      } catch (err) {
+        console.log(`[NostrSync] Error pulling from ${relay}:`, err);
+        return [];
+      }
+    }),
+  );
+
+  for (const result of relayResults) {
+    if (result.status !== "fulfilled") continue;
+    const nostrEvents = result.value;
 
     for (const ne of nostrEvents) {
+      // Ignorar eventos já processados (de outros relays)
+      if (seenIds.has(ne.id)) continue;
+      seenIds.add(ne.id);
+
+      // Filtrar por tag localmente (compatibilidade com relays que não suportam "#t")
+      const hasAppTag = ne.tags.some((t) => t[0] === "t" && t[1] === DOMUS_APP_TAG);
+      if (!hasAppTag) continue;
+
+      // Ignorar eventos publicados por este dispositivo
       const deviceTag = ne.tags.find((t) => t[0] === "device");
       if (deviceTag && deviceTag[1] === deviceId) continue;
 
       try {
         const decrypted = await decryptPayload(ne.content, keys.encryptionKey);
         const events = parseSyncPayload(decrypted);
+        console.log(`[NostrSync] Successfully pulled and decrypted ${events.length} events from batch ${ne.id.substring(0,8)}`);
         syncEvents.push(...events);
-      } catch {
-        console.log("Failed to decrypt/parse event:", ne.id);
+      } catch (err) {
+        // Evento não pertence a este grupo ou erro de decriptação
+        console.log(`[NostrSync] Decrypt failed for event ${ne.id.substring(0,8)}. This is normal for other groups using same kind.`);
       }
     }
-
-    return syncEvents;
-  } catch (err) {
-    console.log("Pull from relays failed:", err);
-    throw err;
   }
+
+  return syncEvents;
 }
 
 export function subscribeToSyncEvents(

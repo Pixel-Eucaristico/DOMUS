@@ -5,6 +5,7 @@
   "scripts": {
     "postinstall": "patch-package",
     "expo:dev": "EXPO_PACKAGER_PROXY_URL=https://$REPLIT_DEV_DOMAIN REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN:5000 npx expo start --localhost",
+    "expo:docker": "WEB_BROWSERS_ALLOWED_ORIGINS=https://expo.pixel-eucaristico.com.br EXPO_UNSAFE_ALLOW_ALL_WEB_ORIGINS=true EXPO_DEV_ALLOW_REMOTE_HOSTS=expo.pixel-eucaristico.com.br EXPO_PACKAGER_PROXY_URL=https://expo.pixel-eucaristico.com.br REACT_NATIVE_PACKAGER_HOSTNAME=expo.pixel-eucaristico.com.br npx expo start --port 8081 --localhost",
     "server:dev": "NODE_ENV=development tsx server/index.ts",
     "expo:start:static:build": "npx expo start --no-dev --minify --localhost",
     "expo:static:build": "node scripts/build.js",

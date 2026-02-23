@@ -30,6 +30,7 @@ const GROUP_CODE_KEY = "domus_nostr_group_code";
 const LAST_PULL_TS_KEY = "domus_nostr_last_pull_ts";
 const LAST_PUSH_HASH_KEY = "domus_nostr_last_push_hash";
 
+// Intervalo de pull periódico (8 segundos)
 const PULL_INTERVAL_MS = 8_000;
 
 type SyncStatus = "idle" | "syncing" | "connected" | "offline" | "error";
@@ -90,41 +91,68 @@ function computeEventHash(events: SyncEvent[]): string {
 }
 
 export function SyncProvider({ children }: { children: ReactNode }) {
-  const { getAllEvents, importEvents, localEventCount } = useAppState();
-  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const { getAllEvents, importEvents, localEventCount, deviceId, loading } = useAppState();
   const [groupCode, setGroupCode] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastPullTs, setLastPullTs] = useState(0);
+  const lastPullTsRef = useRef(0);
+  
+  // Sincronizar os refs com o estado para uso em callbacks estáveis
+  useEffect(() => {
+    lastPullTsRef.current = lastPullTs;
+  }, [lastPullTs]);
+
+  const allEvents = getAllEvents();
+  const allEventsRef = useRef(allEvents);
+  useEffect(() => {
+    allEventsRef.current = allEvents;
+  }, [allEvents]);
 
   const pullTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const subRef = useRef<SubCloser | null>(null);
+  const [keys, setKeys] = useState<NostrSyncKeys | null>(null);
   const keysRef = useRef<NostrSyncKeys | null>(null);
-  const lastPushHashRef = useRef<string>("empty");
-  const isImportingRef = useRef(false);
-  const isPushingRef = useRef(false);
-  const pushDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    keysRef.current = keys;
+  }, [keys]);
 
-  const allEvents = getAllEvents();
+  const lastPushHashRef = useRef<string>("empty");
+
+  // Flag: está a importar eventos de outros dispositivos (pull ativo)
+  const isImportingRef = useRef(false);
+  // Flag: está a fazer push (evita pushes concorrentes)
+  const isPushingRef = useRef(false);
+  // Debounce para push automático quando há novos eventos locais
+  const pushDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Flag: já fez a sincronização inicial (evita múltiplos syncs iniciais)
+  const initialSyncDoneRef = useRef(false);
+
   const eventCount = allEvents.length;
   const relayCount = getRelays().length;
 
   const isAutoSyncEnabled = !!groupCode;
 
+  // Carregamento inicial: groupCode, timestamps
   useEffect(() => {
-    loadOrCreateDeviceId().then(setDeviceId);
     AsyncStorage.getItem(LAST_SYNC_KEY).then((val) => {
       if (val) setLastSyncTime(parseInt(val, 10));
     });
     AsyncStorage.getItem(GROUP_CODE_KEY).then(async (val) => {
       if (val) {
         setGroupCode(val);
-        keysRef.current = await deriveKeysFromCode(val);
+        const derived = await deriveKeysFromCode(val);
+        setKeys(derived);
+        keysRef.current = derived;
       }
     });
     AsyncStorage.getItem(LAST_PULL_TS_KEY).then((val) => {
-      if (val) setLastPullTs(parseInt(val, 10));
+      if (val) {
+        const ts = parseInt(val, 10);
+        setLastPullTs(ts);
+        lastPullTsRef.current = ts;
+      }
     });
     AsyncStorage.getItem(LAST_PUSH_HASH_KEY).then((val) => {
       if (val) lastPushHashRef.current = val;
@@ -144,24 +172,32 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   const saveLastPullTs = useCallback(async (ts: number) => {
     setLastPullTs(ts);
+    lastPullTsRef.current = ts;
     try {
       await AsyncStorage.setItem(LAST_PULL_TS_KEY, ts.toString());
     } catch {}
   }, []);
 
+  // Retorna apenas os eventos criados por este dispositivo (usa ref para estabilidade)
   const getMyEvents = useCallback(
     (did: string): SyncEvent[] => {
-      return getAllEvents().filter((e) => e.deviceId === did);
+      return allEventsRef.current.filter((e) => e.deviceId === did);
     },
-    [getAllEvents],
+    [],
   );
 
+  /**
+   * Publica os eventos locais deste dispositivo no Nostr.
+   * Usa hash para evitar publicações desnecessárias quando não há mudanças.
+   * Com force=true, publica mesmo que o hash seja igual (para reconciliação inicial).
+   */
   const pushMyEvents = useCallback(
     async (keys: NostrSyncKeys, did: string, force: boolean = false) => {
       const myEvents = getMyEvents(did);
       if (myEvents.length === 0) return;
 
       const hash = computeEventHash(myEvents);
+      // Sem force: só publica se o hash mudou (há novos eventos locais)
       if (!force && hash === lastPushHashRef.current) return;
 
       try {
@@ -178,21 +214,31 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [getMyEvents],
   );
 
+  /**
+   * Faz pull de eventos de outros dispositivos do Nostr.
+   * Importa apenas eventos que ainda não existem localmente (por ID).
+   * NÃO incrementa localEventCount (importEvents não chama dispatch).
+   */
   const pullFromRelays = useCallback(
     async (keys: NostrSyncKeys, did: string, since: number): Promise<number> => {
       try {
         const syncEvents = await pullSyncEvents(keys, did, since);
 
         if (syncEvents.length > 0) {
+          // Marcar como importando para bloquear push automático durante o import
           isImportingRef.current = true;
-          // Cancelar qualquer push pendente enquanto importamos
+
+          // Cancelar qualquer push com debounce pendente
           if (pushDebounceRef.current) {
             clearTimeout(pushDebounceRef.current);
             pushDebounceRef.current = null;
           }
+
           const imported = await importEvents(syncEvents);
           isImportingRef.current = false;
+
           if (imported > 0) {
+            // Atualizar o timestamp do último pull com o evento mais recente recebido
             const maxTs = Math.max(...syncEvents.map((e) => e.timestamp));
             await saveLastPullTs(maxTs);
             await saveLastSync(Date.now());
@@ -210,24 +256,53 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [importEvents, saveLastSync, saveLastPullTs],
   );
 
+  /**
+   * Sincronização periódica:
+   * 1. Push dos eventos locais (apenas se o hash mudou ou passou muito tempo)
+   * 2. Pull de eventos de outros dispositivos
+   */
   const doSync = useCallback(async () => {
-    if (!groupCode || !deviceId || !keysRef.current) return;
+    const currentGroupCode = groupCode; // closure
+    const currentDeviceId = deviceId; // closure
+    const currentKeys = keysRef.current;
+
+    if (!currentGroupCode || !currentDeviceId || !currentKeys) return;
+    // Não sincronizar se já estiver a importar
+    if (isImportingRef.current) return;
 
     try {
       setSyncStatus("syncing");
-      const keys = keysRef.current;
 
-      await pushMyEvents(keys, deviceId);
-      await pullFromRelays(keys, deviceId, lastPullTs);
+      // Se o sync inicial ainda não foi concluído com sucesso, tenta pull completo (since=0)
+      const pullSince = initialSyncDoneRef.current ? lastPullTsRef.current : 0;
+
+      // Push: publica se houver mudanças ou ocasionalmente para garantir persistência
+      await pushMyEvents(currentKeys, currentDeviceId, false);
+      
+      // Pull: busca eventos de outros dispositivos
+      const imported = await pullFromRelays(currentKeys, currentDeviceId, pullSince);
+      
+      if (!initialSyncDoneRef.current && (imported > 0 || pullSince === 0)) {
+        console.log(`[Sync] Initial sync completed. Received ${imported} events.`);
+        initialSyncDoneRef.current = true;
+      }
+
       setSyncStatus("connected");
       setErrorMessage(null);
-    } catch {
+    } catch (err) {
+      console.log("[Sync] periodic sync error:", err);
       setSyncStatus("offline");
     }
-  }, [groupCode, deviceId, pushMyEvents, pullFromRelays, lastPullTs]);
+  }, [groupCode, deviceId, pushMyEvents, pullFromRelays]);
 
+  /**
+   * Efeito principal de sincronização.
+   * Executado quando o groupCode ou deviceId muda (ex: ao entrar num grupo).
+   * Faz uma sincronização inicial completa e configura o timer periódico.
+   */
   useEffect(() => {
-    if (!groupCode || !deviceId || !keysRef.current) {
+    if (!groupCode || !deviceId || !keys || loading) {
+      // Limpar timer e subscription se não há grupo ou chaves ou ainda carregando
       if (pullTimerRef.current) {
         clearInterval(pullTimerRef.current);
         pullTimerRef.current = null;
@@ -236,21 +311,52 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         subRef.current.close();
         subRef.current = null;
       }
+      initialSyncDoneRef.current = false;
       return;
     }
 
-    doSync();
+    // Sincronização inicial
+    if (!initialSyncDoneRef.current) {
+      const did = deviceId;
 
+      setSyncStatus("syncing");
+
+      pushMyEvents(keys, did, true)
+        .then(() => pullFromRelays(keys, did, 0))
+        .then((imported) => {
+          console.log(`[Sync] Initial pull complete. Imported: ${imported}`);
+          initialSyncDoneRef.current = true;
+          setSyncStatus("connected");
+          setErrorMessage(null);
+        })
+        .catch((err) => {
+          console.log("[Sync] Initial sync failed, will retry in background:", err);
+          setSyncStatus("offline");
+        });
+    }
+
+    // Timer periódico: sync incremental
     pullTimerRef.current = setInterval(doSync, PULL_INTERVAL_MS);
 
+    // Subscription em tempo real
     try {
       subRef.current = subscribeToSyncEvents(
-        keysRef.current,
+        keys,
         deviceId,
         lastPullTs,
         async (event) => {
+          // Não processar se já estiver a importar
+          if (isImportingRef.current) return;
+
           try {
             isImportingRef.current = true;
+
+            // Cancelar push pendente ao receber evento em tempo real
+            if (pushDebounceRef.current) {
+              clearTimeout(pushDebounceRef.current);
+              pushDebounceRef.current = null;
+            }
+
             await importEvents([event]);
             isImportingRef.current = false;
             await saveLastSync(Date.now());
@@ -272,28 +378,36 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         subRef.current = null;
       }
     };
-  }, [groupCode, deviceId]);
+  }, [groupCode, deviceId, keys, loading, doSync, pullFromRelays, pushMyEvents, importEvents, saveLastSync]);
 
+  /**
+   * Efeito de push automático quando há novos eventos LOCAIS.
+   * Observa localEventCount (que só incrementa via dispatch local, não via importEvents).
+   * Usa debounce de 500ms para agrupar múltiplos eventos criados em sequência.
+   * NÃO dispara durante importação de eventos de outros dispositivos.
+   */
   useEffect(() => {
-    if (!groupCode || !deviceId || !keysRef.current) return;
+    if (!groupCode || !deviceId || !keys || loading) return;
 
     // Limpar debounce anterior
     if (pushDebounceRef.current) {
       clearTimeout(pushDebounceRef.current);
     }
 
-    // Usar debounce de 500ms para evitar pushes em cascata
     pushDebounceRef.current = setTimeout(() => {
-      // Não fazer push se estiver a importar ou já a fazer push
-      if (isImportingRef.current || isPushingRef.current) return;
-      if (!keysRef.current || !deviceId) return;
+      // Não fazer push se já estiver a fazer push
+      if (isPushingRef.current) return;
+      if (!keys || !deviceId) return;
 
       const myEvents = getMyEvents(deviceId);
       const hash = computeEventHash(myEvents);
-      if (hash === lastPushHashRef.current) return;
 
+      // Só pula o push se o hash for igual E o sincronismo inicial já tiver sido feito com sucesso.
+      if (hash === lastPushHashRef.current && initialSyncDoneRef.current) return;
+
+      console.log(`[Sync] Device ${deviceId} triggering push for ${myEvents.length} events (Hash: ${hash})`);
       isPushingRef.current = true;
-      pushMyEvents(keysRef.current, deviceId)
+      pushMyEvents(keys, deviceId, false)
         .then(() => {
           isPushingRef.current = false;
           setSyncStatus("connected");
@@ -309,8 +423,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         clearTimeout(pushDebounceRef.current);
       }
     };
-  }, [localEventCount, groupCode, deviceId, getMyEvents, pushMyEvents]);
+  }, [localEventCount, groupCode, deviceId, keys, loading, eventCount]); 
 
+  // Sincronizar quando a app volta ao primeiro plano
   useEffect(() => {
     if (!groupCode || !deviceId) return;
 
@@ -340,21 +455,22 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       }
 
       const code = generateGroupCode();
-      const keys = await deriveKeysFromCode(code);
+      const derivedKeys = await deriveKeysFromCode(code);
 
-      keysRef.current = keys;
+      setKeys(derivedKeys);
       setGroupCode(code);
       await AsyncStorage.setItem(GROUP_CODE_KEY, code);
       lastPushHashRef.current = "empty";
+      initialSyncDoneRef.current = false;
 
       try {
-        await pushMyEvents(keys, deviceId, true);
+        await pushMyEvents(derivedKeys, deviceId, true);
       } catch {}
 
       setSyncStatus("connected");
       await saveLastSync(Date.now());
       return code;
-    } catch (err) {
+    } catch {
       setSyncStatus("error");
       setErrorMessage("Falha ao criar grupo. Tente novamente.");
       return null;
@@ -379,25 +495,28 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         }
 
         const normalizedCode = code.trim().toUpperCase();
-        const keys = await deriveKeysFromCode(normalizedCode);
+        const derivedKeys = await deriveKeysFromCode(normalizedCode);
 
-        keysRef.current = keys;
+        setKeys(derivedKeys);
         setGroupCode(normalizedCode);
         await AsyncStorage.setItem(GROUP_CODE_KEY, normalizedCode);
         lastPushHashRef.current = "empty";
+        initialSyncDoneRef.current = false;
 
+        // Ao entrar no grupo: publicar eventos locais + buscar todos os eventos do grupo
         try {
-          await pushMyEvents(keys, deviceId, true);
+          await pushMyEvents(derivedKeys, deviceId, true);
         } catch {}
 
         try {
-          await pullFromRelays(keys, deviceId, 0);
+          // Pull desde o início (since=0) para obter todos os eventos históricos
+          await pullFromRelays(derivedKeys, deviceId, 0);
         } catch {}
 
         setSyncStatus("connected");
         await saveLastSync(Date.now());
         return true;
-      } catch (err) {
+      } catch {
         setSyncStatus("error");
         setErrorMessage("Falha ao entrar no grupo. Verifique o codigo e tente novamente.");
         return false;
@@ -414,40 +533,41 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     closePool();
 
     setGroupCode(null);
-    keysRef.current = null;
+    setKeys(null);
     setSyncStatus("idle");
     setErrorMessage(null);
     setLastPullTs(0);
     lastPushHashRef.current = "empty";
+    initialSyncDoneRef.current = false;
     await AsyncStorage.removeItem(GROUP_CODE_KEY);
     await AsyncStorage.removeItem(LAST_PULL_TS_KEY);
     await AsyncStorage.removeItem(LAST_PUSH_HASH_KEY);
   }, []);
 
   const pushNow = useCallback(async () => {
-    if (!groupCode || !deviceId || !keysRef.current) return;
+    if (!groupCode || !deviceId || !keys) return;
     try {
       setSyncStatus("syncing");
-      await pushMyEvents(keysRef.current, deviceId, true);
+      await pushMyEvents(keys, deviceId, true);
       setSyncStatus("connected");
       await saveLastSync(Date.now());
     } catch {
       setSyncStatus("offline");
     }
-  }, [groupCode, deviceId, pushMyEvents, saveLastSync]);
+  }, [groupCode, deviceId, pushMyEvents, saveLastSync, keys]);
 
   const pullNow = useCallback(async (): Promise<number> => {
-    if (!groupCode || !deviceId || !keysRef.current) return 0;
+    if (!groupCode || !deviceId || !keys) return 0;
     try {
       setSyncStatus("syncing");
-      const count = await pullFromRelays(keysRef.current, deviceId, lastPullTs);
+      const count = await pullFromRelays(keys, deviceId, lastPullTs);
       setSyncStatus("connected");
       return count;
     } catch {
       setSyncStatus("offline");
       return 0;
     }
-  }, [groupCode, deviceId, pullFromRelays, lastPullTs]);
+  }, [groupCode, deviceId, pullFromRelays, lastPullTs, keys]);
 
   const resetStatus = useCallback(() => {
     setSyncStatus(groupCode ? "connected" : "idle");

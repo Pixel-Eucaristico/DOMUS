@@ -1,4 +1,4 @@
-import {
+import React, {
   createContext,
   useContext,
   useState,
@@ -8,7 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import { Platform } from "react-native";
-import type { DomainEvent} from "@packages/events/src/types";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { DomainEvent } from "@packages/events/src/types";
 import { EVENT_TYPES } from "@packages/events/src/types";
 import { domainReducer } from "@packages/domain/src/reducer";
 import { createInitialState, type AppState } from "@packages/domain/src/state";
@@ -54,9 +55,16 @@ interface AppStateContextValue extends DerivedState {
   importEvents: (events: SyncEvent[]) => Promise<number>;
   getAllEvents: () => SyncEvent[];
   localEventCount: number;
+  deviceId: string | null;
 }
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
+
+const DEVICE_ID_KEY = "domus_device_id";
+
+function generateDeviceId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
+}
 
 function todayStr(): string {
   const d = new Date();
@@ -78,16 +86,16 @@ function replayAllEvents(events: SyncEvent[]): {
     const evt = raw as unknown as AnyEvent;
     const t = evt.type as string;
 
-    if (t in EVENT_TYPES || Object.values(EVENT_TYPES).includes(t as any)) {
+    if (Object.values(EVENT_TYPES).includes(t as any)) {
       domain = domainReducer(domain, evt as DomainEvent);
     }
-    if (t in GAMIFICATION_EVENTS || Object.values(GAMIFICATION_EVENTS).includes(t as any)) {
+    if (Object.values(GAMIFICATION_EVENTS).includes(t as any)) {
       gamification = gamificationReducer(gamification, evt as GamificationEvent);
     }
-    if (t in ONBOARDING_EVENTS || Object.values(ONBOARDING_EVENTS).includes(t as any)) {
+    if (Object.values(ONBOARDING_EVENTS).includes(t as any)) {
       onboarding = onboardingReducer(onboarding, evt as OnboardingEvent);
     }
-    if (t in SEASON_EVENTS || Object.values(SEASON_EVENTS).includes(t as any)) {
+    if (Object.values(SEASON_EVENTS).includes(t as any)) {
       season = seasonReducer(season, evt as SeasonEvent);
     }
   }
@@ -114,16 +122,51 @@ async function getEventStore(): Promise<SQLiteEventStore | null> {
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [allEvents, setAllEvents] = useState<SyncEvent[]>([]);
+  const allEventsRef = React.useRef(allEvents);
+  useEffect(() => {
+    allEventsRef.current = allEvents;
+  }, [allEvents]);
+  
   const [loading, setLoading] = useState(true);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  
+  // Contador de eventos criados LOCALMENTE (via dispatch).
+  // NÃO incrementa quando eventos são importados via importEvents.
+  // Usado pelo SyncProvider para saber quando fazer push sem causar loop.
   const [localEventCount, setLocalEventCount] = useState(0);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
+      // Carregar ou criar deviceId único para este dispositivo
+      let did = await AsyncStorage.getItem(DEVICE_ID_KEY);
+      if (!did) {
+        did = generateDeviceId();
+        await AsyncStorage.setItem(DEVICE_ID_KEY, did);
+      }
+      if (mounted) setDeviceId(did);
+
       const store = await getEventStore();
       if (store && mounted) {
         const events = store.getAllEvents();
-        setAllEvents(events);
+        console.log(`[AppState] Loaded ${events.length} events from store`);
+        
+        // Migrar eventos "local" para o novo deviceId para que possam ser sincronizados corretamente.
+        // Isso garante que eventos criados antes do deviceId ser persistido sejam atribuídos a este dispositivo.
+        let migratedCount = 0;
+        const migratedEvents = events.map((e) => {
+          if (e.deviceId === "local" || !e.deviceId) {
+            migratedCount++;
+            return { ...e, deviceId: did || "local" };
+          }
+          return e;
+        });
+        
+        if (migratedCount > 0) {
+          console.log(`[AppState] Migrated ${migratedCount} local events to deviceId: ${did}`);
+        }
+        
+        setAllEvents(migratedEvents);
       }
       if (mounted) setLoading(false);
     })();
@@ -176,12 +219,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const totalBalance = useMemo(
     () =>
       Object.values(domain.accounts).reduce(
-        (sum, a) => sum + (a.type !== "credit_card" ? a.balance : 0),
+        (sum: number, a: any) => sum + (a.type !== "credit_card" ? a.balance : 0),
         0,
       ),
     [domain.accounts],
   );
 
+  /**
+   * dispatch: cria um evento LOCAL.
+   * Incrementa localEventCount para sinalizar ao SyncProvider que há novos dados para publicar.
+   */
   const dispatch = useCallback(
     (event: AnyEvent) => {
       const syncEvt: SyncEvent = {
@@ -189,7 +236,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         type: event.type as string,
         payload: (event as any).payload,
         timestamp: event.timestamp,
-        deviceId: event.deviceId,
+        deviceId: (event.deviceId && event.deviceId !== "local") ? event.deviceId : (deviceId || "local"),
         signature: event.signature,
       };
 
@@ -198,15 +245,23 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       });
 
       setAllEvents((prev) => [...prev, syncEvt]);
+      // Incrementar contador de eventos locais para disparar push no SyncProvider
       setLocalEventCount((c) => c + 1);
     },
-    [],
+    [deviceId],
   );
 
+  /**
+   * importEvents: importa eventos recebidos de OUTROS dispositivos via sincronização.
+   * NÃO incrementa localEventCount, evitando que o SyncProvider faça push em loop.
+   * Filtra eventos duplicados por ID antes de adicionar ao estado.
+   */
   const importEvents = useCallback(
     async (events: SyncEvent[]): Promise<number> => {
       const store = await getEventStore();
-      const existingIds = new Set(allEvents.map((e) => e.id));
+      
+      // Usar a versão mais recente de allEvents via ref para deduplicação precisa
+      const existingIds = new Set(allEventsRef.current.map((e: SyncEvent) => e.id));
       const newEvents: SyncEvent[] = [];
 
       for (const evt of events) {
@@ -218,7 +273,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       }
 
       if (newEvents.length > 0) {
-        setAllEvents((prev) => {
+        setAllEvents((prev: SyncEvent[]) => {
           const merged = [...prev, ...newEvents];
           merged.sort((a, b) => a.timestamp - b.timestamp);
           return merged;
@@ -227,17 +282,21 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
       return newEvents.length;
     },
-    [allEvents],
+    [],
   );
 
   const getAllEventsCallback = useCallback(() => allEvents, [allEvents]);
 
+  /**
+   * dispatchDomainEvent: cria um evento de domínio LOCAL e gera eventos de gamificação associados.
+   * Os eventos de gamificação (XP, Streak, Level Up) são gerados APENAS para ações locais,
+   * nunca para eventos importados de outros dispositivos.
+   * Isto é fundamental para evitar o loop de sincronização.
+   */
   const dispatchDomainEvent = useCallback(
     (event: DomainEvent) => {
-      // Usar o deviceId do evento para os eventos de gamificação derivados
-      // Isso garante que os eventos de gamificação são associados ao dispositivo correto
-      // e não causam loops de sincronização quando importados por outros dispositivos
-      const originDeviceId = event.deviceId || "local";
+      // Usar o deviceId do evento original para os eventos de gamificação
+      const originDeviceId = (event.deviceId && event.deviceId !== "local") ? event.deviceId : (deviceId || "local");
 
       dispatch(event);
 
@@ -276,8 +335,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           const levelEvent: GamificationEvent = {
             id: generateId(),
             type: GAMIFICATION_EVENTS.LEVEL_UP,
-            payload: {
-              previousLevel: levelCheck.previousLevel,
+            payload: {         previousLevel: levelCheck.previousLevel,
               newLevel: levelCheck.newLevel,
               totalXp: newTotalXp,
             },
@@ -289,7 +347,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [dispatch, gamification],
+    [dispatch, gamification, deviceId],
   );
 
   const value = useMemo<AppStateContextValue>(
@@ -309,8 +367,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       importEvents,
       getAllEvents: getAllEventsCallback,
       localEventCount,
+      deviceId,
     }),
-    [domain, gamification, onboarding, season, archetype, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, importEvents, getAllEventsCallback, localEventCount],
+    [domain, gamification, onboarding, season, archetype, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, importEvents, getAllEventsCallback, localEventCount, deviceId],
   );
 
   return (
