@@ -23,7 +23,7 @@ export default function OCRSettingsScreen() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [provider, setProvider] = useState<OCRProvider>("mlkit");
+  const [provider, setProvider] = useState<OCRProvider>("tesseract");
   const [apiKey, setApiKey] = useState("");
   const [hasCloudVision, setHasCloudVision] = useState(false);
 
@@ -101,8 +101,9 @@ export default function OCRSettingsScreen() {
         <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
           <Feather name="info" size={20} color={theme.primaryColor} />
           <Text style={[s.description, { color: theme.secondaryText }]}>
-            O sistema usa múltiplos provedores de OCR automaticamente. Escolha qual
-            você prefere usar primeiro. Se falhar, os outros serão tentados como fallback.
+            O sistema usa OCR híbrido com fallback automático. Tesseract funciona nativamente
+            no Expo. Cloud Vision API requer configuração de chave. ML Kit nativo requer
+            ejetar do Expo (bare React Native).
           </Text>
         </View>
 
@@ -111,37 +112,6 @@ export default function OCRSettingsScreen() {
           <Text style={[s.sectionTitle, { color: theme.textColor }]}>
             Provedor Preferido
           </Text>
-
-          <Pressable
-            style={[
-              s.providerCard,
-              {
-                backgroundColor: theme.cardBackground,
-                borderColor: provider === "mlkit" ? theme.primaryColor : theme.border,
-                borderWidth: 2,
-              },
-            ]}
-            onPress={() => setProvider("mlkit")}
-          >
-            <View style={s.providerHeader}>
-              <View style={s.providerTitleRow}>
-                <Feather
-                  name={provider === "mlkit" ? "check-circle" : "circle"}
-                  size={20}
-                  color={provider === "mlkit" ? theme.primaryColor : theme.secondaryText}
-                />
-                <Text style={[s.providerName, { color: theme.textColor }]}>
-                  Google ML Kit
-                </Text>
-                <View style={[s.badge, { backgroundColor: `${theme.success}20` }]}>
-                  <Text style={[s.badgeText, { color: theme.success }]}>Recomendado</Text>
-                </View>
-              </View>
-            </View>
-            <Text style={[s.providerDesc, { color: theme.secondaryText }]}>
-              Gratuito, funciona offline, alta precisão (nativo)
-            </Text>
-          </Pressable>
 
           <Pressable
             style={[
@@ -164,13 +134,53 @@ export default function OCRSettingsScreen() {
                 <Text style={[s.providerName, { color: theme.textColor }]}>
                   Tesseract
                 </Text>
-                <View style={[s.badge, { backgroundColor: `${theme.accentColor}20` }]}>
-                  <Text style={[s.badgeText, { color: theme.accentColor }]}>Open Source</Text>
+                <View style={[s.badge, { backgroundColor: `${theme.success}20` }]}>
+                  <Text style={[s.badgeText, { color: theme.success }]}>Recomendado</Text>
                 </View>
               </View>
             </View>
             <Text style={[s.providerDesc, { color: theme.secondaryText }]}>
-              100% gratuito, código aberto, funciona em todas plataformas
+              100% gratuito, código aberto, funciona nativamente no Expo
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[
+              s.providerCard,
+              {
+                backgroundColor: theme.cardBackground,
+                borderColor: provider === "mlkit" ? theme.primaryColor : theme.border,
+                borderWidth: 2,
+                opacity: 0.6,
+              },
+            ]}
+            onPress={() => {
+              Alert.alert(
+                "ML Kit Nativo",
+                "Google ML Kit requer ejetar do Expo (bare React Native). No Expo Managed, " +
+                "usamos Tesseract como fallback automaticamente.\n\n" +
+                "Para usar ML Kit nativo, execute: npx expo prebuild --clean",
+                [{ text: "OK" }]
+              );
+            }}
+          >
+            <View style={s.providerHeader}>
+              <View style={s.providerTitleRow}>
+                <Feather
+                  name="alert-circle"
+                  size={20}
+                  color={theme.secondaryText}
+                />
+                <Text style={[s.providerName, { color: theme.secondaryText }]}>
+                  Google ML Kit
+                </Text>
+                <View style={[s.badge, { backgroundColor: `${theme.secondaryText}20` }]}>
+                  <Text style={[s.badgeText, { color: theme.secondaryText }]}>Bare RN</Text>
+                </View>
+              </View>
+            </View>
+            <Text style={[s.providerDesc, { color: theme.secondaryText }]}>
+              Requer ejetar do Expo (npx expo prebuild)
             </Text>
           </Pressable>
 
