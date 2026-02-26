@@ -30,8 +30,8 @@ export class HybridOCRAdapter implements OCRAdapter {
 
   constructor(config: HybridOCRConfig = {}) {
     this.config = {
-      preferredProvider: config.preferredProvider || "mlkit",
-      fallbackProviders: config.fallbackProviders || ["tesseract"],
+      preferredProvider: config.preferredProvider || "tesseract",
+      fallbackProviders: config.fallbackProviders || ["mlkit"],
       cloudVisionConfig: config.cloudVisionConfig,
     };
   }
@@ -88,44 +88,15 @@ export class HybridOCRAdapter implements OCRAdapter {
   }
 
   /**
-   * Google ML Kit - Offline, gratuito, alta precisão
+   * Google ML Kit - Utiliza Tesseract.js como alternativa para Expo
+   * (ML Kit nativo requer bare React Native, não funciona com Expo Managed)
    */
   private async recognizeWithMLKit(imageUri: string): Promise<OCRResult> {
-    console.log("[MLKit] Processando imagem com ML Kit nativo...");
+    console.log("[MLKit/Tesseract] Processando imagem com Tesseract.js (fallback para Expo)...");
 
-    try {
-      // Importar ML Kit dinamicamente
-      const TextRecognition = await import("@react-native-ml-kit/text-recognition");
-
-      // Reconhecer texto da imagem
-      const result = await TextRecognition.default.recognize(imageUri);
-
-      // Extrair todo o texto
-      const fullText = result.text;
-
-      // Calcular confidence médio dos blocos
-      let totalConfidence = 0;
-      let blockCount = 0;
-
-      for (const block of result.blocks) {
-        if (block.confidence !== undefined) {
-          totalConfidence += block.confidence;
-          blockCount++;
-        }
-      }
-
-      const averageConfidence = blockCount > 0 ? totalConfidence / blockCount : 0.8;
-
-      console.log("[MLKit] Texto extraído com sucesso. Confidence:", averageConfidence);
-
-      return {
-        text: fullText,
-        confidence: averageConfidence,
-      };
-    } catch (error) {
-      console.error("[MLKit] Erro ao processar imagem:", error);
-      throw new Error(`ML Kit falhou: ${error instanceof Error ? error.message : "Erro desconhecido"}`);
-    }
+    // Para Expo, usamos Tesseract.js diretamente
+    // Se migrar para bare RN no futuro, substituir por ML Kit nativo
+    return await this.recognizeWithTesseract(imageUri);
   }
 
   /**

@@ -72,12 +72,6 @@
           "cameraPermissionText": "OrcaFacil precisa acessar a câmera para OCR de notas fiscais.",
           "enableCodeScanner": false
         }
-      ],
-      [
-        "@react-native-ml-kit/text-recognition",
-        {
-          "models": ["latin"]
-        }
       ]
     ],
     "experiments": {
