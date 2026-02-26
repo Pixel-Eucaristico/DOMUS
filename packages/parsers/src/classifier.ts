@@ -83,6 +83,14 @@ const KEYWORD_MAP: Record<string, { categoryId: string; group: "needs" | "wants"
   hamburguer: { categoryId: "lazer", group: "wants" },
   hambúrguer: { categoryId: "lazer", group: "wants" },
   lanche: { categoryId: "lazer", group: "wants" },
+
+  // Frete - será reclassificado para categoria predominante da compra
+  frete: { categoryId: "outros", group: "wants" },
+  "frete cobrado": { categoryId: "outros", group: "wants" },
+  entrega: { categoryId: "outros", group: "wants" },
+
+  // Descontos - será reclassificado para categoria predominante
+  desconto: { categoryId: "outros", group: "wants" },
 };
 
 function normalizeText(text: string): string {

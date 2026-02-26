@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
   View,
@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { useSync } from "@/src/context/SyncProvider";
+import { calculate503020 } from "@packages/domain/src/transactions";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -28,6 +29,8 @@ function BudgetBar({
   idealAmount,
   color,
   amount,
+  group,
+  onPress,
 }: {
   label: string;
   percent: number;
@@ -35,10 +38,18 @@ function BudgetBar({
   idealAmount: number;
   color: string;
   amount: number;
+  group: "needs" | "wants" | "savings";
+  onPress?: (group: string) => void;
 }) {
   const barWidth = Math.min(percent, 100);
   return (
-    <View style={s.budgetRow}>
+    <Pressable
+      onPress={() => onPress?.(group)}
+      style={({ pressed }) => [
+        s.budgetRow,
+        pressed && { opacity: 0.7 }
+      ]}
+    >
       <View style={s.budgetLabelRow}>
         <View style={[s.budgetDot, { backgroundColor: color }]} />
         <Text style={s.budgetLabel}>{label}</Text>
@@ -58,18 +69,33 @@ function BudgetBar({
         <Text style={s.budgetAmount}>{formatCurrency(amount)}</Text>
         <Text style={s.budgetIdealValue}>Meta: {formatCurrency(idealAmount)}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { domain, gamification, levelInfo, budget, totalBalance, archetype, theme, onboarding, loading } =
+  const { domain, gamification, levelInfo, totalBalance, archetype, theme, onboarding, loading } =
     useAppState();
   const { syncStatus, isAutoSyncEnabled } = useSync();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
+
+  // Month/Year filter state
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  // Calculate budget with selected month/year
+  const budget = useMemo(() =>
+    calculate503020(
+      Object.values(domain.transactions),
+      domain.categories,
+      selectedMonth,
+      selectedYear
+    ),
+    [domain.transactions, domain.categories, selectedMonth, selectedYear]
+  );
 
   const accountCount = Object.keys(domain.accounts).length;
   const txCount = Object.keys(domain.transactions).length;
@@ -84,6 +110,28 @@ export default function HomeScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     router.push("/add-transaction");
+  };
+
+  const handleBudgetPress = (group: string) => {
+    router.push(`/category-detail/${group}?month=${selectedMonth}&year=${selectedYear}`);
+  };
+
+  const handlePreviousMonth = () => {
+    if (selectedMonth === 0) {
+      setSelectedMonth(11);
+      setSelectedYear(selectedYear - 1);
+    } else {
+      setSelectedMonth(selectedMonth - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (selectedMonth === 11) {
+      setSelectedMonth(0);
+      setSelectedYear(selectedYear + 1);
+    } else {
+      setSelectedMonth(selectedMonth + 1);
+    }
   };
 
   if (loading) {
@@ -212,9 +260,25 @@ export default function HomeScreen() {
         </View>
 
         <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
-          <Text style={[s.cardTitle, { color: theme.textColor }]}>
-            Orcamento 50/30/20
-          </Text>
+          <View style={s.monthFilterContainer}>
+            <Text style={[s.cardTitle, { color: theme.textColor }]}>
+              Orcamento 50/30/20
+            </Text>
+            <View style={s.monthFilter}>
+              <Pressable onPress={handlePreviousMonth} style={s.monthArrow}>
+                <Feather name="chevron-left" size={20} color={theme.textColor} />
+              </Pressable>
+              <Text style={[s.monthLabel, { color: theme.textColor }]}>
+                {new Date(selectedYear, selectedMonth).toLocaleDateString("pt-BR", {
+                  month: "short",
+                  year: "numeric"
+                })}
+              </Text>
+              <Pressable onPress={handleNextMonth} style={s.monthArrow}>
+                <Feather name="chevron-right" size={20} color={theme.textColor} />
+              </Pressable>
+            </View>
+          </View>
           {txCount > 0 ? (
             <View style={s.budgetContent}>
               <BudgetBar
@@ -224,6 +288,8 @@ export default function HomeScreen() {
                 idealAmount={incomeBase * 0.5}
                 color={theme.primaryColor}
                 amount={budget.needs}
+                group="needs"
+                onPress={handleBudgetPress}
               />
               <BudgetBar
                 label="Desejos"
@@ -232,6 +298,8 @@ export default function HomeScreen() {
                 idealAmount={incomeBase * 0.3}
                 color={theme.accentColor}
                 amount={budget.wants}
+                group="wants"
+                onPress={handleBudgetPress}
               />
               <BudgetBar
                 label="Poupanca"
@@ -240,6 +308,8 @@ export default function HomeScreen() {
                 idealAmount={incomeBase * 0.2}
                 color={theme.success}
                 amount={budget.savings}
+                group="savings"
+                onPress={handleBudgetPress}
               />
             </View>
           ) : (
@@ -468,6 +538,27 @@ const s = StyleSheet.create({
   },
   cardTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 16, marginBottom: 12 },
   txCount: { fontFamily: "DMSans_400Regular", fontSize: 12 },
+  monthFilterContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  monthFilter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  monthArrow: {
+    padding: 4,
+  },
+  monthLabel: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 13,
+    textTransform: "capitalize" as const,
+    minWidth: 80,
+    textAlign: "center" as const,
+  },
   budgetContent: { gap: 14 },
   budgetRow: { gap: 4 },
   budgetLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },

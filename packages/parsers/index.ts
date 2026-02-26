@@ -34,6 +34,9 @@ export {
 } from "./src/classifier";
 export type { GeminiConfig } from "./src/classifier";
 
+export { HybridOCRAdapter, createHybridOCRAdapter } from "./src/hybridOcrAdapter";
+export type { CloudVisionConfig, OCRProvider, HybridOCRConfig } from "./src/hybridOcrAdapter";
+
 export {
   invoiceReducer,
   createInitialInvoiceState,

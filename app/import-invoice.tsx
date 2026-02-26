@@ -10,6 +10,7 @@ import {
   FlatList,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { BarCodeScanner } from "expo-barcode-scanner";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -25,10 +26,11 @@ import {
   InvoiceImportedPayload,
   InvoiceItem,
   SefazFetcher,
-  OCRAdapter,
   createKeywordClassifier,
+  createHybridOCRAdapter,
 } from "@packages/parsers";
 import { createTransactionEvent } from "@packages/domain/src/transactions";
+import { OCRConfigService } from "@/src/services/ocrConfigService";
 
 type ScreenState = "idle" | "scanning" | "fetching" | "parsed" | "error";
 
@@ -91,7 +93,56 @@ export default function InvoiceImportScreen() {
     }
   };
 
+  const processOCRImage = async (uri: string) => {
+    setState("fetching");
+    setError(null);
+
+    try {
+      // Carregar configuração do usuário
+      const ocrConfig = await OCRConfigService.loadConfig();
+      const cloudVisionConfig = await OCRConfigService.getCloudVisionConfig();
+
+      // Criar adaptador híbrido
+      const ocrAdapter = createHybridOCRAdapter({
+        preferredProvider: ocrConfig.preferredProvider,
+        fallbackProviders: ["tesseract", "mlkit"],
+        cloudVisionConfig,
+      });
+
+      const ocrService = new OCRService(ocrAdapter);
+      const ocrResult = await ocrService.processImage(uri);
+      const payload = parser.fromOCR(ocrResult);
+      setImportedData(payload);
+      setState("parsed");
+    } catch (err) {
+      console.error("[OCR] Erro:", err);
+      setError("Falha no processamento OCR. Tente novamente ou use o QR Code.");
+      setState("error");
+    }
+  };
+
+  const handleOCRFromCamera = async () => {
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 1,
+      allowsEditing: true,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+    await processOCRImage(result.assets[0].uri);
+  };
+
   const handleOCRFallback = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 1,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+    await processOCRImage(result.assets[0].uri);
+  };
+
+  const handleQRFromGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 1,
@@ -102,25 +153,29 @@ export default function InvoiceImportScreen() {
     setState("fetching");
     setError(null);
 
-    const ocrAdapter: OCRAdapter = {
-      recognizeText: async (uri: string) => {
-        // Placeholder for ML Kit integration
-        // In a real app, this would call a native module
-        return { text: `Simulated OCR Text
-Item 1 2 x 5.00 10.00
-TOTAL 10.00`, confidence: 0.9 };
-      },
-    };
-
-    const ocrService = new OCRService(ocrAdapter);
-
     try {
-      const ocrResult = await ocrService.processImage(result.assets[0].uri);
-      const payload = parser.fromOCR(ocrResult);
-      setImportedData(payload);
-      setState("parsed");
+      // Ler QR Code da imagem
+      const barcodes = await BarCodeScanner.scanFromURLAsync(result.assets[0].uri);
+
+      if (barcodes.length === 0) {
+        setError("Nenhum QR Code encontrado na imagem. Tente tirar uma foto mais nítida.");
+        setState("error");
+        return;
+      }
+
+      const qrData = barcodes[0]!.data;
+      const url = scannerService.extractUrl(qrData);
+
+      if (!url) {
+        setError("QR Code inválido. Certifique-se de que é um QR Code de NFC-e.");
+        setState("error");
+        return;
+      }
+
+      startFetching(url);
     } catch (err) {
-      setError("Falha no processamento OCR.");
+      console.error("[QR Gallery] Erro:", err);
+      setError("Erro ao ler QR Code da imagem. Tente novamente.");
       setState("error");
     }
   };
@@ -132,7 +187,7 @@ TOTAL 10.00`, confidence: 0.9 };
     }
 
     const importEvent = createInvoiceImportedEvent(importedData);
-    
+
     // Process items and classify them
     const classifier = createKeywordClassifier();
     const transactionItems = await Promise.all(importedData.items.map(async (item) => {
@@ -144,11 +199,44 @@ TOTAL 10.00`, confidence: 0.9 };
       };
     }));
 
+    // Reclassify freight and discounts to predominant category
+    const categoryTotals: Record<string, number> = {};
+
+    // Calculate totals per category (excluding freight and discounts)
+    transactionItems.forEach(item => {
+      const desc = item.description.toLowerCase();
+      if (!desc.includes("frete") &&
+          !desc.includes("entrega") &&
+          !desc.includes("desconto")) {
+        categoryTotals[item.categoryId] = (categoryTotals[item.categoryId] || 0) + item.amount;
+      }
+    });
+
+    // Find predominant category
+    const predominantCategoryId = Object.keys(categoryTotals)
+      .sort((a, b) => categoryTotals[b]! - categoryTotals[a]!)[0];
+
+    // Apply predominant category to freight and discounts
+    if (predominantCategoryId) {
+      transactionItems.forEach(item => {
+        const desc = item.description.toLowerCase();
+        if (desc.includes("frete") || desc.includes("entrega") || desc.includes("desconto")) {
+          item.categoryId = predominantCategoryId;
+        }
+      });
+    }
+
+    // Determine transaction category: use "compras_diversas" if multiple categories
+    const uniqueCategories = new Set(transactionItems.map(i => i.categoryId));
+    const categoryId = uniqueCategories.size > 1
+      ? "compras_diversas"
+      : (transactionItems[0]?.categoryId || "outros");
+
     const transactionPayload = {
       accountId: selectedAccountId,
       type: "expense" as const,
       amount: importedData.totalAmount,
-      categoryId: transactionItems[0]?.categoryId || "outros",
+      categoryId,
       date: importedData.date.split("T")[0]!,
       description: importedData.emitter.name,
       items: transactionItems,
@@ -184,26 +272,74 @@ TOTAL 10.00`, confidence: 0.9 };
       </View>
 
       {state === "idle" && (
-        <View style={s.center}>
-          <Feather name="maximize" size={64} color={theme.primaryColor} style={{ marginBottom: 20 }} />
+        <ScrollView style={s.scrollView} contentContainerStyle={s.idleContent}>
+          <Feather name="file-text" size={64} color={theme.primaryColor} style={{ marginBottom: 20 }} />
           <Text style={[s.instruction, { color: theme.textColor }]}>
-            Escaneie o QR Code da sua Nota Fiscal para importar os itens automaticamente.
+            Escolha como importar sua nota fiscal
           </Text>
+
+          {/* Seção QR Code */}
+          <View style={s.methodSection}>
+            <Text style={[s.methodTitle, { color: theme.textColor }]}>QR Code NFC-e</Text>
+            <Text style={[s.methodSubtitle, { color: theme.secondaryText }]}>
+              Mais rápido e preciso
+            </Text>
+            <Pressable
+              style={[s.button, { backgroundColor: theme.primaryColor }]}
+              onPress={() => {
+                if (permission?.granted) setState("scanning");
+                else requestPermission();
+              }}
+            >
+              <Feather name="camera" size={20} color="#FFF" />
+              <Text style={s.buttonText}>Escanear QR Code</Text>
+            </Pressable>
+            <Pressable
+              style={[s.outlineButton, { borderColor: theme.border }]}
+              onPress={handleQRFromGallery}
+            >
+              <Feather name="image" size={20} color={theme.textColor} />
+              <Text style={[s.outlineButtonText, { color: theme.textColor }]}>
+                Ler QR da Galeria
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* Seção OCR */}
+          <View style={s.methodSection}>
+            <Text style={[s.methodTitle, { color: theme.textColor }]}>OCR (Reconhecimento de Texto)</Text>
+            <Text style={[s.methodSubtitle, { color: theme.secondaryText }]}>
+              Para notas sem QR Code
+            </Text>
+            <Pressable
+              style={[s.button, { backgroundColor: theme.accentColor }]}
+              onPress={handleOCRFromCamera}
+            >
+              <Feather name="camera" size={20} color="#FFF" />
+              <Text style={s.buttonText}>Tirar Foto para OCR</Text>
+            </Pressable>
+            <Pressable
+              style={[s.outlineButton, { borderColor: theme.border }]}
+              onPress={handleOCRFallback}
+            >
+              <Feather name="image" size={20} color={theme.textColor} />
+              <Text style={[s.outlineButtonText, { color: theme.textColor }]}>
+                Importar da Galeria
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* Link para configurações */}
           <Pressable
-            style={[s.button, { backgroundColor: theme.primaryColor }]}
-            onPress={() => {
-              if (permission.granted) setState("scanning");
-              else requestPermission();
-            }}
+            style={s.settingsLink}
+            onPress={() => router.push("/ocr-settings")}
           >
-            <Feather name="camera" size={20} color="#FFF" />
-            <Text style={s.buttonText}>Escanear QR Code</Text>
+            <Feather name="settings" size={16} color={theme.secondaryText} />
+            <Text style={[s.settingsLinkText, { color: theme.secondaryText }]}>
+              Configurar OCR
+            </Text>
           </Pressable>
-          <Pressable style={[s.outlineButton, { borderColor: theme.border }]} onPress={handleOCRFallback}>
-            <Feather name="image" size={20} color={theme.textColor} />
-            <Text style={[s.outlineButtonText, { color: theme.textColor }]}>Importar da Galeria (OCR)</Text>
-          </Pressable>
-        </View>
+        </ScrollView>
       )}
 
       {state === "scanning" && (
@@ -329,7 +465,36 @@ const s = StyleSheet.create({
   backButton: { marginRight: 15 },
   title: { fontSize: 20, fontWeight: "600" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 40 },
-  instruction: { textAlign: "center", fontSize: 16, marginBottom: 30, lineHeight: 24 },
+  idleContent: { alignItems: "center", padding: 40, paddingBottom: 60 },
+  instruction: { textAlign: "center", fontSize: 16, marginBottom: 40, lineHeight: 24 },
+  methodSection: {
+    width: "100%",
+    marginTop: 20,
+    gap: 10,
+  },
+  methodTitle: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  methodSubtitle: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  settingsLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 30,
+    paddingVertical: 10,
+  },
+  settingsLinkText: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 14,
+  },
   button: {
     flexDirection: "row",
     alignItems: "center",

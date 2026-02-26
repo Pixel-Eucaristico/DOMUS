@@ -91,7 +91,7 @@ export function parseOCRText(ocrResult: OCRResult): OCRParseResult {
 
 function isHeaderOrFooter(text: string): boolean {
   const skipTerms = [
-    "cnpj", "cpf", "consumidor", "troco", "subtotal", "desconto",
+    "cnpj", "cpf", "consumidor", "troco", "subtotal",
     "forma", "pagamento", "dinheiro", "credito", "debito", "pix",
     "obrigado", "volte", "sempre", "fiscal", "endereco",
   ];

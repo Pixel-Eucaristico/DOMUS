@@ -33,6 +33,7 @@ import type { ArchetypeType } from "@packages/personality/src/types";
 import { generateId } from "@packages/events/src/factory";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { SQLiteEventStore } from "@packages/storage/src/eventStore";
+import { createDefaultCategories } from "@packages/domain/src/categories";
 
 type AnyEvent = DomainEvent | GamificationEvent | OnboardingEvent | SeasonEvent;
 
@@ -253,6 +254,32 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [loading, allEvents.length, domain.transactions, gamification.totalXp, deviceId]);
+
+  // Inicializar categorias padrão se não existirem
+  useEffect(() => {
+    if (!loading && deviceId && Object.keys(domain.categories).length === 0) {
+      const categoryEvents = createDefaultCategories();
+      const syncEvents: SyncEvent[] = categoryEvents.map(evt => ({
+        id: evt.id,
+        type: evt.type as string,
+        payload: evt.payload,
+        timestamp: evt.timestamp,
+        deviceId: deviceId,
+        signature: evt.signature || "",
+      }));
+
+      getEventStore().then((store) => {
+        syncEvents.forEach(evt => store?.appendEvent(evt));
+      });
+
+      setAllEvents((prev) => {
+        const next = [...prev, ...syncEvents];
+        next.sort((a, b) => a.timestamp - b.timestamp);
+        return next;
+      });
+      setLocalEventCount((c) => c + syncEvents.length);
+    }
+  }, [loading, domain.categories, deviceId]);
 
   const archetype = useMemo<ArchetypeType>(() => {
     const txCount = Object.keys(domain.transactions).length;

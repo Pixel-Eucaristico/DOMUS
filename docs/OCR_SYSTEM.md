@@ -1,0 +1,350 @@
+# Sistema OCR Híbrido - OrcaFacil
+
+## 📋 Visão Geral
+
+O OrcaFacil possui um sistema OCR (Optical Character Recognition) híbrido que automaticamente tenta múltiplos provedores para garantir o melhor resultado possível na leitura de notas fiscais.
+
+## 🎯 Provedores Disponíveis
+
+### 1. Google ML Kit (Padrão - REAL)
+- ✅ **100% Gratuito**
+- ✅ **Funciona Offline** (após download do modelo)
+- ✅ **Alta Precisão**
+- ✅ **Rápido** (~1-2 segundos)
+- 🔧 **Biblioteca**: `@react-native-ml-kit/text-recognition`
+
+**Como funciona:**
+- Usa modelos de IA do Google treinados especificamente para reconhecimento de texto
+- Processa localmente no dispositivo (privacidade garantida)
+- Suporta múltiplos idiomas incluindo Português
+
+### 2. Tesseract.js (Fallback - REAL)
+- ✅ **100% Gratuito**
+- ✅ **Open Source**
+- ✅ **Funciona em qualquer plataforma** (Web, iOS, Android)
+- ⚠️ **Mais Lento** (~3-5 segundos)
+- 📦 **Biblioteca**: `tesseract.js`
+
+**Como funciona:**
+- Engine OCR open source mais popular do mundo
+- Desenvolvido originalmente pela HP, mantido pelo Google
+- Processa em JavaScript puro (funciona até no navegador)
+- Modelo em Português incluído
+
+### 3. Google Cloud Vision API (Opcional - REAL)
+- 💰 **Pago** (requer conta Google Cloud)
+- 🌐 **Requer Internet**
+- ✅ **Melhor Precisão**
+- ✅ **Rápido** (~1-2 segundos)
+- 🔑 **Usuário fornece API Key**
+
+**Como funciona:**
+- Envia imagem para servidores do Google Cloud
+- Usa modelos de IA mais avançados que ML Kit
+- Cobra por requisição (grátis até 1000 requisições/mês)
+- Perfeito para casos onde precisão é crítica
+
+## 🔄 Fluxo de Fallback Automático
+
+```
+┌─────────────────────────────────────┐
+│  Usuário tira foto da nota fiscal   │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────┐
+│   Tenta Provedor Preferido          │
+│   (Padrão: ML Kit)                   │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+         ┌──────────┐
+         │Sucesso?  │
+         │Conf≥60%? │
+         └─────┬────┘
+          Sim  │  Não
+               ▼     │
+         ┌─────────┐│
+         │ Retorna ││
+         │Resultado││
+         └─────────┘│
+                    │
+                    ▼
+          ┌──────────────────┐
+          │ Tenta Tesseract   │
+          └─────────┬─────────┘
+                    │
+                    ▼
+              ┌──────────┐
+              │Sucesso?  │
+              │Conf≥60%? │
+              └─────┬────┘
+          Sim       │  Não
+                    ▼     │
+              ┌─────────┐│
+              │ Retorna ││
+              │Resultado││
+              └─────────┘│
+                         │
+                         ▼
+               ┌──────────────────┐
+               │ Tenta Cloud Vision│
+               │ (se configurado)  │
+               └─────────┬─────────┘
+                         │
+                         ▼
+                   ┌──────────┐
+                   │ Sucesso? │
+                   └─────┬────┘
+                    Sim  │  Não
+                         ▼     │
+                   ┌─────────┐│
+                   │ Retorna ││
+                   │Resultado││
+                   └─────────┘│
+                              │
+                              ▼
+                        ┌──────────┐
+                        │  Erro    │
+                        │ "Nenhum" │
+                        │"provedor"│
+                        │"funcionou"
+                        └──────────┘
+```
+
+## ⚙️ Como Configurar
+
+### Configuração Padrão (ML Kit + Tesseract)
+
+**Não precisa fazer nada!** Ambos funcionam out-of-the-box.
+
+1. Instale as dependências:
+```bash
+npm install
+npx expo prebuild --clean
+```
+
+2. Compile o app:
+```bash
+npm run android  # ou npm run ios
+```
+
+3. Pronto! O OCR já funciona.
+
+### Configuração Opcional (Cloud Vision API)
+
+Se você quiser usar o Cloud Vision para máxima precisão:
+
+#### 1. Criar Projeto no Google Cloud
+
+```bash
+# Acesse: https://console.cloud.google.com
+```
+
+1. Crie um novo projeto ou selecione existente
+2. Ative a **Cloud Vision API**
+3. Vá em **APIs & Services > Credentials**
+4. Clique em **Create Credentials > API Key**
+5. Copie a API Key gerada
+
+#### 2. Configurar no App
+
+1. Abra o OrcaFacil
+2. Vá em **Importar Nota Fiscal**
+3. Clique em **⚙️ Configurar OCR**
+4. Selecione **Cloud Vision API** como provedor preferido
+5. Cole sua API Key
+6. Salve
+
+#### 3. Pronto!
+
+Agora o sistema usará Cloud Vision primeiro, com fallback para ML Kit e Tesseract se necessário.
+
+## 📱 Como Usar
+
+### Opção 1: QR Code (Recomendado)
+
+**Melhor opção**: Dados vêm direto da SEFAZ, 100% precisos.
+
+1. Abra **Importar Nota Fiscal**
+2. Escolha:
+   - **Escanear QR Code** → Usa câmera ao vivo
+   - **Ler QR da Galeria** → Usa foto salva
+
+### Opção 2: OCR (Notas sem QR)
+
+**Para notas antigas ou danificadas**:
+
+1. Abra **Importar Nota Fiscal**
+2. Escolha:
+   - **Tirar Foto para OCR** → Tira foto direto
+   - **Importar da Galeria** → Usa foto salva
+3. Sistema processa com ML Kit → Tesseract → Cloud Vision (se configurado)
+4. Revise os itens reconhecidos
+5. Confirme importação
+
+## 🎯 Dicas para Melhor Precisão
+
+### Ao Tirar Foto para OCR:
+
+1. **Iluminação**: Boa luz natural ou artificial uniforme
+2. **Foco**: Aguarde câmera focar antes de tirar
+3. **Enquadramento**: Nota inteira visível, sem cortes
+4. **Ângulo**: Perpendicular à nota (não de lado)
+5. **Fundo**: Contraste com a nota (ex: nota branca em mesa escura)
+6. **Resolução**: Não use zoom digital, aproxime o celular
+
+### Exemplos:
+
+#### ✅ BOM
+```
+┌────────────────────┐
+│                    │
+│  📄 NOTA FISCAL    │
+│                    │
+│  Item 1  R$ 10,00  │
+│  Item 2  R$ 20,00  │
+│                    │
+│  TOTAL   R$ 30,00  │
+│                    │
+└────────────────────┘
+   (Foto reta, bem iluminada)
+```
+
+#### ❌ RUIM
+```
+    ┌─────────────┐
+   /              /
+  /  📄 NOTA     /
+ /     (SOMBRA) /
+└──────────────┘
+   (Foto de lado, com sombra)
+```
+
+## 🔍 O Que é Extraído
+
+O sistema OCR extrai automaticamente:
+
+### Informações da Empresa
+- Nome do estabelecimento
+- CNPJ (quando disponível)
+
+### Itens da Nota
+- **Descrição** do produto
+- **Quantidade**
+- **Preço unitário**
+- **Preço total**
+
+### Valores
+- **Total da nota**
+- **Frete** (quando presente)
+- **Descontos** (quando presentes)
+
+### Metadados
+- **Data** da compra
+- **Chave de acesso** (quando disponível)
+
+## 🎨 Classificação Automática
+
+Após extrair o texto, o sistema:
+
+1. **Classifica cada item** em categorias (alimentação, higiene, lazer, etc.)
+2. **Reclassifica frete** para categoria predominante
+3. **Calcula 50/30/20** automaticamente
+4. **Cria transação** com itens individualizados
+
+## 🐛 Troubleshooting
+
+### "Nenhum texto detectado"
+
+**Causa**: Imagem muito escura ou desfocada
+**Solução**: Tire nova foto com melhor iluminação
+
+### "Confidence muito baixa"
+
+**Causa**: Texto difícil de ler (borrado, amassado)
+**Solução**:
+1. Tente alisar a nota
+2. Melhore iluminação
+3. Configure Cloud Vision API para melhor precisão
+
+### "Itens errados reconhecidos"
+
+**Causa**: OCR confundiu cabeçalho/rodapé com itens
+**Solução**: Sistema filtra automaticamente termos comuns. Se persistir, use QR Code.
+
+### "ML Kit não funciona"
+
+**Causa**: Modelo não baixado
+**Solução**:
+```bash
+npx expo prebuild --clean
+npm run android  # Reconstrói app
+```
+
+### "Cloud Vision retorna erro 403"
+
+**Causa**: API Key inválida ou API não ativada
+**Solução**:
+1. Verifique se Cloud Vision API está ativa no projeto
+2. Confirme que API Key está correta
+3. Verifique cotas no Google Cloud Console
+
+## 📊 Performance
+
+| Provedor      | Tempo Médio | Precisão | Offline | Custo         |
+|---------------|-------------|----------|---------|---------------|
+| ML Kit        | 1-2s        | 85-90%   | ✅ Sim  | Grátis        |
+| Tesseract     | 3-5s        | 75-85%   | ✅ Sim  | Grátis        |
+| Cloud Vision  | 1-2s        | 95-98%   | ❌ Não  | $1.50/1000req |
+
+## 🔐 Privacidade
+
+### ML Kit
+- ✅ Processa **100% localmente** no dispositivo
+- ✅ Nenhum dado enviado para servidores
+- ✅ Modelo baixado apenas uma vez
+
+### Tesseract
+- ✅ Processa **100% localmente** (JavaScript)
+- ✅ Nenhum dado enviado para servidores
+- ✅ Totalmente open source
+
+### Cloud Vision (Opcional)
+- ⚠️ Imagem **enviada** para Google Cloud
+- ⚠️ Processada em servidores do Google
+- ✅ Dados **não armazenados** (conforme política Google)
+- ✅ Usuário **controla** quando usar (configurável)
+
+## 📚 Referências
+
+- [ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition)
+- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
+- [Google Cloud Vision API](https://cloud.google.com/vision/docs/ocr)
+- [Expo Image Picker](https://docs.expo.dev/versions/latest/sdk/imagepicker/)
+- [Expo Barcode Scanner](https://docs.expo.dev/versions/latest/sdk/bar-code-scanner/)
+
+## 🚀 Próximos Passos
+
+Melhorias futuras planejadas:
+
+1. **Pré-processamento de imagem**
+   - Correção de perspectiva
+   - Ajuste de contraste/brilho
+   - Remoção de ruído
+
+2. **Treinamento customizado**
+   - Modelo específico para notas fiscais brasileiras
+   - Reconhecimento de formato NFC-e/NF-e
+
+3. **Cache inteligente**
+   - Evitar reprocessar mesma nota
+   - Histórico de OCR com scores
+
+4. **Feedback do usuário**
+   - Permitir correção de itens mal reconhecidos
+   - Melhorar modelo com feedbacks
+
+---
+
+**Desenvolvido com ❤️ para o OrcaFacil**

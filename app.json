@@ -20,6 +20,19 @@
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.orcafacil",
+      "infoPlist": {
+        "NSCameraUsageDescription": "OrcaFacil precisa acessar a câmera para escanear QR Codes e tirar fotos de notas fiscais.",
+        "NSPhotoLibraryUsageDescription": "OrcaFacil precisa acessar suas fotos para importar imagens de notas fiscais.",
+        "NSMicrophoneUsageDescription": "OrcaFacil não usa o microfone."
       }
     },
     "web": {
@@ -34,8 +47,38 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "expo-camera",
-      "expo-image-picker"
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "OrcaFacil precisa acessar a câmera para escanear QR Codes e tirar fotos de notas fiscais.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "OrcaFacil precisa acessar suas fotos para importar imagens de notas fiscais."
+        }
+      ],
+      [
+        "expo-barcode-scanner",
+        {
+          "cameraPermission": "OrcaFacil precisa acessar a câmera para escanear QR Codes de notas fiscais."
+        }
+      ],
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "OrcaFacil precisa acessar a câmera para OCR de notas fiscais.",
+          "enableCodeScanner": false
+        }
+      ],
+      [
+        "@react-native-ml-kit/text-recognition",
+        {
+          "models": ["latin"]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
