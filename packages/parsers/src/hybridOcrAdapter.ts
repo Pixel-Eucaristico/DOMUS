@@ -88,14 +88,15 @@ export class HybridOCRAdapter implements OCRAdapter {
   }
 
   /**
-   * Google ML Kit - Utiliza Tesseract.js como alternativa para Expo
-   * (ML Kit nativo requer bare React Native, não funciona com Expo Managed)
+   * Google ML Kit - Fallback para Tesseract em Expo
+   * (ML Kit nativo requer bare React Native, bibliotecas disponíveis não têm plugin Expo)
    */
   private async recognizeWithMLKit(imageUri: string): Promise<OCRResult> {
-    console.log("[MLKit/Tesseract] Processando imagem com Tesseract.js (fallback para Expo)...");
+    console.log("[MLKit] Usando Tesseract como fallback (ML Kit requer bare RN)...");
 
-    // Para Expo, usamos Tesseract.js diretamente
-    // Se migrar para bare RN no futuro, substituir por ML Kit nativo
+    // ML Kit nativo não funciona com Expo Managed
+    // Todas as bibliotecas tentadas (@react-native-ml-kit, @infinitered) requerem bare RN
+    // Usar Tesseract como alternativa funcional
     return await this.recognizeWithTesseract(imageUri);
   }
 

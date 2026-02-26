@@ -139,7 +139,7 @@ export default function OCRSettingsScreen() {
               </View>
             </View>
             <Text style={[s.providerDesc, { color: theme.secondaryText }]}>
-              Gratuito, funciona offline, alta precisão
+              Gratuito, funciona offline, alta precisão (nativo)
             </Text>
           </Pressable>
 
