@@ -10,8 +10,8 @@ import {
   FlatList,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { BarCodeScanner } from "expo-barcode-scanner";
 import * as ImagePicker from "expo-image-picker";
+import RNQRGenerator from "rn-qr-generator";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -142,6 +142,24 @@ export default function InvoiceImportScreen() {
     await processOCRImage(result.assets[0].uri);
   };
 
+  // Helper para ler QR Code de imagem usando rn-qr-generator
+  const scanQRCodeFromImage = async (imageUri: string): Promise<string | null> => {
+    try {
+      const response = await RNQRGenerator.detect({
+        uri: imageUri,
+      });
+
+      if (response && response.values && response.values.length > 0) {
+        return response.values[0];
+      }
+
+      return null;
+    } catch (err) {
+      console.error("[QR Scan] Erro:", err);
+      return null;
+    }
+  };
+
   const handleQRFromGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
@@ -155,15 +173,14 @@ export default function InvoiceImportScreen() {
 
     try {
       // Ler QR Code da imagem
-      const barcodes = await BarCodeScanner.scanFromURLAsync(result.assets[0].uri);
+      const qrData = await scanQRCodeFromImage(result.assets[0].uri);
 
-      if (barcodes.length === 0) {
+      if (!qrData) {
         setError("Nenhum QR Code encontrado na imagem. Tente tirar uma foto mais nítida.");
         setState("error");
         return;
       }
 
-      const qrData = barcodes[0]!.data;
       const url = scannerService.extractUrl(qrData);
 
       if (!url) {
