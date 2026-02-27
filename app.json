@@ -61,12 +61,6 @@
         }
       ],
       [
-        "expo-barcode-scanner",
-        {
-          "cameraPermission": "OrcaFacil precisa acessar a câmera para escanear QR Codes de notas fiscais."
-        }
-      ],
-      [
         "react-native-vision-camera",
         {
           "cameraPermissionText": "OrcaFacil precisa acessar a câmera para OCR de notas fiscais.",
