@@ -208,7 +208,7 @@ export class HybridOCRAdapter implements OCRAdapter {
 
     // Se for React Native, usar FileSystem
     try {
-      const { default: * as FileSystem } = await import("expo-file-system");
+      const FileSystem = await import("expo-file-system");
       const base64 = await FileSystem.readAsStringAsync(imageUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
