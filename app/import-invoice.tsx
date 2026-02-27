@@ -282,9 +282,6 @@ export default function InvoiceImportScreen() {
   return (
     <View style={[s.container, { backgroundColor: theme.background }]}>
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-        <Pressable onPress={() => router.back()} style={s.backButton}>
-          <Feather name="arrow-left" size={24} color={theme.textColor} />
-        </Pressable>
         <Text style={[s.title, { color: theme.textColor }]}>Importar NFC-e</Text>
       </View>
 

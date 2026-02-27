@@ -89,11 +89,7 @@ export default function OCRSettingsScreen() {
   return (
     <View style={[s.container, { backgroundColor: theme.background }]}>
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-        <Pressable onPress={() => router.back()}>
-          <Feather name="arrow-left" size={24} color={theme.textColor} />
-        </Pressable>
         <Text style={[s.title, { color: theme.textColor }]}>Configurar OCR</Text>
-        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={s.scrollView} contentContainerStyle={s.scrollContent}>
