@@ -10,7 +10,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { updateTransactionEvent } from "@packages/domain/src/transactions";
 
 function formatCurrency(v: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -23,12 +25,13 @@ export default function TransactionsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { accountId } = useLocalSearchParams<{ accountId?: string }>();
-  const { domain, theme } = useAppState();
+  const { domain, theme, dispatchDomainEvent } = useAppState();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
   const [vMonth, setVMonth] = useState(new Date().getMonth());
   const [vYear, setVYear] = useState(new Date().getFullYear());
+  const [statusFilter, setStatusFilter] = useState<"all" | "confirmed" | "pending">("all");
 
   const targetAccount = accountId ? domain.accounts[accountId] : null;
 
@@ -55,13 +58,11 @@ export default function TransactionsScreen() {
     }
   };
 
-  const filteredTransactions = Object.values(domain.transactions)
+  const allMonthTransactions = Object.values(domain.transactions)
     .filter((tx) => {
-      // Filter by account if specified
       if (accountId && tx.accountId !== accountId && tx.targetAccountId !== accountId) {
         return false;
       }
-      // Filter by date
       const parts = tx.date.split("-");
       if (parts.length < 2) return false;
       const y = parseInt(parts[0]!, 10);
@@ -70,13 +71,29 @@ export default function TransactionsScreen() {
     })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const monthIncome = filteredTransactions
+  const filteredTransactions = allMonthTransactions.filter((tx) => {
+    if (statusFilter === "confirmed") return !tx.status || tx.status === "confirmed";
+    if (statusFilter === "pending") return tx.status === "pending";
+    return true;
+  });
+
+  // Summary only counts confirmed transactions
+  const confirmedTxs = allMonthTransactions.filter((t) => !t.status || t.status === "confirmed");
+  const monthIncome = confirmedTxs
     .filter((t) => t.type === "income" || (t.type === "transfer" && t.targetAccountId === accountId))
     .reduce((sum, t) => sum + t.amount, 0);
-    
-  const monthExpense = filteredTransactions
+  const monthExpense = confirmedTxs
     .filter((t) => t.type === "expense" || (t.type === "transfer" && t.accountId === accountId))
     .reduce((sum, t) => sum + t.amount, 0);
+
+  const handleEfetivar = (txId: string) => {
+    const today = new Date().toISOString().split("T")[0]!;
+    const event = updateTransactionEvent(txId, { status: "confirmed", date: today });
+    dispatchDomainEvent(event);
+    if (Platform.OS !== "web") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
 
   return (
     <View style={[s.root, { backgroundColor: theme.background }]}>
@@ -131,6 +148,31 @@ export default function TransactionsScreen() {
             </View>
           </View>
         </View>
+
+        {/* Status filter tabs */}
+        <View style={s.filterRow}>
+          {(["all", "confirmed", "pending"] as const).map((f) => {
+            const labels = { all: "Todas", confirmed: "Confirmadas", pending: "Pendentes" };
+            const active = statusFilter === f;
+            return (
+              <Pressable
+                key={f}
+                style={[
+                  s.filterChip,
+                  {
+                    backgroundColor: active ? theme.primaryColor : theme.cardBackground,
+                    borderColor: active ? theme.primaryColor : theme.border,
+                  },
+                ]}
+                onPress={() => setStatusFilter(f)}
+              >
+                <Text style={[s.filterChipText, { color: active ? "#FFF" : theme.secondaryText }]}>
+                  {labels[f]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       <ScrollView
@@ -178,14 +220,21 @@ export default function TransactionsScreen() {
                     <Feather name={typeIcon as any} size={18} color={typeColor} />
                   </View>
                   <View style={s.txMain}>
-                    <Text style={[s.txDesc, { color: theme.textColor }]} numberOfLines={1}>
-                      {tx.description || cat?.name || tx.type}
-                    </Text>
+                    <View style={s.txDescRow}>
+                      <Text style={[s.txDesc, { color: theme.textColor }]} numberOfLines={1}>
+                        {tx.description || cat?.name || tx.type}
+                      </Text>
+                      {tx.status === "pending" && (
+                        <View style={s.pendingBadge}>
+                          <Text style={s.pendingBadgeText}>Pendente</Text>
+                        </View>
+                      )}
+                    </View>
                     <View style={s.txSub}>
                       {!accountId && <Text style={[s.txAcc, { color: theme.secondaryText }]}>{acc?.name || "Conta"} • </Text>}
                       {tx.type === "transfer" && (
                         <Text style={[s.txAcc, { color: theme.secondaryText }]}>
-                          {acc?.name} → {targetAcc?.name} • 
+                          {acc?.name} → {targetAcc?.name} •
                         </Text>
                       )}
                       <Text style={[s.txDate, { color: theme.secondaryText }]}>
@@ -193,9 +242,21 @@ export default function TransactionsScreen() {
                       </Text>
                     </View>
                   </View>
-                  <Text style={[s.txValue, { color: typeColor }]}>
-                    {isExpense ? "-" : isIncome ? "+" : ""} {formatCurrency(tx.amount)}
-                  </Text>
+                  <View style={s.txRight}>
+                    <Text style={[s.txValue, { color: typeColor }]}>
+                      {isExpense ? "-" : isIncome ? "+" : ""} {formatCurrency(tx.amount)}
+                    </Text>
+                    {tx.status === "pending" && (
+                      <Pressable
+                        style={[s.efetivarBtn, { borderColor: theme.success }]}
+                        onPress={(e) => { e.stopPropagation?.(); handleEfetivar(tx.id); }}
+                        hitSlop={6}
+                      >
+                        <Feather name="check" size={11} color={theme.success} />
+                        <Text style={[s.efetivarText, { color: theme.success }]}>Efetivar</Text>
+                      </Pressable>
+                    )}
+                  </View>
                 </Pressable>
               );
             })}
@@ -307,9 +368,36 @@ const s = StyleSheet.create({
     alignItems: "center" 
   },
   txMain: { flex: 1 },
+  txDescRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   txDesc: { fontFamily: "DMSans_600SemiBold", fontSize: 15 },
   txSub: { flexDirection: "row", alignItems: "center", marginTop: 4 },
   txAcc: { fontFamily: "DMSans_400Regular", fontSize: 12 },
   txDate: { fontFamily: "DMSans_400Regular", fontSize: 12 },
+  txRight: { alignItems: "flex-end", gap: 4 },
   txValue: { fontFamily: "DMSans_700Bold", fontSize: 16 },
+  pendingBadge: {
+    backgroundColor: "#FEF3C7",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  pendingBadgeText: { fontFamily: "DMSans_500Medium", fontSize: 10, color: "#D97706" },
+  efetivarBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  efetivarText: { fontFamily: "DMSans_600SemiBold", fontSize: 11 },
+  filterRow: { flexDirection: "row", gap: 8 },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  filterChipText: { fontFamily: "DMSans_500Medium", fontSize: 12 },
 });

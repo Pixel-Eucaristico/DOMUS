@@ -66,6 +66,16 @@
           "cameraPermissionText": "OrcaFacil precisa acessar a câmera para OCR de notas fiscais.",
           "enableCodeScanner": false
         }
+      ],
+      [
+        "expo-share-intent",
+        {
+          "androidIntentFilters": ["text/*"],
+          "iosActivationRules": {
+            "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
+            "NSExtensionActivationSupportsWebPageWithMaxCount": 1
+          }
+        }
       ]
     ],
     "experiments": {

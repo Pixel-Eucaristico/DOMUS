@@ -34,14 +34,22 @@ import { generateId } from "@packages/events/src/factory";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { SQLiteEventStore } from "@packages/storage/src/eventStore";
 import { createDefaultCategories } from "@packages/domain/src/categories";
+import {
+  WISHLIST_EVENTS,
+  wishlistReducer,
+  createInitialWishlistState,
+  type WishlistEvent,
+  type WishlistState,
+} from "@packages/wishlist";
 
-type AnyEvent = DomainEvent | GamificationEvent | OnboardingEvent | SeasonEvent;
+type AnyEvent = DomainEvent | GamificationEvent | OnboardingEvent | SeasonEvent | WishlistEvent;
 
 interface DerivedState {
   domain: AppState;
   gamification: GamificationState;
   onboarding: OnboardingState;
   season: SeasonState;
+  wishlist: WishlistState;
   archetype: ArchetypeType;
   theme: ThemeColors;
   levelInfo: LevelInfo;
@@ -78,11 +86,13 @@ function replayAllEvents(events: SyncEvent[]): {
   gamification: GamificationState;
   onboarding: OnboardingState;
   season: SeasonState;
+  wishlist: WishlistState;
 } {
   let domain = createInitialState();
   let gamification = createInitialGamificationState();
   let onboarding = createInitialOnboardingState();
   let season = createInitialSeasonState();
+  let wishlist = createInitialWishlistState();
 
   for (const raw of events) {
     const evt = raw as unknown as AnyEvent;
@@ -100,9 +110,12 @@ function replayAllEvents(events: SyncEvent[]): {
     if (Object.values(SEASON_EVENTS).includes(t as any)) {
       season = seasonReducer(season, evt as SeasonEvent);
     }
+    if (Object.values(WISHLIST_EVENTS).includes(t as any)) {
+      wishlist = wishlistReducer(wishlist, evt as WishlistEvent);
+    }
   }
 
-  return { domain, gamification, onboarding, season };
+  return { domain, gamification, onboarding, season, wishlist };
 }
 
 let eventStoreInstance: SQLiteEventStore | null = null;
@@ -185,7 +198,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return () => { mounted = false; };
   }, []);
 
-  const { domain, gamification, onboarding, season } = useMemo(
+  const { domain, gamification, onboarding, season, wishlist } = useMemo(
     () => replayAllEvents(allEvents),
     [allEvents],
   );
@@ -287,8 +300,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       transactionCount: txCount,
       daysActive: gamification.currentStreak || 1,
       budgetAdherencePercent: budget.adherenceScore,
-      wishlistItemsTracked: 0,
-      desiresSaved: 0,
+      wishlistItemsTracked: Object.keys(wishlist?.items ?? {}).length,
+      desiresSaved: Object.keys(wishlist?.items ?? {}).length,
       monthsPlanned: season.history.length,
     });
     return detectArchetype(scores);
@@ -483,6 +496,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       gamification,
       onboarding,
       season,
+      wishlist,
       archetype,
       theme,
       levelInfo,
@@ -496,7 +510,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       localEventCount,
       deviceId,
     }),
-    [domain, gamification, onboarding, season, archetype, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, importEvents, getAllEventsCallback, localEventCount, deviceId],
+    [domain, gamification, onboarding, season, wishlist, archetype, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, importEvents, getAllEventsCallback, localEventCount, deviceId],
   );
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   StyleSheet,
   View,
@@ -7,165 +7,80 @@ import {
   Pressable,
   ScrollView,
   Platform,
-  Alert,
   KeyboardAvoidingView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import * as Haptics from "expo-haptics";
+import { useLocalSearchParams } from "expo-router";
 import { useAppState } from "@/src/context/AppStateProvider";
-import { createTransactionEvent, updateTransactionEvent, deleteTransactionEvent } from "@packages/domain/src/transactions";
-import { createEvent, generateId } from "@packages/events/src/factory";
-import { EVENT_TYPES, CATEGORY_GROUPS } from "@packages/events/src/types";
-import type { CategoryCreatedEvent, TransactionType, CategoryGroup } from "@packages/events/src/types";
+import { useTransactionForm } from "@/src/hooks/useTransactionForm";
+import { ItemsSection } from "@/src/components/transaction/ItemsSection";
+import { AccountPicker } from "@/src/components/shared/AccountPicker";
+import { DatePickerField } from "@/src/components/shared/DatePickerField";
+import {
+  TX_TYPES,
+  getCategoriesForType,
+  groupLabel,
+} from "@/src/constants/transactionCategories";
+import { GROUP_COLORS } from "@/src/constants/invoiceCategories";
+import type { TransactionStatus, RecurrenceType } from "@packages/events/src/types";
+import { createTransactionEvent } from "@packages/domain/src/transactions";
 
-const TX_TYPES: { key: TransactionType; label: string; icon: string }[] = [
-  { key: "expense", label: "Despesa", icon: "arrow-down-left" },
-  { key: "income", label: "Receita", icon: "arrow-up-right" },
-  { key: "transfer", label: "Transferencia", icon: "repeat" },
+const STATUS_OPTIONS: { key: TransactionStatus; label: string; icon: string }[] = [
+  { key: "confirmed", label: "Confirmado", icon: "check-circle" },
+  { key: "pending",   label: "Pendente",   icon: "clock"        },
 ];
 
-const CATEGORY_OPTIONS: { name: string; group: CategoryGroup; icon: string }[] = [
-  { name: "Alimentacao", group: "needs", icon: "shopping-cart" },
-  { name: "Moradia", group: "needs", icon: "home" },
-  { name: "Transporte", group: "needs", icon: "truck" },
-  { name: "Saude", group: "needs", icon: "heart" },
-  { name: "Educacao", group: "needs", icon: "book" },
-  { name: "Lazer", group: "wants", icon: "music" },
-  { name: "Compras", group: "wants", icon: "shopping-bag" },
-  { name: "Restaurantes", group: "wants", icon: "coffee" },
-  { name: "Investimentos", group: "savings", icon: "trending-up" },
-  { name: "Reserva", group: "savings", icon: "shield" },
-  { name: "Salario", group: "needs", icon: "briefcase" },
-  { name: "Outros", group: "wants", icon: "more-horizontal" },
+const RECURRENCE_OPTIONS: { key: RecurrenceType; label: string }[] = [
+  { key: "once",    label: "Unico"         },
+  { key: "weekly",  label: "Semanal"       },
+  { key: "monthly", label: "Mensal"        },
+  { key: "yearly",  label: "Anual"         },
+  { key: "custom",  label: "Personalizado" },
 ];
-
-function groupLabel(g: CategoryGroup): string {
-  switch (g) {
-    case "needs": return "Necessidades (50%)";
-    case "wants": return "Desejos (30%)";
-    case "savings": return "Poupanca (20%)";
-  }
-}
-
-function groupColor(g: CategoryGroup, theme: any): string {
-  switch (g) {
-    case "needs": return theme.primaryColor;
-    case "wants": return theme.accentColor;
-    case "savings": return theme.success;
-  }
-}
 
 export default function AddTransactionScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const { txId } = useLocalSearchParams<{ txId?: string }>();
-  const { domain, theme, dispatchDomainEvent, dispatch } = useAppState();
+  const { domain, theme, dispatchDomainEvent } = useAppState();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
-  const editingTx = txId ? domain.transactions[txId] : null;
-
-  const [txType, setTxType] = useState<TransactionType>(editingTx?.type || "expense");
-  const [amount, setAmount] = useState(editingTx?.amount.toString() || "");
-  const [description, setDescription] = useState(editingTx?.description || "");
-  const [selectedCategory, setSelectedCategory] = useState(() => {
-    if (editingTx) {
-      const cat = domain.categories[editingTx.categoryId];
-      const idx = CATEGORY_OPTIONS.findIndex((o) => o.name === cat?.name);
-      return idx !== -1 ? idx : 0;
-    }
-    return 0;
-  });
-  const [installments, setInstallments] = useState(editingTx?.installments?.toString() || "1");
-  const [selectedAccountId, setSelectedAccountId] = useState<string>(editingTx?.accountId || "");
-  const [targetAccountId, setTargetAccountId] = useState<string>(editingTx?.targetAccountId || "");
-
+  const form = useTransactionForm(txId);
   const accounts = Object.values(domain.accounts);
-  const defaultAccountId = selectedAccountId || accounts[0]?.id || "";
+  const defaultAccountId = form.selectedAccountId || accounts[0]?.id || "";
+  const typeCats = getCategoriesForType(form.txType);
 
-  const handleDelete = () => {
-    if (!txId) return;
-    Alert.alert(
-      "Excluir transacao",
-      "Tem certeza que deseja remover esta transacao?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        { 
-          text: "Excluir", 
-          style: "destructive",
-          onPress: () => {
-            const event = deleteTransactionEvent(txId);
-            dispatchDomainEvent(event);
-            router.back();
-          }
-        }
-      ]
-    );
-  };
-
-  const handleSave = () => {
-    const amountNum = parseFloat(amount.replace(",", "."));
-    if (isNaN(amountNum) || amountNum <= 0) {
-      Alert.alert("Valor invalido", "Informe um valor maior que zero.");
-      return;
+  const handleCreateNext = () => {
+    if (!form.editingTx) return;
+    const base = form.editingTx;
+    let nextDate = base.date;
+    if (base.recurrence === "weekly") {
+      const d = new Date(base.date);
+      d.setDate(d.getDate() + 7);
+      nextDate = d.toISOString().split("T")[0]!;
+    } else if (base.recurrence === "monthly") {
+      const d = new Date(base.date);
+      d.setMonth(d.getMonth() + 1);
+      nextDate = d.toISOString().split("T")[0]!;
+    } else if (base.recurrence === "yearly") {
+      const d = new Date(base.date);
+      d.setFullYear(d.getFullYear() + 1);
+      nextDate = d.toISOString().split("T")[0]!;
     }
-    if (!defaultAccountId) {
-      Alert.alert("Sem conta", "Crie uma conta primeiro na aba Contas.");
-      return;
+    const events = createTransactionEvent({
+      accountId: base.accountId,
+      type: base.type,
+      amount: base.amount,
+      categoryId: base.categoryId,
+      date: nextDate,
+      description: base.description,
+      targetAccountId: base.targetAccountId,
+      status: "pending",
+      recurrence: base.recurrence,
+    });
+    for (const evt of events) {
+      dispatchDomainEvent(evt);
     }
-
-    const cat = CATEGORY_OPTIONS[selectedCategory]!;
-    const existingCat = Object.values(domain.categories).find(
-      (c) => c.name === cat.name,
-    );
-
-    let catId: string;
-    if (existingCat) {
-      catId = existingCat.id;
-    } else {
-      catId = generateId();
-      const catEvent = createEvent<CategoryCreatedEvent>(
-        EVENT_TYPES.CATEGORY_CREATED,
-        { id: catId, name: cat.name, group: cat.group },
-      );
-      dispatch(catEvent);
-    }
-
-    if (txId) {
-      const event = updateTransactionEvent(txId, {
-        accountId: defaultAccountId,
-        type: txType,
-        amount: amountNum,
-        categoryId: catId,
-        description: description || cat.name,
-        targetAccountId: txType === "transfer" ? targetAccountId || undefined : undefined,
-      });
-      dispatchDomainEvent(event);
-    } else {
-      const installmentNum = parseInt(installments, 10) || 1;
-      const today = new Date().toISOString().split("T")[0]!;
-
-      const events = createTransactionEvent({
-        accountId: defaultAccountId,
-        type: txType,
-        amount: amountNum,
-        categoryId: catId,
-        date: today,
-        description: description || cat.name,
-        installments: installmentNum,
-        targetAccountId: txType === "transfer" ? targetAccountId || undefined : undefined,
-      });
-
-      for (const evt of events) {
-        dispatchDomainEvent(evt);
-      }
-    }
-
-    if (Platform.OS !== "web") {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-    router.back();
   };
 
   return (
@@ -182,18 +97,20 @@ export default function AddTransactionScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Header */}
         <View style={s.topRow}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Feather name="x" size={24} color={theme.textColor} />
+          <Pressable onPress={form.handleDelete} hitSlop={12} style={{ opacity: txId ? 1 : 0 }}>
+            <Feather name="trash-2" size={22} color={theme.danger} />
           </Pressable>
           <Text style={[s.pageTitle, { color: theme.textColor }]}>
             {txId ? "Editar transacao" : "Nova transacao"}
           </Text>
-          <Pressable onPress={handleSave} hitSlop={12}>
+          <Pressable onPress={form.handleSave} hitSlop={12}>
             <Feather name="check" size={24} color={theme.primaryColor} />
           </Pressable>
         </View>
 
+        {/* Type selector */}
         <View style={s.typeRow}>
           {TX_TYPES.map((t) => (
             <Pressable
@@ -201,23 +118,19 @@ export default function AddTransactionScreen() {
               style={[
                 s.typeBtn,
                 {
-                  backgroundColor:
-                    txType === t.key ? theme.primaryColor : theme.cardBackground,
-                  borderColor: txType === t.key ? theme.primaryColor : theme.border,
+                  backgroundColor: form.txType === t.key ? theme.primaryColor : theme.cardBackground,
+                  borderColor: form.txType === t.key ? theme.primaryColor : theme.border,
                 },
               ]}
-              onPress={() => setTxType(t.key)}
+              onPress={() => form.setTxType(t.key)}
             >
               <Feather
                 name={t.icon as any}
                 size={16}
-                color={txType === t.key ? "#FFF" : theme.secondaryText}
+                color={form.txType === t.key ? "#FFF" : theme.secondaryText}
               />
               <Text
-                style={[
-                  s.typeBtnText,
-                  { color: txType === t.key ? "#FFF" : theme.textColor },
-                ]}
+                style={[s.typeBtnText, { color: form.txType === t.key ? "#FFF" : theme.textColor }]}
               >
                 {t.label}
               </Text>
@@ -225,176 +138,257 @@ export default function AddTransactionScreen() {
           ))}
         </View>
 
+        {/* Amount */}
         <View style={[s.amountCard, { backgroundColor: theme.cardBackground }]}>
           <Text style={[s.amountLabel, { color: theme.secondaryText }]}>
-            Valor (R$)
+            {form.txType === "expense" && form.manualItems.length > 0
+              ? "Total dos Itens (R$)"
+              : "Valor (R$)"}
           </Text>
-          <TextInput
-            style={[s.amountInput, { color: theme.textColor }]}
-            value={amount}
-            onChangeText={setAmount}
-            placeholder="0,00"
-            placeholderTextColor={theme.secondaryText}
-            keyboardType="decimal-pad"
-            autoFocus
-          />
+          {form.txType === "expense" && form.manualItems.length > 0 ? (
+            <Text style={[s.amountValue, { color: theme.primaryColor }]}>
+              {form.itemsTotal.toFixed(2).replace(".", ",")}
+            </Text>
+          ) : (
+            <TextInput
+              style={[s.amountInput, { color: theme.textColor }]}
+              value={form.amount}
+              onChangeText={form.setAmount}
+              placeholder="0,00"
+              placeholderTextColor={theme.secondaryText}
+              keyboardType="decimal-pad"
+              autoFocus
+            />
+          )}
         </View>
 
-        <View style={[s.inputCard, { backgroundColor: theme.cardBackground }]}>
-          <Text style={[s.inputLabel, { color: theme.secondaryText }]}>
-            Descricao
-          </Text>
+        {/* Items section — aparece logo após valor para despesas */}
+        {(form.txType === "expense" || form.manualItems.length > 0) && (
+          <ItemsSection
+            items={form.manualItems}
+            theme={theme}
+            onAddItem={form.handleAddItem}
+            onRemoveItem={form.handleRemoveItem}
+            onEditItemField={form.handleEditItemField}
+          />
+        )}
+
+        {/* Description */}
+        <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
+          <Text style={[s.label, { color: theme.secondaryText }]}>Descricao</Text>
           <TextInput
             style={[s.textInput, { color: theme.textColor, borderColor: theme.border }]}
-            value={description}
-            onChangeText={setDescription}
+            value={form.description}
+            onChangeText={form.setDescription}
             placeholder="Ex: Supermercado"
             placeholderTextColor={theme.secondaryText}
           />
         </View>
 
-        {accounts.length > 0 && (
-          <View style={[s.inputCard, { backgroundColor: theme.cardBackground }]}>
-            <Text style={[s.inputLabel, { color: theme.secondaryText }]}>
-              Conta
-            </Text>
-            <View style={s.accountPicker}>
-              {accounts.map((a) => (
-                <Pressable
-                  key={a.id}
-                  style={[
-                    s.accountChip,
-                    {
-                      backgroundColor:
-                        (selectedAccountId || accounts[0]?.id) === a.id
-                          ? `${theme.primaryColor}15`
-                          : theme.background,
-                      borderColor:
-                        (selectedAccountId || accounts[0]?.id) === a.id
-                          ? theme.primaryColor
-                          : theme.border,
-                    },
-                  ]}
-                  onPress={() => setSelectedAccountId(a.id)}
-                >
-                  <Text
-                    style={[
-                      s.accountChipText,
-                      {
-                        color:
-                          (selectedAccountId || accounts[0]?.id) === a.id
-                            ? theme.primaryColor
-                            : theme.textColor,
-                      },
-                    ]}
-                  >
-                    {a.name}
-                  </Text>
-                </Pressable>
-              ))}
+        {/* Date picker */}
+        <DatePickerField
+          value={form.date}
+          onChange={form.setDate}
+          theme={theme}
+          label="Data do lançamento"
+        />
+
+        {/* Account picker */}
+        <AccountPicker
+          accounts={accounts}
+          selectedId={defaultAccountId}
+          theme={theme}
+          onSelect={form.setSelectedAccountId}
+        />
+
+        {/* Transfer target account */}
+        {form.txType === "transfer" && accounts.length > 1 && (
+          <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
+            <Text style={[s.label, { color: theme.secondaryText }]}>Conta de destino</Text>
+            <View style={s.chipRow}>
+              {accounts
+                .filter((a) => a.id !== defaultAccountId)
+                .map((a) => {
+                  const active = form.targetAccountId === a.id;
+                  return (
+                    <Pressable
+                      key={a.id}
+                      style={[
+                        s.chip,
+                        {
+                          backgroundColor: active ? `${theme.primaryColor}15` : theme.background,
+                          borderColor: active ? theme.primaryColor : theme.border,
+                        },
+                      ]}
+                      onPress={() => form.setTargetAccountId(a.id)}
+                    >
+                      <Text
+                        style={[s.chipText, { color: active ? theme.primaryColor : theme.textColor }]}
+                      >
+                        {a.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
             </View>
           </View>
         )}
 
-        <View style={[s.inputCard, { backgroundColor: theme.cardBackground }]}>
-          <Text style={[s.inputLabel, { color: theme.secondaryText }]}>
-            Categoria ({groupLabel(CATEGORY_OPTIONS[selectedCategory]!.group)})
+        {/* Category grid — filtered by transaction type */}
+        <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
+          <Text style={[s.label, { color: theme.secondaryText }]}>
+            Categoria ({groupLabel((typeCats[form.selectedCategory] ?? typeCats[0]!).group)})
           </Text>
           <View style={s.categoryGrid}>
-            {CATEGORY_OPTIONS.map((cat, i) => (
-              <Pressable
-                key={cat.name}
-                style={[
-                  s.categoryChip,
-                  {
-                    backgroundColor:
-                      selectedCategory === i
-                        ? `${groupColor(cat.group, theme)}15`
-                        : theme.background,
-                    borderColor:
-                      selectedCategory === i
-                        ? groupColor(cat.group, theme)
-                        : theme.border,
-                  },
-                ]}
-                onPress={() => setSelectedCategory(i)}
-              >
-                <Feather
-                  name={cat.icon as any}
-                  size={14}
-                  color={
-                    selectedCategory === i
-                      ? groupColor(cat.group, theme)
-                      : theme.secondaryText
-                  }
-                />
-                <Text
+            {typeCats.map((cat, i) => {
+              const color = GROUP_COLORS[cat.group] ?? theme.primaryColor;
+              const active = form.selectedCategory === i;
+              return (
+                <Pressable
+                  key={cat.id}
                   style={[
-                    s.categoryChipText,
+                    s.catChip,
                     {
-                      color:
-                        selectedCategory === i
-                          ? groupColor(cat.group, theme)
-                          : theme.textColor,
+                      backgroundColor: active ? `${color}18` : theme.background,
+                      borderColor: active ? color : theme.border,
                     },
                   ]}
+                  onPress={() => form.setSelectedCategory(i)}
                 >
-                  {cat.name}
-                </Text>
-              </Pressable>
-            ))}
+                  <Feather
+                    name={cat.icon as any}
+                    size={14}
+                    color={active ? color : theme.secondaryText}
+                  />
+                  <Text style={[s.catChipText, { color: active ? color : theme.textColor }]}>
+                    {cat.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
-        {txType === "expense" && (
-          <View style={[s.inputCard, { backgroundColor: theme.cardBackground }]}>
-            <Text style={[s.inputLabel, { color: theme.secondaryText }]}>
-              Parcelas
-            </Text>
-            <View style={s.installmentRow}>
-              {["1", "2", "3", "6", "12"].map((n) => (
-                <Pressable
-                  key={n}
-                  style={[
-                    s.installmentChip,
-                    {
-                      backgroundColor:
-                        installments === n ? theme.primaryColor : theme.background,
-                      borderColor:
-                        installments === n ? theme.primaryColor : theme.border,
-                    },
-                  ]}
-                  onPress={() => setInstallments(n)}
-                >
-                  <Text
+        {/* Installments (expense only) */}
+        {form.txType === "expense" && (
+          <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
+            <Text style={[s.label, { color: theme.secondaryText }]}>Parcelas</Text>
+            <View style={s.chipRow}>
+              {["1", "2", "3", "6", "12"].map((n) => {
+                const active = form.installments === n;
+                return (
+                  <Pressable
+                    key={n}
                     style={[
-                      s.installmentText,
-                      { color: installments === n ? "#FFF" : theme.textColor },
+                      s.installChip,
+                      {
+                        backgroundColor: active ? theme.primaryColor : theme.background,
+                        borderColor: active ? theme.primaryColor : theme.border,
+                      },
                     ]}
+                    onPress={() => form.setInstallments(n)}
                   >
-                    {n}x
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text style={[s.installText, { color: active ? "#FFF" : theme.textColor }]}>
+                      {n}x
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
         )}
 
-        <Pressable
-          style={[s.saveBtn, { backgroundColor: theme.primaryColor }]}
-          onPress={handleSave}
-        >
+        {/* Status */}
+        <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
+          <Text style={[s.label, { color: theme.secondaryText }]}>Status</Text>
+          <View style={s.chipRow}>
+            {STATUS_OPTIONS.map((opt) => {
+              const active = form.status === opt.key;
+              const color = opt.key === "confirmed" ? theme.success : "#F59E0B";
+              return (
+                <Pressable
+                  key={opt.key}
+                  style={[
+                    s.chip,
+                    {
+                      backgroundColor: active ? `${color}18` : theme.background,
+                      borderColor: active ? color : theme.border,
+                    },
+                  ]}
+                  onPress={() => form.setStatus(opt.key)}
+                >
+                  <Feather name={opt.icon as any} size={14} color={active ? color : theme.secondaryText} />
+                  <Text style={[s.chipText, { color: active ? color : theme.textColor }]}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Recurrence */}
+        <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
+          <Text style={[s.label, { color: theme.secondaryText }]}>Recorrencia</Text>
+          <View style={s.chipRow}>
+            {RECURRENCE_OPTIONS.map((opt) => {
+              const active = form.recurrence === opt.key;
+              return (
+                <Pressable
+                  key={opt.key}
+                  style={[
+                    s.chip,
+                    {
+                      backgroundColor: active ? `${theme.primaryColor}18` : theme.background,
+                      borderColor: active ? theme.primaryColor : theme.border,
+                    },
+                  ]}
+                  onPress={() => form.setRecurrence(opt.key)}
+                >
+                  <Text style={[s.chipText, { color: active ? theme.primaryColor : theme.textColor }]}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Custom recurrence days */}
+        {form.recurrence === "custom" && (
+          <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
+            <Text style={[s.label, { color: theme.secondaryText }]}>Repetir a cada (dias)</Text>
+            <TextInput
+              style={[s.textInput, { color: theme.textColor, borderColor: theme.border }]}
+              value={form.recurrenceDays}
+              onChangeText={form.setRecurrenceDays}
+              placeholder="Ex: 15"
+              placeholderTextColor={theme.secondaryText}
+              keyboardType="number-pad"
+            />
+          </View>
+        )}
+
+        {/* Criar próxima (only when editing a recurring confirmed transaction) */}
+        {txId && form.editingTx?.recurrence && form.editingTx.recurrence !== "once" && (
+          <Pressable
+            style={[s.nextBtn, { borderColor: theme.primaryColor }]}
+            onPress={handleCreateNext}
+          >
+            <Feather name="repeat" size={16} color={theme.primaryColor} />
+            <Text style={[s.nextBtnText, { color: theme.primaryColor }]}>Criar proxima</Text>
+          </Pressable>
+        )}
+
+        {/* Save button */}
+        <Pressable style={[s.saveBtn, { backgroundColor: theme.primaryColor }]} onPress={form.handleSave}>
           <Feather name="check" size={20} color="#FFF" />
-          <Text style={s.saveBtnText}>
-            {txId ? "Atualizar transacao" : "Salvar transacao"}
-          </Text>
+          <Text style={s.saveBtnText}>{txId ? "Atualizar transacao" : "Salvar transacao"}</Text>
         </Pressable>
 
+        {/* Delete button */}
         {txId && (
-          <Pressable
-            style={[s.deleteBtn, { borderColor: theme.danger }]}
-            onPress={handleDelete}
-          >
+          <Pressable style={[s.deleteBtn, { borderColor: theme.danger }]} onPress={form.handleDelete}>
             <Feather name="trash-2" size={18} color={theme.danger} />
             <Text style={[s.deleteBtnText, { color: theme.danger }]}>Excluir transacao</Text>
           </Pressable>
@@ -429,30 +423,26 @@ const s = StyleSheet.create({
   typeBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 13 },
   amountCard: { borderRadius: 20, padding: 20, alignItems: "center" },
   amountLabel: { fontFamily: "DMSans_400Regular", fontSize: 14, marginBottom: 8 },
+  amountValue: { fontFamily: "DMSans_700Bold", fontSize: 40, textAlign: "center" },
   amountInput: {
     fontFamily: "DMSans_700Bold",
     fontSize: 40,
     textAlign: "center" as const,
     width: "100%",
   },
-  inputCard: { borderRadius: 20, padding: 20 },
-  inputLabel: { fontFamily: "DMSans_500Medium", fontSize: 13, marginBottom: 10 },
+  card: { borderRadius: 20, padding: 20 },
+  label: { fontFamily: "DMSans_500Medium", fontSize: 13, marginBottom: 10 },
   textInput: {
     fontFamily: "DMSans_400Regular",
     fontSize: 16,
     borderBottomWidth: 1,
     paddingVertical: 8,
   },
-  accountPicker: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  accountChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  accountChipText: { fontFamily: "DMSans_500Medium", fontSize: 13 },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+  chipText: { fontFamily: "DMSans_500Medium", fontSize: 13 },
   categoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  categoryChip: {
+  catChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -461,16 +451,9 @@ const s = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  categoryChipText: { fontFamily: "DMSans_500Medium", fontSize: 12 },
-  installmentRow: { flexDirection: "row", gap: 8 },
-  installmentChip: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  installmentText: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
+  catChipText: { fontFamily: "DMSans_500Medium", fontSize: 12 },
+  installChip: { flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
+  installText: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
   saveBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -492,4 +475,14 @@ const s = StyleSheet.create({
     marginTop: 8,
   },
   deleteBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
+  nextBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  nextBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
 });

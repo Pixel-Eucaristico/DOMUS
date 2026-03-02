@@ -4,8 +4,11 @@ import type {
   TransactionUpdatedEvent,
   TransactionDeletedEvent,
   TransactionType,
+  TransactionItem,
   CategoryGroup,
   InstallmentInfo,
+  TransactionStatus,
+  RecurrenceType,
 } from "../../events/src/types";
 import { EVENT_TYPES } from "../../events/src/types";
 import { createEvent, generateId } from "../../events/src/factory";
@@ -19,7 +22,13 @@ export interface CreateTransactionParams {
   description?: string;
   installments?: number;
   targetAccountId?: string;
+  items?: TransactionItem[];
+  status?: TransactionStatus;
+  recurrence?: RecurrenceType;
+  recurrenceDays?: number;
 }
+
+export type { TransactionItem };
 
 export function createTransactionEvent(
   params: CreateTransactionParams,
@@ -38,6 +47,10 @@ export function createTransactionEvent(
       description: params.description,
       installments: 1,
       targetAccountId: params.targetAccountId,
+      items: params.items,
+      status: params.status,
+      recurrence: params.recurrence,
+      recurrenceDays: params.recurrenceDays,
     };
 
     return [
@@ -83,6 +96,9 @@ export function createTransactionEvent(
       installments,
       targetAccountId: params.targetAccountId,
       installmentInfo,
+      status: params.status,
+      recurrence: params.recurrence,
+      recurrenceDays: params.recurrenceDays,
     };
 
     events.push(
@@ -143,6 +159,9 @@ export function calculate503020(
   let totalIncome = 0;
 
   for (const tx of transactions) {
+    // Only confirmed transactions count toward the budget
+    if (tx.status === "pending") continue;
+
     // Parse YYYY-MM-DD manually to avoid timezone issues with new Date()
     const parts = tx.date.split("-");
     if (parts.length < 2) continue;

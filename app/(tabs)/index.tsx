@@ -14,6 +14,7 @@ import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { useSync } from "@/src/context/SyncProvider";
 import { calculate503020 } from "@packages/domain/src/transactions";
+import { TransactionBottomSheet } from "@/src/components/transaction/TransactionBottomSheet";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -82,6 +83,8 @@ export default function HomeScreen() {
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
+  const [showAddSheet, setShowAddSheet] = useState(false);
+
   // Month/Year filter state
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -109,7 +112,7 @@ export default function HomeScreen() {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    router.push("/add-transaction");
+    setShowAddSheet(true);
   };
 
   const handleBudgetPress = (group: string) => {
@@ -365,9 +368,16 @@ export default function HomeScreen() {
                       />
                     </View>
                     <View style={s.txInfo}>
-                      <Text style={[s.txDesc, { color: theme.textColor }]}>
-                        {tx.description || cat?.name || tx.type}
-                      </Text>
+                      <View style={s.txDescRow}>
+                        <Text style={[s.txDesc, { color: theme.textColor }]}>
+                          {tx.description || cat?.name || tx.type}
+                        </Text>
+                        {tx.status === "pending" && (
+                          <View style={s.pendingBadge}>
+                            <Text style={s.pendingBadgeText}>Pendente</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={[s.txDate, { color: theme.secondaryText }]}>
                         {tx.date}
                       </Text>
@@ -409,6 +419,12 @@ export default function HomeScreen() {
       >
         <Feather name="plus" size={28} color="#FFFFFF" />
       </Pressable>
+
+      <TransactionBottomSheet
+        visible={showAddSheet}
+        onClose={() => setShowAddSheet(false)}
+        theme={theme}
+      />
     </View>
   );
 }
@@ -589,9 +605,17 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   txInfo: { flex: 1 },
+  txDescRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   txDesc: { fontFamily: "DMSans_500Medium", fontSize: 14 },
   txDate: { fontFamily: "DMSans_400Regular", fontSize: 12, marginTop: 2 },
   txAmount: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
+  pendingBadge: {
+    backgroundColor: "#FEF3C7",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  pendingBadgeText: { fontFamily: "DMSans_500Medium", fontSize: 10, color: "#D97706" },
   fab: {
     position: "absolute",
     right: 24,

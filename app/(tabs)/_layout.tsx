@@ -20,6 +20,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "creditcard", selected: "creditcard.fill" }} />
         <Label>Contas</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="wishlist">
+        <Icon sf={{ default: "heart", selected: "heart.fill" }} />
+        <Label>Desejos</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="season">
         <Icon sf={{ default: "star", selected: "star.fill" }} />
         <Label>Temporada</Label>
@@ -79,6 +83,15 @@ function ClassicTabLayout() {
           title: "Contas",
           tabBarIcon: ({ color, size }) => (
             <Feather name="layers" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="wishlist"
+        options={{
+          title: "Desejos",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="heart" size={size} color={color} />
           ),
         }}
       />

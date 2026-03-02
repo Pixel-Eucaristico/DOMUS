@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -23,9 +24,8 @@ export default function OCRSettingsScreen() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [provider, setProvider] = useState<OCRProvider>("tesseract");
+  const [provider, setProvider] = useState<OCRProvider>("textrecognition");
   const [apiKey, setApiKey] = useState("");
-  const [hasCloudVision, setHasCloudVision] = useState(false);
 
   useEffect(() => {
     loadConfig();
@@ -37,8 +37,7 @@ export default function OCRSettingsScreen() {
       const config = await OCRConfigService.loadConfig();
       setProvider(config.preferredProvider);
       setApiKey(config.cloudVisionApiKey || "");
-      setHasCloudVision(!!config.cloudVisionApiKey);
-    } catch (error) {
+    } catch {
       Alert.alert("Erro", "Não foi possível carregar as configurações");
     } finally {
       setLoading(false);
@@ -49,7 +48,6 @@ export default function OCRSettingsScreen() {
     try {
       setSaving(true);
 
-      // Se selecionou Cloud Vision mas não tem API key
       if (provider === "cloudvision" && !apiKey.trim()) {
         Alert.alert(
           "API Key necessária",
@@ -69,7 +67,7 @@ export default function OCRSettingsScreen() {
       Alert.alert("Sucesso", "Configurações salvas com sucesso!", [
         { text: "OK", onPress: () => router.back() },
       ]);
-    } catch (error) {
+    } catch {
       Alert.alert("Erro", "Não foi possível salvar as configurações");
     } finally {
       setSaving(false);
@@ -89,7 +87,11 @@ export default function OCRSettingsScreen() {
   return (
     <View style={[s.container, { backgroundColor: theme.background }]}>
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+        <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Feather name="arrow-left" size={24} color={theme.textColor} />
+        </Pressable>
         <Text style={[s.title, { color: theme.textColor }]}>Configurar OCR</Text>
+        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={s.scrollView} contentContainerStyle={s.scrollContent}>
@@ -97,9 +99,12 @@ export default function OCRSettingsScreen() {
         <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
           <Feather name="info" size={20} color={theme.primaryColor} />
           <Text style={[s.description, { color: theme.secondaryText }]}>
-            O sistema usa OCR híbrido com fallback automático. Tesseract funciona nativamente
-            no Expo. Cloud Vision API requer configuração de chave. ML Kit nativo requer
-            ejetar do Expo (bare React Native).
+            {Platform.OS === "web"
+              ? "No navegador, o Tesseract.js funciona gratuitamente sem configuração extra. " +
+                "Para maior precisão, configure a Cloud Vision API."
+              : "Em dispositivos móveis, o OCR On-device funciona gratuitamente após um build nativo " +
+                "(npx expo prebuild). A Cloud Vision API é a alternativa paga que funciona em qualquer build."
+            }
           </Text>
         </View>
 
@@ -109,77 +114,44 @@ export default function OCRSettingsScreen() {
             Provedor Preferido
           </Text>
 
+          {/* On-device — Text Recognition */}
           <Pressable
             style={[
               s.providerCard,
               {
                 backgroundColor: theme.cardBackground,
-                borderColor: provider === "tesseract" ? theme.primaryColor : theme.border,
+                borderColor: provider === "textrecognition" || provider === "mlkit"
+                  ? theme.primaryColor
+                  : theme.border,
                 borderWidth: 2,
               },
             ]}
-            onPress={() => setProvider("tesseract")}
+            onPress={() => setProvider("textrecognition")}
           >
             <View style={s.providerHeader}>
               <View style={s.providerTitleRow}>
                 <Feather
-                  name={provider === "tesseract" ? "check-circle" : "circle"}
+                  name={provider === "textrecognition" || provider === "mlkit" ? "check-circle" : "circle"}
                   size={20}
-                  color={provider === "tesseract" ? theme.primaryColor : theme.secondaryText}
+                  color={provider === "textrecognition" || provider === "mlkit" ? theme.primaryColor : theme.secondaryText}
                 />
                 <Text style={[s.providerName, { color: theme.textColor }]}>
-                  Tesseract
+                  On-device
                 </Text>
                 <View style={[s.badge, { backgroundColor: `${theme.success}20` }]}>
-                  <Text style={[s.badgeText, { color: theme.success }]}>Recomendado</Text>
+                  <Text style={[s.badgeText, { color: theme.success }]}>Grátis</Text>
                 </View>
               </View>
             </View>
             <Text style={[s.providerDesc, { color: theme.secondaryText }]}>
-              100% gratuito, código aberto, funciona nativamente no Expo
+              Gratuito, funciona offline. Usa Vision Framework (iOS) e ML Kit (Android).
+              Requer build nativo: execute{" "}
+              <Text style={{ fontFamily: "DMSans_600SemiBold" }}>npx expo prebuild</Text>
+              {" "}e reconstrua o app.
             </Text>
           </Pressable>
 
-          <Pressable
-            style={[
-              s.providerCard,
-              {
-                backgroundColor: theme.cardBackground,
-                borderColor: provider === "mlkit" ? theme.primaryColor : theme.border,
-                borderWidth: 2,
-                opacity: 0.6,
-              },
-            ]}
-            onPress={() => {
-              Alert.alert(
-                "ML Kit Nativo",
-                "Google ML Kit requer ejetar do Expo (bare React Native). No Expo Managed, " +
-                "usamos Tesseract como fallback automaticamente.\n\n" +
-                "Para usar ML Kit nativo, execute: npx expo prebuild --clean",
-                [{ text: "OK" }]
-              );
-            }}
-          >
-            <View style={s.providerHeader}>
-              <View style={s.providerTitleRow}>
-                <Feather
-                  name="alert-circle"
-                  size={20}
-                  color={theme.secondaryText}
-                />
-                <Text style={[s.providerName, { color: theme.secondaryText }]}>
-                  Google ML Kit
-                </Text>
-                <View style={[s.badge, { backgroundColor: `${theme.secondaryText}20` }]}>
-                  <Text style={[s.badgeText, { color: theme.secondaryText }]}>Bare RN</Text>
-                </View>
-              </View>
-            </View>
-            <Text style={[s.providerDesc, { color: theme.secondaryText }]}>
-              Requer ejetar do Expo (npx expo prebuild)
-            </Text>
-          </Pressable>
-
+          {/* Cloud Vision API */}
           <Pressable
             style={[
               s.providerCard,
@@ -202,12 +174,61 @@ export default function OCRSettingsScreen() {
                   Cloud Vision API
                 </Text>
                 <View style={[s.badge, { backgroundColor: `${theme.primaryColor}20` }]}>
-                  <Text style={[s.badgeText, { color: theme.primaryColor }]}>Premium</Text>
+                  <Text style={[s.badgeText, { color: theme.primaryColor }]}>Pago</Text>
                 </View>
               </View>
             </View>
             <Text style={[s.providerDesc, { color: theme.secondaryText }]}>
-              Melhor precisão, requer API key do Google Cloud (pago)
+              Melhor precisão, requer internet e API Key do Google Cloud (~$1,50/1.000 imagens).
+              Funciona em qualquer build do app, inclusive Expo Go.
+            </Text>
+          </Pressable>
+
+          {/* Tesseract — gratuito no browser */}
+          <Pressable
+            style={[
+              s.providerCard,
+              {
+                backgroundColor: theme.cardBackground,
+                borderColor: provider === "tesseract" ? theme.primaryColor : theme.border,
+                borderWidth: 2,
+                opacity: Platform.OS === "web" ? 1 : 0.55,
+              },
+            ]}
+            onPress={() => {
+              if (Platform.OS !== "web") {
+                Alert.alert(
+                  "Tesseract — Somente Web",
+                  "Tesseract.js funciona apenas no navegador web. Neste dispositivo o app " +
+                  "usará automaticamente o OCR On-device ao invés do Tesseract.",
+                  [{ text: "OK" }]
+                );
+                return;
+              }
+              setProvider("tesseract");
+            }}
+          >
+            <View style={s.providerHeader}>
+              <View style={s.providerTitleRow}>
+                <Feather
+                  name={provider === "tesseract" ? "check-circle" : Platform.OS === "web" ? "circle" : "alert-circle"}
+                  size={20}
+                  color={provider === "tesseract" ? theme.primaryColor : theme.secondaryText}
+                />
+                <Text style={[s.providerName, { color: Platform.OS === "web" ? theme.textColor : theme.secondaryText }]}>
+                  Tesseract.js
+                </Text>
+                <View style={[s.badge, { backgroundColor: Platform.OS === "web" ? `${theme.success}20` : `${theme.secondaryText}20` }]}>
+                  <Text style={[s.badgeText, { color: Platform.OS === "web" ? theme.success : theme.secondaryText }]}>
+                    {Platform.OS === "web" ? "Grátis" : "Só Web"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <Text style={[s.providerDesc, { color: theme.secondaryText }]}>
+              {Platform.OS === "web"
+                ? "Gratuito, código aberto. Funciona no navegador sem instalar nada. Ideal para testes via Expo web."
+                : "Não disponível em dispositivos móveis. O app usa On-device automaticamente neste caso."}
             </Text>
           </Pressable>
         </View>
@@ -215,10 +236,12 @@ export default function OCRSettingsScreen() {
         {/* API Key Cloud Vision */}
         <View style={s.section}>
           <Text style={[s.sectionTitle, { color: theme.textColor }]}>
-            API Key do Cloud Vision (Opcional)
+            API Key do Cloud Vision
           </Text>
           <Text style={[s.sectionSubtitle, { color: theme.secondaryText }]}>
-            Necessário apenas se escolher Cloud Vision como preferido
+            {provider === "cloudvision"
+              ? "Obrigatório para usar Cloud Vision como provedor principal"
+              : "Opcional — usada como fallback se o OCR on-device falhar"}
           </Text>
 
           <View style={[s.inputContainer, { backgroundColor: theme.cardBackground }]}>
@@ -233,11 +256,11 @@ export default function OCRSettingsScreen() {
               autoCorrect={false}
               secureTextEntry
             />
-            {apiKey && (
+            {apiKey ? (
               <Pressable onPress={() => setApiKey("")}>
                 <Feather name="x-circle" size={18} color={theme.secondaryText} />
               </Pressable>
-            )}
+            ) : null}
           </View>
 
           <Pressable
@@ -246,10 +269,10 @@ export default function OCRSettingsScreen() {
               Alert.alert(
                 "Como obter API Key",
                 "1. Acesse console.cloud.google.com\n" +
-                  "2. Crie ou selecione um projeto\n" +
-                  "3. Ative a Cloud Vision API\n" +
-                  "4. Crie credenciais (API Key)\n" +
-                  "5. Cole a key aqui",
+                "2. Crie ou selecione um projeto\n" +
+                "3. Ative a Cloud Vision API\n" +
+                "4. Crie credenciais (API Key)\n" +
+                "5. Cole a key aqui",
                 [{ text: "OK" }]
               );
             }}
@@ -265,11 +288,7 @@ export default function OCRSettingsScreen() {
       {/* Botão Salvar */}
       <View style={[s.footer, { paddingBottom: insets.bottom + 20, backgroundColor: theme.cardBackground }]}>
         <Pressable
-          style={[
-            s.saveButton,
-            { backgroundColor: theme.primaryColor },
-            saving && { opacity: 0.6 },
-          ]}
+          style={[s.saveButton, { backgroundColor: theme.primaryColor }, saving && { opacity: 0.6 }]}
           onPress={handleSave}
           disabled={saving}
         >
@@ -329,9 +348,7 @@ const s = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
   },
-  providerHeader: {
-    marginBottom: 8,
-  },
+  providerHeader: { marginBottom: 8 },
   providerTitleRow: {
     flexDirection: "row",
     alignItems: "center",

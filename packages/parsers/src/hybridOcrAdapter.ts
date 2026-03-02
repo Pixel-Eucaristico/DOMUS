@@ -11,7 +11,7 @@ export interface CloudVisionConfig {
 /**
  * Opções de OCR disponíveis
  */
-export type OCRProvider = "mlkit" | "tesseract" | "cloudvision";
+export type OCRProvider = "textrecognition" | "mlkit" | "tesseract" | "cloudvision";
 
 /**
  * Configuração do adaptador híbrido
@@ -30,8 +30,8 @@ export class HybridOCRAdapter implements OCRAdapter {
 
   constructor(config: HybridOCRConfig = {}) {
     this.config = {
-      preferredProvider: config.preferredProvider || "tesseract",
-      fallbackProviders: config.fallbackProviders || ["mlkit"],
+      preferredProvider: config.preferredProvider || "textrecognition",
+      fallbackProviders: config.fallbackProviders || ["cloudvision"],
       cloudVisionConfig: config.cloudVisionConfig,
     };
   }
@@ -42,14 +42,21 @@ export class HybridOCRAdapter implements OCRAdapter {
       ...(this.config.fallbackProviders || []),
     ];
 
+    // Deduplicar mantendo ordem
+    const seen = new Set<OCRProvider>();
+    const ordered = providers.filter((p) => {
+      if (seen.has(p)) return false;
+      seen.add(p);
+      return true;
+    });
+
     let lastError: Error | null = null;
 
-    for (const provider of providers) {
+    for (const provider of ordered) {
       try {
         console.log(`[HybridOCR] Tentando provedor: ${provider}`);
         const result = await this.recognizeWithProvider(imageUri, provider);
 
-        // Se confidence >= 60%, aceitar resultado
         if (result.confidence >= 0.6) {
           console.log(`[HybridOCR] Sucesso com ${provider} (confidence: ${result.confidence})`);
           return result;
@@ -62,7 +69,6 @@ export class HybridOCRAdapter implements OCRAdapter {
       }
     }
 
-    // Se nenhum provedor funcionou, lançar erro
     throw new Error(
       `Falha em todos os provedores OCR. Último erro: ${lastError?.message || "Desconhecido"}`
     );
@@ -73,8 +79,11 @@ export class HybridOCRAdapter implements OCRAdapter {
     provider: OCRProvider
   ): Promise<OCRResult> {
     switch (provider) {
+      case "textrecognition":
+        return await this.recognizeWithTextRecognition(imageUri);
       case "mlkit":
-        return await this.recognizeWithMLKit(imageUri);
+        // mlkit era alias para textrecognition — mesmo módulo nativo
+        return await this.recognizeWithTextRecognition(imageUri);
       case "tesseract":
         return await this.recognizeWithTesseract(imageUri);
       case "cloudvision":
@@ -88,29 +97,53 @@ export class HybridOCRAdapter implements OCRAdapter {
   }
 
   /**
-   * Google ML Kit - Fallback para Tesseract em Expo
-   * (ML Kit nativo requer bare React Native, bibliotecas disponíveis não têm plugin Expo)
+   * react-native-text-recognition — gratuito, on-device
+   * iOS: Vision Framework (Apple)
+   * Android: ML Kit (Google)
+   * Requer: expo prebuild + dev build
    */
-  private async recognizeWithMLKit(imageUri: string): Promise<OCRResult> {
-    console.log("[MLKit] Usando Tesseract como fallback (ML Kit requer bare RN)...");
+  private async recognizeWithTextRecognition(imageUri: string): Promise<OCRResult> {
+    try {
+      const TextRecognition = await import("react-native-text-recognition");
+      const lines: string[] = await TextRecognition.default.recognize(imageUri);
 
-    // ML Kit nativo não funciona com Expo Managed
-    // Todas as bibliotecas tentadas (@react-native-ml-kit, @infinitered) requerem bare RN
-    // Usar Tesseract como alternativa funcional
-    return await this.recognizeWithTesseract(imageUri);
+      if (!lines || lines.length === 0) {
+        return { text: "", confidence: 0 };
+      }
+
+      return {
+        text: lines.join("\n"),
+        confidence: 0.85,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "";
+      if (msg.includes("doesn't seem to be linked") || msg.includes("not linked")) {
+        throw new Error(
+          "OCR_UNAVAILABLE: Text Recognition não está disponível. " +
+          "Execute 'npx expo prebuild' e reconstrua o app para habilitar o OCR gratuito."
+        );
+      }
+      throw error;
+    }
   }
 
   /**
-   * Tesseract - Open source, gratuito, funciona em qualquer plataforma
+   * Tesseract — funciona apenas no navegador web (Web Workers + WASM)
+   * Em React Native (JavaScriptCore) lança OCR_UNAVAILABLE
    */
   private async recognizeWithTesseract(imageUri: string): Promise<OCRResult> {
+    if (typeof document === "undefined") {
+      throw new Error(
+        "OCR_UNAVAILABLE: Tesseract.js requer ambiente web (Web Workers + WASM). " +
+        "Use o OCR On-device (Text Recognition) ou configure a Cloud Vision API."
+      );
+    }
+
     console.log("[Tesseract] Processando imagem com Tesseract.js...");
 
     try {
-      // Importar Tesseract dinamicamente
       const Tesseract = await import("tesseract.js");
 
-      // Criar worker
       const worker = await Tesseract.createWorker("por", 1, {
         logger: (m) => {
           if (m.status === "recognizing text") {
@@ -119,17 +152,14 @@ export class HybridOCRAdapter implements OCRAdapter {
         },
       });
 
-      // Reconhecer texto
       const { data } = await worker.recognize(imageUri);
-
-      // Finalizar worker
       await worker.terminate();
 
       console.log("[Tesseract] Texto extraído. Confidence:", data.confidence / 100);
 
       return {
         text: data.text,
-        confidence: data.confidence / 100, // Tesseract retorna 0-100, converter para 0-1
+        confidence: data.confidence / 100,
       };
     } catch (error) {
       console.error("[Tesseract] Erro ao processar imagem:", error);
@@ -138,7 +168,7 @@ export class HybridOCRAdapter implements OCRAdapter {
   }
 
   /**
-   * Google Cloud Vision API - Pago, melhor precisão, requer internet
+   * Google Cloud Vision API — pago, melhor precisão, requer internet
    */
   private async recognizeWithCloudVision(imageUri: string): Promise<OCRResult> {
     const { apiKey, endpoint } = this.config.cloudVisionConfig!;
@@ -147,7 +177,6 @@ export class HybridOCRAdapter implements OCRAdapter {
     console.log("[CloudVision] Enviando imagem para API...");
 
     try {
-      // Converter imagem para base64
       const base64Image = await this.imageToBase64(imageUri);
 
       const response = await fetch(`${url}?key=${apiKey}`, {
@@ -157,7 +186,7 @@ export class HybridOCRAdapter implements OCRAdapter {
           requests: [
             {
               image: { content: base64Image },
-              features: [{ type: "TEXT_DETECTION", maxResults: 1 }],
+              features: [{ type: "DOCUMENT_TEXT_DETECTION", maxResults: 1 }],
             },
           ],
         }),
@@ -174,12 +203,11 @@ export class HybridOCRAdapter implements OCRAdapter {
         throw new Error("Nenhum texto detectado na imagem");
       }
 
-      // Primeiro item contém todo o texto
       const fullText = textAnnotations[0].description;
 
       return {
         text: fullText,
-        confidence: 0.95, // Cloud Vision geralmente tem alta confiança
+        confidence: 0.95,
       };
     } catch (error) {
       console.error("[CloudVision] Erro:", error);
@@ -191,7 +219,6 @@ export class HybridOCRAdapter implements OCRAdapter {
    * Converte imagem para base64 (necessário para Cloud Vision API)
    */
   private async imageToBase64(imageUri: string): Promise<string> {
-    // Se for web, usar fetch
     if (imageUri.startsWith("http")) {
       const response = await fetch(imageUri);
       const blob = await response.blob();
@@ -206,7 +233,6 @@ export class HybridOCRAdapter implements OCRAdapter {
       });
     }
 
-    // Se for React Native, usar FileSystem
     try {
       const FileSystem = await import("expo-file-system");
       const base64 = await FileSystem.readAsStringAsync(imageUri, {
@@ -219,16 +245,10 @@ export class HybridOCRAdapter implements OCRAdapter {
     }
   }
 
-  /**
-   * Atualiza configuração do Cloud Vision
-   */
   updateCloudVisionConfig(config: CloudVisionConfig) {
     this.config.cloudVisionConfig = config;
   }
 
-  /**
-   * Atualiza provedor preferido
-   */
   setPreferredProvider(provider: OCRProvider) {
     this.config.preferredProvider = provider;
   }

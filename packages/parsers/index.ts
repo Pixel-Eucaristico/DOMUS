@@ -28,6 +28,8 @@ export { createInvoiceImportedEvent, createInvoiceConfirmedEvent } from "./src/i
 
 export {
   classifyByKeyword,
+  classifyByNcm,
+  classifyByNcmWithSiscomex,
   createKeywordClassifier,
   createGeminiClassifier,
   createHybridClassifier,
@@ -42,3 +44,9 @@ export {
   createInitialInvoiceState,
 } from "./src/invoiceReducer";
 export type { InvoiceState, StoredInvoice } from "./src/invoiceReducer";
+
+export {
+  buildAutoFillScript,
+  buildCaptureScript,
+  buildPhase2Script,
+} from "./src/sefazWebViewScripts";

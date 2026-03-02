@@ -45,20 +45,24 @@ export function domainReducer(state: AppState, event: DomainEvent): AppState {
           [tx.id]: tx,
         },
       };
-      return applyTransactionToAccounts(newState, tx, "apply");
+      if (!tx.status || tx.status === "confirmed") {
+        return applyTransactionToAccounts(newState, tx, "apply");
+      }
+      return newState;
     }
 
     case EVENT_TYPES.TRANSACTION_UPDATED: {
       const existingTx = state.transactions[event.payload.id];
       if (!existingTx) return state;
 
-      let intermediate = applyTransactionToAccounts(
-        state,
-        existingTx,
-        "reverse",
-      );
-
+      const wasConfirmed = !existingTx.status || existingTx.status === "confirmed";
       const updatedTx = { ...existingTx, ...event.payload };
+      const isConfirmed = !updatedTx.status || updatedTx.status === "confirmed";
+
+      let intermediate = wasConfirmed
+        ? applyTransactionToAccounts(state, existingTx, "reverse")
+        : state;
+
       intermediate = {
         ...intermediate,
         transactions: {
@@ -67,18 +71,23 @@ export function domainReducer(state: AppState, event: DomainEvent): AppState {
         },
       };
 
-      return applyTransactionToAccounts(intermediate, updatedTx, "apply");
+      return isConfirmed
+        ? applyTransactionToAccounts(intermediate, updatedTx, "apply")
+        : intermediate;
     }
 
     case EVENT_TYPES.TRANSACTION_DELETED: {
       const txToDelete = state.transactions[event.payload.id];
       if (!txToDelete) return state;
 
-      const reversed = applyTransactionToAccounts(state, txToDelete, "reverse");
+      const wasConfirmed = !txToDelete.status || txToDelete.status === "confirmed";
+      const base = wasConfirmed
+        ? applyTransactionToAccounts(state, txToDelete, "reverse")
+        : state;
       const { [event.payload.id]: _removed, ...remainingTx } =
-        reversed.transactions;
+        base.transactions;
       return {
-        ...reversed,
+        ...base,
         transactions: remainingTx,
       };
     }

@@ -60,7 +60,12 @@ export interface TransactionItem {
   description: string;
   amount: number;
   categoryId: string;
+  ean?: string;
+  ncm?: string;
 }
+
+export type TransactionStatus = "pending" | "confirmed";
+export type RecurrenceType = "once" | "weekly" | "monthly" | "yearly" | "custom";
 
 export interface TransactionPayload {
   id: string;
@@ -74,6 +79,9 @@ export interface TransactionPayload {
   installments?: number;
   targetAccountId?: string;
   installmentInfo?: InstallmentInfo;
+  status?: TransactionStatus;
+  recurrence?: RecurrenceType;
+  recurrenceDays?: number;  // usado quando recurrence === "custom"
 }
 
 export interface CategoryPayload {

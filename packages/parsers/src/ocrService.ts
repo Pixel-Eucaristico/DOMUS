@@ -9,7 +9,7 @@ export class OCRService {
       return await parseFromImage(imageUri, this.adapter);
     } catch (error) {
       console.error("OCR Error:", error);
-      throw new Error("Failed to process image with OCR");
+      throw error;
     }
   }
 }

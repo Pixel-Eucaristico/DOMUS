@@ -1,8 +1,12 @@
 export interface InvoiceItem {
   description: string;
   quantity: number;
+  unit?: string;        // uCom — unidade comercial: "UN", "KG", "L", "CX", etc.
   unitPrice: number;
   totalPrice: number;
+  ean?: string;         // Código EAN/GTIN (barcode) — disponível na ConsultaCompleta SEFAZ
+  ncm?: string;         // Nomenclatura Comum do Mercosul (8 dígitos)
+  productCode?: string; // Código interno do produto no estabelecimento
 }
 
 export interface InvoiceEmitter {
