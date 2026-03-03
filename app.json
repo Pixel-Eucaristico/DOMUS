@@ -14,7 +14,7 @@
       "backgroundColor": "#1B5E63"
     },
     "android": {
-      "package": "com.orcafacil",
+      "package": "br.com.pixeleucaristico.domus",
       "adaptiveIcon": {
         "backgroundColor": "#1B5E63",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -30,7 +30,7 @@
       ]
     },
     "ios": {
-      "bundleIdentifier": "com.orcafacil",
+      "bundleIdentifier": "br.com.pixeleucaristico.domus",
       "infoPlist": {
         "NSCameraUsageDescription": "DOMUS precisa acessar a câmera para escanear QR Codes e tirar fotos de notas fiscais.",
         "NSPhotoLibraryUsageDescription": "DOMUS precisa acessar suas fotos para importar imagens de notas fiscais.",

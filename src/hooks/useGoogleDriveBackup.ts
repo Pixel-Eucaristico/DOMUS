@@ -11,8 +11,8 @@ WebBrowser.maybeCompleteAuthSession();
 // ─── Google OAuth Client IDs (configurar em .env) ────────────────────────────
 // Crie um projeto no Google Cloud Console, ative a Google Drive API e gere:
 //   - EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID     → cliente "Web" (para Expo Go / dev)
-//   - EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID     → cliente "iOS"  (bundle: com.orcafacil)
-//   - EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID → cliente "Android" (pkg: com.orcafacil)
+//   - EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID     → cliente "iOS"  (bundle: br.com.pixeleucaristico.domus)
+//   - EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID → cliente "Android" (pkg: br.com.pixeleucaristico.domus)
 // Ver: https://docs.expo.dev/guides/google-authentication/
 
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
