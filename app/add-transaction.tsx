@@ -56,10 +56,11 @@ export default function AddTransactionScreen() {
 
   // Auto-preenche o valor quando a calculadora de dízimo está ativa
   useEffect(() => {
-    if (!isTithe || !tithe.result) return;
-    form.setAmount(tithe.result.amount.toFixed(2).replace(".", ","));
+    if (!isTithe) return;
+    const amt = tithe.result?.amount;
+    if (amt != null) form.setAmount(amt.toFixed(2).replace(".", ","));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTithe, tithe.result]);
+  }, [isTithe, tithe.result?.amount]);
 
   const handleCreateNext = () => {
     if (!form.editingTx) return;
@@ -295,8 +296,9 @@ export default function AddTransactionScreen() {
             </Text>
             <TextInput
               style={[s.titheInput, { color: theme.textColor, borderColor: theme.border }]}
-              value={tithe.percentage}
+              defaultValue={tithe.percentage}
               onChangeText={tithe.setPercentage}
+              onEndEditing={(e) => tithe.setPercentage(e.nativeEvent.text)}
               placeholder="10"
               placeholderTextColor={theme.secondaryText}
               keyboardType="decimal-pad"
@@ -364,8 +366,9 @@ export default function AddTransactionScreen() {
                 </Text>
                 <TextInput
                   style={[s.titheInput, { color: theme.textColor, borderColor: theme.border }]}
-                  value={tithe.customDays}
+                  defaultValue={tithe.customDays}
                   onChangeText={tithe.setCustomDays}
+                  onEndEditing={(e) => tithe.setCustomDays(e.nativeEvent.text)}
                   placeholder="30"
                   placeholderTextColor={theme.secondaryText}
                   keyboardType="number-pad"
@@ -377,7 +380,9 @@ export default function AddTransactionScreen() {
               <Feather name="zap" size={14} color="#A78BFA" />
               <Text style={s.titheResultText}>
                 {tithe.result
-                  ? `R$ ${tithe.result.amount.toFixed(2).replace(".", ",")}  (base: R$ ${tithe.result.base.toFixed(2).replace(".", ",")})`
+                  ? tithe.result.base > 0
+                    ? `R$ ${tithe.result.amount.toFixed(2).replace(".", ",")}  (base: R$ ${tithe.result.base.toFixed(2).replace(".", ",")})`
+                    : "Base R$ 0,00 — sem receitas confirmadas no período"
                   : "—"}
               </Text>
             </View>

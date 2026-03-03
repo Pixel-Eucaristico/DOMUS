@@ -60,6 +60,9 @@ export function AccountPicker({
                 },
               ]}
               onPress={() => onSelect(a.id)}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: active }}
+              accessibilityLabel={`${a.name}, ${cfg.label}, saldo ${formatBalance(a)}${active ? ", selecionada" : ""}`}
             >
               {/* Colored icon */}
               <View style={[s.iconBox, { backgroundColor: `${color}18` }]}>

@@ -115,6 +115,8 @@ export function DatePickerField({
       <Pressable
         style={[s.field, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
         onPress={openPicker}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${formatDisplay(safe)}. Toque para abrir o calendário`}
       >
         <View style={[s.iconBox, { backgroundColor: `${theme.primaryColor}15` }]}>
           <Feather name="calendar" size={18} color={theme.primaryColor} />
@@ -137,7 +139,8 @@ export function DatePickerField({
             {mode === "day" && (
               <>
                 <View style={s.calHeader}>
-                  <Pressable onPress={prevMonth} hitSlop={12} style={s.navBtn}>
+                  <Pressable onPress={prevMonth} hitSlop={12} style={s.navBtn}
+                    accessibilityRole="button" accessibilityLabel="Mês anterior">
                     <Feather name="chevron-left" size={20} color={theme.textColor} />
                   </Pressable>
 
@@ -146,6 +149,8 @@ export function DatePickerField({
                     <Pressable
                       onPress={() => setMode("month")}
                       style={[s.headerChip, { backgroundColor: `${theme.primaryColor}12` }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Selecionar mês: ${MONTH_NAMES[viewMonth]}`}
                     >
                       <Text style={[s.headerChipText, { color: theme.primaryColor }]}>
                         {MONTH_NAMES[viewMonth]}
@@ -154,6 +159,8 @@ export function DatePickerField({
                     <Pressable
                       onPress={() => setMode("year")}
                       style={[s.headerChip, { backgroundColor: `${theme.primaryColor}12` }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Selecionar ano: ${viewYear}`}
                     >
                       <Text style={[s.headerChipText, { color: theme.primaryColor }]}>
                         {viewYear}
@@ -161,7 +168,8 @@ export function DatePickerField({
                     </Pressable>
                   </View>
 
-                  <Pressable onPress={nextMonth} hitSlop={12} style={s.navBtn}>
+                  <Pressable onPress={nextMonth} hitSlop={12} style={s.navBtn}
+                    accessibilityRole="button" accessibilityLabel="Próximo mês">
                     <Feather name="chevron-right" size={20} color={theme.textColor} />
                   </Pressable>
                 </View>
@@ -212,16 +220,20 @@ export function DatePickerField({
             {mode === "month" && (
               <>
                 <View style={s.calHeader}>
-                  <Pressable onPress={prevYear} hitSlop={12} style={s.navBtn}>
+                  <Pressable onPress={prevYear} hitSlop={12} style={s.navBtn}
+                    accessibilityRole="button" accessibilityLabel="Ano anterior">
                     <Feather name="chevron-left" size={20} color={theme.textColor} />
                   </Pressable>
                   <Pressable
                     onPress={() => setMode("year")}
                     style={[s.headerChip, { backgroundColor: `${theme.primaryColor}12` }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Selecionar ano: ${viewYear}`}
                   >
                     <Text style={[s.headerChipText, { color: theme.primaryColor }]}>{viewYear}</Text>
                   </Pressable>
-                  <Pressable onPress={nextYear} hitSlop={12} style={s.navBtn}>
+                  <Pressable onPress={nextYear} hitSlop={12} style={s.navBtn}
+                    accessibilityRole="button" accessibilityLabel="Próximo ano">
                     <Feather name="chevron-right" size={20} color={theme.textColor} />
                   </Pressable>
                 </View>
@@ -266,6 +278,8 @@ export function DatePickerField({
                     onPress={() => setYearBlock((b) => b - 12)}
                     hitSlop={12}
                     style={s.navBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Bloco de anos anterior"
                   >
                     <Feather name="chevron-left" size={20} color={theme.textColor} />
                   </Pressable>
@@ -276,6 +290,8 @@ export function DatePickerField({
                     onPress={() => setYearBlock((b) => b + 12)}
                     hitSlop={12}
                     style={s.navBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Próximo bloco de anos"
                   >
                     <Feather name="chevron-right" size={20} color={theme.textColor} />
                   </Pressable>
@@ -317,6 +333,8 @@ export function DatePickerField({
               <Pressable
                 style={s.backBtn}
                 onPress={() => setMode(mode === "year" ? "month" : "day")}
+                accessibilityRole="button"
+                accessibilityLabel="Voltar"
               >
                 <Feather name="arrow-left" size={14} color={theme.secondaryText} />
                 <Text style={[s.backBtnText, { color: theme.secondaryText }]}>Voltar</Text>

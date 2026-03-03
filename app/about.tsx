@@ -13,6 +13,8 @@ import {
   KeyboardAvoidingView,
   LayoutAnimation,
   Animated,
+  Switch,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -95,11 +97,14 @@ async function safeOpenUrl(url: string): Promise<void> {
 
 export default function AboutScreen() {
   const router = useRouter();
-  const { theme, themeMode, setThemeMode } = useAppState();
+  const { theme, themeMode, setThemeMode, soundEnabled, setSoundEnabled, resetApp } = useAppState();
 
   const [pixCopied, setPixCopied] = useState(false);
   const [sending, setSending] = useState(false);
   const [themeModalVisible, setThemeModalVisible] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetPhrase, setResetPhrase] = useState("");
+  const [resetting, setResetting] = useState(false);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -153,6 +158,19 @@ export default function AboutScreen() {
     await EmailService.open(form, deviceInfo);
     setSending(false);
   }, [name, email, subject, message, validateForm]);
+
+  const handleReset = useCallback(async () => {
+    if (resetPhrase !== "APAGAR TUDO") return;
+    setResetting(true);
+    try {
+      await resetApp();
+      setShowResetModal(false);
+      setResetPhrase("");
+      router.replace("/(tabs)");
+    } finally {
+      setResetting(false);
+    }
+  }, [resetPhrase, resetApp, router]);
 
   const s = styles(theme);
 
@@ -350,6 +368,15 @@ export default function AboutScreen() {
               theme={theme}
               onPress={() => setThemeModalVisible(true)}
             />
+            <SwitchRow
+              icon="volume-2"
+              label="Efeitos Sonoros"
+              description="Sons de confirmação e interações"
+              color={theme.primaryColor}
+              theme={theme}
+              value={soundEnabled}
+              onValueChange={setSoundEnabled}
+            />
           </SectionCard>
 
           {/* ── CONTACT FORM ────────────────────────────────────────────── */}
@@ -445,6 +472,25 @@ export default function AboutScreen() {
             </TouchableOpacity>
           </SectionCard>
 
+          {/* ── ZONA DE PERIGO ──────────────────────────────────────────── */}
+          <View style={[s.dangerSection, { borderColor: "#DC2626", backgroundColor: "#DC262608" }]}>
+            <View style={s.dangerHeader}>
+              <Feather name="alert-triangle" size={15} color="#DC2626" />
+              <Text style={[s.dangerTitle, { color: "#DC2626" }]}>Zona de Perigo</Text>
+            </View>
+            <Text style={[s.dangerDesc, { color: theme.secondaryText }]}>
+              Apaga todos os dados e retorna o aplicativo ao estado inicial, como se fosse recém-instalado.
+            </Text>
+            <TouchableOpacity
+              style={s.dangerBtn}
+              onPress={() => { setResetPhrase(""); setShowResetModal(true); }}
+              activeOpacity={0.8}
+            >
+              <Feather name="trash-2" size={15} color="#FFF" />
+              <Text style={s.dangerBtnText}>Resetar aplicativo</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* ── FOOTER ──────────────────────────────────────────────────── */}
           <View style={s.footer}>
             <Feather name="lock" size={11} color={theme.secondaryText} />
@@ -454,6 +500,64 @@ export default function AboutScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={showResetModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowResetModal(false)}
+      >
+        <View style={s.overlay}>
+          <View style={[s.resetModal, { backgroundColor: theme.cardBackground }]}>
+            <Feather name="alert-octagon" size={44} color="#DC2626" style={{ alignSelf: "center", marginBottom: 14 }} />
+            <Text style={[s.resetModalTitle, { color: theme.textColor }]}>Resetar aplicativo</Text>
+            <Text style={[s.resetModalDesc, { color: theme.secondaryText }]}>
+              Todos os seus dados serão apagados permanentemente — transações, contas, listas de desejo e configurações de segurança.{"\n\n"}Esta ação não pode ser desfeita.
+            </Text>
+            <Text style={[s.resetModalLabel, { color: theme.secondaryText }]}>
+              Digite{" "}
+              <Text style={{ color: "#DC2626", fontFamily: "DMSans_700Bold" }}>APAGAR TUDO</Text>
+              {" "}para confirmar:
+            </Text>
+            <TextInput
+              style={[
+                s.resetInput,
+                {
+                  color: theme.textColor,
+                  borderColor: resetPhrase === "APAGAR TUDO" ? "#DC2626" : theme.border,
+                  backgroundColor: theme.background,
+                },
+              ]}
+              value={resetPhrase}
+              onChangeText={setResetPhrase}
+              placeholder="APAGAR TUDO"
+              placeholderTextColor={theme.secondaryText}
+              autoCapitalize="characters"
+              autoCorrect={false}
+            />
+            <View style={s.resetButtons}>
+              <TouchableOpacity
+                style={[s.resetCancelBtn, { borderColor: theme.border }]}
+                onPress={() => { setShowResetModal(false); setResetPhrase(""); }}
+              >
+                <Text style={{ color: theme.textColor, fontFamily: "DMSans_500Medium", fontSize: 14 }}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.resetConfirmBtn, resetPhrase !== "APAGAR TUDO" && { opacity: 0.35 }]}
+                onPress={handleReset}
+                disabled={resetPhrase !== "APAGAR TUDO" || resetting}
+                activeOpacity={0.8}
+              >
+                {resetting
+                  ? <ActivityIndicator size="small" color="#FFF" />
+                  : <Text style={{ color: "#FFF", fontFamily: "DMSans_700Bold", fontSize: 14 }}>Resetar</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <SelectionModal
         visible={themeModalVisible}
@@ -685,6 +789,48 @@ const linkRowStyles = StyleSheet.create({
   },
 });
 
+function SwitchRow({
+  icon,
+  label,
+  description,
+  color,
+  theme,
+  value,
+  onValueChange,
+}: {
+  icon: string;
+  label: string;
+  description: string;
+  color: string;
+  theme: any;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+}) {
+  return (
+    <View style={linkRowStyles.row}>
+      <View style={[linkRowStyles.iconBg, { backgroundColor: color + "18" }]}>
+        <Feather name={icon as any} size={16} color={color} />
+      </View>
+      <View style={linkRowStyles.texts}>
+        <Text style={[linkRowStyles.label, { color: theme.textColor }]}>
+          {label}
+        </Text>
+        <Text
+          style={[linkRowStyles.description, { color: theme.secondaryText }]}
+        >
+          {description}
+        </Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ true: theme.primaryColor }}
+        thumbColor={Platform.OS === "ios" ? undefined : value ? "#fff" : "#f4f3f4"}
+      />
+    </View>
+  );
+}
+
 interface FormFieldProps {
   label: string;
   value: string;
@@ -900,6 +1046,101 @@ function styles(theme: any) {
       fontFamily: "DMSans_700Bold",
       fontSize: 14,
       color: "#fff",
+    },
+    // Danger zone
+    dangerSection: {
+      borderWidth: 1,
+      borderRadius: 14,
+      padding: 14,
+      gap: 10,
+    },
+    dangerHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    dangerTitle: {
+      fontFamily: "DMSans_700Bold",
+      fontSize: 14,
+    },
+    dangerDesc: {
+      fontFamily: "DMSans_400Regular",
+      fontSize: 13,
+      lineHeight: 19,
+    },
+    dangerBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      backgroundColor: "#DC2626",
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      alignSelf: "flex-start",
+    },
+    dangerBtnText: {
+      color: "#FFF",
+      fontFamily: "DMSans_700Bold",
+      fontSize: 13,
+    },
+    // Reset modal
+    overlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.6)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 20,
+    },
+    resetModal: {
+      borderRadius: 18,
+      padding: 24,
+      width: "100%",
+      maxWidth: 420,
+    },
+    resetModalTitle: {
+      fontFamily: "DMSans_700Bold",
+      fontSize: 18,
+      textAlign: "center",
+      marginBottom: 12,
+    },
+    resetModalDesc: {
+      fontFamily: "DMSans_400Regular",
+      fontSize: 14,
+      lineHeight: 21,
+      marginBottom: 18,
+    },
+    resetModalLabel: {
+      fontFamily: "DMSans_500Medium",
+      fontSize: 13,
+      marginBottom: 8,
+    },
+    resetInput: {
+      borderWidth: 1.5,
+      borderRadius: 9,
+      paddingHorizontal: 12,
+      paddingVertical: 11,
+      fontFamily: "DMSans_500Medium",
+      fontSize: 15,
+      letterSpacing: 1,
+      marginBottom: 20,
+    },
+    resetButtons: {
+      flexDirection: "row",
+      gap: 10,
+    },
+    resetCancelBtn: {
+      flex: 1,
+      borderWidth: 1,
+      borderRadius: 11,
+      paddingVertical: 13,
+      alignItems: "center",
+    },
+    resetConfirmBtn: {
+      flex: 1,
+      backgroundColor: "#DC2626",
+      borderRadius: 11,
+      paddingVertical: 13,
+      alignItems: "center",
     },
     // Footer
     footer: {

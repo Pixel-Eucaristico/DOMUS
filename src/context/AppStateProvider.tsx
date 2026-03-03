@@ -30,6 +30,7 @@ import { seasonReducer, createInitialSeasonState } from "@packages/season/src/re
 import { detectArchetype, calculateScores } from "@packages/personality/src/profileDetector";
 import { getThemeForArchetype, type ThemeColors, type ThemeMode } from "@packages/theme";
 import type { ArchetypeType } from "@packages/personality/src/types";
+import { soundManager } from "@/src/services/SoundManager";
 import { generateId } from "@packages/events/src/factory";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { SQLiteEventStore } from "@packages/storage/src/eventStore";
@@ -52,6 +53,7 @@ interface DerivedState {
   wishlist: WishlistState;
   archetype: ArchetypeType;
   themeMode: ThemeMode;
+  soundEnabled: boolean;
   theme: ThemeColors;
   levelInfo: LevelInfo;
   budget: BudgetBreakdown;
@@ -63,8 +65,10 @@ interface AppStateContextValue extends DerivedState {
   dispatch: (event: AnyEvent) => void;
   dispatchDomainEvent: (event: DomainEvent) => void;
   setThemeMode: (mode: ThemeMode) => void;
+  setSoundEnabled: (enabled: boolean) => void;
   importEvents: (events: SyncEvent[]) => Promise<number>;
   restoreFromBackup: (events: SyncEvent[]) => Promise<void>;
+  resetApp: () => Promise<void>;
   getAllEvents: () => SyncEvent[];
   localEventCount: number;
   deviceId: string | null;
@@ -75,6 +79,7 @@ const AppStateContext = createContext<AppStateContextValue | null>(null);
 const DEVICE_ID_KEY = "domus_device_id";
 const EVENTS_BACKUP_KEY = "domus_events_v1";
 const THEME_MODE_KEY = "domus_theme_mode_v1";
+const SOUND_ENABLED_KEY = "domus_sound_enabled_v1";
 
 function generateDeviceId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
@@ -142,6 +147,7 @@ async function getEventStore(): Promise<SQLiteEventStore | null> {
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const systemColorScheme = useColorScheme();
   const [themeMode, setThemeModeState] = useState<ThemeMode>("system");
+  const [soundEnabled, setSoundEnabledState] = useState(true);
 
   const [allEvents, setAllEvents] = useState<SyncEvent[]>([]);
   const allEventsRef = React.useRef(allEvents);
@@ -179,6 +185,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       if (savedTheme && mounted) {
         setThemeModeState(savedTheme as ThemeMode);
       }
+
+      // Carregar configuração de som
+      const savedSound = await AsyncStorage.getItem(SOUND_ENABLED_KEY);
+      if (savedSound !== null && mounted) {
+        const enabled = savedSound === "true";
+        setSoundEnabledState(enabled);
+        soundManager.setEnabled(enabled);
+      }
+
+      // Inicializar gerenciador de som (tentar carregar ativos se existirem)
+      // Nota: No web ou se os arquivos não existirem, o init falha silenciosamente
+      soundManager.init().catch(() => {});
 
       // Carregar ou criar deviceId único para este dispositivo
       let did = await AsyncStorage.getItem(DEVICE_ID_KEY);
@@ -323,6 +341,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.setItem(THEME_MODE_KEY, mode);
   }, []);
 
+  const setSoundEnabled = useCallback(async (enabled: boolean) => {
+    setSoundEnabledState(enabled);
+    soundManager.setEnabled(enabled);
+    await AsyncStorage.setItem(SOUND_ENABLED_KEY, enabled ? "true" : "false");
+  }, []);
+
   const archetype = useMemo<ArchetypeType>(() => {
     const txCount = Object.keys(domain.transactions).length;
     const scores = calculateScores({
@@ -436,6 +460,22 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setAllEvents(sorted);
   }, []);
 
+  const resetApp = useCallback(async (): Promise<void> => {
+    await restoreFromBackup([]);
+    setThemeModeState("system");
+    await AsyncStorage.removeItem(THEME_MODE_KEY);
+    setSoundEnabledState(true);
+    await AsyncStorage.removeItem(SOUND_ENABLED_KEY);
+    if (Platform.OS !== "web") {
+      try {
+        const { SecureStorageService } = await import(
+          "@/src/modules/security/infrastructure/SecureStorageService"
+        );
+        await SecureStorageService.delete("domus_security_settings_v1");
+      } catch (_) {}
+    }
+  }, [restoreFromBackup]);
+
     /**
      * dispatchDomainEvent: cria um evento de domínio LOCAL e gera eventos de gamificação associados.
      * Os eventos de gamificação (XP, Streak, Level Up) são gerados APENAS para ações locais,
@@ -478,9 +518,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
                     now.getFullYear(),
                   );
           
-                  const baseLoggingXp = event.type === EVENT_TYPES.TRANSACTION_CREATED ? getXpForAction("transaction_logged") : 0;
-                  const budgetBonus = calculateBudgetAdherenceXp(nextBudget);
-                  const totalXpGain = baseLoggingXp + budgetBonus;  
+                  // Criar transação concede XP (base + bônus de aderência orçamentária).
+                  // Deletar desconta o mesmo valor calculado com o orçamento pós-deleção
+                  // (que é o estado "antes da criação"), zerando o ganho do ciclo criar→deletar.
+                  // Editar (UPDATED) não altera XP — evita farming por re-salvamento.
+                  const sign = event.type === EVENT_TYPES.TRANSACTION_DELETED ? -1 : 1;
+                  const isCreatedOrDeleted =
+                    event.type === EVENT_TYPES.TRANSACTION_CREATED ||
+                    event.type === EVENT_TYPES.TRANSACTION_DELETED;
+                  const baseLoggingXp = isCreatedOrDeleted ? sign * getXpForAction("transaction_logged") : 0;
+                  const budgetBonus = isCreatedOrDeleted ? sign * calculateBudgetAdherenceXp(nextBudget) : 0;
+                  const totalXpGain = baseLoggingXp + budgetBonus;
           if (totalXpGain !== 0) {
             const xpPayload = createXpPayload("transaction_logged", totalXpGain);
             const xpEvent: GamificationEvent = {
@@ -548,6 +596,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       wishlist,
       archetype,
       themeMode,
+      soundEnabled,
       theme,
       levelInfo,
       budget,
@@ -556,13 +605,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       dispatch,
       dispatchDomainEvent,
       setThemeMode,
+      setSoundEnabled,
       importEvents,
       restoreFromBackup,
+      resetApp,
       getAllEvents: getAllEventsCallback,
       localEventCount,
       deviceId,
     }),
-    [domain, gamification, onboarding, season, wishlist, archetype, themeMode, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, setThemeMode, importEvents, restoreFromBackup, getAllEventsCallback, localEventCount, deviceId],
+    [domain, gamification, onboarding, season, wishlist, archetype, themeMode, soundEnabled, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, setThemeMode, setSoundEnabled, importEvents, restoreFromBackup, resetApp, getAllEventsCallback, localEventCount, deviceId],
   );
 
   return (

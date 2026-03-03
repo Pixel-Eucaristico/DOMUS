@@ -9,7 +9,17 @@ export interface AISettings {
   hasApiKey: boolean;
   /** master toggle — user must explicitly enable AI features */
   isEnabled: boolean;
-  /** true after the system prompt has been sent once this session */
+  /**
+   * true after the system prompt has been sent once this session.
+   *
+   * NOTE — Chat history is SESSION-ONLY and STATELESS:
+   * - Conversation messages exist only in component/hook state (in-memory).
+   * - No message history is persisted to SQLite, SecureStore, or AsyncStorage.
+   * - Closing the AI chat screen discards all messages immediately.
+   * - `clearHistory()` in useAIConsultant resets the in-memory array to [].
+   * - There is no server-side history; each session starts fresh.
+   * - This means LGPD "right to erasure" for AI chat is automatically satisfied.
+   */
   systemPromptSent: boolean;
 }
 

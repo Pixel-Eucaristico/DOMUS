@@ -18,6 +18,9 @@ import { calculate503020, updateTransactionEvent, createTransactionEvent } from 
 import { getCreditUsage } from "@packages/domain/src/accounts";
 import { TransactionBottomSheet } from "@/src/components/transaction/TransactionBottomSheet";
 import { DomusLogo } from "@/src/components/shared/DomusLogo";
+import { AnimatedCard } from "@/src/components/shared/AnimatedCard";
+import { AnimatedIconButton } from "@/src/components/shared/AnimatedIconButton";
+import { soundManager } from "@/src/services/SoundManager";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -155,6 +158,7 @@ export default function HomeScreen() {
       }
       const event = updateTransactionEvent(txId, { status: "confirmed" }, deviceId ?? undefined);
       dispatchDomainEvent(event);
+      soundManager.play("success");
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     [dispatchDomainEvent, deviceId, domain.transactions, domain.accounts],
@@ -184,6 +188,7 @@ export default function HomeScreen() {
       dispatchDomainEvent(expenseEvent);
     }
 
+    soundManager.play("success");
     if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setConfirmingTx(null);
   }, [confirmingTx, transferSourceId, deviceId, dispatchDomainEvent]);
@@ -234,6 +239,7 @@ export default function HomeScreen() {
   }, [txArr, savingsGoalAccounts]);
 
   const handleAddPress = () => {
+    soundManager.play("pop");
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
@@ -289,7 +295,7 @@ export default function HomeScreen() {
       >
         <View style={s.header}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <DomusLogo size={40} theme={theme} />
+            <DomusLogo size={36} theme={theme} />
             <View>
               <Text style={[s.greeting, { color: theme.textColor }]}>DOMUS</Text>
               <Text style={[s.subtitle, { color: theme.secondaryText }]}>
@@ -299,102 +305,95 @@ export default function HomeScreen() {
             </View>
           </View>
           <View style={s.headerActions}>
-            <Pressable
-              testID="sync-button"
+            <AnimatedIconButton
+              name="access-point"
+              iconSet="MaterialCommunityIcons"
+              size={22}
+              color={theme.primaryColor}
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
               onPress={() => router.push("/sync")}
-            >
-              <MaterialCommunityIcons name="access-point" size={22} color={theme.primaryColor} />
-              {isAutoSyncEnabled && (
-                <View
-                  style={[
-                    s.syncDot,
-                    {
-                      backgroundColor:
-                        syncStatus === "connected"
-                          ? "#22C55E"
-                          : syncStatus === "syncing"
-                            ? "#F59E0B"
-                            : syncStatus === "offline"
-                              ? "#EF4444"
-                              : "#9CA3AF",
-                    },
-                  ]}
-                />
-              )}
-            </Pressable>
-            <Pressable
+            />
+            <AnimatedIconButton
+              name="maximize"
+              size={22}
+              color={theme.primaryColor}
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
               onPress={() => router.push("/import-invoice")}
-            >
-              <Feather name="maximize" size={22} color={theme.primaryColor} />
-            </Pressable>
-            <Pressable
+            />
+            <AnimatedIconButton
+              name="cpu"
+              size={22}
+              color={theme.primaryColor}
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
               onPress={() => router.push("/ai-chat")}
-            >
-              <Feather name="cpu" size={22} color={theme.primaryColor} />
-            </Pressable>
-            <Pressable
+            />
+            <AnimatedIconButton
+              name="settings"
+              size={22}
+              color={theme.primaryColor}
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
               onPress={() => router.push("/about")}
-            >
-              <Feather name="settings" size={22} color={theme.primaryColor} />
-            </Pressable>
-          </View>
-        </View>
-
-        <View style={s.statsRow}>
-          <View style={[s.statCard, { backgroundColor: theme.primaryColor }]}>
-            <Feather name="zap" size={18} color="rgba(255,255,255,0.7)" />
-            <Text style={s.statValue}>{gamification.totalXp}</Text>
-            <Text style={s.statLabel}>XP Total</Text>
-          </View>
-          <View style={[s.statCard, { backgroundColor: theme.primaryColor }]}>
-            <Feather name="bar-chart-2" size={18} color="rgba(255,255,255,0.7)" />
-            <Text style={s.statValue}>{levelInfo.level}</Text>
-            <Text style={s.statLabel}>Nivel</Text>
-          </View>
-          <View style={[s.statCard, { backgroundColor: theme.primaryColor }]}>
-            <MaterialCommunityIcons name="fire" size={20} color="rgba(255,255,255,0.7)" />
-            <Text style={s.statValue}>{gamification.currentStreak}</Text>
-            <Text style={s.statLabel}>Streak</Text>
-          </View>
-        </View>
-
-        <View style={s.xpBarContainer}>
-          <View style={s.xpBarHeader}>
-            <Text style={[s.xpBarTitle, { color: theme.textColor }]}>
-              Nível {levelInfo.level}
-            </Text>
-            <Text style={[s.xpBarInfo, { color: theme.secondaryText }]}>
-              {Math.round(levelInfo.progress * 100)}% para o próximo nível
-            </Text>
-          </View>
-          <View style={[s.xpBarBg, { backgroundColor: theme.border }]}>
-            <View
-              style={[
-                s.xpBarFill,
-                {
-                  width: `${Math.max(4, Math.round(levelInfo.progress * 100))}%` as any,
-                  backgroundColor: theme.accentColor,
-                },
-              ]}
             />
           </View>
-          <Text style={s.xpTotalMini}>{gamification.totalXp} XP acumulado</Text>
         </View>
 
-        <View style={[s.balanceCard, { backgroundColor: theme.primaryColor }]}>
-          <View style={s.balanceHeader}>
-            <View style={s.balanceLabelRow}>
-              <Feather name="dollar-sign" size={16} color="rgba(255,255,255,0.7)" />
-              <Text style={s.balanceLabel}>Saldo total</Text>
+        <AnimatedCard index={0}>
+          <View style={s.statsRow}>
+            <View style={[s.statCard, { backgroundColor: theme.primaryColor }]}>
+              <Feather name="zap" size={18} color="rgba(255,255,255,0.7)" />
+              <Text style={s.statValue}>{gamification.totalXp}</Text>
+              <Text style={s.statLabel}>XP Total</Text>
             </View>
-            <Text style={s.balanceCount}>{accountCount} contas</Text>
+            <View style={[s.statCard, { backgroundColor: theme.primaryColor }]}>
+              <Feather name="bar-chart-2" size={18} color="rgba(255,255,255,0.7)" />
+              <Text style={s.statValue}>{levelInfo.level}</Text>
+              <Text style={s.statLabel}>Nivel</Text>
+            </View>
+            <View style={[s.statCard, { backgroundColor: theme.primaryColor }]}>
+              <MaterialCommunityIcons name="fire" size={20} color="rgba(255,255,255,0.7)" />
+              <Text style={s.statValue}>{gamification.currentStreak}</Text>
+              <Text style={s.statLabel}>Streak</Text>
+            </View>
           </View>
-          <Text style={s.balanceValue}>{formatCurrency(totalBalance)}</Text>
-        </View>
+        </AnimatedCard>
+
+        <AnimatedCard index={1}>
+          <View style={s.xpBarContainer}>
+            <View style={s.xpBarHeader}>
+              <Text style={[s.xpBarTitle, { color: theme.textColor }]}>
+                Nível {levelInfo.level}
+              </Text>
+              <Text style={[s.xpBarInfo, { color: theme.secondaryText }]}>
+                {Math.round(levelInfo.progress * 100)}% para o próximo nível
+              </Text>
+            </View>
+            <View style={[s.xpBarBg, { backgroundColor: theme.border }]}>
+              <View
+                style={[
+                  s.xpBarFill,
+                  {
+                    width: `${Math.max(4, Math.round(levelInfo.progress * 100))}%` as any,
+                    backgroundColor: theme.accentColor,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={s.xpTotalMini}>{gamification.totalXp} XP acumulado</Text>
+          </View>
+        </AnimatedCard>
+
+        <AnimatedCard index={2}>
+          <View style={[s.balanceCard, { backgroundColor: theme.primaryColor }]}>
+            <View style={s.balanceHeader}>
+              <View style={s.balanceLabelRow}>
+                <Feather name="dollar-sign" size={16} color="rgba(255,255,255,0.7)" />
+                <Text style={s.balanceLabel}>Saldo total</Text>
+              </View>
+              <Text style={s.balanceCount}>{accountCount} contas</Text>
+            </View>
+            <Text style={s.balanceValue}>{formatCurrency(totalBalance)}</Text>
+          </View>
+        </AnimatedCard>
 
         {/* ── CONTAS ───────────────────────────────────────────────────────── */}
         {accountsSorted.length > 0 && (
@@ -540,71 +539,73 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
-          <View style={s.monthFilterContainer}>
-            <Text style={[s.cardTitle, { color: theme.textColor }]}>
-              Orcamento 50/30/20
-            </Text>
-            <View style={s.monthFilter}>
-              <Pressable onPress={handlePreviousMonth} style={s.monthArrow}>
-                <Feather name="chevron-left" size={20} color={theme.textColor} />
-              </Pressable>
-              <Text style={[s.monthLabel, { color: theme.textColor }]}>
-                {new Date(selectedYear, selectedMonth).toLocaleDateString("pt-BR", {
-                  month: "short",
-                  year: "numeric"
-                })}
+        <AnimatedCard index={3}>
+          <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
+            <View style={s.monthFilterContainer}>
+              <Text style={[s.cardTitle, { color: theme.textColor }]}>
+                Orcamento 50/30/20
               </Text>
-              <Pressable onPress={handleNextMonth} style={s.monthArrow}>
-                <Feather name="chevron-right" size={20} color={theme.textColor} />
-              </Pressable>
+              <View style={s.monthFilter}>
+                <Pressable onPress={handlePreviousMonth} style={s.monthArrow}>
+                  <Feather name="chevron-left" size={20} color={theme.textColor} />
+                </Pressable>
+                <Text style={[s.monthLabel, { color: theme.textColor }]}>
+                  {new Date(selectedYear, selectedMonth).toLocaleDateString("pt-BR", {
+                    month: "short",
+                    year: "numeric"
+                  })}
+                </Text>
+                <Pressable onPress={handleNextMonth} style={s.monthArrow}>
+                  <Feather name="chevron-right" size={20} color={theme.textColor} />
+                </Pressable>
+              </View>
             </View>
+            {txCount > 0 ? (
+              <View style={s.budgetContent}>
+                <BudgetBar
+                  label="Necessidades"
+                  percent={budget.needsPercent}
+                  ideal={50}
+                  idealAmount={incomeBase * 0.5}
+                  color={theme.primaryColor}
+                  amount={budget.needs}
+                  group="needs"
+                  theme={theme}
+                  onPress={handleBudgetPress}
+                />
+                <BudgetBar
+                  label="Desejos"
+                  percent={budget.wantsPercent}
+                  ideal={30}
+                  idealAmount={incomeBase * 0.3}
+                  color={theme.accentColor}
+                  amount={budget.wants}
+                  group="wants"
+                  theme={theme}
+                  onPress={handleBudgetPress}
+                />
+                <BudgetBar
+                  label="Poupanca"
+                  percent={budget.savingsPercent}
+                  ideal={20}
+                  idealAmount={incomeBase * 0.2}
+                  color={theme.success}
+                  amount={budget.savings}
+                  group="savings"
+                  theme={theme}
+                  onPress={handleBudgetPress}
+                />
+              </View>
+            ) : (
+              <View style={s.emptyState}>
+                <Feather name="pie-chart" size={28} color={theme.secondaryText} />
+                <Text style={[s.emptyText, { color: theme.secondaryText }]}>
+                  Registre transacoes para ver seu orcamento
+                </Text>
+              </View>
+            )}
           </View>
-          {txCount > 0 ? (
-            <View style={s.budgetContent}>
-              <BudgetBar
-                label="Necessidades"
-                percent={budget.needsPercent}
-                ideal={50}
-                idealAmount={incomeBase * 0.5}
-                color={theme.primaryColor}
-                amount={budget.needs}
-                group="needs"
-                theme={theme}
-                onPress={handleBudgetPress}
-              />
-              <BudgetBar
-                label="Desejos"
-                percent={budget.wantsPercent}
-                ideal={30}
-                idealAmount={incomeBase * 0.3}
-                color={theme.accentColor}
-                amount={budget.wants}
-                group="wants"
-                theme={theme}
-                onPress={handleBudgetPress}
-              />
-              <BudgetBar
-                label="Poupanca"
-                percent={budget.savingsPercent}
-                ideal={20}
-                idealAmount={incomeBase * 0.2}
-                color={theme.success}
-                amount={budget.savings}
-                group="savings"
-                theme={theme}
-                onPress={handleBudgetPress}
-              />
-            </View>
-          ) : (
-            <View style={s.emptyState}>
-              <Feather name="pie-chart" size={28} color={theme.secondaryText} />
-              <Text style={[s.emptyText, { color: theme.secondaryText }]}>
-                Registre transacoes para ver seu orcamento
-              </Text>
-            </View>
-          )}
-        </View>
+        </AnimatedCard>
 
         {/* ── TEMPORADA ────────────────────────────────────────────────────── */}
         {season.currentSeason?.active && (
@@ -971,8 +972,8 @@ const s = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
   },
-  greeting: { fontFamily: "DMSans_700Bold", fontSize: 28, letterSpacing: 2 },
-  subtitle: { fontFamily: "DMSans_400Regular", fontSize: 14, marginTop: 2 },
+  greeting: { fontFamily: "DMSans_700Bold", fontSize: 22, letterSpacing: 1 },
+  subtitle: { fontFamily: "DMSans_400Regular", fontSize: 12, marginTop: 0 },
   settingsBtn: {
     width: 44,
     height: 44,

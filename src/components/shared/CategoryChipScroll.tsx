@@ -39,6 +39,9 @@ export function CategoryChipScroll({
                 },
               ]}
               onPress={() => onSelect(cat.id)}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: selected }}
+              accessibilityLabel={`${cat.name}${selected ? ", selecionada" : ""}`}
             >
               <Text
                 style={[
