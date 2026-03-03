@@ -267,6 +267,13 @@ export default function BackupScreen() {
             editable={!isLoading(exportStatus)}
           />
 
+          <View style={styles.exportHintRow}>
+            <Feather name="info" size={13} color={theme.secondaryText} />
+            <Text style={[styles.exportHint, { color: theme.secondaryText }]}>
+              Abre o menu de compartilhamento do sistema. Escolha Google Drive, e-mail, WhatsApp ou salve localmente.
+            </Text>
+          </View>
+
           <StatusRow status={exportStatus} theme={theme} />
 
           <TouchableOpacity
@@ -648,6 +655,18 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_400Regular",
     fontSize: 10,
     textAlign: "center",
+  },
+  exportHintRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    marginBottom: 4,
+  },
+  exportHint: {
+    flex: 1,
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    lineHeight: 17,
   },
   autoHint: {
     fontFamily: "DMSans_400Regular",
