@@ -13,6 +13,7 @@ import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import { URGENCY_ORDER } from "@packages/wishlist";
 import type { WishlistItem, UrgencyLevel } from "@packages/wishlist";
+import type { AccountPayload } from "@packages/events";
 import { WishlistItemRow } from "./WishlistItemRow";
 
 const URGENCY_LABELS: Record<UrgencyLevel, string> = {
@@ -53,6 +54,7 @@ interface LayoutEntry {
 interface Props {
   items: WishlistItem[];
   theme: ThemeColors;
+  accounts?: Record<string, AccountPayload>;
   refreshingItemId?: string | null;
   onVisibleItemIds?: (ids: string[]) => void;
   onReorder: (
@@ -78,6 +80,7 @@ interface Props {
 export function DraggableWishlistList({
   items,
   theme,
+  accounts,
   refreshingItemId,
   onVisibleItemIds,
   onReorder,
@@ -349,6 +352,11 @@ export function DraggableWishlistList({
                         theme={theme}
                         isDragging={isDragging}
                         isRefreshing={refreshingItemId === item.id}
+                        linkedAccountBalance={
+                          item.savingsGoal?.enabled && item.savingsGoal.linkedAccountId
+                            ? accounts?.[item.savingsGoal.linkedAccountId]?.balance
+                            : undefined
+                        }
                         dragHandleProps={panResponder.panHandlers}
                         onPress={onItemPress}
                         onEdit={onItemEdit}

@@ -153,6 +153,19 @@ export function wishlistReducer(
       return { ...state, items: remainingItems };
     }
 
+    case WISHLIST_EVENTS.WISHLIST_SAVINGS_GOAL_SET: {
+      const { itemId, savingsGoal } = event.payload;
+      const existing = state.items[itemId];
+      if (!existing) return state;
+      return {
+        ...state,
+        items: {
+          ...state.items,
+          [itemId]: { ...existing, savingsGoal },
+        },
+      };
+    }
+
     default:
       return state;
   }

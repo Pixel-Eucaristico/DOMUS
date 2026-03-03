@@ -11,12 +11,14 @@ import {
   removeWishlistItemEvent,
   updateWishlistPriceEvent,
   convertWishlistItemToExpenseEvent,
+  setSavingsGoalEvent,
 } from "@packages/wishlist";
 import type {
   WishlistItem,
   WishlistList,
   UrgencyLevel,
   AffordabilityInput,
+  SavingsGoalConfig,
 } from "@packages/wishlist";
 
 export interface UseWishlistResult {
@@ -51,6 +53,7 @@ export interface UseWishlistResult {
     newPrice: number,
     prevPrice?: number,
   ) => void;
+  setSavingsGoal: (itemId: string, listId: string, config: SavingsGoalConfig) => void;
   convertToExpense: (item: WishlistItem) => void;
   computeAffordability: (
     listId: string,
@@ -171,6 +174,13 @@ export function useWishlist(): UseWishlistResult {
     [dispatch, did],
   );
 
+  const setSavingsGoal = useCallback(
+    (itemId: string, listId: string, config: SavingsGoalConfig) => {
+      dispatch(setSavingsGoalEvent(itemId, listId, config, did));
+    },
+    [dispatch, did],
+  );
+
   const convertToExpense = useCallback(
     (item: WishlistItem) => {
       dispatch(
@@ -210,6 +220,7 @@ export function useWishlist(): UseWishlistResult {
     reorderItem,
     removeItem,
     updatePrice,
+    setSavingsGoal,
     convertToExpense,
     computeAffordability,
   };

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Linking,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
@@ -30,6 +31,8 @@ interface Props {
   theme: ThemeColors;
   isDragging?: boolean;
   isRefreshing?: boolean;
+  /** Saldo atual da conta vinculada ao objetivo de poupança */
+  linkedAccountBalance?: number;
   dragHandleProps?: object;
   onPress?: (item: WishlistItem) => void;
   onEdit?: (item: WishlistItem) => void;
@@ -43,6 +46,7 @@ export function WishlistItemRow({
   theme,
   isDragging = false,
   isRefreshing = false,
+  linkedAccountBalance,
   dragHandleProps,
   onPress,
   onEdit,
@@ -73,10 +77,16 @@ export function WishlistItemRow({
         <Feather name="menu" size={18} color={theme.secondaryText} />
       </View>
 
-      {/* Urgency indicator */}
-      <View
-        style={[styles.urgencyBar, { backgroundColor: urgencyColor }]}
-      />
+      {/* Product thumbnail or urgency icon */}
+      {item.imageUrl ? (
+        <Image
+          source={{ uri: item.imageUrl }}
+          style={styles.thumbnail}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={[styles.urgencyBar, { backgroundColor: urgencyColor }]} />
+      )}
 
       {/* Content — toque abre o link afiliado (ou original) se existir */}
       <TouchableOpacity
@@ -158,6 +168,34 @@ export function WishlistItemRow({
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Savings goal progress bar */}
+        {item.savingsGoal?.enabled && item.price !== undefined && linkedAccountBalance !== undefined && (
+          (() => {
+            const balance = linkedAccountBalance;
+            const price = item.price;
+            const progress = Math.min(balance / price, 1);
+            const reached = balance >= price;
+            const remaining = Math.max(price - balance, 0);
+            return (
+              <View style={styles.savingsContainer}>
+                <View style={[styles.savingsTrack, { backgroundColor: theme.cardBackground }]}>
+                  <View
+                    style={[
+                      styles.savingsFill,
+                      { width: `${Math.round(progress * 100)}%` as any, backgroundColor: reached ? "#16A34A" : "#3B82F6" },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.savingsText, { color: reached ? "#16A34A" : theme.secondaryText }]}>
+                  {reached
+                    ? `Objetivo atingido! (${balance.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})`
+                    : `R$ ${balance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} de R$ ${price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} · Falta R$ ${remaining.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                </Text>
+              </View>
+            );
+          })()
+        )}
       </TouchableOpacity>
 
       {/* Actions */}
@@ -217,6 +255,14 @@ const styles = StyleSheet.create({
   urgencyBar: {
     width: 3,
     alignSelf: "stretch",
+  },
+  thumbnail: {
+    width: 52,
+    height: 52,
+    borderRadius: 6,
+    marginVertical: 8,
+    marginLeft: 2,
+    backgroundColor: "#F3F4F6",
   },
   content: {
     flex: 1,
@@ -291,6 +337,23 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: "DMSans_600SemiBold",
     color: "#22C55E",
+  },
+  savingsContainer: {
+    marginTop: 6,
+    gap: 3,
+  },
+  savingsTrack: {
+    height: 5,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  savingsFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  savingsText: {
+    fontSize: 10,
+    fontFamily: "DMSans_400Regular",
   },
   actions: {
     flexDirection: "column",

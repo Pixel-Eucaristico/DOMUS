@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "OrcaFacil",
+    "name": "DOMUS",
     "slug": "orcafacil",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -24,15 +24,18 @@
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
       ]
     },
     "ios": {
       "bundleIdentifier": "com.orcafacil",
       "infoPlist": {
-        "NSCameraUsageDescription": "OrcaFacil precisa acessar a câmera para escanear QR Codes e tirar fotos de notas fiscais.",
-        "NSPhotoLibraryUsageDescription": "OrcaFacil precisa acessar suas fotos para importar imagens de notas fiscais.",
-        "NSMicrophoneUsageDescription": "OrcaFacil não usa o microfone."
+        "NSCameraUsageDescription": "DOMUS precisa acessar a câmera para escanear QR Codes e tirar fotos de notas fiscais.",
+        "NSPhotoLibraryUsageDescription": "DOMUS precisa acessar suas fotos para importar imagens de notas fiscais.",
+        "NSMicrophoneUsageDescription": "DOMUS não usa o microfone.",
+        "NSFaceIDUsageDescription": "DOMUS usa Face ID para proteger o acesso aos seus dados financeiros."
       }
     },
     "web": {
@@ -47,36 +50,40 @@
       ],
       "expo-font",
       "expo-web-browser",
+      "expo-local-authentication",
       [
         "expo-camera",
         {
-          "cameraPermission": "OrcaFacil precisa acessar a câmera para escanear QR Codes e tirar fotos de notas fiscais.",
+          "cameraPermission": "DOMUS precisa acessar a câmera para escanear QR Codes e tirar fotos de notas fiscais.",
           "microphonePermission": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "OrcaFacil precisa acessar suas fotos para importar imagens de notas fiscais."
+          "photosPermission": "DOMUS precisa acessar suas fotos para importar imagens de notas fiscais."
         }
       ],
       [
         "react-native-vision-camera",
         {
-          "cameraPermissionText": "OrcaFacil precisa acessar a câmera para OCR de notas fiscais.",
+          "cameraPermissionText": "DOMUS precisa acessar a câmera para OCR de notas fiscais.",
           "enableCodeScanner": false
         }
       ],
       [
         "expo-share-intent",
         {
-          "androidIntentFilters": ["text/*"],
+          "androidIntentFilters": [
+            "text/*"
+          ],
           "iosActivationRules": {
             "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
             "NSExtensionActivationSupportsWebPageWithMaxCount": 1
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

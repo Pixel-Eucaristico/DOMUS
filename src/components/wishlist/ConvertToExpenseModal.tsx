@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,27 +6,53 @@ import {
   Modal,
   TouchableOpacity,
   TouchableWithoutFeedback,
+  ScrollView,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import type { WishlistItem } from "@packages/wishlist";
+import type { AccountPayload } from "@packages/events";
 
 interface Props {
   visible: boolean;
   item: WishlistItem | null;
+  accounts: AccountPayload[];
   theme: ThemeColors;
-  onConfirm: (item: WishlistItem) => void;
+  onConfirm: (item: WishlistItem, accountId: string) => void;
   onCancel: () => void;
 }
+
+const ACCOUNT_TYPE_ICONS: Record<string, string> = {
+  checking: "credit-card",
+  savings: "dollar-sign",
+  wallet: "pocket",
+};
 
 export function ConvertToExpenseModal({
   visible,
   item,
+  accounts,
   theme,
   onConfirm,
   onCancel,
 }: Props) {
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+
+  // Pre-select linked account or first available account
+  useEffect(() => {
+    if (!visible || !item) return;
+    const linkedId = item.savingsGoal?.linkedAccountId;
+    const spendableAccounts = accounts.filter((a) => a.type !== "credit_card");
+    if (linkedId && spendableAccounts.find((a) => a.id === linkedId)) {
+      setSelectedAccountId(linkedId);
+    } else if (spendableAccounts.length > 0) {
+      setSelectedAccountId(spendableAccounts[0].id);
+    }
+  }, [visible, item, accounts]);
+
   if (!item) return null;
+
+  const spendableAccounts = accounts.filter((a) => a.type !== "credit_card");
 
   return (
     <Modal
@@ -46,11 +72,10 @@ export function ConvertToExpenseModal({
               </View>
 
               <Text style={[styles.title, { color: theme.textColor }]}>
-                Converter em Despesa?
+                Registrar Compra
               </Text>
               <Text style={[styles.subtitle, { color: theme.secondaryText }]}>
-                O item será removido da lista de desejos e você poderá registrá-lo
-                como despesa.
+                O item será removido da lista de desejos e a despesa registrada nas suas finanças.
               </Text>
 
               <View
@@ -79,6 +104,62 @@ export function ConvertToExpenseModal({
                 )}
               </View>
 
+              {/* Account picker */}
+              {spendableAccounts.length > 0 && (
+                <View style={styles.accountSection}>
+                  <Text style={[styles.accountLabel, { color: theme.secondaryText }]}>
+                    Descontar de qual conta?
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.accountRow}
+                  >
+                    {spendableAccounts.map((acc) => {
+                      const selected = selectedAccountId === acc.id;
+                      return (
+                        <TouchableOpacity
+                          key={acc.id}
+                          style={[
+                            styles.accountChip,
+                            {
+                              backgroundColor: selected
+                                ? (acc.color ?? theme.primaryColor) + "25"
+                                : theme.cardBackground,
+                              borderColor: selected
+                                ? (acc.color ?? theme.primaryColor)
+                                : theme.cardBackground,
+                            },
+                          ]}
+                          onPress={() => setSelectedAccountId(acc.id)}
+                          activeOpacity={0.7}
+                        >
+                          <Feather
+                            name={(ACCOUNT_TYPE_ICONS[acc.type] ?? "credit-card") as any}
+                            size={12}
+                            color={selected ? (acc.color ?? theme.primaryColor) : theme.secondaryText}
+                          />
+                          <Text
+                            style={[
+                              styles.accountChipText,
+                              {
+                                color: selected
+                                  ? (acc.color ?? theme.primaryColor)
+                                  : theme.textColor,
+                                fontFamily: selected ? "DMSans_700Bold" : "DMSans_400Regular",
+                              },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {acc.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+
               <View style={styles.actions}>
                 <TouchableOpacity
                   style={[styles.btn, { borderColor: theme.border ?? "#E5E7EB" }]}
@@ -91,7 +172,7 @@ export function ConvertToExpenseModal({
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.btn, styles.btnPrimary, { backgroundColor: theme.primaryColor }]}
-                  onPress={() => onConfirm(item)}
+                  onPress={() => onConfirm(item, selectedAccountId)}
                   activeOpacity={0.7}
                 >
                   <Feather name="check" size={16} color="#fff" />
@@ -158,6 +239,33 @@ const styles = StyleSheet.create({
   itemCat: {
     fontSize: 11,
     fontFamily: "DMSans_400Regular",
+  },
+  accountSection: {
+    width: "100%",
+    gap: 6,
+  },
+  accountLabel: {
+    fontSize: 11,
+    fontFamily: "DMSans_500Medium",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  accountRow: {
+    gap: 6,
+    paddingBottom: 2,
+  },
+  accountChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  accountChipText: {
+    fontSize: 12,
+    maxWidth: 100,
   },
   actions: {
     flexDirection: "row",

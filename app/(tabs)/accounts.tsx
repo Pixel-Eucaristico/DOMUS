@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
   View,
@@ -6,6 +6,7 @@ import {
   TextInput,
   Pressable,
   ScrollView,
+  Switch,
   Platform,
   Alert,
   Modal,
@@ -17,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { createAccountEvent, updateAccountEvent } from "@packages/domain/src/accounts";
 import type { AccountPayload, AccountType } from "@packages/events/src/types";
+import { URGENCY_ORDER } from "@packages/wishlist";
 
 const ACCOUNT_TYPES: { key: AccountType; label: string; icon: string; color: string }[] = [
   { key: "checking",    label: "Corrente",  icon: "credit-card",  color: "#3B82F6" },
@@ -47,7 +49,7 @@ function accountTypeColor(t: AccountType): string {
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { domain, theme, dispatchDomainEvent } = useAppState();
+  const { domain, theme, wishlist, dispatchDomainEvent } = useAppState();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
@@ -59,8 +61,52 @@ export default function AccountsScreen() {
   const [creditLimit, setCreditLimit] = useState("");
   const [closingDay, setClosingDay] = useState("");
   const [dueDay, setDueDay] = useState("");
+  const [savingsGoalEnabled, setSavingsGoalEnabled] = useState(false);
+  const [savingsContribution, setSavingsContribution] = useState("");
+  const [savingsRecurrence, setSavingsRecurrence] = useState<"monthly" | "biweekly" | "weekly">("monthly");
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+
+  const toggleAccountExpand = (id: string) => {
+    setExpandedAccounts((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
 
   const accounts = Object.values(domain.accounts);
+
+  // Mapa: accountId → itens vinculados ordenados por urgência (para todos os cards)
+  const linkedItemsByAccount = useMemo(() => {
+    const allItems = Object.values(wishlist?.items ?? {});
+    const map = new Map<string, typeof allItems>();
+    for (const item of allItems) {
+      if (!item.savingsGoal?.enabled || !item.savingsGoal.linkedAccountId) continue;
+      const id = item.savingsGoal.linkedAccountId;
+      if (!map.has(id)) map.set(id, []);
+      map.get(id)!.push(item);
+    }
+    // Ordenar cada lista por urgência
+    map.forEach((items) =>
+      items.sort(
+        (a, b) =>
+          URGENCY_ORDER.indexOf(a.urgencyLevel) -
+          URGENCY_ORDER.indexOf(b.urgencyLevel),
+      ),
+    );
+    return map;
+  }, [wishlist]);
+
+  // Itens vinculados à conta sendo editada no modal
+  const linkedWishlistItems = useMemo(() => {
+    if (!editingAccountId || !savingsGoalEnabled) return [];
+    return linkedItemsByAccount.get(editingAccountId) ?? [];
+  }, [editingAccountId, savingsGoalEnabled, linkedItemsByAccount]);
+
+  const editingAccount = editingAccountId
+    ? domain.accounts[editingAccountId]
+    : null;
 
   const resetForm = () => {
     setName("");
@@ -69,6 +115,9 @@ export default function AccountsScreen() {
     setClosingDay("");
     setDueDay("");
     setAccType("checking");
+    setSavingsGoalEnabled(false);
+    setSavingsContribution("");
+    setSavingsRecurrence("monthly");
     setEditingAccountId(null);
     setModalVisible(false);
   };
@@ -85,6 +134,9 @@ export default function AccountsScreen() {
     setCreditLimit(acc.creditLimit?.toString() ?? "");
     setClosingDay(acc.closingDay?.toString() ?? "");
     setDueDay(acc.dueDay?.toString() ?? "");
+    setSavingsGoalEnabled(acc.savingsGoalEnabled ?? false);
+    setSavingsContribution(acc.savingsContributionAmount?.toString() ?? "");
+    setSavingsRecurrence(acc.contributionRecurrence ?? "monthly");
     setEditingAccountId(acc.id);
     setModalVisible(true);
   };
@@ -99,6 +151,10 @@ export default function AccountsScreen() {
     const limitNum = parseFloat(creditLimit.replace(",", ".")) || undefined;
     const closingDayNum = parseInt(closingDay, 10) || undefined;
     const dueDayNum = parseInt(dueDay, 10) || undefined;
+    const contributionNum =
+      accType === "savings" && savingsGoalEnabled
+        ? parseFloat(savingsContribution.replace(",", ".")) || undefined
+        : undefined;
 
     if (editingAccountId) {
       const event = updateAccountEvent(editingAccountId, {
@@ -108,6 +164,9 @@ export default function AccountsScreen() {
         creditLimit: accType === "credit_card" ? limitNum : undefined,
         closingDay: accType === "credit_card" ? closingDayNum : undefined,
         dueDay: accType === "credit_card" ? dueDayNum : undefined,
+        savingsGoalEnabled: accType === "savings" ? savingsGoalEnabled : undefined,
+        savingsContributionAmount: contributionNum,
+        contributionRecurrence: accType === "savings" && savingsGoalEnabled ? savingsRecurrence : undefined,
       });
       dispatchDomainEvent(event);
     } else {
@@ -118,6 +177,9 @@ export default function AccountsScreen() {
         creditLimit: accType === "credit_card" ? limitNum : undefined,
         closingDay: accType === "credit_card" ? closingDayNum : undefined,
         dueDay: accType === "credit_card" ? dueDayNum : undefined,
+        savingsGoalEnabled: accType === "savings" ? savingsGoalEnabled : undefined,
+        savingsContributionAmount: contributionNum,
+        contributionRecurrence: accType === "savings" && savingsGoalEnabled ? savingsRecurrence : undefined,
       });
       dispatchDomainEvent(event);
     }
@@ -165,6 +227,11 @@ export default function AccountsScreen() {
           <View style={s.accountList}>
             {accounts.map((acc) => {
               const typeColor = accountTypeColor(acc.type);
+              const cardLinkedItems =
+                acc.type === "savings"
+                  ? (linkedItemsByAccount.get(acc.id) ?? [])
+                  : [];
+              const isExpanded = expandedAccounts.has(acc.id);
               return (
                 <Pressable
                   key={acc.id}
@@ -179,7 +246,15 @@ export default function AccountsScreen() {
                       <Feather name={accountTypeIcon(acc.type) as any} size={20} color={typeColor} />
                     </View>
                     <View style={s.accountInfo}>
-                      <Text style={[s.accountName, { color: theme.textColor }]}>{acc.name}</Text>
+                      <View style={s.accountNameRow}>
+                        <Text style={[s.accountName, { color: theme.textColor }]}>{acc.name}</Text>
+                        {cardLinkedItems.length > 0 && (
+                          <View style={s.goalBadge}>
+                            <Feather name="target" size={10} color="#10B981" />
+                            <Text style={s.goalBadgeText}>{cardLinkedItems.length}</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={[s.accountType, { color: typeColor }]}>
                         {accountTypeLabel(acc.type)}
                         {acc.type === "credit_card" && acc.closingDay
@@ -197,6 +272,7 @@ export default function AccountsScreen() {
                       <Feather name="edit-2" size={16} color={theme.secondaryText} />
                     </Pressable>
                   </View>
+
                   <Text
                     style={[
                       s.accountBalance,
@@ -214,6 +290,92 @@ export default function AccountsScreen() {
                       ? `Limite: ${formatCurrency(acc.creditLimit ?? 0)}`
                       : formatCurrency(acc.balance)}
                   </Text>
+
+                  {/* Sanfona de objetivos — toggle + itens expandidos clicáveis */}
+                  {cardLinkedItems.length > 0 && (
+                    <>
+                      <Pressable
+                        style={[s.accordionToggle, { borderTopColor: theme.border }]}
+                        onPress={(e) => { e.stopPropagation?.(); toggleAccountExpand(acc.id); }}
+                        hitSlop={8}
+                      >
+                        <Feather name="target" size={12} color="#10B981" />
+                        <Text style={[s.accordionToggleText, { color: theme.secondaryText }]}>
+                          {cardLinkedItems.length}{" "}
+                          {cardLinkedItems.length === 1 ? "objetivo" : "objetivos"}
+                          {(() => {
+                            const n = cardLinkedItems.filter(
+                              (i) => (i.price ?? 0) > 0 && acc.balance >= (i.price ?? 0),
+                            ).length;
+                            return n > 0 ? `  •  ${n} atingido${n > 1 ? "s" : ""}` : "";
+                          })()}
+                        </Text>
+                        <Feather
+                          name={isExpanded ? "chevron-up" : "chevron-down"}
+                          size={14}
+                          color={theme.secondaryText}
+                        />
+                      </Pressable>
+
+                      {isExpanded && (
+                        <View style={s.cardGoalsSection}>
+                          {cardLinkedItems.map((item) => {
+                            const price = item.price ?? 0;
+                            const progress = price > 0 ? Math.min(acc.balance / price, 1) : 0;
+                            const reached = price > 0 && acc.balance >= price;
+                            return (
+                              <Pressable
+                                key={item.id}
+                                style={({ pressed }) => [s.cardGoalRow, pressed && { opacity: 0.65 }]}
+                                onPress={(e) => {
+                                  e.stopPropagation?.();
+                                  router.push(`/wishlist/${item.listId}` as any);
+                                }}
+                              >
+                                <View style={s.cardGoalHeader}>
+                                  <Text
+                                    style={[s.cardGoalName, { color: theme.textColor }]}
+                                    numberOfLines={1}
+                                  >
+                                    {item.name}
+                                  </Text>
+                                  {reached ? (
+                                    <View style={s.cardReachedBadge}>
+                                      <Feather name="check-circle" size={12} color="#16A34A" />
+                                      <Text style={s.cardReachedText}>Atingido</Text>
+                                    </View>
+                                  ) : (
+                                    <Text style={[s.cardGoalPercent, { color: theme.secondaryText }]}>
+                                      {Math.round(progress * 100)}%
+                                    </Text>
+                                  )}
+                                  <Feather name="chevron-right" size={11} color={theme.secondaryText} />
+                                </View>
+                                <View style={[s.cardProgressTrack, { backgroundColor: theme.background }]}>
+                                  <View
+                                    style={[
+                                      s.cardProgressFill,
+                                      {
+                                        width: `${Math.round(progress * 100)}%` as any,
+                                        backgroundColor: reached ? "#16A34A" : "#10B981",
+                                      },
+                                    ]}
+                                  />
+                                </View>
+                                {price > 0 && (
+                                  <Text style={[s.cardGoalDetail, { color: theme.secondaryText }]}>
+                                    {reached
+                                      ? formatCurrency(acc.balance)
+                                      : `${formatCurrency(acc.balance)} de ${formatCurrency(price)}`}
+                                  </Text>
+                                )}
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </>
+                  )}
                 </Pressable>
               );
             })}
@@ -224,13 +386,11 @@ export default function AccountsScreen() {
       <Modal
         visible={modalVisible}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={resetForm}
       >
         <View style={s.modalOverlay}>
-          <View
-            style={[s.modalContent, { backgroundColor: theme.cardBackground }]}
-          >
+          <View style={[s.modalContent, { backgroundColor: theme.cardBackground }]}>
             <View style={s.modalHeader}>
               <Text style={[s.modalTitle, { color: theme.textColor }]}>
                 {editingAccountId ? "Editar conta" : "Nova conta"}
@@ -240,123 +400,263 @@ export default function AccountsScreen() {
               </Pressable>
             </View>
 
-            <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
-              Nome
-            </Text>
-            <TextInput
-              style={[
-                s.input,
-                { color: theme.textColor, borderColor: theme.border },
-              ]}
-              value={name}
-              onChangeText={setName}
-              placeholder="Ex: Nubank"
-              placeholderTextColor={theme.secondaryText}
-            />
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
+                Nome
+              </Text>
+              <TextInput
+                style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                value={name}
+                onChangeText={setName}
+                placeholder="Ex: Nubank"
+                placeholderTextColor={theme.secondaryText}
+              />
 
-            <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
-              Tipo
-            </Text>
-            <View style={s.typePicker}>
-              {ACCOUNT_TYPES.map((t) => (
-                <Pressable
-                  key={t.key}
-                  style={[
-                    s.typeChip,
-                    {
-                      backgroundColor:
-                        accType === t.key
-                          ? theme.primaryColor
-                          : theme.background,
-                      borderColor:
-                        accType === t.key ? theme.primaryColor : theme.border,
-                    },
-                  ]}
-                  onPress={() => setAccType(t.key)}
-                >
-                  <Text
-                    style={[
-                      s.typeChipText,
-                      { color: accType === t.key ? "#FFF" : theme.textColor },
-                    ]}
-                  >
-                    {t.label}
+              <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
+                Tipo
+              </Text>
+              <View style={s.typePicker}>
+                {ACCOUNT_TYPES.map((t) => {
+                  const selected = accType === t.key;
+                  return (
+                    <Pressable
+                      key={t.key}
+                      style={[
+                        s.typeChip,
+                        selected
+                          ? { backgroundColor: t.color, borderColor: t.color }
+                          : { backgroundColor: t.color + "18", borderColor: t.color + "60" },
+                      ]}
+                      onPress={() => setAccType(t.key)}
+                    >
+                      <Feather
+                        name={t.icon as any}
+                        size={13}
+                        color={selected ? "#FFF" : t.color}
+                      />
+                      <Text
+                        style={[
+                          s.typeChipText,
+                          { color: selected ? "#FFF" : t.color },
+                        ]}
+                      >
+                        {t.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {accType !== "credit_card" ? (
+                <>
+                  <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
+                    Saldo inicial (R$)
                   </Text>
-                </Pressable>
-              ))}
-            </View>
+                  <TextInput
+                    style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                    value={balance}
+                    onChangeText={setBalance}
+                    placeholder="0,00"
+                    placeholderTextColor={theme.secondaryText}
+                    keyboardType="decimal-pad"
+                  />
+                </>
+              ) : (
+                <>
+                  <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
+                    Limite do cartao (R$)
+                  </Text>
+                  <TextInput
+                    style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                    value={creditLimit}
+                    onChangeText={setCreditLimit}
+                    placeholder="5000,00"
+                    placeholderTextColor={theme.secondaryText}
+                    keyboardType="decimal-pad"
+                  />
+                  <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
+                    Dia de fechamento (ex: 10)
+                  </Text>
+                  <TextInput
+                    style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                    value={closingDay}
+                    onChangeText={setClosingDay}
+                    placeholder="10"
+                    placeholderTextColor={theme.secondaryText}
+                    keyboardType="number-pad"
+                  />
+                  <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
+                    Dia de vencimento (ex: 15)
+                  </Text>
+                  <TextInput
+                    style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                    value={dueDay}
+                    onChangeText={setDueDay}
+                    placeholder="15"
+                    placeholderTextColor={theme.secondaryText}
+                    keyboardType="number-pad"
+                  />
+                </>
+              )}
 
-            {accType !== "credit_card" ? (
-              <>
-                <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
-                  Saldo inicial (R$)
-                </Text>
-                <TextInput
-                  style={[
-                    s.input,
-                    { color: theme.textColor, borderColor: theme.border },
-                  ]}
-                  value={balance}
-                  onChangeText={setBalance}
-                  placeholder="0,00"
-                  placeholderTextColor={theme.secondaryText}
-                  keyboardType="decimal-pad"
-                />
-              </>
-            ) : (
-              <>
-                <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
-                  Limite do cartao (R$)
-                </Text>
-                <TextInput
-                  style={[
-                    s.input,
-                    { color: theme.textColor, borderColor: theme.border },
-                  ]}
-                  value={creditLimit}
-                  onChangeText={setCreditLimit}
-                  placeholder="5000,00"
-                  placeholderTextColor={theme.secondaryText}
-                  keyboardType="decimal-pad"
-                />
-                <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
-                  Dia de fechamento (ex: 10)
-                </Text>
-                <TextInput
-                  style={[
-                    s.input,
-                    { color: theme.textColor, borderColor: theme.border },
-                  ]}
-                  value={closingDay}
-                  onChangeText={setClosingDay}
-                  placeholder="10"
-                  placeholderTextColor={theme.secondaryText}
-                  keyboardType="number-pad"
-                />
-                <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
-                  Dia de vencimento (ex: 15)
-                </Text>
-                <TextInput
-                  style={[
-                    s.input,
-                    { color: theme.textColor, borderColor: theme.border },
-                  ]}
-                  value={dueDay}
-                  onChangeText={setDueDay}
-                  placeholder="15"
-                  placeholderTextColor={theme.secondaryText}
-                  keyboardType="number-pad"
-                />
-              </>
-            )}
+              {/* Savings goal section — only for savings accounts */}
+              {accType === "savings" && (
+                <View style={[s.goalSection, { borderColor: theme.border }]}>
+                  <View style={s.goalToggleRow}>
+                    <View style={s.goalToggleLeft}>
+                      <Feather name="target" size={15} color="#10B981" />
+                      <Text style={[s.goalToggleLabel, { color: theme.textColor }]}>
+                        Objetivo de poupança
+                      </Text>
+                    </View>
+                    <Switch
+                      value={savingsGoalEnabled}
+                      onValueChange={setSavingsGoalEnabled}
+                      trackColor={{ false: theme.border, true: "#10B981" }}
+                      thumbColor="#fff"
+                    />
+                  </View>
 
-            <Pressable
-              style={[s.createBtn, { backgroundColor: theme.primaryColor }]}
-              onPress={handleSaveAccount}
-            >
-              <Feather name="check" size={18} color="#FFF" />
-              <Text style={s.createBtnText}>{editingAccountId ? "Salvar" : "Criar conta"}</Text>
-            </Pressable>
+                  {savingsGoalEnabled && (
+                    <>
+                      <Text style={[s.fieldLabel, { color: theme.secondaryText, marginTop: 10 }]}>
+                        Periodicidade do aporte
+                      </Text>
+                      <View style={s.recurrenceRow}>
+                        {(
+                          [
+                            { key: "weekly", label: "Semanal" },
+                            { key: "biweekly", label: "Quinzenal" },
+                            { key: "monthly", label: "Mensal" },
+                          ] as const
+                        ).map(({ key, label }) => (
+                          <Pressable
+                            key={key}
+                            style={[
+                              s.recurrenceChip,
+                              savingsRecurrence === key
+                                ? { backgroundColor: "#10B981", borderColor: "#10B981" }
+                                : { backgroundColor: "#10B98118", borderColor: "#10B98160" },
+                            ]}
+                            onPress={() => setSavingsRecurrence(key)}
+                          >
+                            <Text
+                              style={{
+                                color: savingsRecurrence === key ? "#FFF" : "#10B981",
+                                fontFamily: "DMSans_500Medium",
+                                fontSize: 13,
+                              }}
+                            >
+                              {label}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+
+                      <Text style={[s.fieldLabel, { color: theme.secondaryText, marginTop: 10 }]}>
+                        {savingsRecurrence === "weekly"
+                          ? "Aporte semanal (R$)"
+                          : savingsRecurrence === "biweekly"
+                            ? "Aporte quinzenal (R$)"
+                            : "Aporte mensal (R$)"}
+                      </Text>
+                      <TextInput
+                        style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                        value={savingsContribution}
+                        onChangeText={setSavingsContribution}
+                        placeholder="0,00"
+                        placeholderTextColor={theme.secondaryText}
+                        keyboardType="decimal-pad"
+                      />
+                      <Text style={[s.goalNote, { color: theme.secondaryText }]}>
+                        {savingsRecurrence === "weekly"
+                          ? "Um aporte pendente será gerado toda semana e efetivado quando você transferir o valor."
+                          : savingsRecurrence === "biweekly"
+                            ? "Um aporte pendente será gerado a cada quinzena e efetivado quando você transferir o valor."
+                            : "Um aporte pendente será gerado todo mês e efetivado quando você transferir o valor."}
+                      </Text>
+
+                      {/* Linked wishlist items (editing only) */}
+                      {editingAccountId && linkedWishlistItems.length > 0 && (
+                        <View style={s.linkedSection}>
+                          <Text style={[s.linkedTitle, { color: theme.secondaryText }]}>
+                            Produtos vinculados
+                          </Text>
+                          {linkedWishlistItems.map((item) => {
+                            const bal = editingAccount?.balance ?? 0;
+                            const price = item.price ?? 0;
+                            const progress =
+                              price > 0 ? Math.min(bal / price, 1) : 0;
+                            const reached = price > 0 && bal >= price;
+                            return (
+                              <View
+                                key={item.id}
+                                style={[s.linkedItem, { backgroundColor: theme.background }]}
+                              >
+                                <View style={s.linkedItemHeader}>
+                                  <Text
+                                    style={[s.linkedItemName, { color: theme.textColor }]}
+                                    numberOfLines={1}
+                                  >
+                                    {item.name}
+                                  </Text>
+                                  {reached ? (
+                                    <View style={s.reachedBadge}>
+                                      <Feather name="check-circle" size={13} color="#16A34A" />
+                                      <Text style={s.reachedText}>Atingido</Text>
+                                    </View>
+                                  ) : (
+                                    <Text style={[s.linkedPercent, { color: theme.secondaryText }]}>
+                                      {Math.round(progress * 100)}%
+                                    </Text>
+                                  )}
+                                </View>
+                                <View
+                                  style={[s.progressTrack, { backgroundColor: theme.cardBackground }]}
+                                >
+                                  <View
+                                    style={[
+                                      s.progressFill,
+                                      {
+                                        width: `${Math.round(progress * 100)}%` as any,
+                                        backgroundColor: reached ? "#16A34A" : "#10B981",
+                                      },
+                                    ]}
+                                  />
+                                </View>
+                                {item.price !== undefined && (
+                                  <Text style={[s.linkedDetail, { color: theme.secondaryText }]}>
+                                    {reached
+                                      ? `R$ ${bal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                                      : `R$ ${bal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} de R$ ${price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                                  </Text>
+                                )}
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+
+                      {editingAccountId && linkedWishlistItems.length === 0 && (
+                        <Text style={[s.goalNote, { color: theme.secondaryText, marginTop: 6 }]}>
+                          Nenhum produto vinculado ainda. Vincule produtos na lista de desejos.
+                        </Text>
+                      )}
+                    </>
+                  )}
+                </View>
+              )}
+
+              <Pressable
+                style={[s.createBtn, { backgroundColor: theme.primaryColor }]}
+                onPress={handleSaveAccount}
+              >
+                <Feather name="check" size={18} color="#FFF" />
+                <Text style={s.createBtnText}>
+                  {editingAccountId ? "Salvar" : "Criar conta"}
+                </Text>
+              </Pressable>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -409,9 +709,82 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   accountInfo: { flex: 1 },
+  accountNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   accountName: { fontFamily: "DMSans_600SemiBold", fontSize: 16 },
+  goalBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: "#10B98120",
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  goalBadgeText: {
+    fontSize: 10,
+    fontFamily: "DMSans_700Bold",
+    color: "#10B981",
+  },
   accountType: { fontFamily: "DMSans_400Regular", fontSize: 12, marginTop: 2 },
   accountBalance: { fontFamily: "DMSans_700Bold", fontSize: 20, textAlign: "right" as const },
+  // Sanfona toggle
+  accordionToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 10,
+    borderTopWidth: 1,
+    paddingTop: 10,
+  },
+  accordionToggleText: {
+    flex: 1,
+    fontFamily: "DMSans_500Medium",
+    fontSize: 12,
+  },
+  // Savings goal progress on card (shown when expanded)
+  cardGoalsSection: {
+    marginTop: 8,
+    gap: 10,
+  },
+  cardGoalRow: { gap: 4 },
+  cardGoalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 6,
+  },
+  cardGoalName: {
+    flex: 1,
+    fontFamily: "DMSans_500Medium",
+    fontSize: 12,
+  },
+  cardGoalPercent: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 11,
+  },
+  cardReachedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  cardReachedText: {
+    fontSize: 10,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#16A34A",
+  },
+  cardProgressTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  cardProgressFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  cardGoalDetail: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 10,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
@@ -421,16 +794,16 @@ const s = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    gap: 12,
+    maxHeight: "90%",
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   modalTitle: { fontFamily: "DMSans_700Bold", fontSize: 20 },
-  fieldLabel: { fontFamily: "DMSans_500Medium", fontSize: 13 },
+  fieldLabel: { fontFamily: "DMSans_500Medium", fontSize: 13, marginTop: 8, marginBottom: 2 },
   input: {
     fontFamily: "DMSans_400Regular",
     fontSize: 16,
@@ -438,14 +811,109 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 4,
   },
-  typePicker: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4 },
+  typePicker: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4, marginTop: 4 },
   typeChip: {
-    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  typeChipText: { fontFamily: "DMSans_600SemiBold", fontSize: 13 },
+  // Savings goal section
+  goalSection: {
+    marginTop: 14,
+    borderTopWidth: 1,
+    paddingTop: 14,
+  },
+  goalToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  goalToggleLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  goalToggleLabel: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 14,
+  },
+  goalNote: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 4,
+  },
+  recurrenceRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 6,
+  },
+  recurrenceChip: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 7,
+    borderRadius: 8,
     borderWidth: 1,
   },
-  typeChipText: { fontFamily: "DMSans_500Medium", fontSize: 13 },
+  linkedSection: {
+    marginTop: 12,
+    gap: 8,
+  },
+  linkedTitle: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  linkedItem: {
+    borderRadius: 10,
+    padding: 10,
+    gap: 6,
+  },
+  linkedItemHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 6,
+  },
+  linkedItemName: {
+    flex: 1,
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 13,
+  },
+  linkedPercent: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 12,
+  },
+  reachedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  reachedText: {
+    fontSize: 11,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#16A34A",
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  linkedDetail: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 10,
+  },
   createBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -453,7 +921,8 @@ const s = StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
     borderRadius: 14,
-    marginTop: 8,
+    marginTop: 16,
+    marginBottom: 8,
   },
   createBtnText: { fontFamily: "DMSans_700Bold", fontSize: 16, color: "#FFF" },
 });

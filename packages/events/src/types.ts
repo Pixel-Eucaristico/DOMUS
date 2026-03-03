@@ -54,6 +54,12 @@ export interface AccountPayload {
   closingDay?: number;
   dueDay?: number;
   color?: string;
+  /** Ativa modo "objetivo de poupança" nesta conta */
+  savingsGoalEnabled?: boolean;
+  /** Valor do aporte periódico (cria transação pendente a cada período) */
+  savingsContributionAmount?: number;
+  /** Periodicidade do aporte: "monthly" (padrão) | "biweekly" | "weekly" */
+  contributionRecurrence?: "monthly" | "biweekly" | "weekly";
 }
 
 export interface TransactionItem {

@@ -13,6 +13,9 @@ import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { useWishlist } from "@/src/hooks/useWishlist";
 import { usePriceRefresh } from "@/src/hooks/usePriceRefresh";
+import { createEvent, generateId } from "@packages/events/src/factory";
+import { EVENT_TYPES } from "@packages/events/src/types";
+import type { TransactionCreatedEvent } from "@packages/events/src/types";
 import { DraggableWishlistList } from "@/src/components/wishlist/DraggableWishlistList";
 import { AffordabilityBanner } from "@/src/components/wishlist/AffordabilityBanner";
 import { AffiliateInfoBanner } from "@/src/components/wishlist/AffiliateInfoBanner";
@@ -23,7 +26,8 @@ import type { WishlistItem, UrgencyLevel } from "@packages/wishlist";
 export default function WishlistDetailScreen() {
   const { listId } = useLocalSearchParams<{ listId: string }>();
   const router = useRouter();
-  const { theme, domain, budget } = useAppState();
+  const { theme, domain, budget, dispatchDomainEvent, deviceId } = useAppState();
+  const did = deviceId ?? "local";
   const {
     lists,
     getItemsByList,
@@ -42,6 +46,7 @@ export default function WishlistDetailScreen() {
 
   const list = lists.find((l) => l.id === listId);
   const rawItems = getItemsByList(listId ?? "");
+  const accounts = Object.values(domain.accounts ?? {});
 
   // Affordability computation from domain budget
   const monthlyIncome = budget.totalIncome ?? 0;
@@ -113,6 +118,8 @@ export default function WishlistDetailScreen() {
         category: changes.category,
         ean: changes.ean,
         ncm: changes.ncm,
+        imageUrl: changes.imageUrl,
+        savingsGoal: changes.savingsGoal,
       });
       setEditItem(null);
     },
@@ -138,11 +145,35 @@ export default function WishlistDetailScreen() {
   );
 
   const handleConvertConfirm = useCallback(
-    (item: WishlistItem) => {
+    (item: WishlistItem, accountId: string) => {
+      // Remove item from wishlist
       convertToExpense(item);
+
+      // Create expense transaction if we have a price and account
+      if (item.price !== undefined && accountId) {
+        // Map urgency to category: PRIORITY/ESSENTIAL → needs, PLANNED/FUTURE → wants
+        const isNeeds = item.urgencyLevel === "PRIORITY" || item.urgencyLevel === "ESSENTIAL";
+        const categoryId = item.category || (isNeeds ? "moradia" : "compras_diversas");
+        const txEvent = createEvent<TransactionCreatedEvent>(
+          EVENT_TYPES.TRANSACTION_CREATED,
+          {
+            id: generateId(),
+            accountId,
+            type: "expense",
+            amount: item.price,
+            categoryId,
+            date: new Date().toISOString().split("T")[0],
+            description: item.name,
+            status: "confirmed",
+          },
+          did,
+        );
+        dispatchDomainEvent(txEvent);
+      }
+
       setConvertItem(null);
     },
-    [convertToExpense],
+    [convertToExpense, dispatchDomainEvent, did],
   );
 
   const handleReorder = useCallback(
@@ -230,6 +261,7 @@ export default function WishlistDetailScreen() {
       <DraggableWishlistList
         items={itemsWithAffordability}
         theme={theme}
+        accounts={domain.accounts}
         refreshingItemId={refreshingId}
         onVisibleItemIds={enqueueVisible}
         onReorder={handleReorder}
@@ -245,6 +277,7 @@ export default function WishlistDetailScreen() {
         visible={showAddModal || editItem !== null}
         listId={editItem?.listId ?? listId ?? ""}
         theme={theme}
+        accounts={accounts}
         editItem={editItem ?? undefined}
         onConfirm={editItem !== null ? handleEditSave : handleAddItem}
         onCancel={() => { setShowAddModal(false); setEditItem(null); }}
@@ -254,6 +287,7 @@ export default function WishlistDetailScreen() {
       <ConvertToExpenseModal
         visible={convertItem !== null}
         item={convertItem}
+        accounts={accounts}
         theme={theme}
         onConfirm={handleConvertConfirm}
         onCancel={() => setConvertItem(null)}

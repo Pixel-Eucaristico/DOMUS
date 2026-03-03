@@ -9,7 +9,7 @@ import type {
 import { serializeMessage, deserializeMessage } from "./messageProtocol";
 
 const STUN_SERVER = "stun:stun.l.google.com:19302";
-const DATA_CHANNEL_LABEL = "orcafacil-sync";
+const DATA_CHANNEL_LABEL = "domus-sync";
 
 export interface WebRTCManagerConfig {
   deviceId: string;

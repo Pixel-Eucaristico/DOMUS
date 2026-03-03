@@ -137,7 +137,7 @@ export function ShareToWishlistModal({ visible, url, onClose }: Props) {
                   Adicionar à Lista
                 </Text>
                 <Text style={[styles.headerSub, { color: theme.secondaryText }]}>
-                  OrcaFácil
+                  DOMUS
                 </Text>
               </View>
             </View>

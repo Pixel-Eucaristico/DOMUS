@@ -16,6 +16,9 @@ export interface CreateAccountParams {
   closingDay?: number;
   dueDay?: number;
   color?: string;
+  savingsGoalEnabled?: boolean;
+  savingsContributionAmount?: number;
+  contributionRecurrence?: "monthly" | "biweekly" | "weekly";
 }
 
 export function createAccountEvent(
@@ -31,6 +34,9 @@ export function createAccountEvent(
     closingDay: params.closingDay,
     dueDay: params.dueDay,
     color: params.color,
+    savingsGoalEnabled: params.savingsGoalEnabled,
+    savingsContributionAmount: params.savingsContributionAmount,
+    contributionRecurrence: params.contributionRecurrence,
   };
 
   return createEvent<AccountCreatedEvent>(

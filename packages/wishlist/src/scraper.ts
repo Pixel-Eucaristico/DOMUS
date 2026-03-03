@@ -76,6 +76,24 @@ function extractNcm(html: string): string | undefined {
   return undefined;
 }
 
+function extractImageUrl(html: string): string | undefined {
+  const patterns = [
+    /<meta[^>]+property="og:image"\s+content="([^"]+)"/i,
+    /<meta[^>]+content="([^"]+)"\s+property="og:image"/i,
+    /<meta[^>]+name="twitter:image"\s+content="([^"]+)"/i,
+    /<meta[^>]+content="([^"]+)"\s+name="twitter:image"/i,
+    /"image"\s*:\s*\{\s*"url"\s*:\s*"([^"]+)"/i,
+    /"thumbnailUrl"\s*:\s*"([^"]+)"/i,
+  ];
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match?.[1] && match[1].startsWith("http")) {
+      return match[1].replace(/&amp;/g, "&");
+    }
+  }
+  return undefined;
+}
+
 function extractProductName(html: string): string | undefined {
   const patterns = [
     /<title>([^<|–-]{3,100})/i,
@@ -120,6 +138,7 @@ export class WishlistScraperService {
     const ncm = extractNcm(html);
     const name = extractProductName(html);
     const category = resolveCategory(ncm, ean, name);
+    const imageUrl = extractImageUrl(html);
 
     let affiliateUrl: string | undefined;
     if (isAmazonUrl(url)) {
@@ -128,7 +147,7 @@ export class WishlistScraperService {
       affiliateUrl = AFFILIATE_CONFIG.mercadolivre.link;
     }
 
-    return { price, ean, ncm, category, name, affiliateUrl };
+    return { price, ean, ncm, category, name, affiliateUrl, imageUrl };
   }
 
   buildAffiliateUrl(url: string): string | undefined {

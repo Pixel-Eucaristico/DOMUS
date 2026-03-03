@@ -50,7 +50,7 @@ function createWebPeerConnectionAdapter(
 
   const adapter: PeerConnectionAdapter = {
     async createOffer(): Promise<RTCSignalOffer> {
-      const dc = pc.createDataChannel("orcafacil-sync");
+      const dc = pc.createDataChannel("domus-sync");
       const channelAdapter = createWebDataChannelAdapter(dc);
 
       adapter.onDataChannel?.(channelAdapter);

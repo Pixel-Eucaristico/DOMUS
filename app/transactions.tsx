@@ -24,14 +24,19 @@ function formatCurrency(v: number): string {
 export default function TransactionsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { accountId } = useLocalSearchParams<{ accountId?: string }>();
+  const { accountId, filter } = useLocalSearchParams<{ accountId?: string; filter?: string }>();
   const { domain, theme, dispatchDomainEvent } = useAppState();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
+  // When arriving with filter=pending, show all-time pendentes (no month restriction)
+  const pendingOnly = filter === "pending";
+
   const [vMonth, setVMonth] = useState(new Date().getMonth());
   const [vYear, setVYear] = useState(new Date().getFullYear());
-  const [statusFilter, setStatusFilter] = useState<"all" | "confirmed" | "pending">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "confirmed" | "pending">(
+    pendingOnly ? "pending" : "all",
+  );
 
   const targetAccount = accountId ? domain.accounts[accountId] : null;
 
@@ -63,19 +68,27 @@ export default function TransactionsScreen() {
       if (accountId && tx.accountId !== accountId && tx.targetAccountId !== accountId) {
         return false;
       }
+      // In pendingOnly mode skip month restriction — show all-time pendentes
+      if (pendingOnly) return tx.status === "pending";
       const parts = tx.date.split("-");
       if (parts.length < 2) return false;
       const y = parseInt(parts[0]!, 10);
       const m = parseInt(parts[1]!, 10) - 1;
       return y === vYear && m === vMonth;
     })
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    .sort((a, b) => {
+      // Pending mode: ascending (soonest first, overdue first)
+      if (pendingOnly) return new Date(a.date).getTime() - new Date(b.date).getTime();
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
 
-  const filteredTransactions = allMonthTransactions.filter((tx) => {
-    if (statusFilter === "confirmed") return !tx.status || tx.status === "confirmed";
-    if (statusFilter === "pending") return tx.status === "pending";
-    return true;
-  });
+  const filteredTransactions = pendingOnly
+    ? allMonthTransactions // already filtered to pending only above
+    : allMonthTransactions.filter((tx) => {
+        if (statusFilter === "confirmed") return !tx.status || tx.status === "confirmed";
+        if (statusFilter === "pending") return tx.status === "pending";
+        return true;
+      });
 
   // Summary only counts confirmed transactions
   const confirmedTxs = allMonthTransactions.filter((t) => !t.status || t.status === "confirmed");
@@ -104,75 +117,89 @@ export default function TransactionsScreen() {
           </Pressable>
           <View style={s.headerTitleContainer}>
             <Text style={[s.title, { color: theme.textColor }]}>
-              {targetAccount ? targetAccount.name : "Historico Total"}
+              {pendingOnly
+                ? "Cobranças pendentes"
+                : targetAccount
+                  ? targetAccount.name
+                  : "Historico Total"}
             </Text>
-            {targetAccount && (
+            {pendingOnly ? (
+              <Text style={[s.subtitle, { color: theme.secondaryText }]}>
+                {allMonthTransactions.length} pendente{allMonthTransactions.length !== 1 ? "s" : ""} · mais próxima primeiro
+              </Text>
+            ) : targetAccount ? (
               <Text style={[s.subtitle, { color: theme.secondaryText }]}>
                 {targetAccount.type === "credit_card" ? "Cartão de Crédito" : "Conta Bancária"}
               </Text>
-            )}
+            ) : null}
           </View>
         </View>
 
-        <View style={s.monthSwitcher}>
-          <Pressable style={[s.monthBtn, { backgroundColor: theme.cardBackground }]} onPress={prevMonth}>
-            <Feather name="chevron-left" size={20} color={theme.primaryColor} />
-          </Pressable>
-          <View style={s.monthLabelContainer}>
-            <Text style={[s.monthLabel, { color: theme.textColor }]}>
-              {MONTHS[vMonth]} {vYear}
-            </Text>
+        {!pendingOnly && (
+          <View style={s.monthSwitcher}>
+            <Pressable style={[s.monthBtn, { backgroundColor: theme.cardBackground }]} onPress={prevMonth}>
+              <Feather name="chevron-left" size={20} color={theme.primaryColor} />
+            </Pressable>
+            <View style={s.monthLabelContainer}>
+              <Text style={[s.monthLabel, { color: theme.textColor }]}>
+                {MONTHS[vMonth]} {vYear}
+              </Text>
+            </View>
+            <Pressable style={[s.monthBtn, { backgroundColor: theme.cardBackground }]} onPress={nextMonth}>
+              <Feather name="chevron-right" size={20} color={theme.primaryColor} />
+            </Pressable>
           </View>
-          <Pressable style={[s.monthBtn, { backgroundColor: theme.cardBackground }]} onPress={nextMonth}>
-            <Feather name="chevron-right" size={20} color={theme.primaryColor} />
-          </Pressable>
-        </View>
+        )}
 
-        <View style={s.summaryRow}>
-          <View style={[s.summaryBox, { backgroundColor: theme.cardBackground }]}>
-            <View style={[s.summaryCircle, { backgroundColor: `${theme.success}15` }]}>
-              <Feather name="arrow-up" size={18} color={theme.success} />
+        {!pendingOnly && (
+          <>
+            <View style={s.summaryRow}>
+              <View style={[s.summaryBox, { backgroundColor: theme.cardBackground }]}>
+                <View style={[s.summaryCircle, { backgroundColor: `${theme.success}15` }]}>
+                  <Feather name="arrow-up" size={18} color={theme.success} />
+                </View>
+                <View style={s.summaryTextContainer}>
+                  <Text style={[s.summaryLabel, { color: theme.secondaryText }]}>Entradas</Text>
+                  <Text style={[s.summaryValue, { color: theme.textColor }]}>{formatCurrency(monthIncome)}</Text>
+                </View>
+              </View>
+              <View style={[s.summaryBox, { backgroundColor: theme.cardBackground }]}>
+                <View style={[s.summaryCircle, { backgroundColor: `${theme.danger}15` }]}>
+                  <Feather name="arrow-down" size={18} color={theme.danger} />
+                </View>
+                <View style={s.summaryTextContainer}>
+                  <Text style={[s.summaryLabel, { color: theme.secondaryText }]}>Saídas</Text>
+                  <Text style={[s.summaryValue, { color: theme.textColor }]}>{formatCurrency(monthExpense)}</Text>
+                </View>
+              </View>
             </View>
-            <View style={s.summaryTextContainer}>
-              <Text style={[s.summaryLabel, { color: theme.secondaryText }]}>Entradas</Text>
-              <Text style={[s.summaryValue, { color: theme.textColor }]}>{formatCurrency(monthIncome)}</Text>
-            </View>
-          </View>
-          <View style={[s.summaryBox, { backgroundColor: theme.cardBackground }]}>
-            <View style={[s.summaryCircle, { backgroundColor: `${theme.danger}15` }]}>
-              <Feather name="arrow-down" size={18} color={theme.danger} />
-            </View>
-            <View style={s.summaryTextContainer}>
-              <Text style={[s.summaryLabel, { color: theme.secondaryText }]}>Saídas</Text>
-              <Text style={[s.summaryValue, { color: theme.textColor }]}>{formatCurrency(monthExpense)}</Text>
-            </View>
-          </View>
-        </View>
 
-        {/* Status filter tabs */}
-        <View style={s.filterRow}>
-          {(["all", "confirmed", "pending"] as const).map((f) => {
-            const labels = { all: "Todas", confirmed: "Confirmadas", pending: "Pendentes" };
-            const active = statusFilter === f;
-            return (
-              <Pressable
-                key={f}
-                style={[
-                  s.filterChip,
-                  {
-                    backgroundColor: active ? theme.primaryColor : theme.cardBackground,
-                    borderColor: active ? theme.primaryColor : theme.border,
-                  },
-                ]}
-                onPress={() => setStatusFilter(f)}
-              >
-                <Text style={[s.filterChipText, { color: active ? "#FFF" : theme.secondaryText }]}>
-                  {labels[f]}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+            {/* Status filter tabs */}
+            <View style={s.filterRow}>
+              {(["all", "confirmed", "pending"] as const).map((f) => {
+                const labels = { all: "Todas", confirmed: "Confirmadas", pending: "Pendentes" };
+                const active = statusFilter === f;
+                return (
+                  <Pressable
+                    key={f}
+                    style={[
+                      s.filterChip,
+                      {
+                        backgroundColor: active ? theme.primaryColor : theme.cardBackground,
+                        borderColor: active ? theme.primaryColor : theme.border,
+                      },
+                    ]}
+                    onPress={() => setStatusFilter(f)}
+                  >
+                    <Text style={[s.filterChipText, { color: active ? "#FFF" : theme.secondaryText }]}>
+                      {labels[f]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
       </View>
 
       <ScrollView
@@ -186,9 +213,11 @@ export default function TransactionsScreen() {
       >
         {filteredTransactions.length === 0 ? (
           <View style={s.emptyHistory}>
-            <Feather name="inbox" size={48} color={theme.secondaryText} style={{ marginBottom: 16 }} />
+            <Feather name="check-circle" size={48} color={theme.success} style={{ marginBottom: 16 }} />
             <Text style={[s.emptyHistoryText, { color: theme.secondaryText }]}>
-              Nenhuma transação encontrada para este período.
+              {pendingOnly
+                ? "Nenhuma cobrança pendente. Tudo em dia!"
+                : "Nenhuma transação encontrada para este período."}
             </Text>
           </View>
         ) : (

@@ -22,7 +22,8 @@ import {
   wishlistScraperService,
   AFFILIATE_CONFIG,
 } from "@packages/wishlist";
-import type { UrgencyLevel, WishlistItem } from "@packages/wishlist";
+import type { UrgencyLevel, WishlistItem, SavingsGoalConfig } from "@packages/wishlist";
+import type { AccountPayload } from "@packages/events";
 import { CATEGORY_OPTIONS, GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { WishlistSearchWebView } from "./WishlistSearchWebView";
 
@@ -44,6 +45,7 @@ interface Props {
   visible: boolean;
   listId: string;
   theme: ThemeColors;
+  accounts?: AccountPayload[];
   editItem?: WishlistItem;
   onConfirm: (item: Omit<WishlistItem, "id">) => void;
   onCancel: () => void;
@@ -58,6 +60,7 @@ interface FormState {
   ean: string;
   ncm: string;
   affiliateUrl: string;
+  imageUrl: string;
 }
 
 const INITIAL_FORM: FormState = {
@@ -69,6 +72,7 @@ const INITIAL_FORM: FormState = {
   ean: "",
   ncm: "",
   affiliateUrl: "",
+  imageUrl: "",
 };
 
 /** Substitui o tag de afiliado da Amazon pelo nosso, ou adiciona caso não exista. */
@@ -91,9 +95,10 @@ function applyAmazonAffiliate(url: string): string {
   return url;
 }
 
-export function AddItemModal({ visible, listId, theme, editItem, onConfirm, onCancel }: Props) {
+export function AddItemModal({ visible, listId, theme, accounts = [], editItem, onConfirm, onCancel }: Props) {
   const insets = useSafeAreaInsets();
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const [savingsGoal, setSavingsGoalState] = useState<SavingsGoalConfig>({ enabled: false });
   const [scraping, setScraping] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [webView, setWebView] = useState<{ visible: boolean; url: string }>({
@@ -136,7 +141,11 @@ export function AddItemModal({ visible, listId, theme, editItem, onConfirm, onCa
         ean: editItem.ean ?? "",
         ncm: editItem.ncm ?? "",
         affiliateUrl: editItem.affiliateUrl ?? "",
+        imageUrl: editItem.imageUrl ?? "",
       });
+      if (editItem.savingsGoal) {
+        setSavingsGoalState(editItem.savingsGoal);
+      }
     }
   }, [visible, editItem]);
 
@@ -165,6 +174,7 @@ export function AddItemModal({ visible, listId, theme, editItem, onConfirm, onCa
         ncm: data.ncm ?? prev.ncm,
         category: data.category ?? prev.category,
         affiliateUrl: data.affiliateUrl ?? prev.affiliateUrl,
+        imageUrl: data.imageUrl ?? prev.imageUrl,
       }));
     } finally {
       setScraping(false);
@@ -211,11 +221,14 @@ export function AddItemModal({ visible, listId, theme, editItem, onConfirm, onCa
       category: form.category.trim() || undefined,
       ean: form.ean.trim() || undefined,
       ncm: form.ncm.trim() || undefined,
+      imageUrl: form.imageUrl.trim() || undefined,
       canBuyThisMonth: false,
+      savingsGoal: savingsGoal.enabled ? savingsGoal : undefined,
     };
     animateClose(() => {
       onConfirm(item);
       setForm(INITIAL_FORM);
+      setSavingsGoalState({ enabled: false });
       setShowAdvanced(false);
     });
   };
@@ -223,6 +236,7 @@ export function AddItemModal({ visible, listId, theme, editItem, onConfirm, onCa
   const handleCancel = () => {
     animateClose(() => {
       setForm(INITIAL_FORM);
+      setSavingsGoalState({ enabled: false });
       setShowAdvanced(false);
       onCancel();
     });
@@ -244,6 +258,7 @@ export function AddItemModal({ visible, listId, theme, editItem, onConfirm, onCa
         ncm: data.ncm ?? prev.ncm,
         category: data.category ?? prev.category,
         affiliateUrl: data.affiliateUrl ?? prev.affiliateUrl,
+        imageUrl: data.imageUrl ?? prev.imageUrl,
       }));
     } finally {
       setScraping(false);
@@ -437,6 +452,78 @@ export function AddItemModal({ visible, listId, theme, editItem, onConfirm, onCa
                 );
               })}
             </View>
+
+            {/* Vincular à poupança — só exibe contas do tipo savings */}
+            {accounts.filter((a) => a.type === "savings").length > 0 && (
+              <>
+                <Text style={[styles.label, { color: theme.secondaryText }]}>
+                  Vincular à poupança
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.savingsScroll}>
+                  {/* Chip "Nenhuma" */}
+                  <TouchableOpacity
+                    style={[
+                      styles.savingsChip,
+                      {
+                        backgroundColor: !savingsGoal.enabled
+                          ? theme.primaryColor + "20"
+                          : theme.cardBackground,
+                        borderColor: !savingsGoal.enabled
+                          ? theme.primaryColor
+                          : theme.cardBackground,
+                      },
+                    ]}
+                    onPress={() => setSavingsGoalState({ enabled: false })}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.savingsChipText,
+                        { color: !savingsGoal.enabled ? theme.primaryColor : theme.secondaryText },
+                      ]}
+                    >
+                      Nenhuma
+                    </Text>
+                  </TouchableOpacity>
+                  {accounts
+                    .filter((a) => a.type === "savings")
+                    .map((acc) => {
+                      const selected =
+                        savingsGoal.enabled && savingsGoal.linkedAccountId === acc.id;
+                      return (
+                        <TouchableOpacity
+                          key={acc.id}
+                          style={[
+                            styles.savingsChip,
+                            {
+                              backgroundColor: selected ? "#10B98120" : theme.cardBackground,
+                              borderColor: selected ? "#10B981" : theme.cardBackground,
+                            },
+                          ]}
+                          onPress={() =>
+                            setSavingsGoalState({ enabled: true, linkedAccountId: acc.id })
+                          }
+                          activeOpacity={0.7}
+                        >
+                          <Feather
+                            name="trending-up"
+                            size={11}
+                            color={selected ? "#10B981" : theme.secondaryText}
+                          />
+                          <Text
+                            style={[
+                              styles.savingsChipText,
+                              { color: selected ? "#10B981" : theme.textColor },
+                            ]}
+                          >
+                            {acc.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                </ScrollView>
+              </>
+            )}
 
             {/* Dados avançados */}
             <TouchableOpacity
@@ -632,6 +719,23 @@ const styles = StyleSheet.create({
   advancedText: {
     fontSize: 12,
     fontFamily: "DMSans_500Medium",
+  },
+  savingsScroll: {
+    marginBottom: 4,
+  },
+  savingsChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginRight: 6,
+  },
+  savingsChipText: {
+    fontSize: 12,
+    fontFamily: "DMSans_600SemiBold",
   },
   actions: {
     flexDirection: "row",

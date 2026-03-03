@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { CloudVisionConfig, OCRProvider } from "@packages/parsers";
 
-const OCR_CONFIG_KEY = "@orcafacil:ocr_config";
+const OCR_CONFIG_KEY = "@domus:ocr_config";
 
 export interface OCRConfig {
   preferredProvider: OCRProvider;

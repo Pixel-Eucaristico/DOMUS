@@ -132,6 +132,11 @@ export class SQLiteEventStore {
     return this.getAllEvents().length;
   }
 
+  clearAllEvents(): void {
+    this.ensureInitialized();
+    this.db.execute("DELETE FROM events");
+  }
+
   private ensureInitialized(): void {
     if (!this.initialized) {
       this.initDatabase();

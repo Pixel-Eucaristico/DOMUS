@@ -18,6 +18,10 @@ import { queryClient } from "@/lib/query-client";
 import { AppStateProvider } from "@/src/context/AppStateProvider";
 import { SyncProvider } from "@/src/context/SyncProvider";
 import { ShareToWishlistModal } from "@/src/components/wishlist/ShareToWishlistModal";
+import { useSavingsGoalScheduler } from "@/src/hooks/useSavingsGoalScheduler";
+import { useAutoBackup } from "@/src/hooks/useAutoBackup";
+import { LockScreen } from "@/src/components/security/LockScreen";
+import { useSecurityLock } from "@/src/hooks/useSecurityLock";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -29,6 +33,30 @@ function isAmazonOrML(text: string): boolean {
 function extractUrl(text: string): string | null {
   const match = text.match(/https?:\/\/[^\s]+/);
   return match ? match[0] : null;
+}
+
+/** Executa na inicialização: cria aportes pendentes para objetivos de poupança vencidos. */
+function SavingsGoalScheduler() {
+  useSavingsGoalScheduler();
+  return null;
+}
+
+/** Executa na inicialização: cria auto-backup local cifrado se passaram ≥ 24 h. */
+function AutoBackupScheduler() {
+  useAutoBackup();
+  return null;
+}
+
+/**
+ * Mostra a LockScreen enquanto o app estiver bloqueado.
+ * Deve estar dentro de AppStateProvider (para ter acesso ao tema).
+ */
+function SecurityGuard({ children }: { children: React.ReactNode }) {
+  const { isLocked, isLoading, unlock } = useSecurityLock();
+
+  if (isLoading) return null;
+  if (isLocked) return <LockScreen onUnlock={unlock} />;
+  return <>{children}</>;
 }
 
 /**
@@ -107,6 +135,18 @@ function RootLayoutNav() {
         name="wishlist"
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="backup"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="about"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="security-settings"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 }
@@ -136,7 +176,11 @@ export default function RootLayout() {
           <KeyboardProvider>
             <AppStateProvider>
               <SyncProvider>
-                <RootLayoutNav />
+                <SavingsGoalScheduler />
+                <AutoBackupScheduler />
+                <SecurityGuard>
+                  <RootLayoutNav />
+                </SecurityGuard>
                 <ShareIntentHandler />
               </SyncProvider>
             </AppStateProvider>

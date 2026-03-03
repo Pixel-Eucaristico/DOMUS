@@ -9,9 +9,11 @@ import type {
   WishlistItemRemovedEvent,
   WishlistPriceUpdatedEvent,
   WishlistItemConvertedToExpenseEvent,
+  WishlistSavingsGoalSetEvent,
   WishlistItem,
   UrgencyLevel,
   WishlistEventMetadata,
+  SavingsGoalConfig,
 } from "./types";
 
 function generateId(): string {
@@ -200,6 +202,24 @@ export function convertWishlistItemToExpenseEvent(
       itemName,
       price,
       category,
+      metadata: makeMetadata(deviceId),
+    },
+  };
+}
+
+export function setSavingsGoalEvent(
+  itemId: string,
+  listId: string,
+  savingsGoal: SavingsGoalConfig,
+  deviceId: string,
+): WishlistSavingsGoalSetEvent {
+  return {
+    ...baseEvent(deviceId),
+    type: WISHLIST_EVENTS.WISHLIST_SAVINGS_GOAL_SET,
+    payload: {
+      itemId,
+      listId,
+      savingsGoal,
       metadata: makeMetadata(deviceId),
     },
   };

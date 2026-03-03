@@ -552,6 +552,38 @@ export default function SyncScreen() {
             </View>
           </>
         )}
+
+        {/* ── Backup local ─────────────────────────────────────────────── */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: theme.textColor }]}>
+            Backup local
+          </Text>
+          <Text style={[styles.sectionDesc, { color: theme.secondaryText }]}>
+            Exporta todos os dados criptografados para um arquivo que você guarda onde quiser
+          </Text>
+        </View>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.backupBtn,
+            { backgroundColor: theme.cardBackground, borderColor: theme.border },
+            pressed && { opacity: 0.8 },
+          ]}
+          onPress={() => { haptic(); router.push("/backup"); }}
+        >
+          <View style={[styles.backupBtnIcon, { backgroundColor: "#6366F118" }]}>
+            <Feather name="archive" size={20} color="#6366F1" />
+          </View>
+          <View style={styles.backupBtnText}>
+            <Text style={[styles.backupBtnTitle, { color: theme.textColor }]}>
+              Backup & Restauração
+            </Text>
+            <Text style={[styles.backupBtnDesc, { color: theme.secondaryText }]}>
+              AES-256-GCM · protegido por senha
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={theme.secondaryText} />
+        </Pressable>
       </ScrollView>
 
       <QRScannerModal
@@ -956,5 +988,30 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_600SemiBold",
     fontSize: 14,
     color: "#FFFFFF",
+  },
+  backupBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+  },
+  backupBtnIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  backupBtnText: { flex: 1 },
+  backupBtnTitle: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+  },
+  backupBtnDesc: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    marginTop: 2,
   },
 });

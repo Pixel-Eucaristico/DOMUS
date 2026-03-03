@@ -10,7 +10,7 @@ async function loadSQLite() {
 }
 
 export async function createSQLiteAdapter(
-  dbName: string = "orcafacil.db",
+  dbName: string = "domus.db",
 ): Promise<DatabaseAdapter> {
   const sqlite = await loadSQLite();
   const db = sqlite.openDatabaseSync(dbName);

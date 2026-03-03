@@ -7,6 +7,7 @@ export const WISHLIST_EVENTS = {
   WISHLIST_ITEM_REMOVED: "WISHLIST_ITEM_REMOVED",
   WISHLIST_PRICE_UPDATED: "WISHLIST_PRICE_UPDATED",
   WISHLIST_ITEM_CONVERTED_TO_EXPENSE: "WISHLIST_ITEM_CONVERTED_TO_EXPENSE",
+  WISHLIST_SAVINGS_GOAL_SET: "WISHLIST_SAVINGS_GOAL_SET",
 } as const;
 
 export type WishlistEventType =
@@ -28,6 +29,16 @@ export const URGENCY_ORDER: UrgencyLevel[] = [
   "FUTURE",
 ];
 
+// ─── Savings Goal ──────────────────────────────────────────────────────────────
+
+export interface SavingsGoalConfig {
+  enabled: boolean;
+  /** ID da conta poupança vinculada */
+  linkedAccountId?: string;
+}
+
+// ─── Domain types ──────────────────────────────────────────────────────────────
+
 export interface WishlistItem {
   id: string;
   listId: string;
@@ -39,8 +50,10 @@ export interface WishlistItem {
   ncm?: string;
   originalUrl?: string;
   affiliateUrl?: string;
+  imageUrl?: string;
   price?: number;
   canBuyThisMonth?: boolean;
+  savingsGoal?: SavingsGoalConfig;
 }
 
 export interface WishlistList {
@@ -126,6 +139,13 @@ export interface WishlistItemConvertedToExpensePayload {
   metadata: WishlistEventMetadata;
 }
 
+export interface WishlistSavingsGoalSetPayload {
+  itemId: string;
+  listId: string;
+  savingsGoal: SavingsGoalConfig;
+  metadata: WishlistEventMetadata;
+}
+
 // ─── Events ───────────────────────────────────────────────────────────────────
 
 interface WishlistBaseEvent {
@@ -176,6 +196,11 @@ export interface WishlistItemConvertedToExpenseEvent extends WishlistBaseEvent {
   payload: WishlistItemConvertedToExpensePayload;
 }
 
+export interface WishlistSavingsGoalSetEvent extends WishlistBaseEvent {
+  type: typeof WISHLIST_EVENTS.WISHLIST_SAVINGS_GOAL_SET;
+  payload: WishlistSavingsGoalSetPayload;
+}
+
 export type WishlistEvent =
   | WishlistListCreatedEvent
   | WishlistItemAddedEvent
@@ -184,7 +209,8 @@ export type WishlistEvent =
   | WishlistItemReorderedEvent
   | WishlistItemRemovedEvent
   | WishlistPriceUpdatedEvent
-  | WishlistItemConvertedToExpenseEvent;
+  | WishlistItemConvertedToExpenseEvent
+  | WishlistSavingsGoalSetEvent;
 
 // ─── Affordability ────────────────────────────────────────────────────────────
 
@@ -208,4 +234,5 @@ export interface ScrapedProductData {
   category?: string;
   name?: string;
   affiliateUrl?: string;
+  imageUrl?: string;
 }

@@ -62,6 +62,7 @@ interface AppStateContextValue extends DerivedState {
   dispatch: (event: AnyEvent) => void;
   dispatchDomainEvent: (event: DomainEvent) => void;
   importEvents: (events: SyncEvent[]) => Promise<number>;
+  restoreFromBackup: (events: SyncEvent[]) => Promise<void>;
   getAllEvents: () => SyncEvent[];
   localEventCount: number;
   deviceId: string | null;
@@ -126,7 +127,7 @@ async function getEventStore(): Promise<SQLiteEventStore | null> {
 
   try {
     const { createSQLiteAdapter } = await import("@packages/storage/src/sqliteAdapter");
-    const adapter = await createSQLiteAdapter("orcafacil.db");
+    const adapter = await createSQLiteAdapter("domus.db");
     eventStoreInstance = new SQLiteEventStore(adapter);
     eventStoreInstance.initDatabase();
     return eventStoreInstance;
@@ -387,6 +388,27 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const getAllEventsCallback = useCallback(() => allEvents, [allEvents]);
 
+  /**
+   * restoreFromBackup: substitui todo o event store pelos eventos do backup.
+   * Limpa SQLite/AsyncStorage e re-insere os eventos restaurados.
+   * NÃO incrementa localEventCount para evitar push acidental pós-restore.
+   */
+  const restoreFromBackup = useCallback(async (events: SyncEvent[]): Promise<void> => {
+    const sorted = [...events].sort((a, b) => a.timestamp - b.timestamp);
+    if (Platform.OS === "web") {
+      await AsyncStorage.setItem(EVENTS_BACKUP_KEY, JSON.stringify(sorted));
+    } else {
+      const store = await getEventStore();
+      if (store) {
+        store.clearAllEvents();
+        for (const evt of sorted) {
+          store.appendEvent(evt);
+        }
+      }
+    }
+    setAllEvents(sorted);
+  }, []);
+
     /**
      * dispatchDomainEvent: cria um evento de domínio LOCAL e gera eventos de gamificação associados.
      * Os eventos de gamificação (XP, Streak, Level Up) são gerados APENAS para ações locais,
@@ -506,11 +528,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       dispatch,
       dispatchDomainEvent,
       importEvents,
+      restoreFromBackup,
       getAllEvents: getAllEventsCallback,
       localEventCount,
       deviceId,
     }),
-    [domain, gamification, onboarding, season, wishlist, archetype, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, importEvents, getAllEventsCallback, localEventCount, deviceId],
+    [domain, gamification, onboarding, season, wishlist, archetype, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, importEvents, restoreFromBackup, getAllEventsCallback, localEventCount, deviceId],
   );
 
   return (
