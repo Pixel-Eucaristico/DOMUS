@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import * as Google from "expo-auth-session/providers/google";
+import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import { GoogleDriveService } from "@/src/modules/backup/infrastructure/GoogleDriveService";
 import type { DriveTokens } from "@/src/modules/backup/infrastructure/GoogleDriveService";
 
 // ─── Expo OAuth Browser redirect ─────────────────────────────────────────────
-// Necessário para fechar o browser após o redirect de autenticação
 WebBrowser.maybeCompleteAuthSession();
 
 // ─── Google OAuth Client IDs (configurar em .env) ────────────────────────────
@@ -19,6 +19,13 @@ const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
 const IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "";
 const ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? "";
 
+// Redirect URI explícito — este é o valor que deve ser registrado no Google Console
+// em "URIs de redirecionamento autorizados":  orcafacil://oauthredirect
+const REDIRECT_URI = AuthSession.makeRedirectUri({
+  scheme: "orcafacil",
+  path: "oauthredirect",
+});
+
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 export function useGoogleDriveBackup() {
@@ -30,12 +37,15 @@ export function useGoogleDriveBackup() {
   const [isConnecting, setIsConnecting] = useState(false);
 
   // expo-auth-session Google provider
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: WEB_CLIENT_ID || undefined,
-    iosClientId: IOS_CLIENT_ID || undefined,
-    androidClientId: ANDROID_CLIENT_ID || undefined,
-    scopes: ["https://www.googleapis.com/auth/drive.file", "email"],
-  });
+  const [request, response, promptAsync] = Google.useAuthRequest(
+    {
+      clientId: WEB_CLIENT_ID || undefined,
+      iosClientId: IOS_CLIENT_ID || undefined,
+      androidClientId: ANDROID_CLIENT_ID || undefined,
+      scopes: ["https://www.googleapis.com/auth/drive.file", "email"],
+      redirectUri: REDIRECT_URI,
+    },
+  );
 
   // ── Load saved state on mount ────────────────────────────────────────────
 
