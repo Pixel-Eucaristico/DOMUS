@@ -30,6 +30,7 @@ import {
   getLastAutoBackupTs,
   autoBackupFilePath,
 } from "@/src/hooks/useAutoBackup";
+import { useGoogleDriveBackup } from "@/src/hooks/useGoogleDriveBackup";
 
 // ─── status helpers ──────────────────────────────────────────────────────────
 
@@ -72,6 +73,9 @@ export default function BackupScreen() {
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [pendingPayload, setPendingPayload] = useState<{ events: SyncEvent[]; preview: BackupPreview } | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  // Google Drive state
+  const drive = useGoogleDriveBackup();
 
   // Auto-backup state
   const [autoKey, setAutoKey] = useState<string | null>(null);
@@ -536,6 +540,126 @@ export default function BackupScreen() {
           </SectionCard>
         )}
 
+        {/* ── GOOGLE DRIVE ────────────────────────────────────────────────── */}
+        {Platform.OS !== "web" && (
+          <SectionCard
+            theme={theme}
+            icon="cloud"
+            title="Google Drive"
+            subtitle={
+              drive.isConnected
+                ? drive.lastSyncAt
+                  ? `Último sync: ${new Date(drive.lastSyncAt).toLocaleDateString("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}`
+                  : "Conectado — nunca sincronizado"
+                : "Backup automático na nuvem"
+            }
+            accentColor="#4285F4"
+          >
+            {!drive.isConfigured ? (
+              <View style={[styles.plainWarning, { borderColor: "#4285F440", backgroundColor: "#4285F412" }]}>
+                <Feather name="info" size={14} color="#4285F4" />
+                <Text style={[styles.plainWarningText, { color: theme.secondaryText }]}>
+                  Para ativar, adicione{" "}
+                  <Text style={{ fontFamily: "DMSans_600SemiBold" }}>EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID</Text>
+                  {" "}no arquivo .env e configure o projeto no Google Cloud Console.
+                </Text>
+              </View>
+            ) : drive.isConnected ? (
+              <>
+                <View style={[styles.driveAccountRow, { backgroundColor: theme.background, borderColor: theme.border }]}>
+                  <View style={styles.driveAccountLeft}>
+                    <Feather name="check-circle" size={16} color="#4285F4" />
+                    <Text style={[styles.driveAccountEmail, { color: theme.textColor }]} numberOfLines={1}>
+                      {drive.email ?? "Conta Google conectada"}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={drive.disconnect} hitSlop={10}>
+                    <Text style={[styles.driveDisconnect, { color: theme.danger }]}>Desconectar</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={[styles.autoHint, { color: theme.secondaryText }]}>
+                  O auto-backup local é enviado automaticamente para o seu Google Drive a cada 24 h.
+                  O arquivo fica visível em "Meu Drive" com o nome{" "}
+                  <Text style={{ fontFamily: "DMSans_500Medium" }}>domus-backup.domusbackup</Text>.
+                </Text>
+
+                {drive.syncError && (
+                  <StatusRow status={{ type: "error", message: drive.syncError }} theme={theme} />
+                )}
+
+                <TouchableOpacity
+                  style={[
+                    styles.actionBtn,
+                    { backgroundColor: "#4285F4" },
+                    drive.isSyncing && styles.actionBtnDisabled,
+                  ]}
+                  onPress={async () => {
+                    // Sincroniza o auto-backup local para o Drive agora
+                    const filePath = autoBackupFilePath();
+                    const { FileSystemService } = await import(
+                      "@/src/modules/backup/infrastructure/FileSystemService"
+                    );
+                    try {
+                      const content = await FileSystemService.read(filePath);
+                      await drive.uploadContent(content);
+                    } catch {
+                      // arquivo local ainda não existe
+                    }
+                  }}
+                  disabled={drive.isSyncing}
+                  activeOpacity={0.8}
+                >
+                  {drive.isSyncing ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Feather name="upload-cloud" size={18} color="#fff" />
+                  )}
+                  <Text style={styles.actionBtnText}>
+                    {drive.isSyncing ? "Enviando…" : "Sincronizar agora"}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.autoHint, { color: theme.secondaryText }]}>
+                  Conecte sua conta Google para que o auto-backup diário seja enviado automaticamente ao seu Google Drive.
+                  O arquivo ficará visível em "Meu Drive".
+                </Text>
+
+                {drive.syncError && (
+                  <StatusRow status={{ type: "error", message: drive.syncError }} theme={theme} />
+                )}
+
+                <TouchableOpacity
+                  style={[
+                    styles.actionBtn,
+                    { backgroundColor: "#4285F4" },
+                    (drive.isConnecting || !drive.canConnect) && styles.actionBtnDisabled,
+                  ]}
+                  onPress={drive.connect}
+                  disabled={drive.isConnecting || !drive.canConnect}
+                  activeOpacity={0.8}
+                >
+                  {drive.isConnecting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Feather name="log-in" size={18} color="#fff" />
+                  )}
+                  <Text style={styles.actionBtnText}>
+                    {drive.isConnecting ? "Aguardando…" : "Conectar Google Drive"}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </SectionCard>
+        )}
+
         {/* Security note */}
         <View style={styles.securityNote}>
           <Feather name="lock" size={12} color={theme.secondaryText} />
@@ -781,6 +905,31 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_400Regular",
     fontSize: 12,
     lineHeight: 17,
+  },
+  driveAccountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  driveAccountLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  driveAccountEmail: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 13,
+    flex: 1,
+  },
+  driveDisconnect: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 12,
   },
   autoHint: {
     fontFamily: "DMSans_400Regular",

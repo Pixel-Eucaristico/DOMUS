@@ -147,6 +147,14 @@ function RootLayoutNav() {
         name="security-settings"
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="ai-chat"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ai-settings"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 }

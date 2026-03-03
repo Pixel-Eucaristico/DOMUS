@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { BackupExportService } from "@/src/modules/backup/application/BackupExportService";
+import { GoogleDriveService } from "@/src/modules/backup/infrastructure/GoogleDriveService";
 import { BACKUP_FILE_EXTENSION } from "@/src/modules/backup/domain/BackupMetadata";
 
 // ─── constantes ──────────────────────────────────────────────────────────────
@@ -91,6 +92,19 @@ export function useAutoBackup() {
         );
 
         await AsyncStorage.setItem(LAST_AUTO_BACKUP_TS, now.toString());
+
+        // ── Upload silencioso para Google Drive (se conectado) ─────────────
+        try {
+          const driveConnected = await GoogleDriveService.isConnected();
+          if (driveConnected) {
+            // Lê o arquivo recém-salvo e envia ao Drive
+            const { FileSystemService } = require("@/src/modules/backup/infrastructure/FileSystemService");
+            const content = await FileSystemService.read(filePath);
+            await GoogleDriveService.uploadBackup(content);
+          }
+        } catch {
+          // Drive upload é best-effort — não afeta o backup local
+        }
       } catch {
         // auto-backup é best-effort — nunca crashar o app
       }
