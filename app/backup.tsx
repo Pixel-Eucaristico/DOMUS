@@ -52,11 +52,21 @@ function isLoading(s: BackupStatus): boolean {
   );
 }
 
+type TabId = "export" | "restore" | "drive";
+
+const TABS: { id: TabId; label: string; icon: string }[] = [
+  { id: "export", label: "Exportar", icon: "upload-cloud" },
+  { id: "restore", label: "Restaurar", icon: "download-cloud" },
+  { id: "drive", label: "Drive", icon: "cloud" },
+];
+
 // ─── screen ──────────────────────────────────────────────────────────────────
 
 export default function BackupScreen() {
   const router = useRouter();
   const { theme, getAllEvents, restoreFromBackup, deviceId } = useAppState();
+
+  const [activeTab, setActiveTab] = useState<TabId>("export");
 
   // Export state
   const [encryptExport, setEncryptExport] = useState(true);
@@ -74,10 +84,10 @@ export default function BackupScreen() {
   const [pendingPayload, setPendingPayload] = useState<{ events: SyncEvent[]; preview: BackupPreview } | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  // Google Drive state
+  // Google Drive
   const drive = useGoogleDriveBackup();
 
-  // Auto-backup state
+  // Auto-backup
   const [autoKey, setAutoKey] = useState<string | null>(null);
   const [autoTs, setAutoTs] = useState<number | null>(null);
   const [autoRestoreStatus, setAutoRestoreStatus] = useState<BackupStatus>({ type: "idle" });
@@ -90,7 +100,7 @@ export default function BackupScreen() {
     });
   }, []);
 
-  // ─── export ────────────────────────────────────────────────────────────────
+  // ─── export ──────────────────────────────────────────────────────────────
 
   const handleExport = useCallback(async () => {
     setExportPasswordError("");
@@ -102,16 +112,10 @@ export default function BackupScreen() {
       setExportPasswordError("As senhas não coincidem.");
       return;
     }
-
     try {
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const events = getAllEvents();
-      await BackupExportService.export(
-        events,
-        deviceId ?? "unknown",
-        exportPassword,
-        setExportStatus,
-      );
+      await BackupExportService.export(events, deviceId ?? "unknown", exportPassword, setExportStatus);
       setExportStatus({ type: "success", message: `${events.length} eventos exportados com sucesso.` });
       setExportPassword("");
       setExportConfirm("");
@@ -137,14 +141,11 @@ export default function BackupScreen() {
     }
   }, [getAllEvents, deviceId]);
 
-  // ─── import — pick file ────────────────────────────────────────────────────
+  // ─── import ───────────────────────────────────────────────────────────────
 
   const handlePickFile = useCallback(async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: "*/*",
-        copyToCacheDirectory: true,
-      });
+      const result = await DocumentPicker.getDocumentAsync({ type: "*/*", copyToCacheDirectory: true });
       if (result.canceled || !result.assets?.length) return;
       const asset = result.assets[0];
       setSelectedFileUri(asset.uri);
@@ -152,30 +153,23 @@ export default function BackupScreen() {
       setImportStatus({ type: "idle" });
       setImportPassword("");
       setPendingPayload(null);
-
-      // Auto-detecta se o arquivo é criptografado
       try {
-        const { FileSystemService } = await import(
-          "@/src/modules/backup/infrastructure/FileSystemService"
-        );
+        const { FileSystemService } = await import("@/src/modules/backup/infrastructure/FileSystemService");
         const content = await FileSystemService.read(asset.uri);
         const parsed = JSON.parse(content);
         setImportIsEncrypted(isEncryptedBackupContent(parsed));
       } catch {
-        setImportIsEncrypted(null); // não foi possível detectar, deixa tentar
+        setImportIsEncrypted(null);
       }
     } catch {
       setImportStatus({ type: "error", message: "Não foi possível abrir o arquivo." });
     }
   }, []);
 
-  // ─── import — validate ─────────────────────────────────────────────────────
-
   const handleValidateImport = useCallback(async () => {
     if (!selectedFileUri) return;
     const needsPassword = importIsEncrypted !== false;
     if (needsPassword && !importPassword) return;
-
     try {
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const { payload, preview } = await BackupImportService.readAndValidate(
@@ -189,29 +183,20 @@ export default function BackupScreen() {
       setShowConfirmModal(true);
     } catch (err) {
       let message = "Erro ao importar backup.";
-      if (err instanceof BackupValidationError) {
-        message = err.message;
-      } else if (err instanceof Error) {
-        message = err.message;
-      }
+      if (err instanceof BackupValidationError) message = err.message;
+      else if (err instanceof Error) message = err.message;
       setImportStatus({ type: "error", message });
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   }, [selectedFileUri, importPassword, importIsEncrypted]);
 
-  // ─── import — confirm restore ──────────────────────────────────────────────
-
   const handleConfirmRestore = useCallback(async () => {
     if (!pendingPayload) return;
     setShowConfirmModal(false);
-
     try {
       setImportStatus({ type: "importing" });
       await restoreFromBackup(pendingPayload.events);
-      setImportStatus({
-        type: "success",
-        message: `${pendingPayload.events.length} eventos restaurados com sucesso.`,
-      });
+      setImportStatus({ type: "success", message: `${pendingPayload.events.length} eventos restaurados com sucesso.` });
       setSelectedFileUri(null);
       setSelectedFileName(null);
       setImportPassword("");
@@ -224,7 +209,7 @@ export default function BackupScreen() {
     }
   }, [pendingPayload, restoreFromBackup]);
 
-  // ─── auto-backup restore ───────────────────────────────────────────────────
+  // ─── auto-backup restore ──────────────────────────────────────────────────
 
   const handleRestoreAutoBackup = useCallback(async () => {
     if (!autoKey) return;
@@ -249,7 +234,7 @@ export default function BackupScreen() {
     }
   }, [autoKey]);
 
-  // ─── render ────────────────────────────────────────────────────────────────
+  // ─── render ───────────────────────────────────────────────────────────────
 
   const eventCount = getAllEvents().length;
 
@@ -263,408 +248,442 @@ export default function BackupScreen() {
         <Text style={[styles.headerTitle, { color: theme.textColor }]}>Backup & Restauração</Text>
       </View>
 
+      {/* Tab bar */}
+      <View style={[styles.tabBar, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+        {TABS.map((tab) => {
+          const active = activeTab === tab.id;
+          return (
+            <TouchableOpacity
+              key={tab.id}
+              style={[
+                styles.tabItem,
+                active && [styles.tabItemActive, { backgroundColor: theme.background }],
+              ]}
+              onPress={() => setActiveTab(tab.id)}
+              activeOpacity={0.7}
+            >
+              <Feather
+                name={tab.icon as any}
+                size={15}
+                color={active ? theme.primaryColor : theme.secondaryText}
+              />
+              <Text
+                style={[
+                  styles.tabLabel,
+                  { color: active ? theme.primaryColor : theme.secondaryText },
+                  active && styles.tabLabelActive,
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Info banner */}
-        <View style={[styles.infoBanner, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-          <Feather name="shield" size={16} color={theme.primaryColor} />
-          <Text style={[styles.infoText, { color: theme.secondaryText }]}>
-            Você pode exportar com criptografia AES-256-GCM (recomendado) ou sem senha, para salvar no Google Drive pessoal ou outro local seguro.
-          </Text>
-        </View>
-
-        {/* ── EXPORT ──────────────────────────────────────────────────────── */}
-        <SectionCard
-          theme={theme}
-          icon="upload-cloud"
-          title="Exportar backup"
-          subtitle={`${eventCount} evento${eventCount !== 1 ? "s" : ""} no dispositivo`}
-          accentColor={theme.primaryColor}
-        >
-          {/* Toggle criptografia */}
-          <View style={[styles.encryptToggleRow, { borderColor: theme.border }]}>
-            <View style={styles.encryptToggleLeft}>
-              <Feather name={encryptExport ? "lock" : "unlock"} size={15} color={encryptExport ? "#10B981" : "#F59E0B"} />
-              <Text style={[styles.encryptToggleLabel, { color: theme.textColor }]}>
-                Criptografar backup
+        {/* ── EXPORTAR ────────────────────────────────────────────────────── */}
+        {activeTab === "export" && (
+          <>
+            <View style={[styles.infoBanner, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+              <Feather name="shield" size={15} color={theme.primaryColor} />
+              <Text style={[styles.infoText, { color: theme.secondaryText }]}>
+                Exporte com AES-256-GCM (recomendado) ou sem criptografia para local seguro.
               </Text>
             </View>
-            <Switch
-              value={encryptExport}
-              onValueChange={(v) => {
-                setEncryptExport(v);
-                setExportPassword("");
-                setExportConfirm("");
-                setExportPasswordError("");
-                setExportStatus({ type: "idle" });
-              }}
-              trackColor={{ false: "#F59E0B80", true: "#10B981" }}
-              thumbColor="#fff"
-            />
-          </View>
 
-          {encryptExport ? (
-            <>
-              <PasswordInputComponent
-                label="Senha de criptografia"
-                value={exportPassword}
-                onChange={setExportPassword}
-                theme={theme}
-                placeholder="Mínimo 8 caracteres"
-                editable={!isLoading(exportStatus)}
-              />
-              <PasswordInputComponent
-                label="Confirmar senha"
-                value={exportConfirm}
-                onChange={(v) => { setExportConfirm(v); setExportPasswordError(""); }}
-                theme={theme}
-                placeholder="Repita a senha"
-                error={exportPasswordError}
-                editable={!isLoading(exportStatus)}
-              />
-            </>
-          ) : (
-            <View style={[styles.plainWarning, { borderColor: "#F59E0B40", backgroundColor: "#F59E0B12" }]}>
-              <Feather name="alert-triangle" size={14} color="#F59E0B" />
-              <Text style={[styles.plainWarningText, { color: theme.secondaryText }]}>
-                O arquivo exportado não terá proteção por senha. Recomendado apenas se for salvar em local seguro (ex: Google Drive pessoal).
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.exportHintRow}>
-            <Feather name="info" size={13} color={theme.secondaryText} />
-            <Text style={[styles.exportHint, { color: theme.secondaryText }]}>
-              Abre o menu de compartilhamento do sistema. Escolha Google Drive, e-mail, WhatsApp ou salve localmente.
-            </Text>
-          </View>
-
-          <StatusRow status={exportStatus} theme={theme} />
-
-          <TouchableOpacity
-            style={[
-              styles.actionBtn,
-              { backgroundColor: encryptExport ? theme.primaryColor : "#F59E0B" },
-              isLoading(exportStatus) && styles.actionBtnDisabled,
-              encryptExport && (!exportPassword || !exportConfirm) && styles.actionBtnDisabled,
-            ]}
-            onPress={encryptExport ? handleExport : handleExportPlain}
-            disabled={isLoading(exportStatus) || (encryptExport && (!exportPassword || !exportConfirm))}
-            activeOpacity={0.8}
-          >
-            {isLoading(exportStatus) ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Feather name="upload-cloud" size={18} color="#fff" />
-            )}
-            <Text style={styles.actionBtnText}>
-              {isLoading(exportStatus)
-                ? STATUS_LABELS[exportStatus.type]
-                : encryptExport
-                  ? "Exportar e compartilhar"
-                  : "Exportar sem criptografia"}
-            </Text>
-          </TouchableOpacity>
-        </SectionCard>
-
-        {/* ── IMPORT ──────────────────────────────────────────────────────── */}
-        <SectionCard
-          theme={theme}
-          icon="download-cloud"
-          title="Restaurar backup"
-          subtitle="Selecione um arquivo .domusbackup"
-          accentColor="#F59E0B"
-        >
-          {/* File picker */}
-          <TouchableOpacity
-            style={[
-              styles.filePicker,
-              {
-                borderColor: selectedFileUri ? "#10B981" : theme.border,
-                backgroundColor: theme.cardBackground,
-              },
-            ]}
-            onPress={handlePickFile}
-            activeOpacity={0.7}
-          >
-            <Feather
-              name={selectedFileUri ? "check-circle" : "file-text"}
-              size={18}
-              color={selectedFileUri ? "#10B981" : theme.secondaryText}
-            />
-            <Text
-              style={[
-                styles.filePickerText,
-                { color: selectedFileUri ? "#10B981" : theme.secondaryText },
-              ]}
-              numberOfLines={1}
-            >
-              {selectedFileName ?? "Selecionar arquivo…"}
-            </Text>
-            {selectedFileUri && (
-              <TouchableOpacity
-                onPress={() => {
-                  setSelectedFileUri(null);
-                  setSelectedFileName(null);
-                  setImportStatus({ type: "idle" });
-                }}
-                hitSlop={12}
-              >
-                <Feather name="x" size={16} color={theme.secondaryText} />
-              </TouchableOpacity>
-            )}
-          </TouchableOpacity>
-
-          {selectedFileUri && (
-            <>
-              {importIsEncrypted === false && (
-                <View style={[styles.plainWarning, { borderColor: "#F59E0B40", backgroundColor: "#F59E0B12" }]}>
-                  <Feather name="unlock" size={14} color="#F59E0B" />
-                  <Text style={[styles.plainWarningText, { color: theme.secondaryText }]}>
-                    Este backup não está criptografado.
+            <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+              <View style={[styles.cardBody, { gap: 12 }]}>
+                {/* Contador */}
+                <View style={[styles.statRow, { borderColor: theme.border }]}>
+                  <Feather name="database" size={15} color={theme.primaryColor} />
+                  <Text style={[styles.statText, { color: theme.textColor }]}>
+                    {eventCount} evento{eventCount !== 1 ? "s" : ""} no dispositivo
                   </Text>
                 </View>
-              )}
 
-              {importIsEncrypted !== false && (
-                <PasswordInputComponent
-                  label="Senha do backup"
-                  value={importPassword}
-                  onChange={setImportPassword}
-                  theme={theme}
-                  editable={!isLoading(importStatus)}
-                />
-              )}
-
-              <StatusRow status={importStatus} theme={theme} />
-
-              <TouchableOpacity
-                style={[
-                  styles.actionBtn,
-                  { backgroundColor: "#F59E0B" },
-                  (isLoading(importStatus) || (importIsEncrypted !== false && !importPassword)) && styles.actionBtnDisabled,
-                ]}
-                onPress={handleValidateImport}
-                disabled={isLoading(importStatus) || (importIsEncrypted !== false && !importPassword)}
-                activeOpacity={0.8}
-              >
-                {isLoading(importStatus) ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Feather name="download-cloud" size={18} color="#fff" />
-                )}
-                <Text style={styles.actionBtnText}>
-                  {isLoading(importStatus) ? STATUS_LABELS[importStatus.type] : "Verificar e restaurar"}
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
-
-          {!selectedFileUri && (
-            <StatusRow status={importStatus} theme={theme} />
-          )}
-        </SectionCard>
-
-        {/* ── AUTO-BACKUP ─────────────────────────────────────────────────── */}
-        {Platform.OS !== "web" && (
-          <SectionCard
-            theme={theme}
-            icon="refresh-cw"
-            title="Auto-backup local"
-            subtitle={
-              autoTs
-                ? `Último: ${new Date(autoTs).toLocaleDateString("pt-BR", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}`
-                : "Nunca executado"
-            }
-            accentColor="#8B5CF6"
-          >
-            <Text style={[styles.autoHint, { color: theme.secondaryText }]}>
-              Backup automático gerado a cada 24 h. Criptografado com a chave do dispositivo abaixo.
-            </Text>
-
-            {/* Key display */}
-            <View style={[styles.keyRow, { backgroundColor: theme.background, borderColor: theme.border }]}>
-              <Feather name="key" size={14} color="#8B5CF6" />
-              <Text
-                style={[styles.keyText, { color: autoKey ? theme.textColor : theme.secondaryText }]}
-                selectable
-              >
-                {autoKey ?? "Aguardando…"}
-              </Text>
-              {autoKey && (
-                <TouchableOpacity
-                  onPress={() => Share.share({ message: autoKey, title: "Chave de auto-backup Domus" })}
-                  hitSlop={12}
-                >
-                  <Feather name="share-2" size={15} color={theme.secondaryText} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <Text style={[styles.keyHint, { color: theme.secondaryText }]}>
-              Guarde esta chave. Sem ela não é possível restaurar o auto-backup em outro dispositivo.
-            </Text>
-
-            <StatusRow status={autoRestoreStatus} theme={theme} />
-
-            <TouchableOpacity
-              style={[
-                styles.actionBtn,
-                { backgroundColor: "#8B5CF6" },
-                (!autoKey || isLoading(autoRestoreStatus)) && styles.actionBtnDisabled,
-              ]}
-              onPress={handleRestoreAutoBackup}
-              disabled={!autoKey || isLoading(autoRestoreStatus)}
-              activeOpacity={0.8}
-            >
-              {isLoading(autoRestoreStatus) ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Feather name="rotate-ccw" size={18} color="#fff" />
-              )}
-              <Text style={styles.actionBtnText}>
-                {isLoading(autoRestoreStatus)
-                  ? STATUS_LABELS[autoRestoreStatus.type]
-                  : "Restaurar auto-backup"}
-              </Text>
-            </TouchableOpacity>
-          </SectionCard>
-        )}
-
-        {/* ── GOOGLE DRIVE ────────────────────────────────────────────────── */}
-        {Platform.OS !== "web" && (
-          <SectionCard
-            theme={theme}
-            icon="cloud"
-            title="Google Drive"
-            subtitle={
-              drive.isConnected
-                ? drive.lastSyncAt
-                  ? `Último sync: ${new Date(drive.lastSyncAt).toLocaleDateString("pt-BR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}`
-                  : "Conectado — nunca sincronizado"
-                : "Backup automático na nuvem"
-            }
-            accentColor="#4285F4"
-          >
-            {!drive.isConfigured ? (
-              <View style={[styles.plainWarning, { borderColor: "#4285F440", backgroundColor: "#4285F412" }]}>
-                <Feather name="info" size={14} color="#4285F4" />
-                <Text style={[styles.plainWarningText, { color: theme.secondaryText }]}>
-                  Para ativar, adicione{" "}
-                  <Text style={{ fontFamily: "DMSans_600SemiBold" }}>EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID</Text>
-                  {" "}no arquivo .env e configure o projeto no Google Cloud Console.
-                </Text>
-              </View>
-            ) : drive.isConnected ? (
-              <>
-                <View style={[styles.driveAccountRow, { backgroundColor: theme.background, borderColor: theme.border }]}>
-                  <View style={styles.driveAccountLeft}>
-                    <Feather name="check-circle" size={16} color="#4285F4" />
-                    <Text style={[styles.driveAccountEmail, { color: theme.textColor }]} numberOfLines={1}>
-                      {drive.email ?? "Conta Google conectada"}
+                {/* Toggle criptografia */}
+                <View style={[styles.encryptToggleRow, { borderColor: theme.border }]}>
+                  <View style={styles.encryptToggleLeft}>
+                    <Feather
+                      name={encryptExport ? "lock" : "unlock"}
+                      size={15}
+                      color={encryptExport ? "#10B981" : "#F59E0B"}
+                    />
+                    <Text style={[styles.encryptToggleLabel, { color: theme.textColor }]}>
+                      Criptografar backup
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={drive.disconnect} hitSlop={10}>
-                    <Text style={[styles.driveDisconnect, { color: theme.danger }]}>Desconectar</Text>
-                  </TouchableOpacity>
+                  <Switch
+                    value={encryptExport}
+                    onValueChange={(v) => {
+                      setEncryptExport(v);
+                      setExportPassword("");
+                      setExportConfirm("");
+                      setExportPasswordError("");
+                      setExportStatus({ type: "idle" });
+                    }}
+                    trackColor={{ false: "#F59E0B80", true: "#10B981" }}
+                    thumbColor="#fff"
+                  />
                 </View>
 
-                <Text style={[styles.autoHint, { color: theme.secondaryText }]}>
-                  O auto-backup local é enviado automaticamente para o seu Google Drive a cada 24 h.
-                  O arquivo fica visível em "Meu Drive" com o nome{" "}
-                  <Text style={{ fontFamily: "DMSans_500Medium" }}>domus-backup.domusbackup</Text>.
-                </Text>
-
-                {drive.syncError && (
-                  <StatusRow status={{ type: "error", message: drive.syncError }} theme={theme} />
+                {encryptExport ? (
+                  <>
+                    <PasswordInputComponent
+                      label="Senha de criptografia"
+                      value={exportPassword}
+                      onChange={setExportPassword}
+                      theme={theme}
+                      placeholder="Mínimo 8 caracteres"
+                      editable={!isLoading(exportStatus)}
+                    />
+                    <PasswordInputComponent
+                      label="Confirmar senha"
+                      value={exportConfirm}
+                      onChange={(v) => { setExportConfirm(v); setExportPasswordError(""); }}
+                      theme={theme}
+                      placeholder="Repita a senha"
+                      error={exportPasswordError}
+                      editable={!isLoading(exportStatus)}
+                    />
+                  </>
+                ) : (
+                  <View style={[styles.warnBanner, { borderColor: "#F59E0B40", backgroundColor: "#F59E0B12" }]}>
+                    <Feather name="alert-triangle" size={14} color="#F59E0B" />
+                    <Text style={[styles.warnText, { color: theme.secondaryText }]}>
+                      Sem proteção por senha. Use apenas em local seguro.
+                    </Text>
+                  </View>
                 )}
+
+                <View style={styles.hintRow}>
+                  <Feather name="info" size={12} color={theme.secondaryText} />
+                  <Text style={[styles.hintText, { color: theme.secondaryText }]}>
+                    Abre o menu de compartilhamento — Drive, e-mail, WhatsApp ou local.
+                  </Text>
+                </View>
+
+                <StatusRow status={exportStatus} theme={theme} />
 
                 <TouchableOpacity
                   style={[
                     styles.actionBtn,
-                    { backgroundColor: "#4285F4" },
-                    drive.isSyncing && styles.actionBtnDisabled,
+                    { backgroundColor: encryptExport ? theme.primaryColor : "#F59E0B" },
+                    (isLoading(exportStatus) || (encryptExport && (!exportPassword || !exportConfirm))) && styles.actionBtnDisabled,
                   ]}
-                  onPress={async () => {
-                    // Sincroniza o auto-backup local para o Drive agora
-                    const filePath = autoBackupFilePath();
-                    const { FileSystemService } = await import(
-                      "@/src/modules/backup/infrastructure/FileSystemService"
-                    );
-                    try {
-                      const content = await FileSystemService.read(filePath);
-                      await drive.uploadContent(content);
-                    } catch {
-                      // arquivo local ainda não existe
-                    }
-                  }}
-                  disabled={drive.isSyncing}
+                  onPress={encryptExport ? handleExport : handleExportPlain}
+                  disabled={isLoading(exportStatus) || (encryptExport && (!exportPassword || !exportConfirm))}
                   activeOpacity={0.8}
                 >
-                  {drive.isSyncing ? (
+                  {isLoading(exportStatus) ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Feather name="upload-cloud" size={18} color="#fff" />
+                    <Feather name="upload-cloud" size={17} color="#fff" />
                   )}
                   <Text style={styles.actionBtnText}>
-                    {drive.isSyncing ? "Enviando…" : "Sincronizar agora"}
+                    {isLoading(exportStatus)
+                      ? STATUS_LABELS[exportStatus.type]
+                      : encryptExport
+                        ? "Exportar e compartilhar"
+                        : "Exportar sem criptografia"}
                   </Text>
                 </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <Text style={[styles.autoHint, { color: theme.secondaryText }]}>
-                  Conecte sua conta Google para que o auto-backup diário seja enviado automaticamente ao seu Google Drive.
-                  O arquivo ficará visível em "Meu Drive".
-                </Text>
-
-                {drive.syncError && (
-                  <StatusRow status={{ type: "error", message: drive.syncError }} theme={theme} />
-                )}
-
-                <TouchableOpacity
-                  style={[
-                    styles.actionBtn,
-                    { backgroundColor: "#4285F4" },
-                    (drive.isConnecting || !drive.canConnect) && styles.actionBtnDisabled,
-                  ]}
-                  onPress={drive.connect}
-                  disabled={drive.isConnecting || !drive.canConnect}
-                  activeOpacity={0.8}
-                >
-                  {drive.isConnecting ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Feather name="log-in" size={18} color="#fff" />
-                  )}
-                  <Text style={styles.actionBtnText}>
-                    {drive.isConnecting ? "Aguardando…" : "Conectar Google Drive"}
-                  </Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </SectionCard>
+              </View>
+            </View>
+          </>
         )}
 
-        {/* Security note */}
-        <View style={styles.securityNote}>
-          <Feather name="lock" size={12} color={theme.secondaryText} />
-          <Text style={[styles.securityNoteText, { color: theme.secondaryText }]}>
-            PBKDF2-SHA256 · 100 000 iterações · AES-256-GCM · salt e IV aleatórios por backup
+        {/* ── RESTAURAR ───────────────────────────────────────────────────── */}
+        {activeTab === "restore" && (
+          <>
+            {/* Arquivo manual */}
+            <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.sectionIconBg, { backgroundColor: "#F59E0B18" }]}>
+                  <Feather name="file-text" size={16} color="#F59E0B" />
+                </View>
+                <Text style={[styles.sectionTitle, { color: theme.textColor }]}>De arquivo</Text>
+              </View>
+              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+              <View style={[styles.cardBody, { gap: 12 }]}>
+                <TouchableOpacity
+                  style={[
+                    styles.filePicker,
+                    { borderColor: selectedFileUri ? "#10B981" : theme.border, backgroundColor: theme.background },
+                  ]}
+                  onPress={handlePickFile}
+                  activeOpacity={0.7}
+                >
+                  <Feather
+                    name={selectedFileUri ? "check-circle" : "folder"}
+                    size={17}
+                    color={selectedFileUri ? "#10B981" : theme.secondaryText}
+                  />
+                  <Text
+                    style={[styles.filePickerText, { color: selectedFileUri ? "#10B981" : theme.secondaryText }]}
+                    numberOfLines={1}
+                  >
+                    {selectedFileName ?? "Selecionar arquivo…"}
+                  </Text>
+                  {selectedFileUri && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedFileUri(null);
+                        setSelectedFileName(null);
+                        setImportStatus({ type: "idle" });
+                      }}
+                      hitSlop={12}
+                    >
+                      <Feather name="x" size={16} color={theme.secondaryText} />
+                    </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
+
+                {selectedFileUri && (
+                  <>
+                    {importIsEncrypted === false ? (
+                      <View style={[styles.warnBanner, { borderColor: "#F59E0B40", backgroundColor: "#F59E0B12" }]}>
+                        <Feather name="unlock" size={13} color="#F59E0B" />
+                        <Text style={[styles.warnText, { color: theme.secondaryText }]}>
+                          Este backup não está criptografado.
+                        </Text>
+                      </View>
+                    ) : (
+                      <PasswordInputComponent
+                        label="Senha do backup"
+                        value={importPassword}
+                        onChange={setImportPassword}
+                        theme={theme}
+                        editable={!isLoading(importStatus)}
+                      />
+                    )}
+
+                    <StatusRow status={importStatus} theme={theme} />
+
+                    <TouchableOpacity
+                      style={[
+                        styles.actionBtn,
+                        { backgroundColor: "#F59E0B" },
+                        (isLoading(importStatus) || (importIsEncrypted !== false && !importPassword)) && styles.actionBtnDisabled,
+                      ]}
+                      onPress={handleValidateImport}
+                      disabled={isLoading(importStatus) || (importIsEncrypted !== false && !importPassword)}
+                      activeOpacity={0.8}
+                    >
+                      {isLoading(importStatus) ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Feather name="download-cloud" size={17} color="#fff" />
+                      )}
+                      <Text style={styles.actionBtnText}>
+                        {isLoading(importStatus) ? STATUS_LABELS[importStatus.type] : "Verificar e restaurar"}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {!selectedFileUri && <StatusRow status={importStatus} theme={theme} />}
+              </View>
+            </View>
+
+            {/* Auto-backup local */}
+            {Platform.OS !== "web" && (
+              <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+                <View style={styles.sectionHeader}>
+                  <View style={[styles.sectionIconBg, { backgroundColor: "#8B5CF618" }]}>
+                    <Feather name="refresh-cw" size={16} color="#8B5CF6" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.sectionTitle, { color: theme.textColor }]}>Auto-backup local</Text>
+                    <Text style={[styles.sectionSubtitle, { color: theme.secondaryText }]}>
+                      {autoTs
+                        ? `Último: ${new Date(autoTs).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`
+                        : "Nunca executado"}
+                    </Text>
+                  </View>
+                </View>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={[styles.cardBody, { gap: 12 }]}>
+                  <Text style={[styles.hintText, { color: theme.secondaryText }]}>
+                    Gerado a cada 24 h automaticamente. Criptografado com a chave do dispositivo.
+                  </Text>
+
+                  <View style={[styles.keyRow, { backgroundColor: theme.background, borderColor: theme.border }]}>
+                    <Feather name="key" size={13} color="#8B5CF6" />
+                    <Text style={[styles.keyText, { color: autoKey ? theme.textColor : theme.secondaryText }]} selectable>
+                      {autoKey ?? "Aguardando…"}
+                    </Text>
+                    {autoKey && (
+                      <TouchableOpacity onPress={() => Share.share({ message: autoKey, title: "Chave de auto-backup Domus" })} hitSlop={12}>
+                        <Feather name="share-2" size={14} color={theme.secondaryText} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <Text style={[styles.hintText, { color: theme.secondaryText, fontSize: 11 }]}>
+                    Guarde esta chave. Sem ela não é possível restaurar em outro dispositivo.
+                  </Text>
+
+                  <StatusRow status={autoRestoreStatus} theme={theme} />
+
+                  <TouchableOpacity
+                    style={[
+                      styles.actionBtn,
+                      { backgroundColor: "#8B5CF6" },
+                      (!autoKey || isLoading(autoRestoreStatus)) && styles.actionBtnDisabled,
+                    ]}
+                    onPress={handleRestoreAutoBackup}
+                    disabled={!autoKey || isLoading(autoRestoreStatus)}
+                    activeOpacity={0.8}
+                  >
+                    {isLoading(autoRestoreStatus) ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Feather name="rotate-ccw" size={17} color="#fff" />
+                    )}
+                    <Text style={styles.actionBtnText}>
+                      {isLoading(autoRestoreStatus) ? STATUS_LABELS[autoRestoreStatus.type] : "Restaurar auto-backup"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </>
+        )}
+
+        {/* ── DRIVE ───────────────────────────────────────────────────────── */}
+        {activeTab === "drive" && Platform.OS !== "web" && (
+          <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionIconBg, { backgroundColor: "#4285F418" }]}>
+                <Feather name="cloud" size={16} color="#4285F4" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sectionTitle, { color: theme.textColor }]}>Google Drive</Text>
+                <Text style={[styles.sectionSubtitle, { color: theme.secondaryText }]}>
+                  {drive.isConnected
+                    ? drive.lastSyncAt
+                      ? `Último sync: ${new Date(drive.lastSyncAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+                      : "Conectado — nunca sincronizado"
+                    : "Backup automático na nuvem"}
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <View style={[styles.cardBody, { gap: 12 }]}>
+              {!drive.isConfigured ? (
+                <View style={[styles.warnBanner, { borderColor: "#4285F440", backgroundColor: "#4285F412" }]}>
+                  <Feather name="info" size={14} color="#4285F4" />
+                  <Text style={[styles.warnText, { color: theme.secondaryText }]}>
+                    Adicione{" "}
+                    <Text style={{ fontFamily: "DMSans_600SemiBold" }}>EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID</Text>
+                    {" "}no .env e configure o Google Cloud Console.
+                  </Text>
+                </View>
+              ) : drive.isConnected ? (
+                <>
+                  <View style={[styles.driveAccountRow, { backgroundColor: theme.background, borderColor: theme.border }]}>
+                    <View style={styles.driveAccountLeft}>
+                      <Feather name="check-circle" size={15} color="#4285F4" />
+                      <Text style={[styles.driveAccountEmail, { color: theme.textColor }]} numberOfLines={1}>
+                        {drive.email ?? "Conta Google conectada"}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={drive.disconnect} hitSlop={10}>
+                      <Text style={[styles.driveDisconnect, { color: theme.danger }]}>Desconectar</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={[styles.hintText, { color: theme.secondaryText }]}>
+                    O auto-backup diário é enviado ao seu Google Drive automaticamente.
+                    Arquivo:{" "}
+                    <Text style={{ fontFamily: "DMSans_500Medium" }}>domus-backup.domusbackup</Text>
+                  </Text>
+
+                  {drive.syncError && (
+                    <StatusRow status={{ type: "error", message: drive.syncError }} theme={theme} />
+                  )}
+
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: "#4285F4" }, drive.isSyncing && styles.actionBtnDisabled]}
+                    onPress={async () => {
+                      const filePath = autoBackupFilePath();
+                      const { FileSystemService } = await import("@/src/modules/backup/infrastructure/FileSystemService");
+                      try {
+                        const content = await FileSystemService.read(filePath);
+                        await drive.uploadContent(content);
+                      } catch {
+                        // arquivo local ainda não existe
+                      }
+                    }}
+                    disabled={drive.isSyncing}
+                    activeOpacity={0.8}
+                  >
+                    {drive.isSyncing ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Feather name="upload-cloud" size={17} color="#fff" />
+                    )}
+                    <Text style={styles.actionBtnText}>
+                      {drive.isSyncing ? "Enviando…" : "Sincronizar agora"}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.hintText, { color: theme.secondaryText }]}>
+                    Conecte sua conta Google para enviar o auto-backup diário automaticamente.
+                    O arquivo ficará visível em "Meu Drive".
+                  </Text>
+
+                  {drive.syncError && (
+                    <StatusRow status={{ type: "error", message: drive.syncError }} theme={theme} />
+                  )}
+
+                  <TouchableOpacity
+                    style={[
+                      styles.actionBtn,
+                      { backgroundColor: "#4285F4" },
+                      (drive.isConnecting || !drive.canConnect) && styles.actionBtnDisabled,
+                    ]}
+                    onPress={drive.connect}
+                    disabled={drive.isConnecting || !drive.canConnect}
+                    activeOpacity={0.8}
+                  >
+                    {drive.isConnecting ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Feather name="log-in" size={17} color="#fff" />
+                    )}
+                    <Text style={styles.actionBtnText}>
+                      {drive.isConnecting ? "Aguardando…" : "Conectar Google Drive"}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
+        {activeTab === "drive" && Platform.OS === "web" && (
+          <View style={[styles.warnBanner, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}>
+            <Feather name="info" size={14} color={theme.secondaryText} />
+            <Text style={[styles.warnText, { color: theme.secondaryText }]}>
+              Google Drive disponível apenas no Android e iOS.
+            </Text>
+          </View>
+        )}
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Feather name="lock" size={11} color={theme.secondaryText} />
+          <Text style={[styles.footerText, { color: theme.secondaryText }]}>
+            PBKDF2-SHA256 · 100 000 iter · AES-256-GCM · salt e IV aleatórios
           </Text>
         </View>
       </ScrollView>
@@ -682,40 +701,8 @@ export default function BackupScreen() {
 
 // ─── sub-components ──────────────────────────────────────────────────────────
 
-function SectionCard({
-  theme,
-  icon,
-  title,
-  subtitle,
-  accentColor,
-  children,
-}: {
-  theme: { cardBackground: string; textColor: string; secondaryText: string; border: string };
-  icon: string;
-  title: string;
-  subtitle: string;
-  accentColor: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-      <View style={styles.cardHeader}>
-        <View style={[styles.cardIconBg, { backgroundColor: accentColor + "18" }]}>
-          <Feather name={icon as any} size={20} color={accentColor} />
-        </View>
-        <View style={styles.cardHeaderText}>
-          <Text style={[styles.cardTitle, { color: theme.textColor }]}>{title}</Text>
-          <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>{subtitle}</Text>
-        </View>
-      </View>
-      <View style={styles.cardBody}>{children}</View>
-    </View>
-  );
-}
-
 function StatusRow({ status, theme }: { status: BackupStatus; theme: { secondaryText: string } }) {
   if (status.type === "idle") return null;
-
   const isErr = status.type === "error";
   const isOk = status.type === "success";
   const color = isErr ? "#DC2626" : isOk ? "#16A34A" : theme.secondaryText;
@@ -724,7 +711,6 @@ function StatusRow({ status, theme }: { status: BackupStatus; theme: { secondary
     isErr || isOk
       ? (status as { message: string }).message
       : STATUS_LABELS[status.type];
-
   return (
     <View style={styles.statusRow}>
       {isLoading(status) ? (
@@ -745,25 +731,60 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     gap: 10,
   },
   backBtn: { padding: 4 },
   headerTitle: {
     fontFamily: "DMSans_700Bold",
-    fontSize: 20,
+    fontSize: 19,
     flex: 1,
   },
+  // Tab bar
+  tabBar: {
+    flexDirection: "row",
+    marginHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 4,
+    marginBottom: 4,
+    gap: 2,
+  },
+  tabItem: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 9,
+  },
+  tabItemActive: {
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  },
+  tabLabel: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 13,
+  },
+  tabLabelActive: {
+    fontFamily: "DMSans_700Bold",
+  },
+  // Content
   content: {
     paddingHorizontal: 16,
-    paddingBottom: 48,
-    gap: 16,
+    paddingTop: 12,
+    paddingBottom: 40,
+    gap: 12,
   },
   infoBanner: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 10,
-    padding: 14,
+    padding: 12,
     borderRadius: 12,
     borderWidth: 1,
   },
@@ -778,87 +799,50 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: "hidden",
   },
-  cardHeader: {
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: 16,
-    paddingBottom: 12,
-  },
-  cardIconBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  cardHeaderText: { flex: 1 },
-  cardTitle: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 16,
-  },
-  cardSubtitle: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  cardBody: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 12,
-  },
-  actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    height: 50,
-    borderRadius: 14,
-    marginTop: 4,
-  },
-  actionBtnDisabled: { opacity: 0.5 },
-  actionBtnText: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 15,
-    color: "#fff",
-  },
-  filePicker: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    borderWidth: 1.5,
-    borderRadius: 12,
-    borderStyle: "dashed",
     paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
-  filePickerText: {
-    flex: 1,
-    fontFamily: "DMSans_500Medium",
+  sectionIconBg: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sectionTitle: {
+    fontFamily: "DMSans_700Bold",
     fontSize: 14,
   },
-  statusRow: {
+  sectionSubtitle: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 11,
+    marginTop: 1,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 14,
+  },
+  cardBody: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 14,
+  },
+  statRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    minHeight: 24,
+    borderWidth: 1,
+    borderRadius: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
-  statusText: {
-    fontFamily: "DMSans_400Regular",
+  statText: {
+    fontFamily: "DMSans_600SemiBold",
     fontSize: 13,
-    flex: 1,
-  },
-  securityNote: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    justifyContent: "center",
-    paddingVertical: 4,
-  },
-  securityNoteText: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 10,
-    textAlign: "center",
   },
   encryptToggleRow: {
     flexDirection: "row",
@@ -868,7 +852,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginBottom: 10,
   },
   encryptToggleLeft: {
     flexDirection: "row",
@@ -879,62 +862,60 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_600SemiBold",
     fontSize: 14,
   },
-  plainWarning: {
+  warnBanner: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 8,
     borderWidth: 1,
     borderRadius: 10,
     padding: 10,
-    marginBottom: 8,
   },
-  plainWarningText: {
+  warnText: {
     flex: 1,
     fontFamily: "DMSans_400Regular",
     fontSize: 12,
     lineHeight: 17,
   },
-  exportHintRow: {
+  hintRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 6,
-    marginBottom: 4,
   },
-  exportHint: {
+  hintText: {
     flex: 1,
-    fontFamily: "DMSans_400Regular",
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  driveAccountRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 8,
-  },
-  driveAccountLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    flex: 1,
-  },
-  driveAccountEmail: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 13,
-    flex: 1,
-  },
-  driveDisconnect: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 12,
-  },
-  autoHint: {
     fontFamily: "DMSans_400Regular",
     fontSize: 12,
     lineHeight: 18,
+  },
+  actionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 48,
+    borderRadius: 12,
+    marginTop: 2,
+  },
+  actionBtnDisabled: { opacity: 0.5 },
+  actionBtnText: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 14,
+    color: "#fff",
+  },
+  filePicker: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    borderStyle: "dashed",
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  filePickerText: {
+    flex: 1,
+    fontFamily: "DMSans_500Medium",
+    fontSize: 14,
   },
   keyRow: {
     flexDirection: "row",
@@ -951,9 +932,51 @@ const styles = StyleSheet.create({
     fontSize: 13,
     letterSpacing: 1,
   },
-  keyHint: {
+  driveAccountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  driveAccountLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  driveAccountEmail: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 13,
+    flex: 1,
+  },
+  driveDisconnect: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 12,
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minHeight: 22,
+  },
+  statusText: {
     fontFamily: "DMSans_400Regular",
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 13,
+    flex: 1,
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    justifyContent: "center",
+    paddingVertical: 4,
+  },
+  footerText: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 10,
+    textAlign: "center",
   },
 });

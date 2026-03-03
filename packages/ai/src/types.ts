@@ -22,12 +22,12 @@ export type CircuitState = "closed" | "open" | "half_open";
 
 export const AI_MODELS: Record<AIProvider, Record<AIModelTier, string>> = {
   openai: {
-    fast: "gpt-4o-mini",
-    smart: "gpt-4o",
+    fast: "gpt-4.1-mini",
+    smart: "gpt-4.1",
   },
   gemini: {
-    fast: "gemini-1.5-flash",
-    smart: "gemini-1.5-pro",
+    fast: "gemini-2.5-flash",
+    smart: "gemini-2.5-pro",
   },
   claude: {
     fast: "claude-haiku-4-5-20251001",

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "DOMUS",
-    "slug": "orcafacil",
+    "slug": "domus",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -22,17 +22,18 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "USE_BIOMETRIC",
-        "USE_FINGERPRINT"
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "ios": {
       "bundleIdentifier": "br.com.pixeleucaristico.domus",
       "infoPlist": {
-        "NSCameraUsageDescription": "DOMUS precisa acessar a câmera para escanear QR Codes e tirar fotos de notas fiscais.",
+        "NSCameraUsageDescription": "DOMUS precisa acessar a câmera para OCR de notas fiscais.",
         "NSPhotoLibraryUsageDescription": "DOMUS precisa acessar suas fotos para importar imagens de notas fiscais.",
         "NSMicrophoneUsageDescription": "DOMUS não usa o microfone.",
         "NSFaceIDUsageDescription": "DOMUS usa Face ID para proteger o acesso aos seus dados financeiros."
@@ -83,6 +84,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c61c9eb7-1884-4245-9419-eb099e085df5"
+      }
+    },
+    "owner": "willianquintino"
   }
 }

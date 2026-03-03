@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import * as Google from "expo-auth-session/providers/google";
-import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import { GoogleDriveService } from "@/src/modules/backup/infrastructure/GoogleDriveService";
 import type { DriveTokens } from "@/src/modules/backup/infrastructure/GoogleDriveService";
@@ -10,20 +9,17 @@ WebBrowser.maybeCompleteAuthSession();
 
 // ─── Google OAuth Client IDs (configurar em .env) ────────────────────────────
 // Crie um projeto no Google Cloud Console, ative a Google Drive API e gere:
-//   - EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID     → cliente "Web" (para Expo Go / dev)
-//   - EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID     → cliente "iOS"  (bundle: br.com.pixeleucaristico.domus)
-//   - EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID → cliente "Android" (pkg: br.com.pixeleucaristico.domus)
+//   - EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID → cliente "Android"
+//       Pacote: br.com.pixeleucaristico.domus
+//       SHA-1:  5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25
+//   - EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID     → cliente "iOS"
+//       Bundle: br.com.pixeleucaristico.domus
+//   - EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID     → cliente "Web" (para autenticação cruzada/id token)
 // Ver: https://docs.expo.dev/guides/google-authentication/
 
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
 const IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "";
 const ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? "";
-
-// Redirect URI via proxy Expo — valor a registrar no Google Cloud Console:
-//   https://auth.expo.io/@williancustodioquintino/orcafacil
-const REDIRECT_URI = AuthSession.makeRedirectUri({
-  useProxy: true,
-});
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
@@ -36,15 +32,15 @@ export function useGoogleDriveBackup() {
   const [isConnecting, setIsConnecting] = useState(false);
 
   // expo-auth-session Google provider
-  const [request, response, promptAsync] = Google.useAuthRequest(
-    {
-      clientId: WEB_CLIENT_ID || undefined,
-      iosClientId: IOS_CLIENT_ID || undefined,
-      androidClientId: ANDROID_CLIENT_ID || undefined,
-      scopes: ["https://www.googleapis.com/auth/drive.file", "email"],
-      redirectUri: REDIRECT_URI,
-    },
-  );
+  // O redirectUri é gerenciado automaticamente pelo provider:
+  //   - Em builds nativas: br.com.pixeleucaristico.domus:/oauthredirect
+  //   - Requer cliente Android/iOS no Google Cloud Console (não "Web" ou "Instalado")
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    clientId: WEB_CLIENT_ID || undefined,
+    iosClientId: IOS_CLIENT_ID || undefined,
+    androidClientId: ANDROID_CLIENT_ID || undefined,
+    scopes: ["https://www.googleapis.com/auth/drive.file", "email"],
+  });
 
   // ── Load saved state on mount ────────────────────────────────────────────
 

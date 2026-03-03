@@ -11,6 +11,8 @@ import {
   Platform,
   ActivityIndicator,
   KeyboardAvoidingView,
+  LayoutAnimation,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -68,8 +70,7 @@ function buildPixPayload(pixKey: string): string {
 const PIX_KEY = "55.075.291/0001-79";
 const PIX_PAYLOAD = buildPixPayload(PIX_KEY);
 const KOFI_URL = "https://ko-fi.com/willianquintino33618";
-const LINKEDIN_URL =
-  "https://www.linkedin.com/in/willian-custodio-quintino";
+const LINKEDIN_URL = "https://www.linkedin.com/in/willian-custodio-quintino";
 const GITHUB_URL = "https://github.com/WillianQuintino";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -98,7 +99,6 @@ export default function AboutScreen() {
   const [pixCopied, setPixCopied] = useState(false);
   const [sending, setSending] = useState(false);
 
-  // Contact form state
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("");
@@ -110,8 +110,6 @@ export default function AboutScreen() {
   const emailRef = useRef<TextInput>(null);
   const subjectRef = useRef<TextInput>(null);
   const messageRef = useRef<TextInput>(null);
-
-  // ── copy PIX key ────────────────────────────────────────────────────────────
 
   const handleCopyPix = useCallback(async () => {
     const ok = await ClipboardService.copy(PIX_KEY);
@@ -125,8 +123,6 @@ export default function AboutScreen() {
       setTimeout(() => setPixCopied(false), 2500);
     }
   }, []);
-
-  // ── contact form validation ─────────────────────────────────────────────────
 
   const validateForm = useCallback((): boolean => {
     const errors: Partial<Record<string, string>> = {};
@@ -196,9 +192,8 @@ export default function AboutScreen() {
               promovem autonomia financeira e crescimento pessoal.
             </Text>
             <Text style={[s.bodyText, { color: theme.secondaryText }]}>
-              Criadora do DOMUS — um aplicativo financeiro construído sobre
-              princípios sólidos: seus dados ficam no seu dispositivo, nunca
-              em servidores de terceiros.
+              Criadora do DOMUS — seus dados ficam no seu dispositivo,
+              nunca em servidores de terceiros.
             </Text>
           </SectionCard>
 
@@ -214,28 +209,28 @@ export default function AboutScreen() {
               color={theme.success}
               theme={theme}
               label="Privacidade em primeiro lugar"
-              description="Nenhum dado é enviado para servidores. Tudo fica no seu dispositivo."
+              description="Nenhum dado é enviado para servidores."
             />
             <FeatureRow
               icon="database"
               color={theme.primaryColor}
               theme={theme}
               label="Arquitetura baseada em eventos"
-              description="Histórico imutável de transações. Cada alteração é um evento rastreável."
+              description="Histórico imutável e rastreável de transações."
             />
             <FeatureRow
               icon="hard-drive"
               color={theme.warning}
               theme={theme}
               label="Armazenamento local"
-              description="SQLite criptografado. Seus dados existem apenas no seu aparelho."
+              description="SQLite criptografado no seu dispositivo."
             />
             <FeatureRow
               icon="download"
               color={theme.accentColor}
               theme={theme}
               label="Backup manual e cifrado"
-              description="Você controla quando exportar e importar. AES-256-GCM com senha sua."
+              description="AES-256-GCM com senha sua. Você controla tudo."
             />
           </SectionCard>
 
@@ -245,76 +240,52 @@ export default function AboutScreen() {
             icon="heart"
             title="Apoie o Projeto"
             accentColor="#E11D48"
+            collapsible
           >
             {/* PIX */}
-            <View
-              style={[
-                s.pixCard,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.border,
-                },
-              ]}
-            >
+            <View style={s.pixBlock}>
               <View style={s.pixRow}>
                 <View style={s.pixInfo}>
-                  <Text
-                    style={[s.pixLabel, { color: theme.secondaryText }]}
-                  >
+                  <Text style={[s.pixLabel, { color: theme.secondaryText }]}>
                     Chave PIX (CNPJ)
                   </Text>
-                  <Text
-                    style={[s.pixKey, { color: theme.textColor }]}
-                    selectable
-                  >
+                  <Text style={[s.pixKey, { color: theme.textColor }]} selectable>
                     {PIX_KEY}
                   </Text>
                 </View>
                 <TouchableOpacity
                   style={[
                     s.copyBtn,
-                    {
-                      backgroundColor: pixCopied
-                        ? theme.success
-                        : theme.primaryColor,
-                    },
+                    { backgroundColor: pixCopied ? theme.success : theme.primaryColor },
                   ]}
                   onPress={handleCopyPix}
                   activeOpacity={0.8}
                 >
-                  <Feather
-                    name={pixCopied ? "check" : "copy"}
-                    size={16}
-                    color="#fff"
-                  />
+                  <Feather name={pixCopied ? "check" : "copy"} size={15} color="#fff" />
                   <Text style={s.copyBtnText}>
                     {pixCopied ? "Copiado!" : "Copiar"}
                   </Text>
                 </TouchableOpacity>
               </View>
-
-              {/* QR Code */}
               <View style={s.qrContainer}>
                 <QRCode
                   value={PIX_PAYLOAD}
-                  size={180}
+                  size={160}
                   color={theme.textColor}
-                  backgroundColor={theme.background}
+                  backgroundColor={theme.cardBackground}
                 />
-                <Text
-                  style={[s.qrHint, { color: theme.secondaryText }]}
-                >
+                <Text style={[s.qrHint, { color: theme.secondaryText }]}>
                   Escaneie com seu banco
                 </Text>
               </View>
             </View>
 
-            {/* External links */}
+            <View style={[s.divider, { backgroundColor: theme.border }]} />
+
             <LinkRow
               icon="coffee"
               label="Ko-fi"
               description="Apoie com um café"
-              url={KOFI_URL}
               color="#FF5E5B"
               theme={theme}
               onPress={() => safeOpenUrl(KOFI_URL)}
@@ -323,7 +294,6 @@ export default function AboutScreen() {
               icon="linkedin"
               label="LinkedIn"
               description="Willian Custodio Quintino"
-              url={LINKEDIN_URL}
               color="#0A66C2"
               theme={theme}
               onPress={() => safeOpenUrl(LINKEDIN_URL)}
@@ -332,7 +302,6 @@ export default function AboutScreen() {
               icon="github"
               label="GitHub"
               description="WillianQuintino"
-              url={GITHUB_URL}
               color={theme.textColor}
               theme={theme}
               onPress={() => safeOpenUrl(GITHUB_URL)}
@@ -345,12 +314,12 @@ export default function AboutScreen() {
             icon="settings"
             title="Configurações"
             accentColor={theme.accentColor}
+            collapsible
           >
             <LinkRow
               icon="lock"
               label="Segurança"
               description="Bloqueio por PIN ou biometria"
-              url=""
               color={theme.primaryColor}
               theme={theme}
               onPress={() => router.push("/security-settings")}
@@ -359,7 +328,6 @@ export default function AboutScreen() {
               icon="download-cloud"
               label="Backup & Restauração"
               description="Exportar e importar dados cifrados"
-              url=""
               color={theme.warning}
               theme={theme}
               onPress={() => router.push("/backup")}
@@ -372,10 +340,11 @@ export default function AboutScreen() {
             icon="mail"
             title="Fale Conosco"
             accentColor={theme.primaryColor}
+            collapsible
           >
             <Text style={[s.bodyText, { color: theme.secondaryText }]}>
-              Envie sugestões, relatos de bugs ou dúvidas. O formulário
-              abrirá seu cliente de e-mail com as informações preenchidas.
+              Envie sugestões, bugs ou dúvidas. Abrirá seu cliente de e-mail
+              com as informações preenchidas.
             </Text>
 
             <FormField
@@ -450,7 +419,7 @@ export default function AboutScreen() {
               {sending ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Feather name="send" size={18} color="#fff" />
+                <Feather name="send" size={17} color="#fff" />
               )}
               <Text style={s.submitBtnText}>
                 {sending ? "Abrindo e-mail…" : "Enviar mensagem"}
@@ -460,7 +429,7 @@ export default function AboutScreen() {
 
           {/* ── FOOTER ──────────────────────────────────────────────────── */}
           <View style={s.footer}>
-            <Feather name="lock" size={12} color={theme.secondaryText} />
+            <Feather name="lock" size={11} color={theme.secondaryText} />
             <Text style={[s.footerText, { color: theme.secondaryText }]}>
               DOMUS · Pixel Eucarístico · Privacidade em primeiro lugar
             </Text>
@@ -478,41 +447,73 @@ function SectionCard({
   icon,
   title,
   accentColor,
+  collapsible = false,
   children,
 }: {
-  theme: ReturnType<typeof styles> extends Record<string, unknown>
-    ? any
-    : any;
+  theme: any;
   icon: string;
   title: string;
   accentColor: string;
+  collapsible?: boolean;
   children: React.ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
+  const rotation = useRef(new Animated.Value(0)).current;
+
+  const toggle = useCallback(() => {
+    if (!collapsible) return;
+    LayoutAnimation.configureNext({
+      duration: 250,
+      update: { type: "easeInEaseOut" },
+      create: { type: "easeInEaseOut", property: "opacity" },
+      delete: { type: "easeInEaseOut", property: "opacity" },
+    });
+    Animated.timing(rotation, {
+      toValue: open ? 0 : 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+    setOpen((v) => !v);
+  }, [collapsible, open, rotation]);
+
+  const chevronRotation = rotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "180deg"],
+  });
+
   const s = styles(theme);
+  const showBody = !collapsible || open;
+
   return (
     <View
       style={[
         s.card,
-        {
-          backgroundColor: theme.cardBackground,
-          borderColor: theme.border,
-        },
+        { backgroundColor: theme.cardBackground, borderColor: theme.border },
       ]}
     >
-      <View style={s.cardHeader}>
-        <View
-          style={[
-            s.cardIconBg,
-            { backgroundColor: accentColor + "18" },
-          ]}
-        >
-          <Feather name={icon as any} size={20} color={accentColor} />
+      <TouchableOpacity
+        style={s.cardHeader}
+        onPress={toggle}
+        activeOpacity={collapsible ? 0.6 : 1}
+        disabled={!collapsible}
+      >
+        <View style={[s.cardIconBg, { backgroundColor: accentColor + "18" }]}>
+          <Feather name={icon as any} size={18} color={accentColor} />
         </View>
-        <Text style={[s.cardTitle, { color: theme.textColor }]}>
-          {title}
-        </Text>
-      </View>
-      <View style={s.cardBody}>{children}</View>
+        <Text style={[s.cardTitle, { color: theme.textColor }]}>{title}</Text>
+        {collapsible && (
+          <Animated.View style={{ transform: [{ rotate: chevronRotation }] }}>
+            <Feather name="chevron-down" size={18} color={theme.secondaryText} />
+          </Animated.View>
+        )}
+      </TouchableOpacity>
+
+      {showBody && (
+        <>
+          <View style={[s.cardDivider, { backgroundColor: theme.border }]} />
+          <View style={s.cardBody}>{children}</View>
+        </>
+      )}
     </View>
   );
 }
@@ -532,25 +533,15 @@ function FeatureRow({
 }) {
   return (
     <View style={featureRowStyles.row}>
-      <View
-        style={[
-          featureRowStyles.iconBg,
-          { backgroundColor: color + "18" },
-        ]}
-      >
-        <Feather name={icon as any} size={16} color={color} />
+      <View style={[featureRowStyles.iconBg, { backgroundColor: color + "18" }]}>
+        <Feather name={icon as any} size={15} color={color} />
       </View>
       <View style={featureRowStyles.texts}>
-        <Text
-          style={[featureRowStyles.label, { color: theme.textColor }]}
-        >
+        <Text style={[featureRowStyles.label, { color: theme.textColor }]}>
           {label}
         </Text>
         <Text
-          style={[
-            featureRowStyles.description,
-            { color: theme.secondaryText },
-          ]}
+          style={[featureRowStyles.description, { color: theme.secondaryText }]}
         >
           {description}
         </Text>
@@ -566,23 +557,23 @@ const featureRowStyles = StyleSheet.create({
     gap: 12,
   },
   iconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 9,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 2,
+    marginTop: 1,
   },
   texts: { flex: 1 },
   label: {
     fontFamily: "DMSans_600SemiBold",
-    fontSize: 14,
-    marginBottom: 2,
+    fontSize: 13,
+    marginBottom: 1,
   },
   description: {
     fontFamily: "DMSans_400Regular",
     fontSize: 12,
-    lineHeight: 18,
+    lineHeight: 17,
   },
 });
 
@@ -597,44 +588,30 @@ function LinkRow({
   icon: string;
   label: string;
   description: string;
-  url: string;
   color: string;
   theme: any;
   onPress: () => void;
 }) {
   return (
     <TouchableOpacity
-      style={[
-        linkRowStyles.row,
-        { backgroundColor: theme.background, borderColor: theme.border },
-      ]}
+      style={linkRowStyles.row}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.6}
     >
-      <View
-        style={[
-          linkRowStyles.iconBg,
-          { backgroundColor: color + "18" },
-        ]}
-      >
-        <Feather name={icon as any} size={18} color={color} />
+      <View style={[linkRowStyles.iconBg, { backgroundColor: color + "18" }]}>
+        <Feather name={icon as any} size={16} color={color} />
       </View>
       <View style={linkRowStyles.texts}>
-        <Text
-          style={[linkRowStyles.label, { color: theme.textColor }]}
-        >
+        <Text style={[linkRowStyles.label, { color: theme.textColor }]}>
           {label}
         </Text>
         <Text
-          style={[
-            linkRowStyles.description,
-            { color: theme.secondaryText },
-          ]}
+          style={[linkRowStyles.description, { color: theme.secondaryText }]}
         >
           {description}
         </Text>
       </View>
-      <Feather name="external-link" size={14} color={theme.secondaryText} />
+      <Feather name="chevron-right" size={16} color={theme.secondaryText} />
     </TouchableOpacity>
   );
 }
@@ -644,14 +621,12 @@ const linkRowStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    paddingVertical: 6,
   },
   iconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -702,9 +677,7 @@ const FormField = React.forwardRef<TextInput, FormFieldProps>(
   ) => {
     return (
       <View style={formFieldStyles.container}>
-        <Text
-          style={[formFieldStyles.label, { color: theme.secondaryText }]}
-        >
+        <Text style={[formFieldStyles.label, { color: theme.secondaryText }]}>
           {label}
         </Text>
         <TextInput
@@ -716,13 +689,13 @@ const FormField = React.forwardRef<TextInput, FormFieldProps>(
               color: theme.textColor,
               borderColor: error ? theme.danger : theme.border,
               textAlignVertical: multiline ? "top" : "center",
-              height: multiline ? 100 : 48,
+              height: multiline ? 96 : 46,
             },
           ]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={theme.secondaryText + "80"}
+          placeholderTextColor={theme.secondaryText + "70"}
           multiline={multiline}
           numberOfLines={numberOfLines}
           keyboardType={keyboardType}
@@ -732,9 +705,7 @@ const FormField = React.forwardRef<TextInput, FormFieldProps>(
           blurOnSubmit={!multiline}
         />
         {error != null && (
-          <Text
-            style={[formFieldStyles.error, { color: theme.danger }]}
-          >
+          <Text style={[formFieldStyles.error, { color: theme.danger }]}>
             {error}
           </Text>
         )}
@@ -748,19 +719,19 @@ const formFieldStyles = StyleSheet.create({
   container: { gap: 4 },
   label: {
     fontFamily: "DMSans_500Medium",
-    fontSize: 13,
+    fontSize: 12,
   },
   input: {
-    borderWidth: 1.5,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
     fontFamily: "DMSans_400Regular",
-    fontSize: 15,
+    fontSize: 14,
   },
   error: {
     fontFamily: "DMSans_400Regular",
-    fontSize: 12,
+    fontSize: 11,
   },
 });
 
@@ -773,19 +744,19 @@ function styles(theme: any) {
       flexDirection: "row",
       alignItems: "center",
       paddingHorizontal: 16,
-      paddingVertical: 14,
+      paddingVertical: 12,
       gap: 10,
     },
     backBtn: { padding: 4 },
     headerTitle: {
       fontFamily: "DMSans_700Bold",
-      fontSize: 20,
+      fontSize: 19,
       flex: 1,
     },
     content: {
       paddingHorizontal: 16,
-      paddingBottom: 48,
-      gap: 16,
+      paddingBottom: 40,
+      gap: 12,
     },
     card: {
       borderRadius: 16,
@@ -796,37 +767,39 @@ function styles(theme: any) {
       flexDirection: "row",
       alignItems: "center",
       gap: 12,
-      padding: 16,
-      paddingBottom: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
     },
     cardIconBg: {
-      width: 44,
-      height: 44,
-      borderRadius: 14,
+      width: 36,
+      height: 36,
+      borderRadius: 11,
       justifyContent: "center",
       alignItems: "center",
     },
     cardTitle: {
       fontFamily: "DMSans_700Bold",
-      fontSize: 16,
+      fontSize: 15,
       flex: 1,
     },
+    cardDivider: {
+      height: StyleSheet.hairlineWidth,
+      marginHorizontal: 14,
+    },
     cardBody: {
-      paddingHorizontal: 16,
-      paddingBottom: 16,
-      gap: 12,
+      paddingHorizontal: 14,
+      paddingTop: 12,
+      paddingBottom: 14,
+      gap: 10,
     },
     bodyText: {
       fontFamily: "DMSans_400Regular",
-      fontSize: 14,
-      lineHeight: 21,
+      fontSize: 13,
+      lineHeight: 20,
     },
     // PIX
-    pixCard: {
-      borderRadius: 12,
-      borderWidth: 1,
-      padding: 14,
-      gap: 16,
+    pixBlock: {
+      gap: 14,
     },
     pixRow: {
       flexDirection: "row",
@@ -841,30 +814,33 @@ function styles(theme: any) {
     },
     pixKey: {
       fontFamily: "DMSans_700Bold",
-      fontSize: 16,
-      letterSpacing: 0.5,
+      fontSize: 15,
+      letterSpacing: 0.4,
     },
     copyBtn: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      borderRadius: 10,
+      gap: 5,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      borderRadius: 9,
     },
     copyBtnText: {
       fontFamily: "DMSans_700Bold",
-      fontSize: 13,
+      fontSize: 12,
       color: "#fff",
     },
     qrContainer: {
       alignItems: "center",
       gap: 8,
-      paddingVertical: 4,
+      paddingVertical: 2,
     },
     qrHint: {
       fontFamily: "DMSans_400Regular",
       fontSize: 12,
+    },
+    divider: {
+      height: StyleSheet.hairlineWidth,
     },
     // Contact form
     submitBtn: {
@@ -872,14 +848,14 @@ function styles(theme: any) {
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
-      height: 50,
-      borderRadius: 14,
-      marginTop: 4,
+      height: 48,
+      borderRadius: 12,
+      marginTop: 2,
     },
     submitBtnDisabled: { opacity: 0.5 },
     submitBtnText: {
       fontFamily: "DMSans_700Bold",
-      fontSize: 15,
+      fontSize: 14,
       color: "#fff",
     },
     // Footer

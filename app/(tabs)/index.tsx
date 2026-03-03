@@ -325,9 +325,9 @@ export default function HomeScreen() {
             </Pressable>
             <Pressable
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
-              onPress={() => router.push("/season")}
+              onPress={() => router.push("/ai-chat")}
             >
-              <Feather name="award" size={22} color={theme.primaryColor} />
+              <Feather name="cpu" size={22} color={theme.primaryColor} />
             </Pressable>
             <Pressable
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
