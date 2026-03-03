@@ -23,6 +23,7 @@ import { useAutoBackup } from "@/src/hooks/useAutoBackup";
 import { LockScreen } from "@/src/components/security/LockScreen";
 import { useSecurityLock } from "@/src/hooks/useSecurityLock";
 import { AnimatedSplash } from "@/src/components/shared/AnimatedSplash";
+import { useAppState } from "@/src/context/AppStateProvider";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -104,9 +105,22 @@ function ShareIntentHandler() {
   );
 }
 
+function SplashWrapper({ onFinish }: { onFinish: () => void }) {
+  const { theme, loading } = useAppState();
+  if (loading) return null;
+  return <AnimatedSplash onAnimationFinish={onFinish} theme={theme} />;
+}
+
 function RootLayoutNav() {
+  const { theme } = useAppState();
+
   return (
-    <Stack screenOptions={{ headerBackTitle: "Voltar" }}>
+    <Stack
+      screenOptions={{
+        headerBackTitle: "Voltar",
+        contentStyle: { backgroundColor: theme.background },
+      }}
+    >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen
         name="add-transaction"
@@ -156,7 +170,20 @@ function RootLayoutNav() {
         name="ai-settings"
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="privacy-policy"
+        options={{ headerShown: false }}
+      />
     </Stack>
+  );
+}
+
+function AppContainer({ children }: { children: React.ReactNode }) {
+  const { theme } = useAppState();
+  return (
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
+      {children}
+    </GestureHandlerRootView>
   );
 }
 
@@ -183,12 +210,12 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        {!splashFinished && (
-          <AnimatedSplash onAnimationFinish={() => setSplashFinished(true)} />
-        )}
-        <GestureHandlerRootView>
-          <KeyboardProvider>
-            <AppStateProvider>
+        <AppStateProvider>
+          <AppContainer>
+            <KeyboardProvider>
+              {!splashFinished && (
+                <SplashWrapper onFinish={() => setSplashFinished(true)} />
+              )}
               <SyncProvider>
                 <SavingsGoalScheduler />
                 <AutoBackupScheduler />
@@ -197,9 +224,9 @@ export default function RootLayout() {
                 </SecurityGuard>
                 <ShareIntentHandler />
               </SyncProvider>
-            </AppStateProvider>
-          </KeyboardProvider>
-        </GestureHandlerRootView>
+            </KeyboardProvider>
+          </AppContainer>
+        </AppStateProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

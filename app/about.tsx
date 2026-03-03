@@ -24,6 +24,7 @@ import { ClipboardService } from "@/src/modules/security/application/ClipboardSe
 import { EmailService } from "@/src/modules/security/application/EmailService";
 import type { ContactFormData } from "@/src/modules/security/application/EmailService";
 import { DeviceInfoService } from "@/src/modules/security/infrastructure/DeviceInfoService";
+import { SelectionModal, type SelectionOption } from "@/src/components/shared/SelectionModal";
 
 // ─── PIX EMV payload ─────────────────────────────────────────────────────────
 
@@ -94,10 +95,11 @@ async function safeOpenUrl(url: string): Promise<void> {
 
 export default function AboutScreen() {
   const router = useRouter();
-  const { theme } = useAppState();
+  const { theme, themeMode, setThemeMode } = useAppState();
 
   const [pixCopied, setPixCopied] = useState(false);
   const [sending, setSending] = useState(false);
+  const [themeModalVisible, setThemeModalVisible] = useState(false);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -332,6 +334,22 @@ export default function AboutScreen() {
               theme={theme}
               onPress={() => router.push("/backup")}
             />
+            <LinkRow
+              icon="shield"
+              label="Política de Privacidade"
+              description="Como seus dados são protegidos"
+              color={theme.primaryColor}
+              theme={theme}
+              onPress={() => router.push("/privacy-policy")}
+            />
+            <LinkRow
+              icon="moon"
+              label="Tema"
+              description={`Modo atual: ${themeMode === "system" ? "Sistema" : themeMode === "dark" ? "Escuro" : "Claro"}`}
+              color={theme.accentColor}
+              theme={theme}
+              onPress={() => setThemeModalVisible(true)}
+            />
           </SectionCard>
 
           {/* ── CONTACT FORM ────────────────────────────────────────────── */}
@@ -436,6 +454,31 @@ export default function AboutScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <SelectionModal
+        visible={themeModalVisible}
+        title="Escolha o Tema"
+        subtitle="Como você prefere visualizar o DOMUS?"
+        theme={theme}
+        onCancel={() => setThemeModalVisible(false)}
+        options={[
+          {
+            label: "Sistema",
+            icon: "monitor",
+            onPress: () => setThemeMode("system"),
+          },
+          {
+            label: "Claro",
+            icon: "sun",
+            onPress: () => setThemeMode("light"),
+          },
+          {
+            label: "Escuro",
+            icon: "moon",
+            onPress: () => setThemeMode("dark"),
+          },
+        ]}
+      />
     </SafeAreaView>
   );
 }

@@ -6,12 +6,14 @@ import {
   Switch,
   StyleSheet,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { useAISettings } from "@/src/hooks/useAISettings";
+import { useAIConsultant } from "@/src/hooks/useAIConsultant";
 import { APIKeyManager } from "@/src/components/ai/APIKeyManager";
 import { ProviderSelector } from "@/src/components/ai/ProviderSelector";
 import { AIUsageDashboard } from "@/src/components/ai/AIUsageDashboard";
@@ -20,6 +22,7 @@ export default function AISettingsScreen() {
   const { theme } = useAppState();
   const { settings, isLoading, saveApiKey, deleteApiKey, updateSettings } =
     useAISettings();
+  const { clearHistory } = useAIConsultant(settings);
 
   if (isLoading) {
     return (
@@ -158,6 +161,70 @@ export default function AISettingsScreen() {
         </View>
         <AIUsageDashboard />
 
+        {/* Clear AI history */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: theme.secondaryText }]}>
+            Dados e Privacidade
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.cardBackground, borderColor: theme.border },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={() => {
+              Alert.alert(
+                "Limpar histórico da IA",
+                "Isso apagará todas as mensagens da conversa atual. Esta ação não pode ser desfeita.",
+                [
+                  { text: "Cancelar", style: "cancel" },
+                  {
+                    text: "Limpar",
+                    style: "destructive",
+                    onPress: clearHistory,
+                  },
+                ],
+              );
+            }}
+            accessibilityLabel="Limpar histórico da IA"
+            accessibilityRole="button"
+          >
+            <Feather name="trash-2" size={18} color={theme.warning} />
+            <View style={styles.actionInfo}>
+              <Text style={[styles.actionLabel, { color: theme.textColor }]}>
+                Limpar histórico da IA
+              </Text>
+              <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                Remove todas as mensagens da conversa atual
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={16} color={theme.secondaryText} />
+          </TouchableOpacity>
+
+          <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
+
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={() => router.push("/privacy-policy")}
+            accessibilityLabel="Ver política de privacidade"
+            accessibilityRole="link"
+          >
+            <Feather name="shield" size={18} color={theme.primaryColor} />
+            <View style={styles.actionInfo}>
+              <Text style={[styles.actionLabel, { color: theme.textColor }]}>
+                Política de Privacidade
+              </Text>
+              <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                Como seus dados e chaves de IA são protegidos
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={16} color={theme.secondaryText} />
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.spacer} />
       </ScrollView>
     </SafeAreaView>
@@ -234,5 +301,23 @@ const styles = StyleSheet.create({
   },
   spacer: {
     height: 24,
+  },
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+  },
+  actionInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  actionLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  rowDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 14,
   },
 });

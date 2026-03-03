@@ -104,6 +104,22 @@ export default function AIChatScreen() {
         </View>
       )}
 
+      {/* Financial disclaimer — Play Store & consumer protection compliance */}
+      <View
+        style={[
+          styles.disclaimer,
+          { backgroundColor: `${theme.border}60`, borderColor: theme.border },
+        ]}
+        accessibilityRole="text"
+        accessibilityLabel="Aviso: análises financeiras informativas, não são aconselhamento profissional"
+      >
+        <Feather name="alert-circle" size={12} color={theme.secondaryText} />
+        <Text style={[styles.disclaimerText, { color: theme.secondaryText }]}>
+          As análises são meramente informativas e não constituem
+          aconselhamento financeiro profissional.
+        </Text>
+      </View>
+
       {/* Messages */}
       <KeyboardAvoidingView
         style={styles.flex}
@@ -231,6 +247,23 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 18,
+  },
+  disclaimer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 16,
+    marginTop: 6,
+    marginBottom: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  disclaimerText: {
+    flex: 1,
+    fontSize: 11,
+    lineHeight: 16,
   },
   messageList: {
     paddingHorizontal: 16,
