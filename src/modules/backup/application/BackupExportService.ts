@@ -63,6 +63,43 @@ export const BackupExportService = {
   },
 
   /**
+   * Exporta backup SEM criptografia.
+   * Grava o BackupPayload como JSON puro com flag { encrypted: false }.
+   */
+  async exportPlain(
+    events: SyncEvent[],
+    deviceId: string,
+    onStatus: (status: BackupStatus) => void,
+  ): Promise<void> {
+    onStatus({ type: "exporting" });
+
+    const checksum = await ExpoCrypto.digestStringAsync(
+      ExpoCrypto.CryptoDigestAlgorithm.SHA256,
+      JSON.stringify(events),
+    );
+
+    const payload = {
+      encrypted: false as const,
+      version: APP_VERSION,
+      createdAt: new Date().toISOString(),
+      deviceId,
+      schemaVersion: BACKUP_SCHEMA_VERSION,
+      events,
+      checksum,
+    };
+
+    const filename = `domus-backup-${Date.now()}${BACKUP_FILE_EXTENSION}`;
+    const filePath = await FileSystemService.writeTemp(filename, JSON.stringify(payload));
+
+    try {
+      onStatus({ type: "sharing" });
+      await ShareService.share(filePath, filename);
+    } finally {
+      await FileSystemService.deleteFile(filePath);
+    }
+  },
+
+  /**
    * Salva backup criptografado diretamente em `destPath` (sem share sheet).
    * Usado pelo auto-backup: sobrescreve o arquivo de destino a cada execução.
    */

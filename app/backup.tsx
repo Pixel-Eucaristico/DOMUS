@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   Share,
+  Switch,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -22,6 +23,7 @@ import { BackupValidationError } from "@/src/modules/backup/application/BackupVa
 import { PasswordInputComponent } from "@/src/components/backup/PasswordInputComponent";
 import { ConfirmRestoreModal } from "@/src/components/backup/ConfirmRestoreModal";
 import type { BackupPreview, BackupStatus } from "@/src/modules/backup/domain/BackupMetadata";
+import { isEncryptedBackupContent } from "@/src/modules/backup/domain/BackupMetadata";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import {
   getDeviceBackupKey,
@@ -56,6 +58,7 @@ export default function BackupScreen() {
   const { theme, getAllEvents, restoreFromBackup, deviceId } = useAppState();
 
   // Export state
+  const [encryptExport, setEncryptExport] = useState(true);
   const [exportPassword, setExportPassword] = useState("");
   const [exportConfirm, setExportConfirm] = useState("");
   const [exportStatus, setExportStatus] = useState<BackupStatus>({ type: "idle" });
@@ -63,6 +66,7 @@ export default function BackupScreen() {
 
   // Import state
   const [importPassword, setImportPassword] = useState("");
+  const [importIsEncrypted, setImportIsEncrypted] = useState<boolean | null>(null);
   const [importStatus, setImportStatus] = useState<BackupStatus>({ type: "idle" });
   const [selectedFileUri, setSelectedFileUri] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
@@ -115,6 +119,20 @@ export default function BackupScreen() {
     }
   }, [exportPassword, exportConfirm, getAllEvents, deviceId]);
 
+  const handleExportPlain = useCallback(async () => {
+    try {
+      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const events = getAllEvents();
+      await BackupExportService.exportPlain(events, deviceId ?? "unknown", setExportStatus);
+      setExportStatus({ type: "success", message: `${events.length} eventos exportados sem criptografia.` });
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro desconhecido ao exportar.";
+      setExportStatus({ type: "error", message });
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }, [getAllEvents, deviceId]);
+
   // ─── import — pick file ────────────────────────────────────────────────────
 
   const handlePickFile = useCallback(async () => {
@@ -130,6 +148,18 @@ export default function BackupScreen() {
       setImportStatus({ type: "idle" });
       setImportPassword("");
       setPendingPayload(null);
+
+      // Auto-detecta se o arquivo é criptografado
+      try {
+        const { FileSystemService } = await import(
+          "@/src/modules/backup/infrastructure/FileSystemService"
+        );
+        const content = await FileSystemService.read(asset.uri);
+        const parsed = JSON.parse(content);
+        setImportIsEncrypted(isEncryptedBackupContent(parsed));
+      } catch {
+        setImportIsEncrypted(null); // não foi possível detectar, deixa tentar
+      }
     } catch {
       setImportStatus({ type: "error", message: "Não foi possível abrir o arquivo." });
     }
@@ -138,7 +168,9 @@ export default function BackupScreen() {
   // ─── import — validate ─────────────────────────────────────────────────────
 
   const handleValidateImport = useCallback(async () => {
-    if (!selectedFileUri || !importPassword) return;
+    if (!selectedFileUri) return;
+    const needsPassword = importIsEncrypted !== false;
+    if (needsPassword && !importPassword) return;
 
     try {
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -161,7 +193,7 @@ export default function BackupScreen() {
       setImportStatus({ type: "error", message });
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
-  }, [selectedFileUri, importPassword]);
+  }, [selectedFileUri, importPassword, importIsEncrypted]);
 
   // ─── import — confirm restore ──────────────────────────────────────────────
 
@@ -236,8 +268,7 @@ export default function BackupScreen() {
         <View style={[styles.infoBanner, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
           <Feather name="shield" size={16} color={theme.primaryColor} />
           <Text style={[styles.infoText, { color: theme.secondaryText }]}>
-            O backup é criptografado localmente com AES-256-GCM. A senha nunca é armazenada no dispositivo.
-            Guarde-a em local seguro.
+            Você pode exportar com criptografia AES-256-GCM (recomendado) ou sem senha, para salvar no Google Drive pessoal ou outro local seguro.
           </Text>
         </View>
 
@@ -249,23 +280,56 @@ export default function BackupScreen() {
           subtitle={`${eventCount} evento${eventCount !== 1 ? "s" : ""} no dispositivo`}
           accentColor={theme.primaryColor}
         >
-          <PasswordInputComponent
-            label="Senha de criptografia"
-            value={exportPassword}
-            onChange={setExportPassword}
-            theme={theme}
-            placeholder="Mínimo 8 caracteres"
-            editable={!isLoading(exportStatus)}
-          />
-          <PasswordInputComponent
-            label="Confirmar senha"
-            value={exportConfirm}
-            onChange={(v) => { setExportConfirm(v); setExportPasswordError(""); }}
-            theme={theme}
-            placeholder="Repita a senha"
-            error={exportPasswordError}
-            editable={!isLoading(exportStatus)}
-          />
+          {/* Toggle criptografia */}
+          <View style={[styles.encryptToggleRow, { borderColor: theme.border }]}>
+            <View style={styles.encryptToggleLeft}>
+              <Feather name={encryptExport ? "lock" : "unlock"} size={15} color={encryptExport ? "#10B981" : "#F59E0B"} />
+              <Text style={[styles.encryptToggleLabel, { color: theme.textColor }]}>
+                Criptografar backup
+              </Text>
+            </View>
+            <Switch
+              value={encryptExport}
+              onValueChange={(v) => {
+                setEncryptExport(v);
+                setExportPassword("");
+                setExportConfirm("");
+                setExportPasswordError("");
+                setExportStatus({ type: "idle" });
+              }}
+              trackColor={{ false: "#F59E0B80", true: "#10B981" }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          {encryptExport ? (
+            <>
+              <PasswordInputComponent
+                label="Senha de criptografia"
+                value={exportPassword}
+                onChange={setExportPassword}
+                theme={theme}
+                placeholder="Mínimo 8 caracteres"
+                editable={!isLoading(exportStatus)}
+              />
+              <PasswordInputComponent
+                label="Confirmar senha"
+                value={exportConfirm}
+                onChange={(v) => { setExportConfirm(v); setExportPasswordError(""); }}
+                theme={theme}
+                placeholder="Repita a senha"
+                error={exportPasswordError}
+                editable={!isLoading(exportStatus)}
+              />
+            </>
+          ) : (
+            <View style={[styles.plainWarning, { borderColor: "#F59E0B40", backgroundColor: "#F59E0B12" }]}>
+              <Feather name="alert-triangle" size={14} color="#F59E0B" />
+              <Text style={[styles.plainWarningText, { color: theme.secondaryText }]}>
+                O arquivo exportado não terá proteção por senha. Recomendado apenas se for salvar em local seguro (ex: Google Drive pessoal).
+              </Text>
+            </View>
+          )}
 
           <View style={styles.exportHintRow}>
             <Feather name="info" size={13} color={theme.secondaryText} />
@@ -279,11 +343,12 @@ export default function BackupScreen() {
           <TouchableOpacity
             style={[
               styles.actionBtn,
-              { backgroundColor: theme.primaryColor },
+              { backgroundColor: encryptExport ? theme.primaryColor : "#F59E0B" },
               isLoading(exportStatus) && styles.actionBtnDisabled,
+              encryptExport && (!exportPassword || !exportConfirm) && styles.actionBtnDisabled,
             ]}
-            onPress={handleExport}
-            disabled={isLoading(exportStatus) || !exportPassword || !exportConfirm}
+            onPress={encryptExport ? handleExport : handleExportPlain}
+            disabled={isLoading(exportStatus) || (encryptExport && (!exportPassword || !exportConfirm))}
             activeOpacity={0.8}
           >
             {isLoading(exportStatus) ? (
@@ -292,7 +357,11 @@ export default function BackupScreen() {
               <Feather name="upload-cloud" size={18} color="#fff" />
             )}
             <Text style={styles.actionBtnText}>
-              {isLoading(exportStatus) ? STATUS_LABELS[exportStatus.type] : "Exportar e compartilhar"}
+              {isLoading(exportStatus)
+                ? STATUS_LABELS[exportStatus.type]
+                : encryptExport
+                  ? "Exportar e compartilhar"
+                  : "Exportar sem criptografia"}
             </Text>
           </TouchableOpacity>
         </SectionCard>
@@ -347,13 +416,24 @@ export default function BackupScreen() {
 
           {selectedFileUri && (
             <>
-              <PasswordInputComponent
-                label="Senha do backup"
-                value={importPassword}
-                onChange={setImportPassword}
-                theme={theme}
-                editable={!isLoading(importStatus)}
-              />
+              {importIsEncrypted === false && (
+                <View style={[styles.plainWarning, { borderColor: "#F59E0B40", backgroundColor: "#F59E0B12" }]}>
+                  <Feather name="unlock" size={14} color="#F59E0B" />
+                  <Text style={[styles.plainWarningText, { color: theme.secondaryText }]}>
+                    Este backup não está criptografado.
+                  </Text>
+                </View>
+              )}
+
+              {importIsEncrypted !== false && (
+                <PasswordInputComponent
+                  label="Senha do backup"
+                  value={importPassword}
+                  onChange={setImportPassword}
+                  theme={theme}
+                  editable={!isLoading(importStatus)}
+                />
+              )}
 
               <StatusRow status={importStatus} theme={theme} />
 
@@ -361,10 +441,10 @@ export default function BackupScreen() {
                 style={[
                   styles.actionBtn,
                   { backgroundColor: "#F59E0B" },
-                  (isLoading(importStatus) || !importPassword) && styles.actionBtnDisabled,
+                  (isLoading(importStatus) || (importIsEncrypted !== false && !importPassword)) && styles.actionBtnDisabled,
                 ]}
                 onPress={handleValidateImport}
-                disabled={isLoading(importStatus) || !importPassword}
+                disabled={isLoading(importStatus) || (importIsEncrypted !== false && !importPassword)}
                 activeOpacity={0.8}
               >
                 {isLoading(importStatus) ? (
@@ -655,6 +735,40 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_400Regular",
     fontSize: 10,
     textAlign: "center",
+  },
+  encryptToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  encryptToggleLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  encryptToggleLabel: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 14,
+  },
+  plainWarning: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 8,
+  },
+  plainWarningText: {
+    flex: 1,
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    lineHeight: 17,
   },
   exportHintRow: {
     flexDirection: "row",

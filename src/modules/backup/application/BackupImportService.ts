@@ -9,15 +9,17 @@ import type { BackupPayload, BackupPreview, BackupStatus } from "../domain/Backu
 
 export const BackupImportService = {
   /**
-   * Lê, decripta e valida um arquivo .domusbackup.
-   * Retorna o payload e um preview para exibir antes de confirmar a restauração.
+   * Lê e valida um arquivo .domusbackup.
+   * Auto-detecta se é criptografado ou simples.
+   * - Criptografado: `password` obrigatória.
+   * - Simples: `password` ignorada.
    * Lança BackupValidationError em qualquer falha de validação.
    */
   async readAndValidate(
     fileUri: string,
     password: string,
     onStatus: (status: BackupStatus) => void,
-  ): Promise<{ payload: BackupPayload; preview: BackupPreview }> {
+  ): Promise<{ payload: BackupPayload; preview: BackupPreview; wasEncrypted: boolean }> {
     onStatus({ type: "importing" });
 
     let content: string;
@@ -29,21 +31,29 @@ export const BackupImportService = {
         "INVALID_JSON",
       );
     }
-    const encrypted = BackupValidationService.parseEncryptedFile(content);
 
-    onStatus({ type: "decrypting" });
-    let plaintext: string;
-    try {
-      plaintext = await BackupCryptoService.decrypt(encrypted, password);
-    } catch {
-      throw new BackupValidationError(
-        "Senha incorreta ou arquivo corrompido.",
-        "WRONG_PASSWORD",
-      );
+    const parsed = BackupValidationService.parseFile(content);
+
+    let payload: BackupPayload;
+
+    if (parsed.encrypted) {
+      onStatus({ type: "decrypting" });
+      let plaintext: string;
+      try {
+        plaintext = await BackupCryptoService.decrypt(parsed.data, password);
+      } catch {
+        throw new BackupValidationError(
+          "Senha incorreta ou arquivo corrompido.",
+          "WRONG_PASSWORD",
+        );
+      }
+      onStatus({ type: "validating" });
+      payload = BackupValidationService.parseBackupPayload(plaintext);
+    } else {
+      onStatus({ type: "validating" });
+      payload = parsed.data;
     }
 
-    onStatus({ type: "validating" });
-    const payload = BackupValidationService.parseBackupPayload(plaintext);
     BackupValidationService.validateSchemaVersion(payload);
     await BackupValidationService.validateChecksum(payload);
 
@@ -55,7 +65,7 @@ export const BackupImportService = {
       version: payload.version,
     };
 
-    return { payload, preview };
+    return { payload, preview, wasEncrypted: parsed.encrypted };
   },
 
   extractEvents(payload: BackupPayload): SyncEvent[] {

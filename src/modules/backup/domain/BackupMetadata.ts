@@ -16,7 +16,7 @@ export interface BackupPayload {
   checksum: string;
 }
 
-/** Envelope externo gravado no arquivo .domusbackup. */
+/** Envelope externo gravado no arquivo .domusbackup quando criptografado. */
 export interface EncryptedBackup {
   /** PBKDF2 salt — base64 (32 bytes) */
   salt: string;
@@ -26,6 +26,11 @@ export interface EncryptedBackup {
   ciphertext: string;
   /** AES-GCM auth tag — base64 (16 bytes) */
   authTag: string;
+}
+
+/** Envelope externo gravado no arquivo .domusbackup quando NÃO criptografado. */
+export interface PlainBackup extends BackupPayload {
+  encrypted: false;
 }
 
 /** Preview mostrado antes de confirmar a restauração. */
@@ -47,3 +52,15 @@ export type BackupStatus =
   | { type: "validating" }
   | { type: "error"; message: string }
   | { type: "success"; message: string };
+
+/** Detecta se o conteúdo do arquivo é um backup criptografado ou simples. */
+export function isEncryptedBackupContent(parsed: unknown): parsed is EncryptedBackup {
+  if (typeof parsed !== "object" || parsed === null) return false;
+  const p = parsed as Record<string, unknown>;
+  return (
+    typeof p.salt === "string" &&
+    typeof p.iv === "string" &&
+    typeof p.ciphertext === "string" &&
+    typeof p.authTag === "string"
+  );
+}
