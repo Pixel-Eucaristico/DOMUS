@@ -19,11 +19,10 @@ const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
 const IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "";
 const ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? "";
 
-// Redirect URI explícito — este é o valor que deve ser registrado no Google Console
-// em "URIs de redirecionamento autorizados":  orcafacil://oauthredirect
+// Redirect URI via proxy Expo — valor a registrar no Google Cloud Console:
+//   https://auth.expo.io/@williancustodioquintino/orcafacil
 const REDIRECT_URI = AuthSession.makeRedirectUri({
-  scheme: "orcafacil",
-  path: "oauthredirect",
+  useProxy: true,
 });
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
