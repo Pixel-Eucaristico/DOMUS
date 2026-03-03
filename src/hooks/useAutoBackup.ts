@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { BackupExportService } from "@/src/modules/backup/application/BackupExportService";
 import { BACKUP_FILE_EXTENSION } from "@/src/modules/backup/domain/BackupMetadata";

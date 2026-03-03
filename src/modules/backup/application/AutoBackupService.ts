@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { BackupExportService } from "./BackupExportService";
 import { BackupImportService } from "./BackupImportService";

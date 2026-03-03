@@ -1,6 +1,5 @@
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 
-// EncodingType.UTF8 foi removido do namespace na v17+; usa literal diretamente
 const UTF8 = "utf8" as const;
 
 export const FileSystemService = {
