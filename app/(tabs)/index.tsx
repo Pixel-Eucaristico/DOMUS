@@ -17,6 +17,7 @@ import { useSync } from "@/src/context/SyncProvider";
 import { calculate503020, updateTransactionEvent, createTransactionEvent } from "@packages/domain/src/transactions";
 import { getCreditUsage } from "@packages/domain/src/accounts";
 import { TransactionBottomSheet } from "@/src/components/transaction/TransactionBottomSheet";
+import { DomusLogo } from "@/src/components/shared/DomusLogo";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -49,6 +50,7 @@ function BudgetBar({
   color,
   amount,
   group,
+  theme,
   onPress,
 }: {
   label: string;
@@ -58,6 +60,7 @@ function BudgetBar({
   color: string;
   amount: number;
   group: "needs" | "wants" | "savings";
+  theme: any;
   onPress?: (group: string) => void;
 }) {
   const barWidth = Math.min(percent, 100);
@@ -71,12 +74,12 @@ function BudgetBar({
     >
       <View style={s.budgetLabelRow}>
         <View style={[s.budgetDot, { backgroundColor: color }]} />
-        <Text style={s.budgetLabel}>{label}</Text>
-        <Text style={s.budgetPercent}>
-          {percent}% <Text style={s.budgetIdeal}>(meta {ideal}%)</Text>
+        <Text style={[s.budgetLabel, { color: theme.textColor }]}>{label}</Text>
+        <Text style={[s.budgetPercent, { color: theme.textColor }]}>
+          {percent}% <Text style={[s.budgetIdeal, { color: theme.secondaryText }]}>(meta {ideal}%)</Text>
         </Text>
       </View>
-      <View style={s.budgetBarBg}>
+      <View style={[s.budgetBarBg, { backgroundColor: theme.border }]}>
         <View
           style={[
             s.budgetBarFill,
@@ -85,8 +88,8 @@ function BudgetBar({
         />
       </View>
       <View style={s.budgetFooter}>
-        <Text style={s.budgetAmount}>{formatCurrency(amount)}</Text>
-        <Text style={s.budgetIdealValue}>Meta: {formatCurrency(idealAmount)}</Text>
+        <Text style={[s.budgetAmount, { color: theme.textColor }]}>{formatCurrency(amount)}</Text>
+        <Text style={[s.budgetIdealValue, { color: theme.secondaryText }]}>Meta: {formatCurrency(idealAmount)}</Text>
       </View>
     </Pressable>
   );
@@ -285,12 +288,15 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={s.header}>
-          <View>
-            <Text style={[s.greeting, { color: theme.textColor }]}>DOMUS</Text>
-            <Text style={[s.subtitle, { color: theme.secondaryText }]}>
-              {archetype.charAt(0).toUpperCase() + archetype.slice(1)} / Nivel{" "}
-              {levelInfo.level}
-            </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <DomusLogo size={40} theme={theme} />
+            <View>
+              <Text style={[s.greeting, { color: theme.textColor }]}>DOMUS</Text>
+              <Text style={[s.subtitle, { color: theme.secondaryText }]}>
+                {archetype.charAt(0).toUpperCase() + archetype.slice(1)} / Nivel{" "}
+                {levelInfo.level}
+              </Text>
+            </View>
           </View>
           <View style={s.headerActions}>
             <Pressable
@@ -564,6 +570,7 @@ export default function HomeScreen() {
                 color={theme.primaryColor}
                 amount={budget.needs}
                 group="needs"
+                theme={theme}
                 onPress={handleBudgetPress}
               />
               <BudgetBar
@@ -574,6 +581,7 @@ export default function HomeScreen() {
                 color={theme.accentColor}
                 amount={budget.wants}
                 group="wants"
+                theme={theme}
                 onPress={handleBudgetPress}
               />
               <BudgetBar
@@ -584,6 +592,7 @@ export default function HomeScreen() {
                 color={theme.success}
                 amount={budget.savings}
                 group="savings"
+                theme={theme}
                 onPress={handleBudgetPress}
               />
             </View>
@@ -1095,14 +1104,14 @@ const s = StyleSheet.create({
   budgetRow: { gap: 4 },
   budgetLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   budgetDot: { width: 8, height: 8, borderRadius: 4 },
-  budgetLabel: { fontFamily: "DMSans_500Medium", fontSize: 13, color: "#374151", flex: 1 },
-  budgetPercent: { fontFamily: "DMSans_600SemiBold", fontSize: 13, color: "#374151" },
-  budgetIdeal: { fontFamily: "DMSans_400Regular", fontSize: 11, color: "#9CA3AF" },
-  budgetBarBg: { height: 6, borderRadius: 3, backgroundColor: "#F3F4F6" },
+  budgetLabel: { fontFamily: "DMSans_500Medium", fontSize: 13, flex: 1 },
+  budgetPercent: { fontFamily: "DMSans_600SemiBold", fontSize: 13 },
+  budgetIdeal: { fontFamily: "DMSans_400Regular", fontSize: 11 },
+  budgetBarBg: { height: 6, borderRadius: 3 },
   budgetBarFill: { height: 6, borderRadius: 3, minWidth: 2 },
   budgetFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  budgetAmount: { fontFamily: "DMSans_600SemiBold", fontSize: 12, color: "#374151" },
-  budgetIdealValue: { fontFamily: "DMSans_400Regular", fontSize: 11, color: "#6B7280" },
+  budgetAmount: { fontFamily: "DMSans_600SemiBold", fontSize: 12 },
+  budgetIdealValue: { fontFamily: "DMSans_400Regular", fontSize: 11 },
   emptyState: { alignItems: "center", paddingVertical: 24, gap: 8 },
   emptyText: { fontFamily: "DMSans_400Regular", fontSize: 14, textAlign: "center" as const },
   txList: { gap: 0 },

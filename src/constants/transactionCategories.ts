@@ -20,6 +20,7 @@ export const EXPENSE_CATEGORIES: TransactionCategory[] = [
   { id: "compras",       name: "Compras",        group: "wants",   icon: "shopping-bag"    },
   { id: "restaurantes",  name: "Restaurantes",   group: "wants",   icon: "coffee"          },
   { id: "assinaturas",   name: "Assinaturas",    group: "wants",   icon: "repeat"          },
+  { id: "dizimo",        name: "Dizimo / Oferta", group: "wants",  icon: "gift"            },
   { id: "outros_desp",   name: "Outros",         group: "wants",   icon: "more-horizontal" },
 ];
 

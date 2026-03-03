@@ -71,9 +71,9 @@ export function AffiliateInfoBanner({ theme }: Props) {
           </Text>
 
           {/* Amazon */}
-          <View style={[styles.platform, { backgroundColor: "#FF9900" + "15" }]}>
+          <View style={[styles.platform, { backgroundColor: theme.background === "#F4F6F8" || theme.background === "#FAFAF9" || theme.background === "#F0FDF4" || theme.background === "#F5F7FA" ? "#FF990015" : "#FF990030" }]}>
             <View style={styles.platformHeader}>
-              <Text style={styles.platformName}>Amazon</Text>
+              <Text style={[styles.platformName, { color: theme.textColor }]}>Amazon</Text>
               <View style={styles.sponsoredBadge}>
                 <Text style={styles.sponsoredText}>Patrocinado</Text>
               </View>
@@ -82,7 +82,7 @@ export function AffiliateInfoBanner({ theme }: Props) {
               {AFFILIATE_INFO.amazon.description}
             </Text>
             <Text style={[styles.platformDesc, { color: theme.secondaryText }]}>
-              Tag: <Text style={styles.tagValue}>{AFFILIATE_INFO.amazon.tag}</Text>
+              Tag: <Text style={[styles.tagValue, { color: theme.textColor }]}>{AFFILIATE_INFO.amazon.tag}</Text>
             </Text>
             <View style={styles.mlActions}>
               <TouchableOpacity
@@ -109,9 +109,9 @@ export function AffiliateInfoBanner({ theme }: Props) {
           </View>
 
           {/* Mercado Livre */}
-          <View style={[styles.platform, { backgroundColor: "#FFE600" + "20" }]}>
+          <View style={[styles.platform, { backgroundColor: theme.background === "#F4F6F8" || theme.background === "#FAFAF9" || theme.background === "#F0FDF4" || theme.background === "#F5F7FA" ? "#FFE60020" : "#FFE60040" }]}>
             <View style={styles.platformHeader}>
-              <Text style={styles.platformName}>Mercado Livre</Text>
+              <Text style={[styles.platformName, { color: theme.textColor }]}>Mercado Livre</Text>
               <View style={styles.sponsoredBadge}>
                 <Text style={styles.sponsoredText}>Patrocinado</Text>
               </View>
@@ -193,7 +193,6 @@ const styles = StyleSheet.create({
   platformName: {
     fontSize: 13,
     fontFamily: "DMSans_700Bold",
-    color: "#1a1a1a",
   },
   sponsoredBadge: {
     backgroundColor: "#22C55E",

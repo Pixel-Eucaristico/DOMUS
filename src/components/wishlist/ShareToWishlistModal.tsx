@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Modal,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   ActivityIndicator,
   ScrollView,
   Animated,
@@ -117,13 +118,26 @@ export function ShareToWishlistModal({ visible, url, onClose }: Props) {
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
-      <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
+      <View style={styles.container}>
+        <Animated.View
+          style={[
+            styles.backdrop,
+            { opacity: fadeAnim },
+          ]}
+        >
+          <TouchableWithoutFeedback onPress={handleClose}>
+            <View style={styles.flex} />
+          </TouchableWithoutFeedback>
+        </Animated.View>
 
-      <View style={[styles.container, { paddingBottom: insets.bottom + 8 }]}>
         <Animated.View
           style={[
             styles.card,
-            { backgroundColor: theme.background, transform: [{ translateY: slideAnim }] },
+            {
+              backgroundColor: theme.background,
+              transform: [{ translateY: slideAnim }],
+              paddingBottom: Math.max(insets.bottom, 20),
+            },
           ]}
         >
           {/* Cabeçalho */}
@@ -322,10 +336,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
   },
+  flex: { flex: 1 },
   card: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
     maxHeight: "85%",
   },
   header: {

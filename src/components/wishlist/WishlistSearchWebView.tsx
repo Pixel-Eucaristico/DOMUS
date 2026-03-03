@@ -126,7 +126,7 @@ export function WishlistSearchWebView({
           />
 
           {loading && (
-            <View style={styles.loadingOverlay}>
+            <View style={[styles.loadingOverlay, { backgroundColor: theme.background + "99" }]}>
               <ActivityIndicator size="large" color={theme.primaryColor} />
             </View>
           )}
@@ -134,7 +134,7 @@ export function WishlistSearchWebView({
 
         {/* Barra flutuante — aparece apenas quando está em página de produto */}
         {isProduct && (
-          <View style={[styles.floatingBar, { paddingBottom: insets.bottom + 8, backgroundColor: theme.background }]}>
+          <View style={[styles.floatingBar, { paddingBottom: insets.bottom + 8, backgroundColor: theme.background, borderTopColor: theme.border }]}>
             <TouchableOpacity
               style={[styles.addProductBtn, { backgroundColor: theme.primaryColor }]}
               onPress={handleAddProduct}
@@ -188,13 +188,11 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.6)",
   },
   floatingBar: {
     paddingHorizontal: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.08)",
   },
   addProductBtn: {
     flexDirection: "row",

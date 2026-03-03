@@ -2,12 +2,10 @@ import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs } from "expo-router";
 import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
 import { BlurView } from "expo-blur";
-import { Platform, StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import React from "react";
-
-const TINT = "#1B5E63";
-const INACTIVE = "#9CA3AF";
+import { useAppState } from "@/src/context/AppStateProvider";
 
 function NativeTabLayout() {
   return (
@@ -33,20 +31,26 @@ function NativeTabLayout() {
 }
 
 function ClassicTabLayout() {
+  const { theme, themeMode } = useAppState();
+  const systemColorScheme = useColorScheme();
   const isWeb = Platform.OS === "web";
   const isIOS = Platform.OS === "ios";
+  
+  const isDark = 
+    themeMode === "dark" || 
+    (themeMode === "system" && systemColorScheme === "dark");
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: TINT,
-        tabBarInactiveTintColor: INACTIVE,
+        tabBarActiveTintColor: theme.primaryColor,
+        tabBarInactiveTintColor: theme.secondaryText,
         headerShown: false,
         tabBarStyle: {
           position: "absolute" as const,
-          backgroundColor: isIOS ? "transparent" : "#FFFFFF",
+          backgroundColor: isIOS ? "transparent" : theme.cardBackground,
           borderTopWidth: isWeb ? 1 : 0,
-          borderTopColor: "#E5E7EB",
+          borderTopColor: theme.border,
           elevation: 0,
           ...(isWeb ? { height: 84 } : {}),
         },
@@ -54,12 +58,12 @@ function ClassicTabLayout() {
           isIOS ? (
             <BlurView
               intensity={100}
-              tint="light"
+              tint={isDark ? "dark" : "light"}
               style={StyleSheet.absoluteFill}
             />
           ) : isWeb ? (
             <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: "#FFFFFF" }]}
+              style={[StyleSheet.absoluteFill, { backgroundColor: theme.cardBackground }]}
             />
           ) : null,
         tabBarLabelStyle: {

@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Pressable,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,6 +27,7 @@ import type { UrgencyLevel, WishlistItem, SavingsGoalConfig } from "@packages/wi
 import type { AccountPayload } from "@packages/events";
 import { CATEGORY_OPTIONS, GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { WishlistSearchWebView } from "./WishlistSearchWebView";
+import { SelectionModal } from "../shared/SelectionModal";
 
 const URGENCY_LABELS: Record<UrgencyLevel, string> = {
   PRIORITY: "Prioridade",
@@ -75,7 +77,6 @@ const INITIAL_FORM: FormState = {
   imageUrl: "",
 };
 
-/** Substitui o tag de afiliado da Amazon pelo nosso, ou adiciona caso não exista. */
 function applyAmazonAffiliate(url: string): string {
   if (!url.trim()) return url;
   try {
@@ -90,7 +91,6 @@ function applyAmazonAffiliate(url: string): string {
       return parsed.toString();
     }
   } catch {
-    // URL inválida, retorna como está
   }
   return url;
 }
@@ -101,35 +101,35 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
   const [savingsGoal, setSavingsGoalState] = useState<SavingsGoalConfig>({ enabled: false });
   const [scraping, setScraping] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [searchModalVisible, setSearchModalVisible] = useState(false);
   const [webView, setWebView] = useState<{ visible: boolean; url: string }>({
     visible: false,
     url: "",
   });
 
-  const slideAnim = useRef(new Animated.Value(400)).current;
+  const slideAnim = useRef(new Animated.Value(600)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.spring(slideAnim, { toValue: 0, damping: 22, stiffness: 260, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, damping: 25, stiffness: 280, useNativeDriver: true }),
       ]).start();
     }
   }, [visible]);
 
   const animateClose = useCallback((callback: () => void) => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 160, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 400, duration: 180, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 600, duration: 250, useNativeDriver: true }),
     ]).start(() => {
-      slideAnim.setValue(400);
-      fadeAnim.setValue(0);
       callback();
+      slideAnim.setValue(600);
+      fadeAnim.setValue(0);
     });
   }, [fadeAnim, slideAnim]);
 
-  // Pré-preenche o formulário quando abre em modo edição
   useEffect(() => {
     if (visible && editItem) {
       setForm({
@@ -152,7 +152,6 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
   const isValid = form.name.trim().length >= 2;
   const hasUrl = form.url.trim().length > 0;
 
-  // Aplica afiliado Amazon ao sair do campo URL
   const handleUrlBlur = useCallback(() => {
     const affiliated = applyAmazonAffiliate(form.url);
     if (affiliated !== form.url) {
@@ -160,7 +159,6 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
     }
   }, [form.url]);
 
-  // Importa dados do produto via scraping do link
   const handleScrapeUrl = useCallback(async () => {
     if (!form.url.trim()) return;
     setScraping(true);
@@ -189,23 +187,13 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
     setWebView({ visible: true, url });
   }, []);
 
-  // Lupa: quando não tem URL abre pesquisa interna; quando tem URL importa os dados
   const handleSearchOrImport = useCallback(() => {
     if (hasUrl) {
       handleScrapeUrl();
       return;
     }
-    const term = form.name.trim();
-    Alert.alert(
-      "Pesquisar produto",
-      term ? `Pesquisar "${term}" em:` : "Escolha onde pesquisar:",
-      [
-        { text: "Amazon", onPress: () => openSearchWebView("amazon") },
-        { text: "Mercado Livre", onPress: () => openSearchWebView("ml") },
-        { text: "Cancelar", style: "cancel" },
-      ]
-    );
-  }, [hasUrl, form.name, handleScrapeUrl, openSearchWebView]);
+    setSearchModalVisible(true);
+  }, [hasUrl, handleScrapeUrl]);
 
   const handleConfirm = () => {
     if (!isValid) return;
@@ -233,16 +221,15 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
     });
   };
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     animateClose(() => {
       setForm(INITIAL_FORM);
       setSavingsGoalState({ enabled: false });
       setShowAdvanced(false);
       onCancel();
     });
-  };
+  }, [animateClose, onCancel]);
 
-  // Usuário selecionou um produto no WebView — fecha WebView, preenche URL e scrapa
   const handleProductSelected = useCallback(async (url: string) => {
     setWebView({ visible: false, url: "" });
     setForm((p) => ({ ...p, url }));
@@ -272,337 +259,355 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
       animationType="none"
       onRequestClose={handleCancel}
     >
-      <KeyboardAvoidingView
-        style={[styles.kav, { paddingTop: insets.top + 8 }]}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <TouchableWithoutFeedback onPress={handleCancel}>
-          <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
-        </TouchableWithoutFeedback>
-        <Animated.View
-          style={[
-            styles.card,
-            { backgroundColor: theme.background, transform: [{ translateY: slideAnim }] },
-          ]}
-        >
-          <View style={styles.headerRow}>
-            <Text style={[styles.title, { color: theme.textColor }]}>
-              {editItem ? "Editar Item" : "Adicionar Item"}
-            </Text>
-            <TouchableOpacity onPress={handleCancel}>
-              <Feather name="x" size={22} color={theme.secondaryText} />
-            </TouchableOpacity>
-          </View>
+      <View style={styles.kav}>
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+          <Pressable style={styles.flex} onPress={handleCancel} />
+        </Animated.View>
 
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+          style={styles.kav}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          pointerEvents="box-none"
+        >
+          <View style={styles.flex} pointerEvents="none" />
+          <Animated.View
+            style={[
+              styles.card,
+              {
+                backgroundColor: theme.background,
+                transform: [{ translateY: slideAnim }],
+                paddingBottom: Math.max(insets.bottom, 20),
+              },
+            ]}
           >
-            {/* URL + botão pesquisa/importar */}
-            <Text style={[styles.label, { color: theme.secondaryText }]}>
-              Link do produto (opcional)
-            </Text>
-            <View style={styles.urlRow}>
+            <View style={styles.headerRow}>
+              <Text style={[styles.title, { color: theme.textColor }]}>
+                {editItem ? "Editar Item" : "Adicionar Item"}
+              </Text>
+              <TouchableOpacity onPress={handleCancel}>
+                <Feather name="x" size={22} color={theme.secondaryText} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={[styles.label, { color: theme.secondaryText }]}>
+                Link do produto (opcional)
+              </Text>
+              <View style={styles.urlRow}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.inputFlex,
+                    {
+                      color: theme.textColor,
+                      borderColor: theme.cardBackground,
+                      backgroundColor: theme.cardBackground,
+                    },
+                  ]}
+                  placeholder="Cole o link ou use a lupa para pesquisar"
+                  placeholderTextColor={theme.secondaryText}
+                  value={form.url}
+                  onChangeText={(v) => setForm((p) => ({ ...p, url: v }))}
+                  onBlur={handleUrlBlur}
+                  autoCapitalize="none"
+                  keyboardType="url"
+                />
+                {hasUrl && (
+                  <TouchableOpacity
+                    style={styles.clearBtn}
+                    onPress={() => setForm((p) => ({ ...p, url: "" }))}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name="x" size={16} color={theme.secondaryText} />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[
+                    styles.scrapeBtn,
+                    { backgroundColor: hasUrl ? theme.primaryColor : (theme.primaryColor + "CC") },
+                  ]}
+                  onPress={handleSearchOrImport}
+                  disabled={scraping}
+                  activeOpacity={0.7}
+                >
+                  {scraping ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : hasUrl ? (
+                    <Feather name="download" size={16} color="#fff" />
+                  ) : (
+                    <Feather name="search" size={16} color="#fff" />
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.affiliateNote}>
+                <Feather name="heart" size={10} color={theme.secondaryText} />
+                <Text style={[styles.affiliateNoteText, { color: theme.secondaryText }]}>
+                  Links da Amazon são convertidos para afiliados — isso ajuda a manter o app gratuito
+                </Text>
+              </View>
+
+              <Text style={[styles.label, { color: theme.secondaryText }]}>
+                Nome *
+              </Text>
               <TextInput
                 style={[
                   styles.input,
-                  styles.inputFlex,
-                  {
-                    color: theme.textColor,
-                    borderColor: theme.cardBackground,
-                    backgroundColor: theme.cardBackground,
-                  },
+                  { color: theme.textColor, borderColor: theme.primaryColor, backgroundColor: theme.cardBackground },
                 ]}
-                placeholder="Cole o link ou use a lupa para pesquisar"
+                placeholder="Nome do produto..."
                 placeholderTextColor={theme.secondaryText}
-                value={form.url}
-                onChangeText={(v) => setForm((p) => ({ ...p, url: v }))}
-                onBlur={handleUrlBlur}
-                autoCapitalize="none"
-                keyboardType="url"
+                value={form.name}
+                onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
+                maxLength={100}
               />
-              {hasUrl && (
-                <TouchableOpacity
-                  style={styles.clearBtn}
-                  onPress={() => setForm((p) => ({ ...p, url: "" }))}
-                  activeOpacity={0.7}
-                >
-                  <Feather name="x" size={16} color={theme.secondaryText} />
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={[
-                  styles.scrapeBtn,
-                  { backgroundColor: hasUrl ? theme.primaryColor : (theme.primaryColor + "CC") },
-                ]}
-                onPress={handleSearchOrImport}
-                disabled={scraping}
-                activeOpacity={0.7}
-              >
-                {scraping ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : hasUrl ? (
-                  <Feather name="download" size={16} color="#fff" />
-                ) : (
-                  <Feather name="search" size={16} color="#fff" />
-                )}
-              </TouchableOpacity>
-            </View>
 
-            {/* Nota de transparência sobre links afiliados */}
-            <View style={styles.affiliateNote}>
-              <Feather name="heart" size={10} color={theme.secondaryText} />
-              <Text style={[styles.affiliateNoteText, { color: theme.secondaryText }]}>
-                Links da Amazon são convertidos para afiliados — isso ajuda a manter o app gratuito
+              <Text style={[styles.label, { color: theme.secondaryText }]}>
+                Urgência
               </Text>
-            </View>
-
-            {/* Nome */}
-            <Text style={[styles.label, { color: theme.secondaryText }]}>
-              Nome *
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { color: theme.textColor, borderColor: theme.primaryColor, backgroundColor: theme.cardBackground },
-              ]}
-              placeholder="Nome do produto..."
-              placeholderTextColor={theme.secondaryText}
-              value={form.name}
-              onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
-              maxLength={100}
-            />
-
-            {/* Urgência */}
-            <Text style={[styles.label, { color: theme.secondaryText }]}>
-              Urgência
-            </Text>
-            <View style={styles.urgencyRow}>
-              {URGENCY_ORDER.map((level) => {
-                const selected = form.urgencyLevel === level;
-                return (
-                  <TouchableOpacity
-                    key={level}
-                    style={[
-                      styles.urgencyChip,
-                      {
-                        backgroundColor: selected
-                          ? URGENCY_COLORS[level]
-                          : URGENCY_COLORS[level] + "20",
-                        borderColor: URGENCY_COLORS[level],
-                      },
-                    ]}
-                    onPress={() => setForm((p) => ({ ...p, urgencyLevel: level }))}
-                    activeOpacity={0.7}
-                  >
-                    <Text
+              <View style={styles.urgencyRow}>
+                {URGENCY_ORDER.map((level) => {
+                  const selected = form.urgencyLevel === level;
+                  return (
+                    <TouchableOpacity
+                      key={level}
                       style={[
-                        styles.urgencyText,
-                        { color: selected ? "#fff" : URGENCY_COLORS[level] },
+                        styles.urgencyChip,
+                        {
+                          backgroundColor: selected
+                            ? URGENCY_COLORS[level]
+                            : URGENCY_COLORS[level] + "20",
+                          borderColor: URGENCY_COLORS[level],
+                        },
                       ]}
+                      onPress={() => setForm((p) => ({ ...p, urgencyLevel: level }))}
+                      activeOpacity={0.7}
                     >
-                      {URGENCY_LABELS[level]}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Preço */}
-            <Text style={[styles.label, { color: theme.secondaryText }]}>
-              Preço (R$)
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground },
-              ]}
-              placeholder="0,00"
-              placeholderTextColor={theme.secondaryText}
-              value={form.price}
-              onChangeText={(v) => setForm((p) => ({ ...p, price: v }))}
-              keyboardType="decimal-pad"
-            />
-
-            {/* Categoria */}
-            <Text style={[styles.label, { color: theme.secondaryText }]}>
-              Categoria
-            </Text>
-            <View style={styles.categoryGrid}>
-              {CATEGORY_OPTIONS.map((cat) => {
-                const selected = form.category === cat.id;
-                const color = GROUP_COLORS[cat.group];
-                return (
-                  <TouchableOpacity
-                    key={cat.id}
-                    style={[
-                      styles.categoryChip,
-                      {
-                        backgroundColor: selected ? color : color + "18",
-                        borderColor: color,
-                      },
-                    ]}
-                    onPress={() => setForm((p) => ({ ...p, category: selected ? "" : cat.id }))}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.categoryChipText, { color: selected ? "#fff" : color }]}>
-                      {cat.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Vincular à poupança — só exibe contas do tipo savings */}
-            {accounts.filter((a) => a.type === "savings").length > 0 && (
-              <>
-                <Text style={[styles.label, { color: theme.secondaryText }]}>
-                  Vincular à poupança
-                </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.savingsScroll}>
-                  {/* Chip "Nenhuma" */}
-                  <TouchableOpacity
-                    style={[
-                      styles.savingsChip,
-                      {
-                        backgroundColor: !savingsGoal.enabled
-                          ? theme.primaryColor + "20"
-                          : theme.cardBackground,
-                        borderColor: !savingsGoal.enabled
-                          ? theme.primaryColor
-                          : theme.cardBackground,
-                      },
-                    ]}
-                    onPress={() => setSavingsGoalState({ enabled: false })}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.savingsChipText,
-                        { color: !savingsGoal.enabled ? theme.primaryColor : theme.secondaryText },
-                      ]}
-                    >
-                      Nenhuma
-                    </Text>
-                  </TouchableOpacity>
-                  {accounts
-                    .filter((a) => a.type === "savings")
-                    .map((acc) => {
-                      const selected =
-                        savingsGoal.enabled && savingsGoal.linkedAccountId === acc.id;
-                      return (
-                        <TouchableOpacity
-                          key={acc.id}
-                          style={[
-                            styles.savingsChip,
-                            {
-                              backgroundColor: selected ? "#10B98120" : theme.cardBackground,
-                              borderColor: selected ? "#10B981" : theme.cardBackground,
-                            },
-                          ]}
-                          onPress={() =>
-                            setSavingsGoalState({ enabled: true, linkedAccountId: acc.id })
-                          }
-                          activeOpacity={0.7}
-                        >
-                          <Feather
-                            name="trending-up"
-                            size={11}
-                            color={selected ? "#10B981" : theme.secondaryText}
-                          />
-                          <Text
-                            style={[
-                              styles.savingsChipText,
-                              { color: selected ? "#10B981" : theme.textColor },
-                            ]}
-                          >
-                            {acc.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                </ScrollView>
-              </>
-            )}
-
-            {/* Dados avançados */}
-            <TouchableOpacity
-              style={styles.advancedToggle}
-              onPress={() => setShowAdvanced((v) => !v)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.advancedText, { color: theme.secondaryText }]}>
-                Dados avançados (EAN, NCM)
-              </Text>
-              <Feather
-                name={showAdvanced ? "chevron-up" : "chevron-down"}
-                size={14}
-                color={theme.secondaryText}
-              />
-            </TouchableOpacity>
-
-            {showAdvanced && (
-              <View>
-                <Text style={[styles.label, { color: theme.secondaryText }]}>EAN</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground },
-                  ]}
-                  placeholder="Código de barras"
-                  placeholderTextColor={theme.secondaryText}
-                  value={form.ean}
-                  onChangeText={(v) => setForm((p) => ({ ...p, ean: v }))}
-                  keyboardType="numeric"
-                />
-                <Text style={[styles.label, { color: theme.secondaryText }]}>NCM</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground },
-                  ]}
-                  placeholder="Ex: 8517.12.31"
-                  placeholderTextColor={theme.secondaryText}
-                  value={form.ncm}
-                  onChangeText={(v) => setForm((p) => ({ ...p, ncm: v }))}
-                />
+                      <Text
+                        style={[
+                          styles.urgencyText,
+                          { color: selected ? "#fff" : URGENCY_COLORS[level] },
+                        ]}
+                      >
+                        {URGENCY_LABELS[level]}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            )}
 
-            {/* Ações — Adicionar só aparece quando nome está preenchido */}
-            <View style={styles.actions}>
+              <Text style={[styles.label, { color: theme.secondaryText }]}>
+                Preço (R$)
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground },
+                ]}
+                placeholder="0,00"
+                placeholderTextColor={theme.secondaryText}
+                value={form.price}
+                onChangeText={(v) => setForm((p) => ({ ...p, price: v }))}
+                keyboardType="decimal-pad"
+              />
+
+              <Text style={[styles.label, { color: theme.secondaryText }]}>
+                Categoria
+              </Text>
+              <View style={styles.categoryGrid}>
+                {CATEGORY_OPTIONS.map((cat) => {
+                  const selected = form.category === cat.id;
+                  const color = GROUP_COLORS[cat.group];
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[
+                        styles.categoryChip,
+                        {
+                          backgroundColor: selected ? color : color + "18",
+                          borderColor: color,
+                        },
+                      ]}
+                      onPress={() => setForm((p) => ({ ...p, category: selected ? "" : cat.id }))}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.categoryChipText, { color: selected ? "#fff" : color }]}>
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {accounts.filter((a) => a.type === "savings").length > 0 && (
+                <>
+                  <Text style={[styles.label, { color: theme.secondaryText }]}>
+                    Vincular à poupança
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.savingsScroll}>
+                    <TouchableOpacity
+                      style={[
+                        styles.savingsChip,
+                        {
+                          backgroundColor: !savingsGoal.enabled
+                            ? theme.primaryColor + "20"
+                            : theme.cardBackground,
+                          borderColor: !savingsGoal.enabled
+                            ? theme.primaryColor
+                            : theme.cardBackground,
+                        },
+                      ]}
+                      onPress={() => setSavingsGoalState({ enabled: false })}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.savingsChipText,
+                          { color: !savingsGoal.enabled ? theme.primaryColor : theme.secondaryText },
+                        ]}
+                      >
+                        Nenhuma
+                      </Text>
+                    </TouchableOpacity>
+                    {accounts
+                      .filter((a) => a.type === "savings")
+                      .map((acc) => {
+                        const selected =
+                          savingsGoal.enabled && savingsGoal.linkedAccountId === acc.id;
+                        return (
+                          <TouchableOpacity
+                            key={acc.id}
+                            style={[
+                              styles.savingsChip,
+                              {
+                                backgroundColor: selected ? "#10B98120" : theme.cardBackground,
+                                borderColor: selected ? "#10B981" : theme.cardBackground,
+                              },
+                            ]}
+                            onPress={() =>
+                              setSavingsGoalState({ enabled: true, linkedAccountId: acc.id })
+                            }
+                            activeOpacity={0.7}
+                          >
+                            <Feather
+                              name="trending-up"
+                              size={11}
+                              color={selected ? "#10B981" : theme.secondaryText}
+                            />
+                            <Text
+                              style={[
+                                styles.savingsChipText,
+                                { color: selected ? "#10B981" : theme.textColor },
+                              ]}
+                            >
+                              {acc.name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                  </ScrollView>
+                </>
+              )}
+
               <TouchableOpacity
-                style={[styles.btn, { borderColor: theme.border ?? "#E5E7EB" }]}
-                onPress={handleCancel}
+                style={styles.advancedToggle}
+                onPress={() => setShowAdvanced((v) => !v)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.btnText, { color: theme.secondaryText }]}>
-                  Cancelar
+                <Text style={[styles.advancedText, { color: theme.secondaryText }]}>
+                  Dados avançados (EAN, NCM)
                 </Text>
+                <Feather
+                  name={showAdvanced ? "chevron-up" : "chevron-down"}
+                  size={14}
+                  color={theme.secondaryText}
+                />
               </TouchableOpacity>
-              {isValid && (
+
+              {showAdvanced && (
+                <View>
+                  <Text style={[styles.label, { color: theme.secondaryText }]}>EAN</Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground },
+                    ]}
+                    placeholder="Código de barras"
+                    placeholderTextColor={theme.secondaryText}
+                    value={form.ean}
+                    onChangeText={(v) => setForm((p) => ({ ...p, ean: v }))}
+                    keyboardType="numeric"
+                  />
+                  <Text style={[styles.label, { color: theme.secondaryText }]}>NCM</Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground },
+                    ]}
+                    placeholder="Ex: 8517.12.31"
+                    placeholderTextColor={theme.secondaryText}
+                    value={form.ncm}
+                    onChangeText={(v) => setForm((p) => ({ ...p, ncm: v }))}
+                  />
+                </View>
+              )}
+
+              <View style={styles.actions}>
                 <TouchableOpacity
-                  style={[styles.btn, styles.btnPrimary, { backgroundColor: theme.primaryColor }]}
-                  onPress={handleConfirm}
+                  style={[styles.btn, { borderColor: theme.border ?? "#E5E7EB" }]}
+                  onPress={handleCancel}
                   activeOpacity={0.7}
                 >
-                  <Feather name={editItem ? "check" : "plus"} size={16} color="#fff" />
-                  <Text style={styles.btnTextPrimary}>{editItem ? "Salvar alterações" : "Adicionar à lista"}</Text>
+                  <Text style={[styles.btnText, { color: theme.secondaryText }]}>
+                    Cancelar
+                  </Text>
                 </TouchableOpacity>
-              )}
-            </View>
-          </ScrollView>
-        </Animated.View>
-      </KeyboardAvoidingView>
+                {isValid && (
+                  <TouchableOpacity
+                    style={[styles.btn, styles.btnPrimary, { backgroundColor: theme.primaryColor }]}
+                    onPress={handleConfirm}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name={editItem ? "check" : "plus"} size={16} color="#fff" />
+                    <Text style={styles.btnTextPrimary}>{editItem ? "Salvar alterações" : "Adicionar à lista"}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </ScrollView>
+          </Animated.View>
+        </KeyboardAvoidingView>
 
-      {/* WebView de busca interna — abre em cima do modal */}
-      <WishlistSearchWebView
-        visible={webView.visible}
-        initialUrl={webView.url}
-        theme={theme}
-        onProductSelected={handleProductSelected}
-        onAbort={() => setWebView({ visible: false, url: "" })}
-      />
+        <WishlistSearchWebView
+          visible={webView.visible}
+          initialUrl={webView.url}
+          theme={theme}
+          onProductSelected={handleProductSelected}
+          onAbort={() => setWebView({ visible: false, url: "" })}
+        />
+
+        <SelectionModal
+          visible={searchModalVisible}
+          title="Pesquisar produto"
+          subtitle={form.name.trim() ? `Pesquisar "${form.name.trim()}" em:` : "Escolha onde pesquisar:"}
+          theme={theme}
+          onCancel={() => setSearchModalVisible(false)}
+          options={[
+            {
+              label: "Amazon",
+              icon: "shopping-cart",
+              onPress: () => openSearchWebView("amazon"),
+            },
+            {
+              label: "Mercado Livre",
+              icon: "shopping-bag",
+              onPress: () => openSearchWebView("ml"),
+            },
+          ]}
+        />
+      </View>
     </Modal>
   );
 }
@@ -612,15 +617,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
   },
+  flex: { flex: 1 },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.5)",
   },
   card: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: "90%",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    maxHeight: "92%",
+    width: "100%",
   },
   headerRow: {
     flexDirection: "row",

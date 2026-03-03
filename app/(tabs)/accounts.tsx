@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   View,
@@ -10,6 +10,7 @@ import {
   Platform,
   Alert,
   Modal,
+  Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -19,6 +20,7 @@ import { useAppState } from "@/src/context/AppStateProvider";
 import { createAccountEvent, updateAccountEvent } from "@packages/domain/src/accounts";
 import type { AccountPayload, AccountType } from "@packages/events/src/types";
 import { URGENCY_ORDER } from "@packages/wishlist";
+import { KeyboardAvoidingView } from "react-native";
 
 const ACCOUNT_TYPES: { key: AccountType; label: string; icon: string; color: string }[] = [
   { key: "checking",    label: "Corrente",  icon: "credit-card",  color: "#3B82F6" },
@@ -66,6 +68,55 @@ export default function AccountsScreen() {
   const [savingsRecurrence, setSavingsRecurrence] = useState<"monthly" | "biweekly" | "weekly">("monthly");
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
 
+  const slideAnim = useRef(new Animated.Value(600)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (modalVisible) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          damping: 25,
+          stiffness: 280,
+          mass: 0.8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [modalVisible]);
+
+  const animateClose = useCallback((callback: () => void) => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 600, duration: 250, useNativeDriver: true }),
+    ]).start(() => {
+      callback();
+      slideAnim.setValue(600);
+      fadeAnim.setValue(0);
+    });
+  }, [fadeAnim, slideAnim]);
+
+  const clearForm = useCallback(() => {
+    setName("");
+    setBalance("");
+    setCreditLimit("");
+    setClosingDay("");
+    setDueDay("");
+    setAccType("checking");
+    setSavingsGoalEnabled(false);
+    setSavingsContribution("");
+    setSavingsRecurrence("monthly");
+    setEditingAccountId(null);
+  }, []);
+
+  const closeModal = useCallback(() => {
+    animateClose(() => {
+      clearForm();
+      setModalVisible(false);
+    });
+  }, [animateClose, clearForm]);
+
   const toggleAccountExpand = (id: string) => {
     setExpandedAccounts((prev) => {
       const next = new Set(prev);
@@ -77,7 +128,6 @@ export default function AccountsScreen() {
 
   const accounts = Object.values(domain.accounts);
 
-  // Mapa: accountId → itens vinculados ordenados por urgência (para todos os cards)
   const linkedItemsByAccount = useMemo(() => {
     const allItems = Object.values(wishlist?.items ?? {});
     const map = new Map<string, typeof allItems>();
@@ -87,7 +137,6 @@ export default function AccountsScreen() {
       if (!map.has(id)) map.set(id, []);
       map.get(id)!.push(item);
     }
-    // Ordenar cada lista por urgência
     map.forEach((items) =>
       items.sort(
         (a, b) =>
@@ -98,7 +147,6 @@ export default function AccountsScreen() {
     return map;
   }, [wishlist]);
 
-  // Itens vinculados à conta sendo editada no modal
   const linkedWishlistItems = useMemo(() => {
     if (!editingAccountId || !savingsGoalEnabled) return [];
     return linkedItemsByAccount.get(editingAccountId) ?? [];
@@ -108,22 +156,8 @@ export default function AccountsScreen() {
     ? domain.accounts[editingAccountId]
     : null;
 
-  const resetForm = () => {
-    setName("");
-    setBalance("");
-    setCreditLimit("");
-    setClosingDay("");
-    setDueDay("");
-    setAccType("checking");
-    setSavingsGoalEnabled(false);
-    setSavingsContribution("");
-    setSavingsRecurrence("monthly");
-    setEditingAccountId(null);
-    setModalVisible(false);
-  };
-
   const openCreateModal = () => {
-    resetForm();
+    clearForm();
     setModalVisible(true);
   };
 
@@ -188,7 +222,7 @@ export default function AccountsScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
 
-    resetForm();
+    closeModal();
   };
 
   return (
@@ -291,7 +325,6 @@ export default function AccountsScreen() {
                       : formatCurrency(acc.balance)}
                   </Text>
 
-                  {/* Sanfona de objetivos — toggle + itens expandidos clicáveis */}
                   {cardLinkedItems.length > 0 && (
                     <>
                       <Pressable
@@ -386,278 +419,298 @@ export default function AccountsScreen() {
       <Modal
         visible={modalVisible}
         transparent
-        animationType="slide"
-        onRequestClose={resetForm}
+        animationType="none"
+        onRequestClose={closeModal}
       >
-        <View style={s.modalOverlay}>
-          <View style={[s.modalContent, { backgroundColor: theme.cardBackground }]}>
-            <View style={s.modalHeader}>
-              <Text style={[s.modalTitle, { color: theme.textColor }]}>
-                {editingAccountId ? "Editar conta" : "Nova conta"}
-              </Text>
-              <Pressable onPress={resetForm} hitSlop={12}>
-                <Feather name="x" size={22} color={theme.secondaryText} />
-              </Pressable>
-            </View>
+        <View style={s.modalRoot}>
+          <Animated.View style={[s.modalOverlay, { opacity: fadeAnim }]}>
+            <Pressable style={s.flex} onPress={closeModal} />
+          </Animated.View>
 
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
-                Nome
-              </Text>
-              <TextInput
-                style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
-                value={name}
-                onChangeText={setName}
-                placeholder="Ex: Nubank"
-                placeholderTextColor={theme.secondaryText}
-              />
-
-              <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
-                Tipo
-              </Text>
-              <View style={s.typePicker}>
-                {ACCOUNT_TYPES.map((t) => {
-                  const selected = accType === t.key;
-                  return (
-                    <Pressable
-                      key={t.key}
-                      style={[
-                        s.typeChip,
-                        selected
-                          ? { backgroundColor: t.color, borderColor: t.color }
-                          : { backgroundColor: t.color + "18", borderColor: t.color + "60" },
-                      ]}
-                      onPress={() => setAccType(t.key)}
-                    >
-                      <Feather
-                        name={t.icon as any}
-                        size={13}
-                        color={selected ? "#FFF" : t.color}
-                      />
-                      <Text
-                        style={[
-                          s.typeChipText,
-                          { color: selected ? "#FFF" : t.color },
-                        ]}
-                      >
-                        {t.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+          <KeyboardAvoidingView
+            style={s.modalRoot}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            pointerEvents="box-none"
+          >
+            <View style={s.flex} pointerEvents="none" />
+            <Animated.View
+              style={[
+                s.modalContent,
+                {
+                  backgroundColor: theme.cardBackground,
+                  transform: [{ translateY: slideAnim }],
+                  paddingBottom: Math.max(insets.bottom, 24),
+                },
+              ]}
+            >
+              <View style={[s.handle, { backgroundColor: theme.border }]} />
+              
+              <View style={s.modalHeader}>
+                <Text style={[s.modalTitle, { color: theme.textColor }]}>
+                  {editingAccountId ? "Editar conta" : "Nova conta"}
+                </Text>
+                <Pressable onPress={closeModal} hitSlop={12}>
+                  <Feather name="x" size={22} color={theme.secondaryText} />
+                </Pressable>
               </View>
 
-              {accType !== "credit_card" ? (
-                <>
-                  <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
-                    Saldo inicial (R$)
-                  </Text>
-                  <TextInput
-                    style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
-                    value={balance}
-                    onChangeText={setBalance}
-                    placeholder="0,00"
-                    placeholderTextColor={theme.secondaryText}
-                    keyboardType="decimal-pad"
-                  />
-                </>
-              ) : (
-                <>
-                  <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
-                    Limite do cartao (R$)
-                  </Text>
-                  <TextInput
-                    style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
-                    value={creditLimit}
-                    onChangeText={setCreditLimit}
-                    placeholder="5000,00"
-                    placeholderTextColor={theme.secondaryText}
-                    keyboardType="decimal-pad"
-                  />
-                  <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
-                    Dia de fechamento (ex: 10)
-                  </Text>
-                  <TextInput
-                    style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
-                    value={closingDay}
-                    onChangeText={setClosingDay}
-                    placeholder="10"
-                    placeholderTextColor={theme.secondaryText}
-                    keyboardType="number-pad"
-                  />
-                  <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
-                    Dia de vencimento (ex: 15)
-                  </Text>
-                  <TextInput
-                    style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
-                    value={dueDay}
-                    onChangeText={setDueDay}
-                    placeholder="15"
-                    placeholderTextColor={theme.secondaryText}
-                    keyboardType="number-pad"
-                  />
-                </>
-              )}
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
+                  Nome
+                </Text>
+                <TextInput
+                  style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Ex: Nubank"
+                  placeholderTextColor={theme.secondaryText}
+                />
 
-              {/* Savings goal section — only for savings accounts */}
-              {accType === "savings" && (
-                <View style={[s.goalSection, { borderColor: theme.border }]}>
-                  <View style={s.goalToggleRow}>
-                    <View style={s.goalToggleLeft}>
-                      <Feather name="target" size={15} color="#10B981" />
-                      <Text style={[s.goalToggleLabel, { color: theme.textColor }]}>
-                        Objetivo de poupança
-                      </Text>
-                    </View>
-                    <Switch
-                      value={savingsGoalEnabled}
-                      onValueChange={setSavingsGoalEnabled}
-                      trackColor={{ false: theme.border, true: "#10B981" }}
-                      thumbColor="#fff"
+                <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
+                  Tipo
+                </Text>
+                <View style={s.typePicker}>
+                  {ACCOUNT_TYPES.map((t) => {
+                    const selected = accType === t.key;
+                    return (
+                      <Pressable
+                        key={t.key}
+                        style={[
+                          s.typeChip,
+                          selected
+                            ? { backgroundColor: t.color, borderColor: t.color }
+                            : { backgroundColor: t.color + "18", borderColor: t.color + "60" },
+                        ]}
+                        onPress={() => setAccType(t.key)}
+                      >
+                        <Feather
+                          name={t.icon as any}
+                          size={13}
+                          color={selected ? "#FFF" : t.color}
+                        />
+                        <Text
+                          style={[
+                            s.typeChipText,
+                            { color: selected ? "#FFF" : t.color },
+                          ]}
+                        >
+                          {t.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {accType !== "credit_card" ? (
+                  <>
+                    <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
+                      Saldo inicial (R$)
+                    </Text>
+                    <TextInput
+                      style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                      value={balance}
+                      onChangeText={setBalance}
+                      placeholder="0,00"
+                      placeholderTextColor={theme.secondaryText}
+                      keyboardType="decimal-pad"
                     />
-                  </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
+                      Limite do cartao (R$)
+                    </Text>
+                    <TextInput
+                      style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                      value={creditLimit}
+                      onChangeText={setCreditLimit}
+                      placeholder="5000,00"
+                      placeholderTextColor={theme.secondaryText}
+                      keyboardType="decimal-pad"
+                    />
+                    <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
+                      Dia de fechamento (ex: 10)
+                    </Text>
+                    <TextInput
+                      style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                      value={closingDay}
+                      onChangeText={setClosingDay}
+                      placeholder="10"
+                      placeholderTextColor={theme.secondaryText}
+                      keyboardType="number-pad"
+                    />
+                    <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
+                      Dia de vencimento (ex: 15)
+                    </Text>
+                    <TextInput
+                      style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                      value={dueDay}
+                      onChangeText={setDueDay}
+                      placeholder="15"
+                      placeholderTextColor={theme.secondaryText}
+                      keyboardType="number-pad"
+                    />
+                  </>
+                )}
 
-                  {savingsGoalEnabled && (
-                    <>
-                      <Text style={[s.fieldLabel, { color: theme.secondaryText, marginTop: 10 }]}>
-                        Periodicidade do aporte
-                      </Text>
-                      <View style={s.recurrenceRow}>
-                        {(
-                          [
-                            { key: "weekly", label: "Semanal" },
-                            { key: "biweekly", label: "Quinzenal" },
-                            { key: "monthly", label: "Mensal" },
-                          ] as const
-                        ).map(({ key, label }) => (
-                          <Pressable
-                            key={key}
-                            style={[
-                              s.recurrenceChip,
-                              savingsRecurrence === key
-                                ? { backgroundColor: "#10B981", borderColor: "#10B981" }
-                                : { backgroundColor: "#10B98118", borderColor: "#10B98160" },
-                            ]}
-                            onPress={() => setSavingsRecurrence(key)}
-                          >
-                            <Text
-                              style={{
-                                color: savingsRecurrence === key ? "#FFF" : "#10B981",
-                                fontFamily: "DMSans_500Medium",
-                                fontSize: 13,
-                              }}
-                            >
-                              {label}
-                            </Text>
-                          </Pressable>
-                        ))}
+                {accType === "savings" && (
+                  <View style={[s.goalSection, { borderColor: theme.border }]}>
+                    <View style={s.goalToggleRow}>
+                      <View style={s.goalToggleLeft}>
+                        <Feather name="target" size={15} color="#10B981" />
+                        <Text style={[s.goalToggleLabel, { color: theme.textColor }]}>
+                          Objetivo de poupança
+                        </Text>
                       </View>
-
-                      <Text style={[s.fieldLabel, { color: theme.secondaryText, marginTop: 10 }]}>
-                        {savingsRecurrence === "weekly"
-                          ? "Aporte semanal (R$)"
-                          : savingsRecurrence === "biweekly"
-                            ? "Aporte quinzenal (R$)"
-                            : "Aporte mensal (R$)"}
-                      </Text>
-                      <TextInput
-                        style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
-                        value={savingsContribution}
-                        onChangeText={setSavingsContribution}
-                        placeholder="0,00"
-                        placeholderTextColor={theme.secondaryText}
-                        keyboardType="decimal-pad"
+                      <Switch
+                        value={savingsGoalEnabled}
+                        onValueChange={setSavingsGoalEnabled}
+                        trackColor={{ false: theme.border, true: "#10B981" }}
+                        thumbColor="#fff"
                       />
-                      <Text style={[s.goalNote, { color: theme.secondaryText }]}>
-                        {savingsRecurrence === "weekly"
-                          ? "Um aporte pendente será gerado toda semana e efetivado quando você transferir o valor."
-                          : savingsRecurrence === "biweekly"
-                            ? "Um aporte pendente será gerado a cada quinzena e efetivado quando você transferir o valor."
-                            : "Um aporte pendente será gerado todo mês e efetivado quando você transferir o valor."}
-                      </Text>
+                    </View>
 
-                      {/* Linked wishlist items (editing only) */}
-                      {editingAccountId && linkedWishlistItems.length > 0 && (
-                        <View style={s.linkedSection}>
-                          <Text style={[s.linkedTitle, { color: theme.secondaryText }]}>
-                            Produtos vinculados
-                          </Text>
-                          {linkedWishlistItems.map((item) => {
-                            const bal = editingAccount?.balance ?? 0;
-                            const price = item.price ?? 0;
-                            const progress =
-                              price > 0 ? Math.min(bal / price, 1) : 0;
-                            const reached = price > 0 && bal >= price;
-                            return (
-                              <View
-                                key={item.id}
-                                style={[s.linkedItem, { backgroundColor: theme.background }]}
+                    {savingsGoalEnabled && (
+                      <>
+                        <Text style={[s.fieldLabel, { color: theme.secondaryText, marginTop: 10 }]}>
+                          Periodicidade do aporte
+                        </Text>
+                        <View style={s.recurrenceRow}>
+                          {(
+                            [
+                              { key: "weekly", label: "Semanal" },
+                              { key: "biweekly", label: "Quinzenal" },
+                              { key: "monthly", label: "Mensal" },
+                            ] as const
+                          ).map(({ key, label }) => (
+                            <Pressable
+                              key={key}
+                              style={[
+                                s.recurrenceChip,
+                                savingsRecurrence === key
+                                  ? { backgroundColor: "#10B981", borderColor: "#10B981" }
+                                  : { backgroundColor: "#10B98118", borderColor: "#10B98160" },
+                              ]}
+                              onPress={() => setSavingsRecurrence(key)}
+                            >
+                              <Text
+                                style={{
+                                  color: savingsRecurrence === key ? "#FFF" : "#10B981",
+                                  fontFamily: "DMSans_500Medium",
+                                  fontSize: 13,
+                                }}
                               >
-                                <View style={s.linkedItemHeader}>
-                                  <Text
-                                    style={[s.linkedItemName, { color: theme.textColor }]}
-                                    numberOfLines={1}
+                                {label}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+
+                        <Text style={[s.fieldLabel, { color: theme.secondaryText, marginTop: 10 }]}>
+                          {savingsRecurrence === "weekly"
+                            ? "Aporte semanal (R$)"
+                            : savingsRecurrence === "biweekly"
+                              ? "Aporte quinzenal (R$)"
+                              : "Aporte mensal (R$)"}
+                        </Text>
+                        <TextInput
+                          style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                          value={savingsContribution}
+                          onChangeText={setSavingsContribution}
+                          placeholder="0,00"
+                          placeholderTextColor={theme.secondaryText}
+                          keyboardType="decimal-pad"
+                        />
+                        <Text style={[s.goalNote, { color: theme.secondaryText }]}>
+                          {savingsRecurrence === "weekly"
+                            ? "Um aporte pendente será gerado toda semana e efetivado quando você transferir o valor."
+                            : savingsRecurrence === "biweekly"
+                              ? "Um aporte pendente será gerado a cada quinzena e efetivado quando você transferir o valor."
+                              : "Um aporte pendente será gerado todo mês e efetivado quando você transferir o valor."}
+                        </Text>
+
+                        {editingAccountId && linkedWishlistItems.length > 0 && (
+                          <View style={s.linkedSection}>
+                            <Text style={[s.linkedTitle, { color: theme.secondaryText }]}>
+                              Produtos vinculados
+                            </Text>
+                            {linkedWishlistItems.map((item) => {
+                              const bal = editingAccount?.balance ?? 0;
+                              const price = item.price ?? 0;
+                              const progress =
+                                price > 0 ? Math.min(bal / price, 1) : 0;
+                              const reached = price > 0 && bal >= price;
+                              return (
+                                <View
+                                  key={item.id}
+                                  style={[s.linkedItem, { backgroundColor: theme.background }]}
+                                >
+                                  <View style={s.linkedItemHeader}>
+                                    <Text
+                                      style={[s.linkedItemName, { color: theme.textColor }]}
+                                      numberOfLines={1}
+                                    >
+                                      {item.name}
+                                    </Text>
+                                    {reached ? (
+                                      <View style={s.reachedBadge}>
+                                        <Feather name="check-circle" size={13} color="#16A34A" />
+                                        <Text style={s.reachedText}>Atingido</Text>
+                                      </View>
+                                    ) : (
+                                      <Text style={[s.linkedPercent, { color: theme.secondaryText }]}>
+                                        {Math.round(progress * 100)}%
+                                      </Text>
+                                    )}
+                                  </View>
+                                  <View
+                                    style={[s.progressTrack, { backgroundColor: theme.cardBackground }]}
                                   >
-                                    {item.name}
-                                  </Text>
-                                  {reached ? (
-                                    <View style={s.reachedBadge}>
-                                      <Feather name="check-circle" size={13} color="#16A34A" />
-                                      <Text style={s.reachedText}>Atingido</Text>
-                                    </View>
-                                  ) : (
-                                    <Text style={[s.linkedPercent, { color: theme.secondaryText }]}>
-                                      {Math.round(progress * 100)}%
+                                    <View
+                                      style={[
+                                        s.progressFill,
+                                        {
+                                          width: `${Math.round(progress * 100)}%` as any,
+                                          backgroundColor: reached ? "#16A34A" : "#10B981",
+                                        },
+                                      ]}
+                                    />
+                                  </View>
+                                  {item.price !== undefined && (
+                                    <Text style={[s.linkedDetail, { color: theme.secondaryText }]}>
+                                      {reached
+                                        ? `R$ ${bal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                                        : `R$ ${bal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} de R$ ${price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                                     </Text>
                                   )}
                                 </View>
-                                <View
-                                  style={[s.progressTrack, { backgroundColor: theme.cardBackground }]}
-                                >
-                                  <View
-                                    style={[
-                                      s.progressFill,
-                                      {
-                                        width: `${Math.round(progress * 100)}%` as any,
-                                        backgroundColor: reached ? "#16A34A" : "#10B981",
-                                      },
-                                    ]}
-                                  />
-                                </View>
-                                {item.price !== undefined && (
-                                  <Text style={[s.linkedDetail, { color: theme.secondaryText }]}>
-                                    {reached
-                                      ? `R$ ${bal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                                      : `R$ ${bal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} de R$ ${price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                                  </Text>
-                                )}
-                              </View>
-                            );
-                          })}
-                        </View>
-                      )}
+                              );
+                            })}
+                          </View>
+                        )}
 
-                      {editingAccountId && linkedWishlistItems.length === 0 && (
-                        <Text style={[s.goalNote, { color: theme.secondaryText, marginTop: 6 }]}>
-                          Nenhum produto vinculado ainda. Vincule produtos na lista de desejos.
-                        </Text>
-                      )}
-                    </>
-                  )}
-                </View>
-              )}
+                        {editingAccountId && linkedWishlistItems.length === 0 && (
+                          <Text style={[s.goalNote, { color: theme.secondaryText, marginTop: 6 }]}>
+                            Nenhum produto vinculado ainda. Vincule produtos na lista de desejos.
+                          </Text>
+                        )}
+                      </>
+                    )}
+                  </View>
+                )}
 
-              <Pressable
-                style={[s.createBtn, { backgroundColor: theme.primaryColor }]}
-                onPress={handleSaveAccount}
-              >
-                <Feather name="check" size={18} color="#FFF" />
-                <Text style={s.createBtnText}>
-                  {editingAccountId ? "Salvar" : "Criar conta"}
-                </Text>
-              </Pressable>
-            </ScrollView>
-          </View>
+                <Pressable
+                  style={[s.createBtn, { backgroundColor: theme.primaryColor }]}
+                  onPress={handleSaveAccount}
+                >
+                  <Feather name="check" size={18} color="#FFF" />
+                  <Text style={s.createBtnText}>
+                    {editingAccountId ? "Salvar" : "Criar conta"}
+                  </Text>
+                </Pressable>
+              </ScrollView>
+            </Animated.View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </View>
@@ -785,16 +838,28 @@ const s = StyleSheet.create({
     fontFamily: "DMSans_400Regular",
     fontSize: 10,
   },
-  modalOverlay: {
+  modalRoot: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "flex-end",
   },
+  flex: { flex: 1 },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
   modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     padding: 24,
     maxHeight: "90%",
+    width: "100%",
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
   },
   modalHeader: {
     flexDirection: "row",

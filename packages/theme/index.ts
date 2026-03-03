@@ -1,4 +1,4 @@
-export type { ThemeColors, ArchetypeThemeKey } from "./src/types";
+export type { ThemeColors, ArchetypeThemeKey, ThemeMode } from "./src/types";
 
 export {
   getThemeForArchetype,

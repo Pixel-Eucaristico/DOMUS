@@ -75,11 +75,90 @@ const THEMES: Record<ArchetypeThemeKey, ThemeColors> = {
   },
 };
 
+const DARK_THEMES: Record<ArchetypeThemeKey, ThemeColors> = {
+  explorer: {
+    primaryColor: "#26A69A",
+    accentColor: "#1B5E63",
+    background: "#0F172A",
+    textColor: "#F8FAFC",
+    secondaryText: "#94A3B8",
+    cardBackground: "#1E293B",
+    border: "#334155",
+    success: "#10B981",
+    warning: "#F59E0B",
+    danger: "#EF4444",
+  },
+  organizer: {
+    primaryColor: "#5B6ABF",
+    accentColor: "#2D3A8C",
+    background: "#0F111A",
+    textColor: "#F1F5F9",
+    secondaryText: "#94A3B8",
+    cardBackground: "#1A1C2E",
+    border: "#2E314F",
+    success: "#059669",
+    warning: "#D97706",
+    danger: "#DC2626",
+  },
+  planner: {
+    primaryColor: "#3B82F6",
+    accentColor: "#1E3A5F",
+    background: "#0B0E14",
+    textColor: "#F1F5F9",
+    secondaryText: "#94A3B8",
+    cardBackground: "#161B22",
+    border: "#30363D",
+    success: "#22C55E",
+    warning: "#EAB308",
+    danger: "#EF4444",
+  },
+  strategist: {
+    primaryColor: "#A78BFA",
+    accentColor: "#3F1D38",
+    background: "#120B1A",
+    textColor: "#F5F3FF",
+    secondaryText: "#A78BFA",
+    cardBackground: "#241831",
+    border: "#3B2D4A",
+    success: "#16A34A",
+    warning: "#CA8A04",
+    danger: "#E11D48",
+  },
+  investor: {
+    primaryColor: "#10B981",
+    accentColor: "#064E3B",
+    background: "#06100E",
+    textColor: "#ECFDF5",
+    secondaryText: "#6EE7B7",
+    cardBackground: "#0A261F",
+    border: "#124D3D",
+    success: "#15803D",
+    warning: "#B45309",
+    danger: "#B91C1C",
+  },
+  independent: {
+    primaryColor: "#D6D3D1",
+    accentColor: "#A78BFA",
+    background: "#0C0A09",
+    textColor: "#FAFAF9",
+    secondaryText: "#A8A29E",
+    cardBackground: "#1C1917",
+    border: "#44403C",
+    success: "#16A34A",
+    warning: "#D97706",
+    danger: "#DC2626",
+  },
+};
+
 const DEFAULT_THEME = THEMES.explorer;
 
-export function getThemeForArchetype(archetype: string): ThemeColors {
+export function getThemeForArchetype(
+  archetype: string,
+  isDark: boolean = false,
+): ThemeColors {
   const key = archetype.toLowerCase() as ArchetypeThemeKey;
-  return THEMES[key] ?? DEFAULT_THEME;
+  const source = isDark ? DARK_THEMES : THEMES;
+  return source[key] ?? (isDark ? DARK_THEMES.explorer : DEFAULT_THEME);
 }
 
 export function getDefaultTheme(): ThemeColors {

@@ -7,7 +7,7 @@ import React, {
   useMemo,
   type ReactNode,
 } from "react";
-import { Platform } from "react-native";
+import { Platform, useColorScheme } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { DomainEvent } from "@packages/events/src/types";
 import { EVENT_TYPES } from "@packages/events/src/types";
@@ -28,7 +28,7 @@ import { SEASON_EVENTS } from "@packages/season/src/types";
 import type { SeasonEvent } from "@packages/season/src/types";
 import { seasonReducer, createInitialSeasonState } from "@packages/season/src/reducer";
 import { detectArchetype, calculateScores } from "@packages/personality/src/profileDetector";
-import { getThemeForArchetype, type ThemeColors } from "@packages/theme";
+import { getThemeForArchetype, type ThemeColors, type ThemeMode } from "@packages/theme";
 import type { ArchetypeType } from "@packages/personality/src/types";
 import { generateId } from "@packages/events/src/factory";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
@@ -51,6 +51,7 @@ interface DerivedState {
   season: SeasonState;
   wishlist: WishlistState;
   archetype: ArchetypeType;
+  themeMode: ThemeMode;
   theme: ThemeColors;
   levelInfo: LevelInfo;
   budget: BudgetBreakdown;
@@ -61,6 +62,7 @@ interface DerivedState {
 interface AppStateContextValue extends DerivedState {
   dispatch: (event: AnyEvent) => void;
   dispatchDomainEvent: (event: DomainEvent) => void;
+  setThemeMode: (mode: ThemeMode) => void;
   importEvents: (events: SyncEvent[]) => Promise<number>;
   restoreFromBackup: (events: SyncEvent[]) => Promise<void>;
   getAllEvents: () => SyncEvent[];
@@ -72,6 +74,7 @@ const AppStateContext = createContext<AppStateContextValue | null>(null);
 
 const DEVICE_ID_KEY = "domus_device_id";
 const EVENTS_BACKUP_KEY = "domus_events_v1";
+const THEME_MODE_KEY = "domus_theme_mode_v1";
 
 function generateDeviceId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
@@ -137,8 +140,22 @@ async function getEventStore(): Promise<SQLiteEventStore | null> {
 }
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
+  const systemColorScheme = useColorScheme();
+  const [themeMode, setThemeModeState] = useState<ThemeMode>("system");
+
   const [allEvents, setAllEvents] = useState<SyncEvent[]>([]);
   const allEventsRef = React.useRef(allEvents);
+  
+  const initialIsDark = systemColorScheme === "dark";
+  const [isDarkState, setIsDarkState] = useState(initialIsDark);
+
+  useEffect(() => {
+    const isDark =
+      themeMode === "dark" ||
+      (themeMode === "system" && systemColorScheme === "dark");
+    setIsDarkState(isDark);
+  }, [themeMode, systemColorScheme]);
+
   useEffect(() => {
     allEventsRef.current = allEvents;
     if (Platform.OS === "web" && allEvents.length > 0) {
@@ -157,6 +174,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
     (async () => {
+      // Carregar modo de tema salvo
+      const savedTheme = await AsyncStorage.getItem(THEME_MODE_KEY);
+      if (savedTheme && mounted) {
+        setThemeModeState(savedTheme as ThemeMode);
+      }
+
       // Carregar ou criar deviceId único para este dispositivo
       let did = await AsyncStorage.getItem(DEVICE_ID_KEY);
       if (!did) {
@@ -295,6 +318,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
   }, [loading, domain.categories, deviceId]);
 
+  const setThemeMode = useCallback(async (mode: ThemeMode) => {
+    setThemeModeState(mode);
+    await AsyncStorage.setItem(THEME_MODE_KEY, mode);
+  }, []);
+
   const archetype = useMemo<ArchetypeType>(() => {
     const txCount = Object.keys(domain.transactions).length;
     const scores = calculateScores({
@@ -308,10 +336,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return detectArchetype(scores);
   }, [domain.transactions, gamification.currentStreak, budget, season.history]);
 
-  const theme = useMemo(
-    () => getThemeForArchetype(archetype),
-    [archetype],
-  );
+  const theme = useMemo(() => {
+    return getThemeForArchetype(archetype, isDarkState);
+  }, [archetype, isDarkState]);
 
   const totalBalance = useMemo(
     () =>
@@ -520,6 +547,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       season,
       wishlist,
       archetype,
+      themeMode,
       theme,
       levelInfo,
       budget,
@@ -527,13 +555,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       loading,
       dispatch,
       dispatchDomainEvent,
+      setThemeMode,
       importEvents,
       restoreFromBackup,
       getAllEvents: getAllEventsCallback,
       localEventCount,
       deviceId,
     }),
-    [domain, gamification, onboarding, season, wishlist, archetype, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, importEvents, restoreFromBackup, getAllEventsCallback, localEventCount, deviceId],
+    [domain, gamification, onboarding, season, wishlist, archetype, themeMode, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, setThemeMode, importEvents, restoreFromBackup, getAllEventsCallback, localEventCount, deviceId],
   );
 
   return (

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   StyleSheet,
   Modal,
+  View,
   TouchableOpacity,
   TextInput,
   TouchableWithoutFeedback,
@@ -9,6 +10,7 @@ import {
   Platform,
   Animated,
   Text,
+  Pressable,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,24 +28,24 @@ export function CreateListModal({ visible, theme, onConfirm, onCancel }: Props) 
   const [name, setName] = useState("");
   const isValid = name.trim().length >= 2;
 
-  const slideAnim = useRef(new Animated.Value(400)).current;
+  const slideAnim = useRef(new Animated.Value(600)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.spring(slideAnim, { toValue: 0, damping: 22, stiffness: 260, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, damping: 25, stiffness: 280, useNativeDriver: true }),
       ]).start();
     }
   }, [visible]);
 
   const animateClose = (callback: () => void) => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 160, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 400, duration: 180, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 600, duration: 250, useNativeDriver: true }),
     ]).start(() => {
-      slideAnim.setValue(400);
+      slideAnim.setValue(600);
       fadeAnim.setValue(0);
       callback();
     });
@@ -71,73 +73,84 @@ export function CreateListModal({ visible, theme, onConfirm, onCancel }: Props) 
       animationType="none"
       onRequestClose={handleCancel}
     >
-      <KeyboardAvoidingView
-        style={[styles.kav, { paddingTop: insets.top + 8 }]}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <TouchableWithoutFeedback onPress={handleCancel}>
-          <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
-        </TouchableWithoutFeedback>
-        <Animated.View
-          style={[
-            styles.card,
-            { backgroundColor: theme.background, transform: [{ translateY: slideAnim }] },
-          ]}
+      <View style={styles.kav}>
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+          <Pressable style={styles.flex} onPress={handleCancel} />
+        </Animated.View>
+
+        <KeyboardAvoidingView
+          style={styles.kav}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          pointerEvents="box-none"
         >
-          <Text style={[styles.title, { color: theme.textColor }]}>
-            Nova Lista de Desejos
-          </Text>
-          <Text style={[styles.label, { color: theme.secondaryText }]}>
-            Nome da lista
-          </Text>
-          <TextInput
+          <View style={styles.flex} pointerEvents="none" />
+          <Animated.View
             style={[
-              styles.input,
+              styles.card,
               {
-                color: theme.textColor,
-                borderColor: theme.primaryColor,
-                backgroundColor: theme.cardBackground,
+                backgroundColor: theme.background,
+                transform: [{ translateY: slideAnim }],
+                paddingBottom: Math.max(insets.bottom, 24),
               },
             ]}
-            placeholder="Ex: Eletrônicos, Casa Nova..."
-            placeholderTextColor={theme.secondaryText}
-            value={name}
-            onChangeText={setName}
-            autoFocus
-            returnKeyType="done"
-            onSubmitEditing={handleConfirm}
-            maxLength={50}
-          />
-          <Animated.View style={styles.actions}>
-            <TouchableOpacity
-              style={[styles.btn, { borderColor: theme.border ?? "#E5E7EB" }]}
-              onPress={handleCancel}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.btnText, { color: theme.secondaryText }]}>
-                Cancelar
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+          >
+            <View style={[styles.handle, { backgroundColor: theme.border }]} />
+            
+            <Text style={[styles.title, { color: theme.textColor }]}>
+              Nova Lista de Desejos
+            </Text>
+            <Text style={[styles.label, { color: theme.secondaryText }]}>
+              Nome da lista
+            </Text>
+            <TextInput
               style={[
-                styles.btn,
-                styles.btnPrimary,
+                styles.input,
                 {
-                  backgroundColor: isValid
-                    ? theme.primaryColor
-                    : theme.primaryColor + "50",
+                  color: theme.textColor,
+                  borderColor: theme.primaryColor,
+                  backgroundColor: theme.cardBackground,
                 },
               ]}
-              onPress={handleConfirm}
-              disabled={!isValid}
-              activeOpacity={0.7}
-            >
-              <Feather name="plus" size={16} color="#fff" />
-              <Text style={styles.btnTextPrimary}>Criar Lista</Text>
-            </TouchableOpacity>
+              placeholder="Ex: Eletrônicos, Casa Nova..."
+              placeholderTextColor={theme.secondaryText}
+              value={name}
+              onChangeText={setName}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={handleConfirm}
+              maxLength={50}
+            />
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={[styles.btn, { borderColor: theme.border ?? "#E5E7EB" }]}
+                onPress={handleCancel}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.btnText, { color: theme.secondaryText }]}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.btn,
+                  styles.btnPrimary,
+                  {
+                    backgroundColor: isValid
+                      ? theme.primaryColor
+                      : theme.primaryColor + "50",
+                  },
+                ]}
+                onPress={handleConfirm}
+                disabled={!isValid}
+                activeOpacity={0.7}
+              >
+                <Feather name="plus" size={16} color="#fff" />
+                <Text style={styles.btnTextPrimary}>Criar Lista</Text>
+              </TouchableOpacity>
+            </View>
           </Animated.View>
-        </Animated.View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -147,15 +160,24 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
   },
+  flex: { flex: 1 },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.5)",
   },
   card: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     padding: 24,
     gap: 12,
+    width: "100%",
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 12,
   },
   title: {
     fontSize: 18,

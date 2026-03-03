@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -14,6 +14,7 @@ import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { useTransactionForm } from "@/src/hooks/useTransactionForm";
+import { useTitheCalculator } from "@/src/hooks/useTitheCalculator";
 import { ItemsSection } from "@/src/components/transaction/ItemsSection";
 import { AccountPicker } from "@/src/components/shared/AccountPicker";
 import { DatePickerField } from "@/src/components/shared/DatePickerField";
@@ -46,9 +47,19 @@ export default function AddTransactionScreen() {
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
   const form = useTransactionForm(txId);
+  const tithe = useTitheCalculator();
   const accounts = Object.values(domain.accounts);
   const defaultAccountId = form.selectedAccountId || accounts[0]?.id || "";
   const typeCats = getCategoriesForType(form.txType);
+  const selectedCatId = typeCats[form.selectedCategory]?.id;
+  const isTithe = form.txType === "expense" && selectedCatId === "dizimo";
+
+  // Auto-preenche o valor quando a calculadora de dízimo está ativa
+  useEffect(() => {
+    if (!isTithe || !tithe.result) return;
+    form.setAmount(tithe.result.amount.toFixed(2).replace(".", ","));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTithe, tithe.result]);
 
   const handleCreateNext = () => {
     if (!form.editingTx) return;
@@ -269,6 +280,110 @@ export default function AddTransactionScreen() {
           </View>
         </View>
 
+        {/* Tithe calculator — shown when category "Dízimo / Oferta" is selected */}
+        {isTithe && (
+          <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
+            <View style={s.titheHeader}>
+              <Feather name="gift" size={15} color="#A78BFA" />
+              <Text style={[s.label, { color: "#A78BFA", marginBottom: 0 }]}>
+                Calculadora de Dizimo
+              </Text>
+            </View>
+
+            <Text style={[s.label, { color: theme.secondaryText, marginTop: 10 }]}>
+              Percentual (%)
+            </Text>
+            <TextInput
+              style={[s.titheInput, { color: theme.textColor, borderColor: theme.border }]}
+              value={tithe.percentage}
+              onChangeText={tithe.setPercentage}
+              placeholder="10"
+              placeholderTextColor={theme.secondaryText}
+              keyboardType="decimal-pad"
+            />
+
+            <Text style={[s.label, { color: theme.secondaryText, marginTop: 10 }]}>
+              Base de calculo
+            </Text>
+            <View style={s.titheChipRow}>
+              {(
+                [
+                  { key: "gross" as const, label: "Renda bruta" },
+                  { key: "net" as const,   label: "Renda liquida" },
+                ]
+              ).map(({ key, label }) => (
+                <Pressable
+                  key={key}
+                  style={[
+                    s.titheChip,
+                    tithe.baseType === key
+                      ? { backgroundColor: "#A78BFA", borderColor: "#A78BFA" }
+                      : { backgroundColor: "#A78BFA18", borderColor: "#A78BFA60" },
+                  ]}
+                  onPress={() => tithe.setBaseType(key)}
+                >
+                  <Text style={{ color: tithe.baseType === key ? "#FFF" : "#A78BFA", fontFamily: "DMSans_500Medium", fontSize: 13 }}>
+                    {label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={[s.label, { color: theme.secondaryText, marginTop: 10 }]}>
+              Periodo de calculo
+            </Text>
+            <View style={s.titheChipRow}>
+              {(
+                [
+                  { key: "previous_month" as const, label: "Mes anterior" },
+                  { key: "current_month" as const,  label: "Mes atual" },
+                  { key: "custom" as const,         label: "Personalizado" },
+                ]
+              ).map(({ key, label }) => (
+                <Pressable
+                  key={key}
+                  style={[
+                    s.titheChip,
+                    tithe.periodType === key
+                      ? { backgroundColor: "#A78BFA", borderColor: "#A78BFA" }
+                      : { backgroundColor: "#A78BFA18", borderColor: "#A78BFA60" },
+                  ]}
+                  onPress={() => tithe.setPeriodType(key)}
+                >
+                  <Text style={{ color: tithe.periodType === key ? "#FFF" : "#A78BFA", fontFamily: "DMSans_500Medium", fontSize: 12 }}>
+                    {label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {tithe.periodType === "custom" && (
+              <>
+                <Text style={[s.label, { color: theme.secondaryText, marginTop: 10, fontSize: 12 }]}>
+                  Ultimos quantos dias?
+                </Text>
+                <TextInput
+                  style={[s.titheInput, { color: theme.textColor, borderColor: theme.border }]}
+                  value={tithe.customDays}
+                  onChangeText={tithe.setCustomDays}
+                  placeholder="30"
+                  placeholderTextColor={theme.secondaryText}
+                  keyboardType="number-pad"
+                />
+              </>
+            )}
+
+            <View style={s.titheResult}>
+              <Feather name="zap" size={14} color="#A78BFA" />
+              <Text style={s.titheResultText}>
+                {tithe.result
+                  ? `R$ ${tithe.result.amount.toFixed(2).replace(".", ",")}  (base: R$ ${tithe.result.base.toFixed(2).replace(".", ",")})`
+                  : "—"}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Installments (expense only) */}
         {form.txType === "expense" && (
           <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
@@ -485,4 +600,45 @@ const s = StyleSheet.create({
     borderWidth: 1,
   },
   nextBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
+  // Tithe calculator
+  titheHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    marginBottom: 2,
+  },
+  titheInput: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 16,
+    borderBottomWidth: 1,
+    paddingVertical: 8,
+    marginBottom: 4,
+  },
+  titheChipRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 6,
+  },
+  titheChip: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  titheResult: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: "#A78BFA18",
+  },
+  titheResultText: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 15,
+    color: "#A78BFA",
+  },
 });

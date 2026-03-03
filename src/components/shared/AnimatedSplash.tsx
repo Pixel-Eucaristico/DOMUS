@@ -4,23 +4,26 @@ import Svg, { Path, Rect } from "react-native-svg";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
   withTiming,
   withDelay,
   Easing,
   withSequence,
   runOnJS,
 } from "react-native-reanimated";
+import type { ThemeColors } from "@packages/theme";
 
 const { width } = Dimensions.get("window");
 
 interface AnimatedSplashProps {
   onAnimationFinish: () => void;
+  theme: ThemeColors;
 }
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
-export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onAnimationFinish }) => {
+export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onAnimationFinish, theme }) => {
   const roofProgress = useSharedValue(0);
   const bar1Scale = useSharedValue(0);
   const bar2Scale = useSharedValue(0);
@@ -48,23 +51,19 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onAnimationFinis
     return () => clearTimeout(timeout);
   }, []);
 
-  const roofStyle = useAnimatedStyle(() => ({
+  const roofProps = useAnimatedProps(() => ({
     opacity: roofProgress.value,
-    transform: [{ translateY: (1 - roofProgress.value) * 10 }],
   }));
 
-  const bar1Style = useAnimatedStyle(() => ({
-    transform: [{ scaleY: bar1Scale.value }],
+  const bar1Props = useAnimatedProps(() => ({
     opacity: bar1Scale.value,
   }));
 
-  const bar2Style = useAnimatedStyle(() => ({
-    transform: [{ scaleY: bar2Scale.value }],
+  const bar2Props = useAnimatedProps(() => ({
     opacity: bar2Scale.value,
   }));
 
-  const bar3Style = useAnimatedStyle(() => ({
-    transform: [{ scaleY: bar3Scale.value }],
+  const bar3Props = useAnimatedProps(() => ({
     opacity: bar3Scale.value,
   }));
 
@@ -78,17 +77,17 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onAnimationFinis
   }));
 
   return (
-    <Animated.View style={[s.container, containerStyle]}>
+    <Animated.View style={[s.container, containerStyle, { backgroundColor: theme.background }]}>
       <View style={s.logoWrapper}>
         <Svg width={120} height={120} viewBox="0 0 100 100">
           {/* Teto da Casa */}
           <AnimatedPath
             d="M15 45L50 15L85 45"
-            stroke="#1B5E63"
+            stroke={theme.primaryColor}
             strokeWidth="8"
             strokeLinecap="round"
             strokeLinejoin="round"
-            style={roofStyle}
+            animatedProps={roofProps}
           />
           {/* Barras do Gráfico (Simbolizando crescimento dentro da casa/domus) */}
           <AnimatedRect
@@ -97,8 +96,8 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onAnimationFinis
             width="12"
             height="20"
             rx="3"
-            fill="#1B5E63"
-            style={bar1Style}
+            fill={theme.primaryColor}
+            animatedProps={bar1Props}
           />
           <AnimatedRect
             x="44"
@@ -106,8 +105,8 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onAnimationFinis
             width="12"
             height="40"
             rx="3"
-            fill="#1B5E63"
-            style={bar2Style}
+            fill={theme.accentColor}
+            animatedProps={bar2Props}
           />
           <AnimatedRect
             x="63"
@@ -115,13 +114,13 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onAnimationFinis
             width="12"
             height="60"
             rx="3"
-            fill="#1B5E63"
-            style={bar3Style}
+            fill={theme.success}
+            animatedProps={bar3Props}
           />
         </Svg>
         <Animated.View style={[s.textContainer, textStyle]}>
-          <Text style={s.brandText}>DOMUS</Text>
-          <Text style={s.sloganText}>Gestão Financeira Inteligente</Text>
+          <Text style={[s.brandText, { color: theme.primaryColor }]}>DOMUS</Text>
+          <Text style={[s.sloganText, { color: theme.textColor }]}>Gestão Financeira Inteligente</Text>
         </Animated.View>
       </View>
     </Animated.View>
@@ -131,7 +130,6 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onAnimationFinis
 const s = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#F4F6F8",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 9999,
@@ -146,13 +144,11 @@ const s = StyleSheet.create({
   brandText: {
     fontFamily: "DMSans_700Bold",
     fontSize: 32,
-    color: "#1B5E63",
     letterSpacing: 4,
   },
   sloganText: {
     fontFamily: "DMSans_400Regular",
     fontSize: 14,
-    color: "#1A1A2E",
     marginTop: 4,
     opacity: 0.6,
   },

@@ -1,3 +1,5 @@
+export type ThemeMode = "light" | "dark" | "system";
+
 export interface ThemeColors {
   primaryColor: string;
   accentColor: string;

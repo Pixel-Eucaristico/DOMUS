@@ -12,8 +12,10 @@ import {
   Animated,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
 import { useTransactionForm } from "@/src/hooks/useTransactionForm";
+import { useTitheCalculator } from "@/src/hooks/useTitheCalculator";
 import { AccountPicker } from "@/src/components/shared/AccountPicker";
 import { CategoryChipScroll } from "@/src/components/shared/CategoryChipScroll";
 import { DatePickerField } from "@/src/components/shared/DatePickerField";
@@ -45,28 +47,43 @@ const SHEET_TRANSLATE = 700;
 
 export function TransactionBottomSheet({ visible, onClose, theme }: TransactionBottomSheetProps) {
   const { domain } = useAppState();
+  const insets = useSafeAreaInsets();
   const form = useTransactionForm(undefined, onClose);
+  const tithe = useTitheCalculator();
   const accounts = Object.values(domain.accounts);
 
   // Sheet slides up; overlay is static (no sliding dark bg)
   const slideAnim = useRef(new Animated.Value(SHEET_TRANSLATE)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        damping: 22,
-        stiffness: 280,
-        mass: 0.85,
-      }).start();
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          damping: 22,
+          stiffness: 280,
+          mass: 0.85,
+        }),
+      ]).start();
     } else {
       slideAnim.setValue(SHEET_TRANSLATE);
+      fadeAnim.setValue(0);
     }
   }, [visible]);
 
   const typeCats = getCategoriesForType(form.txType);
   const selectedCatId = typeCats[form.selectedCategory]?.id ?? typeCats[0]?.id ?? "";
+  const isTithe = form.txType === "expense" && selectedCatId === "dizimo";
+
+  // Auto-preenche o valor quando a calculadora de dízimo está ativa
+  useEffect(() => {
+    if (!isTithe || !tithe.result) return;
+    form.setAmount(tithe.result.amount.toFixed(2).replace(".", ","));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTithe, tithe.result]);
 
   return (
     <Modal
@@ -75,17 +92,26 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
       animationType="none"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={s.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <Pressable style={s.overlay} onPress={onClose} />
-        <Animated.View
-          style={[
-            s.sheet,
-            { backgroundColor: theme.cardBackground, transform: [{ translateY: slideAnim }] },
-          ]}
+      <View style={s.flex}>
+        <Animated.View style={[s.overlay, { opacity: fadeAnim }]}>
+          <Pressable style={s.flex} onPress={onClose} />
+        </Animated.View>
+        <KeyboardAvoidingView
+          style={s.flex}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          pointerEvents="box-none"
         >
+          <View style={s.spacer} pointerEvents="none" />
+          <Animated.View
+            style={[
+              s.sheet,
+              {
+                backgroundColor: theme.cardBackground,
+                transform: [{ translateY: slideAnim }],
+                paddingBottom: Math.max(insets.bottom, 20),
+              },
+            ]}
+          >
           {/* Handle */}
           <View style={[s.handle, { backgroundColor: theme.border }]} />
 
@@ -184,6 +210,110 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
                 if (idx !== -1) form.setSelectedCategory(idx);
               }}
             />
+
+            {/* Tithe calculator — shown when "Dízimo / Oferta" is selected */}
+            {isTithe && (
+              <View style={[s.titheCard, { backgroundColor: theme.background, borderColor: "#A78BFA40" }]}>
+                <View style={s.titheHeader}>
+                  <Feather name="gift" size={14} color="#A78BFA" />
+                  <Text style={[s.label, { color: "#A78BFA", marginBottom: 0, fontSize: 13 }]}>
+                    Calculadora de Dizimo
+                  </Text>
+                </View>
+
+                <Text style={[s.label, { color: theme.secondaryText, marginTop: 8, fontSize: 12 }]}>
+                  Percentual (%)
+                </Text>
+                <TextInput
+                  style={[s.titheInput, { color: theme.textColor, borderColor: theme.border }]}
+                  value={tithe.percentage}
+                  onChangeText={tithe.setPercentage}
+                  placeholder="10"
+                  placeholderTextColor={theme.secondaryText}
+                  keyboardType="decimal-pad"
+                />
+
+                <Text style={[s.label, { color: theme.secondaryText, marginTop: 8, fontSize: 12 }]}>
+                  Base
+                </Text>
+                <View style={s.titheChipRow}>
+                  {(
+                    [
+                      { key: "gross" as const, label: "Bruta" },
+                      { key: "net" as const,   label: "Liquida" },
+                    ]
+                  ).map(({ key, label }) => (
+                    <Pressable
+                      key={key}
+                      style={[
+                        s.titheChip,
+                        tithe.baseType === key
+                          ? { backgroundColor: "#A78BFA", borderColor: "#A78BFA" }
+                          : { backgroundColor: "#A78BFA18", borderColor: "#A78BFA60" },
+                      ]}
+                      onPress={() => tithe.setBaseType(key)}
+                    >
+                      <Text style={{ color: tithe.baseType === key ? "#FFF" : "#A78BFA", fontFamily: "DMSans_500Medium", fontSize: 12 }}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <Text style={[s.label, { color: theme.secondaryText, marginTop: 8, fontSize: 12 }]}>
+                  Periodo
+                </Text>
+                <View style={s.titheChipRow}>
+                  {(
+                    [
+                      { key: "previous_month" as const, label: "Mes ant." },
+                      { key: "current_month" as const,  label: "Mes atual" },
+                      { key: "custom" as const,         label: "Custom" },
+                    ]
+                  ).map(({ key, label }) => (
+                    <Pressable
+                      key={key}
+                      style={[
+                        s.titheChip,
+                        tithe.periodType === key
+                          ? { backgroundColor: "#A78BFA", borderColor: "#A78BFA" }
+                          : { backgroundColor: "#A78BFA18", borderColor: "#A78BFA60" },
+                      ]}
+                      onPress={() => tithe.setPeriodType(key)}
+                    >
+                      <Text style={{ color: tithe.periodType === key ? "#FFF" : "#A78BFA", fontFamily: "DMSans_500Medium", fontSize: 11 }}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {tithe.periodType === "custom" && (
+                  <>
+                    <Text style={[s.label, { color: theme.secondaryText, marginTop: 8, fontSize: 12 }]}>
+                      Ultimos quantos dias?
+                    </Text>
+                    <TextInput
+                      style={[s.titheInput, { color: theme.textColor, borderColor: theme.border }]}
+                      value={tithe.customDays}
+                      onChangeText={tithe.setCustomDays}
+                      placeholder="30"
+                      placeholderTextColor={theme.secondaryText}
+                      keyboardType="number-pad"
+                    />
+                  </>
+                )}
+
+                <View style={s.titheResult}>
+                  <Feather name="zap" size={13} color="#A78BFA" />
+                  <Text style={s.titheResultText}>
+                    {tithe.result
+                      ? `R$ ${tithe.result.amount.toFixed(2).replace(".", ",")}  (base: R$ ${tithe.result.base.toFixed(2).replace(".", ",")})`
+                      : "—"}
+                  </Text>
+                </View>
+              </View>
+            )}
 
             {/* Account */}
             <AccountPicker
@@ -292,30 +422,31 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
           </ScrollView>
         </Animated.View>
       </KeyboardAvoidingView>
+    </View>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
   flex: { flex: 1 },
+  spacer: { flex: 1 },
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.45)",
   },
   sheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     maxHeight: "85%",
-    paddingTop: 12,
+    paddingTop: 16,
     paddingHorizontal: 20,
-    paddingBottom: 0,
   },
   handle: {
-    width: 40,
+    width: 36,
     height: 4,
     borderRadius: 2,
     alignSelf: "center",
-    marginBottom: 12,
+    marginBottom: 16,
   },
   header: {
     flexDirection: "row",
@@ -354,4 +485,51 @@ const s = StyleSheet.create({
     marginTop: 12,
   },
   saveBtnText: { fontFamily: "DMSans_700Bold", fontSize: 16, color: "#FFF" },
+  // Tithe calculator
+  titheCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 2,
+  },
+  titheHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 2,
+  },
+  titheInput: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 15,
+    borderBottomWidth: 1,
+    paddingVertical: 6,
+    marginBottom: 2,
+  },
+  titheChipRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 4,
+  },
+  titheChip: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  titheResult: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: "#A78BFA18",
+  },
+  titheResultText: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 13,
+    color: "#A78BFA",
+  },
 });
