@@ -22,6 +22,7 @@ import { useSavingsGoalScheduler } from "@/src/hooks/useSavingsGoalScheduler";
 import { useAutoBackup } from "@/src/hooks/useAutoBackup";
 import { LockScreen } from "@/src/components/security/LockScreen";
 import { useSecurityLock } from "@/src/hooks/useSecurityLock";
+import { AnimatedSplash } from "@/src/components/shared/AnimatedSplash";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -167,6 +168,8 @@ export default function RootLayout() {
     DMSans_700Bold,
   });
 
+  const [splashFinished, setSplashFinished] = useState(false);
+
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
@@ -180,6 +183,9 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
+        {!splashFinished && (
+          <AnimatedSplash onAnimationFinish={() => setSplashFinished(true)} />
+        )}
         <GestureHandlerRootView>
           <KeyboardProvider>
             <AppStateProvider>
