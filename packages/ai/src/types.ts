@@ -117,7 +117,7 @@ export interface AdapterMessage {
 }
 
 export interface AdapterOptions {
-  model: string;
+  model?: string;
   /** default: 0.2 */
   temperature?: number;
   /** default: 512 */

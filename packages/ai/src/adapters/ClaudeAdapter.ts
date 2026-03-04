@@ -50,7 +50,7 @@ export class ClaudeAdapter implements AIProviderAdapter {
     }
 
     const body: AnthropicRequestBody = {
-      model: options.model,
+      model: options.model || "claude-3-haiku-20240307",
       max_tokens: options.maxTokens ?? 512,
       temperature: options.temperature ?? 0.2,
       messages: anthropicMessages,

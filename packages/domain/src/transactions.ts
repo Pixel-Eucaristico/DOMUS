@@ -242,6 +242,8 @@ export function getIdeal503020(totalIncome: number): BudgetBreakdown {
     needsPercent: 50,
     wantsPercent: 30,
     savingsPercent: 20,
+    totalIncome,
+    adherenceScore: 100,
   };
 }
 
