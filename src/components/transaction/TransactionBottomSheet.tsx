@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import {
   Modal,
   View,
@@ -9,20 +9,28 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Animated,
 } from "react-native";
+import Animated, { 
+  FadeIn, 
+  FadeOut, 
+  SlideInDown, 
+  SlideOutDown, 
+  Layout 
+} from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
 import { useTransactionForm } from "@/src/hooks/useTransactionForm";
 import { useTitheCalculator } from "@/src/hooks/useTitheCalculator";
 import { AccountPicker } from "@/src/components/shared/AccountPicker";
-import { CategoryChipScroll } from "@/src/components/shared/CategoryChipScroll";
+import { CategorySelectorGrid } from "@/src/components/shared/CategorySelectorGrid";
 import { DatePickerField } from "@/src/components/shared/DatePickerField";
 import { ItemsSection } from "@/src/components/transaction/ItemsSection";
 import { TX_TYPES, getCategoriesForType } from "@/src/constants/transactionCategories";
 import type { TransactionStatus, RecurrenceType } from "@packages/events/src/types";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
+import * as Haptics from "expo-haptics";
 
 interface TransactionBottomSheetProps {
   visible: boolean;
@@ -52,27 +60,17 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
   const tithe = useTitheCalculator();
   const accounts = Object.values(domain.accounts);
 
-  // Sheet slides up; overlay is static (no sliding dark bg)
-  const slideAnim = useRef(new Animated.Value(SHEET_TRANSLATE)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
   useEffect(() => {
     if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          useNativeDriver: true,
-          damping: 22,
-          stiffness: 280,
-          mass: 0.85,
-        }),
-      ]).start();
-    } else {
-      slideAnim.setValue(SHEET_TRANSLATE);
-      fadeAnim.setValue(0);
+      soundManager.play("pop");
+      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
   }, [visible]);
+
+  const handleClose = () => {
+    soundManager.play("tap");
+    onClose();
+  };
 
   const typeCats = getCategoriesForType(form.txType);
   const selectedCatId = typeCats[form.selectedCategory]?.id ?? typeCats[0]?.id ?? "";
@@ -86,16 +84,22 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTithe, tithe.result?.amount]);
 
+  if (!visible) return null;
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="none"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={s.flex}>
-        <Animated.View style={[s.overlay, { opacity: fadeAnim }]}>
-          <Pressable style={s.flex} onPress={onClose} />
+        <Animated.View 
+          entering={FadeIn.duration(200)} 
+          exiting={FadeOut.duration(200)}
+          style={s.overlay}
+        >
+          <Pressable style={s.flex} onPress={handleClose} />
         </Animated.View>
         <KeyboardAvoidingView
           style={s.flex}
@@ -104,11 +108,12 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
         >
           <View style={s.spacer} pointerEvents="none" />
           <Animated.View
+            entering={SlideInDown.springify().damping(20).stiffness(200)}
+            exiting={SlideOutDown}
             style={[
               s.sheet,
               {
                 backgroundColor: theme.cardBackground,
-                transform: [{ translateY: slideAnim }],
                 paddingBottom: Math.max(insets.bottom, 20),
               },
             ]}
@@ -119,7 +124,7 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
           {/* Header */}
           <View style={s.header}>
             <Text style={[s.title, { color: theme.textColor }]}>Nova transacao</Text>
-            <Pressable onPress={onClose} hitSlop={12}>
+            <Pressable onPress={handleClose} hitSlop={12}>
               <Feather name="x" size={22} color={theme.secondaryText} />
             </Pressable>
           </View>
@@ -202,10 +207,11 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
 
             {/* Category — filtered by type */}
             <Text style={[s.label, { color: theme.secondaryText }]}>Categoria</Text>
-            <CategoryChipScroll
+            <CategorySelectorGrid
               categories={typeCats}
               selectedId={selectedCatId}
               theme={theme}
+              type={form.txType}
               onSelect={(id) => {
                 const idx = typeCats.findIndex((c) => c.id === id);
                 if (idx !== -1) form.setSelectedCategory(idx);

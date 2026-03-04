@@ -21,6 +21,13 @@ import { DomusLogo } from "@/src/components/shared/DomusLogo";
 import { AnimatedCard } from "@/src/components/shared/AnimatedCard";
 import { AnimatedIconButton } from "@/src/components/shared/AnimatedIconButton";
 import { soundManager } from "@/src/services/SoundManager";
+import Animated, { 
+  FadeInUp, 
+  FadeOutDown, 
+  Layout, 
+  FadeIn,
+  SlideInRight
+} from "react-native-reanimated";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -306,30 +313,30 @@ export default function HomeScreen() {
           </View>
           <View style={s.headerActions}>
             <AnimatedIconButton
-              name="access-point"
-              iconSet="MaterialCommunityIcons"
-              size={22}
+              name="refresh-cw"
+              size={20}
               color={theme.primaryColor}
+              isLoading={syncStatus === "syncing"}
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
               onPress={() => router.push("/sync")}
             />
             <AnimatedIconButton
               name="maximize"
-              size={22}
+              size={20}
               color={theme.primaryColor}
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
               onPress={() => router.push("/import-invoice")}
             />
             <AnimatedIconButton
               name="cpu"
-              size={22}
+              size={20}
               color={theme.primaryColor}
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
               onPress={() => router.push("/ai-chat")}
             />
             <AnimatedIconButton
               name="settings"
-              size={22}
+              size={20}
               color={theme.primaryColor}
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
               onPress={() => router.push("/about")}
@@ -701,59 +708,64 @@ export default function HomeScreen() {
           </View>
           {recentTxs.length > 0 ? (
             <View style={s.txList}>
-              {recentTxs.map((tx) => {
+              {recentTxs.map((tx, idx) => {
                 const cat = domain.categories[tx.categoryId];
                 const isExpense = tx.type === "expense";
                 return (
-                  <Pressable 
-                    key={tx.id} 
-                    style={({ pressed }) => [
-                      s.txRow, 
-                      { borderBottomColor: theme.border, opacity: pressed ? 0.7 : 1 }
-                    ]}
-                    onPress={() => router.push({ pathname: "/add-transaction", params: { txId: tx.id } })}
+                  <Animated.View 
+                    key={tx.id}
+                    entering={SlideInRight.delay(idx * 50).springify().damping(20)}
+                    layout={Layout.springify()}
                   >
-                    <View
-                      style={[
-                        s.txIcon,
-                        {
-                          backgroundColor: isExpense
-                            ? `${theme.danger}15`
-                            : `${theme.success}15`,
-                        },
+                    <Pressable 
+                      style={({ pressed }) => [
+                        s.txRow, 
+                        { borderBottomColor: theme.border, opacity: pressed ? 0.7 : 1 }
                       ]}
+                      onPress={() => router.push({ pathname: "/add-transaction", params: { txId: tx.id } })}
                     >
-                      <Feather
-                        name={isExpense ? "arrow-down-left" : "arrow-up-right"}
-                        size={16}
-                        color={isExpense ? theme.danger : theme.success}
-                      />
-                    </View>
-                    <View style={s.txInfo}>
-                      <View style={s.txDescRow}>
-                        <Text style={[s.txDesc, { color: theme.textColor }]}>
-                          {tx.description || cat?.name || tx.type}
-                        </Text>
-                        {tx.status === "pending" && (
-                          <View style={s.pendingBadge}>
-                            <Text style={s.pendingBadgeText}>Pendente</Text>
-                          </View>
-                        )}
+                      <View
+                        style={[
+                          s.txIcon,
+                          {
+                            backgroundColor: isExpense
+                              ? `${theme.danger}15`
+                              : `${theme.success}15`,
+                          },
+                        ]}
+                      >
+                        <Feather
+                          name={isExpense ? "arrow-down-left" : "arrow-up-right"}
+                          size={16}
+                          color={isExpense ? theme.danger : theme.success}
+                        />
                       </View>
-                      <Text style={[s.txDate, { color: theme.secondaryText }]}>
-                        {tx.date}
+                      <View style={s.txInfo}>
+                        <View style={s.txDescRow}>
+                          <Text style={[s.txDesc, { color: theme.textColor }]}>
+                            {tx.description || cat?.name || tx.type}
+                          </Text>
+                          {tx.status === "pending" && (
+                            <View style={s.pendingBadge}>
+                              <Text style={s.pendingBadgeText}>Pendente</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={[s.txDate, { color: theme.secondaryText }]}>
+                          {tx.date}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          s.txAmount,
+                          { color: isExpense ? theme.danger : theme.success },
+                        ]}
+                      >
+                        {isExpense ? "-" : "+"}
+                        {formatCurrency(tx.amount)}
                       </Text>
-                    </View>
-                    <Text
-                      style={[
-                        s.txAmount,
-                        { color: isExpense ? theme.danger : theme.success },
-                      ]}
-                    >
-                      {isExpense ? "-" : "+"}
-                      {formatCurrency(tx.amount)}
-                    </Text>
-                  </Pressable>
+                    </Pressable>
+                  </Animated.View>
                 );
               })}
             </View>

@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import * as Camera from "expo-camera";
+import { Camera } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 
 export type PermissionStatus = "granted" | "denied" | "undetermined";

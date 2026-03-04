@@ -5,12 +5,45 @@ export type {
   XpGainedEvent,
   LevelUpEvent,
   StreakUpdatedEvent,
+  AchievementUnlockedEvent,
+  MonthlyTrophyCompletedEvent,
+  SeasonalTrophySelectedEvent,
+  SeasonalTrophyCompletedEvent,
   XpGainedPayload,
   LevelUpPayload,
   StreakUpdatedPayload,
+  AchievementUnlockedPayload,
+  MonthlyTrophyCompletedPayload,
+  SeasonalTrophySelectedPayload,
+  SeasonalTrophyCompletedPayload,
+  UnlockedAchievement,
+  CompletedMonthlyTrophy,
+  SelectedSeasonalTrophy,
+  CompletedSeasonalTrophy,
   XpSource,
 } from "./src/types";
 export { GAMIFICATION_EVENTS } from "./src/types";
+
+export type { SeasonalTrophy, SeasonalTier, SeasonalTrophyProgress } from "./src/seasonalTrophies";
+export {
+  ALL_SEASONAL_TROPHIES,
+  pickSeasonalTrophy,
+  getSeasonalTier,
+  getSeasonalXp,
+  getTierLabel,
+  getTierColor,
+} from "./src/seasonalTrophies";
+
+export type { Achievement, AchievementRarity, AchievementSeries, MonthlyTrophy, MonthlyTrophyProgress } from "./src/achievements";
+export {
+  ALL_ACHIEVEMENTS,
+  ACHIEVEMENT_SERIES,
+  checkNewAchievements,
+  getNextSeriesTarget,
+  getConsecutiveMonthsCompliant,
+  MONTHLY_TROPHIES,
+  checkNewMonthlyTrophies,
+} from "./src/achievements";
 
 export {
   getXpForAction,
@@ -39,3 +72,6 @@ export {
   createInitialGamificationState,
   replayGamificationEvents,
 } from "./src/reducer";
+
+export type { LiturgicalTrophy } from "./src/liturgicalTrophies";
+export { ALL_LITURGICAL_TROPHIES } from "./src/liturgicalTrophies";

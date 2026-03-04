@@ -17,6 +17,10 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { AppStateProvider } from "@/src/context/AppStateProvider";
 import { SyncProvider } from "@/src/context/SyncProvider";
+import { DemoModeProvider } from "@/src/context/DemoModeProvider";
+import { TourOverlay } from "@/src/components/shared/TourOverlay";
+import { AchievementToast } from "@/src/components/gamification/AchievementToast";
+import { ReligiousPreferenceModal } from "@/src/components/shared/ReligiousPreferenceModal";
 import { ShareToWishlistModal } from "@/src/components/wishlist/ShareToWishlistModal";
 import { useSavingsGoalScheduler } from "@/src/hooks/useSavingsGoalScheduler";
 import { useAutoBackup } from "@/src/hooks/useAutoBackup";
@@ -210,24 +214,69 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <AppStateProvider>
-          <AppContainer>
-            <KeyboardProvider>
-              {!splashFinished && (
-                <SplashWrapper onFinish={() => setSplashFinished(true)} />
-              )}
-              <SyncProvider>
-                <SavingsGoalScheduler />
-                <AutoBackupScheduler />
-                <SecurityGuard>
-                  <RootLayoutNav />
-                </SecurityGuard>
-                <ShareIntentHandler />
-              </SyncProvider>
-            </KeyboardProvider>
-          </AppContainer>
-        </AppStateProvider>
+        <DemoModeProvider>
+          <AppStateProvider>
+            <AppContainer>
+              <KeyboardProvider>
+                {!splashFinished && (
+                  <SplashWrapper onFinish={() => setSplashFinished(true)} />
+                )}
+                <SyncProvider>
+                  <SavingsGoalScheduler />
+                  <AutoBackupScheduler />
+                  <SecurityGuard>
+                    <RootLayoutNav />
+                  </SecurityGuard>
+                  <ShareIntentHandler />
+                  <TourContent />
+                  <AchievementToastHost />
+                  <SeasonalToastHost />
+                  <ReligiousPreferenceHost />
+                </SyncProvider>
+              </KeyboardProvider>
+            </AppContainer>
+          </AppStateProvider>
+        </DemoModeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
+  );
+}
+
+function TourContent() {
+  const { theme } = useAppState();
+  return <TourOverlay theme={theme} />;
+}
+
+function AchievementToastHost() {
+  const { pendingToast, clearPendingToast } = useAppState();
+  return <AchievementToast toast={pendingToast} onDismiss={clearPendingToast} />;
+}
+
+function ReligiousPreferenceHost() {
+  const { isCatholic, loading, setIsCatholic } = useAppState();
+  if (loading || isCatholic !== null) return null;
+  return (
+    <ReligiousPreferenceModal
+      visible
+      onSelect={setIsCatholic}
+    />
+  );
+}
+
+function SeasonalToastHost() {
+  const { pendingSeasonalToast, clearPendingSeasonalToast } = useAppState();
+  if (!pendingSeasonalToast) return null;
+  return (
+    <AchievementToast
+      toast={{
+        achievementId: pendingSeasonalToast.trophyId,
+        name: `🎴 ${pendingSeasonalToast.name}`,
+        description: pendingSeasonalToast.description,
+        rarity: pendingSeasonalToast.tier === 3 ? "diamond" : pendingSeasonalToast.tier === 2 ? "gold" : "silver",
+        xpReward: pendingSeasonalToast.xpReward,
+      }}
+      onDismiss={clearPendingSeasonalToast}
+      offsetTop={140}
+    />
   );
 }

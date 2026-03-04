@@ -4,21 +4,13 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   Switch,
   ScrollView,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
-import type { SavingsGoalConfig, SavingsFrequency } from "@packages/wishlist";
+import type { SavingsGoalConfig } from "@packages/wishlist";
 import type { AccountPayload } from "@packages/events";
-
-const FREQ_LABELS: Record<SavingsFrequency, string> = {
-  weekly: "Semanal",
-  biweekly: "Quinzenal",
-  monthly: "Mensal",
-  auto: "Automático",
-};
 
 const ACCOUNT_TYPE_ICONS: Record<string, string> = {
   checking: "credit-card",
@@ -135,70 +127,6 @@ export function SavingsGoalSection({ savingsGoal, accounts, theme, onChange }: P
             </ScrollView>
           )}
 
-          {/* Valor do aporte */}
-          <Text style={[styles.label, { color: theme.secondaryText }]}>
-            Valor do aporte (R$)
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              { color: theme.textColor, backgroundColor: theme.background, borderColor: theme.background },
-            ]}
-            placeholder="0,00"
-            placeholderTextColor={theme.secondaryText}
-            value={
-              savingsGoal.contributionAmount !== undefined
-                ? savingsGoal.contributionAmount.toFixed(2).replace(".", ",")
-                : ""
-            }
-            onChangeText={(v) => {
-              const num = parseFloat(v.replace(",", "."));
-              update({ contributionAmount: isNaN(num) ? undefined : num });
-            }}
-            keyboardType="decimal-pad"
-          />
-
-          {/* Frequência */}
-          <Text style={[styles.label, { color: theme.secondaryText }]}>
-            Frequência
-          </Text>
-          <View style={styles.freqRow}>
-            {(["weekly", "biweekly", "monthly", "auto"] as SavingsFrequency[]).map((f) => {
-              const selected = savingsGoal.frequency === f;
-              return (
-                <TouchableOpacity
-                  key={f}
-                  style={[
-                    styles.freqChip,
-                    {
-                      backgroundColor: selected ? "#16A34A" : theme.background,
-                      borderColor: selected ? "#16A34A" : theme.cardBackground,
-                    },
-                  ]}
-                  onPress={() => update({ frequency: f })}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.freqText,
-                      { color: selected ? "#fff" : theme.secondaryText },
-                    ]}
-                  >
-                    {FREQ_LABELS[f]}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {savingsGoal.frequency === "auto" && (
-            <View style={styles.autoNote}>
-              <Feather name="info" size={11} color={theme.secondaryText} />
-              <Text style={[styles.autoNoteText, { color: theme.secondaryText }]}>
-                Automático: você deposita quando quiser. O app mostra o progresso baseado no saldo da conta.
-              </Text>
-            </View>
-          )}
         </View>
       )}
     </View>
@@ -251,32 +179,4 @@ const styles = StyleSheet.create({
   },
   accountChipText: { fontSize: 12, maxWidth: 110 },
   accountBalance: { fontSize: 11, fontFamily: "DMSans_700Bold" },
-  input: {
-    height: 40,
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    fontFamily: "DMSans_400Regular",
-  },
-  freqRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginBottom: 4,
-  },
-  freqChip: {
-    borderWidth: 1.5,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  freqText: { fontSize: 12, fontFamily: "DMSans_600SemiBold" },
-  autoNote: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 5,
-    marginTop: 4,
-  },
-  autoNoteText: { fontSize: 11, fontFamily: "DMSans_400Regular", flex: 1, lineHeight: 15 },
 });

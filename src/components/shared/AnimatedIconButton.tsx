@@ -1,11 +1,13 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Pressable, StyleProp, ViewStyle, Platform } from "react-native";
 import Animated, { 
   useAnimatedStyle, 
   useSharedValue, 
   withSpring, 
   withSequence,
-  withTiming 
+  withRepeat,
+  withTiming,
+  Easing,
 } from "react-native-reanimated";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { soundManager, SoundEffect } from "@/src/services/SoundManager";
@@ -20,6 +22,8 @@ interface AnimatedIconButtonProps {
   style?: StyleProp<ViewStyle>;
   sound?: SoundEffect;
   haptic?: boolean;
+  isLoading?: boolean;
+  active?: boolean;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -33,31 +37,54 @@ export const AnimatedIconButton: React.FC<AnimatedIconButtonProps> = ({
   style,
   sound = "tap",
   haptic = true,
+  isLoading = false,
+  active = false,
 }) => {
   const scale = useSharedValue(1);
+  const rotation = useSharedValue(0);
+  const opacity = useSharedValue(1);
+
+  useEffect(() => {
+    if (isLoading) {
+      rotation.value = withRepeat(
+        withTiming(360, { duration: 1000, easing: Easing.linear }),
+        -1
+      );
+      opacity.value = withRepeat(
+        withTiming(0.6, { duration: 500, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        true
+      );
+    } else {
+      rotation.value = withTiming(0);
+      opacity.value = withTiming(1);
+    }
+  }, [isLoading]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [
+      { scale: scale.value },
+      { rotate: `${rotation.value}deg` }
+    ],
+    opacity: opacity.value,
   }));
 
   const handlePress = () => {
-    // Animation
+    if (isLoading) return;
+
     scale.value = withSequence(
-      withSpring(0.9, { damping: 10, stiffness: 300 }),
+      withSpring(0.85, { damping: 10, stiffness: 400 }),
       withSpring(1, { damping: 10, stiffness: 200 })
     );
 
-    // Haptics
     if (haptic && Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     }
 
-    // Sound
     if (sound) {
       soundManager.play(sound).catch(() => {});
     }
 
-    // Callback
     onPress?.();
   };
 

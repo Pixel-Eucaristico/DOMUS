@@ -14,8 +14,18 @@ import { EVENT_TYPES } from "@packages/events/src/types";
 import { domainReducer } from "@packages/domain/src/reducer";
 import { createInitialState, type AppState } from "@packages/domain/src/state";
 import { calculate503020, type BudgetBreakdown } from "@packages/domain/src/transactions";
-import type { GamificationEvent, GamificationState } from "@packages/gamification/src/types";
+import type { GamificationEvent, GamificationState, AchievementUnlockedPayload, MonthlyTrophyCompletedPayload } from "@packages/gamification/src/types";
 import { GAMIFICATION_EVENTS } from "@packages/gamification/src/types";
+import { checkNewAchievements, checkNewMonthlyTrophies, MONTHLY_TROPHIES } from "@packages/gamification/src/achievements";
+import {
+  ALL_SEASONAL_TROPHIES,
+  pickSeasonalTrophy,
+  getSeasonalTier,
+  getSeasonalXp,
+} from "@packages/gamification/src/seasonalTrophies";
+import type { LiturgicalTrophy } from "@packages/gamification/src/liturgicalTrophies";
+import { ALL_LITURGICAL_TROPHIES } from "@packages/gamification/src/liturgicalTrophies";
+import type { SeasonalTrophySelectedPayload, SeasonalTrophyCompletedPayload } from "@packages/gamification/src/types";
 import { gamificationReducer, createInitialGamificationState } from "@packages/gamification/src/reducer";
 import { getLevelInfo, shouldLevelUp, type LevelInfo } from "@packages/gamification/src/levelEngine";
 import { createXpPayload, getXpForAction, calculateBudgetAdherenceXp } from "@packages/gamification/src/xpEngine";
@@ -72,6 +82,14 @@ interface AppStateContextValue extends DerivedState {
   getAllEvents: () => SyncEvent[];
   localEventCount: number;
   deviceId: string | null;
+  pendingToast: AchievementUnlockedPayload | null;
+  clearPendingToast: () => void;
+  pendingMonthlyToast: MonthlyTrophyCompletedPayload | null;
+  clearPendingMonthlyToast: () => void;
+  pendingSeasonalToast: SeasonalTrophyCompletedPayload | null;
+  clearPendingSeasonalToast: () => void;
+  isCatholic: boolean | null;
+  setIsCatholic: (value: boolean) => void;
 }
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
@@ -80,6 +98,7 @@ const DEVICE_ID_KEY = "domus_device_id";
 const EVENTS_BACKUP_KEY = "domus_events_v1";
 const THEME_MODE_KEY = "domus_theme_mode_v1";
 const SOUND_ENABLED_KEY = "domus_sound_enabled_v1";
+const IS_CATHOLIC_KEY = "domus_is_catholic_v1";
 
 function generateDeviceId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
@@ -148,6 +167,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const systemColorScheme = useColorScheme();
   const [themeMode, setThemeModeState] = useState<ThemeMode>("system");
   const [soundEnabled, setSoundEnabledState] = useState(true);
+  const [pendingToast, setPendingToast] = useState<AchievementUnlockedPayload | null>(null);
+  const [pendingMonthlyToast, setPendingMonthlyToast] = useState<MonthlyTrophyCompletedPayload | null>(null);
+  const [pendingSeasonalToast, setPendingSeasonalToast] = useState<SeasonalTrophyCompletedPayload | null>(null);
+
+  const [isCatholic, setIsCatholicState] = useState<boolean | null>(null);
 
   const [allEvents, setAllEvents] = useState<SyncEvent[]>([]);
   const allEventsRef = React.useRef(allEvents);
@@ -197,6 +221,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       // Inicializar gerenciador de som (tentar carregar ativos se existirem)
       // Nota: No web ou se os arquivos não existirem, o init falha silenciosamente
       soundManager.init().catch(() => {});
+
+      // Carregar preferência religiosa
+      const savedCatholic = await AsyncStorage.getItem(IS_CATHOLIC_KEY);
+      if (savedCatholic !== null && mounted) {
+        setIsCatholicState(savedCatholic === "true");
+      }
 
       // Carregar ou criar deviceId único para este dispositivo
       let did = await AsyncStorage.getItem(DEVICE_ID_KEY);
@@ -336,6 +366,127 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
   }, [loading, domain.categories, deviceId]);
 
+  // ── Monthly Trophy checker ────────────────────────────────────────────────
+  useEffect(() => {
+    if (loading || !deviceId) return;
+    const alreadyCompleted = gamification.completedMonthlyTrophies ?? [];
+    const newTrophies = checkNewMonthlyTrophies(domain, budget, alreadyCompleted);
+    if (newTrophies.length === 0) return;
+
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+    for (const trophy of newTrophies) {
+      const evt: GamificationEvent = {
+        id: generateId(),
+        type: GAMIFICATION_EVENTS.MONTHLY_TROPHY_COMPLETED,
+        payload: {
+          trophyId: trophy.id,
+          monthKey,
+          name: trophy.name,
+          description: trophy.description,
+          xpReward: trophy.xpReward,
+        },
+        timestamp: Date.now(),
+        deviceId,
+        signature: "",
+      } as GamificationEvent;
+      dispatch(evt);
+      setPendingMonthlyToast({
+        trophyId: trophy.id,
+        monthKey,
+        name: trophy.name,
+        description: trophy.description,
+        xpReward: trophy.xpReward,
+      });
+    }
+  }, [loading, budget, domain, gamification.completedMonthlyTrophies, deviceId]);
+
+  // ── Seasonal Trophy: pick one per month ───────────────────────────────────
+  useEffect(() => {
+    if (loading || !deviceId || isCatholic === null) return;
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const alreadySelected = (gamification.selectedSeasonalTrophies ?? []).some(
+      s => s.monthKey === monthKey,
+    );
+    if (alreadySelected) return;
+
+    // Build pool: secular (all users) + liturgical (Catholics only)
+    const month = parseInt(monthKey.split("-")[1]!);
+    const liturgicalPool: LiturgicalTrophy[] = isCatholic
+      ? ALL_LITURGICAL_TROPHIES.filter(t => t.month === month)
+      : [];
+    const combinedPool = [
+      ...ALL_SEASONAL_TROPHIES,
+      ...(liturgicalPool as typeof ALL_SEASONAL_TROPHIES),
+    ];
+
+    const picked = pickSeasonalTrophy(deviceId, monthKey, combinedPool);
+    if (!picked) return;
+
+    const tier = getSeasonalTier(
+      picked.id,
+      (gamification.completedSeasonalTrophies ?? []).map(c => ({ id: c.trophyId, monthKey: c.monthKey })),
+      monthKey,
+    );
+
+    const evt: GamificationEvent = {
+      id: generateId(),
+      type: GAMIFICATION_EVENTS.SEASONAL_TROPHY_SELECTED,
+      payload: { trophyId: picked.id, monthKey, tier } satisfies SeasonalTrophySelectedPayload,
+      timestamp: Date.now(),
+      deviceId,
+      signature: "",
+    } as GamificationEvent;
+    dispatch(evt);
+  }, [loading, deviceId, isCatholic, gamification.selectedSeasonalTrophies, gamification.completedSeasonalTrophies]);
+
+  // ── Seasonal Trophy: check completion ─────────────────────────────────────
+  useEffect(() => {
+    if (loading || !deviceId) return;
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+    const selectedEntry = (gamification.selectedSeasonalTrophies ?? []).find(
+      s => s.monthKey === monthKey,
+    );
+    if (!selectedEntry) return;
+
+    const alreadyCompleted = (gamification.completedSeasonalTrophies ?? []).some(
+      c => c.trophyId === selectedEntry.trophyId && c.monthKey === monthKey,
+    );
+    if (alreadyCompleted) return;
+
+    const trophy =
+      ALL_SEASONAL_TROPHIES.find(t => t.id === selectedEntry.trophyId) ??
+      (ALL_LITURGICAL_TROPHIES as typeof ALL_SEASONAL_TROPHIES).find(t => t.id === selectedEntry.trophyId);
+    if (!trophy) return;
+
+    if (!trophy.check(domain, budget, monthKey)) return;
+
+    const xpReward = getSeasonalXp(trophy.baseXp, selectedEntry.tier);
+    const payload: SeasonalTrophyCompletedPayload = {
+      trophyId: trophy.id,
+      monthKey,
+      tier: selectedEntry.tier,
+      name: trophy.name,
+      description: trophy.description,
+      xpReward,
+    };
+
+    const evt: GamificationEvent = {
+      id: generateId(),
+      type: GAMIFICATION_EVENTS.SEASONAL_TROPHY_COMPLETED,
+      payload,
+      timestamp: Date.now(),
+      deviceId,
+      signature: "",
+    } as GamificationEvent;
+    dispatch(evt);
+    setPendingSeasonalToast(payload);
+  }, [loading, budget, domain, gamification.selectedSeasonalTrophies, gamification.completedSeasonalTrophies, deviceId]);
+
   const setThemeMode = useCallback(async (mode: ThemeMode) => {
     setThemeModeState(mode);
     await AsyncStorage.setItem(THEME_MODE_KEY, mode);
@@ -345,6 +496,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setSoundEnabledState(enabled);
     soundManager.setEnabled(enabled);
     await AsyncStorage.setItem(SOUND_ENABLED_KEY, enabled ? "true" : "false");
+  }, []);
+
+  const setIsCatholic = useCallback(async (value: boolean) => {
+    setIsCatholicState(value);
+    await AsyncStorage.setItem(IS_CATHOLIC_KEY, value ? "true" : "false");
   }, []);
 
   const archetype = useMemo<ArchetypeType>(() => {
@@ -582,9 +738,83 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             } as GamificationEvent;
             dispatch(levelEvent);
           }
+
+          // ── Conquistas ───────────────────────────────────────────────────
+          const estimatedNextGamification = {
+            ...gamification,
+            totalXp: estimatedNewTotalXp,
+            level: levelCheck.leveledUp ? levelCheck.newLevel : gamification.level,
+          };
+          const nextDomainForAchievements = { ...domain, transactions: nextTransactions };
+          const alreadyUnlocked = new Set(
+            (gamification.unlockedAchievements ?? []).map((a) => a.id),
+          );
+          const newAchievements = checkNewAchievements(
+            nextDomainForAchievements,
+            estimatedNextGamification,
+            nextBudget,
+            alreadyUnlocked,
+          );
+          for (const ach of newAchievements) {
+            const achEvent: GamificationEvent = {
+              id: generateId(),
+              type: GAMIFICATION_EVENTS.ACHIEVEMENT_UNLOCKED,
+              payload: {
+                achievementId: ach.id,
+                name: ach.name,
+                description: ach.description,
+                rarity: ach.rarity,
+                xpReward: ach.xpReward,
+              },
+              timestamp: Date.now(),
+              deviceId: originDeviceId,
+              signature: "",
+            } as GamificationEvent;
+            dispatch(achEvent);
+            setPendingToast({
+              achievementId: ach.id,
+              name: ach.name,
+              description: ach.description,
+              rarity: ach.rarity,
+              xpReward: ach.xpReward,
+            });
+          }
+
+          // ── Desafios Mensais ────────────────────────────────────────────
+          const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+          const completedMonthly = gamification.completedMonthlyTrophies ?? [];
+          const newMonthlyTrophies = checkNewMonthlyTrophies(
+            nextDomainForAchievements,
+            nextBudget,
+            completedMonthly,
+          );
+          for (const trophy of newMonthlyTrophies) {
+            const trophyEvent: GamificationEvent = {
+              id: generateId(),
+              type: GAMIFICATION_EVENTS.MONTHLY_TROPHY_COMPLETED,
+              payload: {
+                trophyId: trophy.id,
+                monthKey,
+                name: trophy.name,
+                description: trophy.description,
+                xpReward: trophy.xpReward,
+              },
+              timestamp: Date.now(),
+              deviceId: originDeviceId,
+              signature: "",
+            } as GamificationEvent;
+            dispatch(trophyEvent);
+            setPendingToast({
+              achievementId: trophy.id,
+              name: `📅 ${trophy.name}`,
+              description: trophy.description,
+              rarity: "gold",
+              xpReward: trophy.xpReward,
+            });
+          }
         }
       },
-      [dispatch, gamification, deviceId, domain.transactions, domain.categories],
+      [dispatch, gamification, deviceId, domain.transactions, domain.categories, setPendingToast],
     );
 
   const value = useMemo<AppStateContextValue>(
@@ -612,8 +842,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       getAllEvents: getAllEventsCallback,
       localEventCount,
       deviceId,
+      pendingToast,
+      clearPendingToast: () => setPendingToast(null),
+      pendingMonthlyToast,
+      clearPendingMonthlyToast: () => setPendingMonthlyToast(null),
+      pendingSeasonalToast,
+      clearPendingSeasonalToast: () => setPendingSeasonalToast(null),
+      isCatholic,
+      setIsCatholic,
     }),
-    [domain, gamification, onboarding, season, wishlist, archetype, themeMode, soundEnabled, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, setThemeMode, setSoundEnabled, importEvents, restoreFromBackup, resetApp, getAllEventsCallback, localEventCount, deviceId],
+    [domain, gamification, onboarding, season, wishlist, archetype, themeMode, soundEnabled, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, setThemeMode, setSoundEnabled, importEvents, restoreFromBackup, resetApp, getAllEventsCallback, localEventCount, deviceId, pendingToast, pendingMonthlyToast, pendingSeasonalToast, isCatholic, setIsCatholic],
   );
 
   return (
