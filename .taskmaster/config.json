@@ -1,9 +1,9 @@
 {
   "models": {
     "main": {
-      "provider": "anthropic",
-      "modelId": "claude-sonnet-4-20250514",
-      "maxTokens": 64000,
+      "provider": "gemini-cli",
+      "modelId": "gemini-2.5-flash",
+      "maxTokens": 65536,
       "temperature": 0.2
     },
     "research": {
@@ -32,7 +32,8 @@
     "enableCodebaseAnalysis": true,
     "enableProxy": false,
     "anonymousTelemetry": true,
-    "userId": "1234567890"
+    "userId": "1234567890",
+    "defaultTag": "master"
   },
   "claudeCode": {},
   "codexCli": {},
