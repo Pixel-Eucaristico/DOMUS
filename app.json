@@ -23,7 +23,6 @@
         "backgroundColor": "#F5F7FA",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
-      "networkSecurityConfig": "./android/app/src/main/res/xml/network_security_config.xml",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
