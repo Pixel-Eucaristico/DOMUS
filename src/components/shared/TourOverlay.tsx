@@ -264,7 +264,7 @@ const s = StyleSheet.create({
   // Cobre a tela toda mas com pointerEvents="box-none" — taps passam para o app acima do card
   container: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 10000,
+    zIndex: 9998,
     justifyContent: "flex-end",
   },
   // Sombra suave no topo para escurecer o app sem bloquear completamente a visão

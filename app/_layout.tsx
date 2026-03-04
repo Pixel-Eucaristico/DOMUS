@@ -227,11 +227,17 @@ export default function RootLayout() {
                   <SecurityGuard>
                     <RootLayoutNav />
                   </SecurityGuard>
-                  <ShareIntentHandler />
-                  <TourContent />
-                  <AchievementToastHost />
-                  <SeasonalToastHost />
-                  <ReligiousPreferenceHost />
+
+                  {/* Modais e Overlays globais só aparecem após o término da animação de Splash para evitar sobreposição visual */}
+                  {splashFinished && (
+                    <>
+                      <ShareIntentHandler />
+                      <TourContent />
+                      <AchievementToastHost />
+                      <SeasonalToastHost />
+                      <ReligiousPreferenceHost />
+                    </>
+                  )}
                 </SyncProvider>
               </KeyboardProvider>
             </AppContainer>
