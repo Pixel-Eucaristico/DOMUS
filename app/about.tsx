@@ -12,16 +12,21 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   LayoutAnimation,
-  Animated,
   Switch,
   Modal,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
 import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { ClipboardService } from "@/src/modules/security/application/ClipboardService";
 import { EmailService } from "@/src/modules/security/application/EmailService";
 import type { ContactFormData } from "@/src/modules/security/application/EmailService";
@@ -98,6 +103,7 @@ async function safeOpenUrl(url: string): Promise<void> {
 export default function AboutScreen() {
   const router = useRouter();
   const { theme, themeMode, setThemeMode, soundEnabled, setSoundEnabled, resetApp } = useAppState();
+  const { startDemo } = useDemoMode();
 
   const [pixCopied, setPixCopied] = useState(false);
   const [sending, setSending] = useState(false);
@@ -368,6 +374,18 @@ export default function AboutScreen() {
               theme={theme}
               onPress={() => setThemeModalVisible(true)}
             />
+            <LinkRow
+              icon="play-circle"
+              label="Refazer Tour do App"
+              description="Reveja o guia de todas as funções do DOMUS (sandbox seguro)"
+              color={theme.accentColor}
+              theme={theme}
+              onPress={() => {
+                router.back();
+                // Pequeno delay para a navegação completar antes de abrir o tour
+                setTimeout(startDemo, 300);
+              }}
+            />
             <SwitchRow
               icon="volume-2"
               label="Efeitos Sonoros"
@@ -605,7 +623,11 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const rotation = useRef(new Animated.Value(0)).current;
+  const rotationAnim = useSharedValue(0);
+
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotationAnim.value * 180}deg` }],
+  }));
 
   const toggle = useCallback(() => {
     if (!collapsible) return;
@@ -615,18 +637,9 @@ function SectionCard({
       create: { type: "easeInEaseOut", property: "opacity" },
       delete: { type: "easeInEaseOut", property: "opacity" },
     });
-    Animated.timing(rotation, {
-      toValue: open ? 0 : 1,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
+    rotationAnim.value = withTiming(open ? 0 : 1, { duration: 250 });
     setOpen((v) => !v);
-  }, [collapsible, open, rotation]);
-
-  const chevronRotation = rotation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "180deg"],
-  });
+  }, [collapsible, open, rotationAnim]);
 
   const s = styles(theme);
   const showBody = !collapsible || open;
@@ -649,7 +662,7 @@ function SectionCard({
         </View>
         <Text style={[s.cardTitle, { color: theme.textColor }]}>{title}</Text>
         {collapsible && (
-          <Animated.View style={{ transform: [{ rotate: chevronRotation }] }}>
+          <Animated.View style={chevronStyle}>
             <Feather name="chevron-down" size={18} color={theme.secondaryText} />
           </Animated.View>
         )}

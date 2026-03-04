@@ -3,6 +3,7 @@ import { Alert, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 import {
   createTransactionEvent,
   updateTransactionEvent,
@@ -143,6 +144,7 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
           onPress: () => {
             const event = deleteTransactionEvent(txId);
             dispatchDomainEvent(event);
+            soundManager.play("trash");
             if (onSuccess) onSuccess(); else router.back();
           },
         },
@@ -156,6 +158,7 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     const today = new Date().toISOString().split("T")[0]!;
     const event = updateTransactionEvent(txId, { status: "confirmed", date: today });
     dispatchDomainEvent(event);
+    soundManager.play("success");
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
@@ -263,6 +266,7 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
       }
     }
 
+    soundManager.play("success");
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }

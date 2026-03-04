@@ -24,7 +24,7 @@ export const AnimatedCard: React.FC<AnimatedCardProps> = ({
 
   return (
     <Animated.View 
-      entering={FadeInUp.delay(finalDelay).springify().damping(15)}
+      entering={FadeInUp.delay(finalDelay).springify().damping(25).stiffness(120)}
       exiting={FadeOutDown}
       style={style}
     >

@@ -19,11 +19,12 @@
 - [x] **AchievementToast:** Toast com som + haptic auto-dismiss em 4s.
 - [x] **Grid em Season:** Exibe troféus desbloqueados (animados) e bloqueados (cadeado).
 
-## 🔜 Fase 4: Demo Mode / Guided Tour
-- [ ] **Sandbox State:** `isDemoMode` no contexto com `mockDomainState.ts`.
-- [ ] **Interceptador de Dispatch:** Ignorar SQLite durante o tour.
-- [ ] **Hook useTour(steps):** Tooltips e máquina de estados para o guia.
-- [ ] **Auto-cleanup:** Limpeza total após o tour.
+## ✅ Fase 4: Demo Mode / Guided Tour (CONCLUÍDA)
+- [x] **Sandbox State:** `isDemoActive` + `demoEvents` no `DemoModeProvider` com `mockDemoEvents.ts`.
+- [x] **Interceptador de Dispatch:** `dispatch` em `AppStateProvider` roteia para `dispatchDemoEvent` quando `isDemoActive`, sem tocar no SQLite.
+- [x] **Guided Tour:** `TourOverlay` 4 passos com máquina de estados local, `stopDemo()` no fim.
+- [x] **Auto-cleanup:** `stopDemo()` limpa `demoEvents` e desativa `isDemoActive`.
+- [x] **First-launch detection:** `DemoModeProvider` detecta primeiro acesso via `AsyncStorage("domus_tour_shown_v1")` e inicia o tour automaticamente.
 
 ---
 *Nota: Antes de cada fase, será realizada uma análise técnica detalhada.*

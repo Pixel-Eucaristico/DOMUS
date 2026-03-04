@@ -52,6 +52,7 @@ import {
   type WishlistEvent,
   type WishlistState,
 } from "@packages/wishlist";
+import { useDemoMode } from "@/src/context/DemoModeProvider";
 
 type AnyEvent = DomainEvent | GamificationEvent | OnboardingEvent | SeasonEvent | WishlistEvent;
 
@@ -164,6 +165,7 @@ async function getEventStore(): Promise<SQLiteEventStore | null> {
 }
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
+  const { isDemoActive, demoEvents, dispatchDemoEvent } = useDemoMode();
   const systemColorScheme = useColorScheme();
   const [themeMode, setThemeModeState] = useState<ThemeMode>("system");
   const [soundEnabled, setSoundEnabledState] = useState(true);
@@ -271,8 +273,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const { domain, gamification, onboarding, season, wishlist } = useMemo(
-    () => replayAllEvents(allEvents),
-    [allEvents],
+    () => replayAllEvents(isDemoActive ? demoEvents : allEvents),
+    [isDemoActive, demoEvents, allEvents],
   );
 
   const now = new Date();
@@ -292,9 +294,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [gamification.totalXp],
   );
 
-  // Mecanismo de recuperação de XP: Se o usuário tem transações mas o XP está zerado ou muito baixo 
+  // Mecanismo de recuperação de XP: Se o usuário tem transações mas o XP está zerado ou muito baixo
   // (devido ao bug de penalidade do início do mês), gera um evento de compensação único.
   useEffect(() => {
+    if (isDemoActive) return;
     if (!loading && allEvents.length > 0 && deviceId) {
       const txCount = Object.keys(domain.transactions).length;
       const currentXp = gamification.totalXp;
@@ -338,10 +341,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setLocalEventCount((c) => c + 1);
       }
     }
-  }, [loading, allEvents.length, domain.transactions, gamification.totalXp, deviceId]);
+  }, [isDemoActive, loading, allEvents.length, domain.transactions, gamification.totalXp, deviceId]);
 
   // Inicializar categorias padrão se não existirem
   useEffect(() => {
+    if (isDemoActive) return;
     if (!loading && deviceId && Object.keys(domain.categories).length === 0) {
       const categoryEvents = createDefaultCategories();
       const syncEvents: SyncEvent[] = categoryEvents.map(evt => ({
@@ -364,7 +368,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       });
       setLocalEventCount((c) => c + syncEvents.length);
     }
-  }, [loading, domain.categories, deviceId]);
+  }, [isDemoActive, loading, domain.categories, deviceId]);
 
   // ── Monthly Trophy checker ────────────────────────────────────────────────
   useEffect(() => {
@@ -535,6 +539,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
    */
   const dispatch = useCallback(
     (event: AnyEvent) => {
+      // Durante o tour, roteamos para o sandbox em memória — sem tocar no SQLite.
+      if (isDemoActive) {
+        dispatchDemoEvent({
+          id: event.id,
+          type: event.type as string,
+          payload: (event as any).payload,
+          timestamp: event.timestamp,
+        });
+        return;
+      }
+
       const syncEvt: SyncEvent = {
         id: event.id,
         type: event.type as string,
@@ -556,7 +571,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       // Incrementar contador de eventos locais para disparar push no SyncProvider
       setLocalEventCount((c) => c + 1);
     },
-    [deviceId],
+    [isDemoActive, dispatchDemoEvent, deviceId],
   );
 
   /**
@@ -566,8 +581,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
    */
   const importEvents = useCallback(
     async (events: SyncEvent[]): Promise<number> => {
+      // Ignorar sincronização enquanto o tour sandbox estiver ativo.
+      if (isDemoActive) return 0;
+
       const store = await getEventStore();
-      
+
       // Usar a versão mais recente de allEvents via ref para deduplicação precisa
       const existingIds = new Set(allEventsRef.current.map((e: SyncEvent) => e.id));
       const newEvents: SyncEvent[] = [];
@@ -590,7 +608,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
       return newEvents.length;
     },
-    [],
+    [isDemoActive],
   );
 
   const getAllEventsCallback = useCallback(() => allEvents, [allEvents]);
@@ -601,6 +619,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
    * NÃO incrementa localEventCount para evitar push acidental pós-restore.
    */
   const restoreFromBackup = useCallback(async (events: SyncEvent[]): Promise<void> => {
+    if (isDemoActive) return; // Não restaurar enquanto o tour estiver ativo.
     const sorted = [...events].sort((a, b) => a.timestamp - b.timestamp);
     if (Platform.OS === "web") {
       await AsyncStorage.setItem(EVENTS_BACKUP_KEY, JSON.stringify(sorted));
@@ -614,7 +633,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       }
     }
     setAllEvents(sorted);
-  }, []);
+  }, [isDemoActive]);
 
   const resetApp = useCallback(async (): Promise<void> => {
     await restoreFromBackup([]);

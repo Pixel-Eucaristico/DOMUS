@@ -12,6 +12,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
+import { soundManager } from "@/src/services/SoundManager";
 
 const { height } = Dimensions.get("window");
 
@@ -118,6 +119,7 @@ export function SelectionModal({
                   { borderBottomColor: index === options.length - 1 ? "transparent" : theme.border + "40" },
                 ]}
                 onPress={() => {
+                  soundManager.play("tap");
                   onCancel();
                   option.onPress();
                 }}
@@ -136,7 +138,10 @@ export function SelectionModal({
 
           <TouchableOpacity
             style={[styles.cancelBtn, { backgroundColor: theme.background }]}
-            onPress={onCancel}
+            onPress={() => {
+              soundManager.play("tap");
+              onCancel();
+            }}
             activeOpacity={0.8}
           >
             <Text style={[styles.cancelText, { color: theme.secondaryText }]}>Cancelar</Text>

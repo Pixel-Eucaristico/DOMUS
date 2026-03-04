@@ -14,6 +14,7 @@ import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { useTransactionForm } from "@/src/hooks/useTransactionForm";
+import { soundManager } from "@/src/services/SoundManager";
 import { useTitheCalculator } from "@/src/hooks/useTitheCalculator";
 import { ItemsSection } from "@/src/components/transaction/ItemsSection";
 import { AccountPicker } from "@/src/components/shared/AccountPicker";
@@ -93,6 +94,7 @@ export default function AddTransactionScreen() {
     for (const evt of events) {
       dispatchDomainEvent(evt);
     }
+    soundManager.play("success");
   };
 
   return (
@@ -134,7 +136,10 @@ export default function AddTransactionScreen() {
                   borderColor: form.txType === t.key ? theme.primaryColor : theme.border,
                 },
               ]}
-              onPress={() => form.setTxType(t.key)}
+              onPress={() => {
+                soundManager.play("tap");
+                form.setTxType(t.key);
+              }}
             >
               <Feather
                 name={t.icon as any}
@@ -232,7 +237,10 @@ export default function AddTransactionScreen() {
                           borderColor: active ? theme.primaryColor : theme.border,
                         },
                       ]}
-                      onPress={() => form.setTargetAccountId(a.id)}
+                      onPress={() => {
+                        soundManager.play("tap");
+                        form.setTargetAccountId(a.id);
+                      }}
                     >
                       <Text
                         style={[s.chipText, { color: active ? theme.primaryColor : theme.textColor }]}
@@ -263,10 +271,13 @@ export default function AddTransactionScreen() {
                     {
                       backgroundColor: active ? `${color}18` : theme.background,
                       borderColor: active ? color : theme.border,
-                    },
-                  ]}
-                  onPress={() => form.setSelectedCategory(i)}
-                >
+                      },
+                      ]}
+                      onPress={() => {
+                          soundManager.play("tap");
+                  form.setSelectedCategory(i);
+                }}
+              >
                   <Feather
                     name={cat.icon as any}
                     size={14}
@@ -319,11 +330,14 @@ export default function AddTransactionScreen() {
                   style={[
                     s.titheChip,
                     tithe.baseType === key
-                      ? { backgroundColor: "#A78BFA", borderColor: "#A78BFA" }
-                      : { backgroundColor: "#A78BFA18", borderColor: "#A78BFA60" },
-                  ]}
-                  onPress={() => tithe.setBaseType(key)}
-                >
+                    ? { backgroundColor: "#A78BFA", borderColor: "#A78BFA" }
+                    : { backgroundColor: "#A78BFA18", borderColor: "#A78BFA60" },
+                    ]}
+                    onPress={() => {
+                        soundManager.play("tap");
+                  tithe.setBaseType(key);
+                }}
+              >
                   <Text style={{ color: tithe.baseType === key ? "#FFF" : "#A78BFA", fontFamily: "DMSans_500Medium", fontSize: 13 }}>
                     {label}
                   </Text>
@@ -347,11 +361,14 @@ export default function AddTransactionScreen() {
                   style={[
                     s.titheChip,
                     tithe.periodType === key
-                      ? { backgroundColor: "#A78BFA", borderColor: "#A78BFA" }
-                      : { backgroundColor: "#A78BFA18", borderColor: "#A78BFA60" },
-                  ]}
-                  onPress={() => tithe.setPeriodType(key)}
-                >
+                    ? { backgroundColor: "#A78BFA", borderColor: "#A78BFA" }
+                    : { backgroundColor: "#A78BFA18", borderColor: "#A78BFA60" },
+                    ]}
+                    onPress={() => {
+                        soundManager.play("tap");
+                  tithe.setPeriodType(key);
+                }}
+              >
                   <Text style={{ color: tithe.periodType === key ? "#FFF" : "#A78BFA", fontFamily: "DMSans_500Medium", fontSize: 12 }}>
                     {label}
                   </Text>
@@ -404,10 +421,13 @@ export default function AddTransactionScreen() {
                       {
                         backgroundColor: active ? theme.primaryColor : theme.background,
                         borderColor: active ? theme.primaryColor : theme.border,
-                      },
-                    ]}
-                    onPress={() => form.setInstallments(n)}
-                  >
+                        },
+                        ]}
+                        onPress={() => {
+                            soundManager.play("tap");
+                    form.setInstallments(n);
+                  }}
+                >
                     <Text style={[s.installText, { color: active ? "#FFF" : theme.textColor }]}>
                       {n}x
                     </Text>
@@ -433,10 +453,13 @@ export default function AddTransactionScreen() {
                     {
                       backgroundColor: active ? `${color}18` : theme.background,
                       borderColor: active ? color : theme.border,
-                    },
-                  ]}
-                  onPress={() => form.setStatus(opt.key)}
-                >
+                      },
+                      ]}
+                      onPress={() => {
+                          soundManager.play("tap");
+                  form.setStatus(opt.key);
+                }}
+              >
                   <Feather name={opt.icon as any} size={14} color={active ? color : theme.secondaryText} />
                   <Text style={[s.chipText, { color: active ? color : theme.textColor }]}>
                     {opt.label}
@@ -461,10 +484,13 @@ export default function AddTransactionScreen() {
                     {
                       backgroundColor: active ? `${theme.primaryColor}18` : theme.background,
                       borderColor: active ? theme.primaryColor : theme.border,
-                    },
-                  ]}
-                  onPress={() => form.setRecurrence(opt.key)}
-                >
+                      },
+                      ]}
+                      onPress={() => {
+                          soundManager.play("tap");
+                  form.setRecurrence(opt.key);
+                }}
+              >
                   <Text style={[s.chipText, { color: active ? theme.primaryColor : theme.textColor }]}>
                     {opt.label}
                   </Text>

@@ -73,8 +73,8 @@ export const AnimatedIconButton: React.FC<AnimatedIconButtonProps> = ({
     if (isLoading) return;
 
     scale.value = withSequence(
-      withSpring(0.85, { damping: 10, stiffness: 400 }),
-      withSpring(1, { damping: 10, stiffness: 200 })
+      withSpring(0.85, { damping: 25, stiffness: 200 }),
+      withSpring(1, { damping: 20, stiffness: 150 })
     );
 
     if (haptic && Platform.OS !== "web") {

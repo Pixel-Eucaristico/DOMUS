@@ -10,6 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 import { useWishlist } from "@/src/hooks/useWishlist";
 import { WishlistListCard } from "@/src/components/wishlist/WishlistListCard";
 import { CreateListModal } from "@/src/components/wishlist/CreateListModal";
@@ -40,7 +41,10 @@ export default function WishlistTab() {
         </Text>
         <TouchableOpacity
           style={[styles.addBtn, { backgroundColor: theme.primaryColor }]}
-          onPress={() => setShowCreateModal(true)}
+          onPress={() => {
+            soundManager.play("pop");
+            setShowCreateModal(true);
+          }}
           activeOpacity={0.7}
         >
           <Feather name="plus" size={20} color="#fff" />
@@ -66,7 +70,10 @@ export default function WishlistTab() {
           </Text>
           <TouchableOpacity
             style={[styles.emptyBtn, { backgroundColor: theme.primaryColor }]}
-            onPress={() => setShowCreateModal(true)}
+            onPress={() => {
+              soundManager.play("pop");
+              setShowCreateModal(true);
+            }}
             activeOpacity={0.7}
           >
             <Feather name="plus" size={16} color="#fff" />

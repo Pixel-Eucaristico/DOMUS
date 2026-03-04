@@ -18,6 +18,7 @@ import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { createAccountEvent, updateAccountEvent } from "@packages/domain/src/accounts";
+import { soundManager } from "@/src/services/SoundManager";
 import type { AccountPayload, AccountType } from "@packages/events/src/types";
 import { URGENCY_ORDER } from "@packages/wishlist";
 import { KeyboardAvoidingView } from "react-native";
@@ -221,6 +222,7 @@ export default function AccountsScreen() {
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
+    soundManager.play("success");
 
     closeModal();
   };
@@ -241,7 +243,10 @@ export default function AccountsScreen() {
           <Text style={[s.title, { color: theme.textColor }]}>Contas</Text>
           <Pressable
             style={[s.addBtn, { backgroundColor: theme.primaryColor }]}
-            onPress={openCreateModal}
+            onPress={() => {
+              soundManager.play("pop");
+              openCreateModal();
+            }}
           >
             <Feather name="plus" size={20} color="#FFF" />
           </Pressable>
@@ -273,7 +278,10 @@ export default function AccountsScreen() {
                     s.accountCard,
                     { backgroundColor: theme.cardBackground, opacity: pressed ? 0.8 : 1, borderLeftColor: typeColor },
                   ]}
-                  onPress={() => router.push({ pathname: "/transactions", params: { accountId: acc.id } })}
+                  onPress={() => {
+                    soundManager.play("tap");
+                    router.push({ pathname: "/transactions", params: { accountId: acc.id } });
+                  }}
                 >
                   <View style={s.accountCardTop}>
                     <View style={[s.accountIcon, { backgroundColor: `${typeColor}15` }]}>
@@ -301,7 +309,11 @@ export default function AccountsScreen() {
                     </View>
                     <Pressable
                       hitSlop={12}
-                      onPress={(e) => { e.stopPropagation?.(); openEditModal(acc); }}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        soundManager.play("tap");
+                        openEditModal(acc);
+                      }}
                     >
                       <Feather name="edit-2" size={16} color={theme.secondaryText} />
                     </Pressable>
@@ -329,7 +341,11 @@ export default function AccountsScreen() {
                     <>
                       <Pressable
                         style={[s.accordionToggle, { borderTopColor: theme.border }]}
-                        onPress={(e) => { e.stopPropagation?.(); toggleAccountExpand(acc.id); }}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          soundManager.play("tap");
+                          toggleAccountExpand(acc.id);
+                        }}
                         hitSlop={8}
                       >
                         <Feather name="target" size={12} color="#10B981" />
@@ -362,6 +378,7 @@ export default function AccountsScreen() {
                                 style={({ pressed }) => [s.cardGoalRow, pressed && { opacity: 0.65 }]}
                                 onPress={(e) => {
                                   e.stopPropagation?.();
+                                  soundManager.play("tap");
                                   router.push(`/wishlist/${item.listId}` as any);
                                 }}
                               >
@@ -424,7 +441,10 @@ export default function AccountsScreen() {
       >
         <View style={s.modalRoot}>
           <Animated.View style={[s.modalOverlay, { opacity: fadeAnim }]}>
-            <Pressable style={s.flex} onPress={closeModal} />
+            <Pressable style={s.flex} onPress={() => {
+              soundManager.play("tap");
+              closeModal();
+            }} />
           </Animated.View>
 
           <KeyboardAvoidingView
@@ -449,7 +469,10 @@ export default function AccountsScreen() {
                 <Text style={[s.modalTitle, { color: theme.textColor }]}>
                   {editingAccountId ? "Editar conta" : "Nova conta"}
                 </Text>
-                <Pressable onPress={closeModal} hitSlop={12}>
+                <Pressable onPress={() => {
+                  soundManager.play("tap");
+                  closeModal();
+                }} hitSlop={12}>
                   <Feather name="x" size={22} color={theme.secondaryText} />
                 </Pressable>
               </View>
@@ -481,7 +504,10 @@ export default function AccountsScreen() {
                             ? { backgroundColor: t.color, borderColor: t.color }
                             : { backgroundColor: t.color + "18", borderColor: t.color + "60" },
                         ]}
-                        onPress={() => setAccType(t.key)}
+                        onPress={() => {
+                          soundManager.play("tap");
+                          setAccType(t.key);
+                        }}
                       >
                         <Feather
                           name={t.icon as any}
@@ -591,7 +617,10 @@ export default function AccountsScreen() {
                                   ? { backgroundColor: "#10B981", borderColor: "#10B981" }
                                   : { backgroundColor: "#10B98118", borderColor: "#10B98160" },
                               ]}
-                              onPress={() => setSavingsRecurrence(key)}
+                              onPress={() => {
+                                soundManager.play("tap");
+                                setSavingsRecurrence(key);
+                              }}
                             >
                               <Text
                                 style={{

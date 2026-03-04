@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Platform,
 } from "react-native";
+import { soundManager } from "@/src/services/SoundManager";
 
 interface Props {
   visible: boolean;
@@ -40,7 +41,10 @@ export function ReligiousPreferenceModal({ visible, onSelect }: Props) {
 
           <TouchableOpacity
             style={[st.btn, st.btnCatholic]}
-            onPress={() => onSelect(true)}
+            onPress={() => {
+              soundManager.play("success");
+              onSelect(true);
+            }}
             activeOpacity={0.85}
           >
             <Text style={st.btnCatholicText}>✝️  Sim, sou católico(a)</Text>
@@ -48,7 +52,10 @@ export function ReligiousPreferenceModal({ visible, onSelect }: Props) {
 
           <TouchableOpacity
             style={[st.btn, st.btnSecular]}
-            onPress={() => onSelect(false)}
+            onPress={() => {
+              soundManager.play("tap");
+              onSelect(false);
+            }}
             activeOpacity={0.85}
           >
             <Text style={st.btnSecularText}>Não por enquanto</Text>

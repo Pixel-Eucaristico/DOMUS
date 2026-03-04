@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { soundManager } from "@/src/services/SoundManager";
 import type { ThemeColors } from "@packages/theme";
 import type { AccountPayload, AccountType } from "@packages/events/src/types";
 
@@ -59,7 +60,10 @@ export function AccountPicker({
                   opacity: pressed ? 0.75 : 1,
                 },
               ]}
-              onPress={() => onSelect(a.id)}
+              onPress={() => {
+                soundManager.play("tap");
+                onSelect(a.id);
+              }}
               accessibilityRole="radio"
               accessibilityState={{ checked: active }}
               accessibilityLabel={`${a.name}, ${cfg.label}, saldo ${formatBalance(a)}${active ? ", selecionada" : ""}`}

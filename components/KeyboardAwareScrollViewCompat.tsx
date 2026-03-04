@@ -1,4 +1,5 @@
 // template
+import React from "react";
 import { Platform, ScrollView, ScrollViewProps } from "react-native";
 import {
   KeyboardAwareScrollView,

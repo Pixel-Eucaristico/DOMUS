@@ -4,8 +4,9 @@ import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
 import { BlurView } from "expo-blur";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
-import React from "react";
+import React, { useEffect } from "react";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 
 function NativeTabLayout() {
   return (
@@ -69,6 +70,12 @@ function ClassicTabLayout() {
         tabBarLabelStyle: {
           fontFamily: "DMSans_500Medium",
           fontSize: 11,
+        },
+      }}
+      screenListeners={{
+        state: (e) => {
+          // Play sound when tab changes
+          soundManager.play("tabSwitch");
         },
       }}
     >

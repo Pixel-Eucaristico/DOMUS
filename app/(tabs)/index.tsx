@@ -20,13 +20,17 @@ import { TransactionBottomSheet } from "@/src/components/transaction/Transaction
 import { DomusLogo } from "@/src/components/shared/DomusLogo";
 import { AnimatedCard } from "@/src/components/shared/AnimatedCard";
 import { AnimatedIconButton } from "@/src/components/shared/AnimatedIconButton";
+import { AnimatedSeasonalTrophy } from "@/src/components/gamification/AnimatedSeasonalTrophy";
 import { soundManager } from "@/src/services/SoundManager";
+import { ALL_SEASONAL_TROPHIES } from "@packages/gamification/src/seasonalTrophies";
+import { ALL_LITURGICAL_TROPHIES } from "@packages/gamification/src/liturgicalTrophies";
 import Animated, { 
   FadeInUp, 
   FadeOutDown, 
   Layout, 
   FadeIn,
-  SlideInRight
+  SlideInRight,
+  SlideInLeft
 } from "react-native-reanimated";
 
 function formatCurrency(value: number): string {
@@ -76,7 +80,10 @@ function BudgetBar({
   const barWidth = Math.min(percent, 100);
   return (
     <Pressable
-      onPress={() => onPress?.(group)}
+      onPress={() => {
+        soundManager.play("tap");
+        onPress?.(group);
+      }}
       style={({ pressed }) => [
         s.budgetRow,
         pressed && { opacity: 0.7 }
@@ -219,14 +226,25 @@ export default function HomeScreen() {
   );
 
   // Season progress
-  const { monthProgress, daysLeft } = useMemo(() => {
+  const { monthProgress, daysLeft, currentTrophy } = useMemo(() => {
     const now = new Date();
     const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const mk = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const sel = (gamification.selectedSeasonalTrophies ?? []).find((s: any) => s.monthKey === mk);
+    const t = sel ? (ALL_SEASONAL_TROPHIES.find((tr: any) => tr.id === sel.trophyId) ?? 
+                    ALL_LITURGICAL_TROPHIES.find((tr: any) => tr.id === sel.trophyId)) : null;
+    
     return {
       monthProgress: Math.round((now.getDate() / dim) * 100),
       daysLeft: dim - now.getDate(),
+      currentTrophy: (t && sel) ? { ...t, tier: sel.tier } : null,
     };
-  }, []);
+  }, [gamification.selectedSeasonalTrophies]);
+
+  // Latest achievements
+  const recentAchievements = useMemo(() => {
+    return (gamification.unlockedAchievements ?? []).slice(-3).reverse();
+  }, [gamification.unlockedAchievements]);
 
   // Savings goal accounts + this-month contribution
   const savingsGoalAccounts = useMemo(
@@ -346,46 +364,112 @@ export default function HomeScreen() {
 
         <AnimatedCard index={0}>
           <View style={s.statsRow}>
-            <View style={[s.statCard, { backgroundColor: theme.primaryColor }]}>
+            <Pressable 
+              style={[s.statCard, { backgroundColor: theme.primaryColor }]}
+              onPress={() => {
+                soundManager.play("tap");
+                router.push("/(tabs)/season");
+              }}
+            >
               <Feather name="zap" size={18} color="rgba(255,255,255,0.7)" />
               <Text style={s.statValue}>{gamification.totalXp}</Text>
               <Text style={s.statLabel}>XP Total</Text>
-            </View>
-            <View style={[s.statCard, { backgroundColor: theme.primaryColor }]}>
+            </Pressable>
+            <Pressable 
+              style={[s.statCard, { backgroundColor: theme.primaryColor }]}
+              onPress={() => {
+                soundManager.play("tap");
+                router.push("/(tabs)/season");
+              }}
+            >
               <Feather name="bar-chart-2" size={18} color="rgba(255,255,255,0.7)" />
               <Text style={s.statValue}>{levelInfo.level}</Text>
               <Text style={s.statLabel}>Nivel</Text>
-            </View>
-            <View style={[s.statCard, { backgroundColor: theme.primaryColor }]}>
+            </Pressable>
+            <Pressable 
+              style={[s.statCard, { backgroundColor: theme.primaryColor }]}
+              onPress={() => {
+                soundManager.play("tap");
+                router.push("/(tabs)/season");
+              }}
+            >
               <MaterialCommunityIcons name="fire" size={20} color="rgba(255,255,255,0.7)" />
               <Text style={s.statValue}>{gamification.currentStreak}</Text>
               <Text style={s.statLabel}>Streak</Text>
-            </View>
+            </Pressable>
           </View>
         </AnimatedCard>
 
+        {/* ── WIDGET DE CONQUISTAS ─────────────────────────────────────────── */}
         <AnimatedCard index={1}>
-          <View style={s.xpBarContainer}>
-            <View style={s.xpBarHeader}>
-              <Text style={[s.xpBarTitle, { color: theme.textColor }]}>
-                Nível {levelInfo.level}
-              </Text>
-              <Text style={[s.xpBarInfo, { color: theme.secondaryText }]}>
-                {Math.round(levelInfo.progress * 100)}% para o próximo nível
-              </Text>
+          <View style={s.gamificationWidget}>
+            <View style={s.widgetHeader}>
+              <View style={s.widgetTitleRow}>
+                <MaterialCommunityIcons name="shield-star" size={18} color={theme.primaryColor} />
+                <Text style={[s.widgetTitle, { color: theme.textColor }]}>Minha Jornada</Text>
+              </View>
+              <Pressable onPress={() => router.push("/(tabs)/season")}>
+                <Text style={[s.widgetSeeAll, { color: theme.primaryColor }]}>Ver tudo</Text>
+              </Pressable>
             </View>
-            <View style={[s.xpBarBg, { backgroundColor: theme.border }]}>
-              <View
-                style={[
-                  s.xpBarFill,
-                  {
-                    width: `${Math.max(4, Math.round(levelInfo.progress * 100))}%` as any,
-                    backgroundColor: theme.accentColor,
-                  },
-                ]}
-              />
+
+            <View style={s.widgetContent}>
+              {/* Lado Esquerdo: Troféu do Mês ou Nível */}
+              <Pressable 
+                style={[s.trophyPreview, { backgroundColor: theme.primaryColor + '08' }]}
+                onPress={() => router.push("/(tabs)/season")}
+              >
+                {currentTrophy ? (
+                  <>
+                    <AnimatedSeasonalTrophy 
+                      icon={currentTrophy.icon} 
+                      id={currentTrophy.id} 
+                      size={60} 
+                      color={theme.primaryColor}
+                      isStatic={false}
+                    />
+                    <Text style={[s.trophyLabel, { color: theme.secondaryText }]}>Troféu do Mês</Text>
+                  </>
+                ) : (
+                  <>
+                    <View style={[s.levelCircle, { borderColor: theme.primaryColor }]}>
+                      <Text style={[s.levelCircleText, { color: theme.primaryColor }]}>{levelInfo.level}</Text>
+                    </View>
+                    <Text style={[s.trophyLabel, { color: theme.secondaryText }]}>Meu Nível</Text>
+                  </>
+                )}
+              </Pressable>
+
+              {/* Lado Direito: Conquistas Recentes ou Progresso */}
+              <View style={s.recentAchsColumn}>
+                <Text style={[s.miniLabel, { color: theme.secondaryText }]}>CONQUISTAS RECENTES</Text>
+                <View style={s.achsRow}>
+                  {recentAchievements.length > 0 ? (
+                    recentAchievements.map((ach, idx) => (
+                      <Animated.View 
+                        key={ach.id} 
+                        entering={FadeIn.delay(idx * 150)}
+                        style={[s.miniTrophy, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                      >
+                        <Text style={{ fontSize: 16 }}>{(ach as any).icon || '🏅'}</Text>
+                      </Animated.View>
+                    ))
+                  ) : (
+                    <Text style={[s.noAchsText, { color: theme.secondaryText }]}>Nenhum troféu ainda</Text>
+                  )}
+                </View>
+                
+                <View style={s.widgetProgressSection}>
+                  <View style={s.widgetProgressHeader}>
+                    <Text style={[s.miniLabel, { color: theme.secondaryText }]}>PROGRESSO MENSAL</Text>
+                    <Text style={[s.progressText, { color: theme.primaryColor }]}>{monthProgress}%</Text>
+                  </View>
+                  <View style={[s.widgetProgressBarBg, { backgroundColor: theme.border }]}>
+                    <View style={[s.widgetProgressBarFill, { width: `${monthProgress}%` as any, backgroundColor: theme.primaryColor }]} />
+                  </View>
+                </View>
+              </View>
             </View>
-            <Text style={s.xpTotalMini}>{gamification.totalXp} XP acumulado</Text>
           </View>
         </AnimatedCard>
 
@@ -428,7 +512,10 @@ export default function HomeScreen() {
                     { backgroundColor: theme.cardBackground, borderColor: theme.border },
                     pressed && { opacity: 0.7 },
                   ]}
-                  onPress={() => router.push("/(tabs)/accounts")}
+                  onPress={() => {
+                    soundManager.play("tap");
+                    router.push("/(tabs)/accounts");
+                  }}
                 >
                   <View style={[s.accountChipIcon, { backgroundColor: `${chipColor}20` }]}>
                     <Feather name={typeIcon as any} size={14} color={chipColor} />
@@ -459,7 +546,10 @@ export default function HomeScreen() {
         {unconfirmedInvoices.length > 0 && (
           <Pressable
             style={[s.invoiceBanner, { backgroundColor: theme.cardBackground, borderColor: "#FDE68A" }]}
-            onPress={() => router.push("/import-invoice")}
+            onPress={() => {
+              soundManager.play("tap");
+              router.push("/import-invoice");
+            }}
           >
             <View style={[s.invoiceBannerIcon, { backgroundColor: "#FEF3C7" }]}>
               <Feather name="file-text" size={15} color="#D97706" />
@@ -483,7 +573,10 @@ export default function HomeScreen() {
               </View>
               <Pressable
                 style={s.pendingSeeAll}
-                onPress={() => router.push({ pathname: "/transactions", params: { filter: "pending" } })}
+                onPress={() => {
+                  soundManager.play("tap");
+                  router.push({ pathname: "/transactions", params: { filter: "pending" } });
+                }}
                 hitSlop={8}
               >
                 <Text style={[s.pendingSeeAllText, { color: theme.primaryColor }]}>Ver todas</Text>
@@ -505,7 +598,10 @@ export default function HomeScreen() {
                     s.pendingRow,
                     { borderTopColor: theme.border, opacity: pressed ? 0.7 : 1 },
                   ]}
-                  onPress={() => router.push({ pathname: "/add-transaction", params: { txId: tx.id } })}
+                  onPress={() => {
+                    soundManager.play("tap");
+                    router.push({ pathname: "/add-transaction", params: { txId: tx.id } });
+                  }}
                 >
                   <View style={[s.pendingIcon, { backgroundColor: `${iconColor}15` }]}>
                     <Feather name={iconName as any} size={15} color={iconColor} />
@@ -553,7 +649,10 @@ export default function HomeScreen() {
                 Orcamento 50/30/20
               </Text>
               <View style={s.monthFilter}>
-                <Pressable onPress={handlePreviousMonth} style={s.monthArrow}>
+                <Pressable onPress={() => {
+                  soundManager.play("tap");
+                  handlePreviousMonth();
+                }} style={s.monthArrow}>
                   <Feather name="chevron-left" size={20} color={theme.textColor} />
                 </Pressable>
                 <Text style={[s.monthLabel, { color: theme.textColor }]}>
@@ -562,7 +661,10 @@ export default function HomeScreen() {
                     year: "numeric"
                   })}
                 </Text>
-                <Pressable onPress={handleNextMonth} style={s.monthArrow}>
+                <Pressable onPress={() => {
+                  soundManager.play("tap");
+                  handleNextMonth();
+                }} style={s.monthArrow}>
                   <Feather name="chevron-right" size={20} color={theme.textColor} />
                 </Pressable>
               </View>
@@ -618,7 +720,10 @@ export default function HomeScreen() {
         {season.currentSeason?.active && (
           <Pressable
             style={[s.card, { backgroundColor: theme.cardBackground }]}
-            onPress={() => router.push("/(tabs)/season")}
+            onPress={() => {
+              soundManager.play("tap");
+              router.push("/(tabs)/season");
+            }}
           >
             <View style={s.seasonHeader}>
               <View style={s.seasonTitleRow}>
@@ -657,7 +762,10 @@ export default function HomeScreen() {
         {savingsGoalAccounts.length > 0 && (
           <Pressable
             style={[s.card, { backgroundColor: theme.cardBackground }]}
-            onPress={() => router.push("/(tabs)/accounts")}
+            onPress={() => {
+              soundManager.play("tap");
+              router.push("/(tabs)/accounts");
+            }}
           >
             <View style={s.cardHeader}>
               <View style={s.seasonTitleRow}>
@@ -696,7 +804,10 @@ export default function HomeScreen() {
 
         <Pressable
           style={[s.card, { backgroundColor: theme.cardBackground }]}
-          onPress={() => router.push("/transactions")}
+          onPress={() => {
+            soundManager.play("tap");
+            router.push("/transactions");
+          }}
         >
           <View style={s.cardHeader}>
             <Text style={[s.cardTitle, { color: theme.textColor }]}>
@@ -722,7 +833,10 @@ export default function HomeScreen() {
                         s.txRow, 
                         { borderBottomColor: theme.border, opacity: pressed ? 0.7 : 1 }
                       ]}
-                      onPress={() => router.push({ pathname: "/add-transaction", params: { txId: tx.id } })}
+                      onPress={() => {
+                        soundManager.play("tap");
+                        router.push({ pathname: "/add-transaction", params: { txId: tx.id } });
+                      }}
                     >
                       <View
                         style={[
@@ -830,7 +944,10 @@ export default function HomeScreen() {
                     { borderColor: transferSourceId === acc.id ? "#10B981" : theme.border },
                     transferSourceId === acc.id && { backgroundColor: "#10B98112" },
                   ]}
-                  onPress={() => setTransferSourceId(acc.id)}
+                  onPress={() => {
+                    soundManager.play("tap");
+                    setTransferSourceId(acc.id);
+                  }}
                 >
                   <View style={[s.transferAccountDot, { backgroundColor: transferSourceId === acc.id ? "#10B981" : theme.border }]} />
                   <View style={{ flex: 1 }}>
@@ -854,7 +971,10 @@ export default function HomeScreen() {
             <View style={s.transferModalActions}>
               <Pressable
                 style={[s.transferCancelBtn, { borderColor: theme.border }]}
-                onPress={() => setConfirmingTx(null)}
+                onPress={() => {
+                  soundManager.play("tap");
+                  setConfirmingTx(null);
+                }}
               >
                 <Text style={[s.transferCancelText, { color: theme.secondaryText }]}>Cancelar</Text>
               </Pressable>
@@ -967,6 +1087,62 @@ const s = StyleSheet.create({
     fontSize: 14,
     color: "#FFF",
   },
+  // ── Gamification Widget ──────────────────────────────────────────────────
+  gamificationWidget: {
+    borderRadius: 24,
+    padding: 16,
+    marginHorizontal: 16,
+    backgroundColor: 'rgba(124, 58, 237, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.1)',
+  },
+  widgetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  widgetTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  widgetTitle: { fontFamily: 'DMSans_700Bold', fontSize: 15 },
+  widgetSeeAll: { fontFamily: 'DMSans_700Bold', fontSize: 12 },
+  widgetContent: { flexDirection: 'row', gap: 16 },
+  trophyPreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.1)',
+  },
+  trophyLabel: { fontFamily: 'DMSans_700Bold', fontSize: 10, marginTop: -4 },
+  levelCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  levelCircleText: { fontFamily: 'DMSans_800ExtraBold', fontSize: 20 },
+  recentAchsColumn: { flex: 1, justifyContent: 'space-between' },
+  miniLabel: { fontFamily: 'DMSans_700Bold', fontSize: 9, letterSpacing: 0.5, opacity: 0.6 },
+  achsRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  miniTrophy: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noAchsText: { fontFamily: 'DMSans_400Regular', fontSize: 11, fontStyle: 'italic', marginTop: 4 },
+  widgetProgressSection: { marginTop: 8 },
+  widgetProgressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  progressText: { fontFamily: 'DMSans_700Bold', fontSize: 12 },
+  widgetProgressBarBg: { height: 6, borderRadius: 3 },
+  widgetProgressBarFill: { height: 6, borderRadius: 3 },
   // ── Root ──────────────────────────────────────────────────────────────────
   root: { flex: 1 },
   scrollView: { flex: 1 },

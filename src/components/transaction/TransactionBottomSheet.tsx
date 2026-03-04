@@ -145,7 +145,10 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
                         borderColor: active ? theme.primaryColor : theme.border,
                       },
                     ]}
-                    onPress={() => form.setTxType(t.key)}
+                    onPress={() => {
+                      soundManager.play("tap");
+                      form.setTxType(t.key);
+                    }}
                   >
                     <Text style={[s.chipText, { color: active ? "#FFF" : theme.textColor }]}>
                       {t.label}
@@ -259,7 +262,10 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
                           ? { backgroundColor: "#A78BFA", borderColor: "#A78BFA" }
                           : { backgroundColor: "#A78BFA18", borderColor: "#A78BFA60" },
                       ]}
-                      onPress={() => tithe.setBaseType(key)}
+                      onPress={() => {
+                          soundManager.play("tap");
+                          tithe.setBaseType(key);
+                        }}
                     >
                       <Text style={{ color: tithe.baseType === key ? "#FFF" : "#A78BFA", fontFamily: "DMSans_500Medium", fontSize: 12 }}>
                         {label}
@@ -287,7 +293,10 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
                           ? { backgroundColor: "#A78BFA", borderColor: "#A78BFA" }
                           : { backgroundColor: "#A78BFA18", borderColor: "#A78BFA60" },
                       ]}
-                      onPress={() => tithe.setPeriodType(key)}
+                      onPress={() => {
+                          soundManager.play("tap");
+                          tithe.setPeriodType(key);
+                        }}
                     >
                       <Text style={{ color: tithe.periodType === key ? "#FFF" : "#A78BFA", fontFamily: "DMSans_500Medium", fontSize: 11 }}>
                         {label}
@@ -366,7 +375,10 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
                         borderColor: active ? color : theme.border,
                       },
                     ]}
-                    onPress={() => form.setStatus(opt.key)}
+                    onPress={() => {
+                      soundManager.play("tap");
+                      form.setStatus(opt.key);
+                    }}
                   >
                     <Feather name={opt.icon as any} size={13} color={active ? color : theme.secondaryText} />
                     <Text style={[s.chipText, { color: active ? color : theme.secondaryText }]}>
@@ -392,7 +404,10 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
                         borderColor: active ? theme.primaryColor : theme.border,
                       },
                     ]}
-                    onPress={() => form.setRecurrence(opt.key)}
+                    onPress={() => {
+                      soundManager.play("tap");
+                      form.setRecurrence(opt.key);
+                    }}
                   >
                     <Text
                       style={[

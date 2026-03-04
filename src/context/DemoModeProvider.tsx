@@ -1,64 +1,80 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
-import type { AppState } from "@packages/domain/src/state";
-import { createInitialState } from "@packages/domain/src/state";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+} from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { SyncEvent } from "@packages/storage/src/eventStore";
+import { DEMO_SEED_EVENTS } from "@/src/constants/mockDemoEvents";
+
+const TOUR_SHOWN_KEY = "domus_tour_shown_v1";
 
 interface DemoModeContextValue {
   isDemoActive: boolean;
   startDemo: () => void;
   stopDemo: () => void;
-  demoState: AppState | null;
+  /** In-memory events for the sandbox — empty when demo is inactive. */
+  demoEvents: SyncEvent[];
+  /** Append an event to the sandbox without touching SQLite. */
+  dispatchDemoEvent: (event: { id: string; type: string; payload?: object; timestamp: number }) => void;
 }
 
 const DemoModeContext = createContext<DemoModeContextValue | null>(null);
 
 /**
  * Gerenciador de Sandboxing para o Tur Guiado.
- * Permite que o usuário explore o app sem afetar seu saldo real.
+ *
+ * SRP: Responsável apenas por controlar o estado do modo demo e detectar
+ *      o primeiro acesso (para exibir o tour automaticamente).
+ * OCP: Novos tipos de seed events podem ser adicionados em mockDemoEvents.ts
+ *      sem alterar este provider.
  */
 export function DemoModeProvider({ children }: { children: React.ReactNode }) {
   const [isDemoActive, setIsDemoActive] = useState(false);
-  const [demoState, setDemoState] = useState<AppState | null>(null);
+  const [demoEvents, setDemoEvents] = useState<SyncEvent[]>([]);
 
   const startDemo = useCallback(() => {
-    // Cria um estado inicial limpo para o tour
-    const fakeState = createInitialState();
-    
-    // Dados de exemplo para o tour ser visualmente rico
-    fakeState.accounts["demo-wallet"] = {
-      id: "demo-wallet",
-      name: "Carteira de Teste",
-      type: "wallet",
-      balance: 2500.00,
-      color: "#10B981",
-    };
-
-    fakeState.accounts["demo-card"] = {
-      id: "demo-card",
-      name: "Cartão de Crédito",
-      type: "credit_card",
-      balance: 0,
-      creditLimit: 5000,
-      color: "#3B82F6",
-    };
-
-    fakeState.categories["alimentacao"] = { id: "alimentacao", name: "Alimentação", group: "needs" };
-    fakeState.categories["lazer"] = { id: "lazer", name: "Lazer", group: "wants" };
-
-    setDemoState(fakeState);
+    setDemoEvents(DEMO_SEED_EVENTS);
     setIsDemoActive(true);
   }, []);
 
   const stopDemo = useCallback(() => {
     setIsDemoActive(false);
-    setDemoState(null); // Cleanup automático: dados voláteis morrem aqui
+    setDemoEvents([]); // Dados voláteis — cleanup automático
   }, []);
 
-  const value = useMemo(() => ({
-    isDemoActive,
-    startDemo,
-    stopDemo,
-    demoState,
-  }), [isDemoActive, demoState, startDemo, stopDemo]);
+  const dispatchDemoEvent = useCallback(
+    (event: { id: string; type: string; payload?: object; timestamp: number }) => {
+      const syncEvt: SyncEvent = {
+        id: event.id,
+        type: event.type,
+        payload: event.payload ?? {},
+        timestamp: event.timestamp,
+        deviceId: "demo",
+        signature: "",
+      };
+      setDemoEvents((prev) => [...prev, syncEvt]);
+    },
+    [],
+  );
+
+  /** Detecta o primeiro acesso ao app e inicia o tour automaticamente. */
+  useEffect(() => {
+    AsyncStorage.getItem(TOUR_SHOWN_KEY).then((value) => {
+      if (value === null) {
+        AsyncStorage.setItem(TOUR_SHOWN_KEY, "shown");
+        startDemo();
+      }
+    });
+  }, [startDemo]);
+
+  const value = useMemo(
+    () => ({ isDemoActive, startDemo, stopDemo, demoEvents, dispatchDemoEvent }),
+    [isDemoActive, startDemo, stopDemo, demoEvents, dispatchDemoEvent],
+  );
 
   return (
     <DemoModeContext.Provider value={value}>

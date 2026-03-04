@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 
 export default function TransactionDetailScreen() {
   const { transactionId } = useLocalSearchParams<{ transactionId: string }>();
@@ -13,11 +14,16 @@ export default function TransactionDetailScreen() {
 
   const transaction = domain.transactions[transactionId];
 
+  const handleBack = () => {
+    soundManager.play("tap");
+    router.back();
+  };
+
   if (!transaction) {
     return (
       <View style={[s.container, { backgroundColor: theme.background }]}>
         <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-          <Pressable onPress={() => router.back()}>
+          <Pressable onPress={handleBack}>
             <Feather name="arrow-left" size={24} color={theme.textColor} />
           </Pressable>
           <Text style={[s.title, { color: theme.textColor }]}>Detalhes</Text>
@@ -37,7 +43,7 @@ export default function TransactionDetailScreen() {
   return (
     <View style={[s.container, { backgroundColor: theme.background }]}>
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-        <Pressable onPress={() => router.back()}>
+        <Pressable onPress={handleBack}>
           <Feather name="arrow-left" size={24} color={theme.textColor} />
         </Pressable>
         <Text style={[s.title, { color: theme.textColor }]}>Detalhes</Text>

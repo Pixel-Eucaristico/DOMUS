@@ -158,8 +158,8 @@ function CategoryItem({ cat, selected, color, theme, onSelect }: any) {
   const handlePress = () => {
     // Motion Spring
     scale.value = withSequence(
-      withSpring(0.9, { damping: 10, stiffness: 400 }),
-      withSpring(1, { damping: 10, stiffness: 200 })
+      withSpring(0.9, { damping: 25, stiffness: 200 }),
+      withSpring(1, { damping: 20, stiffness: 150 })
     );
     
     soundManager.play("tap");

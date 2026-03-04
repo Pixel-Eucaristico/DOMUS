@@ -17,7 +17,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { AppStateProvider } from "@/src/context/AppStateProvider";
 import { SyncProvider } from "@/src/context/SyncProvider";
-import { DemoModeProvider } from "@/src/context/DemoModeProvider";
+import { DemoModeProvider, useDemoMode } from "@/src/context/DemoModeProvider";
 import { TourOverlay } from "@/src/components/shared/TourOverlay";
 import { AchievementToast } from "@/src/components/gamification/AchievementToast";
 import { ReligiousPreferenceModal } from "@/src/components/shared/ReligiousPreferenceModal";
@@ -254,7 +254,8 @@ function AchievementToastHost() {
 
 function ReligiousPreferenceHost() {
   const { isCatholic, loading, setIsCatholic } = useAppState();
-  if (loading || isCatholic !== null) return null;
+  const { isDemoActive } = useDemoMode();
+  if (loading || isCatholic !== null || isDemoActive) return null;
   return (
     <ReligiousPreferenceModal
       visible

@@ -12,6 +12,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 import { updateTransactionEvent } from "@packages/domain/src/transactions";
 
 function formatCurrency(v: number): string {
@@ -99,10 +100,31 @@ export default function TransactionsScreen() {
     .filter((t) => t.type === "expense" || (t.type === "transfer" && t.accountId === accountId))
     .reduce((sum, t) => sum + t.amount, 0);
 
+  const handlePrevMonth = () => {
+    soundManager.play("tap");
+    prevMonth();
+  };
+
+  const handleNextMonth = () => {
+    soundManager.play("tap");
+    nextMonth();
+  };
+
+  const handleSetStatusFilter = (f: "all" | "confirmed" | "pending") => {
+    soundManager.play("tap");
+    setStatusFilter(f);
+  };
+
+  const handleBack = () => {
+    soundManager.play("tap");
+    router.back();
+  };
+
   const handleEfetivar = (txId: string) => {
     const today = new Date().toISOString().split("T")[0]!;
     const event = updateTransactionEvent(txId, { status: "confirmed", date: today });
     dispatchDomainEvent(event);
+    soundManager.play("success");
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
@@ -112,7 +134,7 @@ export default function TransactionsScreen() {
     <View style={[s.root, { backgroundColor: theme.background }]}>
       <View style={[s.header, { paddingTop: insets.top + webTopInset + 16 }]}>
         <View style={s.headerTop}>
-          <Pressable style={s.backBtn} onPress={() => router.back()}>
+          <Pressable style={s.backBtn} onPress={handleBack}>
             <Feather name="arrow-left" size={24} color={theme.textColor} />
           </Pressable>
           <View style={s.headerTitleContainer}>
@@ -137,7 +159,7 @@ export default function TransactionsScreen() {
 
         {!pendingOnly && (
           <View style={s.monthSwitcher}>
-            <Pressable style={[s.monthBtn, { backgroundColor: theme.cardBackground }]} onPress={prevMonth}>
+            <Pressable style={[s.monthBtn, { backgroundColor: theme.cardBackground }]} onPress={handlePrevMonth}>
               <Feather name="chevron-left" size={20} color={theme.primaryColor} />
             </Pressable>
             <View style={s.monthLabelContainer}>
@@ -145,7 +167,7 @@ export default function TransactionsScreen() {
                 {MONTHS[vMonth]} {vYear}
               </Text>
             </View>
-            <Pressable style={[s.monthBtn, { backgroundColor: theme.cardBackground }]} onPress={nextMonth}>
+            <Pressable style={[s.monthBtn, { backgroundColor: theme.cardBackground }]} onPress={handleNextMonth}>
               <Feather name="chevron-right" size={20} color={theme.primaryColor} />
             </Pressable>
           </View>
@@ -187,10 +209,10 @@ export default function TransactionsScreen() {
                       {
                         backgroundColor: active ? theme.primaryColor : theme.cardBackground,
                         borderColor: active ? theme.primaryColor : theme.border,
-                      },
-                    ]}
-                    onPress={() => setStatusFilter(f)}
-                  >
+                        },
+                        ]}
+                        onPress={() => handleSetStatusFilter(f)}
+                        >
                     <Text style={[s.filterChipText, { color: active ? "#FFF" : theme.secondaryText }]}>
                       {labels[f]}
                     </Text>
@@ -243,7 +265,10 @@ export default function TransactionsScreen() {
                     s.txRow, 
                     { borderBottomColor: theme.border, opacity: pressed ? 0.7 : 1 }
                   ]}
-                  onPress={() => router.push({ pathname: "/add-transaction", params: { txId: tx.id } })}
+                  onPress={() => {
+                    soundManager.play("tap");
+                    router.push({ pathname: "/add-transaction", params: { txId: tx.id } });
+                  }}
                 >
                   <View style={[s.txIcon, { backgroundColor: `${typeColor}12` }]}>
                     <Feather name={typeIcon as any} size={18} color={typeColor} />

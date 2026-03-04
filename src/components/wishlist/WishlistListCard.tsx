@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { soundManager } from "@/src/services/SoundManager";
 import type { ThemeColors } from "@packages/theme";
 import type { WishlistList, WishlistItem, UrgencyLevel } from "@packages/wishlist";
 
@@ -38,7 +39,10 @@ export function WishlistListCard({ list, items, theme, onPress }: Props) {
   return (
     <TouchableOpacity
       style={[styles.container, { backgroundColor: theme.cardBackground }]}
-      onPress={() => onPress(list)}
+      onPress={() => {
+        soundManager.play("tap");
+        onPress(list);
+      }}
       activeOpacity={0.7}
     >
       <View style={styles.header}>
