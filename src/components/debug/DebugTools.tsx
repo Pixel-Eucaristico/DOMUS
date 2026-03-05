@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  FlatList,
   Modal,
   TextInput,
   Platform,
@@ -58,19 +59,52 @@ export function DebugTools() {
 
   if (!__DEV__) return null;
 
-  const allTrophies = [
-    ...(ALL_SEASONAL_TROPHIES || []).map(t => ({ ...t, _debugType: "Sazonal" })), 
+  const allTrophies = useMemo(() => [
+    ...(ALL_SEASONAL_TROPHIES || []).map(t => ({ ...t, _debugType: "Sazonal" })),
     ...(ALL_LITURGICAL_TROPHIES || []).map(t => ({ ...t, _debugType: "Litúrgico" })),
     ...(ALL_ACHIEVEMENTS || []).map(t => ({ ...t, _debugType: "Conquista" })),
     ...(MONTHLY_TROPHIES || []).map(t => ({ ...t, _debugType: "Mensal" }))
-  ].filter(Boolean);
+  ].filter(Boolean), []);
 
-  const filteredTrophies = allTrophies.filter(t => 
-    t && typeof t.name === "string" && (
-      t.name.toLowerCase().includes(search.toLowerCase()) || 
-      (t.id && typeof t.id === "string" && t.id.toLowerCase().includes(search.toLowerCase()))
-    )
-  );
+  const filteredTrophies = useMemo(() => {
+    const q = search.toLowerCase();
+    return allTrophies.filter(t =>
+      t && typeof t.name === "string" && (
+        t.name.toLowerCase().includes(q) ||
+        (t.id && typeof t.id === "string" && t.id.toLowerCase().includes(q))
+      )
+    );
+  }, [allTrophies, search]);
+
+  const TYPE_ICONS: Record<string, string> = {
+    "Sazonal": "sun",
+    "Litúrgico": "book-open",
+    "Conquista": "award",
+    "Mensal": "calendar",
+  };
+
+  const renderTrophyRow = useCallback(({ item: t }: { item: any }) => (
+    <TouchableOpacity
+      style={[st.trophyRow, { borderBottomColor: theme.border }]}
+      onPress={() => setSelectedTrophy(t)}
+    >
+      <View style={[st.trophyIconPlaceholder, { backgroundColor: theme.primaryColor + '12' }]}>
+        <Feather name={(TYPE_ICONS[t._debugType] || "award") as any} size={20} color={theme.primaryColor} />
+      </View>
+      <View style={st.trophyInfo}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <Text style={[st.trophyName, { color: theme.textColor }]}>
+            {t.name}
+          </Text>
+          <View style={{ backgroundColor: theme.primaryColor + '22', paddingHorizontal: 4, borderRadius: 4 }}>
+            <Text style={{ fontSize: 9, color: theme.primaryColor, fontWeight: 'bold' }}>{t._debugType}</Text>
+          </View>
+        </View>
+        <Text style={[st.trophyId, { color: theme.secondaryText, fontSize: 10 }]}>{t.id}</Text>
+      </View>
+      <Feather name="chevron-right" size={16} color={theme.border} />
+    </TouchableOpacity>
+  ), [theme]);
 
   const renderTrophyPreview = (t: any, size = 120, isStatic = false) => {
     if (t._debugType === "Sazonal" || t._debugType === "Litúrgico" || t._debugType === "Mensal") {
@@ -128,6 +162,49 @@ export function DebugTools() {
               ))}
             </View>
 
+            {activeTab === "trophies" ? (
+              <View style={[st.content, { flex: 1 }]}>
+                <View style={{ marginBottom: 15 }}>
+                  <Text style={[st.label, { color: theme.textColor, marginBottom: 8 }]}>Troféu do Mês - Testar Nível (Tier):</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {[1, 2, 3, 4].map(tier => (
+                      <TouchableOpacity
+                        key={tier}
+                        onPress={() => setDebugTier(tier)}
+                        style={[
+                          st.tierBtn,
+                          { borderColor: getTierColor(tier) },
+                          debugTier === tier && { backgroundColor: getTierColor(tier) + '22' }
+                        ]}
+                      >
+                        <Text style={{ color: getTierColor(tier), fontWeight: '700', fontSize: 12 }}>T{tier}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <TextInput
+                  style={[st.search, { color: theme.textColor, borderColor: theme.border, backgroundColor: theme.cardBackground }]}
+                  placeholder="Search trophies..."
+                  placeholderTextColor={theme.secondaryText}
+                  value={search}
+                  onChangeText={setSearch}
+                />
+                <Text style={{ fontSize: 11, color: theme.secondaryText, marginBottom: 8 }}>
+                  {filteredTrophies.length} troféus encontrados
+                </Text>
+                <FlatList
+                  data={filteredTrophies}
+                  keyExtractor={(item, idx) => `${item.id}-${item._debugType}-${idx}`}
+                  initialNumToRender={15}
+                  maxToRenderPerBatch={10}
+                  windowSize={5}
+                  getItemLayout={(_data, index) => ({ length: 72, offset: 72 * index, index })}
+                  renderItem={renderTrophyRow}
+                  style={{ flex: 1 }}
+                  keyboardShouldPersistTaps="handled"
+                />
+              </View>
+            ) : (
             <ScrollView style={st.content}>
               {activeTab === "archetypes" && (
                 <View style={st.section}>
@@ -159,64 +236,6 @@ export function DebugTools() {
                       );
                     })}
                   </View>
-                </View>
-              )}
-
-              {activeTab === "trophies" && (
-                <View style={st.section}>
-                  <View style={{ marginBottom: 15 }}>
-                    <Text style={[st.label, { color: theme.textColor, marginBottom: 8 }]}>Troféu do Mês - Testar Nível (Tier):</Text>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      {[1, 2, 3, 4].map(tier => (
-                        <TouchableOpacity
-                          key={tier}
-                          onPress={() => setDebugTier(tier)}
-                          style={[
-                            st.tierBtn, 
-                            { borderColor: getTierColor(tier) },
-                            debugTier === tier && { backgroundColor: getTierColor(tier) + '22' }
-                          ]}
-                        >
-                          <Text style={{ color: getTierColor(tier), fontWeight: '700', fontSize: 12 }}>T{tier}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-
-                  <TextInput
-                    style={[st.search, { color: theme.textColor, borderColor: theme.border, backgroundColor: theme.cardBackground }]}
-                    placeholder="Search trophies..."
-                    placeholderTextColor={theme.secondaryText}
-                    value={search}
-                    onChangeText={setSearch}
-                  />
-                  {filteredTrophies.map((t, idx) => (
-                    <TouchableOpacity 
-                      key={`${t.id}-${t._debugType}-${idx}`} 
-                      style={[st.trophyRow, { borderBottomColor: theme.border }]}
-                      onPress={() => setSelectedTrophy(t)}
-                    >
-                      <View style={{ width: 50, height: 50, alignItems: 'center', justifyContent: 'center' }}>
-                         {/* Static preview for list performance */}
-                         {renderTrophyPreview(t, 45, true)}
-                      </View>
-                      <View style={st.trophyInfo}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          <Text style={[st.trophyName, { color: theme.textColor }]}>
-                            {t.name}
-                          </Text>
-                          <View style={{ backgroundColor: theme.primaryColor + '22', paddingHorizontal: 4, borderRadius: 4 }}>
-                            <Text style={{ fontSize: 9, color: theme.primaryColor, fontWeight: 'bold' }}>{t._debugType}</Text>
-                          </View>
-                        </View>
-                        <Text style={[st.trophyId, { color: theme.secondaryText, fontSize: 10 }]}>{t.id}</Text>
-                        <Text style={{ fontSize: 11, color: theme.secondaryText, marginTop: 4 }} numberOfLines={1}>
-                          {t.description || "Clique para detalhes"}
-                        </Text>
-                      </View>
-                      <Feather name="chevron-right" size={16} color={theme.border} />
-                    </TouchableOpacity>
-                  ))}
                 </View>
               )}
 
@@ -318,6 +337,7 @@ export function DebugTools() {
                 </View>
               )}
             </ScrollView>
+            )}
           </View>
         </View>
 
@@ -528,6 +548,13 @@ const st = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     alignItems: 'center',
+  },
+  trophyIconPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   trophyInfo: {
     flex: 1,

@@ -114,9 +114,9 @@ export const SurpriseTrophyCard: React.FC<SurpriseTrophyCardProps> = ({
   const isLiturgical = !!ALL_LITURGICAL_TROPHIES.find((lt: any) => lt.id === trophy?.id);
 
   return (
-    <View ref={cardRef} collapsable={false} style={[styles.surpriseCard, { borderColor: tierColor + "55" }]}>
+    <View ref={cardRef} collapsable={false} style={[styles.surpriseCard, { borderColor: tierColor + "55", backgroundColor: theme.cardBackground }]}>
       <LinearGradient
-        colors={[tierColor + "15", "transparent", "#0F0A1E"]}
+        colors={[tierColor + "15", "transparent", theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -153,7 +153,7 @@ export const SurpriseTrophyCard: React.FC<SurpriseTrophyCardProps> = ({
       </View>
 
       {!selectedEntry ? (
-        <View style={styles.mysteryBox}>
+        <View style={[styles.mysteryBox, { backgroundColor: theme.primaryColor + "08", borderColor: theme.primaryColor + "15" }]}>
           <Text style={styles.mysteryIcon}>❓</Text>
           <Text style={[styles.mysteryText, { color: theme.secondaryText }]}>
             Seu troféu do mês ainda não foi revelado.{"\n"}Abra o app amanhã para descobrir!
@@ -161,8 +161,8 @@ export const SurpriseTrophyCard: React.FC<SurpriseTrophyCardProps> = ({
         </View>
       ) : (
         <View style={styles.surpriseTrophyContent}>
-          <View style={[styles.eventSummaryBox, { backgroundColor: tierColor + "0F" }]}>
-            <View style={styles.surpriseTrophyIconWrapper}>
+          <View style={[styles.eventSummaryBox, { backgroundColor: tierColor + "0F", borderColor: theme.primaryColor + "18" }]}>
+            <View style={[styles.surpriseTrophyIconWrapper, { backgroundColor: tierColor + "0F" }]}>
               <AnimatedSeasonalTrophy
                 icon={trophy?.icon}
                 id={trophy?.id}
@@ -189,7 +189,7 @@ export const SurpriseTrophyCard: React.FC<SurpriseTrophyCardProps> = ({
           <View
             style={[
               styles.goalBox,
-              { backgroundColor: theme.cardBackground, borderColor: theme.border },
+              { backgroundColor: theme.primaryColor + "08", borderColor: theme.border },
             ]}
           >
             <Feather name="target" size={13} color={tierColor} />
@@ -250,6 +250,7 @@ export const SurpriseTrophyCard: React.FC<SurpriseTrophyCardProps> = ({
         availableYears={availableYears}
         onYearChange={setViewingYear}
         onSelectTrophy={setSelectedAlbumTrophy}
+        theme={theme}
       />
 
       <ReligiousPreferenceModal
@@ -311,7 +312,7 @@ export const SurpriseTrophyCard: React.FC<SurpriseTrophyCardProps> = ({
                 {selectedAlbumTrophy?.trophy?.eventSummary}
               </Text>
               
-              <View style={[styles.modalGoalBox, { borderColor: theme.border }]}>
+              <View style={[styles.modalGoalBox, { borderColor: theme.border, backgroundColor: theme.primaryColor + "08" }]}>
                 <Feather name="target" size={14} color={selectedAlbumTrophy?.tierColor} />
                 <Text style={[styles.modalGoalText, { color: theme.textColor }]}>
                   {selectedAlbumTrophy?.trophy?.description}
@@ -348,6 +349,7 @@ interface AlbumProps {
   availableYears: number[];
   onYearChange: (year: number) => void;
   onSelectTrophy: (trophy: any) => void;
+  theme: any;
 }
 
 const AlbumView = ({
@@ -358,16 +360,17 @@ const AlbumView = ({
   availableYears,
   onYearChange,
   onSelectTrophy,
+  theme,
 }: AlbumProps) => {
   const ABBR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
   return (
     <View style={styles.albumSection}>
       <View style={styles.albumHeader}>
-        <Text style={[styles.albumTitle, { color: "#FFFFFF44" }]}>Álbum {viewingYear}</Text>
+        <Text style={[styles.albumTitle, { color: theme.secondaryText }]}>Álbum {viewingYear}</Text>
         
         {availableYears.length > 1 && (
-          <View style={styles.yearSelector}>
+          <View style={[styles.yearSelector, { backgroundColor: theme.primaryColor + "12" }]}>
             {availableYears.map((year) => (
               <TouchableOpacity
                 key={year}
@@ -377,13 +380,13 @@ const AlbumView = ({
                 }}
                 style={[
                   styles.yearButton,
-                  viewingYear === year && { backgroundColor: "rgba(255,255,255,0.15)" },
+                  viewingYear === year && { backgroundColor: theme.primaryColor + "22" },
                 ]}
               >
                 <Text
                   style={[
                     styles.yearButtonText,
-                    { color: viewingYear === year ? "#FFF" : "rgba(255,255,255,0.4)" },
+                    { color: viewingYear === year ? theme.primaryColor : theme.secondaryText },
                   ]}
                 >
                   {year}
@@ -432,15 +435,15 @@ const AlbumView = ({
                 styles.albumCell,
                 {
                   backgroundColor: isComp
-                    ? (tc ?? "#888") + "22"
+                    ? (tc ?? theme.secondaryText) + "22"
                     : isCurrent
-                    ? "#FFFFFF0A"
-                    : "#FFFFFF06",
+                    ? theme.primaryColor + "0A"
+                    : theme.border + "22",
                   borderColor: isComp
-                    ? (tc ?? "#888") + "55"
+                    ? (tc ?? theme.secondaryText) + "55"
                     : isCurrent
-                    ? "#FFFFFF22"
-                    : "#FFFFFF0A",
+                    ? theme.primaryColor + "33"
+                    : theme.border + "44",
                 },
               ]}
             >
@@ -450,7 +453,7 @@ const AlbumView = ({
                     icon={t.icon}
                     id={t.id}
                     size={36}
-                    color={isComp ? (tc ?? "#888") : "#9CA3AF"}
+                    color={isComp ? (tc ?? theme.secondaryText) : theme.secondaryText}
                     isLiturgical={isLit}
                     isStatic={true}
                   />
@@ -463,7 +466,7 @@ const AlbumView = ({
               <Text
                 style={[
                   styles.albumMonthLabel,
-                  { color: isComp ? tc ?? "#888" : isCurrent ? "#FFFFFF66" : "#FFFFFF33" },
+                  { color: isComp ? tc ?? theme.secondaryText : isCurrent ? theme.textColor : theme.secondaryText },
                 ]}
               >
                 {abbr}
@@ -471,7 +474,7 @@ const AlbumView = ({
               {isComp && tc && <View style={[styles.albumTierDot, { backgroundColor: tc }]} />}
               {!isComp && sel && (
                 <View style={styles.lockedBadge}>
-                  <Feather name="lock" size={8} color="rgba(255,255,255,0.4)" />
+                  <Feather name="lock" size={8} color={theme.secondaryText} />
                 </View>
               )}
             </TouchableOpacity>
@@ -488,7 +491,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     padding: 20,
     gap: 16,
-    backgroundColor: "#0F0A1E",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
@@ -524,7 +526,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: "transparent",
   },
   tierBadgeText: {
     fontFamily: "DMSans_700Bold",
@@ -547,10 +549,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 24,
     gap: 12,
-    backgroundColor: "rgba(124, 58, 237, 0.04)",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(124, 58, 237, 0.08)",
   },
   mysteryIcon: { fontSize: 48 },
   mysteryText: {
@@ -568,14 +568,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: "rgba(124, 58, 237, 0.1)",
   },
   surpriseTrophyIconWrapper: {
     width: 80,
     height: 80,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(124, 58, 237, 0.06)",
     borderRadius: 40,
   },
   surpriseTrophyName: {
@@ -597,7 +595,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     padding: 14,
-    backgroundColor: "rgba(124, 58, 237, 0.04)",
   },
   goalText: {
     fontFamily: "DMSans_500Medium",
@@ -683,12 +680,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1,
     textTransform: "uppercase",
-    opacity: 0.5,
+    opacity: 0.6,
   },
   yearSelector: {
     flexDirection: "row",
     gap: 4,
-    backgroundColor: "rgba(124, 58, 237, 0.08)",
     padding: 2,
     borderRadius: 8,
   },
@@ -794,7 +790,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     padding: 16,
-    backgroundColor: "rgba(124, 58, 237, 0.05)",
   },
   modalGoalText: {
     fontFamily: "DMSans_500Medium",

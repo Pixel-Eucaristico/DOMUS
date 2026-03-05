@@ -1,9 +1,9 @@
-import { Audio } from "expo-av";
+import { createAudioPlayer, type AudioPlayer } from "expo-audio";
 
 /**
  * SoundManager: Gerencia os efeitos sonoros do app.
  * Siga estas diretrizes para baixar novos sons (formato MP3):
- * 
+ *
  * - tap: Clique sutil em botões (Ex: "UI click minimal", "Soft wood hit")
  * - success: Ação concluída com êxito (Ex: "Magical chime", "Short harp")
  * - error: Erro ou aviso (Ex: "Minimal fail", "Soft thud")
@@ -14,12 +14,12 @@ import { Audio } from "expo-av";
  * - share: Ao clicar em compartilhar (Ex: "Digital woosh", "Camera shutter soft")
  * - tabSwitch: Troca entre abas (Ex: "Slide tick", "Bass blip")
  */
-export type SoundEffect = 
-  | "tap" 
-  | "success" 
-  | "error" 
-  | "trash" 
-  | "pop" 
+export type SoundEffect =
+  | "tap"
+  | "success"
+  | "error"
+  | "trash"
+  | "pop"
   | "levelUp"
   | "reveal"
   | "share"
@@ -38,7 +38,7 @@ const SOUND_ASSETS: Record<SoundEffect, any> = {
 };
 
 class SoundManager {
-  private sounds: Map<SoundEffect, Audio.Sound> = new Map();
+  private players: Map<SoundEffect, AudioPlayer> = new Map();
   private enabled: boolean = true;
   private isLoaded: boolean = false;
 
@@ -52,8 +52,8 @@ class SoundManager {
     try {
       for (const [key, asset] of Object.entries(SOUND_ASSETS)) {
         try {
-          const { sound } = await Audio.Sound.createAsync(asset);
-          this.sounds.set(key as SoundEffect, sound);
+          const player = createAudioPlayer(asset);
+          this.players.set(key as SoundEffect, player);
         } catch (err) {
           console.warn(`Could not load sound ${key}:`, err);
         }
@@ -68,23 +68,22 @@ class SoundManager {
   public async play(effect: SoundEffect) {
     if (!this.enabled || !this.isLoaded) return;
 
-    const sound = this.sounds.get(effect);
-    if (sound) {
+    const player = this.players.get(effect);
+    if (player) {
       try {
-        await sound.replayAsync();
+        await player.seekTo(0);
+        player.play();
       } catch (e) {
-        // Fallback for sounds that might be stuck or not loaded
-        await sound.stopAsync();
-        await sound.playAsync();
+        // Ignore playback errors silently
       }
     }
   }
 
   public async unload() {
-    for (const sound of this.sounds.values()) {
-      await sound.unloadAsync();
+    for (const player of this.players.values()) {
+      player.remove();
     }
-    this.sounds.clear();
+    this.players.clear();
     this.isLoaded = false;
   }
 }

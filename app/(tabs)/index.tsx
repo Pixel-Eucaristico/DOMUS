@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
   View,
@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   Platform,
-  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -14,122 +13,37 @@ import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { useSync } from "@/src/context/SyncProvider";
-import { calculate503020, updateTransactionEvent, createTransactionEvent } from "@packages/domain/src/transactions";
-import { getCreditUsage } from "@packages/domain/src/accounts";
+import { calculate503020 } from "@packages/domain/src/transactions";
 import { TransactionBottomSheet } from "@/src/components/transaction/TransactionBottomSheet";
 import { DomusLogo } from "@/src/components/shared/DomusLogo";
 import { AnimatedCard } from "@/src/components/shared/AnimatedCard";
 import { AnimatedIconButton } from "@/src/components/shared/AnimatedIconButton";
-import { AnimatedTrophy } from "@/src/components/gamification/AnimatedTrophy";
-import { AnimatedSeasonalTrophy } from "@/src/components/gamification/AnimatedSeasonalTrophy";
 import { soundManager } from "@/src/services/SoundManager";
-import { 
-  ALL_SEASONAL_TROPHIES, 
-  ALL_LITURGICAL_TROPHIES, 
-  ALL_ACHIEVEMENTS 
+import { formatCurrency } from "@/src/utils/formatCurrency";
+import {
+  ALL_SEASONAL_TROPHIES,
+  ALL_LITURGICAL_TROPHIES,
+  ALL_ACHIEVEMENTS
 } from "@packages/gamification";
-import Animated, { 
-  FadeInUp, 
-  FadeOutDown, 
-  Layout, 
-  FadeIn,
-  SlideInRight,
-  SlideInLeft
-} from "react-native-reanimated";
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-}
-
-function pendingDateLabel(dateStr: string): { label: string; overdue: boolean } {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const txDate = new Date(dateStr + "T00:00:00");
-  const diffDays = Math.round((txDate.getTime() - today.getTime()) / 86_400_000);
-  if (diffDays < 0)
-    return { label: `Venceu há ${Math.abs(diffDays)} dia${Math.abs(diffDays) !== 1 ? "s" : ""}`, overdue: true };
-  if (diffDays === 0) return { label: "Hoje", overdue: false };
-  if (diffDays === 1) return { label: "Amanhã", overdue: false };
-  if (diffDays <= 7) return { label: `Em ${diffDays} dias`, overdue: false };
-  return {
-    label: txDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
-    overdue: false,
-  };
-}
-
-function BudgetBar({
-  label,
-  percent,
-  ideal,
-  idealAmount,
-  color,
-  amount,
-  group,
-  theme,
-  onPress,
-}: {
-  label: string;
-  percent: number;
-  ideal: number;
-  idealAmount: number;
-  color: string;
-  amount: number;
-  group: "needs" | "wants" | "savings";
-  theme: any;
-  onPress?: (group: string) => void;
-}) {
-  const barWidth = Math.min(percent, 100);
-  return (
-    <Pressable
-      onPress={() => {
-        soundManager.play("tap");
-        onPress?.(group);
-      }}
-      style={({ pressed }) => [
-        s.budgetRow,
-        pressed && { opacity: 0.7 }
-      ]}
-    >
-      <View style={s.budgetLabelRow}>
-        <View style={[s.budgetDot, { backgroundColor: color }]} />
-        <Text style={[s.budgetLabel, { color: theme.textColor }]}>{label}</Text>
-        <Text style={[s.budgetPercent, { color: theme.textColor }]}>
-          {percent}% <Text style={[s.budgetIdeal, { color: theme.secondaryText }]}>(meta {ideal}%)</Text>
-        </Text>
-      </View>
-      <View style={[s.budgetBarBg, { backgroundColor: theme.border }]}>
-        <View
-          style={[
-            s.budgetBarFill,
-            { width: `${barWidth}%` as any, backgroundColor: color },
-          ]}
-        />
-      </View>
-      <View style={s.budgetFooter}>
-        <Text style={[s.budgetAmount, { color: theme.textColor }]}>{formatCurrency(amount)}</Text>
-        <Text style={[s.budgetIdealValue, { color: theme.secondaryText }]}>Meta: {formatCurrency(idealAmount)}</Text>
-      </View>
-    </Pressable>
-  );
-}
+// Extracted sub-components
+import { BudgetBar } from "@/src/components/shared/BudgetBar";
+import { GamificationWidget } from "@/src/components/gamification/GamificationWidget";
+import { AccountsStrip } from "@/src/components/shared/AccountsStrip";
+import { PendingTransactionsList } from "@/src/components/transaction/PendingTransactionsList";
+import { SavingsGoalCard } from "@/src/components/shared/SavingsGoalCard";
+import { RecentTransactionsList } from "@/src/components/transaction/RecentTransactionsList";
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { domain, gamification, levelInfo, totalBalance, archetype, theme, onboarding, loading, dispatchDomainEvent, deviceId, season, wishlist } =
+  const { domain, gamification, levelInfo, totalBalance, archetype, theme, loading, dispatchDomainEvent, deviceId, season } =
     useAppState();
-  const { syncStatus, isAutoSyncEnabled } = useSync();
+  const { syncStatus } = useSync();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
   const [showAddSheet, setShowAddSheet] = useState(false);
-
-  // Transfer source modal (for savings contributions)
-  const [confirmingTx, setConfirmingTx] = useState<(typeof domain.transactions)[string] | null>(null);
-  const [transferSourceId, setTransferSourceId] = useState<string>("");
 
   // Month/Year filter state
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -162,55 +76,6 @@ export default function HomeScreen() {
     [domain.transactions],
   );
 
-  const handleConfirmTx = useCallback(
-    (txId: string) => {
-      const tx = domain.transactions[txId];
-      // Savings contributions need a source account picker
-      if (tx?.type === "income" && tx.description?.startsWith("Aporte poupança:")) {
-        const nonSavingsAccounts = Object.values(domain.accounts).filter(
-          (a) => a.type !== "savings",
-        );
-        setTransferSourceId(nonSavingsAccounts[0]?.id ?? "");
-        setConfirmingTx(tx);
-        return;
-      }
-      const event = updateTransactionEvent(txId, { status: "confirmed" }, deviceId ?? undefined);
-      dispatchDomainEvent(event);
-      soundManager.play("success");
-      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    },
-    [dispatchDomainEvent, deviceId, domain.transactions, domain.accounts],
-  );
-
-  const handleConfirmTransfer = useCallback(() => {
-    if (!confirmingTx) return;
-    const did = deviceId ?? "local";
-
-    // 1. Confirm the savings income
-    dispatchDomainEvent(updateTransactionEvent(confirmingTx.id, { status: "confirmed" }, did));
-
-    // 2. Create matching expense on source account (transfer out)
-    if (transferSourceId) {
-      const [expenseEvent] = createTransactionEvent(
-        {
-          accountId: transferSourceId,
-          type: "expense",
-          amount: confirmingTx.amount,
-          categoryId: confirmingTx.categoryId ?? "outros",
-          date: confirmingTx.date,
-          description: `Transferência: ${confirmingTx.description}`,
-          status: "confirmed",
-        },
-        did,
-      );
-      dispatchDomainEvent(expenseEvent);
-    }
-
-    soundManager.play("success");
-    if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setConfirmingTx(null);
-  }, [confirmingTx, transferSourceId, deviceId, dispatchDomainEvent]);
-
   const incomeBase = budget.totalIncome > 0 ? budget.totalIncome : (budget.needs + budget.wants + budget.savings);
 
   // ── widget data ──────────────────────────────────────────────────────────────
@@ -235,14 +100,13 @@ export default function HomeScreen() {
     const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const mk = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const sel = (gamification.selectedSeasonalTrophies ?? []).find((s: any) => s.monthKey === mk);
-    
-    // Safety check for Trophy arrays
+
     const seasonalPool = ALL_SEASONAL_TROPHIES || [];
     const liturgicalPool = ALL_LITURGICAL_TROPHIES || [];
-    
-    const t = sel ? (seasonalPool.find((tr: any) => tr.id === sel.trophyId) ?? 
+
+    const t = sel ? (seasonalPool.find((tr: any) => tr.id === sel.trophyId) ??
                     liturgicalPool.find((tr: any) => tr.id === sel.trophyId)) : null;
-    
+
     return {
       monthProgress: Math.round((now.getDate() / dim) * 100),
       daysLeft: dim - now.getDate(),
@@ -250,9 +114,20 @@ export default function HomeScreen() {
     };
   }, [gamification.selectedSeasonalTrophies]);
 
-  // Latest achievements
+  // Latest achievements (deduplicated)
   const recentAchievements = useMemo(() => {
-    return (gamification.unlockedAchievements ?? []).slice(-3).reverse();
+    const achievementIds = new Set((ALL_ACHIEVEMENTS || []).map((a) => a.id));
+    const seen = new Set<string>();
+    return (gamification.unlockedAchievements ?? [])
+      .slice()
+      .reverse()
+      .filter((a) => {
+        if (!achievementIds.has(a.id)) return false;
+        if (seen.has(a.id)) return false;
+        seen.add(a.id);
+        return true;
+      })
+      .slice(0, 3);
   }, [gamification.unlockedAchievements]);
 
   // Savings goal accounts + this-month contribution
@@ -327,6 +202,7 @@ export default function HomeScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {/* ── HEADER ─────────────────────────────────────────────────────── */}
         <View style={s.header}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <DomusLogo size={36} theme={theme} />
@@ -371,36 +247,28 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* ── STATS ROW ──────────────────────────────────────────────────── */}
         <AnimatedCard index={0}>
           <View style={s.statsRow}>
-            <Pressable 
+            <Pressable
               style={[s.statCard, { backgroundColor: theme.primaryColor }]}
-              onPress={() => {
-                soundManager.play("tap");
-                router.push("/(tabs)/season");
-              }}
+              onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
             >
               <Feather name="zap" size={18} color="rgba(255,255,255,0.7)" />
               <Text style={s.statValue}>{gamification.totalXp}</Text>
               <Text style={s.statLabel}>XP Total</Text>
             </Pressable>
-            <Pressable 
+            <Pressable
               style={[s.statCard, { backgroundColor: theme.primaryColor }]}
-              onPress={() => {
-                soundManager.play("tap");
-                router.push("/(tabs)/season");
-              }}
+              onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
             >
               <Feather name="bar-chart-2" size={18} color="rgba(255,255,255,0.7)" />
               <Text style={s.statValue}>{levelInfo.level}</Text>
               <Text style={s.statLabel}>Nível</Text>
             </Pressable>
-            <Pressable 
+            <Pressable
               style={[s.statCard, { backgroundColor: theme.primaryColor }]}
-              onPress={() => {
-                soundManager.play("tap");
-                router.push("/(tabs)/season");
-              }}
+              onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
             >
               <MaterialCommunityIcons name="fire" size={20} color="rgba(255,255,255,0.7)" />
               <Text style={s.statValue}>{gamification.currentStreak}</Text>
@@ -409,87 +277,17 @@ export default function HomeScreen() {
           </View>
         </AnimatedCard>
 
-        {/* ── WIDGET DE CONQUISTAS ─────────────────────────────────────────── */}
-        <AnimatedCard index={1}>
-          <View style={s.gamificationWidget}>
-            <View style={s.widgetHeader}>
-              <View style={s.widgetTitleRow}>
-                <MaterialCommunityIcons name="shield-star" size={18} color={theme.primaryColor} />
-                <Text style={[s.widgetTitle, { color: theme.textColor }]}>Minha Jornada</Text>
-              </View>
-              <Pressable onPress={() => router.push("/(tabs)/season")}>
-                <Text style={[s.widgetSeeAll, { color: theme.primaryColor }]}>Ver tudo</Text>
-              </Pressable>
-            </View>
+        {/* ── GAMIFICATION WIDGET ────────────────────────────────────────── */}
+        <GamificationWidget
+          theme={theme}
+          currentTrophy={currentTrophy}
+          levelInfo={levelInfo}
+          recentAchievements={recentAchievements}
+          achievementPool={ALL_ACHIEVEMENTS || []}
+          monthProgress={monthProgress}
+        />
 
-            <View style={s.widgetContent}>
-              {/* Lado Esquerdo: Troféu do Mês ou Nível */}
-              <Pressable 
-                style={[s.trophyPreview, { backgroundColor: theme.primaryColor + '08' }]}
-                onPress={() => router.push("/(tabs)/season")}
-              >
-                {currentTrophy ? (
-                  <>
-                    <AnimatedSeasonalTrophy 
-                      icon={currentTrophy.icon} 
-                      id={currentTrophy.id} 
-                      size={60} 
-                      color={theme.primaryColor}
-                      isStatic={true}
-                    />
-                    <Text style={[s.trophyLabel, { color: theme.secondaryText }]}>Troféu do Mês</Text>
-                  </>
-                ) : (
-                  <>
-                    <View style={[s.levelCircle, { borderColor: theme.primaryColor }]}>
-                      <Text style={[s.levelCircleText, { color: theme.primaryColor }]}>{levelInfo.level}</Text>
-                    </View>
-                    <Text style={[s.trophyLabel, { color: theme.secondaryText }]}>Meu Nível</Text>
-                  </>
-                )}
-              </Pressable>
-
-              {/* Lado Direito: Conquistas Recentes ou Progresso */}
-              <View style={s.recentAchsColumn}>
-                <Text style={[s.miniLabel, { color: theme.secondaryText }]}>CONQUISTAS RECENTES</Text>
-                <View style={s.achsRow}>
-                  {recentAchievements.length > 0 ? (
-                    recentAchievements.map((ach, idx) => {
-                      const achievementPool = ALL_ACHIEVEMENTS || [];
-                      const fullAch = achievementPool.find(a => a.id === ach.id);
-                      return (
-                        <View key={ach.id} style={{ alignItems: 'center', gap: 2 }}>
-                          <Animated.View 
-                            entering={FadeIn.delay(idx * 150)}
-                            style={[s.miniTrophy, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-                          >
-                            <AnimatedTrophy rarity={ach.rarity} size={22} spinning={false} />
-                          </Animated.View>
-                          <Text style={{ fontSize: 8, color: theme.secondaryText, width: 42, textAlign: 'center' }} numberOfLines={1}>
-                            {fullAch?.name || '---'}
-                          </Text>
-                        </View>
-                      );
-                    })
-                  ) : (
-                    <Text style={[s.noAchsText, { color: theme.secondaryText }]}>Nenhum troféu ainda</Text>
-                  )}
-                </View>
-                
-                <View style={s.widgetProgressSection}>
-                  <View style={s.widgetProgressHeader}>
-                    <Text style={[s.miniLabel, { color: theme.secondaryText }]}>PROGRESSO MENSAL</Text>
-                    <Text style={[s.progressText, { color: theme.primaryColor }]}>{monthProgress}%</Text>
-                  </View>
-                  <View style={[s.widgetProgressBarBg, { backgroundColor: theme.border }]}>
-                    <View style={[s.widgetProgressBarFill, { width: `${monthProgress}%` as any, backgroundColor: theme.primaryColor }]} />
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
-        </AnimatedCard>
-
+        {/* ── BALANCE CARD ───────────────────────────────────────────────── */}
         <AnimatedCard index={2}>
           <View style={[s.balanceCard, { backgroundColor: theme.primaryColor }]}>
             <View style={s.balanceHeader}>
@@ -503,70 +301,14 @@ export default function HomeScreen() {
           </View>
         </AnimatedCard>
 
-        {/* ── CONTAS ───────────────────────────────────────────────────────── */}
-        {accountsSorted.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.accountsScrollContent}
-            style={s.accountsScroll}
-          >
-            {accountsSorted.map((acc) => {
-              const isCC = acc.type === "credit_card";
-              const usage = isCC ? getCreditUsage(acc, txArr) : 0;
-              const usagePct = isCC && acc.creditLimit ? Math.min((usage / acc.creditLimit) * 100, 100) : 0;
-              const barColor = usagePct > 80 ? theme.danger : usagePct > 50 ? "#F59E0B" : theme.success;
-              const typeIcon =
-                acc.type === "savings" ? "dollar-sign" :
-                acc.type === "wallet" ? "pocket" :
-                acc.type === "credit_card" ? "credit-card" : "briefcase";
-              const chipColor = acc.color ?? theme.primaryColor;
-              return (
-                <Pressable
-                  key={acc.id}
-                  style={({ pressed }) => [
-                    s.accountChip,
-                    { backgroundColor: theme.cardBackground, borderColor: theme.border },
-                    pressed && { opacity: 0.7 },
-                  ]}
-                  onPress={() => {
-                    soundManager.play("tap");
-                    router.push("/(tabs)/accounts");
-                  }}
-                >
-                  <View style={[s.accountChipIcon, { backgroundColor: `${chipColor}20` }]}>
-                    <Feather name={typeIcon as any} size={14} color={chipColor} />
-                  </View>
-                  <Text style={[s.accountChipName, { color: theme.textColor }]} numberOfLines={1}>
-                    {acc.name}
-                  </Text>
-                  <Text
-                    style={[
-                      s.accountChipBalance,
-                      { color: isCC ? (usagePct > 80 ? theme.danger : theme.secondaryText) : theme.success },
-                    ]}
-                  >
-                    {formatCurrency(acc.balance)}
-                  </Text>
-                  {isCC && acc.creditLimit ? (
-                    <View style={[s.accountChipBar, { backgroundColor: theme.border }]}>
-                      <View style={[s.accountChipBarFill, { width: `${usagePct}%` as any, backgroundColor: barColor }]} />
-                    </View>
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        )}
+        {/* ── ACCOUNTS ───────────────────────────────────────────────────── */}
+        <AccountsStrip accounts={accountsSorted} transactions={txArr} theme={theme} />
 
-        {/* ── NOTAS FISCAIS PENDENTES ───────────────────────────────────────── */}
+        {/* ── INVOICE BANNER ─────────────────────────────────────────────── */}
         {unconfirmedInvoices.length > 0 && (
           <Pressable
             style={[s.invoiceBanner, { backgroundColor: theme.cardBackground, borderColor: "#FDE68A" }]}
-            onPress={() => {
-              soundManager.play("tap");
-              router.push("/import-invoice");
-            }}
+            onPress={() => { soundManager.play("tap"); router.push("/import-invoice"); }}
           >
             <View style={[s.invoiceBannerIcon, { backgroundColor: "#FEF3C7" }]}>
               <Feather name="file-text" size={15} color="#D97706" />
@@ -578,87 +320,18 @@ export default function HomeScreen() {
           </Pressable>
         )}
 
-        {/* ── COBRANÇAS PENDENTES ────────────────────────────────────────────── */}
-        {pendingTxs.length > 0 && (
-          <View style={[s.pendingCard, { backgroundColor: theme.cardBackground }]}>
-            <View style={s.pendingHeader}>
-              <View style={s.pendingTitleRow}>
-                <Feather name="clock" size={16} color="#D97706" />
-                <Text style={[s.pendingTitle, { color: theme.textColor }]}>
-                  Cobranças pendentes
-                </Text>
-              </View>
-              <Pressable
-                style={s.pendingSeeAll}
-                onPress={() => {
-                  soundManager.play("tap");
-                  router.push({ pathname: "/transactions", params: { filter: "pending" } });
-                }}
-                hitSlop={8}
-              >
-                <Text style={[s.pendingSeeAllText, { color: theme.primaryColor }]}>Ver todas</Text>
-                <Feather name="chevron-right" size={13} color={theme.primaryColor} />
-              </Pressable>
-            </View>
-            {pendingTxs.map((tx) => {
-              const cat = domain.categories[tx.categoryId];
-              const account = domain.accounts[tx.accountId];
-              const isExpense = tx.type === "expense";
-              const isIncome = tx.type === "income";
-              const iconColor = isExpense ? theme.danger : isIncome ? theme.success : theme.secondaryText;
-              const iconName = isExpense ? "arrow-down-left" : isIncome ? "arrow-up-right" : "repeat";
-              const { label: dateLabel, overdue } = pendingDateLabel(tx.date);
-              return (
-                <Pressable
-                  key={tx.id}
-                  style={({ pressed }) => [
-                    s.pendingRow,
-                    { borderTopColor: theme.border, opacity: pressed ? 0.7 : 1 },
-                  ]}
-                  onPress={() => {
-                    soundManager.play("tap");
-                    router.push({ pathname: "/add-transaction", params: { txId: tx.id } });
-                  }}
-                >
-                  <View style={[s.pendingIcon, { backgroundColor: `${iconColor}15` }]}>
-                    <Feather name={iconName as any} size={15} color={iconColor} />
-                  </View>
-                  <View style={s.pendingInfo}>
-                    <Text style={[s.pendingDesc, { color: theme.textColor }]} numberOfLines={1}>
-                      {tx.description || cat?.name || tx.type}
-                    </Text>
-                    <View style={s.pendingMeta}>
-                      <Text
-                        style={[s.pendingDate, { color: overdue ? theme.danger : theme.secondaryText }]}
-                      >
-                        {dateLabel}
-                      </Text>
-                      {account && (
-                        <>
-                          <Text style={[s.pendingDot, { color: theme.secondaryText }]}>·</Text>
-                          <Text style={[s.pendingAccount, { color: theme.secondaryText }]} numberOfLines={1}>
-                            {account.name}
-                          </Text>
-                        </>
-                      )}
-                    </View>
-                  </View>
-                  <Text style={[s.pendingAmount, { color: isExpense ? theme.danger : theme.success }]}>
-                    {isExpense ? "-" : "+"}{formatCurrency(tx.amount)}
-                  </Text>
-                  <Pressable
-                    style={({ pressed }) => [s.confirmBtn, pressed && { opacity: 0.6 }]}
-                    onPress={() => handleConfirmTx(tx.id)}
-                    hitSlop={8}
-                  >
-                    <Feather name="check" size={16} color="#16A34A" />
-                  </Pressable>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
+        {/* ── PENDING TRANSACTIONS ───────────────────────────────────────── */}
+        <PendingTransactionsList
+          pendingTxs={pendingTxs}
+          transactions={domain.transactions}
+          accounts={domain.accounts}
+          categories={domain.categories}
+          deviceId={deviceId}
+          theme={theme}
+          dispatchDomainEvent={dispatchDomainEvent}
+        />
 
+        {/* ── BUDGET 50/30/20 ────────────────────────────────────────────── */}
         <AnimatedCard index={3}>
           <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
             <View style={s.monthFilterContainer}>
@@ -666,10 +339,7 @@ export default function HomeScreen() {
                 Orcamento 50/30/20
               </Text>
               <View style={s.monthFilter}>
-                <Pressable onPress={() => {
-                  soundManager.play("tap");
-                  handlePreviousMonth();
-                }} style={s.monthArrow}>
+                <Pressable onPress={() => { soundManager.play("tap"); handlePreviousMonth(); }} style={s.monthArrow}>
                   <Feather name="chevron-left" size={20} color={theme.textColor} />
                 </Pressable>
                 <Text style={[s.monthLabel, { color: theme.textColor }]}>
@@ -678,49 +348,16 @@ export default function HomeScreen() {
                     year: "numeric"
                   })}
                 </Text>
-                <Pressable onPress={() => {
-                  soundManager.play("tap");
-                  handleNextMonth();
-                }} style={s.monthArrow}>
+                <Pressable onPress={() => { soundManager.play("tap"); handleNextMonth(); }} style={s.monthArrow}>
                   <Feather name="chevron-right" size={20} color={theme.textColor} />
                 </Pressable>
               </View>
             </View>
             {txCount > 0 ? (
               <View style={s.budgetContent}>
-                <BudgetBar
-                  label="Necessidades"
-                  percent={budget.needsPercent}
-                  ideal={50}
-                  idealAmount={incomeBase * 0.5}
-                  color={theme.primaryColor}
-                  amount={budget.needs}
-                  group="needs"
-                  theme={theme}
-                  onPress={handleBudgetPress}
-                />
-                <BudgetBar
-                  label="Desejos"
-                  percent={budget.wantsPercent}
-                  ideal={30}
-                  idealAmount={incomeBase * 0.3}
-                  color={theme.accentColor}
-                  amount={budget.wants}
-                  group="wants"
-                  theme={theme}
-                  onPress={handleBudgetPress}
-                />
-                <BudgetBar
-                  label="Poupanca"
-                  percent={budget.savingsPercent}
-                  ideal={20}
-                  idealAmount={incomeBase * 0.2}
-                  color={theme.success}
-                  amount={budget.savings}
-                  group="savings"
-                  theme={theme}
-                  onPress={handleBudgetPress}
-                />
+                <BudgetBar label="Necessidades" percent={budget.needsPercent} ideal={50} idealAmount={incomeBase * 0.5} color={theme.primaryColor} amount={budget.needs} group="needs" theme={theme} onPress={handleBudgetPress} />
+                <BudgetBar label="Desejos" percent={budget.wantsPercent} ideal={30} idealAmount={incomeBase * 0.3} color={theme.accentColor} amount={budget.wants} group="wants" theme={theme} onPress={handleBudgetPress} />
+                <BudgetBar label="Poupanca" percent={budget.savingsPercent} ideal={20} idealAmount={incomeBase * 0.2} color={theme.success} amount={budget.savings} group="savings" theme={theme} onPress={handleBudgetPress} />
               </View>
             ) : (
               <View style={s.emptyState}>
@@ -733,14 +370,11 @@ export default function HomeScreen() {
           </View>
         </AnimatedCard>
 
-        {/* ── TEMPORADA ────────────────────────────────────────────────────── */}
+        {/* ── SEASON CARD ────────────────────────────────────────────────── */}
         {season.currentSeason?.active && (
           <Pressable
             style={[s.card, { backgroundColor: theme.cardBackground }]}
-            onPress={() => {
-              soundManager.play("tap");
-              router.push("/(tabs)/season");
-            }}
+            onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
           >
             <View style={s.seasonHeader}>
               <View style={s.seasonTitleRow}>
@@ -775,142 +409,23 @@ export default function HomeScreen() {
           </Pressable>
         )}
 
-        {/* ── METAS DE POUPANÇA ─────────────────────────────────────────────── */}
-        {savingsGoalAccounts.length > 0 && (
-          <Pressable
-            style={[s.card, { backgroundColor: theme.cardBackground }]}
-            onPress={() => {
-              soundManager.play("tap");
-              router.push("/(tabs)/accounts");
-            }}
-          >
-            <View style={s.cardHeader}>
-              <View style={s.seasonTitleRow}>
-                <Feather name="target" size={15} color={theme.success} />
-                <Text style={[s.cardTitle, { color: theme.textColor, marginBottom: 0 }]}>Metas de poupança</Text>
-              </View>
-              <Feather name="chevron-right" size={16} color={theme.secondaryText} />
-            </View>
-            {savingsGoalAccounts.map((acc) => {
-              const target = acc.savingsContributionAmount ?? 0;
-              const contributed = savingsContributed[acc.id] ?? 0;
-              const pct = target > 0 ? Math.min((contributed / target) * 100, 100) : 0;
-              const pctLabel = target > 0 ? `${Math.round(pct)}%` : "—";
-              const barColor = pct >= 100 ? theme.success : pct >= 50 ? "#F59E0B" : theme.danger;
-              return (
-                <View key={acc.id} style={[s.savingsGoalRow, { borderTopColor: theme.border }]}>
-                  <View style={s.savingsGoalInfo}>
-                    <Text style={[s.savingsGoalName, { color: theme.textColor }]} numberOfLines={1}>
-                      {acc.name}
-                    </Text>
-                    <Text style={[s.savingsGoalAmt, { color: theme.secondaryText }]}>
-                      {formatCurrency(contributed)}{target > 0 ? ` / ${formatCurrency(target)}` : ""}
-                    </Text>
-                  </View>
-                  <Text style={[s.savingsGoalPct, { color: pct >= 100 ? theme.success : theme.textColor }]}>
-                    {pctLabel}
-                  </Text>
-                  <View style={[s.savingsGoalBarWrap, { backgroundColor: theme.border }]}>
-                    <View style={[s.savingsGoalBarFill, { width: `${pct}%` as any, backgroundColor: barColor }]} />
-                  </View>
-                </View>
-              );
-            })}
-          </Pressable>
-        )}
+        {/* ── SAVINGS GOALS ──────────────────────────────────────────────── */}
+        <SavingsGoalCard
+          savingsGoalAccounts={savingsGoalAccounts}
+          savingsContributed={savingsContributed}
+          theme={theme}
+        />
 
-        <Pressable
-          style={[s.card, { backgroundColor: theme.cardBackground }]}
-          onPress={() => {
-            soundManager.play("tap");
-            router.push("/transactions");
-          }}
-        >
-          <View style={s.cardHeader}>
-            <Text style={[s.cardTitle, { color: theme.textColor }]}>
-              Ultimas transacoes
-            </Text>
-            <Text style={[s.txCount, { color: theme.secondaryText }]}>
-              {txCount} total
-            </Text>
-          </View>
-          {recentTxs.length > 0 ? (
-            <View style={s.txList}>
-              {recentTxs.map((tx, idx) => {
-                const cat = domain.categories[tx.categoryId];
-                const isExpense = tx.type === "expense";
-                return (
-                  <Animated.View 
-                    key={tx.id}
-                    entering={SlideInRight.delay(idx * 50).springify().damping(20)}
-                    layout={Layout.springify()}
-                  >
-                    <Pressable 
-                      style={({ pressed }) => [
-                        s.txRow, 
-                        { borderBottomColor: theme.border, opacity: pressed ? 0.7 : 1 }
-                      ]}
-                      onPress={() => {
-                        soundManager.play("tap");
-                        router.push({ pathname: "/add-transaction", params: { txId: tx.id } });
-                      }}
-                    >
-                      <View
-                        style={[
-                          s.txIcon,
-                          {
-                            backgroundColor: isExpense
-                              ? `${theme.danger}15`
-                              : `${theme.success}15`,
-                          },
-                        ]}
-                      >
-                        <Feather
-                          name={isExpense ? "arrow-down-left" : "arrow-up-right"}
-                          size={16}
-                          color={isExpense ? theme.danger : theme.success}
-                        />
-                      </View>
-                      <View style={s.txInfo}>
-                        <View style={s.txDescRow}>
-                          <Text style={[s.txDesc, { color: theme.textColor }]}>
-                            {tx.description || cat?.name || tx.type}
-                          </Text>
-                          {tx.status === "pending" && (
-                            <View style={s.pendingBadge}>
-                              <Text style={s.pendingBadgeText}>Pendente</Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text style={[s.txDate, { color: theme.secondaryText }]}>
-                          {tx.date}
-                        </Text>
-                      </View>
-                      <Text
-                        style={[
-                          s.txAmount,
-                          { color: isExpense ? theme.danger : theme.success },
-                        ]}
-                      >
-                        {isExpense ? "-" : "+"}
-                        {formatCurrency(tx.amount)}
-                      </Text>
-                    </Pressable>
-                  </Animated.View>
-                );
-              })}
-            </View>
-          ) : (
-            <View style={s.emptyState}>
-              <Feather name="inbox" size={28} color={theme.secondaryText} />
-              <Text style={[s.emptyText, { color: theme.secondaryText }]}>
-                Nenhuma transacao ainda
-              </Text>
-            </View>
-          )}
-        </Pressable>
+        {/* ── RECENT TRANSACTIONS ────────────────────────────────────────── */}
+        <RecentTransactionsList
+          recentTxs={recentTxs}
+          txCount={txCount}
+          categories={domain.categories}
+          theme={theme}
+        />
       </ScrollView>
 
+      {/* ── FAB ──────────────────────────────────────────────────────────── */}
       <Pressable
         style={({ pressed }) => [
           s.fab,
@@ -925,85 +440,6 @@ export default function HomeScreen() {
         <Feather name="plus" size={28} color="#FFFFFF" />
       </Pressable>
 
-      {/* ── TRANSFER SOURCE MODAL ─────────────────────────────────────────────── */}
-      <Modal
-        visible={!!confirmingTx}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setConfirmingTx(null)}
-      >
-        <Pressable style={s.modalOverlay} onPress={() => setConfirmingTx(null)}>
-          <Pressable style={[s.transferModal, { backgroundColor: theme.cardBackground }]} onPress={() => {}}>
-            <View style={s.transferModalHeader}>
-              <Feather name="arrow-right-circle" size={20} color="#10B981" />
-              <Text style={[s.transferModalTitle, { color: theme.textColor }]}>
-                Efetivar aporte
-              </Text>
-            </View>
-            <Text style={[s.transferModalSub, { color: theme.secondaryText }]}>
-              {confirmingTx?.description}
-              {" · "}
-              <Text style={{ color: "#10B981", fontFamily: "DMSans_600SemiBold" }}>
-                {formatCurrency(confirmingTx?.amount ?? 0)}
-              </Text>
-            </Text>
-
-            <Text style={[s.transferModalLabel, { color: theme.secondaryText }]}>
-              De qual conta sai o dinheiro?
-            </Text>
-            {Object.values(domain.accounts)
-              .filter((a) => a.type !== "savings")
-              .map((acc) => (
-                <Pressable
-                  key={acc.id}
-                  style={[
-                    s.transferAccountRow,
-                    { borderColor: transferSourceId === acc.id ? "#10B981" : theme.border },
-                    transferSourceId === acc.id && { backgroundColor: "#10B98112" },
-                  ]}
-                  onPress={() => {
-                    soundManager.play("tap");
-                    setTransferSourceId(acc.id);
-                  }}
-                >
-                  <View style={[s.transferAccountDot, { backgroundColor: transferSourceId === acc.id ? "#10B981" : theme.border }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[s.transferAccountName, { color: theme.textColor }]}>{acc.name}</Text>
-                    <Text style={[s.transferAccountBal, { color: theme.secondaryText }]}>
-                      {formatCurrency(acc.balance ?? 0)}
-                    </Text>
-                  </View>
-                  {transferSourceId === acc.id && (
-                    <Feather name="check-circle" size={18} color="#10B981" />
-                  )}
-                </Pressable>
-              ))}
-
-            {Object.values(domain.accounts).filter((a) => a.type !== "savings").length === 0 && (
-              <Text style={[s.transferModalSub, { color: theme.secondaryText, marginBottom: 8 }]}>
-                Nenhuma outra conta disponível. O aporte será efetivado diretamente.
-              </Text>
-            )}
-
-            <View style={s.transferModalActions}>
-              <Pressable
-                style={[s.transferCancelBtn, { borderColor: theme.border }]}
-                onPress={() => {
-                  soundManager.play("tap");
-                  setConfirmingTx(null);
-                }}
-              >
-                <Text style={[s.transferCancelText, { color: theme.secondaryText }]}>Cancelar</Text>
-              </Pressable>
-              <Pressable style={s.transferConfirmBtn} onPress={handleConfirmTransfer}>
-                <Feather name="check" size={16} color="#FFF" />
-                <Text style={s.transferConfirmText}>Efetivar</Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
       <TransactionBottomSheet
         visible={showAddSheet}
         onClose={() => setShowAddSheet(false)}
@@ -1014,153 +450,6 @@ export default function HomeScreen() {
 }
 
 const s = StyleSheet.create({
-  // ── Transfer source modal ─────────────────────────────────────────────────
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    justifyContent: "flex-end",
-  },
-  transferModal: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 32,
-    gap: 8,
-  },
-  transferModalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 2,
-  },
-  transferModalTitle: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 18,
-  },
-  transferModalSub: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 4,
-  },
-  transferModalLabel: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 13,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  transferAccountRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    borderWidth: 1.5,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 6,
-  },
-  transferAccountDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  transferAccountName: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 14,
-  },
-  transferAccountBal: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 12,
-    marginTop: 1,
-  },
-  transferModalActions: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 12,
-  },
-  transferCancelBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  transferCancelText: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 14,
-  },
-  transferConfirmBtn: {
-    flex: 2,
-    flexDirection: "row",
-    backgroundColor: "#10B981",
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  transferConfirmText: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 14,
-    color: "#FFF",
-  },
-  // ── Gamification Widget ──────────────────────────────────────────────────
-  gamificationWidget: {
-    borderRadius: 24,
-    padding: 16,
-    marginHorizontal: 16,
-    backgroundColor: 'rgba(124, 58, 237, 0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.1)',
-  },
-  widgetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  widgetTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  widgetTitle: { fontFamily: 'DMSans_700Bold', fontSize: 15 },
-  widgetSeeAll: { fontFamily: 'DMSans_700Bold', fontSize: 12 },
-  widgetContent: { flexDirection: 'row', gap: 16 },
-  trophyPreview: {
-    width: 100,
-    height: 100,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.1)',
-  },
-  trophyLabel: { fontFamily: 'DMSans_700Bold', fontSize: 10, marginTop: -4 },
-  levelCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 3,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  levelCircleText: { fontFamily: 'DMSans_800ExtraBold', fontSize: 20 },
-  recentAchsColumn: { flex: 1, justifyContent: 'space-between' },
-  miniLabel: { fontFamily: 'DMSans_700Bold', fontSize: 9, letterSpacing: 0.5, opacity: 0.6 },
-  achsRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  miniTrophy: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  noAchsText: { fontFamily: 'DMSans_400Regular', fontSize: 11, fontStyle: 'italic', marginTop: 4 },
-  widgetProgressSection: { marginTop: 8 },
-  widgetProgressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  progressText: { fontFamily: 'DMSans_700Bold', fontSize: 12 },
-  widgetProgressBarBg: { height: 6, borderRadius: 3 },
-  widgetProgressBarFill: { height: 6, borderRadius: 3 },
-  // ── Root ──────────────────────────────────────────────────────────────────
   root: { flex: 1 },
   scrollView: { flex: 1 },
   scrollContent: { gap: 16 },
@@ -1173,10 +462,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 24,
     marginBottom: 4,
   },
-  headerActions: {
-    flexDirection: "row",
-    gap: 8,
-  },
+  headerActions: { flexDirection: "row", gap: 8 },
   greeting: { fontFamily: "DMSans_700Bold", fontSize: 22, letterSpacing: 1 },
   subtitle: { fontFamily: "DMSans_400Regular", fontSize: 12, marginTop: 0 },
   settingsBtn: {
@@ -1191,21 +477,7 @@ const s = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  syncDot: {
-    position: "absolute" as const,
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: "#FFFFFF",
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: 16,
-  },
+  statsRow: { flexDirection: "row", gap: 10, paddingHorizontal: 16 },
   statCard: {
     flex: 1,
     borderRadius: 16,
@@ -1213,28 +485,8 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  statValue: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 22,
-    color: "#FFFFFF",
-  },
-  statLabel: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 11,
-    color: "rgba(255,255,255,0.7)",
-  },
-  xpBarContainer: { paddingHorizontal: 16 },
-  xpBarHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  xpBarTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 13 },
-  xpBarInfo: { fontFamily: "DMSans_400Regular", fontSize: 12 },
-  xpTotalMini: { fontFamily: "DMSans_400Regular", fontSize: 10, color: "#9CA3AF", marginTop: 4, textAlign: "right" },
-  xpBarBg: { height: 8, borderRadius: 4 },
-  xpBarFill: { height: 8, borderRadius: 4, minWidth: 4 },
+  statValue: { fontFamily: "DMSans_700Bold", fontSize: 22, color: "#FFFFFF" },
+  statLabel: { fontFamily: "DMSans_400Regular", fontSize: 11, color: "rgba(255,255,255,0.7)" },
   balanceCard: {
     borderRadius: 20,
     padding: 24,
@@ -1252,21 +504,9 @@ const s = StyleSheet.create({
     marginBottom: 8,
   },
   balanceLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  balanceLabel: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 14,
-    color: "rgba(255,255,255,0.7)",
-  },
-  balanceCount: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 12,
-    color: "rgba(255,255,255,0.5)",
-  },
-  balanceValue: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 32,
-    color: "#FFFFFF",
-  },
+  balanceLabel: { fontFamily: "DMSans_500Medium", fontSize: 14, color: "rgba(255,255,255,0.7)" },
+  balanceCount: { fontFamily: "DMSans_400Regular", fontSize: 12, color: "rgba(255,255,255,0.5)" },
+  balanceValue: { fontFamily: "DMSans_700Bold", fontSize: 32, color: "#FFFFFF" },
   card: {
     borderRadius: 20,
     padding: 20,
@@ -1277,28 +517,15 @@ const s = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
   cardTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 16, marginBottom: 12 },
-  txCount: { fontFamily: "DMSans_400Regular", fontSize: 12 },
   monthFilterContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 12,
   },
-  monthFilter: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  monthArrow: {
-    padding: 4,
-  },
+  monthFilter: { flexDirection: "row", alignItems: "center", gap: 8 },
+  monthArrow: { padding: 4 },
   monthLabel: {
     fontFamily: "DMSans_500Medium",
     fontSize: 13,
@@ -1307,174 +534,8 @@ const s = StyleSheet.create({
     textAlign: "center" as const,
   },
   budgetContent: { gap: 14 },
-  budgetRow: { gap: 4 },
-  budgetLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  budgetDot: { width: 8, height: 8, borderRadius: 4 },
-  budgetLabel: { fontFamily: "DMSans_500Medium", fontSize: 13, flex: 1 },
-  budgetPercent: { fontFamily: "DMSans_600SemiBold", fontSize: 13 },
-  budgetIdeal: { fontFamily: "DMSans_400Regular", fontSize: 11 },
-  budgetBarBg: { height: 6, borderRadius: 3 },
-  budgetBarFill: { height: 6, borderRadius: 3, minWidth: 2 },
-  budgetFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  budgetAmount: { fontFamily: "DMSans_600SemiBold", fontSize: 12 },
-  budgetIdealValue: { fontFamily: "DMSans_400Regular", fontSize: 11 },
   emptyState: { alignItems: "center", paddingVertical: 24, gap: 8 },
   emptyText: { fontFamily: "DMSans_400Regular", fontSize: 14, textAlign: "center" as const },
-  txList: { gap: 0 },
-  txRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    gap: 12,
-  },
-  txIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  txInfo: { flex: 1 },
-  txDescRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  txDesc: { fontFamily: "DMSans_500Medium", fontSize: 14 },
-  txDate: { fontFamily: "DMSans_400Regular", fontSize: 12, marginTop: 2 },
-  txAmount: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
-  pendingBadge: {
-    backgroundColor: "#FEF3C7",
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  pendingBadgeText: { fontFamily: "DMSans_500Medium", fontSize: 10, color: "#D97706" },
-  // ── Pending section ────────────────────────────────────────────────────────
-  pendingCard: {
-    borderRadius: 20,
-    marginHorizontal: 16,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 4,
-    borderWidth: 1.5,
-    borderColor: "#FDE68A",
-    shadowColor: "#F59E0B",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  pendingHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  pendingTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  pendingTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 15 },
-  pendingBadgeCount: {
-    backgroundColor: "#FEF3C7",
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  pendingBadgeCountText: { fontFamily: "DMSans_700Bold", fontSize: 12, color: "#D97706" },
-  pendingSeeAll: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-  },
-  pendingSeeAllText: { fontFamily: "DMSans_600SemiBold", fontSize: 13 },
-  pendingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    gap: 10,
-  },
-  pendingIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  pendingInfo: { flex: 1, minWidth: 0 },
-  pendingDesc: { fontFamily: "DMSans_500Medium", fontSize: 13 },
-  pendingMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
-  pendingDate: { fontFamily: "DMSans_400Regular", fontSize: 11 },
-  pendingDot: { fontFamily: "DMSans_400Regular", fontSize: 11 },
-  pendingAccount: { fontFamily: "DMSans_400Regular", fontSize: 11, flex: 1 },
-  pendingAmount: { fontFamily: "DMSans_600SemiBold", fontSize: 13 },
-  confirmBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#DCFCE7",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  fab: {
-    position: "absolute",
-    right: 24,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  fabPressed: { transform: [{ scale: 0.92 }], opacity: 0.9 },
-
-  // ── Accounts row ───────────────────────────────────────────────────────────
-  accountsScroll: { marginHorizontal: 0 },
-  accountsScrollContent: {
-    paddingHorizontal: 16,
-    gap: 10,
-  },
-  accountChip: {
-    width: 120,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 12,
-    gap: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  accountChipIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 2,
-  },
-  accountChipName: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 12,
-  },
-  accountChipBalance: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 13,
-  },
-  accountChipBar: {
-    height: 4,
-    borderRadius: 2,
-    marginTop: 4,
-    overflow: "hidden",
-  },
-  accountChipBarFill: {
-    height: 4,
-    borderRadius: 2,
-    minWidth: 2,
-  },
-
-  // ── Invoice banner ─────────────────────────────────────────────────────────
   invoiceBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -1491,98 +552,37 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  invoiceBannerText: {
-    flex: 1,
-    fontFamily: "DMSans_500Medium",
-    fontSize: 13,
-  },
-
-  // ── Season card ────────────────────────────────────────────────────────────
+  invoiceBannerText: { flex: 1, fontFamily: "DMSans_500Medium", fontSize: 13 },
   seasonHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 10,
   },
-  seasonTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  seasonTitle: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 15,
-  },
-  seasonArchetypeBadge: {
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  seasonArchetypeText: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 12,
-  },
-  seasonStatsRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-  },
-  seasonStat: {
-    alignItems: "center",
-    flex: 1,
-  },
-  seasonStatDivider: {
-    width: 1,
-    height: 28,
-  },
-  seasonStatValue: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 18,
-  },
-  seasonStatLabel: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 11,
-    marginTop: 2,
-    textAlign: "center",
-  },
-
-  // ── Savings goals ──────────────────────────────────────────────────────────
-  savingsGoalRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: "transparent",
-  },
-  savingsGoalInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  savingsGoalName: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 13,
-  },
-  savingsGoalAmt: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 11,
-    marginTop: 2,
-  },
-  savingsGoalPct: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 13,
-    width: 36,
-    textAlign: "right",
-  },
-  savingsGoalBarWrap: {
-    height: 6,
-    borderRadius: 3,
+  seasonTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  seasonTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 15 },
+  seasonArchetypeBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3 },
+  seasonArchetypeText: { fontFamily: "DMSans_600SemiBold", fontSize: 12 },
+  xpBarBg: { height: 8, borderRadius: 4 },
+  xpBarFill: { height: 8, borderRadius: 4, minWidth: 4 },
+  seasonStatsRow: { flexDirection: "row", justifyContent: "space-around", alignItems: "center" },
+  seasonStat: { alignItems: "center", flex: 1 },
+  seasonStatDivider: { width: 1, height: 28 },
+  seasonStatValue: { fontFamily: "DMSans_700Bold", fontSize: 18 },
+  seasonStatLabel: { fontFamily: "DMSans_400Regular", fontSize: 11, marginTop: 2, textAlign: "center" },
+  fab: {
+    position: "absolute",
+    right: 24,
     width: 60,
-    overflow: "hidden",
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  savingsGoalBarFill: {
-    height: 6,
-    borderRadius: 3,
-    minWidth: 2,
-  },
+  fabPressed: { transform: [{ scale: 0.92 }], opacity: 0.9 },
 });
