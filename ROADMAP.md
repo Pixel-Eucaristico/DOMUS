@@ -1,30 +1,154 @@
-# Roadmap OrcaFacil: Sons, Motion e Gamificação
+# Roadmap OrcaFacil: Sons, Motion e Gamificacao
 
-## 🚀 Fase 1: Infraestrutura Core (✅ CONCLUÍDA)
+## Fases Concluidas
+
+### Fase 1: Infraestrutura Core (CONCLUIDA)
 - [x] **AudioService / SoundManager.ts:** Singleton via `expo-av`.
-- [x] **Toggle "Efeitos Sonoros":** Nas configurações e no `AppStateProvider`.
+- [x] **Toggle "Efeitos Sonoros":** Nas configuracoes e no `AppStateProvider`.
 - [x] **Componentes Motion:** `AnimatedCard` (stagger), `AnimatedIconButton`.
-- [x] **Pre-load de áudios no Splash:** `tap`, `success`, `pop`, `error`, `trash`, `level-up`.
+- [x] **Pre-load de audios no Splash:** `tap`, `success`, `pop`, `error`, `trash`, `level-up`.
 
-## 🏃 Fase 2: Taxonomia de Categorias (UX) (✅ CONCLUÍDA)
-- [x] **Refatoração Tríade 50/30/20:** Categorias unificadas e mapeadas.
+### Fase 2: Taxonomia de Categorias (UX) (CONCLUIDA)
+- [x] **Refatoracao Triade 50/30/20:** Categorias unificadas e mapeadas.
 - [x] **Grid Seletor Agrupado:** Implementado com Reanimated Layout Transitions.
-- [x] **Busca Instantânea:** Filtro em tempo real com normalização de texto.
-- [x] **Seção "Recentes/Sugeridas":** Hook `useCategoryIntelligence` criado e integrado.
+- [x] **Busca Instantanea:** Filtro em tempo real com normalizacao de texto.
+- [x] **Secao "Recentes/Sugeridas":** Hook `useCategoryIntelligence` criado e integrado.
 
-## 🏃 Fase 3: Motor de Troféus (Gamification) (✅ CONCLUÍDA)
+### Fase 3: Motor de Trofeus (Gamification) (CONCLUIDA)
 - [x] **Sistema de Conquistas:** 8 conquistas (Prata/Ouro/Diamante) com `checkNewAchievements()`.
-- [x] **Componente AnimatedTrophy:** Animação rotateY pseudo-3D com `Math.cos(rotation)`.
+- [x] **Componente AnimatedTrophy:** Animacao rotateY pseudo-3D com `Math.cos(rotation)`.
 - [x] **SVG Premium:** Gradientes radiais (Ouro/Prata/Diamante) com shine animado via Reanimated.
 - [x] **AchievementToast:** Toast com som + haptic auto-dismiss em 4s.
-- [x] **Grid em Season:** Exibe troféus desbloqueados (animados) e bloqueados (cadeado).
+- [x] **Grid em Season:** Exibe trofeus desbloqueados (animados) e bloqueados (cadeado).
 
-## ✅ Fase 4: Demo Mode / Guided Tour (CONCLUÍDA)
+### Fase 4: Demo Mode / Guided Tour (CONCLUIDA)
 - [x] **Sandbox State:** `isDemoActive` + `demoEvents` no `DemoModeProvider` com `mockDemoEvents.ts`.
 - [x] **Interceptador de Dispatch:** `dispatch` em `AppStateProvider` roteia para `dispatchDemoEvent` quando `isDemoActive`, sem tocar no SQLite.
-- [x] **Guided Tour:** `TourOverlay` 4 passos com máquina de estados local, `stopDemo()` no fim.
+- [x] **Guided Tour:** `TourOverlay` 4 passos com maquina de estados local, `stopDemo()` no fim.
 - [x] **Auto-cleanup:** `stopDemo()` limpa `demoEvents` e desativa `isDemoActive`.
 - [x] **First-launch detection:** `DemoModeProvider` detecta primeiro acesso via `AsyncStorage("domus_tour_shown_v1")` e inicia o tour automaticamente.
 
 ---
-*Nota: Antes de cada fase, será realizada uma análise técnica detalhada.*
+
+## Fase 5: Correcoes, Polimento e Novas Features
+
+**Ordem: Mais facil ao mais complexo, priorizando urgencia.**
+**Detalhes completos em: `docs/roadmap/`**
+
+### 01 - Mudar Cor do Modal Catolico
+- **Dificuldade:** FACIL | **Urgencia:** BAIXA | **~30 min**
+- **Problema:** Cores hardcoded no modal `ReligiousPreferenceModal.tsx` podem nao estar alinhadas com design desejado
+- **Arquivo:** `src/components/shared/ReligiousPreferenceModal.tsx`
+- **Solucao:** Alterar valores de cores no StyleSheet
+- **Detalhes:** [docs/roadmap/01-cor-modal-catolico.md](docs/roadmap/01-cor-modal-catolico.md)
+- [ ] Definir novas cores com o designer
+- [ ] Aplicar e testar em tema claro/escuro
+
+### 02 - Correcao do Som em Areas Sem Audio
+- **Dificuldade:** FACIL | **Urgencia:** MEDIA | **~2h**
+- **Problema:** SoundManager funciona mas 15+ componentes nao o utilizam. 4 sons definidos (`levelUp`, `reveal`, `trash`, `error`, `share`) nunca sao tocados
+- **Areas criticas:** Invoice Import (7 arquivos), Gamificacao (3), Transacoes (1), IA (3), Wishlist (2+)
+- **Solucao:** Adicionar `soundManager.play()` nos handlers de cada componente
+- **Detalhes:** [docs/roadmap/02-correcao-som.md](docs/roadmap/02-correcao-som.md)
+- [ ] Adicionar sons no Invoice Import (7 telas)
+- [ ] Adicionar sons na Gamificacao (reveal, levelUp)
+- [ ] Adicionar sons em Transacoes, IA, Wishlist
+- [ ] Mapear som `trash` para acoes de delete
+- [ ] Mapear som `error` para falhas
+
+### 03 - Testar API de OCR
+- **Dificuldade:** FACIL-MEDIO | **Urgencia:** ALTA | **~1h**
+- **Problema:** Testes existem mas precisam validacao antes do fix Android
+- **Testes:** `packages/parsers/__tests__/` (ocrParser, classifier, importInvoice, qrcodeParser, invoiceReducer)
+- **Detalhes:** [docs/roadmap/03-testar-api-ocr.md](docs/roadmap/03-testar-api-ocr.md)
+- [ ] Executar suite de testes existente
+- [ ] Validar cenarios de parsing (Qtd x Preco, R$ Preco)
+- [ ] Verificar fallback chain do HybridOCRAdapter
+
+### 04 - Testar Todas as APIs de IA
+- **Dificuldade:** MEDIO | **Urgencia:** MEDIA | **~2h**
+- **Problema:** 3 adapters (OpenAI gpt-4.1, Gemini 2.5, Claude sonnet-4-6) precisam validacao e2e
+- **Testes:** `packages/ai/__tests__/` + `src/modules/ai/infrastructure/__tests__/`
+- **Detalhes:** [docs/roadmap/04-testar-api-ia.md](docs/roadmap/04-testar-api-ia.md)
+- [ ] Executar testes unitarios existentes
+- [ ] Validar CircuitBreaker, Cache, TokenTracker
+- [ ] Testar cada adapter com API key real (manual)
+
+### 05 - Corrigir OCR no Android (Build)
+- **Dificuldade:** MEDIO | **Urgencia:** CRITICA | **~3-4h**
+- **Problema:** `react-native-text-recognition` nao linka apos build Android. Erro: "Module doesn't seem to be linked"
+- **Causa:** Modulo nativo ML Kit nao compilado + eas.json sem prebuild config + Tesseract indisponivel em mobile
+- **Solucao:** Configurar eas.json com prebuild, testar `expo run:android`, considerar migrar para `@react-native-ml-kit/text-recognition`
+- **Detalhes:** [docs/roadmap/05-fix-ocr-android.md](docs/roadmap/05-fix-ocr-android.md)
+- [ ] Verificar/corrigir eas.json
+- [ ] Executar `npx expo prebuild --clean`
+- [ ] Testar build local com `expo run:android`
+- [ ] Melhorar mensagens de erro
+
+### 06 - Corrigir Google Drive no APK
+- **Dificuldade:** MEDIO-COMPLEXO | **Urgencia:** CRITICA | **~4-6h**
+- **Problema:** OAuth retorna "parametros incorretos". Provavelmente Client ID criado como tipo "Web" ao inves de "Android" no Google Cloud Console
+- **Causa:** Client ID type mismatch + refresh token com clientId incompativel + redirect URI mismatch
+- **Solucao:** Verificar/recriar OAuth clients no Google Cloud Console com tipo correto, atualizar SHA-1, limpar tokens cacheados
+- **Detalhes:** [docs/roadmap/06-fix-google-drive.md](docs/roadmap/06-fix-google-drive.md)
+- [ ] Verificar tipo do client ID no Google Cloud Console
+- [ ] Criar Android client com package + SHA-1 corretos
+- [ ] Atualizar .env com novos client IDs
+- [ ] Testar OAuth flow completo no APK
+
+### 07 - Melhorar Tour (Baloes, Setas, Minimizar)
+- **Dificuldade:** COMPLEXO | **Urgencia:** MEDIA | **~8-12h**
+- **Problema:** Tour reseta para step 0 ao remontar (parece travado na 1a pagina), bloqueia experimentacao, sem baloes/setas, sem minimizar
+- **Bugs:** Estado nao persistido (useState local reseta), backdrop 45% bloqueia visao, sem highlight de elementos
+- **Solucao:** 4 fases - Fix bugs (persist state) -> Minimizar/Badge -> Baloes/Setas -> Navegacao inteligente
+- **Detalhes:** [docs/roadmap/07-melhorar-tour.md](docs/roadmap/07-melhorar-tour.md)
+- [ ] Fix: Persistir step no AsyncStorage + mover estado para context
+- [ ] Adicionar botao minimizar + badge flutuante
+- [ ] Implementar spotlight mask + setas SVG
+- [ ] Navegacao automatica para tela do step
+
+### 08 - Animacao Individual para Cada Trofeu (167 trofeus)
+- **Dificuldade:** COMPLEXO | **Urgencia:** BAIXA | **~15-25h (com acompanhamento)**
+- **Problema:** Todos os trofeus usam mesma animacao generica. Precisa animacao unica por trofeu
+- **Total:** 40 conquistas + 6 mensais + 48 sazonais + 73 liturgicos = 167 trofeus
+- **Solucao:** Criar config map por trofeu/categoria com parametros de animacao customizados
+- **Detalhes:** [docs/roadmap/08-animacao-trofeus.md](docs/roadmap/08-animacao-trofeus.md) (lista completa de todos os 167 trofeus)
+- [ ] Criar `trophyAnimationConfigs.ts` com mapa de configs
+- [ ] Refatorar AnimatedTrophy e AnimatedSeasonalTrophy para aceitar config
+- [ ] Implementar um a um com aprovacao individual
+
+### 09 - Leitor de Olerite por OCR
+- **Dificuldade:** COMPLEXO | **Urgencia:** MEDIA | **~6-10h**
+- **Depende de:** Tarefa 05 (OCR Android funcionar)
+- **Problema:** Feature nova - capturar valores de medidores via OCR, armazenar historico
+- **Solucao:** Novo parser + nova tela + novo tipo de evento + historico com grafico
+- **Detalhes:** [docs/roadmap/09-olerite-ocr.md](docs/roadmap/09-olerite-ocr.md)
+- [ ] Criar `oleriteParser.ts`
+- [ ] Criar tela de captura reutilizando OcrScanScreen
+- [ ] Implementar historico com grafico de evolucao
+- [ ] Testes unitarios
+
+---
+
+## Ordem de Execucao Recomendada
+
+```
+URGENCIA CRITICA (fazer primeiro):
+  05 - Fix OCR Android .......... [MEDIO]     ~3-4h
+  06 - Fix Google Drive ......... [MEDIO-COMPLEXO] ~4-6h
+
+URGENCIA ALTA:
+  03 - Testar API OCR ........... [FACIL]     ~1h
+
+URGENCIA MEDIA:
+  01 - Cor Modal Catolico ....... [FACIL]     ~30min
+  02 - Correcao Sons ............ [FACIL]     ~2h
+  04 - Testar APIs IA ........... [MEDIO]     ~2h
+  07 - Melhorar Tour ............ [COMPLEXO]  ~8-12h
+  09 - Olerite OCR .............. [COMPLEXO]  ~6-10h
+
+URGENCIA BAIXA (quando houver tempo):
+  08 - Animacao Trofeus ......... [COMPLEXO]  ~15-25h
+```
+
+*Nota: Antes de cada tarefa, sera realizada uma analise tecnica detalhada com planejamento via Task Master.*
