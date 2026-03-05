@@ -28,6 +28,7 @@ import { LockScreen } from "@/src/components/security/LockScreen";
 import { useSecurityLock } from "@/src/hooks/useSecurityLock";
 import { AnimatedSplash } from "@/src/components/shared/AnimatedSplash";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { DebugTools } from "@/src/components/debug/DebugTools";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -236,6 +237,7 @@ export default function RootLayout() {
                       <AchievementToastHost />
                       <SeasonalToastHost />
                       <ReligiousPreferenceHost />
+                      {__DEV__ && <DebugTools />}
                     </>
                   )}
                 </SyncProvider>

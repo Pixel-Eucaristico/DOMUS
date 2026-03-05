@@ -8,6 +8,7 @@ import {
   Platform,
 } from "react-native";
 import { soundManager } from "@/src/services/SoundManager";
+import { useAppState } from "@/src/context/AppStateProvider";
 
 interface Props {
   visible: boolean;
@@ -15,6 +16,8 @@ interface Props {
 }
 
 export function ReligiousPreferenceModal({ visible, onSelect }: Props) {
+  const { theme } = useAppState();
+
   return (
     <Modal
       visible={visible}
@@ -23,24 +26,28 @@ export function ReligiousPreferenceModal({ visible, onSelect }: Props) {
       statusBarTranslucent
     >
       <View style={st.overlay}>
-        <View style={st.card}>
+        <View style={[st.card, { 
+          backgroundColor: theme.cardBackground,
+          borderColor: theme.border,
+          shadowColor: theme.primaryColor,
+        }]}>
           {/* Cross icon */}
           <Text style={st.crossIcon}>✝️</Text>
 
-          <Text style={st.title}>Você é católico(a)?</Text>
-          <Text style={st.subtitle}>
+          <Text style={[st.title, { color: theme.textColor }]}>Você é católico(a)?</Text>
+          <Text style={[st.subtitle, { color: theme.secondaryText }]}>
             Isso adiciona santos e festas litúrgicas ao sorteio mensal de Troféus Surpresa — como São Pedro e Paulo, Nossa Senhora Aparecida e Carlo Acutis.
           </Text>
 
-          <View style={st.infoRow}>
+          <View style={[st.infoRow, { backgroundColor: `${theme.primaryColor}15` }]}>
             <Text style={st.infoIcon}>🎴</Text>
-            <Text style={st.infoText}>
+            <Text style={[st.infoText, { color: theme.primaryColor }]}>
               Católicos recebem troféus de santos sorteados entre os demais. Feriados nacionais aparecem para todos.
             </Text>
           </View>
 
           <TouchableOpacity
-            style={[st.btn, st.btnCatholic]}
+            style={[st.btn, st.btnCatholic, { backgroundColor: theme.primaryColor }]}
             onPress={() => {
               soundManager.play("success");
               onSelect(true);
@@ -51,17 +58,17 @@ export function ReligiousPreferenceModal({ visible, onSelect }: Props) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[st.btn, st.btnSecular]}
+            style={[st.btn, st.btnSecular, { borderColor: theme.border }]}
             onPress={() => {
               soundManager.play("tap");
               onSelect(false);
             }}
             activeOpacity={0.85}
           >
-            <Text style={st.btnSecularText}>Não por enquanto</Text>
+            <Text style={[st.btnSecularText, { color: theme.secondaryText }]}>Não por enquanto</Text>
           </TouchableOpacity>
 
-          <Text style={st.footer}>
+          <Text style={[st.footer, { color: theme.secondaryText }]}>
             Você pode mudar esta opção a qualquer momento na tela Temporada.
           </Text>
         </View>
@@ -80,7 +87,6 @@ const st = StyleSheet.create({
     paddingTop: Platform.OS === "ios" ? 60 : 24,
   },
   card: {
-    backgroundColor: "#12082A",
     borderRadius: 24,
     padding: 28,
     width: "100%",
@@ -88,8 +94,6 @@ const st = StyleSheet.create({
     alignItems: "center",
     gap: 14,
     borderWidth: 1,
-    borderColor: "#4C1D95",
-    shadowColor: "#7C3AED",
     shadowOpacity: 0.4,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 8 },
@@ -102,13 +106,11 @@ const st = StyleSheet.create({
   title: {
     fontFamily: "DMSans_700Bold",
     fontSize: 22,
-    color: "#F5F3FF",
     textAlign: "center",
   },
   subtitle: {
     fontFamily: "DMSans_400Regular",
     fontSize: 14,
-    color: "#C4B5FD",
     textAlign: "center",
     lineHeight: 20,
   },
@@ -116,7 +118,6 @@ const st = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 10,
-    backgroundColor: "#1E1040",
     borderRadius: 12,
     padding: 12,
     width: "100%",
@@ -125,7 +126,6 @@ const st = StyleSheet.create({
   infoText: {
     fontFamily: "DMSans_400Regular",
     fontSize: 12,
-    color: "#A78BFA",
     lineHeight: 17,
     flex: 1,
   },
@@ -136,7 +136,7 @@ const st = StyleSheet.create({
     alignItems: "center",
   },
   btnCatholic: {
-    backgroundColor: "#7C3AED",
+    // backgroundColor handled by dynamic style
   },
   btnCatholicText: {
     fontFamily: "DMSans_700Bold",
@@ -144,19 +144,16 @@ const st = StyleSheet.create({
     color: "#FFF",
   },
   btnSecular: {
-    backgroundColor: "#FFFFFF10",
+    backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: "#FFFFFF22",
   },
   btnSecularText: {
     fontFamily: "DMSans_500Medium",
     fontSize: 15,
-    color: "#9CA3AF",
   },
   footer: {
     fontFamily: "DMSans_400Regular",
     fontSize: 11,
-    color: "#6B7280",
     textAlign: "center",
     lineHeight: 16,
   },

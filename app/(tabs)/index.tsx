@@ -20,10 +20,14 @@ import { TransactionBottomSheet } from "@/src/components/transaction/Transaction
 import { DomusLogo } from "@/src/components/shared/DomusLogo";
 import { AnimatedCard } from "@/src/components/shared/AnimatedCard";
 import { AnimatedIconButton } from "@/src/components/shared/AnimatedIconButton";
+import { AnimatedTrophy } from "@/src/components/gamification/AnimatedTrophy";
 import { AnimatedSeasonalTrophy } from "@/src/components/gamification/AnimatedSeasonalTrophy";
 import { soundManager } from "@/src/services/SoundManager";
-import { ALL_SEASONAL_TROPHIES } from "@packages/gamification/src/seasonalTrophies";
-import { ALL_LITURGICAL_TROPHIES } from "@packages/gamification/src/liturgicalTrophies";
+import { 
+  ALL_SEASONAL_TROPHIES, 
+  ALL_LITURGICAL_TROPHIES, 
+  ALL_ACHIEVEMENTS 
+} from "@packages/gamification";
 import Animated, { 
   FadeInUp, 
   FadeOutDown, 
@@ -231,8 +235,13 @@ export default function HomeScreen() {
     const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const mk = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const sel = (gamification.selectedSeasonalTrophies ?? []).find((s: any) => s.monthKey === mk);
-    const t = sel ? (ALL_SEASONAL_TROPHIES.find((tr: any) => tr.id === sel.trophyId) ?? 
-                    ALL_LITURGICAL_TROPHIES.find((tr: any) => tr.id === sel.trophyId)) : null;
+    
+    // Safety check for Trophy arrays
+    const seasonalPool = ALL_SEASONAL_TROPHIES || [];
+    const liturgicalPool = ALL_LITURGICAL_TROPHIES || [];
+    
+    const t = sel ? (seasonalPool.find((tr: any) => tr.id === sel.trophyId) ?? 
+                    liturgicalPool.find((tr: any) => tr.id === sel.trophyId)) : null;
     
     return {
       monthProgress: Math.round((now.getDate() / dim) * 100),
@@ -324,7 +333,7 @@ export default function HomeScreen() {
             <View>
               <Text style={[s.greeting, { color: theme.textColor }]}>DOMUS</Text>
               <Text style={[s.subtitle, { color: theme.secondaryText }]}>
-                {archetype.charAt(0).toUpperCase() + archetype.slice(1)} / Nivel{" "}
+                {archetype.charAt(0).toUpperCase() + archetype.slice(1)} / Nível{" "}
                 {levelInfo.level}
               </Text>
             </View>
@@ -384,7 +393,7 @@ export default function HomeScreen() {
             >
               <Feather name="bar-chart-2" size={18} color="rgba(255,255,255,0.7)" />
               <Text style={s.statValue}>{levelInfo.level}</Text>
-              <Text style={s.statLabel}>Nivel</Text>
+              <Text style={s.statLabel}>Nível</Text>
             </Pressable>
             <Pressable 
               style={[s.statCard, { backgroundColor: theme.primaryColor }]}
@@ -426,7 +435,7 @@ export default function HomeScreen() {
                       id={currentTrophy.id} 
                       size={60} 
                       color={theme.primaryColor}
-                      isStatic={false}
+                      isStatic={true}
                     />
                     <Text style={[s.trophyLabel, { color: theme.secondaryText }]}>Troféu do Mês</Text>
                   </>
@@ -445,15 +454,23 @@ export default function HomeScreen() {
                 <Text style={[s.miniLabel, { color: theme.secondaryText }]}>CONQUISTAS RECENTES</Text>
                 <View style={s.achsRow}>
                   {recentAchievements.length > 0 ? (
-                    recentAchievements.map((ach, idx) => (
-                      <Animated.View 
-                        key={ach.id} 
-                        entering={FadeIn.delay(idx * 150)}
-                        style={[s.miniTrophy, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-                      >
-                        <Text style={{ fontSize: 16 }}>{(ach as any).icon || '🏅'}</Text>
-                      </Animated.View>
-                    ))
+                    recentAchievements.map((ach, idx) => {
+                      const achievementPool = ALL_ACHIEVEMENTS || [];
+                      const fullAch = achievementPool.find(a => a.id === ach.id);
+                      return (
+                        <View key={ach.id} style={{ alignItems: 'center', gap: 2 }}>
+                          <Animated.View 
+                            entering={FadeIn.delay(idx * 150)}
+                            style={[s.miniTrophy, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                          >
+                            <AnimatedTrophy rarity={ach.rarity} size={22} spinning={false} />
+                          </Animated.View>
+                          <Text style={{ fontSize: 8, color: theme.secondaryText, width: 42, textAlign: 'center' }} numberOfLines={1}>
+                            {fullAch?.name || '---'}
+                          </Text>
+                        </View>
+                      );
+                    })
                   ) : (
                     <Text style={[s.noAchsText, { color: theme.secondaryText }]}>Nenhum troféu ainda</Text>
                   )}

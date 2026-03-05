@@ -84,6 +84,7 @@ interface AppStateContextValue extends DerivedState {
   localEventCount: number;
   deviceId: string | null;
   pendingToast: AchievementUnlockedPayload | null;
+  setPendingToast: (toast: AchievementUnlockedPayload | null) => void;
   clearPendingToast: () => void;
   pendingMonthlyToast: MonthlyTrophyCompletedPayload | null;
   clearPendingMonthlyToast: () => void;
@@ -91,6 +92,13 @@ interface AppStateContextValue extends DerivedState {
   clearPendingSeasonalToast: () => void;
   isCatholic: boolean | null;
   setIsCatholic: (value: boolean) => void;
+  // Debug overrides
+  debugArchetype: ArchetypeType | null;
+  setDebugArchetype: (type: ArchetypeType | null) => void;
+  debugXp: number | null;
+  setDebugXp: (xp: number | null) => void;
+  debugBalance: number | null;
+  setDebugBalance: (balance: number | null) => void;
 }
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
@@ -174,6 +182,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [pendingSeasonalToast, setPendingSeasonalToast] = useState<SeasonalTrophyCompletedPayload | null>(null);
 
   const [isCatholic, setIsCatholicState] = useState<boolean | null>(null);
+  const [debugArchetype, setDebugArchetype] = useState<ArchetypeType | null>(null);
+  const [debugXp, setDebugXp] = useState<number | null>(null);
+  const [debugBalance, setDebugBalance] = useState<number | null>(null);
 
   const [allEvents, setAllEvents] = useState<SyncEvent[]>([]);
   const allEventsRef = React.useRef(allEvents);
@@ -272,10 +283,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return () => { mounted = false; };
   }, []);
 
-  const { domain, gamification, onboarding, season, wishlist } = useMemo(
+  const { domain, gamification: baseGamification, onboarding, season, wishlist } = useMemo(
     () => replayAllEvents(isDemoActive ? demoEvents : allEvents),
     [isDemoActive, demoEvents, allEvents],
   );
+
+  const gamification = useMemo(() => {
+    if (debugXp === null) return baseGamification;
+    return { ...baseGamification, totalXp: debugXp };
+  }, [baseGamification, debugXp]);
 
   const now = new Date();
   const budget = useMemo(
@@ -297,7 +313,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   // Mecanismo de recuperação de XP: Se o usuário tem transações mas o XP está zerado ou muito baixo
   // (devido ao bug de penalidade do início do mês), gera um evento de compensação único.
   useEffect(() => {
-    if (isDemoActive) return;
+    if (isDemoActive || debugXp !== null) return;
     if (!loading && allEvents.length > 0 && deviceId) {
       const txCount = Object.keys(domain.transactions).length;
       const currentXp = gamification.totalXp;
@@ -341,7 +357,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setLocalEventCount((c) => c + 1);
       }
     }
-  }, [isDemoActive, loading, allEvents.length, domain.transactions, gamification.totalXp, deviceId]);
+  }, [isDemoActive, loading, allEvents.length, domain.transactions, gamification.totalXp, deviceId, debugXp]);
 
   // Inicializar categorias padrão se não existirem
   useEffect(() => {
@@ -508,6 +524,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const archetype = useMemo<ArchetypeType>(() => {
+    if (debugArchetype) return debugArchetype;
+
     const txCount = Object.keys(domain.transactions).length;
     const scores = calculateScores({
       transactionCount: txCount,
@@ -518,20 +536,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       monthsPlanned: season.history.length,
     });
     return detectArchetype(scores);
-  }, [domain.transactions, gamification.currentStreak, budget, season.history]);
+  }, [domain.transactions, gamification.currentStreak, budget, season.history, debugArchetype]);
 
   const theme = useMemo(() => {
     return getThemeForArchetype(archetype, isDarkState);
   }, [archetype, isDarkState]);
 
-  const totalBalance = useMemo(
-    () =>
-      Object.values(domain.accounts).reduce(
-        (sum: number, a: any) => sum + (a.type !== "credit_card" ? a.balance : 0),
-        0,
-      ),
-    [domain.accounts],
-  );
+  const totalBalance = useMemo(() => {
+    if (debugBalance !== null) return debugBalance;
+    return Object.values(domain.accounts).reduce(
+      (sum: number, a: any) => sum + (a.type !== "credit_card" ? a.balance : 0),
+      0,
+    );
+  }, [domain.accounts, debugBalance]);
 
   /**
    * dispatch: cria um evento LOCAL.
@@ -862,6 +879,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       localEventCount,
       deviceId,
       pendingToast,
+      setPendingToast,
       clearPendingToast: () => setPendingToast(null),
       pendingMonthlyToast,
       clearPendingMonthlyToast: () => setPendingMonthlyToast(null),
@@ -869,8 +887,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       clearPendingSeasonalToast: () => setPendingSeasonalToast(null),
       isCatholic,
       setIsCatholic,
+      debugArchetype,
+      setDebugArchetype,
+      debugXp,
+      setDebugXp,
+      debugBalance,
+      setDebugBalance,
     }),
-    [domain, gamification, onboarding, season, wishlist, archetype, themeMode, soundEnabled, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, setThemeMode, setSoundEnabled, importEvents, restoreFromBackup, resetApp, getAllEventsCallback, localEventCount, deviceId, pendingToast, pendingMonthlyToast, pendingSeasonalToast, isCatholic, setIsCatholic],
+    [domain, gamification, onboarding, season, wishlist, archetype, themeMode, soundEnabled, theme, levelInfo, budget, totalBalance, loading, dispatch, dispatchDomainEvent, setThemeMode, setSoundEnabled, importEvents, restoreFromBackup, resetApp, getAllEventsCallback, localEventCount, deviceId, pendingToast, pendingMonthlyToast, pendingSeasonalToast, isCatholic, setIsCatholic, debugArchetype, setDebugArchetype, debugXp, setDebugXp, debugBalance, setDebugBalance],
   );
 
   return (

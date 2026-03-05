@@ -35,14 +35,14 @@
 **Ordem: Mais facil ao mais complexo, priorizando urgencia.**
 **Detalhes completos em: `docs/roadmap/`**
 
-### 01 - Mudar Cor do Modal Catolico
+### 01 - Mudar Cor do Modal Catolico (CONCLUIDA)
 - **Dificuldade:** FACIL | **Urgencia:** BAIXA | **~30 min**
 - **Problema:** Cores hardcoded no modal `ReligiousPreferenceModal.tsx` podem nao estar alinhadas com design desejado
 - **Arquivo:** `src/components/shared/ReligiousPreferenceModal.tsx`
-- **Solucao:** Alterar valores de cores no StyleSheet
+- **Solucao:** Alterar valores de cores no StyleSheet para usar o tema do App
 - **Detalhes:** [docs/roadmap/01-cor-modal-catolico.md](docs/roadmap/01-cor-modal-catolico.md)
-- [ ] Definir novas cores com o designer
-- [ ] Aplicar e testar em tema claro/escuro
+- [x] Definir novas cores com o designer (Integrado ao sistema de Temas/Arquétipos)
+- [x] Aplicar e testar em tema claro/escuro (Validado via DebugTools)
 
 ### 02 - Correcao do Som em Areas Sem Audio
 - **Dificuldade:** FACIL | **Urgencia:** MEDIA | **~2h**
@@ -141,7 +141,7 @@ URGENCIA ALTA:
   03 - Testar API OCR ........... [FACIL]     ~1h
 
 URGENCIA MEDIA:
-  01 - Cor Modal Catolico ....... [FACIL]     ~30min
+  01 - Cor Modal Catolico ....... [CONCLUIDA] ~30min
   02 - Correcao Sons ............ [FACIL]     ~2h
   04 - Testar APIs IA ........... [MEDIO]     ~2h
   07 - Melhorar Tour ............ [COMPLEXO]  ~8-12h

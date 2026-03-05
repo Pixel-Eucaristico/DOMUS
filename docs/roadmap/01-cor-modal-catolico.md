@@ -1,7 +1,15 @@
-# Tarefa 01 - Mudar a cor do Modal "Voce e Catolico?"
+# Tarefa 01 - Mudar a cor do Modal "Voce e Catolico?" (CONCLUIDA)
 
 ## Prioridade: FACIL | Urgencia: BAIXA
 ## Estimativa: ~30 min | Arquivos: 1
+
+---
+
+## Solucao Final
+Em vez de apenas trocar uma cor hardcoded por outra, o modal foi refatorado para utilizar o sistema de **Arquétipos e Temas** do aplicativo via `useAppState`.
+- O modal agora assume a cor primária do perfil do usuário (ex: Verde para Investidor, Azul para Organizador).
+- Suporte nativo e automático para **Modo Claro** e **Modo Escuro**.
+- Adicionado suporte a testes via **DebugTools** (ferramenta de desenvolvedor).
 
 ---
 

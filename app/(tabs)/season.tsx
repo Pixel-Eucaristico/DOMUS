@@ -63,7 +63,7 @@ export default function SeasonScreen() {
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
-  const archetypeInfo = getArchetypeDescription(archetype);
+  const archetypeInfo = getArchetypeDescription(archetype) || { name: "Explorador", description: "" };
   const tone = getTone(archetype);
 
   const hasSeason = season.currentSeason !== null && season.currentSeason.active;
@@ -344,7 +344,7 @@ export default function SeasonScreen() {
             onPress={handleShareXpLevel}
             style={[st.levelBadge, { backgroundColor: theme.primaryColor, flexDirection: 'row', gap: 6, alignItems: 'center' }]}
           >
-            <Text style={st.levelText}>Lvl {gamification.level}</Text>
+            <Text style={st.levelText}>Nível {gamification.level}</Text>
             <Feather name="share-2" size={12} color="#FFF" />
           </TouchableOpacity>
         </View>
@@ -469,22 +469,26 @@ export default function SeasonScreen() {
               return (
                 <View style={st.highlightsSection}>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.highlightsScroll}>
-                    {unlocked.map((ach: any) => (
-                      <TouchableOpacity 
-                        key={ach.id} 
-                        style={[st.highlightCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-                        onPress={() => {
-                          soundManager.play("tap");
-                          const fullAch = ALL_ACHIEVEMENTS.find(a => a.id === ach.id);
-                          if (fullAch) setSelectedAch(fullAch);
-                        }}
-                      >
-                        <AnimatedTrophy rarity={ach.rarity} size={24} spinning={false} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={[st.highlightName, { color: theme.textColor }]} numberOfLines={1}>{ach.name}</Text>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
+                    {unlocked.map((ach: any) => {
+                      const fullAch = ALL_ACHIEVEMENTS.find(a => a.id === ach.id);
+                      return (
+                        <TouchableOpacity 
+                          key={ach.id} 
+                          style={[st.highlightCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                          onPress={() => {
+                            soundManager.play("tap");
+                            if (fullAch) setSelectedAch(fullAch);
+                          }}
+                        >
+                          <AnimatedTrophy rarity={ach.rarity} size={24} spinning={false} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={[st.highlightName, { color: theme.textColor }]} numberOfLines={1}>
+                              {fullAch?.name || '---'}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
                     <TouchableOpacity 
                       style={[st.highlightCard, { backgroundColor: theme.primaryColor + '10', borderColor: theme.primaryColor + '30', width: 100, minWidth: 100 }]}
                       onPress={() => setActiveTab("collection")}
@@ -586,7 +590,7 @@ export default function SeasonScreen() {
                                   st.monthlyProgressFill,
                                   {
                                     backgroundColor: done ? theme.success : theme.primaryColor,
-                                    width: `${Math.round(pct * 100)}%` as any,
+                                    width: `${Math.round((done ? 1 : pct) * 100)}%` as any,
                                   },
                                 ]}
                               />
@@ -665,7 +669,7 @@ export default function SeasonScreen() {
                           }}
                         >
                           {unlocked ? (
-                            <AnimatedTrophy rarity={ach.rarity} size={52} spinning />
+                            <AnimatedTrophy rarity={ach.rarity} size={52} spinning={false} />
                           ) : (
                             <View style={[st.lockedTrophy, { backgroundColor: theme.border }]}>
                               <Feather name="lock" size={22} color={theme.secondaryText} />
@@ -783,7 +787,7 @@ export default function SeasonScreen() {
                 {/* Trophy icon */}
                 <View style={st.trophyModalIcon}>
                   {unlocked ? (
-                    <AnimatedTrophy rarity={selectedAch.rarity} size={80} spinning />
+                    <AnimatedTrophy rarity={selectedAch.rarity} size={80} spinning={false} />
                   ) : (
                     <View style={[st.trophyModalLocked, { backgroundColor: theme.border }]}>
                       <Feather name="lock" size={36} color={theme.secondaryText} />
