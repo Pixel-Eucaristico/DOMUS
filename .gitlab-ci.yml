@@ -1,0 +1,187 @@
+# GitLab CI/CD - Build APK & iOS (Orcafacil / DOMUS)
+# Builds natively without EAS Build, using expo prebuild + Gradle/Xcode
+
+stages:
+  - build
+
+variables:
+  NODE_VERSION: "20"
+  JAVA_VERSION: "17"
+  ANDROID_COMPILE_SDK: "34"
+  ANDROID_BUILD_TOOLS: "34.0.0"
+
+# ─── Android APK ────────────────────────────────────────────────────────────────
+build:android:
+  stage: build
+  image: node:${NODE_VERSION}
+  tags:
+    - docker
+  variables:
+    ANDROID_HOME: "/opt/android-sdk"
+    JAVA_HOME: "/usr/lib/jvm/java-17-openjdk-amd64"
+  before_script:
+    # System deps
+    - apt-get update -qq && apt-get install -y -qq openjdk-17-jdk-headless unzip wget > /dev/null 2>&1
+
+    # Android SDK
+    - mkdir -p $ANDROID_HOME/cmdline-tools
+    - wget -q "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" -O /tmp/cmdline-tools.zip
+    - unzip -q /tmp/cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools/
+    - mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+    - rm /tmp/cmdline-tools.zip
+    - export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+    - yes | sdkmanager --licenses > /dev/null 2>&1 || true
+    - sdkmanager "platform-tools" "platforms;android-${ANDROID_COMPILE_SDK}" "build-tools;${ANDROID_BUILD_TOOLS}" > /dev/null 2>&1
+
+    # Node deps
+    - npm ci --prefer-offline
+
+  script:
+    # Generate native Android project
+    - npx expo prebuild --platform android --clean --no-install
+
+    # Build debug APK (faster, no signing needed for dev)
+    - cd android
+    - chmod +x gradlew
+    - ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx2g"
+    - cd ..
+
+    # Copy APK to root for artifact
+    - mkdir -p build
+    - cp android/app/build/outputs/apk/debug/app-debug.apk build/domus-debug.apk
+
+  artifacts:
+    paths:
+      - build/domus-debug.apk
+    expire_in: 30 days
+    when: on_success
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+    - when: manual
+      allow_failure: true
+
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .expo/
+
+# ─── Android Release APK (signed) ──────────────────────────────────────────────
+build:android:release:
+  stage: build
+  image: node:${NODE_VERSION}
+  tags:
+    - docker
+  variables:
+    ANDROID_HOME: "/opt/android-sdk"
+    JAVA_HOME: "/usr/lib/jvm/java-17-openjdk-amd64"
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq openjdk-17-jdk-headless unzip wget > /dev/null 2>&1
+    - mkdir -p $ANDROID_HOME/cmdline-tools
+    - wget -q "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" -O /tmp/cmdline-tools.zip
+    - unzip -q /tmp/cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools/
+    - mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+    - rm /tmp/cmdline-tools.zip
+    - export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+    - yes | sdkmanager --licenses > /dev/null 2>&1 || true
+    - sdkmanager "platform-tools" "platforms;android-${ANDROID_COMPILE_SDK}" "build-tools;${ANDROID_BUILD_TOOLS}" > /dev/null 2>&1
+    - npm ci --prefer-offline
+
+  script:
+    - npx expo prebuild --platform android --clean --no-install
+    - cd android
+    - chmod +x gradlew
+
+    # For release, you need to configure signing in CI/CD variables:
+    # ANDROID_KEYSTORE_BASE64 - base64-encoded .jks keystore
+    # ANDROID_KEYSTORE_PASSWORD - keystore password
+    # ANDROID_KEY_ALIAS - key alias
+    # ANDROID_KEY_PASSWORD - key password
+    - |
+      if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+        echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > app/release.keystore
+        cat >> gradle.properties << PROPS
+      MYAPP_UPLOAD_STORE_FILE=release.keystore
+      MYAPP_UPLOAD_KEY_ALIAS=$ANDROID_KEY_ALIAS
+      MYAPP_UPLOAD_STORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD
+      MYAPP_UPLOAD_KEY_PASSWORD=$ANDROID_KEY_PASSWORD
+      PROPS
+        ./gradlew assembleRelease --no-daemon -Dorg.gradle.jvmargs="-Xmx2g"
+        cd ..
+        mkdir -p build
+        cp android/app/build/outputs/apk/release/app-release.apk build/domus-release.apk
+      else
+        echo "AVISO: Keystore nao configurado. Gerando APK debug."
+        ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx2g"
+        cd ..
+        mkdir -p build
+        cp android/app/build/outputs/apk/debug/app-debug.apk build/domus-release.apk
+      fi
+
+  artifacts:
+    paths:
+      - build/domus-release.apk
+    expire_in: 90 days
+    when: on_success
+
+  rules:
+    - if: $CI_COMMIT_TAG
+    - when: manual
+      allow_failure: true
+
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .expo/
+
+# ─── iOS (requer runner macOS) ──────────────────────────────────────────────────
+build:ios:
+  stage: build
+  tags:
+    - macos  # Requer um GitLab Runner rodando em macOS
+  variables:
+    LANG: "en_US.UTF-8"
+  before_script:
+    # Assume macOS runner com Xcode e Node.js instalados
+    # brew install node (se nao tiver)
+    - npm ci --prefer-offline
+
+  script:
+    - npx expo prebuild --platform ios --clean --no-install
+    - cd ios
+    - pod install
+    # Build sem signing (simulator) - para distribuicao precisa de certificado Apple
+    - xcodebuild
+        -workspace domus.xcworkspace
+        -scheme domus
+        -configuration Release
+        -sdk iphoneos
+        -archivePath ../build/domus.xcarchive
+        archive
+        CODE_SIGNING_ALLOWED=NO
+    - cd ..
+
+  artifacts:
+    paths:
+      - build/domus.xcarchive
+    expire_in: 30 days
+    when: on_success
+
+  rules:
+    - when: manual
+      allow_failure: true
+
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - ios/Pods/
