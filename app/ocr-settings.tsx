@@ -24,7 +24,7 @@ export default function OCRSettingsScreen() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [provider, setProvider] = useState<OCRProvider>("textrecognition");
+  const [provider, setProvider] = useState<OCRProvider>("mlkit");
   const [apiKey, setApiKey] = useState("");
 
   useEffect(() => {
@@ -102,8 +102,8 @@ export default function OCRSettingsScreen() {
             {Platform.OS === "web"
               ? "No navegador, o Tesseract.js funciona gratuitamente sem configuração extra. " +
                 "Para maior precisão, configure a Cloud Vision API."
-              : "Em dispositivos móveis, o OCR On-device funciona gratuitamente após um build nativo " +
-                "(npx expo prebuild). A Cloud Vision API é a alternativa paga que funciona em qualquer build."
+              : "Em dispositivos móveis, o OCR On-device (ML Kit) funciona gratuitamente e offline. " +
+                "Suporta Português e outros idiomas. A Cloud Vision API é a alternativa paga com maior precisão."
             }
           </Text>
         </View>
@@ -114,26 +114,26 @@ export default function OCRSettingsScreen() {
             Provedor Preferido
           </Text>
 
-          {/* On-device — Text Recognition */}
+          {/* On-device — ML Kit OCR */}
           <Pressable
             style={[
               s.providerCard,
               {
                 backgroundColor: theme.cardBackground,
-                borderColor: provider === "textrecognition" || provider === "mlkit"
+                borderColor: provider === "mlkit" || provider === "textrecognition"
                   ? theme.primaryColor
                   : theme.border,
                 borderWidth: 2,
               },
             ]}
-            onPress={() => setProvider("textrecognition")}
+            onPress={() => setProvider("mlkit")}
           >
             <View style={s.providerHeader}>
               <View style={s.providerTitleRow}>
                 <Feather
-                  name={provider === "textrecognition" || provider === "mlkit" ? "check-circle" : "circle"}
+                  name={provider === "mlkit" || provider === "textrecognition" ? "check-circle" : "circle"}
                   size={20}
-                  color={provider === "textrecognition" || provider === "mlkit" ? theme.primaryColor : theme.secondaryText}
+                  color={provider === "mlkit" || provider === "textrecognition" ? theme.primaryColor : theme.secondaryText}
                 />
                 <Text style={[s.providerName, { color: theme.textColor }]}>
                   On-device
@@ -144,10 +144,8 @@ export default function OCRSettingsScreen() {
               </View>
             </View>
             <Text style={[s.providerDesc, { color: theme.secondaryText }]}>
-              Gratuito, funciona offline. Usa Vision Framework (iOS) e ML Kit (Android).
-              Requer build nativo: execute{" "}
-              <Text style={{ fontFamily: "DMSans_600SemiBold" }}>npx expo prebuild</Text>
-              {" "}e reconstrua o app.
+              Gratuito, funciona offline. Usa ML Kit (Google) no Android e Vision Framework no iOS.
+              Suporta Português, Inglês, Espanhol e outros idiomas com alfabeto latino.
             </Text>
           </Pressable>
 

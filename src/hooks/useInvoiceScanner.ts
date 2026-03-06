@@ -43,9 +43,9 @@ export function useInvoiceScanner(
 
     // Auto-detect melhor provider para a plataforma atual:
     // - Web: Tesseract funciona (Web Workers + WASM disponíveis no browser)
-    // - Native: textrecognition funciona (Vision/ML Kit on-device)
+    // - Native: mlkit (rn-mlkit-ocr) funciona on-device via ML Kit / Vision
     // A configuração salva pelo usuário é respeitada, mas corrigimos
-    // incompatibilidades silenciosamente (ex: textrecognition no web → tesseract)
+    // incompatibilidades silenciosamente (ex: mlkit no web → tesseract)
     const saved = ocrConfig.preferredProvider;
     let preferred: OCRProvider;
     if (saved === "cloudvision") {
@@ -53,7 +53,7 @@ export function useInvoiceScanner(
     } else if (isWeb) {
       preferred = "tesseract";
     } else {
-      preferred = "textrecognition";
+      preferred = "mlkit";
     }
 
     const ocrAdapter = createHybridOCRAdapter({
@@ -102,8 +102,8 @@ export function useInvoiceScanner(
         onError(
           Platform.OS === "web"
             ? "Falha no OCR. Verifique as configurações de OCR."
-            : "OCR não disponível. Faça o build nativo (expo prebuild) para OCR gratuito, " +
-              "ou configure a Cloud Vision API.",
+            : "OCR não disponível. Faça um build nativo via EAS Build para OCR gratuito, " +
+              "ou configure a Cloud Vision API nas configurações.",
           true,
         );
       } else {

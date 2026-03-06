@@ -76,16 +76,17 @@
 - [ ] Validar CircuitBreaker, Cache, TokenTracker
 - [ ] Testar cada adapter com API key real (manual)
 
-### 05 - Corrigir OCR no Android (Build)
+### 05 - Corrigir OCR no Android (Build) - CONCLUIDA
 - **Dificuldade:** MEDIO | **Urgencia:** CRITICA | **~3-4h**
 - **Problema:** `react-native-text-recognition` nao linka apos build Android. Erro: "Module doesn't seem to be linked"
-- **Causa:** Modulo nativo ML Kit nao compilado + eas.json sem prebuild config + Tesseract indisponivel em mobile
-- **Solucao:** Configurar eas.json com prebuild, testar `expo run:android`, considerar migrar para `@react-native-ml-kit/text-recognition`
+- **Solucao:** Migrado de `react-native-text-recognition` para `rn-mlkit-ocr` com Expo config plugin nativo
 - **Detalhes:** [docs/roadmap/05-fix-ocr-android.md](docs/roadmap/05-fix-ocr-android.md)
-- [ ] Verificar/corrigir eas.json
-- [ ] Executar `npx expo prebuild --clean`
-- [ ] Testar build local com `expo run:android`
-- [ ] Melhorar mensagens de erro
+- [x] Remover `react-native-text-recognition` e seu patch
+- [x] Instalar `rn-mlkit-ocr` com config plugin (bundled latin model)
+- [x] Atualizar `HybridOCRAdapter` para usar `MlkitOcr.detectFromUri()`
+- [x] Atualizar provider padrao para `mlkit` em todos os arquivos
+- [x] Atualizar tela de configuracoes OCR
+- [x] Atualizar documentacao
 
 ### 06 - Corrigir Google Drive no APK
 - **Dificuldade:** MEDIO-COMPLEXO | **Urgencia:** CRITICA | **~4-6h**

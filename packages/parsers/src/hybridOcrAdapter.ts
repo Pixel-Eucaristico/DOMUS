@@ -11,7 +11,7 @@ export interface CloudVisionConfig {
 /**
  * Opções de OCR disponíveis
  */
-export type OCRProvider = "textrecognition" | "mlkit" | "tesseract" | "cloudvision";
+export type OCRProvider = "mlkit" | "textrecognition" | "tesseract" | "cloudvision";
 
 /**
  * Configuração do adaptador híbrido
@@ -30,7 +30,7 @@ export class HybridOCRAdapter implements OCRAdapter {
 
   constructor(config: HybridOCRConfig = {}) {
     this.config = {
-      preferredProvider: config.preferredProvider || "textrecognition",
+      preferredProvider: config.preferredProvider || "mlkit",
       fallbackProviders: config.fallbackProviders || ["cloudvision"],
       cloudVisionConfig: config.cloudVisionConfig,
     };
@@ -42,11 +42,16 @@ export class HybridOCRAdapter implements OCRAdapter {
       ...(this.config.fallbackProviders || []),
     ];
 
-    // Deduplicar mantendo ordem
+    // Deduplicar mantendo ordem e filtrar provedores indisponíveis
     const seen = new Set<OCRProvider>();
     const ordered = providers.filter((p) => {
       if (seen.has(p)) return false;
       seen.add(p);
+      // Pular cloudvision se não tem API key configurada
+      if (p === "cloudvision" && !this.config.cloudVisionConfig?.apiKey) {
+        console.log("[HybridOCR] Pulando cloudvision (sem API key configurada)");
+        return false;
+      }
       return true;
     });
 
@@ -79,11 +84,9 @@ export class HybridOCRAdapter implements OCRAdapter {
     provider: OCRProvider
   ): Promise<OCRResult> {
     switch (provider) {
-      case "textrecognition":
-        return await this.recognizeWithTextRecognition(imageUri);
       case "mlkit":
-        // mlkit era alias para textrecognition — mesmo módulo nativo
-        return await this.recognizeWithTextRecognition(imageUri);
+      case "textrecognition":
+        return await this.recognizeWithMlkit(imageUri);
       case "tesseract":
         return await this.recognizeWithTesseract(imageUri);
       case "cloudvision":
@@ -97,30 +100,32 @@ export class HybridOCRAdapter implements OCRAdapter {
   }
 
   /**
-   * react-native-text-recognition — gratuito, on-device
+   * rn-mlkit-ocr — gratuito, on-device
    * iOS: Vision Framework (Apple)
    * Android: ML Kit (Google)
-   * Requer: expo prebuild + dev build
+   * Requer: expo prebuild + dev build (config plugin em app.json)
    */
-  private async recognizeWithTextRecognition(imageUri: string): Promise<OCRResult> {
+  private async recognizeWithMlkit(imageUri: string): Promise<OCRResult> {
     try {
-      const TextRecognition = await import("react-native-text-recognition");
-      const lines: string[] = await TextRecognition.default.recognize(imageUri);
+      const MlkitOcr = await import("rn-mlkit-ocr");
+      const result = await MlkitOcr.default.recognizeText(imageUri);
 
-      if (!lines || lines.length === 0) {
+      if (!result || !result.text) {
         return { text: "", confidence: 0 };
       }
 
+      const text = result.text;
+
       return {
-        text: lines.join("\n"),
+        text,
         confidence: 0.85,
       };
     } catch (error) {
       const msg = error instanceof Error ? error.message : "";
-      if (msg.includes("doesn't seem to be linked") || msg.includes("not linked")) {
+      if (msg.includes("doesn't seem to be linked") || msg.includes("not linked") || msg.includes("Cannot find")) {
         throw new Error(
-          "OCR_UNAVAILABLE: Text Recognition não está disponível. " +
-          "Execute 'npx expo prebuild' e reconstrua o app para habilitar o OCR gratuito."
+          "OCR_UNAVAILABLE: ML Kit OCR não está disponível. " +
+          "Verifique se o plugin rn-mlkit-ocr está configurado no app.json."
         );
       }
       throw error;

@@ -10,7 +10,7 @@ export interface OCRConfig {
 }
 
 const DEFAULT_CONFIG: OCRConfig = {
-  preferredProvider: "textrecognition",
+  preferredProvider: "mlkit",
 };
 
 export class OCRConfigService {

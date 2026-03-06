@@ -6,17 +6,19 @@ O OrcaFacil possui um sistema OCR (Optical Character Recognition) híbrido que a
 
 ## 🎯 Provedores Disponíveis
 
-### 1. Google ML Kit (Padrão - REAL)
+### 1. ML Kit OCR via rn-mlkit-ocr (Padrao - ON-DEVICE)
 - ✅ **100% Gratuito**
-- ✅ **Funciona Offline** (após download do modelo)
-- ✅ **Alta Precisão**
-- ✅ **Rápido** (~1-2 segundos)
-- 🔧 **Biblioteca**: `@react-native-ml-kit/text-recognition`
+- ✅ **Funciona Offline** (modelo bundled no app)
+- ✅ **Alta Precisao**
+- ✅ **Rapido** (~1-2 segundos)
+- 🔧 **Biblioteca**: [`rn-mlkit-ocr`](https://github.com/ahmeterenodaci/rn-mlkit-ocr)
+- 🔧 **Expo Plugin**: Sim (config plugin nativo, `ocrUseBundled: true`)
 
 **Como funciona:**
-- Usa modelos de IA do Google treinados especificamente para reconhecimento de texto
+- Usa ML Kit (Google) no Android e Vision Framework (Apple) no iOS
 - Processa localmente no dispositivo (privacidade garantida)
-- Suporta múltiplos idiomas incluindo Português
+- Suporta Latin scripts (Portugues, Ingles, Espanhol, etc.)
+- Modelo bundled no APK/IPA, nao precisa download em runtime
 
 ### 2. Tesseract.js (Fallback - REAL)
 - ✅ **100% Gratuito**
@@ -114,22 +116,24 @@ O OrcaFacil possui um sistema OCR (Optical Character Recognition) híbrido que a
 
 ## ⚙️ Como Configurar
 
-### Configuração Padrão (ML Kit + Tesseract)
+### Configuracao Padrao (ML Kit)
 
-**Não precisa fazer nada!** Ambos funcionam out-of-the-box.
+O rn-mlkit-ocr possui um Expo config plugin que configura tudo automaticamente.
+Nao e necessario rodar `npx expo prebuild` manualmente.
 
-1. Instale as dependências:
+1. Instale as dependencias:
 ```bash
 npm install
-npx expo prebuild --clean
 ```
 
-2. Compile o app:
+2. Compile o app via EAS Build ou localmente:
 ```bash
+eas build --profile development --platform android
+# ou localmente:
 npm run android  # ou npm run ios
 ```
 
-3. Pronto! O OCR já funciona.
+3. Pronto! O OCR ja funciona com suporte a Portugues (script latino).
 
 ### Configuração Opcional (Cloud Vision API)
 
@@ -273,13 +277,14 @@ Após extrair o texto, o sistema:
 **Causa**: OCR confundiu cabeçalho/rodapé com itens
 **Solução**: Sistema filtra automaticamente termos comuns. Se persistir, use QR Code.
 
-### "ML Kit não funciona"
+### "ML Kit nao funciona"
 
-**Causa**: Modelo não baixado
-**Solução**:
+**Causa**: App rodando no Expo Go (sem modulos nativos) ou modelo nao incluido
+**Solucao**: Faca um build nativo via EAS Build ou localmente:
 ```bash
-npx expo prebuild --clean
-npm run android  # Reconstrói app
+eas build --profile development --platform android
+# ou localmente:
+npm run android
 ```
 
 ### "Cloud Vision retorna erro 403"
@@ -316,13 +321,22 @@ npm run android  # Reconstrói app
 - ✅ Dados **não armazenados** (conforme política Google)
 - ✅ Usuário **controla** quando usar (configurável)
 
-## 📚 Referências
+## 📚 Referencias e Creditos
 
-- [ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition)
-- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
-- [Google Cloud Vision API](https://cloud.google.com/vision/docs/ocr)
+### Bibliotecas OCR
+| Biblioteca | Autor | Licenca | Docs Oficiais |
+|---|---|---|---|
+| [rn-mlkit-ocr](https://github.com/ahmeterenodaci/rn-mlkit-ocr) | [@ahmeterenodaci](https://github.com/ahmeterenodaci) | MIT | [README](https://github.com/ahmeterenodaci/rn-mlkit-ocr#readme) |
+| [Tesseract.js](https://github.com/naptha/tesseract.js) | naptha | Apache-2.0 | [Docs](https://tesseract.projectnaptha.com/) |
+
+### Documentacao Oficial
+- [Google ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition) - Engine por tras do rn-mlkit-ocr
+- [ML Kit Supported Languages](https://developers.google.com/ml-kit/vision/text-recognition/v2/languages) - Lista completa de idiomas suportados
+- [Google Cloud Vision API](https://cloud.google.com/vision/docs/ocr) - API paga opcional (fallback)
+
+### Expo / React Native
+- [Expo Camera](https://docs.expo.dev/versions/latest/sdk/camera/)
 - [Expo Image Picker](https://docs.expo.dev/versions/latest/sdk/imagepicker/)
-- [Expo Barcode Scanner](https://docs.expo.dev/versions/latest/sdk/bar-code-scanner/)
 
 ## 🚀 Próximos Passos
 
