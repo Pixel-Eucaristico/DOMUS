@@ -59,6 +59,10 @@ class SoundManager {
         }
       }
 
+      // Audio focus: resolvido via patch-package no AudioModule.kt nativo.
+      // O default de interruptionMode foi alterado de null para MIX_WITH_OTHERS,
+      // garantindo que requestAudioFocus() nunca seja chamado. Isso evita que
+      // efeitos sonoros pausem videos/musica de outros apps (YouTube, Spotify).
       this.isLoaded = true;
     } catch (e) {
       console.warn("Failed to load sounds", e);

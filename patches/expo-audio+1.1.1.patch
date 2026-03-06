@@ -1,0 +1,32 @@
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt
+index 49a53af..217a9c2 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt
+@@ -55,7 +55,7 @@ class AudioModule : Module() {
+   private var audioEnabled = true
+   private var shouldRouteThroughEarpiece = false
+   private var focusAcquired = false
+-  private var interruptionMode: InterruptionMode? = null
++  private var interruptionMode: InterruptionMode? = InterruptionMode.MIX_WITH_OTHERS
+   private var allowsBackgroundRecording = false
+ 
+   private var audioFocusRequest: AudioFocusRequest? = null
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+index 320062e..8d3883f 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+@@ -43,7 +43,13 @@ class AudioPlayer(
+ ) : SharedRef<ExoPlayer>(
+   ExoPlayer.Builder(context)
+     .setLooper(context.mainLooper)
+-    .setAudioAttributes(AudioAttributes.DEFAULT, false)
++    .setAudioAttributes(
++      AudioAttributes.Builder()
++        .setUsage(C.USAGE_ASSISTANCE_SONIFICATION)
++        .setContentType(C.AUDIO_CONTENT_TYPE_SONIFICATION)
++        .build(),
++      false
++    )
+     .setSeekForwardIncrementMs(SEEK_JUMP_INTERVAL_MS)
+     .setSeekBackIncrementMs(SEEK_JUMP_INTERVAL_MS)
+     .build(),
