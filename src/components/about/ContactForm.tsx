@@ -11,6 +11,7 @@ import { Feather } from "@expo/vector-icons";
 import { EmailService } from "@/src/modules/security/application/EmailService";
 import type { ContactFormData } from "@/src/modules/security/application/EmailService";
 import { DeviceInfoService } from "@/src/modules/security/infrastructure/DeviceInfoService";
+import { soundManager } from "@/src/services/SoundManager";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -118,7 +119,7 @@ export function ContactForm({ theme }: ContactFormProps) {
           { backgroundColor: theme.primaryColor },
           sending && s.submitBtnDisabled,
         ]}
-        onPress={handleSendEmail}
+        onPress={() => { soundManager.play("success"); handleSendEmail(); }}
         disabled={sending}
         activeOpacity={0.8}
       >

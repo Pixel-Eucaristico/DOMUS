@@ -4,6 +4,7 @@ import { CameraView } from "expo-camera";
 import { Feather } from "@expo/vector-icons";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
+import { soundManager } from "@/src/services/SoundManager";
 
 type ScanMode = "qr" | "barcode";
 
@@ -71,19 +72,19 @@ export function QrScanScreen({
 
       {/* TOP BAR: close + mode tabs */}
       <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={onClose} hitSlop={12} style={s.closeBtn}>
+        <Pressable onPress={() => { soundManager.play("tap"); onClose(); }} hitSlop={12} style={s.closeBtn}>
           <Feather name="x" size={22} color="#FFF" />
         </Pressable>
         <View style={s.tabs}>
           <Pressable
             style={[s.tab, scanMode === "qr" && s.tabActive]}
-            onPress={() => { setScanMode("qr"); setShowKeyInput(false); }}
+            onPress={() => { soundManager.play("tabSwitch"); setScanMode("qr"); setShowKeyInput(false); }}
           >
             <Text style={[s.tabText, scanMode === "qr" && s.tabTextActive]}>QR Code</Text>
           </Pressable>
           <Pressable
             style={[s.tab, scanMode === "barcode" && s.tabActive]}
-            onPress={() => { setScanMode("barcode"); setShowKeyInput(false); }}
+            onPress={() => { soundManager.play("tabSwitch"); setScanMode("barcode"); setShowKeyInput(false); }}
           >
             <Text style={[s.tabText, scanMode === "barcode" && s.tabTextActive]}>Cód. Barras</Text>
           </Pressable>
@@ -118,13 +119,13 @@ export function QrScanScreen({
             <View style={s.keyActions}>
               <Pressable
                 style={[s.keyActionBtn, s.keyActionBtnOutline]}
-                onPress={() => setShowKeyInput(false)}
+                onPress={() => { soundManager.play("tap"); setShowKeyInput(false); }}
               >
                 <Text style={s.keyActionBtnOutlineText}>Cancelar</Text>
               </Pressable>
               <Pressable
                 style={[s.keyActionBtn, s.keyActionBtnFill]}
-                onPress={onManualChaveSubmit}
+                onPress={() => { soundManager.play("tap"); onManualChaveSubmit(); }}
               >
                 <Feather name="search" size={16} color="#FFF" />
                 <Text style={s.keyActionBtnFillText}>Consultar SEFAZ</Text>
@@ -133,13 +134,13 @@ export function QrScanScreen({
           </View>
         ) : (
           <View style={s.bottomActions}>
-            <Pressable style={s.bottomBtn} onPress={onQRFromGallery}>
+            <Pressable style={s.bottomBtn} onPress={() => { soundManager.play("tap"); onQRFromGallery(); }}>
               <View style={s.bottomBtnIcon}>
                 <Feather name="image" size={24} color="#FFF" />
               </View>
               <Text style={s.bottomBtnLabel}>Galeria</Text>
             </Pressable>
-            <Pressable style={s.bottomBtn} onPress={() => setShowKeyInput(true)}>
+            <Pressable style={s.bottomBtn} onPress={() => { soundManager.play("tap"); setShowKeyInput(true); }}>
               <View style={s.bottomBtnIcon}>
                 <Feather name="hash" size={24} color="#FFF" />
               </View>

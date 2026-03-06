@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from "react";
+import { soundManager } from "@/src/services/SoundManager";
 import type { DomainEvent } from "@packages/events/src/types";
 import { EVENT_TYPES } from "@packages/events/src/types";
 import type { AppState } from "@packages/domain/src/state";
@@ -183,6 +184,7 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
       signature: "",
     } as GamificationEvent;
     dispatchGamEvent(evt);
+    soundManager.play("reveal");
   }, [loading, deviceId, isCatholic, gamification.selectedSeasonalTrophies, gamification.completedSeasonalTrophies, dispatchGamEvent]);
 
   // ── Seasonal Trophy: check completion ───────────────────────────────
@@ -310,6 +312,7 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
         const levelCheck = shouldLevelUp(currentTotalXp, estimatedNewTotalXp);
 
         if (levelCheck.leveledUp) {
+          soundManager.play("levelUp");
           dispatchGamEvent({
             id: generateId(),
             type: GAMIFICATION_EVENTS.LEVEL_UP,

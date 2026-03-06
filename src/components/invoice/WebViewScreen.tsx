@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
 import { BROWSER_UA } from "@/src/hooks/useInvoiceWebView";
+import { soundManager } from "@/src/services/SoundManager";
 
 interface Props {
   theme: ThemeColors;
@@ -45,7 +46,7 @@ export function WebViewScreen({
     <View style={s.container}>
       {/* Header */}
       <View style={[s.header, { paddingTop: insets.top + 10, backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
-        <Pressable onPress={onClose} hitSlop={12}>
+        <Pressable onPress={() => { soundManager.play("tap"); onClose(); }} hitSlop={12}>
           <Feather name="x" size={22} color={theme.textColor} />
         </Pressable>
         <Text style={[s.headerTitle, { color: theme.textColor }]} numberOfLines={1}>
@@ -101,7 +102,7 @@ export function WebViewScreen({
       ) : !isWaitingUserClick ? (
         <Pressable
           style={[s.captureBtn, { backgroundColor: theme.primaryColor, bottom: insets.bottom + 16 }]}
-          onPress={onCapture}
+          onPress={() => { soundManager.play("tap"); onCapture(); }}
         >
           <Feather name="download-cloud" size={20} color="#FFF" />
           <Text style={s.captureBtnText}>Capturar Dados da Nota</Text>

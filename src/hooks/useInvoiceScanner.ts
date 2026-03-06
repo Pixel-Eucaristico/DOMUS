@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { Alert, Platform } from "react-native";
+import { soundManager } from "@/src/services/SoundManager";
 import type { OCRProvider } from "@packages/parsers";
 import { useCameraPermissions, scanFromURLAsync } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
@@ -118,6 +119,7 @@ export function useInvoiceScanner(
         onError("QR Code inválido. Certifique-se de que é um QR Code de NFC-e.", false);
         return;
       }
+      soundManager.play("share");
       onNavigateWebView(parsed.url, parsed.chaveAcesso || "");
     },
     [onNavigateWebView, onError],

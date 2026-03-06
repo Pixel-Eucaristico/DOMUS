@@ -15,6 +15,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
+import { soundManager } from "@/src/services/SoundManager";
 
 interface Props {
   visible: boolean;
@@ -53,6 +54,7 @@ export function CreateListModal({ visible, theme, onConfirm, onCancel }: Props) 
 
   const handleConfirm = () => {
     if (!isValid) return;
+    soundManager.play("success");
     animateClose(() => {
       onConfirm(name.trim());
       setName("");
@@ -60,6 +62,7 @@ export function CreateListModal({ visible, theme, onConfirm, onCancel }: Props) 
   };
 
   const handleCancel = () => {
+    soundManager.play("tap");
     animateClose(() => {
       setName("");
       onCancel();

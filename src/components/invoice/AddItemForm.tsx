@@ -2,6 +2,7 @@ import React from "react";
 import { View, TextInput, Pressable, Text, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
+import { soundManager } from "@/src/services/SoundManager";
 
 interface Props {
   theme: ThemeColors;
@@ -93,7 +94,7 @@ export function AddItemForm({
       </View>
       <Pressable
         style={[s.confirmItemBtn, { backgroundColor: theme.primaryColor }]}
-        onPress={onConfirm}
+        onPress={() => { soundManager.play("success"); onConfirm(); }}
       >
         <Feather name="check" size={16} color="#FFF" />
         <Text style={s.confirmItemBtnText}>Confirmar</Text>

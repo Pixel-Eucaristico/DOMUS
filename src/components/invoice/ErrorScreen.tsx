@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ThemeColors } from "@packages/theme";
+import { soundManager } from "@/src/services/SoundManager";
 
 interface Props {
   theme: ThemeColors;
@@ -18,13 +19,13 @@ export function ErrorScreen({ theme, error, showOcrSettingsLink, onReset }: Prop
     <View style={s.container}>
       <Feather name="alert-circle" size={60} color={theme.danger} style={{ marginBottom: 20 }} />
       <Text style={[s.errorText, { color: theme.textColor }]}>{error}</Text>
-      <Pressable style={[s.button, { backgroundColor: theme.primaryColor }]} onPress={onReset}>
+      <Pressable style={[s.button, { backgroundColor: theme.primaryColor }]} onPress={() => { soundManager.play("tap"); onReset(); }}>
         <Text style={s.buttonText}>Voltar ao início</Text>
       </Pressable>
       {showOcrSettingsLink ? (
         <Pressable
           style={[s.outlineButton, { borderColor: theme.primaryColor }]}
-          onPress={() => router.push("/ocr-settings")}
+          onPress={() => { soundManager.play("tap"); router.push("/ocr-settings"); }}
         >
           <Feather name="settings" size={18} color={theme.primaryColor} />
           <Text style={[s.outlineButtonText, { color: theme.primaryColor }]}>
@@ -32,7 +33,7 @@ export function ErrorScreen({ theme, error, showOcrSettingsLink, onReset }: Prop
           </Text>
         </Pressable>
       ) : (
-        <Pressable style={[s.outlineButton, { borderColor: theme.border }]} onPress={onReset}>
+        <Pressable style={[s.outlineButton, { borderColor: theme.border }]} onPress={() => { soundManager.play("tap"); onReset(); }}>
           <Feather name="hash" size={18} color={theme.textColor} />
           <Text style={[s.outlineButtonText, { color: theme.textColor }]}>
             Digitar Chave de Acesso

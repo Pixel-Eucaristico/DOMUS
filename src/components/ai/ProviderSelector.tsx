@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 import type { AIProvider, AIModelTier } from "@packages/ai";
 import { AI_MODELS } from "@packages/ai";
 
@@ -42,7 +43,7 @@ export function ProviderSelector({
           return (
             <TouchableOpacity
               key={p.id}
-              onPress={() => onProviderChange(p.id)}
+              onPress={() => { soundManager.play("tap"); onProviderChange(p.id); }}
               style={[
                 styles.chip,
                 {
@@ -76,7 +77,7 @@ export function ProviderSelector({
           return (
             <TouchableOpacity
               key={t.id}
-              onPress={() => onTierChange(t.id)}
+              onPress={() => { soundManager.play("tap"); onTierChange(t.id); }}
               style={[
                 styles.chip,
                 {

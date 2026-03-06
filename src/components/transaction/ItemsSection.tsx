@@ -16,6 +16,7 @@ import {
 } from "@/src/constants/transactionCategories";
 import { GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { CategoryChipScroll } from "@/src/components/shared/CategoryChipScroll";
+import { soundManager } from "@/src/services/SoundManager";
 
 const DEFAULT_CATEGORY_ID = TRANSACTION_CATEGORIES[0]!.id;
 
@@ -53,6 +54,7 @@ export function ItemsSection({
       Alert.alert("Item inválido", "Informe descrição, quantidade e preço unitário.");
       return;
     }
+    soundManager.play("success");
     onAddItem({
       description: newItemDesc.trim(),
       quantity: newItemQty,
@@ -81,6 +83,7 @@ export function ItemsSection({
         </Text>
         <Pressable
           onPress={() => {
+            soundManager.play("pop");
             setShowAddItem((v) => !v);
             setEditingItemId(null);
           }}
@@ -205,13 +208,13 @@ export function ItemsSection({
               </View>
               <Text style={[s.itemAmt, { color: theme.textColor }]}>R$ {amt.toFixed(2)}</Text>
               <Pressable
-                onPress={() => setEditingItemId(isEditing ? null : item.id)}
+                onPress={() => { soundManager.play("tap"); setEditingItemId(isEditing ? null : item.id); }}
                 hitSlop={8}
                 style={{ marginLeft: 8 }}
               >
                 <Feather name="edit-2" size={16} color={theme.primaryColor} />
               </Pressable>
-              <Pressable onPress={() => onRemoveItem(item.id)} hitSlop={8} style={{ marginLeft: 8 }}>
+              <Pressable onPress={() => { soundManager.play("trash"); onRemoveItem(item.id); }} hitSlop={8} style={{ marginLeft: 8 }}>
                 <Feather name="trash-2" size={16} color={theme.danger} />
               </Pressable>
             </View>

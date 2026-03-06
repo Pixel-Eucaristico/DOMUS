@@ -9,6 +9,7 @@ import {
   getTierLabel,
 } from "@packages/gamification/src/seasonalTrophies";
 import { ALL_LITURGICAL_TROPHIES } from "@packages/gamification/src/liturgicalTrophies";
+import { soundManager } from "@/src/services/SoundManager";
 
 const ABBR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -59,6 +60,7 @@ export function TrophyAlbumView({
               <TouchableOpacity
                 key={year}
                 onPress={() => {
+                  soundManager.play("tap");
                   triggerHaptic();
                   onYearChange(year);
                 }}
@@ -111,6 +113,7 @@ export function TrophyAlbumView({
               key={mk}
               onPress={() => {
                 if (sel && t) {
+                  soundManager.play("tap");
                   triggerHaptic();
                   onSelectTrophy({
                     trophy: t,

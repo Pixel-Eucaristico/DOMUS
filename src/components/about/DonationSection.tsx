@@ -13,6 +13,7 @@ import QRCode from "react-native-qrcode-svg";
 import * as Haptics from "expo-haptics";
 import { ClipboardService } from "@/src/modules/security/application/ClipboardService";
 import { buildPixPayload } from "@packages/domain/src/pixPayload";
+import { soundManager } from "@/src/services/SoundManager";
 
 const PIX_KEY = "55.075.291/0001-79";
 const PIX_PAYLOAD = buildPixPayload(PIX_KEY);
@@ -41,6 +42,7 @@ export function DonationSection({ theme }: DonationSectionProps) {
   const [pixCopied, setPixCopied] = useState(false);
 
   const handleCopyPix = useCallback(async () => {
+    soundManager.play("success");
     const ok = await ClipboardService.copy(PIX_KEY);
     if (ok) {
       if (Platform.OS !== "web") {
@@ -141,7 +143,7 @@ export function LinkRow({
   return (
     <TouchableOpacity
       style={linkStyles.row}
-      onPress={onPress}
+      onPress={() => { soundManager.play("tap"); onPress(); }}
       activeOpacity={0.6}
     >
       <View style={[linkStyles.iconBg, { backgroundColor: color + "18" }]}>

@@ -16,6 +16,7 @@ import { EditableItem } from "@/src/hooks/useEditableItems";
 import { AccountPicker } from "@/src/components/shared/AccountPicker";
 import { AddItemForm } from "./AddItemForm";
 import { EditableItemRow } from "./EditableItemRow";
+import { soundManager } from "@/src/services/SoundManager";
 
 interface Props {
   theme: ThemeColors;
@@ -135,6 +136,7 @@ export function ParsedScreen({
                 { borderColor: theme.primaryColor, backgroundColor: `${theme.primaryColor}15` },
               ]}
               onPress={() => {
+                soundManager.play("pop");
                 onIsAddingItemChange(!isAddingItem);
                 onEditingIdxChange(null);
               }}
@@ -162,7 +164,7 @@ export function ParsedScreen({
                     marginTop: 8,
                   },
                 ]}
-                onPress={() => onIsAddingItemChange(true)}
+                onPress={() => { soundManager.play("pop"); onIsAddingItemChange(true); }}
               >
                 <Feather name="plus" size={14} color={theme.primaryColor} />
                 <Text style={[s.addItemBtnText, { color: theme.primaryColor }]}>
@@ -221,10 +223,10 @@ export function ParsedScreen({
           </Text>
         </View>
         <View style={s.actionRow}>
-          <Pressable style={[s.cancelBtn, { borderColor: theme.border }]} onPress={onCancel}>
+          <Pressable style={[s.cancelBtn, { borderColor: theme.border }]} onPress={() => { soundManager.play("tap"); onCancel(); }}>
             <Text style={[s.cancelBtnText, { color: theme.textColor }]}>Cancelar</Text>
           </Pressable>
-          <Pressable style={[s.confirmBtn, { backgroundColor: theme.primaryColor }]} onPress={onConfirm}>
+          <Pressable style={[s.confirmBtn, { backgroundColor: theme.primaryColor }]} onPress={() => { soundManager.play("success"); onConfirm(); }}>
             <Text style={s.confirmBtnText}>Confirmar Importacao</Text>
           </Pressable>
         </View>

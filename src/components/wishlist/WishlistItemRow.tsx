@@ -11,6 +11,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import type { WishlistItem, UrgencyLevel } from "@packages/wishlist";
+import { soundManager } from "@/src/services/SoundManager";
 
 const URGENCY_COLORS: Record<UrgencyLevel, string> = {
   PRIORITY: "#DC2626",
@@ -203,7 +204,7 @@ export function WishlistItemRow({
         {onEdit && (
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={() => onEdit(item)}
+            onPress={() => { soundManager.play("tap"); onEdit(item); }}
             activeOpacity={0.7}
           >
             <Feather name="edit-2" size={15} color={theme.secondaryText} />
@@ -212,7 +213,7 @@ export function WishlistItemRow({
         {onConvert && (
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={() => onConvert(item)}
+            onPress={() => { soundManager.play("tap"); onConvert(item); }}
             activeOpacity={0.7}
           >
             <Feather name="shopping-bag" size={15} color={theme.secondaryText} />
@@ -221,7 +222,7 @@ export function WishlistItemRow({
         {onRemove && (
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={() => onRemove(item)}
+            onPress={() => { soundManager.play("trash"); onRemove(item); }}
             activeOpacity={0.7}
           >
             <Feather name="trash-2" size={15} color="#DC2626" />

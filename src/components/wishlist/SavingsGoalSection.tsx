@@ -11,6 +11,7 @@ import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import type { SavingsGoalConfig } from "@packages/wishlist";
 import type { AccountPayload } from "@packages/events";
+import { soundManager } from "@/src/services/SoundManager";
 
 const ACCOUNT_TYPE_ICONS: Record<string, string> = {
   checking: "credit-card",
@@ -36,7 +37,7 @@ export function SavingsGoalSection({ savingsGoal, accounts, theme, onChange }: P
       {/* Toggle header */}
       <TouchableOpacity
         style={styles.toggleRow}
-        onPress={() => update({ enabled: !savingsGoal.enabled })}
+        onPress={() => { soundManager.play("tap"); update({ enabled: !savingsGoal.enabled }); }}
         activeOpacity={0.7}
       >
         <View style={styles.toggleLeft}>
@@ -93,7 +94,7 @@ export function SavingsGoalSection({ savingsGoal, accounts, theme, onChange }: P
                           : theme.cardBackground,
                       },
                     ]}
-                    onPress={() => update({ linkedAccountId: acc.id })}
+                    onPress={() => { soundManager.play("tap"); update({ linkedAccountId: acc.id }); }}
                     activeOpacity={0.7}
                   >
                     <Feather

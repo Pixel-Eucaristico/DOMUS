@@ -9,6 +9,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import type { BackupPreview } from "@/src/modules/backup/domain/BackupMetadata";
+import { soundManager } from "@/src/services/SoundManager";
 
 interface Props {
   visible: boolean;
@@ -95,7 +96,7 @@ export function ConfirmRestoreModal({
           <View style={styles.actions}>
             <TouchableOpacity
               style={[styles.btn, { borderColor: theme.border }]}
-              onPress={onCancel}
+              onPress={() => { soundManager.play("tap"); onCancel(); }}
               activeOpacity={0.7}
             >
               <Text style={[styles.btnText, { color: theme.secondaryText }]}>
@@ -104,7 +105,7 @@ export function ConfirmRestoreModal({
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.btn, styles.btnDanger]}
-              onPress={onConfirm}
+              onPress={() => { soundManager.play("pop"); onConfirm(); }}
               activeOpacity={0.7}
             >
               <Feather name="refresh-cw" size={15} color="#fff" />

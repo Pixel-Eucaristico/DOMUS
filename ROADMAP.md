@@ -44,17 +44,19 @@
 - [x] Definir novas cores com o designer (Integrado ao sistema de Temas/Arquétipos)
 - [x] Aplicar e testar em tema claro/escuro (Validado via DebugTools)
 
-### 02 - Correcao do Som em Areas Sem Audio
+### 02 - Correcao do Som em Areas Sem Audio (CONCLUIDA)
 - **Dificuldade:** FACIL | **Urgencia:** MEDIA | **~2h**
 - **Problema:** SoundManager funciona mas 15+ componentes nao o utilizam. 4 sons definidos (`levelUp`, `reveal`, `trash`, `error`, `share`) nunca sao tocados
 - **Areas criticas:** Invoice Import (7 arquivos), Gamificacao (3), Transacoes (1), IA (3), Wishlist (2+)
 - **Solucao:** Adicionar `soundManager.play()` nos handlers de cada componente
 - **Detalhes:** [docs/roadmap/02-correcao-som.md](docs/roadmap/02-correcao-som.md)
-- [ ] Adicionar sons no Invoice Import (7 telas)
-- [ ] Adicionar sons na Gamificacao (reveal, levelUp)
-- [ ] Adicionar sons em Transacoes, IA, Wishlist
-- [ ] Mapear som `trash` para acoes de delete
-- [ ] Mapear som `error` para falhas
+- [x] Adicionar sons no Invoice Import (7 telas)
+- [x] Adicionar sons na Gamificacao (reveal, levelUp)
+- [x] Adicionar sons em Transacoes, IA, Wishlist
+- [x] Mapear som `trash` para acoes de delete
+- [x] Mapear som `error` para falhas
+- [x] Mapear som `share` para camera shutter e QR scan
+- [x] Cobertura completa: 20+ componentes, 9/9 sons mapeados, 100% dos interativos
 
 ### 03 - Testar API de OCR
 - **Dificuldade:** FACIL-MEDIO | **Urgencia:** ALTA | **~1h**
@@ -142,7 +144,7 @@ URGENCIA ALTA:
 
 URGENCIA MEDIA:
   01 - Cor Modal Catolico ....... [CONCLUIDA] ~30min
-  02 - Correcao Sons ............ [FACIL]     ~2h
+  02 - Correcao Sons ............ [CONCLUIDA] ~2h
   04 - Testar APIs IA ........... [MEDIO]     ~2h
   07 - Melhorar Tour ............ [COMPLEXO]  ~8-12h
   09 - Olerite OCR .............. [COMPLEXO]  ~6-10h

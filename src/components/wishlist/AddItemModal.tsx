@@ -23,6 +23,7 @@ import { CATEGORY_OPTIONS, GROUP_COLORS } from "@/src/constants/invoiceCategorie
 import { WishlistSearchWebView } from "./WishlistSearchWebView";
 import { SelectionModal } from "../shared/SelectionModal";
 import { useAddWishlistItem } from "@/src/hooks/useAddWishlistItem";
+import { soundManager } from "@/src/services/SoundManager";
 
 const URGENCY_LABELS: Record<UrgencyLevel, string> = {
   PRIORITY: "Prioridade",
@@ -102,7 +103,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
               <Text style={[s.title, { color: theme.textColor }]}>
                 {editItem ? "Editar Item" : "Adicionar Item"}
               </Text>
-              <TouchableOpacity onPress={handleCancel}>
+              <TouchableOpacity onPress={() => { soundManager.play("tap"); handleCancel(); }}>
                 <Feather name="x" size={22} color={theme.secondaryText} />
               </TouchableOpacity>
             </View>
@@ -169,7 +170,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                     <TouchableOpacity
                       key={level}
                       style={[s.urgencyChip, { backgroundColor: selected ? URGENCY_COLORS[level] : URGENCY_COLORS[level] + "20", borderColor: URGENCY_COLORS[level] }]}
-                      onPress={() => updateField("urgencyLevel", level)}
+                      onPress={() => { soundManager.play("tap"); updateField("urgencyLevel", level); }}
                       activeOpacity={0.7}
                     >
                       <Text style={[s.urgencyText, { color: selected ? "#fff" : URGENCY_COLORS[level] }]}>
@@ -201,7 +202,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                     <TouchableOpacity
                       key={cat.id}
                       style={[s.categoryChip, { backgroundColor: selected ? color : color + "18", borderColor: color }]}
-                      onPress={() => updateField("category", selected ? "" : cat.id)}
+                      onPress={() => { soundManager.play("tap"); updateField("category", selected ? "" : cat.id); }}
                       activeOpacity={0.7}
                     >
                       <Text style={[s.categoryChipText, { color: selected ? "#fff" : color }]}>
@@ -219,7 +220,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.savingsScroll}>
                     <TouchableOpacity
                       style={[s.savingsChip, { backgroundColor: !savingsGoal.enabled ? theme.primaryColor + "20" : theme.cardBackground, borderColor: !savingsGoal.enabled ? theme.primaryColor : theme.cardBackground }]}
-                      onPress={() => setSavingsGoal({ enabled: false })}
+                      onPress={() => { soundManager.play("tap"); setSavingsGoal({ enabled: false }); }}
                       activeOpacity={0.7}
                     >
                       <Text style={[s.savingsChipText, { color: !savingsGoal.enabled ? theme.primaryColor : theme.secondaryText }]}>
@@ -234,7 +235,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                           <TouchableOpacity
                             key={acc.id}
                             style={[s.savingsChip, { backgroundColor: selected ? "#10B98120" : theme.cardBackground, borderColor: selected ? "#10B981" : theme.cardBackground }]}
-                            onPress={() => setSavingsGoal({ enabled: true, linkedAccountId: acc.id })}
+                            onPress={() => { soundManager.play("tap"); setSavingsGoal({ enabled: true, linkedAccountId: acc.id }); }}
                             activeOpacity={0.7}
                           >
                             <Feather name="trending-up" size={11} color={selected ? "#10B981" : theme.secondaryText} />
@@ -278,13 +279,13 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
 
               {/* Actions */}
               <View style={s.actions}>
-                <TouchableOpacity style={[s.btn, { borderColor: theme.border ?? "#E5E7EB" }]} onPress={handleCancel} activeOpacity={0.7}>
+                <TouchableOpacity style={[s.btn, { borderColor: theme.border ?? "#E5E7EB" }]} onPress={() => { soundManager.play("tap"); handleCancel(); }} activeOpacity={0.7}>
                   <Text style={[s.btnText, { color: theme.secondaryText }]}>Cancelar</Text>
                 </TouchableOpacity>
                 {isValid && (
                   <TouchableOpacity
                     style={[s.btn, s.btnPrimary, { backgroundColor: theme.primaryColor }]}
-                    onPress={handleConfirm}
+                    onPress={() => { soundManager.play("success"); handleConfirm(); }}
                     activeOpacity={0.7}
                   >
                     <Feather name={editItem ? "check" : "plus"} size={16} color="#fff" />

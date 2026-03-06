@@ -12,6 +12,7 @@ import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import type { WishlistItem } from "@packages/wishlist";
 import type { AccountPayload } from "@packages/events";
+import { soundManager } from "@/src/services/SoundManager";
 
 interface Props {
   visible: boolean;
@@ -131,7 +132,7 @@ export function ConvertToExpenseModal({
                                 : theme.cardBackground,
                             },
                           ]}
-                          onPress={() => setSelectedAccountId(acc.id)}
+                          onPress={() => { soundManager.play("tap"); setSelectedAccountId(acc.id); }}
                           activeOpacity={0.7}
                         >
                           <Feather
@@ -163,7 +164,7 @@ export function ConvertToExpenseModal({
               <View style={styles.actions}>
                 <TouchableOpacity
                   style={[styles.btn, { borderColor: theme.border ?? "#E5E7EB" }]}
-                  onPress={onCancel}
+                  onPress={() => { soundManager.play("tap"); onCancel(); }}
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.btnText, { color: theme.secondaryText }]}>
@@ -172,7 +173,7 @@ export function ConvertToExpenseModal({
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.btn, styles.btnPrimary, { backgroundColor: theme.primaryColor }]}
-                  onPress={() => onConfirm(item, selectedAccountId)}
+                  onPress={() => { soundManager.play("success"); onConfirm(item, selectedAccountId); }}
                   activeOpacity={0.7}
                 >
                   <Feather name="check" size={16} color="#fff" />

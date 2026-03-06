@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 import type { AIProvider } from "@packages/ai";
 
 interface APIKeyManagerProps {
@@ -45,18 +46,22 @@ export function APIKeyManager({
       if (ok) {
         setInput("");
         setSuccess(true);
+        soundManager.play("success");
         setTimeout(() => setSuccess(false), 2500);
       } else {
         setError("Falha ao salvar — autenticação necessária.");
+        soundManager.play("error");
       }
     } catch {
       setError("Erro ao salvar a chave de API.");
+      soundManager.play("error");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async () => {
+    soundManager.play("trash");
     setIsDeleting(true);
     try {
       await onDelete(provider);

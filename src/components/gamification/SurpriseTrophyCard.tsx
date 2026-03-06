@@ -5,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
+import { soundManager } from "@/src/services/SoundManager";
 import { AnimatedSeasonalTrophy } from "./AnimatedSeasonalTrophy";
 import {
   ALL_SEASONAL_TROPHIES,
@@ -90,6 +91,7 @@ export const SurpriseTrophyCard: React.FC<SurpriseTrophyCardProps> = ({
     if (!cardRef.current) return;
     try {
       triggerHaptic();
+      soundManager.play("share");
       const uri = await captureRef(cardRef, { format: "png", quality: 0.9 });
       await Sharing.shareAsync(uri, {
         dialogTitle: `Conquistei o troféu ${trophy?.name}!`,
@@ -139,7 +141,7 @@ export const SurpriseTrophyCard: React.FC<SurpriseTrophyCardProps> = ({
             </View>
           )}
           <TouchableOpacity
-            onPress={() => setShowCatholicModal(true)}
+            onPress={() => { soundManager.play("pop"); setShowCatholicModal(true); }}
             style={[s.catholicPrefBtn, { borderColor: theme.border }]}
             activeOpacity={0.7}
           >

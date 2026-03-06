@@ -4,6 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { AnimatedSeasonalTrophy } from "./AnimatedSeasonalTrophy";
 import { getSeasonalXp } from "@packages/gamification/src/seasonalTrophies";
+import { soundManager } from "@/src/services/SoundManager";
 import type { SeasonalTier } from "@packages/gamification/src/seasonalTrophies";
 import type { AlbumTrophySelection } from "./TrophyAlbumView";
 
@@ -31,7 +32,7 @@ export function TrophyDetailModal({ selection, onClose, theme }: TrophyDetailMod
               <Text style={[s.tierBadgeText, { color: tierColor }]}>{tierLabel}</Text>
             </View>
             <TouchableOpacity
-              onPress={onClose}
+              onPress={() => { soundManager.play("tap"); onClose(); }}
               style={[s.closeModalBtn, { backgroundColor: theme.border + "44" }]}
             >
               <Feather name="x" size={18} color={theme.secondaryText} />

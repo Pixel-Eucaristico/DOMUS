@@ -5,6 +5,7 @@ import type { ThemeColors } from "@packages/theme";
 import type { EditableItem } from "@/src/hooks/useEditableItems";
 import { CATEGORY_OPTIONS, GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { CategoryChipScroll } from "@/src/components/shared/CategoryChipScroll";
+import { soundManager } from "@/src/services/SoundManager";
 
 interface Props {
   item: EditableItem;
@@ -67,7 +68,7 @@ export function EditableItemRow({
           <Feather name="edit-2" size={16} color={theme.primaryColor} />
         </Pressable>
         <Pressable
-          onPress={() => onRemove(index)}
+          onPress={() => { soundManager.play("trash"); onRemove(index); }}
           hitSlop={8}
           style={{ marginLeft: 8 }}
         >

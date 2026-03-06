@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
+import { soundManager } from "@/src/services/SoundManager";
 
 interface QRScannerModalProps {
   visible: boolean;
@@ -35,6 +36,7 @@ export function QRScannerModal({ visible, onClose, onScanned, theme }: QRScanner
       const cleaned = code.trim().toUpperCase();
       if (cleaned.length >= 4 && cleaned.length <= 8) {
         scannedRef.current = true;
+        soundManager.play("share");
         if (Platform.OS !== "web") {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }

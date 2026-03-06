@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ThemeColors } from "@packages/theme";
+import { soundManager } from "@/src/services/SoundManager";
 
 interface Props {
   theme: ThemeColors;
@@ -21,7 +22,7 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
       <Text style={[s.subtitle, { color: theme.secondaryText }]}>Escolha como deseja importar</Text>
 
       <View style={s.actions}>
-        <Pressable style={[s.mainBtn, { backgroundColor: theme.primaryColor }]} onPress={onQRPress}>
+        <Pressable style={[s.mainBtn, { backgroundColor: theme.primaryColor }]} onPress={() => { soundManager.play("tap"); onQRPress(); }}>
           <Feather name="maximize" size={28} color="#FFF" />
           <View style={s.btnTextGroup}>
             <Text style={s.mainBtnLabel}>QR Code</Text>
@@ -30,7 +31,7 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
           <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.6)" />
         </Pressable>
 
-        <Pressable style={[s.mainBtn, { backgroundColor: theme.accentColor }]} onPress={onOCRPress}>
+        <Pressable style={[s.mainBtn, { backgroundColor: theme.accentColor }]} onPress={() => { soundManager.play("tap"); onOCRPress(); }}>
           <Feather name="type" size={28} color="#FFF" />
           <View style={s.btnTextGroup}>
             <Text style={s.mainBtnLabel}>OCR — Foto</Text>
@@ -39,13 +40,13 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
           <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.6)" />
         </Pressable>
 
-        <Pressable style={[s.outlineBtn, { borderColor: theme.border }]} onPress={onManualEntry}>
+        <Pressable style={[s.outlineBtn, { borderColor: theme.border }]} onPress={() => { soundManager.play("tap"); onManualEntry(); }}>
           <Feather name="edit-3" size={20} color={theme.textColor} />
           <Text style={[s.outlineBtnText, { color: theme.textColor }]}>Lançar manualmente</Text>
         </Pressable>
       </View>
 
-      <Pressable style={s.settingsLink} onPress={() => router.push("/ocr-settings")}>
+      <Pressable style={s.settingsLink} onPress={() => { soundManager.play("tap"); router.push("/ocr-settings"); }}>
         <Feather name="settings" size={14} color={theme.secondaryText} />
         <Text style={[s.settingsLinkText, { color: theme.secondaryText }]}>Configurar OCR</Text>
       </Pressable>

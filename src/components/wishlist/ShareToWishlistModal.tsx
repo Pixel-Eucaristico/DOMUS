@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { useWishlist } from "@/src/hooks/useWishlist";
 import { wishlistScraperService } from "@packages/wishlist";
+import { soundManager } from "@/src/services/SoundManager";
 
 interface Props {
   visible: boolean;
@@ -48,6 +49,7 @@ export function ShareToWishlistModal({ visible, url, onClose }: Props) {
       setScraped(null);
       setSelectedListId(lists[0]?.id ?? null);
 
+      soundManager.play("pop");
       Animated.parallel([
         Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
         Animated.spring(slideAnim, { toValue: 0, damping: 22, stiffness: 260, useNativeDriver: true }),
@@ -108,6 +110,7 @@ export function ShareToWishlistModal({ visible, url, onClose }: Props) {
       canBuyThisMonth: false,
     });
 
+    soundManager.play("success");
     setAdded(true);
     setTimeout(() => animateClose(onClose), 900);
   }, [selectedListId, scraped, url, addItem, animateClose, onClose]);

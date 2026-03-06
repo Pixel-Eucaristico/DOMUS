@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import type { ThemeColors } from "@packages/theme";
+import { soundManager } from "@/src/services/SoundManager";
 import { PIN_LENGTH } from "@/src/modules/security/domain/UserSecuritySettings";
 
 const KEYS: readonly string[] = [
@@ -45,10 +46,12 @@ export function PinPad({
       }
 
       if (key === "⌫") {
+        soundManager.play("tap");
         setPin((p) => p.slice(0, -1));
         return;
       }
 
+      soundManager.play("tap");
       const next = pin + key;
       setPin(next);
 

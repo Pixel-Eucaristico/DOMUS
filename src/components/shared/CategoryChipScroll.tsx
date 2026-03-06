@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
 import type { ThemeColors } from "@packages/theme";
 import { GROUP_COLORS } from "@/src/constants/invoiceCategories";
+import { soundManager } from "@/src/services/SoundManager";
 
 interface CategoryOption {
   id: string;
@@ -38,7 +39,7 @@ export function CategoryChipScroll({
                   backgroundColor: selected ? `${color}18` : "transparent",
                 },
               ]}
-              onPress={() => onSelect(cat.id)}
+              onPress={() => { soundManager.play("tap"); onSelect(cat.id); }}
               accessibilityRole="radio"
               accessibilityState={{ checked: selected }}
               accessibilityLabel={`${cat.name}${selected ? ", selecionada" : ""}`}

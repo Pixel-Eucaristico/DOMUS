@@ -6,6 +6,7 @@ import { AnimatedTrophy } from "@/src/components/gamification/AnimatedTrophy";
 import { AnimatedSeasonalTrophy } from "@/src/components/gamification/AnimatedSeasonalTrophy";
 import { AnimatedCard } from "@/src/components/shared/AnimatedCard";
 import type { AchievementRarity } from "@packages/gamification/src/achievements";
+import { soundManager } from "@/src/services/SoundManager";
 import Animated, { FadeIn } from "react-native-reanimated";
 
 interface GamificationWidgetProps {
@@ -35,7 +36,7 @@ export function GamificationWidget({
             <MaterialCommunityIcons name="shield-star" size={18} color={theme.primaryColor} />
             <Text style={[s.widgetTitle, { color: theme.textColor }]}>Minha Jornada</Text>
           </View>
-          <Pressable onPress={() => router.push("/(tabs)/season")}>
+          <Pressable onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}>
             <Text style={[s.widgetSeeAll, { color: theme.primaryColor }]}>Ver tudo</Text>
           </Pressable>
         </View>
@@ -43,7 +44,7 @@ export function GamificationWidget({
         <View style={s.widgetContent}>
           <Pressable
             style={[s.trophyPreview, { backgroundColor: theme.primaryColor + '08' }]}
-            onPress={() => router.push("/(tabs)/season")}
+            onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
           >
             {currentTrophy ? (
               <>

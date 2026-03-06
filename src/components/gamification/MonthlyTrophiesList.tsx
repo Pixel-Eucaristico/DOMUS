@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { MONTHLY_TROPHIES } from "@packages/gamification/src/achievements";
+import { soundManager } from "@/src/services/SoundManager";
 
 interface MonthlyTrophiesListProps {
   theme: any;
@@ -43,7 +44,7 @@ export function MonthlyTrophiesList({
           <View>
             <Text style={[s.monthlyTitle, { color: theme.textColor }]}>Desafios</Text>
             <TouchableOpacity
-              onPress={() => onShareChallenges(completedThisMonth.size, MONTHLY_TROPHIES.length)}
+              onPress={() => { soundManager.play("share"); onShareChallenges(completedThisMonth.size, MONTHLY_TROPHIES.length); }}
               style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}
             >
               <Feather name="share-2" size={12} color={theme.primaryColor} />

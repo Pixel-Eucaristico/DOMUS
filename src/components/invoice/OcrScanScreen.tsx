@@ -6,6 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
+import { soundManager } from "@/src/services/SoundManager";
 
 interface Props {
   theme: ThemeColors;
@@ -30,6 +31,7 @@ export function OcrScanScreen({
   const [capturedUris, setCapturedUris] = useState<string[]>([]);
 
   const handleShutter = async () => {
+    soundManager.play("share");
     if (!cameraRef.current || capturing) return;
     setCapturing(true);
     try {
@@ -45,6 +47,7 @@ export function OcrScanScreen({
   };
 
   const handleGallery = async () => {
+    soundManager.play("tap");
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 1,
@@ -56,6 +59,7 @@ export function OcrScanScreen({
   };
 
   const handleProcess = () => {
+    soundManager.play("success");
     const uris = capturedUris;
     setCapturedUris([]);
     onProcessPhotos(uris);
@@ -79,7 +83,7 @@ export function OcrScanScreen({
 
       {/* TOP BAR */}
       <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={onClose} hitSlop={12} style={s.closeBtn}>
+        <Pressable onPress={() => { soundManager.play("tap"); onClose(); }} hitSlop={12} style={s.closeBtn}>
           <Feather name="x" size={22} color="#FFF" />
         </Pressable>
         <Text style={s.topTitle}>OCR — Foto da Nota</Text>
@@ -107,7 +111,7 @@ export function OcrScanScreen({
             </Text>
           </View>
           <View style={s.bannerActions}>
-            <Pressable style={s.bannerClear} onPress={() => setCapturedUris([])}>
+            <Pressable style={s.bannerClear} onPress={() => { soundManager.play("trash"); setCapturedUris([]); }}>
               <Feather name="trash-2" size={16} color="rgba(255,255,255,0.7)" />
             </Pressable>
             <Pressable
@@ -125,7 +129,7 @@ export function OcrScanScreen({
       <View style={[s.bottomBar, { paddingBottom: insets.bottom + 20 }]}>
         <View style={s.bottomRow}>
           {/* Gallery */}
-          <Pressable style={s.sideBtn} onPress={handleGallery}>
+          <Pressable style={s.sideBtn} onPress={() => { soundManager.play("tap"); handleGallery(); }}>
             <View style={s.sideBtnIcon}>
               <Feather name="image" size={22} color="#FFF" />
             </View>
@@ -146,7 +150,7 @@ export function OcrScanScreen({
           </Pressable>
 
           {/* Config API */}
-          <Pressable style={s.sideBtn} onPress={() => router.push("/ocr-settings")}>
+          <Pressable style={s.sideBtn} onPress={() => { soundManager.play("tap"); router.push("/ocr-settings"); }}>
             <View style={s.sideBtnIcon}>
               <Feather name="settings" size={22} color="#FFF" />
             </View>
