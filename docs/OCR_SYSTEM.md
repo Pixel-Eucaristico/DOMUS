@@ -119,21 +119,19 @@ O OrcaFacil possui um sistema OCR (Optical Character Recognition) híbrido que a
 ### Configuracao Padrao (ML Kit)
 
 O rn-mlkit-ocr possui um Expo config plugin que configura tudo automaticamente.
-Nao e necessario rodar `npx expo prebuild` manualmente.
+Nao precisa de `expo prebuild` nem de EAS Build. Basta instalar e configurar o plugin.
 
-1. Instale as dependencias:
+1. Instale a dependencia:
 ```bash
-npm install
+npm install rn-mlkit-ocr
 ```
 
-2. Compile o app via EAS Build ou localmente:
-```bash
-eas build --profile development --platform android
-# ou localmente:
-npm run android  # ou npm run ios
+2. Adicione o plugin no `app.json`:
+```json
+["rn-mlkit-ocr", { "ocrModels": ["latin"], "ocrUseBundled": true }]
 ```
 
-3. Pronto! O OCR ja funciona com suporte a Portugues (script latino).
+3. Pronto! O OCR funciona com suporte a Portugues (script latino).
 
 ### Configuração Opcional (Cloud Vision API)
 
@@ -279,13 +277,13 @@ Após extrair o texto, o sistema:
 
 ### "ML Kit nao funciona"
 
-**Causa**: App rodando no Expo Go (sem modulos nativos) ou modelo nao incluido
-**Solucao**: Faca um build nativo via EAS Build ou localmente:
-```bash
-eas build --profile development --platform android
-# ou localmente:
-npm run android
-```
+**Causa**: Plugin nao configurado ou app rodando no Expo Go (sem modulos nativos)
+**Solucao**:
+1. Verifique se `rn-mlkit-ocr` esta no `plugins` do `app.json`
+2. Verifique se `ocrModels: ["latin"]` esta configurado
+3. Reinstale: `npm install rn-mlkit-ocr`
+4. No Android: nenhum setup adicional necessario
+5. No iOS: rode `cd ios && pod install`
 
 ### "Cloud Vision retorna erro 403"
 

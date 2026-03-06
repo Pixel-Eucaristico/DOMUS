@@ -83,7 +83,7 @@
       "expo-secure-store",
       "expo-audio",
       [
-        "rn-mlkit-ocr",
+        "rn-mlkit-ocr/app.plugin.js",
         {
           "ocrModels": ["latin"],
           "ocrUseBundled": true
