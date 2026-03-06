@@ -14,8 +14,6 @@ variables:
 build:android:
   stage: build
   image: node:${NODE_VERSION}
-  tags:
-    - docker
   variables:
     ANDROID_HOME: "/opt/android-sdk"
     JAVA_HOME: "/usr/lib/jvm/java-17-openjdk-amd64"
@@ -74,8 +72,6 @@ build:android:
 build:android:release:
   stage: build
   image: node:${NODE_VERSION}
-  tags:
-    - docker
   variables:
     ANDROID_HOME: "/opt/android-sdk"
     JAVA_HOME: "/usr/lib/jvm/java-17-openjdk-amd64"
