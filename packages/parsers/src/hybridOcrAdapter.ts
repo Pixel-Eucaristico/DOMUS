@@ -103,29 +103,50 @@ export class HybridOCRAdapter implements OCRAdapter {
    * rn-mlkit-ocr — gratuito, on-device
    * iOS: Vision Framework (Apple)
    * Android: ML Kit (Google)
-   * Requer: expo prebuild + dev build (config plugin em app.json)
+   * Requer: development build (não funciona no Expo Go)
    */
   private async recognizeWithMlkit(imageUri: string): Promise<OCRResult> {
     try {
       const MlkitOcr = await import("rn-mlkit-ocr");
+
+      // Verificar se o módulo nativo está disponível antes de chamar
+      if (!MlkitOcr.default?.recognizeText) {
+        console.warn("[HybridOCR] rn-mlkit-ocr importado mas módulo nativo não disponível (Expo Go?)");
+        throw new Error(
+          "OCR_UNAVAILABLE: ML Kit OCR requer um development build. " +
+          "No Expo Go, módulos nativos não estão disponíveis. " +
+          "Use 'npx expo run:android' ou EAS Build para criar um dev build."
+        );
+      }
+
       const result = await MlkitOcr.default.recognizeText(imageUri);
 
       if (!result || !result.text) {
         return { text: "", confidence: 0 };
       }
 
-      const text = result.text;
-
       return {
-        text,
+        text: result.text,
         confidence: 0.85,
       };
     } catch (error) {
-      const msg = error instanceof Error ? error.message : "";
-      if (msg.includes("doesn't seem to be linked") || msg.includes("not linked") || msg.includes("Cannot find")) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.warn("[HybridOCR] Erro real do mlkit:", msg);
+
+      // Qualquer erro de módulo nativo não disponível
+      if (
+        msg.includes("OCR_UNAVAILABLE") ||
+        msg.includes("doesn't seem to be linked") ||
+        msg.includes("not linked") ||
+        msg.includes("Cannot find") ||
+        msg.includes("null is not an object") ||
+        msg.includes("undefined is not an object") ||
+        msg.includes("Cannot read prop")
+      ) {
         throw new Error(
-          "OCR_UNAVAILABLE: ML Kit OCR não está disponível. " +
-          "Verifique se o plugin rn-mlkit-ocr está configurado no app.json."
+          "OCR_UNAVAILABLE: ML Kit OCR requer um development build. " +
+          "No Expo Go, módulos nativos não estão disponíveis. " +
+          "Use 'npx expo run:android' ou EAS Build para criar um dev build."
         );
       }
       throw error;

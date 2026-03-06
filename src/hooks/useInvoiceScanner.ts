@@ -102,7 +102,8 @@ export function useInvoiceScanner(
         onError(
           Platform.OS === "web"
             ? "Falha no OCR. Verifique as configurações de OCR."
-            : "OCR não disponível. Verifique se o app foi instalado corretamente " +
+            : "OCR não disponível. O ML Kit requer um development build " +
+              "(não funciona no Expo Go). Use 'npx expo run:android' para criar um dev build, " +
               "ou configure a Cloud Vision API nas configurações.",
           true,
         );
