@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
+import { InstallmentBadge } from "@/src/components/transaction/InstallmentBadge";
 import { updateTransactionEvent } from "@packages/domain/src/transactions";
 
 function formatCurrency(v: number): string {
@@ -278,6 +279,13 @@ export default function TransactionsScreen() {
                       <Text style={[s.txDesc, { color: theme.textColor }]} numberOfLines={1}>
                         {tx.description || cat?.name || tx.type}
                       </Text>
+                      {tx.installmentInfo && (
+                        <InstallmentBadge
+                          current={tx.installmentInfo.current}
+                          total={tx.installmentInfo.total}
+                          theme={theme}
+                        />
+                      )}
                       {tx.status === "pending" && (
                         <View style={s.pendingBadge}>
                           <Text style={s.pendingBadgeText}>Pendente</Text>

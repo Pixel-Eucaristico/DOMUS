@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Alert, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -9,12 +9,14 @@ import {
   updateTransactionEvent,
   deleteTransactionEvent,
 } from "@packages/domain/src/transactions";
+import { useInstallmentGroup } from "@/src/hooks/useInstallmentGroup";
 import type {
   TransactionItem,
   TransactionPayload,
   TransactionType,
   TransactionStatus,
   RecurrenceType,
+  InstallmentAmountMode,
   CategoryCreatedEvent,
 } from "@packages/events/src/types";
 import { createEvent, generateId } from "@packages/events/src/factory";
@@ -26,6 +28,8 @@ import {
   itemTotal,
 } from "@/src/constants/transactionCategories";
 
+export type InstallmentModalType = "save" | "delete" | null;
+
 export interface UseTransactionFormResult {
   editingTx: TransactionPayload | null;
   txType: TransactionType;
@@ -36,8 +40,13 @@ export interface UseTransactionFormResult {
   setDescription: (v: string) => void;
   selectedCategory: number;
   setSelectedCategory: (v: number) => void;
-  installments: string;
-  setInstallments: (v: string) => void;
+  installmentCount: number;
+  setInstallmentCount: (v: number) => void;
+  installmentAmountMode: InstallmentAmountMode;
+  setInstallmentAmountMode: (v: InstallmentAmountMode) => void;
+  installmentStartFrom: number;
+  setInstallmentStartFrom: (v: number) => void;
+  isInstallment: boolean;
   selectedAccountId: string;
   setSelectedAccountId: (v: string) => void;
   targetAccountId: string;
@@ -58,6 +67,14 @@ export interface UseTransactionFormResult {
   handleSave: () => void;
   handleDelete: () => void;
   handleConfirm: () => void;
+  installmentModal: InstallmentModalType;
+  setInstallmentModal: (v: InstallmentModalType) => void;
+  handleInstallmentSaveOne: () => void;
+  handleInstallmentSaveFuture: () => void;
+  handleInstallmentSaveAll: () => void;
+  handleInstallmentDeleteOne: () => void;
+  handleInstallmentDeleteFuture: () => void;
+  handleInstallmentDeleteAll: () => void;
 }
 
 export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTransactionFormResult {
@@ -78,7 +95,13 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     }
     return 0;
   });
-  const [installments, setInstallments] = useState(editingTx?.installments?.toString() ?? "1");
+  const [installmentCount, setInstallmentCount] = useState(editingTx?.installments ?? 1);
+  const [installmentAmountMode, setInstallmentAmountMode] = useState<InstallmentAmountMode>("total");
+  const [installmentStartFrom, setInstallmentStartFrom] = useState(1);
+  const [installmentModal, setInstallmentModal] = useState<InstallmentModalType>(null);
+
+  const installmentGroup = useInstallmentGroup(txId);
+  const pendingChangesRef = useRef<Partial<Omit<TransactionPayload, "id">> | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>(editingTx?.accountId ?? "");
   const [targetAccountId, setTargetAccountId] = useState<string>(editingTx?.targetAccountId ?? "");
   const [status, setStatus] = useState<TransactionStatus>(editingTx?.status ?? "confirmed");
@@ -133,6 +156,10 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
 
   const handleDelete = () => {
     if (!txId) return;
+    if (installmentGroup.isInstallment) {
+      setInstallmentModal("delete");
+      return;
+    }
     Alert.alert(
       "Excluir transacao",
       "Tem certeza que deseja remover esta transacao?",
@@ -150,6 +177,26 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
         },
       ],
     );
+  };
+
+  const dispatchAndExit = (events: { type: string }[]) => {
+    for (const evt of events) {
+      dispatchDomainEvent(evt as any);
+    }
+    soundManager.play("trash");
+    if (onSuccess) onSuccess(); else router.back();
+  };
+
+  const handleInstallmentDeleteOne = () => {
+    dispatchAndExit(installmentGroup.deleteOne());
+  };
+
+  const handleInstallmentDeleteFuture = () => {
+    dispatchAndExit(installmentGroup.deleteFuture());
+  };
+
+  const handleInstallmentDeleteAll = () => {
+    dispatchAndExit(installmentGroup.deleteAll());
   };
 
   /** Efetiva uma transação pendente */
@@ -229,6 +276,26 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
       recurrence === "custom" ? parseInt(recurrenceDays, 10) || undefined : undefined;
 
     if (txId) {
+      // If editing an installment, show group modal instead of saving directly
+      if (installmentGroup.isInstallment) {
+        // Store changes for modal handlers to use
+        pendingChangesRef.current = {
+          accountId: defaultAccountId,
+          type: txType,
+          amount: amountNum,
+          categoryId: catId,
+          date,
+          description: description || cat.name,
+          targetAccountId: txType === "transfer" ? targetAccountId || undefined : undefined,
+          items: txItems,
+          status,
+          recurrence,
+          recurrenceDays: recurrenceDaysNum,
+        };
+        setInstallmentModal("save");
+        return;
+      }
+
       const event = updateTransactionEvent(txId, {
         accountId: defaultAccountId,
         type: txType,
@@ -244,8 +311,6 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
       });
       dispatchDomainEvent(event);
     } else {
-      const installmentNum = parseInt(installments, 10) || 1;
-
       const events = createTransactionEvent({
         accountId: defaultAccountId,
         type: txType,
@@ -253,7 +318,9 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
         categoryId: catId,
         date,
         description: description || cat.name,
-        installments: installmentNum,
+        installments: installmentCount,
+        installmentAmountMode,
+        installmentStartFrom,
         targetAccountId: txType === "transfer" ? targetAccountId || undefined : undefined,
         items: txItems,
         status,
@@ -273,6 +340,35 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     if (onSuccess) onSuccess(); else router.back();
   };
 
+  const saveAndExit = (events: { type: string }[]) => {
+    for (const evt of events) {
+      dispatchDomainEvent(evt as any);
+    }
+    soundManager.play("success");
+    if (Platform.OS !== "web") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    if (onSuccess) onSuccess(); else router.back();
+  };
+
+  const handleInstallmentSaveOne = () => {
+    const changes = pendingChangesRef.current;
+    if (!changes) return;
+    saveAndExit(installmentGroup.updateOne(changes));
+  };
+
+  const handleInstallmentSaveFuture = () => {
+    const changes = pendingChangesRef.current;
+    if (!changes) return;
+    saveAndExit(installmentGroup.updateFuture(changes));
+  };
+
+  const handleInstallmentSaveAll = () => {
+    const changes = pendingChangesRef.current;
+    if (!changes) return;
+    saveAndExit(installmentGroup.updateAll(changes));
+  };
+
   return {
     editingTx,
     txType,
@@ -283,8 +379,13 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     setDescription,
     selectedCategory,
     setSelectedCategory,
-    installments,
-    setInstallments,
+    installmentCount,
+    setInstallmentCount,
+    installmentAmountMode,
+    setInstallmentAmountMode,
+    installmentStartFrom,
+    setInstallmentStartFrom,
+    isInstallment: installmentGroup.isInstallment,
     selectedAccountId,
     setSelectedAccountId,
     targetAccountId,
@@ -305,5 +406,13 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     handleSave,
     handleDelete,
     handleConfirm,
+    installmentModal,
+    setInstallmentModal,
+    handleInstallmentSaveOne,
+    handleInstallmentSaveFuture,
+    handleInstallmentSaveAll,
+    handleInstallmentDeleteOne,
+    handleInstallmentDeleteFuture,
+    handleInstallmentDeleteAll,
   };
 }

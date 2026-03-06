@@ -43,7 +43,10 @@ export interface InstallmentInfo {
   current: number;
   total: number;
   parentTransactionId: string;
+  originalTotalAmount?: number;
 }
+
+export type InstallmentAmountMode = "total" | "per_installment";
 
 export interface AccountPayload {
   id: string;

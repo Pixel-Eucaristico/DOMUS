@@ -7,6 +7,7 @@ import type {
   TransactionItem,
   CategoryGroup,
   InstallmentInfo,
+  InstallmentAmountMode,
   TransactionStatus,
   RecurrenceType,
 } from "../../events/src/types";
@@ -21,6 +22,8 @@ export interface CreateTransactionParams {
   date: string;
   description?: string;
   installments?: number;
+  installmentAmountMode?: InstallmentAmountMode;
+  installmentStartFrom?: number;
   targetAccountId?: string;
   items?: TransactionItem[];
   status?: TransactionStatus;
@@ -62,23 +65,36 @@ export function createTransactionEvent(
     ];
   }
 
+  const { installmentAmountMode = "total", installmentStartFrom = 1 } = params;
+  const startFrom = Math.max(1, Math.min(installmentStartFrom, installments));
+
   const parentId = generateId();
-  const installmentAmount =
-    Math.round((params.amount / installments) * 100) / 100;
-  const remainder =
-    Math.round((params.amount - installmentAmount * installments) * 100) / 100;
+
+  // Calculo do valor por parcela
+  let perInstallment: number;
+  let totalAmount: number;
+  if (installmentAmountMode === "per_installment") {
+    perInstallment = params.amount;
+    totalAmount = Math.round(params.amount * installments * 100) / 100;
+  } else {
+    totalAmount = params.amount;
+    perInstallment = Math.round((params.amount / installments) * 100) / 100;
+  }
+  const remainder = Math.round((totalAmount - perInstallment * installments) * 100) / 100;
 
   const events: TransactionCreatedEvent[] = [];
 
-  for (let i = 0; i < installments; i++) {
+  for (let i = startFrom - 1; i < installments; i++) {
     const isLast = i === installments - 1;
-    const currentAmount = isLast ? installmentAmount + remainder : installmentAmount;
-    const dueDate = addMonths(params.date, i);
+    const currentAmount = isLast ? perInstallment + remainder : perInstallment;
+    const dateOffset = i - (startFrom - 1);
+    const dueDate = addMonths(params.date, dateOffset);
 
     const installmentInfo: InstallmentInfo = {
       current: i + 1,
       total: installments,
       parentTransactionId: parentId,
+      originalTotalAmount: totalAmount,
     };
 
     const desc = params.description
@@ -86,7 +102,7 @@ export function createTransactionEvent(
       : `Parcela ${i + 1}/${installments}`;
 
     const payload: TransactionPayload = {
-      id: i === 0 ? parentId : generateId(),
+      id: i === startFrom - 1 ? parentId : generateId(),
       accountId: params.accountId,
       type: params.type,
       amount: currentAmount,
@@ -244,6 +260,33 @@ export function getIdeal503020(totalIncome: number): BudgetBreakdown {
     savingsPercent: 20,
     totalIncome,
     adherenceScore: 100,
+  };
+}
+
+export function getInstallmentSiblings(
+  transactions: Record<string, TransactionPayload>,
+  txId: string,
+): TransactionPayload[] {
+  const tx = transactions[txId];
+  if (!tx?.installmentInfo) return [];
+  const parentId = tx.installmentInfo.parentTransactionId;
+  return Object.values(transactions)
+    .filter((t) => t.installmentInfo?.parentTransactionId === parentId)
+    .sort((a, b) => (a.installmentInfo?.current ?? 0) - (b.installmentInfo?.current ?? 0));
+}
+
+export function splitInstallmentSiblings(
+  transactions: Record<string, TransactionPayload>,
+  txId: string,
+): { current: TransactionPayload | null; past: TransactionPayload[]; future: TransactionPayload[] } {
+  const tx = transactions[txId];
+  if (!tx?.installmentInfo) return { current: null, past: [], future: [] };
+  const siblings = getInstallmentSiblings(transactions, txId);
+  const currentNum = tx.installmentInfo.current;
+  return {
+    current: tx,
+    past: siblings.filter((s) => (s.installmentInfo?.current ?? 0) < currentNum),
+    future: siblings.filter((s) => (s.installmentInfo?.current ?? 0) > currentNum),
   };
 }
 

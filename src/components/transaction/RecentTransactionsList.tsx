@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { soundManager } from "@/src/services/SoundManager";
+import { InstallmentBadge } from "@/src/components/transaction/InstallmentBadge";
 import { formatCurrency } from "@/src/utils/formatCurrency";
 import Animated, { SlideInRight, Layout } from "react-native-reanimated";
 
@@ -74,6 +75,13 @@ export function RecentTransactionsList({ recentTxs, txCount, categories, theme }
                       <Text style={[s.txDesc, { color: theme.textColor }]}>
                         {tx.description || cat?.name || tx.type}
                       </Text>
+                      {tx.installmentInfo && (
+                        <InstallmentBadge
+                          current={tx.installmentInfo.current}
+                          total={tx.installmentInfo.total}
+                          theme={theme}
+                        />
+                      )}
                       {tx.status === "pending" && (
                         <View style={s.pendingBadge}>
                           <Text style={s.pendingBadgeText}>Pendente</Text>

@@ -26,6 +26,7 @@ import { AccountPicker } from "@/src/components/shared/AccountPicker";
 import { CategorySelectorGrid } from "@/src/components/shared/CategorySelectorGrid";
 import { DatePickerField } from "@/src/components/shared/DatePickerField";
 import { ItemsSection } from "@/src/components/transaction/ItemsSection";
+import { InstallmentSelector } from "@/src/components/transaction/InstallmentSelector";
 import { TX_TYPES, getCategoriesForType } from "@/src/constants/transactionCategories";
 import type { TransactionStatus, RecurrenceType } from "@packages/events/src/types";
 import { useAppState } from "@/src/context/AppStateProvider";
@@ -333,6 +334,20 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
                   </Text>
                 </View>
               </View>
+            )}
+
+            {/* Installments (expense only) */}
+            {form.txType === "expense" && (
+              <InstallmentSelector
+                theme={theme}
+                count={form.installmentCount}
+                onChangeCount={form.setInstallmentCount}
+                amountMode={form.installmentAmountMode}
+                onChangeAmountMode={form.setInstallmentAmountMode}
+                startFrom={form.installmentStartFrom}
+                onChangeStartFrom={form.setInstallmentStartFrom}
+                totalAmount={parseFloat(form.amount.replace(",", ".")) || 0}
+              />
             )}
 
             {/* Account */}

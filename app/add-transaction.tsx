@@ -20,6 +20,8 @@ import { ItemsSection } from "@/src/components/transaction/ItemsSection";
 import { TitheCalculatorSection } from "@/src/components/transaction/TitheCalculatorSection";
 import { AccountPicker } from "@/src/components/shared/AccountPicker";
 import { DatePickerField } from "@/src/components/shared/DatePickerField";
+import { InstallmentSelector } from "@/src/components/transaction/InstallmentSelector";
+import { SelectionModal } from "@/src/components/shared/SelectionModal";
 import {
   TX_TYPES,
   getCategoriesForType,
@@ -308,36 +310,18 @@ export default function AddTransactionScreen() {
           />
         )}
 
-        {/* Installments (expense only) */}
-        {form.txType === "expense" && (
-          <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
-            <Text style={[s.label, { color: theme.secondaryText }]}>Parcelas</Text>
-            <View style={s.chipRow}>
-              {["1", "2", "3", "6", "12"].map((n) => {
-                const active = form.installments === n;
-                return (
-                  <Pressable
-                    key={n}
-                    style={[
-                      s.installChip,
-                      {
-                        backgroundColor: active ? theme.primaryColor : theme.background,
-                        borderColor: active ? theme.primaryColor : theme.border,
-                      },
-                    ]}
-                    onPress={() => {
-                      soundManager.play("tap");
-                      form.setInstallments(n);
-                    }}
-                  >
-                    <Text style={[s.installText, { color: active ? "#FFF" : theme.textColor }]}>
-                      {n}x
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+        {/* Installments (expense only, new transactions) */}
+        {form.txType === "expense" && !txId && (
+          <InstallmentSelector
+            theme={theme}
+            count={form.installmentCount}
+            onChangeCount={form.setInstallmentCount}
+            amountMode={form.installmentAmountMode}
+            onChangeAmountMode={form.setInstallmentAmountMode}
+            startFrom={form.installmentStartFrom}
+            onChangeStartFrom={form.setInstallmentStartFrom}
+            totalAmount={parseFloat(form.amount.replace(",", ".")) || 0}
+          />
         )}
 
         {/* Status */}
@@ -442,6 +426,34 @@ export default function AddTransactionScreen() {
           </Pressable>
         )}
       </ScrollView>
+
+      {/* Installment group save modal */}
+      <SelectionModal
+        visible={form.installmentModal === "save"}
+        title="Aplicar alteracoes"
+        subtitle="Esta transacao faz parte de um parcelamento"
+        options={[
+          { label: "Somente esta parcela", icon: "edit-2", onPress: form.handleInstallmentSaveOne },
+          { label: "Esta e futuras", icon: "fast-forward", onPress: form.handleInstallmentSaveFuture },
+          { label: "Todas as parcelas", icon: "layers", onPress: form.handleInstallmentSaveAll },
+        ]}
+        onCancel={() => form.setInstallmentModal(null)}
+        theme={theme}
+      />
+
+      {/* Installment group delete modal */}
+      <SelectionModal
+        visible={form.installmentModal === "delete"}
+        title="Excluir parcela"
+        subtitle="Esta transacao faz parte de um parcelamento"
+        options={[
+          { label: "Somente esta parcela", icon: "trash-2", color: theme.danger, onPress: form.handleInstallmentDeleteOne },
+          { label: "Esta e futuras", icon: "fast-forward", color: theme.danger, onPress: form.handleInstallmentDeleteFuture },
+          { label: "Todas as parcelas", icon: "layers", color: theme.danger, onPress: form.handleInstallmentDeleteAll },
+        ]}
+        onCancel={() => form.setInstallmentModal(null)}
+        theme={theme}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -500,8 +512,6 @@ const s = StyleSheet.create({
     borderWidth: 1,
   },
   catChipText: { fontFamily: "DMSans_500Medium", fontSize: 12 },
-  installChip: { flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
-  installText: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
   saveBtn: {
     flexDirection: "row",
     alignItems: "center",
