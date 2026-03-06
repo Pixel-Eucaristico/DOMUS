@@ -38,10 +38,10 @@ build:android:
     # Generate native Android project
     - npx expo prebuild --platform android --clean --no-install
 
-    # Build debug APK (faster, no signing needed for dev)
+    # Build only arm64 ABI to save disk space on shared runners
     - cd android
     - chmod +x gradlew
-    - ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx2g"
+    - ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx2g" -PreactNativeArchitectures=arm64-v8a
     - cd ..
 
     # Copy APK to root for artifact
@@ -59,14 +59,6 @@ build:android:
     - if: $CI_COMMIT_TAG
     - when: manual
       allow_failure: true
-
-  cache:
-    key:
-      files:
-        - package-lock.json
-    paths:
-      - node_modules/
-      - .expo/
 
 # ─── Android Release APK (signed) ──────────────────────────────────────────────
 build:android:release:
@@ -106,13 +98,13 @@ build:android:release:
       MYAPP_UPLOAD_STORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD
       MYAPP_UPLOAD_KEY_PASSWORD=$ANDROID_KEY_PASSWORD
       PROPS
-        ./gradlew assembleRelease --no-daemon -Dorg.gradle.jvmargs="-Xmx2g"
+        ./gradlew assembleRelease --no-daemon -Dorg.gradle.jvmargs="-Xmx2g" -PreactNativeArchitectures=arm64-v8a
         cd ..
         mkdir -p build
         cp android/app/build/outputs/apk/release/app-release.apk build/domus-release.apk
       else
         echo "AVISO: Keystore nao configurado. Gerando APK debug."
-        ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx2g"
+        ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx2g" -PreactNativeArchitectures=arm64-v8a
         cd ..
         mkdir -p build
         cp android/app/build/outputs/apk/debug/app-debug.apk build/domus-release.apk
@@ -128,14 +120,6 @@ build:android:release:
     - if: $CI_COMMIT_TAG
     - when: manual
       allow_failure: true
-
-  cache:
-    key:
-      files:
-        - package-lock.json
-    paths:
-      - node_modules/
-      - .expo/
 
 # ─── iOS (requer runner macOS) ──────────────────────────────────────────────────
 build:ios:
