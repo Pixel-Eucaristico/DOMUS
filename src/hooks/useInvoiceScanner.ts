@@ -102,7 +102,7 @@ export function useInvoiceScanner(
         onError(
           Platform.OS === "web"
             ? "Falha no OCR. Verifique as configurações de OCR."
-            : "OCR não disponível. Faça um build nativo via EAS Build para OCR gratuito, " +
+            : "OCR não disponível. Verifique se o app foi instalado corretamente " +
               "ou configure a Cloud Vision API nas configurações.",
           true,
         );
