@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
 import { TokenPricingService } from "@/src/modules/ai/infrastructure/TokenPricingService";
-import { DAILY_TOKEN_BUDGET, PROVIDER_THEME, getProviderBudget } from "@/src/modules/ai/domain/AISettings";
+import { PROVIDER_THEME, getProviderBudget, isUnlimitedBudget } from "@/src/modules/ai/domain/AISettings";
 import type { AIProvider, AIModelTier, DailyTokenUsage } from "@packages/ai";
 
 interface AIUsageDashboardProps {
@@ -62,7 +62,8 @@ export function AIUsageDashboard({ modelTier = "fast", customBudgets }: AIUsageD
   if (providers.length === 0 && usage.totalTokens === 0) return null;
 
   const anyOver = providers.some(
-    ([p, tokens]) => tokens >= getProviderBudget(p, customBudgets),
+    ([p, tokens]) =>
+      !isUnlimitedBudget(p, customBudgets) && tokens >= getProviderBudget(p, customBudgets),
   );
 
   return (
@@ -80,10 +81,11 @@ export function AIUsageDashboard({ modelTier = "fast", customBudgets }: AIUsageD
       </View>
 
       {providers.map(([provider, tokens]) => {
+        const unlimited = isUnlimitedBudget(provider, customBudgets);
         const budget = getProviderBudget(provider, customBudgets);
         const pTheme = PROVIDER_THEME[provider];
-        const pct = Math.min(100, (tokens / budget) * 100);
-        const isOver = tokens >= budget;
+        const pct = unlimited ? 0 : Math.min(100, (tokens / budget) * 100);
+        const isOver = !unlimited && tokens >= budget;
         const cost = costs[provider];
 
         const barColor = isOver
@@ -104,20 +106,26 @@ export function AIUsageDashboard({ modelTier = "fast", customBudgets }: AIUsageD
                 {provider}
               </Text>
               <Text style={[styles.providerValue, { color: isOver ? theme.danger : theme.secondaryText }]}>
-                {tokens.toLocaleString("pt-BR")} / {budget.toLocaleString("pt-BR")}
+                {tokens.toLocaleString("pt-BR")}{unlimited ? "" : ` / ${budget.toLocaleString("pt-BR")}`}
               </Text>
-              <Text style={[styles.providerPct, { color: barColor }]}>
-                {Math.round(pct)}%
-              </Text>
+              {unlimited ? (
+                <Text style={[styles.providerPct, { color: pTheme.color }]}>∞</Text>
+              ) : (
+                <Text style={[styles.providerPct, { color: barColor }]}>
+                  {Math.round(pct)}%
+                </Text>
+              )}
             </View>
-            <View style={[styles.track, { backgroundColor: theme.border }]}>
-              <View
-                style={[styles.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]}
-              />
-            </View>
+            {!unlimited && (
+              <View style={[styles.track, { backgroundColor: theme.border }]}>
+                <View
+                  style={[styles.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]}
+                />
+              </View>
+            )}
             {cost && (
               <Text style={[styles.costText, { color: theme.secondaryText }]}>
-                Custo est.: R$ {cost.costBrl.toFixed(4)} / R$ {cost.budgetCostBrl.toFixed(4)} max
+                Custo est.: R$ {cost.costBrl.toFixed(4)}{unlimited ? "" : ` / R$ ${cost.budgetCostBrl.toFixed(4)} max`}
               </Text>
             )}
           </View>
