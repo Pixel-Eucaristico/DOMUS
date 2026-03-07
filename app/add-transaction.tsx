@@ -22,6 +22,9 @@ import { AccountPicker } from "@/src/components/shared/AccountPicker";
 import { DatePickerField } from "@/src/components/shared/DatePickerField";
 import { InstallmentSelector } from "@/src/components/transaction/InstallmentSelector";
 import { SelectionModal } from "@/src/components/shared/SelectionModal";
+import { ResponsiveContainer } from "@/src/ui/components/ResponsiveContainer";
+import { ResponsiveRow } from "@/src/ui/components/ResponsiveRow";
+import { ResponsiveColumn } from "@/src/ui/components/ResponsiveColumn";
 import {
   TX_TYPES,
   getCategoriesForType,
@@ -113,6 +116,7 @@ export default function AddTransactionScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        <ResponsiveContainer>
         {/* Header */}
         <View style={s.topRow}>
           <Pressable onPress={form.handleDelete} hitSlop={12} style={{ opacity: txId ? 1 : 0 }}>
@@ -192,214 +196,234 @@ export default function AddTransactionScreen() {
           />
         )}
 
-        {/* Description */}
-        <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
-          <Text style={[s.label, { color: theme.secondaryText }]}>Descricao</Text>
-          <TextInput
-            style={[s.textInput, { color: theme.textColor, borderColor: theme.border }]}
-            value={form.description}
-            onChangeText={form.setDescription}
-            placeholder="Ex: Supermercado"
-            placeholderTextColor={theme.secondaryText}
-          />
-        </View>
+        <ResponsiveRow>
+          <ResponsiveColumn>
+            {/* Description */}
+            <View style={[s.card, { backgroundColor: theme.cardBackground, marginBottom: 16 }]}>
+              <Text style={[s.label, { color: theme.secondaryText }]}>Descricao</Text>
+              <TextInput
+                style={[s.textInput, { color: theme.textColor, borderColor: theme.border }]}
+                value={form.description}
+                onChangeText={form.setDescription}
+                placeholder="Ex: Supermercado"
+                placeholderTextColor={theme.secondaryText}
+              />
+            </View>
 
-        {/* Date picker */}
-        <DatePickerField
-          value={form.date}
-          onChange={form.setDate}
-          theme={theme}
-          label="Data do lançamento"
-        />
+            {/* Date picker */}
+            <View style={{ marginBottom: 16 }}>
+              <DatePickerField
+                value={form.date}
+                onChange={form.setDate}
+                theme={theme}
+                label="Data do lançamento"
+              />
+            </View>
+          </ResponsiveColumn>
 
-        {/* Account picker */}
-        <AccountPicker
-          accounts={accounts}
-          selectedId={defaultAccountId}
-          theme={theme}
-          onSelect={form.setSelectedAccountId}
-        />
+          <ResponsiveColumn>
+            {/* Account picker */}
+            <View style={{ marginBottom: 16 }}>
+              <AccountPicker
+                accounts={accounts}
+                selectedId={defaultAccountId}
+                theme={theme}
+                onSelect={form.setSelectedAccountId}
+              />
+            </View>
 
-        {/* Transfer target account */}
-        {form.txType === "transfer" && accounts.length > 1 && (
-          <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
-            <Text style={[s.label, { color: theme.secondaryText }]}>Conta de destino</Text>
-            <View style={s.chipRow}>
-              {accounts
-                .filter((a) => a.id !== defaultAccountId)
-                .map((a) => {
-                  const active = form.targetAccountId === a.id;
+            {/* Transfer target account */}
+            {form.txType === "transfer" && accounts.length > 1 && (
+              <View style={[s.card, { backgroundColor: theme.cardBackground, marginBottom: 16 }]}>
+                <Text style={[s.label, { color: theme.secondaryText }]}>Conta de destino</Text>
+                <View style={s.chipRow}>
+                  {accounts
+                    .filter((a) => a.id !== defaultAccountId)
+                    .map((a) => {
+                      const active = form.targetAccountId === a.id;
+                      return (
+                        <Pressable
+                          key={a.id}
+                          style={[
+                            s.chip,
+                            {
+                              backgroundColor: active ? `${theme.primaryColor}15` : theme.background,
+                              borderColor: active ? theme.primaryColor : theme.border,
+                            },
+                          ]}
+                          onPress={() => {
+                            soundManager.play("tap");
+                            form.setTargetAccountId(a.id);
+                          }}
+                        >
+                          <Text
+                            style={[s.chipText, { color: active ? theme.primaryColor : theme.textColor }]}
+                          >
+                            {a.name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                </View>
+              </View>
+            )}
+          </ResponsiveColumn>
+        </ResponsiveRow>
+
+        <ResponsiveRow>
+          <ResponsiveColumn>
+            {/* Category grid */}
+            <View style={[s.card, { backgroundColor: theme.cardBackground, marginBottom: 16 }]}>
+              <Text style={[s.label, { color: theme.secondaryText }]}>
+                Categoria ({groupLabel((typeCats[form.selectedCategory] ?? typeCats[0]!).group)})
+              </Text>
+              <View style={s.categoryGrid}>
+                {typeCats.map((cat, i) => {
+                  const color = GROUP_COLORS[cat.group] ?? theme.primaryColor;
+                  const active = form.selectedCategory === i;
                   return (
                     <Pressable
-                      key={a.id}
+                      key={cat.id}
+                      style={[
+                        s.catChip,
+                        {
+                          backgroundColor: active ? `${color}18` : theme.background,
+                          borderColor: active ? color : theme.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        soundManager.play("tap");
+                        form.setSelectedCategory(i);
+                      }}
+                    >
+                      <Feather
+                        name={cat.icon as any}
+                        size={14}
+                        color={active ? color : theme.secondaryText}
+                      />
+                      <Text style={[s.catChipText, { color: active ? color : theme.textColor }]}>
+                        {cat.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Tithe calculator */}
+            {isTithe && (
+              <View style={{ marginBottom: 16 }}>
+                <TitheCalculatorSection
+                  theme={theme}
+                  percentage={tithe.percentage}
+                  setPercentage={tithe.setPercentage}
+                  baseType={tithe.baseType}
+                  setBaseType={tithe.setBaseType}
+                  periodType={tithe.periodType}
+                  setPeriodType={tithe.setPeriodType}
+                  customDays={tithe.customDays}
+                  setCustomDays={tithe.setCustomDays}
+                  result={tithe.result}
+                />
+              </View>
+            )}
+
+            {/* Installments (expense only, new transactions) */}
+            {form.txType === "expense" && !txId && (
+              <View style={{ marginBottom: 16 }}>
+                <InstallmentSelector
+                  theme={theme}
+                  count={form.installmentCount}
+                  onChangeCount={form.setInstallmentCount}
+                  amountMode={form.installmentAmountMode}
+                  onChangeAmountMode={form.setInstallmentAmountMode}
+                  startFrom={form.installmentStartFrom}
+                  onChangeStartFrom={form.setInstallmentStartFrom}
+                  totalAmount={parseFloat(form.amount.replace(",", ".")) || 0}
+                />
+              </View>
+            )}
+          </ResponsiveColumn>
+
+          <ResponsiveColumn>
+            {/* Status */}
+            <View style={[s.card, { backgroundColor: theme.cardBackground, marginBottom: 16 }]}>
+              <Text style={[s.label, { color: theme.secondaryText }]}>Status</Text>
+              <View style={s.chipRow}>
+                {STATUS_OPTIONS.map((opt) => {
+                  const active = form.status === opt.key;
+                  const color = opt.key === "confirmed" ? theme.success : "#F59E0B";
+                  return (
+                    <Pressable
+                      key={opt.key}
                       style={[
                         s.chip,
                         {
-                          backgroundColor: active ? `${theme.primaryColor}15` : theme.background,
+                          backgroundColor: active ? `${color}18` : theme.background,
+                          borderColor: active ? color : theme.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        soundManager.play("tap");
+                        form.setStatus(opt.key);
+                      }}
+                    >
+                      <Feather name={opt.icon as any} size={14} color={active ? color : theme.secondaryText} />
+                      <Text style={[s.chipText, { color: active ? color : theme.textColor }]}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Recurrence */}
+            <View style={[s.card, { backgroundColor: theme.cardBackground, marginBottom: 16 }]}>
+              <Text style={[s.label, { color: theme.secondaryText }]}>Recorrencia</Text>
+              <View style={s.chipRow}>
+                {RECURRENCE_OPTIONS.map((opt) => {
+                  const active = form.recurrence === opt.key;
+                  return (
+                    <Pressable
+                      key={opt.key}
+                      style={[
+                        s.chip,
+                        {
+                          backgroundColor: active ? `${theme.primaryColor}18` : theme.background,
                           borderColor: active ? theme.primaryColor : theme.border,
                         },
                       ]}
                       onPress={() => {
                         soundManager.play("tap");
-                        form.setTargetAccountId(a.id);
+                        form.setRecurrence(opt.key);
                       }}
                     >
-                      <Text
-                        style={[s.chipText, { color: active ? theme.primaryColor : theme.textColor }]}
-                      >
-                        {a.name}
+                      <Text style={[s.chipText, { color: active ? theme.primaryColor : theme.textColor }]}>
+                        {opt.label}
                       </Text>
                     </Pressable>
                   );
                 })}
+              </View>
             </View>
-          </View>
-        )}
 
-        {/* Category grid */}
-        <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
-          <Text style={[s.label, { color: theme.secondaryText }]}>
-            Categoria ({groupLabel((typeCats[form.selectedCategory] ?? typeCats[0]!).group)})
-          </Text>
-          <View style={s.categoryGrid}>
-            {typeCats.map((cat, i) => {
-              const color = GROUP_COLORS[cat.group] ?? theme.primaryColor;
-              const active = form.selectedCategory === i;
-              return (
-                <Pressable
-                  key={cat.id}
-                  style={[
-                    s.catChip,
-                    {
-                      backgroundColor: active ? `${color}18` : theme.background,
-                      borderColor: active ? color : theme.border,
-                    },
-                  ]}
-                  onPress={() => {
-                    soundManager.play("tap");
-                    form.setSelectedCategory(i);
-                  }}
-                >
-                  <Feather
-                    name={cat.icon as any}
-                    size={14}
-                    color={active ? color : theme.secondaryText}
-                  />
-                  <Text style={[s.catChipText, { color: active ? color : theme.textColor }]}>
-                    {cat.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Tithe calculator */}
-        {isTithe && (
-          <TitheCalculatorSection
-            theme={theme}
-            percentage={tithe.percentage}
-            setPercentage={tithe.setPercentage}
-            baseType={tithe.baseType}
-            setBaseType={tithe.setBaseType}
-            periodType={tithe.periodType}
-            setPeriodType={tithe.setPeriodType}
-            customDays={tithe.customDays}
-            setCustomDays={tithe.setCustomDays}
-            result={tithe.result}
-          />
-        )}
-
-        {/* Installments (expense only, new transactions) */}
-        {form.txType === "expense" && !txId && (
-          <InstallmentSelector
-            theme={theme}
-            count={form.installmentCount}
-            onChangeCount={form.setInstallmentCount}
-            amountMode={form.installmentAmountMode}
-            onChangeAmountMode={form.setInstallmentAmountMode}
-            startFrom={form.installmentStartFrom}
-            onChangeStartFrom={form.setInstallmentStartFrom}
-            totalAmount={parseFloat(form.amount.replace(",", ".")) || 0}
-          />
-        )}
-
-        {/* Status */}
-        <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
-          <Text style={[s.label, { color: theme.secondaryText }]}>Status</Text>
-          <View style={s.chipRow}>
-            {STATUS_OPTIONS.map((opt) => {
-              const active = form.status === opt.key;
-              const color = opt.key === "confirmed" ? theme.success : "#F59E0B";
-              return (
-                <Pressable
-                  key={opt.key}
-                  style={[
-                    s.chip,
-                    {
-                      backgroundColor: active ? `${color}18` : theme.background,
-                      borderColor: active ? color : theme.border,
-                    },
-                  ]}
-                  onPress={() => {
-                    soundManager.play("tap");
-                    form.setStatus(opt.key);
-                  }}
-                >
-                  <Feather name={opt.icon as any} size={14} color={active ? color : theme.secondaryText} />
-                  <Text style={[s.chipText, { color: active ? color : theme.textColor }]}>
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Recurrence */}
-        <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
-          <Text style={[s.label, { color: theme.secondaryText }]}>Recorrencia</Text>
-          <View style={s.chipRow}>
-            {RECURRENCE_OPTIONS.map((opt) => {
-              const active = form.recurrence === opt.key;
-              return (
-                <Pressable
-                  key={opt.key}
-                  style={[
-                    s.chip,
-                    {
-                      backgroundColor: active ? `${theme.primaryColor}18` : theme.background,
-                      borderColor: active ? theme.primaryColor : theme.border,
-                    },
-                  ]}
-                  onPress={() => {
-                    soundManager.play("tap");
-                    form.setRecurrence(opt.key);
-                  }}
-                >
-                  <Text style={[s.chipText, { color: active ? theme.primaryColor : theme.textColor }]}>
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Custom recurrence days */}
-        {form.recurrence === "custom" && (
-          <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
-            <Text style={[s.label, { color: theme.secondaryText }]}>Repetir a cada (dias)</Text>
-            <TextInput
-              style={[s.textInput, { color: theme.textColor, borderColor: theme.border }]}
-              value={form.recurrenceDays}
-              onChangeText={form.setRecurrenceDays}
-              placeholder="Ex: 15"
-              placeholderTextColor={theme.secondaryText}
-              keyboardType="number-pad"
-            />
-          </View>
-        )}
+            {/* Custom recurrence days */}
+            {form.recurrence === "custom" && (
+              <View style={[s.card, { backgroundColor: theme.cardBackground, marginBottom: 16 }]}>
+                <Text style={[s.label, { color: theme.secondaryText }]}>Repetir a cada (dias)</Text>
+                <TextInput
+                  style={[s.textInput, { color: theme.textColor, borderColor: theme.border }]}
+                  value={form.recurrenceDays}
+                  onChangeText={form.setRecurrenceDays}
+                  placeholder="Ex: 15"
+                  placeholderTextColor={theme.secondaryText}
+                  keyboardType="number-pad"
+                />
+              </View>
+            )}
+          </ResponsiveColumn>
+        </ResponsiveRow>
 
         {/* Criar proxima */}
         {txId && form.editingTx?.recurrence && form.editingTx.recurrence !== "once" && (
@@ -425,6 +449,7 @@ export default function AddTransactionScreen() {
             <Text style={[s.deleteBtnText, { color: theme.danger }]}>Excluir transacao</Text>
           </Pressable>
         )}
+        </ResponsiveContainer>
       </ScrollView>
 
       {/* Installment group save modal */}

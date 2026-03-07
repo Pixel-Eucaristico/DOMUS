@@ -29,7 +29,7 @@ export default function SeasonScreen() {
   const [selectedAch, setSelectedAch] = useState<Achievement | null>(null);
   const [activeTab, setActiveTab] = useState<"current" | "collection">("current");
 
-  const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const webTopInset = 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
   const archetypeInfo = getArchetypeDescription(archetype) || { name: "Explorador", description: "" };

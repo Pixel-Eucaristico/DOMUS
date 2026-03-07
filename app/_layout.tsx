@@ -3,6 +3,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState, useCallback } from "react";
+import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import {
@@ -29,6 +30,9 @@ import { useSecurityLock } from "@/src/hooks/useSecurityLock";
 import { AnimatedSplash } from "@/src/components/shared/AnimatedSplash";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { DebugTools } from "@/src/components/debug/DebugTools";
+import { ResponsiveLayoutProvider } from "@/src/ui/layout/ResponsiveLayoutProvider";
+import { useResponsive } from "@/src/ui/layout/useResponsive";
+import { AdaptiveTabBar } from "@/src/ui/navigation/AdaptiveTabBar";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -182,11 +186,27 @@ function RootLayoutNav() {
   );
 }
 
+function DesktopLayout({ children }: { children: React.ReactNode }) {
+  const { sidebarEnabled } = useResponsive();
+  const { theme } = useAppState();
+
+  if (!sidebarEnabled) return <>{children}</>;
+
+  return (
+    <View style={{ flex: 1, flexDirection: 'row', backgroundColor: theme.background }}>
+      <AdaptiveTabBar />
+      <View style={{ flex: 1 }}>{children}</View>
+    </View>
+  );
+}
+
 function AppContainer({ children }: { children: React.ReactNode }) {
   const { theme } = useAppState();
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
-      {children}
+      <ResponsiveLayoutProvider>
+        {children}
+      </ResponsiveLayoutProvider>
     </GestureHandlerRootView>
   );
 }
@@ -225,7 +245,9 @@ export default function RootLayout() {
                   <SavingsGoalScheduler />
                   <AutoBackupScheduler />
                   <SecurityGuard>
-                    <RootLayoutNav />
+                    <DesktopLayout>
+                      <RootLayoutNav />
+                    </DesktopLayout>
                   </SecurityGuard>
 
                   {/* Modais e Overlays globais só aparecem após o término da animação de Splash para evitar sobreposição visual */}

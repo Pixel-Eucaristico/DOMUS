@@ -7,13 +7,14 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import React, { useEffect } from "react";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
+import { useResponsive } from "@/src/ui/layout/useResponsive";
 
 function NativeTabLayout() {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>Inicio</Label>
+        <Label>Início</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="accounts">
         <Icon sf={{ default: "creditcard", selected: "creditcard.fill" }} />
@@ -33,12 +34,13 @@ function NativeTabLayout() {
 
 function ClassicTabLayout() {
   const { theme, themeMode } = useAppState();
+  const { isDesktop } = useResponsive();
   const systemColorScheme = useColorScheme();
   const isWeb = Platform.OS === "web";
   const isIOS = Platform.OS === "ios";
-  
-  const isDark = 
-    themeMode === "dark" || 
+
+  const isDark =
+    themeMode === "dark" ||
     (themeMode === "system" && systemColorScheme === "dark");
 
   return (
@@ -54,6 +56,7 @@ function ClassicTabLayout() {
           borderTopColor: theme.border,
           elevation: 0,
           ...(isWeb ? { height: 84 } : {}),
+          ...(isDesktop ? { display: "none" as const } : {}),
         },
         tabBarBackground: () =>
           isIOS ? (
@@ -82,7 +85,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Inicio",
+          title: "Início",
           tabBarIcon: ({ color, size }) => (
             <Feather name="home" size={size} color={color} />
           ),

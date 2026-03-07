@@ -4,6 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { soundManager } from "@/src/services/SoundManager";
 import { formatCurrency } from "@/src/utils/formatCurrency";
+import { useResponsive } from "@/src/ui/layout/useResponsive";
 
 interface SavingsGoalCardProps {
   savingsGoalAccounts: any[];
@@ -13,12 +14,13 @@ interface SavingsGoalCardProps {
 
 export function SavingsGoalCard({ savingsGoalAccounts, savingsContributed, theme }: SavingsGoalCardProps) {
   const router = useRouter();
+  const { isMobile } = useResponsive();
 
   if (savingsGoalAccounts.length === 0) return null;
 
   return (
     <Pressable
-      style={[s.card, { backgroundColor: theme.cardBackground }]}
+      style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: isMobile ? 16 : 0 }]}
       onPress={() => {
         soundManager.play("tap");
         router.push("/(tabs)/accounts");

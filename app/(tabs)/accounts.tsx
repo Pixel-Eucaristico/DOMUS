@@ -10,12 +10,14 @@ import type { AccountPayload } from "@packages/events/src/types";
 import { URGENCY_ORDER } from "@packages/wishlist";
 import { AccountCard } from "@/src/components/shared/AccountCard";
 import { AccountFormModal } from "@/src/components/shared/AccountFormModal";
+import { ResponsiveContainer } from "@/src/ui/components/ResponsiveContainer";
+import { ResponsiveGrid } from "@/src/ui/components/ResponsiveGrid";
 
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { domain, theme, wishlist, dispatchDomainEvent } = useAppState();
-  const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const webTopInset = 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -70,6 +72,7 @@ export default function AccountsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+       <ResponsiveContainer>
         <View style={s.header}>
           <Text style={[s.title, { color: theme.textColor }]}>Contas</Text>
           <Pressable
@@ -92,7 +95,7 @@ export default function AccountsScreen() {
             </Text>
           </View>
         ) : (
-          <View style={s.accountList}>
+          <ResponsiveGrid gap={10}>
             {accounts.map((acc) => (
               <AccountCard
                 key={acc.id}
@@ -109,8 +112,9 @@ export default function AccountsScreen() {
                 onGoalPress={(item) => router.push(`/wishlist/${item.listId}` as any)}
               />
             ))}
-          </View>
+          </ResponsiveGrid>
         )}
+       </ResponsiveContainer>
       </ScrollView>
 
       <AccountFormModal

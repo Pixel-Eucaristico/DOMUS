@@ -8,6 +8,7 @@ import { AnimatedCard } from "@/src/components/shared/AnimatedCard";
 import type { AchievementRarity } from "@packages/gamification/src/achievements";
 import { soundManager } from "@/src/services/SoundManager";
 import Animated, { FadeIn } from "react-native-reanimated";
+import { useResponsive } from "@/src/ui/layout/useResponsive";
 
 interface GamificationWidgetProps {
   theme: any;
@@ -27,10 +28,11 @@ export function GamificationWidget({
   monthProgress,
 }: GamificationWidgetProps) {
   const router = useRouter();
+  const { isMobile } = useResponsive();
 
   return (
     <AnimatedCard index={1}>
-      <View style={s.gamificationWidget}>
+      <View style={[s.gamificationWidget, { marginHorizontal: isMobile ? 16 : 0 }]}>
         <View style={s.widgetHeader}>
           <View style={s.widgetTitleRow}>
             <MaterialCommunityIcons name="shield-star" size={18} color={theme.primaryColor} />
@@ -55,14 +57,14 @@ export function GamificationWidget({
                   color={theme.primaryColor}
                   isStatic={true}
                 />
-                <Text style={[s.trophyLabel, { color: theme.secondaryText }]}>Trofu do Ms</Text>
+                <Text style={[s.trophyLabel, { color: theme.secondaryText }]}>Troféu do Mês</Text>
               </>
             ) : (
               <>
                 <View style={[s.levelCircle, { borderColor: theme.primaryColor }]}>
                   <Text style={[s.levelCircleText, { color: theme.primaryColor }]}>{levelInfo.level}</Text>
                 </View>
-                <Text style={[s.trophyLabel, { color: theme.secondaryText }]}>Meu Nvel</Text>
+                <Text style={[s.trophyLabel, { color: theme.secondaryText }]}>Meu Nível</Text>
               </>
             )}
           </Pressable>
@@ -88,7 +90,7 @@ export function GamificationWidget({
                   );
                 })
               ) : (
-                <Text style={[s.noAchsText, { color: theme.secondaryText }]}>Nenhum trofu ainda</Text>
+                <Text style={[s.noAchsText, { color: theme.secondaryText }]}>Nenhum troféu ainda</Text>
               )}
             </View>
 

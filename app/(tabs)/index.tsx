@@ -33,6 +33,10 @@ import { AccountsStrip } from "@/src/components/shared/AccountsStrip";
 import { PendingTransactionsList } from "@/src/components/transaction/PendingTransactionsList";
 import { SavingsGoalCard } from "@/src/components/shared/SavingsGoalCard";
 import { RecentTransactionsList } from "@/src/components/transaction/RecentTransactionsList";
+import { ResponsiveContainer } from "@/src/ui/components/ResponsiveContainer";
+import { ResponsiveRow } from "@/src/ui/components/ResponsiveRow";
+import { ResponsiveColumn } from "@/src/ui/components/ResponsiveColumn";
+import { useResponsive } from "@/src/ui/layout/useResponsive";
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -40,7 +44,8 @@ export default function HomeScreen() {
   const { domain, gamification, levelInfo, totalBalance, archetype, theme, loading, dispatchDomainEvent, deviceId, season } =
     useAppState();
   const { syncStatus } = useSync();
-  const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const { isMobile, columns } = useResponsive();
+  const webTopInset = 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
   const [showAddSheet, setShowAddSheet] = useState(false);
@@ -202,6 +207,7 @@ export default function HomeScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+       <ResponsiveContainer style={{ gap: 16 }}>
         {/* ── HEADER ─────────────────────────────────────────────────────── */}
         <View style={s.header}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -251,61 +257,77 @@ export default function HomeScreen() {
         </View>
 
         {/* ── STATS ROW ──────────────────────────────────────────────────── */}
-        <AnimatedCard index={0}>
-          <View style={s.statsRow}>
-            <Pressable
-              style={[s.statCard, { backgroundColor: theme.primaryColor }]}
-              onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
-            >
-              <Feather name="zap" size={18} color="rgba(255,255,255,0.7)" />
-              <Text style={s.statValue}>{gamification.totalXp}</Text>
-              <Text style={s.statLabel}>XP Total</Text>
-            </Pressable>
-            <Pressable
-              style={[s.statCard, { backgroundColor: theme.primaryColor }]}
-              onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
-            >
-              <Feather name="bar-chart-2" size={18} color="rgba(255,255,255,0.7)" />
-              <Text style={s.statValue}>{levelInfo.level}</Text>
-              <Text style={s.statLabel}>Nível</Text>
-            </Pressable>
-            <Pressable
-              style={[s.statCard, { backgroundColor: theme.primaryColor }]}
-              onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
-            >
-              <MaterialCommunityIcons name="fire" size={20} color="rgba(255,255,255,0.7)" />
-              <Text style={s.statValue}>{gamification.currentStreak}</Text>
-              <Text style={s.statLabel}>Streak</Text>
-            </Pressable>
-          </View>
-        </AnimatedCard>
+        <ResponsiveRow>
+          <ResponsiveColumn span={columns}>
+            <AnimatedCard index={0}>
+              <View style={[s.statsRow, { paddingHorizontal: isMobile ? 16 : 0 }]}>
+                <Pressable
+                  style={[s.statCard, { backgroundColor: theme.primaryColor }]}
+                  onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
+                >
+                  <Feather name="zap" size={18} color="rgba(255,255,255,0.7)" />
+                  <Text style={s.statValue}>{gamification.totalXp}</Text>
+                  <Text style={s.statLabel}>XP Total</Text>
+                </Pressable>
+                <Pressable
+                  style={[s.statCard, { backgroundColor: theme.primaryColor }]}
+                  onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
+                >
+                  <Feather name="bar-chart-2" size={18} color="rgba(255,255,255,0.7)" />
+                  <Text style={s.statValue}>{levelInfo.level}</Text>
+                  <Text style={s.statLabel}>Nível</Text>
+                </Pressable>
+                <Pressable
+                  style={[s.statCard, { backgroundColor: theme.primaryColor }]}
+                  onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
+                >
+                  <MaterialCommunityIcons name="fire" size={20} color="rgba(255,255,255,0.7)" />
+                  <Text style={s.statValue}>{gamification.currentStreak}</Text>
+                  <Text style={s.statLabel}>Streak</Text>
+                </Pressable>
+              </View>
+            </AnimatedCard>
+          </ResponsiveColumn>
+        </ResponsiveRow>
 
         {/* ── GAMIFICATION WIDGET ────────────────────────────────────────── */}
-        <GamificationWidget
-          theme={theme}
-          currentTrophy={currentTrophy}
-          levelInfo={levelInfo}
-          recentAchievements={recentAchievements}
-          achievementPool={ALL_ACHIEVEMENTS || []}
-          monthProgress={monthProgress}
-        />
+        <ResponsiveRow>
+          <ResponsiveColumn span={columns}>
+            <GamificationWidget
+              theme={theme}
+              currentTrophy={currentTrophy}
+              levelInfo={levelInfo}
+              recentAchievements={recentAchievements}
+              achievementPool={ALL_ACHIEVEMENTS || []}
+              monthProgress={monthProgress}
+            />
+          </ResponsiveColumn>
+        </ResponsiveRow>
 
-        {/* ── BALANCE CARD ───────────────────────────────────────────────── */}
-        <AnimatedCard index={2}>
-          <View style={[s.balanceCard, { backgroundColor: theme.primaryColor }]}>
-            <View style={s.balanceHeader}>
-              <View style={s.balanceLabelRow}>
-                <Feather name="dollar-sign" size={16} color="rgba(255,255,255,0.7)" />
-                <Text style={s.balanceLabel}>Saldo total</Text>
+        {/* ── BALANCE + ACCOUNTS ─────────────────────────────────────────── */}
+        {/* ── BALANCE + ACCOUNTS ─────────────────────────────────────────── */}
+        <ResponsiveRow gap={16}>
+          <ResponsiveColumn span={accountCount === 0 ? columns : 1}>
+            <AnimatedCard index={2}>
+              <View style={[s.balanceCard, { backgroundColor: theme.primaryColor, marginHorizontal: isMobile ? 16 : 0, width: "100%" }]}>
+                <View style={s.balanceHeader}>
+                  <View style={s.balanceLabelRow}>
+                    <Feather name="dollar-sign" size={16} color="rgba(255,255,255,0.7)" />
+                    <Text style={s.balanceLabel}>Saldo total</Text>
+                  </View>
+                  <Text style={s.balanceCount}>{accountCount} contas</Text>
+                </View>
+                <Text style={s.balanceValue}>{formatCurrency(totalBalance)}</Text>
               </View>
-              <Text style={s.balanceCount}>{accountCount} contas</Text>
-            </View>
-            <Text style={s.balanceValue}>{formatCurrency(totalBalance)}</Text>
-          </View>
-        </AnimatedCard>
+            </AnimatedCard>
+          </ResponsiveColumn>
 
-        {/* ── ACCOUNTS ───────────────────────────────────────────────────── */}
-        <AccountsStrip accounts={accountsSorted} transactions={txArr} theme={theme} />
+          {accountCount > 0 && (
+            <ResponsiveColumn span={columns > 1 ? columns - 1 : 1}>
+              <AccountsStrip accounts={accountsSorted} transactions={txArr} theme={theme} />
+            </ResponsiveColumn>
+          )}
+        </ResponsiveRow>
 
         {/* ── INVOICE BANNER ─────────────────────────────────────────────── */}
         {__DEV__ && unconfirmedInvoices.length > 0 && (
@@ -335,97 +357,113 @@ export default function HomeScreen() {
         />
 
         {/* ── BUDGET 50/30/20 ────────────────────────────────────────────── */}
-        <AnimatedCard index={3}>
-          <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
-            <View style={s.monthFilterContainer}>
-              <Text style={[s.cardTitle, { color: theme.textColor }]}>
-                Orcamento 50/30/20
-              </Text>
-              <View style={s.monthFilter}>
-                <Pressable onPress={() => { soundManager.play("tap"); handlePreviousMonth(); }} style={s.monthArrow}>
-                  <Feather name="chevron-left" size={20} color={theme.textColor} />
-                </Pressable>
-                <Text style={[s.monthLabel, { color: theme.textColor }]}>
-                  {new Date(selectedYear, selectedMonth).toLocaleDateString("pt-BR", {
-                    month: "short",
-                    year: "numeric"
-                  })}
-                </Text>
-                <Pressable onPress={() => { soundManager.play("tap"); handleNextMonth(); }} style={s.monthArrow}>
-                  <Feather name="chevron-right" size={20} color={theme.textColor} />
-                </Pressable>
+        <ResponsiveRow>
+          <ResponsiveColumn span={columns}>
+            <AnimatedCard index={3}>
+              <View style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: isMobile ? 16 : 0, width: "100%" }]}>
+                <View style={s.monthFilterContainer}>
+                  <Text style={[s.cardTitle, { color: theme.textColor }]}>
+                    Orçamento 50/30/20
+                  </Text>
+                  <View style={s.monthFilter}>
+                    <Pressable onPress={() => { soundManager.play("tap"); handlePreviousMonth(); }} style={s.monthArrow}>
+                      <Feather name="chevron-left" size={20} color={theme.textColor} />
+                    </Pressable>
+                    <Text style={[s.monthLabel, { color: theme.textColor }]}>
+                      {new Date(selectedYear, selectedMonth).toLocaleDateString("pt-BR", {
+                        month: "short",
+                        year: "numeric"
+                      })}
+                    </Text>
+                    <Pressable onPress={() => { soundManager.play("tap"); handleNextMonth(); }} style={s.monthArrow}>
+                      <Feather name="chevron-right" size={20} color={theme.textColor} />
+                    </Pressable>
+                  </View>
+                </View>
+                {txCount > 0 ? (
+                  <View style={s.budgetContent}>
+                    <BudgetBar label="Necessidades" percent={budget.needsPercent} ideal={50} idealAmount={incomeBase * 0.5} color={theme.primaryColor} amount={budget.needs} group="needs" theme={theme} onPress={handleBudgetPress} />
+                    <BudgetBar label="Desejos" percent={budget.wantsPercent} ideal={30} idealAmount={incomeBase * 0.3} color={theme.accentColor} amount={budget.wants} group="wants" theme={theme} onPress={handleBudgetPress} />
+                    <BudgetBar label="Poupança" percent={budget.savingsPercent} ideal={20} idealAmount={incomeBase * 0.2} color={theme.success} amount={budget.savings} group="savings" theme={theme} onPress={handleBudgetPress} />
+                  </View>
+                ) : (
+                  <View style={s.emptyState}>
+                    <Feather name="pie-chart" size={28} color={theme.secondaryText} />
+                    <Text style={[s.emptyText, { color: theme.secondaryText }]}>
+                      Registre transações para ver seu orçamento
+                    </Text>
+                  </View>
+                )}
               </View>
-            </View>
-            {txCount > 0 ? (
-              <View style={s.budgetContent}>
-                <BudgetBar label="Necessidades" percent={budget.needsPercent} ideal={50} idealAmount={incomeBase * 0.5} color={theme.primaryColor} amount={budget.needs} group="needs" theme={theme} onPress={handleBudgetPress} />
-                <BudgetBar label="Desejos" percent={budget.wantsPercent} ideal={30} idealAmount={incomeBase * 0.3} color={theme.accentColor} amount={budget.wants} group="wants" theme={theme} onPress={handleBudgetPress} />
-                <BudgetBar label="Poupanca" percent={budget.savingsPercent} ideal={20} idealAmount={incomeBase * 0.2} color={theme.success} amount={budget.savings} group="savings" theme={theme} onPress={handleBudgetPress} />
-              </View>
-            ) : (
-              <View style={s.emptyState}>
-                <Feather name="pie-chart" size={28} color={theme.secondaryText} />
-                <Text style={[s.emptyText, { color: theme.secondaryText }]}>
-                  Registre transacoes para ver seu orcamento
-                </Text>
-              </View>
-            )}
-          </View>
-        </AnimatedCard>
+            </AnimatedCard>
+          </ResponsiveColumn>
+        </ResponsiveRow>
 
         {/* ── SEASON CARD ────────────────────────────────────────────────── */}
         {season.currentSeason?.active && (
-          <Pressable
-            style={[s.card, { backgroundColor: theme.cardBackground }]}
-            onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
-          >
-            <View style={s.seasonHeader}>
-              <View style={s.seasonTitleRow}>
-                <MaterialCommunityIcons name="trophy-outline" size={16} color={theme.accentColor} />
-                <Text style={[s.seasonTitle, { color: theme.textColor }]}>Temporada</Text>
-              </View>
-              <View style={[s.seasonArchetypeBadge, { backgroundColor: `${theme.accentColor}20` }]}>
-                <Text style={[s.seasonArchetypeText, { color: theme.accentColor }]}>
-                  {archetype.charAt(0).toUpperCase() + archetype.slice(1)}
-                </Text>
-              </View>
-            </View>
-            <View style={[s.xpBarBg, { backgroundColor: theme.border, marginBottom: 10 }]}>
-              <View style={[s.xpBarFill, { width: `${monthProgress}%` as any, backgroundColor: theme.accentColor }]} />
-            </View>
-            <View style={s.seasonStatsRow}>
-              <View style={s.seasonStat}>
-                <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{gamification.seasonXp}</Text>
-                <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>XP temporada</Text>
-              </View>
-              <View style={[s.seasonStatDivider, { backgroundColor: theme.border }]} />
-              <View style={s.seasonStat}>
-                <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{gamification.currentStreak}</Text>
-                <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>dias seguidos</Text>
-              </View>
-              <View style={[s.seasonStatDivider, { backgroundColor: theme.border }]} />
-              <View style={s.seasonStat}>
-                <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{daysLeft}</Text>
-                <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>dias restantes</Text>
-              </View>
-            </View>
-          </Pressable>
+          <ResponsiveRow>
+            <ResponsiveColumn span={columns}>
+              <Pressable
+                style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: isMobile ? 16 : 0, width: "100%" }]}
+                onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
+              >
+                <View style={s.seasonHeader}>
+                  <View style={s.seasonTitleRow}>
+                    <MaterialCommunityIcons name="trophy-outline" size={16} color={theme.accentColor} />
+                    <Text style={[s.seasonTitle, { color: theme.textColor }]}>Temporada</Text>
+                  </View>
+                  <View style={[s.seasonArchetypeBadge, { backgroundColor: `${theme.accentColor}20` }]}>
+                    <Text style={[s.seasonArchetypeText, { color: theme.accentColor }]}>
+                      {archetype.charAt(0).toUpperCase() + archetype.slice(1)}
+                    </Text>
+                  </View>
+                </View>
+                <View style={[s.xpBarBg, { backgroundColor: theme.border, marginBottom: 10 }]}>
+                  <View style={[s.xpBarFill, { width: `${monthProgress}%` as any, backgroundColor: theme.accentColor }]} />
+                </View>
+                <View style={s.seasonStatsRow}>
+                  <View style={s.seasonStat}>
+                    <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{gamification.seasonXp}</Text>
+                    <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>XP temporada</Text>
+                  </View>
+                  <View style={[s.seasonStatDivider, { backgroundColor: theme.border }]} />
+                  <View style={s.seasonStat}>
+                    <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{gamification.currentStreak}</Text>
+                    <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>dias seguidos</Text>
+                  </View>
+                  <View style={[s.seasonStatDivider, { backgroundColor: theme.border }]} />
+                  <View style={s.seasonStat}>
+                    <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{daysLeft}</Text>
+                    <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>dias restantes</Text>
+                  </View>
+                </View>
+              </Pressable>
+            </ResponsiveColumn>
+          </ResponsiveRow>
         )}
 
-        {/* ── SAVINGS GOALS ──────────────────────────────────────────────── */}
-        <SavingsGoalCard
-          savingsGoalAccounts={savingsGoalAccounts}
-          savingsContributed={savingsContributed}
-          theme={theme}
-        />
+        {/* ── SAVINGS GOALS + RECENT TRANSACTIONS ─────────────────────── */}
+        <ResponsiveRow gap={16}>
+          {savingsGoalAccounts.length > 0 && (
+            <ResponsiveColumn>
+              <SavingsGoalCard
+                savingsGoalAccounts={savingsGoalAccounts}
+                savingsContributed={savingsContributed}
+                theme={theme}
+              />
+            </ResponsiveColumn>
+          )}
 
-        {/* ── RECENT TRANSACTIONS ────────────────────────────────────────── */}
-        <RecentTransactionsList
-          recentTxs={recentTxs}
-          txCount={txCount}
-          categories={domain.categories}
-          theme={theme}
-        />
+          <ResponsiveColumn span={savingsGoalAccounts.length === 0 ? columns : (columns > 1 ? columns - 1 : 1)}>
+            <RecentTransactionsList
+              recentTxs={recentTxs}
+              txCount={txCount}
+              categories={domain.categories}
+              theme={theme}
+            />
+          </ResponsiveColumn>
+        </ResponsiveRow>
+       </ResponsiveContainer>
       </ScrollView>
 
       {/* ── FAB ──────────────────────────────────────────────────────────── */}

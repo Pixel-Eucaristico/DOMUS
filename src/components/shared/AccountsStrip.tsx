@@ -22,7 +22,7 @@ export function AccountsStrip({ accounts, transactions, theme }: AccountsStripPr
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={s.accountsScrollContent}
-      style={s.accountsScroll}
+      style={[s.accountsScroll, { flexGrow: 1, width: "100%" }]}
     >
       {accounts.map((acc) => {
         const isCC = acc.type === "credit_card";

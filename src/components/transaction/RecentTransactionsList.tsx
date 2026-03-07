@@ -6,6 +6,7 @@ import { soundManager } from "@/src/services/SoundManager";
 import { InstallmentBadge } from "@/src/components/transaction/InstallmentBadge";
 import { formatCurrency } from "@/src/utils/formatCurrency";
 import Animated, { SlideInRight, Layout } from "react-native-reanimated";
+import { useResponsive } from "@/src/ui/layout/useResponsive";
 
 interface RecentTransactionsListProps {
   recentTxs: any[];
@@ -16,10 +17,11 @@ interface RecentTransactionsListProps {
 
 export function RecentTransactionsList({ recentTxs, txCount, categories, theme }: RecentTransactionsListProps) {
   const router = useRouter();
+  const { isMobile } = useResponsive();
 
   return (
     <Pressable
-      style={[s.card, { backgroundColor: theme.cardBackground }]}
+      style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: isMobile ? 16 : 0 }]}
       onPress={() => {
         soundManager.play("tap");
         router.push("/transactions");
@@ -27,7 +29,7 @@ export function RecentTransactionsList({ recentTxs, txCount, categories, theme }
     >
       <View style={s.cardHeader}>
         <Text style={[s.cardTitle, { color: theme.textColor }]}>
-          Ultimas transacoes
+          Últimas transações
         </Text>
         <Text style={[s.txCount, { color: theme.secondaryText }]}>
           {txCount} total
@@ -110,7 +112,7 @@ export function RecentTransactionsList({ recentTxs, txCount, categories, theme }
         <View style={s.emptyState}>
           <Feather name="inbox" size={28} color={theme.secondaryText} />
           <Text style={[s.emptyText, { color: theme.secondaryText }]}>
-            Nenhuma transacao ainda
+            Nenhuma transação ainda
           </Text>
         </View>
       )}
