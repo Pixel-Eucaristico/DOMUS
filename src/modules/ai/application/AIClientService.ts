@@ -95,17 +95,17 @@ export class AIClientService {
       );
     }
 
-    // 4. Circuit breaker
+    // 4. Determine auth method early (needed for breaker logic)
+    const useOAuth = provider === "openai" && options.openaiAuthMethod === "chatgpt_oauth";
+
+    // 5. Circuit breaker — skip for OAuth (different backend, stale failures don't apply)
     const breaker = AIClientService.getBreaker(provider);
-    if (!breaker.canAttempt()) {
+    if (!useOAuth && !breaker.canAttempt()) {
       throw new AIClientError(
         "CIRCUIT_OPEN",
         `Provedor ${provider} temporariamente indisponível (circuit breaker aberto)`,
       );
     }
-
-    // 5. Get credentials (API key or OAuth token)
-    const useOAuth = provider === "openai" && options.openaiAuthMethod === "chatgpt_oauth";
     let apiKey: string | null;
 
     if (useOAuth) {
