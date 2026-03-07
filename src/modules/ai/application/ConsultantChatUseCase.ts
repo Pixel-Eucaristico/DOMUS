@@ -159,6 +159,7 @@ export class ConsultantChatUseCase {
         messages,
         cacheKey,
         openaiAuthMethod: settings.openaiAuthMethod,
+        customBudgets: settings.customBudgets,
       });
 
       let textContent: string;
@@ -265,6 +266,7 @@ export class ConsultantChatUseCase {
         messages,
         cacheKey,
         openaiAuthMethod: settings.openaiAuthMethod,
+        customBudgets: settings.customBudgets,
       });
 
       return {

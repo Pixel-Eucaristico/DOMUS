@@ -3,22 +3,55 @@ import { View, Text, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
-import { DAILY_TOKEN_BUDGET, PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
-import type { AIProvider, DailyTokenUsage } from "@packages/ai";
+import { TokenPricingService } from "@/src/modules/ai/infrastructure/TokenPricingService";
+import { DAILY_TOKEN_BUDGET, PROVIDER_THEME, getProviderBudget } from "@/src/modules/ai/domain/AISettings";
+import type { AIProvider, AIModelTier, DailyTokenUsage } from "@packages/ai";
 
-export function AIUsageDashboard() {
+interface AIUsageDashboardProps {
+  modelTier?: AIModelTier;
+  customBudgets?: Partial<Record<AIProvider, number>>;
+}
+
+interface ProviderCost {
+  costBrl: number;
+  budgetCostBrl: number;
+}
+
+export function AIUsageDashboard({ modelTier = "fast", customBudgets }: AIUsageDashboardProps) {
   const { theme } = useAppState();
   const [usage, setUsage] = useState<DailyTokenUsage | null>(null);
+  const [costs, setCosts] = useState<Record<string, ProviderCost>>({});
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    TokenTracker.getToday().then((u) => {
-      if (mounted) setUsage(u);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    (async () => {
+      const u = await TokenTracker.getToday();
+      if (!mounted) return;
+      setUsage(u);
+
+      // Fetch exchange rate + compute costs
+      const rate = await TokenPricingService.getUsdToBrl();
+      if (!mounted) return;
+      setExchangeRate(rate);
+
+      const providerEntries = Object.entries(u.byProvider).filter(
+        ([, tokens]) => (tokens ?? 0) > 0,
+      ) as Array<[AIProvider, number]>;
+
+      const costMap: Record<string, ProviderCost> = {};
+      for (const [p, tokens] of providerEntries) {
+        const budget = getProviderBudget(p, customBudgets);
+        const [used, max] = await Promise.all([
+          TokenPricingService.estimateCost(p, modelTier, tokens),
+          TokenPricingService.estimateCost(p, modelTier, budget),
+        ]);
+        costMap[p] = { costBrl: used.costBrl, budgetCostBrl: max.costBrl };
+      }
+      if (mounted) setCosts(costMap);
+    })();
+    return () => { mounted = false; };
+  }, [modelTier, customBudgets]);
 
   if (!usage) return null;
 
@@ -28,9 +61,8 @@ export function AIUsageDashboard() {
 
   if (providers.length === 0 && usage.totalTokens === 0) return null;
 
-  // Check if any provider is over budget
   const anyOver = providers.some(
-    ([p, tokens]) => tokens >= DAILY_TOKEN_BUDGET[p],
+    ([p, tokens]) => tokens >= getProviderBudget(p, customBudgets),
   );
 
   return (
@@ -47,12 +79,12 @@ export function AIUsageDashboard() {
         </Text>
       </View>
 
-      {/* Per-provider bars */}
       {providers.map(([provider, tokens]) => {
-        const budget = DAILY_TOKEN_BUDGET[provider];
+        const budget = getProviderBudget(provider, customBudgets);
         const pTheme = PROVIDER_THEME[provider];
         const pct = Math.min(100, (tokens / budget) * 100);
         const isOver = tokens >= budget;
+        const cost = costs[provider];
 
         const barColor = isOver
           ? theme.danger
@@ -83,6 +115,11 @@ export function AIUsageDashboard() {
                 style={[styles.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]}
               />
             </View>
+            {cost && (
+              <Text style={[styles.costText, { color: theme.secondaryText }]}>
+                Custo est.: R$ {cost.costBrl.toFixed(4)} / R$ {cost.budgetCostBrl.toFixed(4)} max
+              </Text>
+            )}
           </View>
         );
       })}
@@ -90,6 +127,12 @@ export function AIUsageDashboard() {
       {anyOver && (
         <Text style={[styles.overBudget, { color: theme.danger }]}>
           Limite diario atingido em um ou mais provedores.
+        </Text>
+      )}
+
+      {exchangeRate && (
+        <Text style={[styles.disclaimer, { color: theme.secondaryText }]}>
+          Cotacao USD/BRL: {exchangeRate.toFixed(2)} · Valores estimados, nao representam custo real exato
         </Text>
       )}
     </View>
@@ -144,8 +187,18 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 2,
   },
+  costText: {
+    fontSize: 10,
+    fontStyle: "italic",
+  },
   overBudget: {
     fontSize: 12,
     fontWeight: "600",
+  },
+  disclaimer: {
+    fontSize: 9,
+    fontStyle: "italic",
+    textAlign: "center",
+    marginTop: 2,
   },
 });

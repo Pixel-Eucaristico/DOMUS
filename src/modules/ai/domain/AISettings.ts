@@ -78,6 +78,8 @@ export interface AISettings {
   isEnabled: boolean;
   /** Per-data-type access permissions */
   dataPermissions: AIDataPermissions;
+  /** User-defined daily token budget per provider (overrides DAILY_TOKEN_BUDGET) */
+  customBudgets?: Partial<Record<AIProvider, number>>;
   /**
    * true after the system prompt has been sent once this session.
    *
@@ -135,7 +137,10 @@ export const PROVIDER_THEME: Record<AIProvider, { color: string; icon: string }>
   openrouter: { color: "#6366F1", icon: "router-wireless" },
 };
 
-/** Helper to get the budget for a specific provider */
-export function getProviderBudget(provider: AIProvider): number {
-  return DAILY_TOKEN_BUDGET[provider];
+/** Helper to get the budget for a specific provider, respecting user overrides */
+export function getProviderBudget(
+  provider: AIProvider,
+  customBudgets?: Partial<Record<AIProvider, number>>,
+): number {
+  return customBudgets?.[provider] ?? DAILY_TOKEN_BUDGET[provider];
 }

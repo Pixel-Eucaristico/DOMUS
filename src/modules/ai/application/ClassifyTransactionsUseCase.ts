@@ -75,6 +75,7 @@ export class ClassifyTransactionsUseCase {
           messages,
           cacheKey,
           openaiAuthMethod: settings.openaiAuthMethod,
+          customBudgets: settings.customBudgets,
         });
 
         const parsed = TOONParser.parseClassificationResponse(

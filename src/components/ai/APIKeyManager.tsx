@@ -281,76 +281,7 @@ export function APIKeyManager({
             )}
           </TouchableOpacity>
 
-          {/* ChatGPT OAuth option for OpenAI */}
-          {isOpenAI && onLoginChatGPT && (
-            <>
-              <View style={styles.dividerRow}>
-                <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-                <Text style={[styles.dividerText, { color: theme.secondaryText }]}>ou</Text>
-                <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-              </View>
-
-              <TouchableOpacity
-                onPress={handleLoginChatGPT}
-                disabled={isLoggingIn}
-                style={[
-                  styles.oauthBtn,
-                  { backgroundColor: PROVIDER_GREEN, opacity: isLoggingIn ? 0.7 : 1 },
-                ]}
-              >
-                {isLoggingIn ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <MaterialCommunityIcons name="creation" size={18} color="#fff" />
-                    <Text style={styles.oauthBtnText}>Entrar com ChatGPT</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              {/* Device code display */}
-              {deviceCode ? (
-                <View style={[styles.codeCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-                  <Text style={[styles.codeLabel, { color: theme.secondaryText }]}>
-                    1. Copie o codigo abaixo:
-                  </Text>
-                  <Text style={[styles.codeValue, { color: PROVIDER_GREEN }]}>
-                    {deviceCode}
-                  </Text>
-
-                  <TouchableOpacity onPress={handleCopyCode} style={[styles.codeCopyBtn, { borderColor: theme.border }]}>
-                    <Feather name={copied ? "check" : "copy"} size={14} color={copied ? theme.success : theme.secondaryText} />
-                    <Text style={[styles.codeCopyBtnText, { color: copied ? theme.success : theme.textColor }]}>
-                      {copied ? "Copiado!" : "Copiar codigo"}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <Text style={[styles.codeLabel, { color: theme.secondaryText, marginTop: 4 }]}>
-                    2. Abra o navegador e faca login:
-                  </Text>
-
-                  <TouchableOpacity
-                    onPress={handleOpenBrowser}
-                    style={[styles.openBrowserBtn, { backgroundColor: PROVIDER_GREEN }]}
-                  >
-                    <Feather name="external-link" size={14} color="#fff" />
-                    <Text style={styles.openBrowserBtnText}>Abrir navegador</Text>
-                  </TouchableOpacity>
-
-                  <View style={styles.waitingRow}>
-                    <ActivityIndicator size="small" color={theme.secondaryText} />
-                    <Text style={[styles.codeWaiting, { color: theme.secondaryText }]}>
-                      Aguardando login... (expira em 15 min)
-                    </Text>
-                  </View>
-                </View>
-              ) : (
-                <Text style={[styles.oauthHint, { color: theme.secondaryText }]}>
-                  Use sua assinatura ChatGPT Plus/Team sem API key
-                </Text>
-              )}
-            </>
-          )}
+          {/* ChatGPT OAuth — temporarily disabled */}
         </View>
       )}
     </View>

@@ -3,34 +3,45 @@ import { View, Text, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
-import { DAILY_TOKEN_BUDGET, PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
-import type { AIProvider, DailyTokenUsage } from "@packages/ai";
+import { TokenPricingService } from "@/src/modules/ai/infrastructure/TokenPricingService";
+import { getProviderBudget, PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
+import type { AIProvider, AIModelTier, DailyTokenUsage } from "@packages/ai";
 
 interface AIUsageBarProps {
-  /** Active provider to display usage for */
   provider: AIProvider;
-  /** Triggers a refresh when this value changes (e.g. messages.length) */
+  modelTier?: AIModelTier;
+  customBudgets?: Partial<Record<AIProvider, number>>;
   refreshKey?: number;
 }
 
-/**
- * Compact token usage bar for the chat screen.
- * Shows per-provider usage with themed color and icon.
- */
-export function AIUsageBar({ provider, refreshKey }: AIUsageBarProps) {
+export function AIUsageBar({
+  provider,
+  modelTier = "fast",
+  customBudgets,
+  refreshKey,
+}: AIUsageBarProps) {
   const { theme } = useAppState();
   const [usage, setUsage] = useState<DailyTokenUsage | null>(null);
+  const [costBrl, setCostBrl] = useState<number | null>(null);
 
-  const refresh = useCallback(() => {
-    TokenTracker.getToday().then(setUsage);
-  }, []);
+  const refresh = useCallback(async () => {
+    const u = await TokenTracker.getToday();
+    setUsage(u);
+    const tokens = u.byProvider[provider] ?? 0;
+    if (tokens > 0) {
+      const est = await TokenPricingService.estimateCost(provider, modelTier, tokens);
+      setCostBrl(est.costBrl);
+    } else {
+      setCostBrl(null);
+    }
+  }, [provider, modelTier]);
 
   useEffect(() => {
     refresh();
   }, [refresh, refreshKey]);
 
   const providerTokens = usage?.byProvider[provider] ?? 0;
-  const budget = DAILY_TOKEN_BUDGET[provider];
+  const budget = getProviderBudget(provider, customBudgets);
   const providerTheme = PROVIDER_THEME[provider];
 
   if (!usage || providerTokens === 0) return null;
@@ -56,6 +67,11 @@ export function AIUsageBar({ provider, refreshKey }: AIUsageBarProps) {
           <Text style={[styles.label, { color: theme.secondaryText }]}>
             {providerTokens.toLocaleString("pt-BR")} / {budget.toLocaleString("pt-BR")}
           </Text>
+          {costBrl !== null && (
+            <Text style={[styles.costLabel, { color: theme.secondaryText }]}>
+              · R$ {costBrl.toFixed(4)}
+            </Text>
+          )}
         </View>
         <Text style={[styles.pct, { color: barColor }]}>
           {Math.round(pct)}%
@@ -89,6 +105,10 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 11,
+  },
+  costLabel: {
+    fontSize: 10,
+    fontStyle: "italic",
   },
   pct: {
     fontSize: 11,

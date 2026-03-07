@@ -54,16 +54,18 @@ export class TokenTracker {
   }
 
   /** Returns true when the daily budget for a provider has been reached or exceeded. */
-  static async isOverBudget(provider?: AIProvider): Promise<boolean> {
+  static async isOverBudget(
+    provider?: AIProvider,
+    customBudgets?: Partial<Record<AIProvider, number>>,
+  ): Promise<boolean> {
     const usage = await TokenTracker.getToday();
     if (provider) {
-      const budget = getProviderBudget(provider);
+      const budget = getProviderBudget(provider, customBudgets);
       const used = usage.byProvider[provider] ?? 0;
       return used >= budget;
     }
-    // Fallback: check total across all providers
     return Object.entries(usage.byProvider).some(([p, used]) => {
-      const budget = getProviderBudget(p as AIProvider);
+      const budget = getProviderBudget(p as AIProvider, customBudgets);
       return (used ?? 0) >= budget;
     });
   }

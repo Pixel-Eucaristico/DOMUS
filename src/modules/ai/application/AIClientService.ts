@@ -18,6 +18,8 @@ export interface ClientRequestOptions {
   cacheKey?: string;
   /** OpenAI auth method — defaults to "apikey" */
   openaiAuthMethod?: OpenAIAuthMethod;
+  /** User-defined budgets per provider */
+  customBudgets?: Partial<Record<AIProvider, number>>;
 }
 
 export interface ClientResult {
@@ -87,7 +89,7 @@ export class AIClientService {
     }
 
     // 3. Token budget (per-provider)
-    const overBudget = await TokenTracker.isOverBudget(provider);
+    const overBudget = await TokenTracker.isOverBudget(provider, options.customBudgets);
     if (overBudget) {
       throw new AIClientError(
         "TOKEN_BUDGET_EXCEEDED",
