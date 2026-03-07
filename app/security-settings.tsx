@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 import { PinPad } from "@/src/components/security/PinPad";
 import { PinAuthService } from "@/src/modules/security/application/PinAuthService";
 import { PIN_LENGTH } from "@/src/modules/security/domain/UserSecuritySettings";
@@ -89,7 +90,7 @@ export default function SecuritySettingsScreen() {
     return (
       <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
         <View style={s.pinHeader}>
-          <TouchableOpacity onPress={() => dispatch({ type: "RESET" })} style={s.backBtn} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => { soundManager.play("tap"); dispatch({ type: "RESET" }); }} style={s.backBtn} activeOpacity={0.7}>
             <Feather name="x" size={22} color={theme.textColor} />
           </TouchableOpacity>
           <Text style={[s.headerTitle, { color: theme.textColor }]}>Segurança</Text>
@@ -118,7 +119,7 @@ export default function SecuritySettingsScreen() {
     return (
       <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
         <View style={s.pinHeader}>
-          <TouchableOpacity onPress={() => dispatch({ type: "RESET" })} style={s.backBtn} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => { soundManager.play("tap"); dispatch({ type: "RESET" }); }} style={s.backBtn} activeOpacity={0.7}>
             <Feather name="x" size={22} color={theme.textColor} />
           </TouchableOpacity>
           <Text style={[s.headerTitle, { color: theme.textColor }]}>Método de bloqueio</Text>
@@ -131,14 +132,14 @@ export default function SecuritySettingsScreen() {
             icon="hash" title="PIN"
             description={`Código numérico de ${PIN_LENGTH} dígitos`}
             color={theme.primaryColor} theme={theme}
-            onPress={() => sec.handleChooseMethod("pin")}
+            onPress={() => { soundManager.play("pop"); sec.handleChooseMethod("pin"); }}
           />
           <MethodOption
             icon="shield" title="Biometria"
             description={biometricAvailable ? "Digital ou reconhecimento facial" : "Indisponível neste dispositivo"}
             color={biometricAvailable ? theme.success : theme.secondaryText}
             theme={theme}
-            onPress={() => sec.handleChooseMethod("biometric")}
+            onPress={() => { soundManager.play("pop"); sec.handleChooseMethod("biometric"); }}
             disabled={!biometricAvailable}
           />
         </View>
@@ -151,7 +152,7 @@ export default function SecuritySettingsScreen() {
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }} style={s.backBtn} activeOpacity={0.7}>
           <Feather name="arrow-left" size={22} color={theme.textColor} />
         </TouchableOpacity>
         <Text style={[s.headerTitle, { color: theme.textColor }]}>Segurança</Text>
@@ -179,7 +180,7 @@ export default function SecuritySettingsScreen() {
             right={
               <Switch
                 value={settings.enabled}
-                onValueChange={sec.handleToggleLock}
+                onValueChange={(v) => { soundManager.play("tap"); sec.handleToggleLock(v); }}
                 trackColor={{ false: theme.border, true: theme.primaryColor + "80" }}
                 thumbColor={settings.enabled ? theme.primaryColor : theme.secondaryText}
               />
@@ -198,7 +199,7 @@ export default function SecuritySettingsScreen() {
                 right={
                   <TouchableOpacity
                     style={[s.changeBtn, { backgroundColor: theme.primaryColor + "18", borderColor: theme.primaryColor + "40" }]}
-                    onPress={() => dispatch({ type: "START_ENABLE" })}
+                    onPress={() => { soundManager.play("tap"); dispatch({ type: "START_ENABLE" }); }}
                     activeOpacity={0.7}
                   >
                     <Text style={[s.changeBtnText, { color: theme.primaryColor }]}>Alterar</Text>
@@ -218,7 +219,7 @@ export default function SecuritySettingsScreen() {
                     right={
                       <TouchableOpacity
                         style={[s.changeBtn, { backgroundColor: theme.warning + "18", borderColor: theme.warning + "40" }]}
-                        onPress={() => dispatch({ type: "START_CHANGE_PIN" })}
+                        onPress={() => { soundManager.play("tap"); dispatch({ type: "START_CHANGE_PIN" }); }}
                         activeOpacity={0.7}
                       >
                         <Text style={[s.changeBtnText, { color: theme.warning }]}>Alterar</Text>

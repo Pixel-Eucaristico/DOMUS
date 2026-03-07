@@ -226,8 +226,15 @@ export function ParsedScreen({
           <Pressable style={[s.cancelBtn, { borderColor: theme.border }]} onPress={() => { soundManager.play("tap"); onCancel(); }}>
             <Text style={[s.cancelBtnText, { color: theme.textColor }]}>Cancelar</Text>
           </Pressable>
-          <Pressable style={[s.confirmBtn, { backgroundColor: theme.primaryColor }]} onPress={() => { soundManager.play("success"); onConfirm(); }}>
-            <Text style={s.confirmBtnText}>Confirmar Importacao</Text>
+          <Pressable style={[s.confirmBtn, { backgroundColor: theme.primaryColor, opacity: editableItems.length === 0 ? 0.5 : 1 }]} onPress={() => {
+            if (editableItems.length === 0) {
+              soundManager.play("error");
+              return;
+            }
+            soundManager.play("success");
+            onConfirm();
+          }}>
+            <Text style={s.confirmBtnText}>Confirmar Importação</Text>
           </Pressable>
         </View>
       </View>

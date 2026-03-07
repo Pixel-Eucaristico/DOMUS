@@ -1,24 +1,26 @@
 import { useState, useEffect, useCallback } from "react";
-import {
-  GoogleSignin,
-  statusCodes,
-} from "@react-native-google-signin/google-signin";
+import { Platform } from "react-native";
 import { GoogleDriveService } from "@/src/modules/backup/infrastructure/GoogleDriveService";
 import type { DriveTokens } from "@/src/modules/backup/infrastructure/GoogleDriveService";
 
 // ─── Google OAuth ────────────────────────────────────────────────────────────
-// Usa Google Sign-In nativo (não browser). Requer no Google Cloud Console:
-//   - Client ID "Android" com package br.com.pixeleucaristico.domus + SHA-1
-//   - Client ID "Web" para obter serverAuthCode (usado para trocar por tokens)
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_SECRET ?? "";
 
-GoogleSignin.configure({
-  webClientId: WEB_CLIENT_ID,
-  scopes: ["https://www.googleapis.com/auth/drive.appdata"],
-  offlineAccess: true,
-  forceCodeForRefreshToken: true,
-});
+// Native Google Sign-In (Android/iOS only)
+let GoogleSignin: any = null;
+let statusCodes: any = {};
+if (Platform.OS !== "web") {
+  const mod = require("@react-native-google-signin/google-signin");
+  GoogleSignin = mod.GoogleSignin;
+  statusCodes = mod.statusCodes;
+  GoogleSignin.configure({
+    webClientId: WEB_CLIENT_ID,
+    scopes: ["https://www.googleapis.com/auth/drive.appdata"],
+    offlineAccess: true,
+    forceCodeForRefreshToken: true,
+  });
+}
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
@@ -47,6 +49,103 @@ export function useGoogleDriveBackup() {
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
+  const exchangeCodeForTokens = useCallback(async (authCode: string, redirectUri?: string): Promise<DriveTokens | null> => {
+    const body: Record<string, string> = {
+      client_id: WEB_CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      code: authCode,
+      grant_type: "authorization_code",
+    };
+    if (redirectUri) body.redirect_uri = redirectUri;
+
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(body).toString(),
+    });
+
+    if (!tokenRes.ok) {
+      const err = await tokenRes.text();
+      setSyncError(`Erro ao obter token: ${err}`);
+      return null;
+    }
+
+    const tokenData = await tokenRes.json();
+
+    // Fetch user email
+    let userEmail = "";
+    try {
+      const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        userEmail = userData.email ?? "";
+      }
+    } catch {}
+
+    return {
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token ?? "",
+      expiresAt: Date.now() + (tokenData.expires_in ?? 3600) * 1000,
+      email: userEmail,
+      clientId: WEB_CLIENT_ID,
+    };
+  }, []);
+
+  const connectWeb = useCallback(async () => {
+    const { signInWithGoogleWeb } = await import("@/src/modules/backup/infrastructure/GoogleOAuthWeb");
+    const result = await signInWithGoogleWeb(WEB_CLIENT_ID);
+    if (!result) return;
+
+    // Fetch user email with the access token
+    let userEmail = "";
+    try {
+      const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+        headers: { Authorization: `Bearer ${result.accessToken}` },
+      });
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        userEmail = userData.email ?? "";
+      }
+    } catch {}
+
+    const tokens: DriveTokens = {
+      accessToken: result.accessToken,
+      refreshToken: "", // implicit flow doesn't provide refresh token
+      expiresAt: Date.now() + result.expiresIn * 1000,
+      email: userEmail,
+      clientId: WEB_CLIENT_ID,
+    };
+
+    await GoogleDriveService.saveTokens(tokens);
+    setIsConnected(true);
+    setEmail(userEmail);
+  }, []);
+
+  const connectNative = useCallback(async () => {
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const response = await GoogleSignin.signIn();
+
+    if (!response.data) return;
+
+    const { serverAuthCode } = response.data;
+    const userEmail = response.data.user.email;
+
+    if (!serverAuthCode) {
+      setSyncError("Nao foi possivel obter o codigo de autorizacao do Google.");
+      return;
+    }
+
+    const tokens = await exchangeCodeForTokens(serverAuthCode);
+    if (!tokens) return;
+
+    tokens.email = userEmail;
+    await GoogleDriveService.saveTokens(tokens);
+    setIsConnected(true);
+    setEmail(userEmail);
+  }, [exchangeCodeForTokens]);
+
   const connect = useCallback(async () => {
     if (!WEB_CLIENT_ID) {
       setSyncError(
@@ -58,55 +157,11 @@ export function useGoogleDriveBackup() {
     setIsConnecting(true);
 
     try {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const response = await GoogleSignin.signIn();
-
-      if (!response.data) {
-        setIsConnecting(false);
-        return;
+      if (Platform.OS === "web") {
+        await connectWeb();
+      } else {
+        await connectNative();
       }
-
-      const { serverAuthCode } = response.data;
-      const userEmail = response.data.user.email;
-
-      if (!serverAuthCode) {
-        setSyncError("Nao foi possivel obter o codigo de autorizacao do Google.");
-        setIsConnecting(false);
-        return;
-      }
-
-      // Trocar o serverAuthCode por access + refresh tokens
-      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          client_id: WEB_CLIENT_ID,
-          client_secret: CLIENT_SECRET,
-          code: serverAuthCode,
-          grant_type: "authorization_code",
-        }).toString(),
-      });
-
-      if (!tokenRes.ok) {
-        const err = await tokenRes.text();
-        setSyncError(`Erro ao obter token: ${err}`);
-        setIsConnecting(false);
-        return;
-      }
-
-      const tokenData = await tokenRes.json();
-
-      const tokens: DriveTokens = {
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token ?? "",
-        expiresAt: Date.now() + (tokenData.expires_in ?? 3600) * 1000,
-        email: userEmail,
-        clientId: WEB_CLIENT_ID,
-      };
-      await GoogleDriveService.saveTokens(tokens);
-
-      setIsConnected(true);
-      setEmail(userEmail);
     } catch (e: any) {
       if (e?.code === statusCodes.SIGN_IN_CANCELLED) {
         // Usuário cancelou — não exibir erro
@@ -120,13 +175,15 @@ export function useGoogleDriveBackup() {
     } finally {
       setIsConnecting(false);
     }
-  }, []);
+  }, [connectWeb, connectNative]);
 
   const disconnect = useCallback(async () => {
-    try {
-      await GoogleSignin.signOut();
-    } catch {
-      // Ignora erro ao deslogar do Google Sign-In
+    if (Platform.OS !== "web") {
+      try {
+        await GoogleSignin.signOut();
+      } catch {
+        // Ignora erro ao deslogar do Google Sign-In
+      }
     }
     await GoogleDriveService.clearTokens();
     setIsConnected(false);

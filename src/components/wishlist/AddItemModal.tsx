@@ -123,13 +123,13 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                   keyboardType="url"
                 />
                 {hasUrl && (
-                  <TouchableOpacity style={s.clearBtn} onPress={clearUrl} activeOpacity={0.7}>
+                  <TouchableOpacity style={s.clearBtn} onPress={() => { soundManager.play("tap"); clearUrl(); }} activeOpacity={0.7}>
                     <Feather name="x" size={16} color={theme.secondaryText} />
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
                   style={[s.scrapeBtn, { backgroundColor: hasUrl ? theme.primaryColor : theme.primaryColor + "CC" }]}
-                  onPress={handleSearchOrImport}
+                  onPress={() => { soundManager.play("pop"); handleSearchOrImport(); }}
                   disabled={scraping}
                   activeOpacity={0.7}
                 >
@@ -250,7 +250,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
               )}
 
               {/* Advanced */}
-              <TouchableOpacity style={s.advancedToggle} onPress={() => setShowAdvanced((v) => !v)} activeOpacity={0.7}>
+              <TouchableOpacity style={s.advancedToggle} onPress={() => { soundManager.play("tap"); setShowAdvanced((v) => !v); }} activeOpacity={0.7}>
                 <Text style={[s.advancedText, { color: theme.secondaryText }]}>Dados avançados (EAN, NCM)</Text>
                 <Feather name={showAdvanced ? "chevron-up" : "chevron-down"} size={14} color={theme.secondaryText} />
               </TouchableOpacity>
@@ -310,10 +310,10 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
           title="Pesquisar produto"
           subtitle={form.name.trim() ? `Pesquisar "${form.name.trim()}" em:` : "Escolha onde pesquisar:"}
           theme={theme}
-          onCancel={() => setSearchModalVisible(false)}
+          onCancel={() => { soundManager.play("tap"); setSearchModalVisible(false); }}
           options={[
-            { label: "Amazon", icon: "shopping-cart", onPress: () => openSearchWebView("amazon") },
-            { label: "Mercado Livre", icon: "shopping-bag", onPress: () => openSearchWebView("ml") },
+            { label: "Amazon", icon: "shopping-cart", onPress: () => { soundManager.play("pop"); openSearchWebView("amazon"); } },
+            { label: "Mercado Livre", icon: "shopping-bag", onPress: () => { soundManager.play("pop"); openSearchWebView("ml"); } },
           ]}
         />
       </View>

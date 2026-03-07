@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 import { OCRConfigService } from "@/src/services/ocrConfigService";
 import type { OCRProvider } from "@packages/parsers";
 
@@ -87,7 +88,7 @@ export default function OCRSettingsScreen() {
   return (
     <View style={[s.container, { backgroundColor: theme.background }]}>
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable onPress={() => { soundManager.play("tap"); router.back(); }} hitSlop={12}>
           <Feather name="arrow-left" size={24} color={theme.textColor} />
         </Pressable>
         <Text style={[s.title, { color: theme.textColor }]}>Configurar OCR</Text>
@@ -126,7 +127,7 @@ export default function OCRSettingsScreen() {
                 borderWidth: 2,
               },
             ]}
-            onPress={() => setProvider("mlkit")}
+            onPress={() => { soundManager.play("tap"); setProvider("mlkit"); }}
           >
             <View style={s.providerHeader}>
               <View style={s.providerTitleRow}>
@@ -159,7 +160,7 @@ export default function OCRSettingsScreen() {
                 borderWidth: 2,
               },
             ]}
-            onPress={() => setProvider("cloudvision")}
+            onPress={() => { soundManager.play("tap"); setProvider("cloudvision"); }}
           >
             <View style={s.providerHeader}>
               <View style={s.providerTitleRow}>
@@ -194,6 +195,7 @@ export default function OCRSettingsScreen() {
               },
             ]}
             onPress={() => {
+              soundManager.play("tap");
               if (Platform.OS !== "web") {
                 Alert.alert(
                   "Tesseract — Somente Web",
@@ -255,7 +257,7 @@ export default function OCRSettingsScreen() {
               secureTextEntry
             />
             {apiKey ? (
-              <Pressable onPress={() => setApiKey("")}>
+              <Pressable onPress={() => { soundManager.play("tap"); setApiKey(""); }}>
                 <Feather name="x-circle" size={18} color={theme.secondaryText} />
               </Pressable>
             ) : null}
@@ -264,6 +266,7 @@ export default function OCRSettingsScreen() {
           <Pressable
             style={s.helpLink}
             onPress={() => {
+              soundManager.play("tap");
               Alert.alert(
                 "Como obter API Key",
                 "1. Acesse console.cloud.google.com\n" +
@@ -287,7 +290,7 @@ export default function OCRSettingsScreen() {
       <View style={[s.footer, { paddingBottom: insets.bottom + 20, backgroundColor: theme.cardBackground }]}>
         <Pressable
           style={[s.saveButton, { backgroundColor: theme.primaryColor }, saving && { opacity: 0.6 }]}
-          onPress={handleSave}
+          onPress={() => { soundManager.play("pop"); handleSave(); }}
           disabled={saving}
         >
           {saving ? (

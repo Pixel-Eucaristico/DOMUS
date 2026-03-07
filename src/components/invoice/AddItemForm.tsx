@@ -43,7 +43,7 @@ export function AddItemForm({
         style={[s.editInput, { color: theme.textColor, borderColor: theme.border }]}
         value={desc}
         onChangeText={onDescChange}
-        placeholder="Descri\u00e7\u00e3o do produto"
+        placeholder="Descrição do produto"
         placeholderTextColor={theme.secondaryText}
       />
       <View style={s.addItemRow}>
@@ -67,7 +67,7 @@ export function AddItemForm({
           style={[s.editInputSmall, { color: theme.textColor, borderColor: theme.border, flex: 2 }]}
           value={unitPrice}
           onChangeText={onUnitPriceChange}
-          placeholder="Pre\u00e7o unit."
+          placeholder="Preço unit."
           placeholderTextColor={theme.secondaryText}
           keyboardType="decimal-pad"
         />
@@ -94,7 +94,14 @@ export function AddItemForm({
       </View>
       <Pressable
         style={[s.confirmItemBtn, { backgroundColor: theme.primaryColor }]}
-        onPress={() => { soundManager.play("success"); onConfirm(); }}
+        onPress={() => {
+          if (!desc.trim() || !qty.trim() || !unitPrice.trim()) {
+            soundManager.play("error");
+            return;
+          }
+          soundManager.play("success");
+          onConfirm();
+        }}
       >
         <Feather name="check" size={16} color="#FFF" />
         <Text style={s.confirmItemBtnText}>Confirmar</Text>

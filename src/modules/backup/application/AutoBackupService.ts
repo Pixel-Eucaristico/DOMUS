@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import * as FileSystem from "expo-file-system/legacy";
@@ -5,6 +6,8 @@ import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { BackupExportService } from "./BackupExportService";
 import { BackupImportService } from "./BackupImportService";
 import type { BackupPreview } from "../domain/BackupMetadata";
+
+const isWeb = Platform.OS === "web";
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -76,6 +79,10 @@ export const AutoBackupService = {
 
   async getInfo(): Promise<AutoBackupInfo> {
     const filePath = this.filePath();
+    if (isWeb) {
+      const lastTs = await AsyncStorage.getItem(LAST_AUTO_BACKUP_TS_KEY);
+      return { exists: false, lastBackupAt: lastTs, filePath };
+    }
     const [info, lastTs] = await Promise.all([
       FileSystem.getInfoAsync(filePath),
       AsyncStorage.getItem(LAST_AUTO_BACKUP_TS_KEY),
@@ -97,6 +104,7 @@ export const AutoBackupService = {
     events: SyncEvent[],
     deviceId: string,
   ): Promise<boolean> {
+    if (isWeb) return false;
     const config = await this.getConfig();
     if (!config.enabled || !config.hasPassword) return false;
     if (events.length === 0) return false;
@@ -122,6 +130,7 @@ export const AutoBackupService = {
    * Usa a senha salva no keychain.
    */
   async readLocalBackup(): Promise<{ preview: BackupPreview; events: SyncEvent[] } | null> {
+    if (isWeb) return null;
     const password = await this.getPassword();
     if (!password) return null;
 

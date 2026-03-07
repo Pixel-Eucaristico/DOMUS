@@ -19,6 +19,7 @@ import * as Haptics from "expo-haptics";
 import QRCode from "react-native-qrcode-svg";
 import { useSync } from "@/src/context/SyncProvider";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 import { QRScannerModal } from "@/src/components/sync/QRScannerModal";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
@@ -78,6 +79,7 @@ export default function SyncScreen() {
 
   const handleCreateGroup = useCallback(async () => {
     haptic();
+    soundManager.play("pop");
     setActionLoading(true);
     await createGroup();
     setActionLoading(false);
@@ -85,6 +87,7 @@ export default function SyncScreen() {
 
   const handleJoinGroup = useCallback(async () => {
     haptic();
+    soundManager.play("pop");
     if (joinCode.trim().length < 4) return;
     setActionLoading(true);
     const ok = await joinGroup(joinCode.trim().toUpperCase());
@@ -93,6 +96,7 @@ export default function SyncScreen() {
   }, [joinGroup, joinCode]);
 
   const handleScanResult = useCallback(async (code: string) => {
+    soundManager.play("pop");
     setShowScanner(false);
     setJoinCode(code);
     setShowJoinInput(true);
@@ -102,11 +106,12 @@ export default function SyncScreen() {
     if (ok) { setJoinCode(""); setShowJoinInput(false); }
   }, [joinGroup]);
 
-  const handleLeaveGroup = useCallback(async () => { haptic(); await leaveGroup(); }, [leaveGroup]);
+  const handleLeaveGroup = useCallback(async () => { haptic(); soundManager.play("tap"); await leaveGroup(); }, [leaveGroup]);
 
   const handleCopyCode = useCallback(async () => {
     if (!groupId) return;
     haptic();
+    soundManager.play("tap");
     try {
       if (Platform.OS === "web" && navigator?.clipboard) {
         await navigator.clipboard.writeText(groupId);
@@ -116,8 +121,8 @@ export default function SyncScreen() {
     } catch {}
   }, [groupId]);
 
-  const handlePush = useCallback(async () => { haptic(); await pushNow(); }, [pushNow]);
-  const handlePull = useCallback(async () => { haptic(); await pullNow(); }, [pullNow]);
+  const handlePush = useCallback(async () => { haptic(); soundManager.play("pop"); await pushNow(); }, [pushNow]);
+  const handlePull = useCallback(async () => { haptic(); soundManager.play("pop"); await pullNow(); }, [pullNow]);
 
   const isBusy = syncStatus === "syncing" || actionLoading;
   const qrValue = groupId ? `domus://${groupId}` : "";
@@ -125,7 +130,7 @@ export default function SyncScreen() {
   return (
     <View style={[s.root, { backgroundColor: theme.background }]}>
       <View style={[s.topBar, { paddingTop: insets.top + webTopInset + 12 }]}>
-        <Pressable testID="sync-back-button" onPress={() => { haptic(); router.canGoBack() ? router.back() : router.replace("/"); }} hitSlop={12}>
+        <Pressable testID="sync-back-button" onPress={() => { haptic(); soundManager.play("tap"); router.canGoBack() ? router.back() : router.replace("/"); }} hitSlop={12}>
           <Feather name="arrow-left" size={24} color={theme.textColor} />
         </Pressable>
         <Text style={[s.topBarTitle, { color: theme.textColor }]}>Sincronizar</Text>
@@ -202,7 +207,7 @@ export default function SyncScreen() {
               </Pressable>
               <Pressable
                 style={({ pressed }) => [s.actionCard, { backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.border }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
-                onPress={() => { haptic(); setShowJoinInput(true); }}
+                onPress={() => { haptic(); soundManager.play("tap"); setShowJoinInput(true); }}
                 disabled={isBusy}
               >
                 <View style={[s.actionCardIcon, { backgroundColor: `${theme.primaryColor}15` }]}>
@@ -216,7 +221,7 @@ export default function SyncScreen() {
             {Platform.OS !== "web" && (
               <Pressable
                 style={({ pressed }) => [s.qrScanBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }, pressed && { opacity: 0.85 }]}
-                onPress={() => { haptic(); setShowScanner(true); }}
+                onPress={() => { haptic(); soundManager.play("tap"); setShowScanner(true); }}
                 disabled={isBusy}
               >
                 <MaterialCommunityIcons name="qrcode-scan" size={22} color={theme.primaryColor} />
@@ -247,7 +252,7 @@ export default function SyncScreen() {
                     {isBusy ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Feather name="check" size={20} color="#FFFFFF" />}
                   </Pressable>
                 </View>
-                <Pressable onPress={() => { setShowJoinInput(false); setJoinCode(""); }}>
+                <Pressable onPress={() => { soundManager.play("tap"); setShowJoinInput(false); setJoinCode(""); }}>
                   <Text style={[s.cancelText, { color: theme.secondaryText }]}>Cancelar</Text>
                 </Pressable>
               </View>
@@ -268,7 +273,7 @@ export default function SyncScreen() {
                   <Text style={[s.codeText, { color: theme.primaryColor }]}>{groupId}</Text>
                 </View>
                 <View style={s.connectedActions}>
-                  <Pressable onPress={() => { haptic(); setShowQRModal(true); }} hitSlop={10}>
+                  <Pressable onPress={() => { haptic(); soundManager.play("tap"); setShowQRModal(true); }} hitSlop={10}>
                     <MaterialCommunityIcons name="qrcode" size={22} color={theme.secondaryText} />
                   </Pressable>
                   <Pressable onPress={handleCopyCode} hitSlop={10}>
@@ -336,7 +341,7 @@ export default function SyncScreen() {
         </View>
         <Pressable
           style={({ pressed }) => [s.backupBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }, pressed && { opacity: 0.8 }]}
-          onPress={() => { haptic(); router.push("/backup"); }}
+          onPress={() => { haptic(); soundManager.play("tap"); router.push("/backup"); }}
         >
           <View style={[s.backupBtnIcon, { backgroundColor: "#6366F118" }]}>
             <Feather name="archive" size={20} color="#6366F1" />
@@ -364,7 +369,7 @@ export default function SyncScreen() {
                 <Text style={[s.qrCodeLabelText, { color: theme.primaryColor }]}>{groupId}</Text>
               </View>
               <Text style={[s.qrModalHint, { color: theme.secondaryText }]}>Escaneie com o outro celular para parear</Text>
-              <Pressable style={[s.qrModalCloseBtn, { backgroundColor: theme.primaryColor }]} onPress={() => setShowQRModal(false)}>
+              <Pressable style={[s.qrModalCloseBtn, { backgroundColor: theme.primaryColor }]} onPress={() => { soundManager.play("tap"); setShowQRModal(false); }}>
                 <Text style={s.qrModalCloseBtnText}>Fechar</Text>
               </Pressable>
             </Pressable>

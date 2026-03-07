@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 import { InvoiceImportedPayload } from "@packages/parsers";
 
 import { useInvoiceWebView } from "@/src/hooks/useInvoiceWebView";
@@ -92,7 +93,7 @@ export default function InvoiceImportScreen() {
       {/* Shared header — hidden during full-screen states */}
       {!fullscreenState && state !== "ocr" && (
         <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Pressable onPress={() => { soundManager.play("tap"); router.back(); }} hitSlop={12}>
             <Feather name="arrow-left" size={24} color={theme.textColor} />
           </Pressable>
           <Text style={[s.title, { color: theme.textColor }]}>Importar NF</Text>

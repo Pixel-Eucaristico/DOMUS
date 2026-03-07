@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 import { useAIConsultant } from "@/src/hooks/useAIConsultant";
 import { useAISettings } from "@/src/hooks/useAISettings";
 import { ChatBubble } from "@/src/components/ai/ChatBubble";
@@ -126,7 +127,7 @@ export default function AIChatScreen() {
           { borderBottomColor: theme.border, backgroundColor: theme.background },
         ]}
       >
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }} style={styles.backBtn}>
           <Feather name="arrow-left" size={22} color={theme.textColor} />
         </TouchableOpacity>
 
@@ -140,7 +141,7 @@ export default function AIChatScreen() {
         </View>
 
         <TouchableOpacity
-          onPress={clearHistory}
+          onPress={() => { soundManager.play("trash"); clearHistory(); }}
           style={styles.clearBtn}
           accessibilityLabel="Limpar conversa"
         >
@@ -148,9 +149,9 @@ export default function AIChatScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => router.push("/ai-settings")}
+          onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }}
           style={styles.settingsBtn}
-          accessibilityLabel="Configuracoes de IA"
+          accessibilityLabel="Configurações de IA"
         >
           <Feather name="settings" size={18} color={theme.secondaryText} />
         </TouchableOpacity>
@@ -171,9 +172,9 @@ export default function AIChatScreen() {
               style={{ fontWeight: "700" }}
               onPress={() => router.push("/ai-settings")}
             >
-              Configuracoes
+              Configurações
             </Text>{" "}
-            para ativar a IA. Analise local disponivel.
+            para ativar a IA. Análise local disponível.
           </Text>
         </View>
       )}
@@ -188,7 +189,7 @@ export default function AIChatScreen() {
       >
         <Feather name="alert-circle" size={12} color={theme.secondaryText} />
         <Text style={[styles.disclaimerText, { color: theme.secondaryText }]}>
-          As analises sao meramente informativas e nao constituem
+          As análises são meramente informativas e não constituem
           aconselhamento financeiro profissional.
         </Text>
       </View>
@@ -232,7 +233,7 @@ export default function AIChatScreen() {
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder="Pergunte algo sobre suas financas..."
+            placeholder="Pergunte algo sobre suas finanças..."
             placeholderTextColor={theme.secondaryText}
             style={[
               styles.textInput,
@@ -248,7 +249,7 @@ export default function AIChatScreen() {
             onSubmitEditing={handleSend}
           />
           <TouchableOpacity
-            onPress={handleSend}
+            onPress={() => { soundManager.play("pop"); handleSend(); }}
             disabled={!input.trim() || isLoading}
             style={[
               styles.sendBtn,

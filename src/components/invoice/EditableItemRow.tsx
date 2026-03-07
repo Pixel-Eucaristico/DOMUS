@@ -32,8 +32,8 @@ export function EditableItemRow({
   return (
     <View>
       <View style={[s.itemRow, { borderBottomColor: theme.border }]}>
-        <View style={{ flex: 1 }}>
-          <Text style={[s.itemDescription, { color: theme.textColor }]}>
+        <View style={s.itemInfo}>
+          <Text style={[s.itemDescription, { color: theme.textColor }]} numberOfLines={2}>
             {item.description}
           </Text>
           <Text style={[s.itemSub, { color: theme.secondaryText }]}>
@@ -87,7 +87,7 @@ export function EditableItemRow({
             style={[s.editInput, { color: theme.textColor, borderColor: theme.border }]}
             value={item.description}
             onChangeText={(v) => onEditField(index, "description", v)}
-            placeholder="Descricao"
+            placeholder="Descrição"
             placeholderTextColor={theme.secondaryText}
           />
           <View style={s.editRow}>
@@ -111,7 +111,7 @@ export function EditableItemRow({
               style={[s.editInputSmall, { color: theme.textColor, borderColor: theme.border, flex: 2 }]}
               value={String(item.unitPrice)}
               onChangeText={(v) => onEditField(index, "unitPrice", v)}
-              placeholder="Preco unit."
+              placeholder="Preço unit."
               placeholderTextColor={theme.secondaryText}
               keyboardType="decimal-pad"
             />
@@ -160,11 +160,13 @@ const s = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 14,
     borderBottomWidth: 1,
+    gap: 8,
   },
+  itemInfo: { flex: 1, flexShrink: 1 },
   itemDescription: { fontSize: 15, fontWeight: "500", marginBottom: 3 },
   itemSub: { fontSize: 13 },
   itemMeta: { fontSize: 11, marginTop: 2 },
-  itemPrice: { fontSize: 15, fontWeight: "600" },
+  itemPrice: { fontSize: 15, fontWeight: "600", flexShrink: 0 },
   categoryChip: {
     flexDirection: "row",
     alignItems: "center",

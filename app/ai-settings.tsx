@@ -7,6 +7,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -168,7 +169,7 @@ export default function AISettingsScreen() {
           </Text>
           <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
             Escolha quais dados a IA pode acessar para respostas mais
-            detalhadas. Nenhum dado pessoal (CPF, nome, conta) e enviado.
+            detalhadas. Nenhum dado pessoal (CPF, nome, conta) é enviado.
           </Text>
           <View style={styles.cardBody}>
             {(Object.keys(AI_DATA_PERMISSION_LABELS) as Array<keyof AIDataPermissions>).map(
@@ -179,23 +180,37 @@ export default function AISettingsScreen() {
                 const handleToggle = (value: boolean) => {
                   soundManager.play("tap");
                   if (value && !enabled) {
-                    Alert.alert(
-                      `Permitir acesso: ${label.title}`,
-                      `A IA podera ver: ${label.description}.\n\nVoce pode desativar a qualquer momento.`,
-                      [
-                        { text: "Cancelar", style: "cancel" },
-                        {
-                          text: "Permitir",
-                          onPress: () =>
-                            updateSettings({
-                              dataPermissions: {
-                                ...settings.dataPermissions,
-                                [key]: true,
-                              },
-                            }),
-                        },
-                      ],
-                    );
+                    if (Platform.OS === "web") {
+                      const ok = window.confirm(
+                        `Permitir acesso: ${label.title}\n\nA IA poderá ver: ${label.description}.\n\nVocê pode desativar a qualquer momento.`,
+                      );
+                      if (ok) {
+                        updateSettings({
+                          dataPermissions: {
+                            ...settings.dataPermissions,
+                            [key]: true,
+                          },
+                        });
+                      }
+                    } else {
+                      Alert.alert(
+                        `Permitir acesso: ${label.title}`,
+                        `A IA poderá ver: ${label.description}.\n\nVocê pode desativar a qualquer momento.`,
+                        [
+                          { text: "Cancelar", style: "cancel" },
+                          {
+                            text: "Permitir",
+                            onPress: () =>
+                              updateSettings({
+                                dataPermissions: {
+                                  ...settings.dataPermissions,
+                                  [key]: true,
+                                },
+                              }),
+                          },
+                        ],
+                      );
+                    }
                   } else {
                     updateSettings({
                       dataPermissions: {
@@ -246,9 +261,9 @@ export default function AISettingsScreen() {
             </Text>
           </View>
           <Text style={[styles.privacyText, { color: theme.secondaryText }]}>
-            Os dados sao enviados diretamente ao provedor de IA escolhido.
-            Nunca passam por servidores do DOMUS. CPF, nome, numero de
-            conta, cartao ou IDs internos nunca sao incluidos.
+            Os dados são enviados diretamente ao provedor de IA escolhido.
+            Nunca passam por servidores do DOMUS. CPF, nome, número de
+            conta, cartão ou IDs internos nunca são incluídos.
           </Text>
         </View>
 
@@ -310,18 +325,23 @@ export default function AISettingsScreen() {
             style={styles.actionRow}
             onPress={() => {
               soundManager.play("tap");
-              Alert.alert(
-                "Limpar histórico da IA",
-                "Isso apagará todas as mensagens da conversa atual. Esta ação não pode ser desfeita.",
-                [
-                  { text: "Cancelar", style: "cancel" },
-                  {
-                    text: "Limpar",
-                    style: "destructive",
-                    onPress: () => { soundManager.play("trash"); clearHistory(); },
-                  },
-                ],
-              );
+              if (Platform.OS === "web") {
+                const ok = window.confirm("Limpar histórico da IA\n\nIsso apagará todas as mensagens da conversa atual. Esta ação não pode ser desfeita.");
+                if (ok) { soundManager.play("trash"); clearHistory(); }
+              } else {
+                Alert.alert(
+                  "Limpar histórico da IA",
+                  "Isso apagará todas as mensagens da conversa atual. Esta ação não pode ser desfeita.",
+                  [
+                    { text: "Cancelar", style: "cancel" },
+                    {
+                      text: "Limpar",
+                      style: "destructive",
+                      onPress: () => { soundManager.play("trash"); clearHistory(); },
+                    },
+                  ],
+                );
+              }
             }}
             accessibilityLabel="Limpar histórico da IA"
             accessibilityRole="button"

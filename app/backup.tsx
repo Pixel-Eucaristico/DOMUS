@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 import { PasswordInputComponent } from "@/src/components/backup/PasswordInputComponent";
 import { ConfirmRestoreModal } from "@/src/components/backup/ConfirmRestoreModal";
 import { useGoogleDriveBackup } from "@/src/hooks/useGoogleDriveBackup";
@@ -40,7 +41,7 @@ export default function BackupScreen() {
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }} style={s.backBtn} activeOpacity={0.7}>
           <Feather name="arrow-left" size={22} color={theme.textColor} />
         </TouchableOpacity>
         <Text style={[s.headerTitle, { color: theme.textColor }]}>Backup & Restauração</Text>
@@ -53,7 +54,7 @@ export default function BackupScreen() {
             <TouchableOpacity
               key={tab.id}
               style={[s.tabItem, active && [s.tabItemActive, { backgroundColor: theme.background }]]}
-              onPress={() => setActiveTab(tab.id)}
+              onPress={() => { soundManager.play("tap"); setActiveTab(tab.id); }}
               activeOpacity={0.7}
             >
               <Feather name={tab.icon as any} size={15} color={active ? theme.primaryColor : theme.secondaryText} />
@@ -92,7 +93,7 @@ export default function BackupScreen() {
                   </View>
                   <Switch
                     value={bk.encryptExport}
-                    onValueChange={bk.toggleEncrypt}
+                    onValueChange={(v) => { soundManager.play("tap"); bk.toggleEncrypt(v); }}
                     trackColor={{ false: "#F59E0B80", true: "#10B981" }}
                     thumbColor="#fff"
                   />
@@ -142,7 +143,7 @@ export default function BackupScreen() {
                     { backgroundColor: bk.encryptExport ? theme.primaryColor : "#F59E0B" },
                     (isLoading(bk.exportStatus) || (bk.encryptExport && (!bk.exportPassword || !bk.exportConfirm))) && s.actionBtnDisabled,
                   ]}
-                  onPress={bk.encryptExport ? bk.handleExport : bk.handleExportPlain}
+                  onPress={() => { soundManager.play("pop"); (bk.encryptExport ? bk.handleExport : bk.handleExportPlain)(); }}
                   disabled={isLoading(bk.exportStatus) || (bk.encryptExport && (!bk.exportPassword || !bk.exportConfirm))}
                   activeOpacity={0.8}
                 >
@@ -174,7 +175,7 @@ export default function BackupScreen() {
               <View style={[s.cardBody, { gap: 12 }]}>
                 <TouchableOpacity
                   style={[s.filePicker, { borderColor: bk.selectedFileUri ? "#10B981" : theme.border, backgroundColor: theme.background }]}
-                  onPress={bk.handlePickFile}
+                  onPress={() => { soundManager.play("tap"); bk.handlePickFile(); }}
                   activeOpacity={0.7}
                 >
                   <Feather name={bk.selectedFileUri ? "check-circle" : "folder"} size={17} color={bk.selectedFileUri ? "#10B981" : theme.secondaryText} />
@@ -182,7 +183,7 @@ export default function BackupScreen() {
                     {bk.selectedFileName ?? "Selecionar arquivo…"}
                   </Text>
                   {bk.selectedFileUri && (
-                    <TouchableOpacity onPress={bk.clearSelectedFile} hitSlop={12}>
+                    <TouchableOpacity onPress={() => { soundManager.play("tap"); bk.clearSelectedFile(); }} hitSlop={12}>
                       <Feather name="x" size={16} color={theme.secondaryText} />
                     </TouchableOpacity>
                   )}
@@ -207,7 +208,7 @@ export default function BackupScreen() {
                     <StatusRow status={bk.importStatus} theme={theme} />
                     <TouchableOpacity
                       style={[s.actionBtn, { backgroundColor: "#F59E0B" }, (isLoading(bk.importStatus) || (bk.importIsEncrypted !== false && !bk.importPassword)) && s.actionBtnDisabled]}
-                      onPress={bk.handleValidateImport}
+                      onPress={() => { soundManager.play("pop"); bk.handleValidateImport(); }}
                       disabled={isLoading(bk.importStatus) || (bk.importIsEncrypted !== false && !bk.importPassword)}
                       activeOpacity={0.8}
                     >
@@ -249,7 +250,7 @@ export default function BackupScreen() {
                       {bk.autoKey ?? "Aguardando…"}
                     </Text>
                     {bk.autoKey && (
-                      <TouchableOpacity onPress={() => Share.share({ message: bk.autoKey!, title: "Chave de auto-backup Domus" })} hitSlop={12}>
+                      <TouchableOpacity onPress={() => { soundManager.play("tap"); Share.share({ message: bk.autoKey!, title: "Chave de auto-backup Domus" }); }} hitSlop={12}>
                         <Feather name="share-2" size={14} color={theme.secondaryText} />
                       </TouchableOpacity>
                     )}
@@ -260,7 +261,7 @@ export default function BackupScreen() {
                   <StatusRow status={bk.autoRestoreStatus} theme={theme} />
                   <TouchableOpacity
                     style={[s.actionBtn, { backgroundColor: "#8B5CF6" }, (!bk.autoKey || isLoading(bk.autoRestoreStatus)) && s.actionBtnDisabled]}
-                    onPress={bk.handleRestoreAutoBackup}
+                    onPress={() => { soundManager.play("pop"); bk.handleRestoreAutoBackup(); }}
                     disabled={!bk.autoKey || isLoading(bk.autoRestoreStatus)}
                     activeOpacity={0.8}
                   >
@@ -276,7 +277,7 @@ export default function BackupScreen() {
         )}
 
         {/* DRIVE TAB */}
-        {activeTab === "drive" && Platform.OS !== "web" && (
+        {activeTab === "drive" && (
           <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
             <View style={s.sectionHeader}>
               <View style={[s.sectionIconBg, { backgroundColor: "#4285F418" }]}>
@@ -313,7 +314,7 @@ export default function BackupScreen() {
                         {drive.email ?? "Conta Google conectada"}
                       </Text>
                     </View>
-                    <TouchableOpacity onPress={drive.disconnect} hitSlop={10}>
+                    <TouchableOpacity onPress={() => { soundManager.play("tap"); drive.disconnect(); }} hitSlop={10}>
                       <Text style={[s.driveDisconnect, { color: theme.danger }]}>Desconectar</Text>
                     </TouchableOpacity>
                   </View>
@@ -325,6 +326,7 @@ export default function BackupScreen() {
                   <TouchableOpacity
                     style={[s.actionBtn, { backgroundColor: "#4285F4" }, drive.isSyncing && s.actionBtnDisabled]}
                     onPress={async () => {
+                      soundManager.play("pop");
                       const filePath = autoBackupFilePath();
                       const { FileSystemService } = await import("@/src/modules/backup/infrastructure/FileSystemService");
                       try {
@@ -347,7 +349,7 @@ export default function BackupScreen() {
                   {drive.syncError && <StatusRow status={{ type: "error", message: drive.syncError }} theme={theme} />}
                   <TouchableOpacity
                     style={[s.actionBtn, { backgroundColor: "#4285F4" }, (drive.isConnecting || !drive.canConnect) && s.actionBtnDisabled]}
-                    onPress={drive.connect}
+                    onPress={() => { soundManager.play("pop"); drive.connect(); }}
                     disabled={drive.isConnecting || !drive.canConnect}
                     activeOpacity={0.8}
                   >
@@ -360,12 +362,6 @@ export default function BackupScreen() {
           </View>
         )}
 
-        {activeTab === "drive" && Platform.OS === "web" && (
-          <View style={[s.warnBanner, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}>
-            <Feather name="info" size={14} color={theme.secondaryText} />
-            <Text style={[s.warnText, { color: theme.secondaryText }]}>Google Drive disponível apenas no Android e iOS.</Text>
-          </View>
-        )}
 
         <View style={s.footer}>
           <Feather name="lock" size={11} color={theme.secondaryText} />
@@ -379,8 +375,8 @@ export default function BackupScreen() {
         visible={bk.showConfirmModal}
         preview={bk.pendingPayload?.preview ?? null}
         theme={theme}
-        onConfirm={bk.handleConfirmRestore}
-        onCancel={() => { bk.setShowConfirmModal(false); bk.setPendingPayload(null); }}
+        onConfirm={() => { soundManager.play("pop"); bk.handleConfirmRestore(); }}
+        onCancel={() => { soundManager.play("tap"); bk.setShowConfirmModal(false); bk.setPendingPayload(null); }}
       />
     </SafeAreaView>
   );

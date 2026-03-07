@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 
 const LAST_UPDATED = "Março de 2026";
 const EXTERNAL_POLICY_URL =
@@ -47,7 +48,7 @@ export default function PrivacyPolicyScreen() {
         ]}
       >
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => { soundManager.play("tap"); router.back(); }}
           accessibilityLabel="Voltar"
           accessibilityRole="button"
           style={s.backBtn}
@@ -273,7 +274,7 @@ export default function PrivacyPolicyScreen() {
             s.externalLink,
             { borderColor: theme.border, backgroundColor: theme.cardBackground },
           ]}
-          onPress={() => safeOpenUrl(EXTERNAL_POLICY_URL)}
+          onPress={() => { soundManager.play("tap"); safeOpenUrl(EXTERNAL_POLICY_URL); }}
           accessibilityLabel="Ver política de privacidade completa online"
           accessibilityRole="link"
         >

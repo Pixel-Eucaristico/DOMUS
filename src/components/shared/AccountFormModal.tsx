@@ -16,7 +16,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { createAccountEvent, updateAccountEvent } from "@packages/domain/src/accounts";
+import { createAccountEvent, updateAccountEvent, deleteAccountEvent } from "@packages/domain/src/accounts";
+import { createEvent } from "@packages/events/src/factory";
+import { EVENT_TYPES } from "@packages/events/src/types";
+import type { TransactionUpdatedEvent } from "@packages/events/src/types";
 import { soundManager } from "@/src/services/SoundManager";
 import { formatCurrency } from "@/src/utils/formatCurrency";
 import type { AccountPayload, AccountType } from "@packages/events/src/types";
@@ -52,6 +55,8 @@ export function AccountFormModal({
   const [savingsGoalEnabled, setSavingsGoalEnabled] = useState(false);
   const [savingsContribution, setSavingsContribution] = useState("");
   const [savingsRecurrence, setSavingsRecurrence] = useState<"monthly" | "biweekly" | "weekly">("monthly");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [transferAccountId, setTransferAccountId] = useState<string | null>(null);
 
   const slideAnim = useRef(new Animated.Value(600)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -116,7 +121,7 @@ export function AccountFormModal({
 
   const handleSaveAccount = () => {
     if (!name.trim()) {
-      Alert.alert("Nome obrigatorio", "Informe o nome da conta.");
+      Alert.alert("Nome obrigatório", "Informe o nome da conta.");
       return;
     }
 
@@ -163,6 +168,48 @@ export function AccountFormModal({
     soundManager.play("success");
     closeModal();
   };
+
+  const otherAccounts = useMemo(() => {
+    if (!editingAccount) return [] as AccountPayload[];
+    return (Object.values(domain.accounts) as AccountPayload[]).filter(
+      (a) => a.id !== editingAccount.id && a.type !== "credit_card",
+    );
+  }, [domain.accounts, editingAccount]);
+
+  const accountTransactions = useMemo(() => {
+    if (!editingAccount) return [];
+    return Object.values(domain.transactions).filter(
+      (t: any) => t.accountId === editingAccount.id,
+    );
+  }, [domain.transactions, editingAccount]);
+
+  const handleDeleteAccount = useCallback(() => {
+    if (!editingAccount) return;
+
+    // Transfer transactions if a target account was selected
+    if (transferAccountId) {
+      for (const tx of accountTransactions) {
+        const updateEvent = createEvent<TransactionUpdatedEvent>(
+          EVENT_TYPES.TRANSACTION_UPDATED,
+          { id: (tx as any).id, accountId: transferAccountId },
+          "local",
+        );
+        dispatchDomainEvent(updateEvent);
+      }
+    }
+
+    // Delete the account
+    const deleteEvent = deleteAccountEvent(editingAccount.id);
+    dispatchDomainEvent(deleteEvent);
+
+    if (Platform.OS !== "web") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+    soundManager.play("trash");
+    setShowDeleteConfirm(false);
+    setTransferAccountId(null);
+    closeModal();
+  }, [editingAccount, transferAccountId, accountTransactions, dispatchDomainEvent, closeModal]);
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={closeModal}>
@@ -259,7 +306,7 @@ export function AccountFormModal({
                 </>
               ) : (
                 <>
-                  <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Limite do cartao (R$)</Text>
+                  <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Limite do cartão (R$)</Text>
                   <TextInput
                     style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
                     value={creditLimit}
@@ -308,7 +355,109 @@ export function AccountFormModal({
                 <Feather name="check" size={18} color="#FFF" />
                 <Text style={s.createBtnText}>{editingAccount ? "Salvar" : "Criar conta"}</Text>
               </Pressable>
+
+              {editingAccount && (
+                <Pressable
+                  style={s.deleteBtn}
+                  onPress={() => {
+                    soundManager.play("tap");
+                    setTransferAccountId(null);
+                    setShowDeleteConfirm(true);
+                  }}
+                >
+                  <Feather name="trash-2" size={15} color="#DC2626" />
+                  <Text style={s.deleteBtnText}>Excluir conta</Text>
+                </Pressable>
+              )}
             </ScrollView>
+
+            {/* Delete confirmation modal */}
+            <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
+              <View style={s.deleteOverlay}>
+                <View style={[s.deleteCard, { backgroundColor: theme.cardBackground }]}>
+                  <Feather name="alert-triangle" size={36} color="#DC2626" style={{ alignSelf: "center" }} />
+                  <Text style={[s.deleteTitle, { color: theme.textColor }]}>
+                    Excluir "{editingAccount?.name}"?
+                  </Text>
+
+                  {accountTransactions.length > 0 ? (
+                    <>
+                      <Text style={[s.deleteDesc, { color: theme.secondaryText }]}>
+                        Esta conta possui {accountTransactions.length} transaç{accountTransactions.length === 1 ? "ão" : "ões"}.
+                        Você pode transferi-las para outra conta ou perder todos os dados.
+                      </Text>
+
+                      <Text style={[s.deleteFieldLabel, { color: theme.secondaryText }]}>
+                        Transferir transações para:
+                      </Text>
+
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.deleteAccountScroll}>
+                        <Pressable
+                          style={[
+                            s.deleteAccountChip,
+                            {
+                              backgroundColor: transferAccountId === null ? "#DC262620" : theme.background,
+                              borderColor: transferAccountId === null ? "#DC2626" : theme.border,
+                            },
+                          ]}
+                          onPress={() => { soundManager.play("tap"); setTransferAccountId(null); }}
+                        >
+                          <Feather name="x" size={12} color={transferAccountId === null ? "#DC2626" : theme.secondaryText} />
+                          <Text style={{ color: transferAccountId === null ? "#DC2626" : theme.secondaryText, fontFamily: "DMSans_600SemiBold", fontSize: 12 }}>
+                            Não transferir (perder dados)
+                          </Text>
+                        </Pressable>
+                        {otherAccounts.map((acc) => {
+                          const selected = transferAccountId === acc.id;
+                          return (
+                            <Pressable
+                              key={acc.id}
+                              style={[
+                                s.deleteAccountChip,
+                                {
+                                  backgroundColor: selected ? (acc.color ?? theme.primaryColor) + "20" : theme.background,
+                                  borderColor: selected ? (acc.color ?? theme.primaryColor) : theme.border,
+                                },
+                              ]}
+                              onPress={() => { soundManager.play("tap"); setTransferAccountId(acc.id); }}
+                            >
+                              <Feather name="credit-card" size={12} color={selected ? (acc.color ?? theme.primaryColor) : theme.secondaryText} />
+                              <Text style={{ color: selected ? (acc.color ?? theme.primaryColor) : theme.textColor, fontFamily: "DMSans_600SemiBold", fontSize: 12 }}>
+                                {acc.name}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </ScrollView>
+                    </>
+                  ) : (
+                    <Text style={[s.deleteDesc, { color: theme.secondaryText }]}>
+                      Esta conta não possui transações. Ela será excluída permanentemente.
+                    </Text>
+                  )}
+
+                  <View style={s.deleteActions}>
+                    <Pressable
+                      style={[s.deleteCancelBtn, { borderColor: theme.border }]}
+                      onPress={() => { soundManager.play("tap"); setShowDeleteConfirm(false); }}
+                    >
+                      <Text style={{ color: theme.textColor, fontFamily: "DMSans_600SemiBold", fontSize: 14 }}>
+                        Cancelar
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={s.deleteConfirmBtn}
+                      onPress={handleDeleteAccount}
+                    >
+                      <Feather name="trash-2" size={14} color="#FFF" />
+                      <Text style={{ color: "#FFF", fontFamily: "DMSans_700Bold", fontSize: 14 }}>
+                        {transferAccountId ? "Transferir e excluir" : "Excluir"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            </Modal>
           </Animated.View>
         </KeyboardAvoidingView>
       </View>
@@ -511,4 +660,16 @@ const s = StyleSheet.create({
   linkedDetail: { fontFamily: "DMSans_400Regular", fontSize: 10 },
   createBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 14, marginTop: 16, marginBottom: 8 },
   createBtnText: { fontFamily: "DMSans_700Bold", fontSize: 16, color: "#FFF" },
+  deleteBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: "#DC262640", backgroundColor: "#DC262608", marginBottom: 8 },
+  deleteBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 14, color: "#DC2626" },
+  deleteOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center", padding: 20 },
+  deleteCard: { borderRadius: 20, padding: 24, width: "100%", maxWidth: 420, gap: 12 },
+  deleteTitle: { fontFamily: "DMSans_700Bold", fontSize: 18, textAlign: "center" },
+  deleteDesc: { fontFamily: "DMSans_400Regular", fontSize: 14, lineHeight: 20, textAlign: "center" },
+  deleteFieldLabel: { fontFamily: "DMSans_500Medium", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 },
+  deleteAccountScroll: { marginBottom: 4 },
+  deleteAccountChip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 20, borderWidth: 1.5, paddingHorizontal: 10, paddingVertical: 7, marginRight: 6 },
+  deleteActions: { flexDirection: "row", gap: 10, marginTop: 4 },
+  deleteCancelBtn: { flex: 1, borderWidth: 1.5, borderRadius: 12, paddingVertical: 13, alignItems: "center" },
+  deleteConfirmBtn: { flex: 1, backgroundColor: "#DC2626", borderRadius: 12, paddingVertical: 13, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 },
 });

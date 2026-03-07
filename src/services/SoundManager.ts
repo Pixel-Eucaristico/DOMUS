@@ -1,4 +1,4 @@
-import { createAudioPlayer, type AudioPlayer } from "expo-audio";
+import { Platform } from "react-native";
 
 /**
  * SoundManager: Gerencia os efeitos sonoros do app.
@@ -38,9 +38,11 @@ const SOUND_ASSETS: Record<SoundEffect, any> = {
 };
 
 class SoundManager {
-  private players: Map<SoundEffect, AudioPlayer> = new Map();
+  private players: Map<SoundEffect, any> = new Map();
+  private webAudios: Map<SoundEffect, HTMLAudioElement> = new Map();
   private enabled: boolean = true;
   private isLoaded: boolean = false;
+  private isWeb: boolean = Platform.OS === "web";
 
   public setEnabled(enabled: boolean) {
     this.enabled = enabled;
@@ -50,20 +52,41 @@ class SoundManager {
     if (this.isLoaded) return;
 
     try {
-      for (const [key, asset] of Object.entries(SOUND_ASSETS)) {
-        try {
-          const player = createAudioPlayer(asset);
-          this.players.set(key as SoundEffect, player);
-        } catch (err) {
-          console.warn(`Could not load sound ${key}:`, err);
+      if (this.isWeb) {
+        // Web: use HTML5 Audio with resolved asset URIs
+        for (const [key, asset] of Object.entries(SOUND_ASSETS)) {
+          try {
+            // Metro/webpack resolves require() for mp3 to a URI string or module with uri
+            const uri = typeof asset === "string" ? asset
+              : typeof asset === "number" ? asset // bundled asset id — won't work on web
+              : asset?.uri ?? asset?.default ?? asset;
+            if (typeof uri === "string") {
+              const audio = new Audio(uri);
+              audio.preload = "auto";
+              this.webAudios.set(key as SoundEffect, audio);
+            }
+          } catch (err) {
+            console.warn(`Could not load web sound ${key}:`, err);
+          }
         }
+        this.isLoaded = true;
+      } else {
+        // Native: use expo-audio
+        const { createAudioPlayer } = require("expo-audio");
+        for (const [key, asset] of Object.entries(SOUND_ASSETS)) {
+          try {
+            const player = createAudioPlayer(asset);
+            this.players.set(key as SoundEffect, player);
+          } catch (err) {
+            console.warn(`Could not load sound ${key}:`, err);
+          }
+        }
+        // Audio focus: resolvido via patch-package no AudioModule.kt nativo.
+        // O default de interruptionMode foi alterado de null para MIX_WITH_OTHERS,
+        // garantindo que requestAudioFocus() nunca seja chamado. Isso evita que
+        // efeitos sonoros pausem videos/musica de outros apps (YouTube, Spotify).
+        this.isLoaded = true;
       }
-
-      // Audio focus: resolvido via patch-package no AudioModule.kt nativo.
-      // O default de interruptionMode foi alterado de null para MIX_WITH_OTHERS,
-      // garantindo que requestAudioFocus() nunca seja chamado. Isso evita que
-      // efeitos sonoros pausem videos/musica de outros apps (YouTube, Spotify).
-      this.isLoaded = true;
     } catch (e) {
       console.warn("Failed to load sounds", e);
     }
@@ -72,12 +95,25 @@ class SoundManager {
   public async play(effect: SoundEffect) {
     if (!this.enabled || !this.isLoaded) return;
 
+    if (this.isWeb) {
+      const audio = this.webAudios.get(effect);
+      if (audio) {
+        try {
+          audio.currentTime = 0;
+          await audio.play();
+        } catch {
+          // Browser may block autoplay until user interaction
+        }
+      }
+      return;
+    }
+
     const player = this.players.get(effect);
     if (player) {
       try {
         await player.seekTo(0);
         player.play();
-      } catch (e) {
+      } catch {
         // Ignore playback errors silently
       }
     }
@@ -88,6 +124,7 @@ class SoundManager {
       player.remove();
     }
     this.players.clear();
+    this.webAudios.clear();
     this.isLoaded = false;
   }
 }

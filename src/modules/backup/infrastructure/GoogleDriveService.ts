@@ -1,6 +1,21 @@
+import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BACKUP_FILE_EXTENSION } from "../domain/BackupMetadata";
+
+// SecureStore is not available on web; use AsyncStorage as fallback
+const secureGet = async (key: string): Promise<string | null> => {
+  if (Platform.OS === "web") return AsyncStorage.getItem(key);
+  return SecureStore.getItemAsync(key);
+};
+const secureSet = async (key: string, value: string): Promise<void> => {
+  if (Platform.OS === "web") { await AsyncStorage.setItem(key, value); return; }
+  await SecureStore.setItemAsync(key, value);
+};
+const secureDelete = async (key: string): Promise<void> => {
+  if (Platform.OS === "web") { await AsyncStorage.removeItem(key); return; }
+  await SecureStore.deleteItemAsync(key);
+};
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -26,12 +41,12 @@ export const GoogleDriveService = {
   // ── Token persistence ─────────────────────────────────────────────────────
 
   async saveTokens(tokens: DriveTokens): Promise<void> {
-    await SecureStore.setItemAsync(TOKENS_KEY, JSON.stringify(tokens));
+    await secureSet(TOKENS_KEY, JSON.stringify(tokens));
   },
 
   async loadTokens(): Promise<DriveTokens | null> {
     try {
-      const raw = await SecureStore.getItemAsync(TOKENS_KEY);
+      const raw = await secureGet(TOKENS_KEY);
       return raw ? (JSON.parse(raw) as DriveTokens) : null;
     } catch {
       return null;
@@ -40,7 +55,7 @@ export const GoogleDriveService = {
 
   async clearTokens(): Promise<void> {
     await Promise.all([
-      SecureStore.deleteItemAsync(TOKENS_KEY),
+      secureDelete(TOKENS_KEY),
       AsyncStorage.removeItem(LAST_SYNC_KEY),
       AsyncStorage.removeItem(FILE_ID_KEY),
     ]);

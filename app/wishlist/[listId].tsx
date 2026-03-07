@@ -6,11 +6,13 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 import { useWishlist } from "@/src/hooks/useWishlist";
 import { usePriceRefresh } from "@/src/hooks/usePriceRefresh";
 import { createEvent, generateId } from "@packages/events/src/factory";
@@ -128,18 +130,24 @@ export default function WishlistDetailScreen() {
 
   const handleRemove = useCallback(
     (item: WishlistItem) => {
-      Alert.alert(
-        "Remover item",
-        `Remover "${item.name}" da lista?`,
-        [
-          { text: "Cancelar", style: "cancel" },
-          {
-            text: "Remover",
-            style: "destructive",
-            onPress: () => removeItem(item.id, item.listId),
-          },
-        ],
-      );
+      soundManager.play("trash");
+      if (Platform.OS === "web") {
+        const ok = window.confirm(`Remover "${item.name}" da lista?`);
+        if (ok) removeItem(item.id, item.listId);
+      } else {
+        Alert.alert(
+          "Remover item",
+          `Remover "${item.name}" da lista?`,
+          [
+            { text: "Cancelar", style: "cancel" },
+            {
+              text: "Remover",
+              style: "destructive",
+              onPress: () => removeItem(item.id, item.listId),
+            },
+          ],
+        );
+      }
     },
     [removeItem],
   );
@@ -208,7 +216,7 @@ export default function WishlistDetailScreen() {
         style={[styles.safe, { backgroundColor: theme.background }]}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }} style={styles.backBtn}>
             <Feather name="arrow-left" size={22} color={theme.textColor} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.textColor }]}>
@@ -226,7 +234,7 @@ export default function WishlistDetailScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => { soundManager.play("tap"); router.back(); }}
           style={styles.backBtn}
           activeOpacity={0.7}
         >
@@ -240,7 +248,7 @@ export default function WishlistDetailScreen() {
         </Text>
         <TouchableOpacity
           style={[styles.addBtn, { backgroundColor: theme.primaryColor }]}
-          onPress={() => setShowAddModal(true)}
+          onPress={() => { soundManager.play("pop"); setShowAddModal(true); }}
           activeOpacity={0.7}
         >
           <Feather name="plus" size={20} color="#fff" />
@@ -267,9 +275,9 @@ export default function WishlistDetailScreen() {
         onReorder={handleReorder}
         onPriorityChange={handlePriorityChange}
         onItemPress={() => {}}
-        onItemEdit={(item) => setEditItem(item)}
+        onItemEdit={(item) => { soundManager.play("tap"); setEditItem(item); }}
         onItemRemove={handleRemove}
-        onItemConvert={(item) => setConvertItem(item)}
+        onItemConvert={(item) => { soundManager.play("tap"); setConvertItem(item); }}
       />
 
       {/* Add / Edit Item Modal */}

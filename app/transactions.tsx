@@ -28,7 +28,7 @@ export default function TransactionsScreen() {
   const router = useRouter();
   const { accountId, filter } = useLocalSearchParams<{ accountId?: string; filter?: string }>();
   const { domain, theme, dispatchDomainEvent } = useAppState();
-  const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const webTopInset = 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
   // When arriving with filter=pending, show all-time pendentes (no month restriction)

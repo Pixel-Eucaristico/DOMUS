@@ -24,6 +24,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
+import { soundManager } from "@/src/services/SoundManager";
 import { SelectionModal } from "@/src/components/shared/SelectionModal";
 
 // Extracted components
@@ -65,7 +66,7 @@ export default function AboutScreen() {
         {/* Header */}
         <View style={s.header}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => { soundManager.play("tap"); router.back(); }}
             style={s.backBtn}
             activeOpacity={0.7}
           >
@@ -119,12 +120,12 @@ export default function AboutScreen() {
 
           {/* ── SETTINGS ────────────────────────────────────────────────── */}
           <SectionCard theme={theme} icon="settings" title="Configurações" accentColor={theme.accentColor} collapsible>
-            <LinkRow icon="cpu" label="IA Financeira" description="Provedor, chave de API, limites e custos" color="#6366F1" theme={theme} onPress={() => router.push("/ai-settings")} />
-            <LinkRow icon="lock" label="Segurança" description="Bloqueio por PIN ou biometria" color={theme.primaryColor} theme={theme} onPress={() => router.push("/security-settings")} />
-            <LinkRow icon="download-cloud" label="Backup & Restauração" description="Exportar e importar dados cifrados" color={theme.warning} theme={theme} onPress={() => router.push("/backup")} />
-            <LinkRow icon="shield" label="Política de Privacidade" description="Como seus dados são protegidos" color={theme.primaryColor} theme={theme} onPress={() => router.push("/privacy-policy")} />
-            <LinkRow icon="moon" label="Tema" description={`Modo atual: ${themeMode === "system" ? "Sistema" : themeMode === "dark" ? "Escuro" : "Claro"}`} color={theme.accentColor} theme={theme} onPress={() => setThemeModalVisible(true)} />
-            <LinkRow icon="play-circle" label="Refazer Tour do App" description="Reveja o guia de todas as funções do DOMUS (sandbox seguro)" color={theme.accentColor} theme={theme} onPress={() => { router.back(); setTimeout(startDemo, 300); }} />
+            <LinkRow icon="cpu" label="IA Financeira" description="Provedor, chave de API, limites e custos" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }} />
+            <LinkRow icon="lock" label="Segurança" description="Bloqueio por PIN ou biometria" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/security-settings"); }} />
+            <LinkRow icon="download-cloud" label="Backup & Restauração" description="Exportar e importar dados cifrados" color={theme.warning} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/backup"); }} />
+            <LinkRow icon="shield" label="Política de Privacidade" description="Como seus dados são protegidos" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/privacy-policy"); }} />
+            <LinkRow icon="moon" label="Tema" description={`Modo atual: ${themeMode === "system" ? "Sistema" : themeMode === "dark" ? "Escuro" : "Claro"}`} color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); setThemeModalVisible(true); }} />
+            <LinkRow icon="play-circle" label="Refazer Tour do App" description="Reveja o guia de todas as funções do DOMUS (sandbox seguro)" color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); router.back(); setTimeout(startDemo, 300); }} />
             <SwitchRow icon="volume-2" label="Efeitos Sonoros" description="Sons de confirmação e interações" color={theme.primaryColor} theme={theme} value={soundEnabled} onValueChange={setSoundEnabled} />
           </SectionCard>
 
@@ -144,7 +145,7 @@ export default function AboutScreen() {
             </Text>
             <TouchableOpacity
               style={s.dangerBtn}
-              onPress={() => { setResetPhrase(""); setShowResetModal(true); }}
+              onPress={() => { soundManager.play("trash"); setResetPhrase(""); setShowResetModal(true); }}
               activeOpacity={0.8}
             >
               <Feather name="trash-2" size={15} color="#FFF" />
@@ -200,7 +201,7 @@ export default function AboutScreen() {
             <View style={s.resetButtons}>
               <TouchableOpacity
                 style={[s.resetCancelBtn, { borderColor: theme.border }]}
-                onPress={() => { setShowResetModal(false); setResetPhrase(""); }}
+                onPress={() => { soundManager.play("tap"); setShowResetModal(false); setResetPhrase(""); }}
               >
                 <Text style={{ color: theme.textColor, fontFamily: "DMSans_500Medium", fontSize: 14 }}>
                   Cancelar
@@ -208,7 +209,7 @@ export default function AboutScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[s.resetConfirmBtn, resetPhrase !== "APAGAR TUDO" && { opacity: 0.35 }]}
-                onPress={handleReset}
+                onPress={() => { soundManager.play("trash"); handleReset(); }}
                 disabled={resetPhrase !== "APAGAR TUDO" || resetting}
                 activeOpacity={0.8}
               >
@@ -226,11 +227,11 @@ export default function AboutScreen() {
         title="Escolha o Tema"
         subtitle="Como você prefere visualizar o DOMUS?"
         theme={theme}
-        onCancel={() => setThemeModalVisible(false)}
+        onCancel={() => { soundManager.play("tap"); setThemeModalVisible(false); }}
         options={[
-          { label: "Sistema", icon: "monitor", onPress: () => setThemeMode("system") },
-          { label: "Claro", icon: "sun", onPress: () => setThemeMode("light") },
-          { label: "Escuro", icon: "moon", onPress: () => setThemeMode("dark") },
+          { label: "Sistema", icon: "monitor", onPress: () => { soundManager.play("pop"); setThemeMode("system"); } },
+          { label: "Claro", icon: "sun", onPress: () => { soundManager.play("pop"); setThemeMode("light"); } },
+          { label: "Escuro", icon: "moon", onPress: () => { soundManager.play("pop"); setThemeMode("dark"); } },
         ]}
       />
     </SafeAreaView>
@@ -269,6 +270,7 @@ function SectionCard({
       create: { type: "easeInEaseOut", property: "opacity" },
       delete: { type: "easeInEaseOut", property: "opacity" },
     });
+    soundManager.play("tap");
     rotationAnim.value = withTiming(open ? 0 : 1, { duration: 250 });
     setOpen((v) => !v);
   }, [collapsible, open, rotationAnim]);
@@ -342,7 +344,7 @@ function SwitchRow({ icon, label, description, color, theme, value, onValueChang
       </View>
       <Switch
         value={value}
-        onValueChange={onValueChange}
+        onValueChange={(v) => { soundManager.play("tap"); onValueChange(v); }}
         trackColor={{ true: theme.primaryColor }}
         thumbColor={Platform.OS === "ios" ? undefined : value ? "#fff" : "#f4f3f4"}
       />
