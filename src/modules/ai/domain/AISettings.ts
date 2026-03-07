@@ -137,10 +137,22 @@ export const PROVIDER_THEME: Record<AIProvider, { color: string; icon: string }>
   openrouter: { color: "#6366F1", icon: "router-wireless" },
 };
 
-/** Helper to get the budget for a specific provider, respecting user overrides */
+/** Budget value that means "unlimited" (no daily cap) */
+export const UNLIMITED_BUDGET = 0;
+
+/** Helper to get the budget for a specific provider, respecting user overrides.
+ *  Returns 0 for unlimited. */
 export function getProviderBudget(
   provider: AIProvider,
   customBudgets?: Partial<Record<AIProvider, number>>,
 ): number {
   return customBudgets?.[provider] ?? DAILY_TOKEN_BUDGET[provider];
+}
+
+/** Returns true if the budget is unlimited (0 = no cap) */
+export function isUnlimitedBudget(
+  provider: AIProvider,
+  customBudgets?: Partial<Record<AIProvider, number>>,
+): boolean {
+  return getProviderBudget(provider, customBudgets) === UNLIMITED_BUDGET;
 }

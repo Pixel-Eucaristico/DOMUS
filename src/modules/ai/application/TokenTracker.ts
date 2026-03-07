@@ -1,6 +1,6 @@
 import { SecureStorageService } from "@/src/modules/security/infrastructure/SecureStorageService";
 import type { AIProvider, DailyTokenUsage } from "@packages/ai";
-import { getProviderBudget } from "../domain/AISettings";
+import { getProviderBudget, isUnlimitedBudget } from "../domain/AISettings";
 
 // ─── TokenTracker ─────────────────────────────────────────────────────────────
 
@@ -60,11 +60,13 @@ export class TokenTracker {
   ): Promise<boolean> {
     const usage = await TokenTracker.getToday();
     if (provider) {
+      if (isUnlimitedBudget(provider, customBudgets)) return false;
       const budget = getProviderBudget(provider, customBudgets);
       const used = usage.byProvider[provider] ?? 0;
       return used >= budget;
     }
     return Object.entries(usage.byProvider).some(([p, used]) => {
+      if (isUnlimitedBudget(p as AIProvider, customBudgets)) return false;
       const budget = getProviderBudget(p as AIProvider, customBudgets);
       return (used ?? 0) >= budget;
     });

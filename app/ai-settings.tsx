@@ -19,7 +19,9 @@ import {
   hasActiveKey,
   AI_DATA_PERMISSION_LABELS,
   DAILY_TOKEN_BUDGET,
+  UNLIMITED_BUDGET,
   getProviderBudget,
+  isUnlimitedBudget,
 } from "@/src/modules/ai/domain/AISettings";
 import type { AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
 import {
@@ -367,32 +369,37 @@ function BudgetCostSection({
 }) {
   const { theme } = useAppState();
   const budget = getProviderBudget(provider, customBudgets);
+  const unlimited = isUnlimitedBudget(provider, customBudgets);
   const defaultBudget = DAILY_TOKEN_BUDGET[provider];
-  const [budgetInput, setBudgetInput] = useState(String(budget));
+  const [budgetInput, setBudgetInput] = useState(unlimited ? "" : String(budget));
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [budgetCost, setBudgetCost] = useState<CostEstimate | null>(null);
   const usdPrice = TOKEN_PRICES_USD[provider][modelTier];
 
   useEffect(() => {
-    setBudgetInput(String(budget));
-  }, [budget]);
+    setBudgetInput(unlimited ? "" : String(budget));
+  }, [budget, unlimited]);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       const rate = await TokenPricingService.getUsdToBrl();
       if (mounted) setExchangeRate(rate);
-      const cost = await TokenPricingService.estimateCost(provider, modelTier, budget);
-      if (mounted) setBudgetCost(cost);
+      if (!unlimited) {
+        const cost = await TokenPricingService.estimateCost(provider, modelTier, budget);
+        if (mounted) setBudgetCost(cost);
+      } else {
+        if (mounted) setBudgetCost(null);
+      }
     })();
     return () => { mounted = false; };
-  }, [provider, modelTier, budget]);
+  }, [provider, modelTier, budget, unlimited]);
 
   const handleBudgetSave = () => {
     const val = parseInt(budgetInput, 10);
     if (isNaN(val) || val < 1000) {
       Alert.alert("Valor invalido", "O limite minimo e 1.000 tokens.");
-      setBudgetInput(String(budget));
+      setBudgetInput(unlimited ? "" : String(budget));
       return;
     }
     onBudgetChange(val);
@@ -401,6 +408,14 @@ function BudgetCostSection({
   const handleReset = () => {
     onBudgetChange(defaultBudget);
     setBudgetInput(String(defaultBudget));
+  };
+
+  const handleToggleUnlimited = () => {
+    if (unlimited) {
+      onBudgetChange(defaultBudget);
+    } else {
+      onBudgetChange(UNLIMITED_BUDGET);
+    }
   };
 
   return (
@@ -423,34 +438,54 @@ function BudgetCostSection({
           Requisicoes sao bloqueadas ao atingir o limite. Padrao: {defaultBudget.toLocaleString("pt-BR")}.
         </Text>
 
-        <View style={budgetStyles.inputRow}>
-          <TextInput
-            value={budgetInput}
-            onChangeText={setBudgetInput}
-            keyboardType="numeric"
-            onBlur={handleBudgetSave}
-            onSubmitEditing={handleBudgetSave}
-            style={[
-              budgetStyles.input,
-              {
-                color: theme.textColor,
-                backgroundColor: theme.background,
-                borderColor: theme.border,
-              },
-            ]}
+        {/* Unlimited toggle */}
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleInfo}>
+            <Text style={[styles.permissionLabel, { color: theme.textColor }]}>
+              Modo ilimitado
+            </Text>
+            <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+              Sem limite diario de tokens
+            </Text>
+          </View>
+          <Switch
+            value={unlimited}
+            onValueChange={handleToggleUnlimited}
+            trackColor={{ false: theme.border, true: theme.warning }}
+            thumbColor="#fff"
           />
-          <Text style={[budgetStyles.unit, { color: theme.secondaryText }]}>tokens</Text>
-          {budget !== defaultBudget && (
-            <TouchableOpacity onPress={handleReset}>
-              <Feather name="rotate-ccw" size={14} color={theme.secondaryText} />
-            </TouchableOpacity>
-          )}
         </View>
+
+        {!unlimited && (
+          <View style={budgetStyles.inputRow}>
+            <TextInput
+              value={budgetInput}
+              onChangeText={setBudgetInput}
+              keyboardType="numeric"
+              onBlur={handleBudgetSave}
+              onSubmitEditing={handleBudgetSave}
+              style={[
+                budgetStyles.input,
+                {
+                  color: theme.textColor,
+                  backgroundColor: theme.background,
+                  borderColor: theme.border,
+                },
+              ]}
+            />
+            <Text style={[budgetStyles.unit, { color: theme.secondaryText }]}>tokens</Text>
+            {budget !== defaultBudget && (
+              <TouchableOpacity onPress={handleReset}>
+                <Feather name="rotate-ccw" size={14} color={theme.secondaryText} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Cost estimate */}
         <View style={[budgetStyles.costCard, { backgroundColor: `${theme.accentColor}10` }]}>
           <Text style={[budgetStyles.costTitle, { color: theme.textColor }]}>
-            Custo estimado do limite
+            Custo estimado {unlimited ? "(por uso)" : "do limite"}
           </Text>
 
           <View style={budgetStyles.costRow}>
@@ -463,7 +498,7 @@ function BudgetCostSection({
             </Text>
           </View>
 
-          {budgetCost && (
+          {budgetCost && !unlimited && (
             <View style={budgetStyles.costRow}>
               <Text style={[budgetStyles.costLabel, { color: theme.secondaryText }]}>
                 Custo max diario:
@@ -474,9 +509,18 @@ function BudgetCostSection({
             </View>
           )}
 
+          {unlimited && (
+            <View style={budgetStyles.costRow}>
+              <Feather name="alert-triangle" size={12} color={theme.warning} />
+              <Text style={[budgetStyles.costLabel, { color: theme.warning }]}>
+                Sem limite — custos podem acumular sem restricao
+              </Text>
+            </View>
+          )}
+
           {exchangeRate && (
             <Text style={[budgetStyles.disclaimer, { color: theme.secondaryText }]}>
-              Cotacao: 1 USD = {exchangeRate.toFixed(2)} BRL · Valores estimados
+              Cotacao: 1 USD = {exchangeRate.toFixed(2)} BRL · Valores estimados, nao representam custo real exato
             </Text>
           )}
         </View>

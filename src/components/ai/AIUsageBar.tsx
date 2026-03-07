@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
 import { TokenPricingService } from "@/src/modules/ai/infrastructure/TokenPricingService";
-import { getProviderBudget, PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
+import { getProviderBudget, isUnlimitedBudget, PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
 import type { AIProvider, AIModelTier, DailyTokenUsage } from "@packages/ai";
 
 interface AIUsageBarProps {
@@ -41,31 +41,32 @@ export function AIUsageBar({
   }, [refresh, refreshKey]);
 
   const providerTokens = usage?.byProvider[provider] ?? 0;
+  const unlimited = isUnlimitedBudget(provider, customBudgets);
   const budget = getProviderBudget(provider, customBudgets);
-  const providerTheme = PROVIDER_THEME[provider];
+  const pTheme = PROVIDER_THEME[provider];
 
   if (!usage || providerTokens === 0) return null;
 
-  const pct = Math.min(100, (providerTokens / budget) * 100);
-  const isOver = providerTokens >= budget;
+  const pct = unlimited ? 0 : Math.min(100, (providerTokens / budget) * 100);
+  const isOver = !unlimited && providerTokens >= budget;
 
   const barColor = isOver
     ? theme.danger
     : pct > 80
       ? theme.warning
-      : providerTheme.color;
+      : pTheme.color;
 
   return (
     <View style={[styles.container, { borderColor: theme.border }]}>
       <View style={styles.row}>
         <View style={styles.labelRow}>
           <MaterialCommunityIcons
-            name={providerTheme.icon as keyof typeof MaterialCommunityIcons.glyphMap}
+            name={pTheme.icon as keyof typeof MaterialCommunityIcons.glyphMap}
             size={12}
-            color={providerTheme.color}
+            color={pTheme.color}
           />
           <Text style={[styles.label, { color: theme.secondaryText }]}>
-            {providerTokens.toLocaleString("pt-BR")} / {budget.toLocaleString("pt-BR")}
+            {providerTokens.toLocaleString("pt-BR")}{unlimited ? "" : ` / ${budget.toLocaleString("pt-BR")}`}
           </Text>
           {costBrl !== null && (
             <Text style={[styles.costLabel, { color: theme.secondaryText }]}>
@@ -73,15 +74,22 @@ export function AIUsageBar({
             </Text>
           )}
         </View>
-        <Text style={[styles.pct, { color: barColor }]}>
-          {Math.round(pct)}%
-        </Text>
+        {!unlimited && (
+          <Text style={[styles.pct, { color: barColor }]}>
+            {Math.round(pct)}%
+          </Text>
+        )}
+        {unlimited && (
+          <Text style={[styles.pct, { color: theme.secondaryText }]}>∞</Text>
+        )}
       </View>
-      <View style={[styles.track, { backgroundColor: theme.border }]}>
-        <View
-          style={[styles.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]}
-        />
-      </View>
+      {!unlimited && (
+        <View style={[styles.track, { backgroundColor: theme.border }]}>
+          <View
+            style={[styles.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]}
+          />
+        </View>
+      )}
     </View>
   );
 }
