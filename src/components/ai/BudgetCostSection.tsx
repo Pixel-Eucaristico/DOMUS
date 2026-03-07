@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 import {
   DAILY_TOKEN_BUDGET,
   MONTHLY_TOKEN_BUDGET,
@@ -178,12 +179,14 @@ export function BudgetCostSection({
   };
 
   const handleReset = () => {
+    soundManager.play("tap");
     activeOnChange(activeDefault);
     setTokensInput(String(activeDefault));
     setEditingField(null);
   };
 
   const handleToggleUnlimited = () => {
+    soundManager.play("tap");
     if (activeUnlimited) {
       activeOnChange(activeDefault);
     } else {
@@ -212,7 +215,7 @@ export function BudgetCostSection({
           {(["daily", "monthly"] as BudgetMode[]).map((mode) => (
             <TouchableOpacity
               key={mode}
-              onPress={() => onBudgetModeChange(mode)}
+              onPress={() => { soundManager.play("tap"); onBudgetModeChange(mode); }}
               style={[
                 styles.modeBtn,
                 {
@@ -242,7 +245,7 @@ export function BudgetCostSection({
             </Text>
             <View style={styles.billingDayControl}>
               <TouchableOpacity
-                onPress={() => onBillingDayChange(Math.max(1, billingDay - 1))}
+                onPress={() => { soundManager.play("tap"); onBillingDayChange(Math.max(1, billingDay - 1)); }}
                 style={[styles.billingDayBtn, { borderColor: theme.border }]}
               >
                 <Feather name="minus" size={14} color={theme.textColor} />
@@ -251,7 +254,7 @@ export function BudgetCostSection({
                 {billingDay}
               </Text>
               <TouchableOpacity
-                onPress={() => onBillingDayChange(Math.min(28, billingDay + 1))}
+                onPress={() => { soundManager.play("tap"); onBillingDayChange(Math.min(28, billingDay + 1)); }}
                 style={[styles.billingDayBtn, { borderColor: theme.border }]}
               >
                 <Feather name="plus" size={14} color={theme.textColor} />

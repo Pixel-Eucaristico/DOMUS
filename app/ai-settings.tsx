@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { soundManager } from "@/src/services/SoundManager";
 import { useAISettings } from "@/src/hooks/useAISettings";
 import { useAIConsultant } from "@/src/hooks/useAIConsultant";
 import {
@@ -58,7 +59,7 @@ export default function AISettingsScreen() {
           { borderBottomColor: theme.border, backgroundColor: theme.background },
         ]}
       >
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }}>
           <Feather name="arrow-left" size={22} color={theme.textColor} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.textColor }]}>
@@ -88,9 +89,10 @@ export default function AISettingsScreen() {
             </View>
             <Switch
               value={settings.isEnabled}
-              onValueChange={(v) =>
-                updateSettings({ isEnabled: v && hasActiveKey(settings) })
-              }
+              onValueChange={(v) => {
+                soundManager.play("tap");
+                updateSettings({ isEnabled: v && hasActiveKey(settings) });
+              }}
               trackColor={{ false: theme.border, true: theme.primaryColor }}
               thumbColor="#fff"
               disabled={!hasActiveKey(settings)}
@@ -175,6 +177,7 @@ export default function AISettingsScreen() {
                 const enabled = settings.dataPermissions[key] ?? false;
 
                 const handleToggle = (value: boolean) => {
+                  soundManager.play("tap");
                   if (value && !enabled) {
                     Alert.alert(
                       `Permitir acesso: ${label.title}`,
@@ -306,6 +309,7 @@ export default function AISettingsScreen() {
           <TouchableOpacity
             style={styles.actionRow}
             onPress={() => {
+              soundManager.play("tap");
               Alert.alert(
                 "Limpar histórico da IA",
                 "Isso apagará todas as mensagens da conversa atual. Esta ação não pode ser desfeita.",
@@ -314,7 +318,7 @@ export default function AISettingsScreen() {
                   {
                     text: "Limpar",
                     style: "destructive",
-                    onPress: clearHistory,
+                    onPress: () => { soundManager.play("trash"); clearHistory(); },
                   },
                 ],
               );
@@ -338,7 +342,7 @@ export default function AISettingsScreen() {
 
           <TouchableOpacity
             style={styles.actionRow}
-            onPress={() => router.push("/privacy-policy")}
+            onPress={() => { soundManager.play("tap"); router.push("/privacy-policy"); }}
             accessibilityLabel="Ver política de privacidade"
             accessibilityRole="link"
           >
