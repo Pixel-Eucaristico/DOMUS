@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Clipboard,
 } from "react-native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
@@ -22,8 +23,8 @@ interface APIKeyManagerProps {
   hasOAuthSession?: boolean;
   onSave: (provider: AIProvider, key: string) => Promise<boolean>;
   onDelete: (provider: AIProvider) => Promise<void>;
-  /** OpenAI-specific: start ChatGPT OAuth login */
-  onLoginChatGPT?: () => Promise<boolean>;
+  /** OpenAI-specific: start ChatGPT Device Code login */
+  onLoginChatGPT?: (onCode: (code: string, verifyUrl: string) => void) => Promise<boolean>;
   /** OpenAI-specific: logout from ChatGPT OAuth */
   onLogoutChatGPT?: () => Promise<void>;
 }
@@ -43,6 +44,7 @@ export function APIKeyManager({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [deviceCode, setDeviceCode] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -90,21 +92,33 @@ export function APIKeyManager({
   const handleLoginChatGPT = async () => {
     if (!onLoginChatGPT) return;
     setError(null);
+    setDeviceCode(null);
     setIsLoggingIn(true);
     try {
-      const ok = await onLoginChatGPT();
+      const ok = await onLoginChatGPT((code, _url) => {
+        setDeviceCode(code);
+      });
+      setDeviceCode(null);
       if (ok) {
         setSuccess(true);
         soundManager.play("success");
         setTimeout(() => setSuccess(false), 2500);
       } else {
-        setError("Login cancelado ou falhou.");
+        setError("Login cancelado ou expirou.");
       }
     } catch {
+      setDeviceCode(null);
       setError("Erro ao conectar com ChatGPT.");
       soundManager.play("error");
     } finally {
       setIsLoggingIn(false);
+    }
+  };
+
+  const handleCopyCode = () => {
+    if (deviceCode) {
+      Clipboard.setString(deviceCode);
+      soundManager.play("tap");
     }
   };
 
@@ -278,9 +292,33 @@ export function APIKeyManager({
                 )}
               </TouchableOpacity>
 
-              <Text style={[styles.oauthHint, { color: theme.secondaryText }]}>
-                Use sua assinatura ChatGPT Plus/Team sem API key
-              </Text>
+              {/* Device code display */}
+              {deviceCode ? (
+                <TouchableOpacity
+                  onPress={handleCopyCode}
+                  style={[styles.codeCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                >
+                  <Text style={[styles.codeLabel, { color: theme.secondaryText }]}>
+                    Digite este codigo no navegador:
+                  </Text>
+                  <Text style={[styles.codeValue, { color: PROVIDER_GREEN }]}>
+                    {deviceCode}
+                  </Text>
+                  <View style={styles.codeCopyRow}>
+                    <Feather name="copy" size={12} color={theme.secondaryText} />
+                    <Text style={[styles.codeCopyText, { color: theme.secondaryText }]}>
+                      Toque para copiar
+                    </Text>
+                  </View>
+                  <Text style={[styles.codeWaiting, { color: theme.secondaryText }]}>
+                    Aguardando login... (expira em 15 min)
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={[styles.oauthHint, { color: theme.secondaryText }]}>
+                  Use sua assinatura ChatGPT Plus/Team sem API key
+                </Text>
+              )}
             </>
           )}
         </View>
@@ -378,6 +416,34 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: "center",
     lineHeight: 16,
+  },
+  codeCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    gap: 8,
+  },
+  codeLabel: {
+    fontSize: 12,
+  },
+  codeValue: {
+    fontSize: 28,
+    fontWeight: "700",
+    fontFamily: "monospace",
+    letterSpacing: 4,
+  },
+  codeCopyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  codeCopyText: {
+    fontSize: 11,
+  },
+  codeWaiting: {
+    fontSize: 11,
+    fontStyle: "italic",
   },
   error: {
     fontSize: 13,

@@ -22,8 +22,8 @@ export interface UseAISettingsResult {
   /** Encrypts and stores an API key. Returns false if biometric auth fails. */
   saveApiKey: (provider: AIProvider, key: string) => Promise<boolean>;
   deleteApiKey: (provider: AIProvider) => Promise<void>;
-  /** Start OpenAI OAuth login (ChatGPT subscription). Returns true on success. */
-  loginWithChatGPT: () => Promise<boolean>;
+  /** Start OpenAI Device Code login (ChatGPT subscription). Calls onCode with the code to display. */
+  loginWithChatGPT: (onCode: (code: string, verifyUrl: string) => void) => Promise<boolean>;
   /** Logout from ChatGPT OAuth session. */
   logoutChatGPT: () => Promise<void>;
   updateSettings: (changes: Partial<Omit<AISettings, "apiKeyStatus">>) => Promise<void>;
@@ -132,26 +132,29 @@ export function useAISettings(): UseAISettingsResult {
     [settings, persist],
   );
 
-  const loginWithChatGPT = useCallback(async (): Promise<boolean> => {
-    try {
-      const tokens = await OpenAIOAuthService.login();
-      if (!tokens) return false;
+  const loginWithChatGPT = useCallback(
+    async (onCode: (code: string, verifyUrl: string) => void): Promise<boolean> => {
+      try {
+        const tokens = await OpenAIOAuthService.loginWithDeviceCode(onCode);
+        if (!tokens) return false;
 
-      AIClientService.resetBreaker("openai");
-      const next: AISettings = {
-        ...settings,
-        provider: "openai",
-        openaiAuthMethod: "chatgpt_oauth",
-        hasOAuthSession: true,
-        isEnabled: true,
-        systemPromptSent: false,
-      };
-      await persist(next);
-      return true;
-    } catch {
-      return false;
-    }
-  }, [settings, persist]);
+        AIClientService.resetBreaker("openai");
+        const next: AISettings = {
+          ...settings,
+          provider: "openai",
+          openaiAuthMethod: "chatgpt_oauth",
+          hasOAuthSession: true,
+          isEnabled: true,
+          systemPromptSent: false,
+        };
+        await persist(next);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [settings, persist],
+  );
 
   const logoutChatGPT = useCallback(async (): Promise<void> => {
     await OpenAIOAuthService.logout();

@@ -1,21 +1,18 @@
-import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
-import * as ExpoCrypto from "expo-crypto";
 import { SecureStorageService } from "@/src/modules/security/infrastructure/SecureStorageService";
 
 // ─── Constants from Codex CLI (public, open-source) ────────────────────────────
 
 const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 const ISSUER = "https://auth.openai.com";
-const SCOPES = "openid profile email offline_access";
-
-const AUTH_ENDPOINT = `${ISSUER}/oauth/authorize`;
-const TOKEN_ENDPOINT = `${ISSUER}/oauth/token`;
+const API_BASE = `${ISSUER}/api/accounts`;
+const DEVICE_VERIFY_URL = `${ISSUER}/codex/device`;
 
 /** ChatGPT backend API base — used instead of api.openai.com/v1 */
 export const CHATGPT_API_BASE = "https://chatgpt.com/backend-api";
 
 const STORE_KEY = "domus_openai_oauth_tokens";
+const POLL_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 // ─── Token types ───────────────────────────────────────────────────────────────
 
@@ -26,61 +23,100 @@ export interface OpenAIOAuthTokens {
   expiresAt: number; // timestamp ms
 }
 
+interface DeviceCodeResponse {
+  device_auth_id: string;
+  user_code: string;
+  interval: string | number;
+}
+
+interface DeviceTokenResponse {
+  authorization_code: string;
+  code_verifier: string;
+  code_challenge: string;
+}
+
+interface OAuthTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  id_token: string;
+  expires_in?: number;
+}
+
 // ─── Service ───────────────────────────────────────────────────────────────────
-
-WebBrowser.maybeCompleteAuthSession();
-
-const discovery: AuthSession.DiscoveryDocument = {
-  authorizationEndpoint: AUTH_ENDPOINT,
-  tokenEndpoint: TOKEN_ENDPOINT,
-};
 
 export class OpenAIOAuthService {
   /**
-   * Starts the OAuth 2 PKCE flow.
-   * Opens the browser for OpenAI login, returns tokens on success.
+   * Device Code login flow (same as Codex CLI).
+   * 1. Request device code
+   * 2. Open browser for user to enter code
+   * 3. Poll until approved
+   * 4. Exchange for tokens
+   *
+   * Returns tokens on success, null on cancel/timeout.
+   * Calls onCode(userCode) so the UI can show the code to the user.
    */
-  static async login(): Promise<OpenAIOAuthTokens | null> {
-    const redirectUri = AuthSession.makeRedirectUri({ scheme: "domus" });
-
-    const request = new AuthSession.AuthRequest({
-      clientId: CLIENT_ID,
-      scopes: SCOPES.split(" "),
-      redirectUri,
-      usePKCE: true,
-      responseType: AuthSession.ResponseType.Code,
-      extraParams: {
-        codex_cli_simplified_flow: "true",
-        id_token_add_organizations: "true",
-      },
+  static async loginWithDeviceCode(
+    onCode: (code: string, verifyUrl: string) => void,
+    signal?: AbortSignal,
+  ): Promise<OpenAIOAuthTokens | null> {
+    // Step 1: Request user code
+    const deviceResp = await fetch(`${API_BASE}/deviceauth/usercode`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: CLIENT_ID }),
     });
 
-    const result = await request.promptAsync(discovery);
-
-    if (result.type !== "success" || !result.params.code) {
-      return null;
+    if (!deviceResp.ok) {
+      const text = await deviceResp.text();
+      throw new Error(`Device code request failed (${deviceResp.status}): ${text}`);
     }
 
-    // Exchange code for tokens
-    const tokenResult = await AuthSession.exchangeCodeAsync(
-      {
-        clientId: CLIENT_ID,
-        code: result.params.code,
-        redirectUri,
-        extraParams: {
-          code_verifier: request.codeVerifier!,
-        },
-      },
-      discovery,
+    const device = (await deviceResp.json()) as DeviceCodeResponse;
+    const interval = typeof device.interval === "string"
+      ? parseInt(device.interval, 10) || 5
+      : device.interval || 5;
+
+    // Step 2: Notify UI of the code and open browser
+    onCode(device.user_code, DEVICE_VERIFY_URL);
+    WebBrowser.openBrowserAsync(DEVICE_VERIFY_URL).catch(() => {});
+
+    // Step 3: Poll for authorization
+    const pollResult = await OpenAIOAuthService.pollForToken(
+      device.device_auth_id,
+      device.user_code,
+      interval,
+      signal,
     );
 
+    if (!pollResult) return null;
+
+    // Step 4: Exchange authorization code for OAuth tokens
+    const redirectUri = `${ISSUER}/deviceauth/callback`;
+    const body =
+      `grant_type=authorization_code` +
+      `&code=${encodeURIComponent(pollResult.authorization_code)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&client_id=${encodeURIComponent(CLIENT_ID)}` +
+      `&code_verifier=${encodeURIComponent(pollResult.code_verifier)}`;
+
+    const tokenResp = await fetch(`${ISSUER}/oauth/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+
+    if (!tokenResp.ok) {
+      const text = await tokenResp.text();
+      throw new Error(`Token exchange failed (${tokenResp.status}): ${text}`);
+    }
+
+    const tokenData = (await tokenResp.json()) as OAuthTokenResponse;
+
     const tokens: OpenAIOAuthTokens = {
-      accessToken: tokenResult.accessToken,
-      refreshToken: tokenResult.refreshToken ?? "",
-      idToken: tokenResult.idToken ?? "",
-      expiresAt: tokenResult.issuedAt
-        ? (tokenResult.issuedAt + (tokenResult.expiresIn ?? 3600)) * 1000
-        : Date.now() + 3600_000,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      idToken: tokenData.id_token,
+      expiresAt: Date.now() + (tokenData.expires_in ?? 3600) * 1000,
     };
 
     await OpenAIOAuthService.saveTokens(tokens);
@@ -88,29 +124,75 @@ export class OpenAIOAuthService {
   }
 
   /**
+   * Poll the device auth token endpoint until the user completes login.
+   * Returns null on timeout or cancellation.
+   */
+  private static async pollForToken(
+    deviceAuthId: string,
+    userCode: string,
+    intervalSec: number,
+    signal?: AbortSignal,
+  ): Promise<DeviceTokenResponse | null> {
+    const deadline = Date.now() + POLL_TIMEOUT_MS;
+
+    while (Date.now() < deadline) {
+      if (signal?.aborted) return null;
+
+      const resp = await fetch(`${API_BASE}/deviceauth/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          device_auth_id: deviceAuthId,
+          user_code: userCode,
+        }),
+      });
+
+      if (resp.ok) {
+        return (await resp.json()) as DeviceTokenResponse;
+      }
+
+      // 403 = pending, 404 = pending → keep polling
+      if (resp.status === 403 || resp.status === 404) {
+        await new Promise((r) => setTimeout(r, intervalSec * 1000));
+        continue;
+      }
+
+      // Other error = abort
+      const text = await resp.text();
+      throw new Error(`Device auth polling failed (${resp.status}): ${text}`);
+    }
+
+    return null; // timeout
+  }
+
+  /**
    * Refreshes the access token using the stored refresh token.
-   * Returns updated tokens or null if refresh fails.
    */
   static async refresh(): Promise<OpenAIOAuthTokens | null> {
     const stored = await OpenAIOAuthService.getTokens();
     if (!stored?.refreshToken) return null;
 
     try {
-      const tokenResult = await AuthSession.refreshAsync(
-        {
-          clientId: CLIENT_ID,
-          refreshToken: stored.refreshToken,
-        },
-        discovery,
-      );
+      const body =
+        `grant_type=refresh_token` +
+        `&client_id=${encodeURIComponent(CLIENT_ID)}` +
+        `&refresh_token=${encodeURIComponent(stored.refreshToken)}`;
+
+      const resp = await fetch(`${ISSUER}/oauth/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+      });
+
+      if (!resp.ok) return null;
+
+      const data = (await resp.json()) as OAuthTokenResponse;
 
       const tokens: OpenAIOAuthTokens = {
-        accessToken: tokenResult.accessToken,
-        refreshToken: tokenResult.refreshToken ?? stored.refreshToken,
-        idToken: tokenResult.idToken ?? stored.idToken,
-        expiresAt: tokenResult.issuedAt
-          ? (tokenResult.issuedAt + (tokenResult.expiresIn ?? 3600)) * 1000
-          : Date.now() + 3600_000,
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token || stored.refreshToken,
+        idToken: data.id_token || stored.idToken,
+        expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
       };
 
       await OpenAIOAuthService.saveTokens(tokens);
@@ -122,7 +204,6 @@ export class OpenAIOAuthService {
 
   /**
    * Returns a valid access token, refreshing if needed.
-   * Returns null if no OAuth session exists or refresh fails.
    */
   static async getValidAccessToken(): Promise<string | null> {
     const tokens = await OpenAIOAuthService.getTokens();
