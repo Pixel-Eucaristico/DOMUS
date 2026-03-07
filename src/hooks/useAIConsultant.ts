@@ -1,5 +1,6 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { ConsultantChatUseCase } from "@/src/modules/ai/application/ConsultantChatUseCase";
+import { AIClientService } from "@/src/modules/ai/application/AIClientService";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { useSync } from "@/src/context/SyncProvider";
 import type { ChatMessage } from "@packages/ai";
@@ -26,6 +27,11 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
   const { domain, gamification, wishlist } = useAppState();
   const syncCtx = useSync();
   const historyRef = useRef<ChatMessage[]>([]);
+
+  // Reset circuit breaker when chat opens — clears stale failures from previous sessions
+  useEffect(() => {
+    AIClientService.resetBreaker(settings.provider);
+  }, [settings.provider]);
 
   const sendMessage = useCallback(
     async (text: string, wishlistItemPrice?: number | null): Promise<void> => {
