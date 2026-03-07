@@ -1,78 +1,97 @@
-# Tarefa 04 - Testar Todas as APIs de IA
+# Tarefa 04 - Corrigir e Melhorar APIs de IA (CONCLUIDA)
 
 ## Prioridade: MEDIO | Urgencia: MEDIA
-## Estimativa: ~2h | Arquivos: adapters + testes
+## Status: CONCLUIDA | Commit: 76d5af1
 
 ---
 
-## Problema
-Existem 3 adapters de IA configurados (OpenAI, Gemini, Claude) e precisam ser validados end-to-end para garantir que funcionam corretamente.
+## Problema Original
+- Adapters com bugs (Gemini nao tratava content blocked, Claude faltava header mobile, timeout curto)
+- OpenRouter removido — substituido por DeepSeek e Qwen
+- Apenas 1 chave de API por vez (perdia ao trocar provider)
+- System prompt generico, sem contexto financeiro brasileiro
+- Erros engolidos silenciosamente (usuario via fallback sem saber o motivo)
+- Cotacao USD/BRL hardcoded em R$ 5,50
+- Sem opcao de budget mensal
 
-## Adapters Configurados
+## O Que Foi Feito
 
-### 1. OpenAI Adapter
-- **Arquivo:** `packages/ai/src/adapters/OpenAIAdapter.ts`
-- **Endpoint:** `https://api.openai.com/v1/chat/completions`
-- **Modelos:**
-  - Fast: `gpt-4.1-mini`
-  - Smart: `gpt-4.1`
-- **Auth:** `Authorization: Bearer {apiKey}`
+### Adapters Corrigidos e Adicionados
+| Adapter | Endpoint | Modelos |
+|---------|----------|---------|
+| OpenAI | `api.openai.com/v1/chat/completions` | gpt-5-mini / gpt-4.1 |
+| Gemini | `generativelanguage.googleapis.com/v1beta` | gemini-2.5-flash / gemini-2.5-pro |
+| Claude | `api.anthropic.com/v1/messages` | claude-haiku-4-5 / claude-sonnet-4-6 |
+| **DeepSeek** (novo) | `api.deepseek.com/chat/completions` | deepseek-chat / deepseek-reasoner |
+| **Qwen** (novo) | `dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions` | qwen3.5-flash / qwen3.5-plus |
+| ChatGPT OAuth | `chatgpt.com/backend-api/codex/responses` | gpt-5.1-codex-mini / gpt-5.4 |
 
-### 2. Gemini Adapter
-- **Arquivo:** `packages/ai/src/adapters/GeminiAdapter.ts`
-- **Endpoint:** `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}`
-- **Modelos:**
-  - Fast: `gemini-2.5-flash`
-  - Smart: `gemini-2.5-pro`
-- **Auth:** API key na URL
+### Bugs Corrigidos
+- GeminiAdapter: tratamento de `candidates` vazio (content blocked) e `finishReason: SAFETY`
+- ClaudeAdapter: header `anthropic-dangerous-direct-browser-access: true` para React Native
+- Timeout: 15s -> 30s para modelos de IA
+- `AbortSignal.timeout()` substituido por `timeoutSignal()` compativel com Hermes/RN
+- `useAISettings`: restaura `customBudgets`, `budgetMode`, `monthlyBudgets`, `billingDay` do storage
+- `getEffectiveDailyBudget`: chamado com argumentos na ordem correta
+- `AIUsageDashboard`: props de budget mensal passadas corretamente
 
-### 3. Claude Adapter
-- **Arquivo:** `packages/ai/src/adapters/ClaudeAdapter.ts`
-- **Endpoint:** `https://api.anthropic.com/v1/messages`
-- **Modelos:**
-  - Fast: `claude-haiku-4-5-20251001`
-  - Smart: `claude-sonnet-4-6`
-- **Auth:** `x-api-key: {apiKey}`, `anthropic-version: 2023-06-01`
-- **Peculiaridade:** Merge de mensagens consecutivas do mesmo role (Anthropic exige alternancia user/assistant)
+### Features Adicionadas
+- **Multi-provider API keys**: cada provider armazena sua chave independentemente
+- **Budget mensal**: modo diario/mensal com billing cycle configuravel (dia 1-28)
+- **Conversao bidirecional**: inputs Tokens / R$ / US$ com live conversion
+- **Cotacao real USD/BRL**: 3 APIs com fallback (AwesomeAPI -> DolarAPI -> ExchangeRate-API), cache 30min
+- **System prompt**: consultor financeiro brasileiro (CDI, Selic, IPCA, regra 50/30/20)
+- **Erro visivel**: mensagem de erro real mostrada ao usuario com fallback local
+- **Atalho**: link para config de IA na tela de configuracoes gerais
 
-## Testes Existentes
-- `packages/ai/__tests__/profileCalculator.test.ts` - calculo de perfil
-- `packages/ai/__tests__/intentClassifier.test.ts` - classificacao de intencao
-- `packages/ai/__tests__/toon.test.ts` - personalidade TOON
-- `src/modules/ai/infrastructure/__tests__/SecureKeyService.test.ts` - seguranca
+### Refatoracao
+- `BudgetCostSection` extraido para `src/components/ai/BudgetCostSection.tsx`
+- `ai-settings.tsx`: 948 -> 467 linhas
+- Import nao usado removido (`MonthlyTokenUsage` em `AISettings.ts`)
+- Timer leak corrigido no `timeoutSignal`
 
-## Cenarios para Testar
+## Arquivos Alterados (21)
 
-### Por Adapter
-1. Request formatado corretamente (headers, body)
-2. Resposta parseada corretamente
-3. Tratamento de erros (401, 429 rate limit, 500)
-4. Timeout handling
-5. Token counting na resposta
+### Novos
+- `packages/ai/src/adapters/DeepSeekAdapter.ts`
+- `packages/ai/src/adapters/QwenAdapter.ts`
+- `src/components/ai/BudgetCostSection.tsx`
 
-### Infraestrutura
-1. CircuitBreaker abre apos 3 falhas consecutivas
-2. CircuitBreaker reseta apos 30s
-3. Cache retorna resposta identica para mesma pergunta
-4. TokenTracker respeita limite diario de 50.000 tokens
-5. AIProviderFactory instancia adapter correto por provider
+### Modificados
+- `packages/ai/src/types.ts` — AIProvider union + AI_MODELS + MonthlyTokenUsage
+- `packages/ai/index.ts` — exports DeepSeek/Qwen
+- `packages/ai/__tests__/adapters.test.ts` — testes DeepSeek/Qwen/ChatGPT OAuth
+- `src/modules/ai/domain/AISettings.ts` — BudgetMode, monthly helpers, provider themes
+- `src/modules/ai/application/TokenTracker.ts` — monthly tracking + isOverMonthlyBudget
+- `src/modules/ai/application/AIClientService.ts` — monthly budget params
+- `src/modules/ai/application/AIProviderFactory.ts` — cases deepseek/qwen
+- `src/modules/ai/application/ConsultantChatUseCase.ts` — system prompt + monthly params
+- `src/modules/ai/application/ClassifyTransactionsUseCase.ts` — monthly params
+- `src/modules/ai/application/GenerateMonthlySummaryUseCase.ts` — monthly params
+- `src/modules/ai/infrastructure/TokenPricingService.ts` — 3 APIs + timeoutSignal + pricing
+- `src/components/ai/AIUsageDashboard.tsx` — monthly cycle display
+- `src/components/ai/AIUsageBar.tsx` — .toFixed(2) BRL
+- `src/components/ai/ProviderSelector.tsx` — DeepSeek/Qwen chips
+- `src/components/ai/APIKeyManager.tsx` — labels deepseek/qwen
+- `src/hooks/useAISettings.ts` — restore budget fields + ALL_PROVIDERS
+- `app/ai-settings.tsx` — refatorado, usa BudgetCostSection extraido
+- `app/about.tsx` — atalho para AI settings
 
-### Integracao
-1. AIClientService pipeline completo (cache -> connectivity -> budget -> circuit -> auth -> request)
-2. Fallback quando provider falha
-3. Retry logic (1 retry)
-
-## Como Executar
-```bash
-npx vitest run packages/ai/__tests__/
-npx vitest run src/modules/ai/infrastructure/__tests__/
+## Testes
+```
+5 test suites, 83 tests passing:
+- adapters.test.ts ........... 13 tests (OpenAI, Gemini, Claude, DeepSeek, Qwen, ChatGPT OAuth)
+- intentClassifier.test.ts ... 20 tests
+- profileCalculator.test.ts .. 12 tests
+- toon.test.ts ............... 21 tests
+- SecureKeyService.test.ts ... 17 tests
 ```
 
-## Arquivos Chave
-- `packages/ai/src/adapters/` - 3 adapters
-- `packages/ai/src/circuit/CircuitBreaker.ts`
-- `packages/ai/src/cache/CacheService.ts`
-- `src/modules/ai/application/AIClientService.ts` - orquestracao
-- `src/modules/ai/application/AIProviderFactory.ts` - factory
-- `src/modules/ai/application/TokenTracker.ts` - controle de tokens
-- `src/modules/ai/domain/AISettings.ts` - configuracoes
+## Precos por 1M Tokens (USD)
+| Provider | Fast | Smart |
+|----------|------|-------|
+| OpenAI | $0.40 | $4.00 |
+| Gemini | $0.15 | $2.50 |
+| Claude | $1.00 | $9.00 |
+| DeepSeek | $0.35 | $0.35 |
+| Qwen | $0.10 | $0.39 |

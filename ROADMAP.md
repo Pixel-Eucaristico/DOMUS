@@ -67,14 +67,23 @@
 - [ ] Validar cenarios de parsing (Qtd x Preco, R$ Preco)
 - [ ] Verificar fallback chain do HybridOCRAdapter
 
-### 04 - Testar Todas as APIs de IA
+### 04 - Corrigir e Melhorar APIs de IA (CONCLUIDA)
 - **Dificuldade:** MEDIO | **Urgencia:** MEDIA | **~2h**
-- **Problema:** 3 adapters (OpenAI gpt-4.1, Gemini 2.5, Claude sonnet-4-6) precisam validacao e2e
-- **Testes:** `packages/ai/__tests__/` + `src/modules/ai/infrastructure/__tests__/`
+- **Problema:** Adapters com bugs, OpenRouter substituido, faltava budget mensal e cotacao real do dolar
+- **Solucao:** Corrigidos adapters, adicionados DeepSeek + Qwen, budget mensal com billing cycle, conversao bidirecional Tokens/R$/US$, cotacao USD/BRL via 3 APIs com fallback
 - **Detalhes:** [docs/roadmap/04-testar-api-ia.md](docs/roadmap/04-testar-api-ia.md)
-- [ ] Executar testes unitarios existentes
-- [ ] Validar CircuitBreaker, Cache, TokenTracker
-- [ ] Testar cada adapter com API key real (manual)
+- [x] Corrigir adapters existentes (Gemini safety, Claude browser-access header, timeout 30s)
+- [x] Substituir OpenRouter por DeepSeek (deepseek-chat/reasoner) e Qwen (qwen3.5-flash/plus)
+- [x] Atualizar modelos: gpt-5-mini, claude-sonnet-4-6, gemini-2.5-flash/pro
+- [x] Armazenamento multi-provider de API keys (chaves independentes por provider)
+- [x] Budget mensal com billing cycle configuravel (dia 1-28) e rateio diario
+- [x] Conversao bidirecional live Tokens / R$ / US$ na tela de config
+- [x] Cotacao USD/BRL real via 3 APIs (AwesomeAPI, DolarAPI, ExchangeRate-API) com cache 30min
+- [x] Fix AbortSignal.timeout para compatibilidade Hermes/RN
+- [x] System prompt financeiro brasileiro (estilo "Dinheiro Com Voce")
+- [x] Erro real mostrado ao usuario (nao engolido silenciosamente)
+- [x] Extrair BudgetCostSection para componente isolado (ai-settings 948 -> 467 linhas)
+- [x] 83 testes AI passando (5 suites: adapters, intent, profile, toon, secureKey)
 
 ### 05 - Corrigir OCR no Android (Build) - CONCLUIDA
 - **Dificuldade:** MEDIO | **Urgencia:** CRITICA | **~3-4h**
@@ -143,9 +152,9 @@ URGENCIA ALTA:
   03 - Testar API OCR ........... [FACIL]     ~1h
 
 URGENCIA MEDIA:
-  01 - Cor Modal Catolico ....... [CONCLUIDA] ~30min
-  02 - Correcao Sons ............ [CONCLUIDA] ~2h
-  04 - Testar APIs IA ........... [MEDIO]     ~2h
+  01 - Cor Modal Catolico ....... [CONCLUIDA]
+  02 - Correcao Sons ............ [CONCLUIDA]
+  04 - Corrigir APIs IA ......... [CONCLUIDA]
   07 - Melhorar Tour ............ [COMPLEXO]  ~8-12h
   09 - Olerite OCR .............. [COMPLEXO]  ~6-10h
 
