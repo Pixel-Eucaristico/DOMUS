@@ -280,8 +280,10 @@ describe("ChatGPTOAuthAdapter", () => {
     expect(body.model).toBe("test-model");
     expect(body.instructions).toBe("You are a helper.");
     expect(body.input).toEqual([{ role: "user", content: "Hello" }]);
-    expect(body.max_output_tokens).toBe(512);
     expect(body.stream).toBe(true);
+    expect(body.store).toBe(true);
+    expect(body.temperature).toBeUndefined();
+    expect(body.max_output_tokens).toBeUndefined();
   });
 
   it("throws on response.failed SSE event", async () => {

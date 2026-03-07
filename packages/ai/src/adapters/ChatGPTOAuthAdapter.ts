@@ -140,13 +140,13 @@ export class ChatGPTOAuthAdapter implements AIProviderAdapter {
       content: m.content,
     }));
 
+    // Only send parameters the Codex CLI backend accepts.
+    // temperature, max_output_tokens etc. are NOT supported.
     const body: Record<string, unknown> = {
       model: options.model,
       input,
-      max_output_tokens: options.maxTokens ?? 512,
-      temperature: options.temperature ?? 0.2,
       stream: true,
-      store: false,
+      store: true,
     };
 
     if (systemMsg) {
