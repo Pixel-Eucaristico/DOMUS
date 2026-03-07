@@ -223,7 +223,15 @@ describe("OpenRouterAdapter", () => {
 // ─── ChatGPT OAuth Adapter (Responses API) ──────────────────────────────────
 
 describe("ChatGPTOAuthAdapter", () => {
-  it("sends Responses API format and parses output", async () => {
+  // Build a fake JWT with an account_id claim for testing
+  const fakePayload = JSON.stringify({
+    "https://api.openai.com/auth": { account_id: "acct_test_123" },
+    sub: "user-abc",
+  });
+  const b64Payload = btoa(fakePayload).replace(/=/g, "");
+  const FAKE_JWT = `eyJhbGciOiJSUzI1NiJ9.${b64Payload}.fakesig`;
+
+  it("sends Responses API format with ChatGPT-Account-ID header", async () => {
     const mockResponse = {
       id: "resp_test123",
       output: [
@@ -238,8 +246,7 @@ describe("ChatGPTOAuthAdapter", () => {
     globalThis.fetch = mockFetchResponse(mockResponse);
 
     const adapter = new ChatGPTOAuthAdapter();
-    const token = "oauth-access-token-123";
-    const result = await adapter.complete(MESSAGES, token, DEFAULT_OPTIONS);
+    const result = await adapter.complete(MESSAGES, FAKE_JWT, DEFAULT_OPTIONS);
 
     expect(result.content).toBe("Hello from ChatGPT!");
     expect(result.tokensUsed).toBe(15);
@@ -248,13 +255,15 @@ describe("ChatGPTOAuthAdapter", () => {
     expect(call[0]).toBe("https://chatgpt.com/backend-api/codex/responses");
     const init = call[1] as RequestInit;
     const headers = init.headers as Record<string, string>;
-    expect(headers["Authorization"]).toBe(`Bearer ${token}`);
+    expect(headers["Authorization"]).toBe(`Bearer ${FAKE_JWT}`);
+    expect(headers["ChatGPT-Account-ID"]).toBe("acct_test_123");
 
     const body = JSON.parse(init.body as string);
     expect(body.model).toBe("test-model");
     expect(body.instructions).toBe("You are a helper.");
     expect(body.input).toEqual([{ role: "user", content: "Hello" }]);
     expect(body.max_output_tokens).toBe(512);
+    expect(body.stream).toBe(false);
   });
 
   it("throws on API error in response body", async () => {

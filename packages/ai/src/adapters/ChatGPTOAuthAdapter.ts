@@ -11,6 +11,10 @@ import { fetchWithTimeout, assertOk } from "./AIProviderAdapter";
  *
  * Endpoint: https://chatgpt.com/backend-api/codex/responses
  * Format: OpenAI Responses API (NOT Chat Completions)
+ *
+ * Required headers (from Codex CLI source):
+ * - Authorization: Bearer <access_token>
+ * - ChatGPT-Account-ID: <account_id> (extracted from JWT)
  */
 
 /** Responses API response shape */
@@ -38,6 +42,40 @@ interface ResponsesAPIResponse {
 const CHATGPT_RESPONSES_URL =
   "https://chatgpt.com/backend-api/codex/responses";
 
+/**
+ * Decodes a JWT payload without signature verification.
+ * We only need to read claims (account_id) from the access token.
+ */
+function decodeJwtPayload(jwt: string): Record<string, unknown> {
+  const parts = jwt.split(".");
+  if (parts.length < 2) return {};
+  try {
+    // JWT uses base64url encoding — convert to standard base64
+    let base64 = parts[1]!.replace(/-/g, "+").replace(/_/g, "/");
+    // Pad to multiple of 4
+    while (base64.length % 4 !== 0) base64 += "=";
+    const json = atob(base64);
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Extracts the ChatGPT account ID from an OAuth access token JWT.
+ * The Codex CLI sends this as the `ChatGPT-Account-ID` header.
+ */
+function extractAccountId(accessToken: string): string | null {
+  const payload = decodeJwtPayload(accessToken);
+  // Try common claim names used by OpenAI
+  return (
+    (payload["https://api.openai.com/auth"]  as Record<string, string>)?.["account_id"] ??
+    (payload["account_id"] as string) ??
+    (payload["org_id"] as string) ??
+    null
+  );
+}
+
 export class ChatGPTOAuthAdapter implements AIProviderAdapter {
   readonly provider = "openai";
 
@@ -61,6 +99,8 @@ export class ChatGPTOAuthAdapter implements AIProviderAdapter {
       input,
       max_output_tokens: options.maxTokens ?? 512,
       temperature: options.temperature ?? 0.2,
+      stream: false,
+      store: false,
     };
 
     // System prompt goes in `instructions` field
@@ -68,14 +108,23 @@ export class ChatGPTOAuthAdapter implements AIProviderAdapter {
       body.instructions = systemMsg.content;
     }
 
+    // Build headers matching Codex CLI requirements
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    };
+
+    // Extract and add ChatGPT-Account-ID from JWT (required by backend)
+    const accountId = extractAccountId(accessToken);
+    if (accountId) {
+      headers["ChatGPT-Account-ID"] = accountId;
+    }
+
     const response = await fetchWithTimeout(
       CHATGPT_RESPONSES_URL,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers,
         body: JSON.stringify(body),
       },
     );
