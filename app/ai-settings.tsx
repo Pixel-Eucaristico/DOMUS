@@ -108,6 +108,11 @@ export default function AISettingsScreen() {
               selectedProvider={settings.provider}
               selectedTier={settings.modelTier}
               apiKeyStatus={settings.apiKeyStatus}
+              usingChatGPTOAuth={
+                settings.provider === "openai" &&
+                settings.openaiAuthMethod === "chatgpt_oauth" &&
+                settings.hasOAuthSession === true
+              }
               onProviderChange={(provider) =>
                 updateSettings({ provider, systemPromptSent: false })
               }

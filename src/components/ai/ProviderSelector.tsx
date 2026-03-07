@@ -3,12 +3,15 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import type { AIProvider, AIModelTier } from "@packages/ai";
-import { AI_MODELS } from "@packages/ai";
+import { AI_MODELS, CHATGPT_OAUTH_MODELS } from "@packages/ai";
+import type { OpenAIAuthMethod } from "@/src/modules/ai/domain/AISettings";
 
 interface ProviderSelectorProps {
   selectedProvider: AIProvider;
   selectedTier: AIModelTier;
   apiKeyStatus?: Partial<Record<AIProvider, boolean>>;
+  /** When true, OpenAI shows ChatGPT OAuth models instead of API models */
+  usingChatGPTOAuth?: boolean;
   onProviderChange: (provider: AIProvider) => void;
   onTierChange: (tier: AIModelTier) => void;
 }
@@ -29,6 +32,7 @@ export function ProviderSelector({
   selectedProvider,
   selectedTier,
   apiKeyStatus,
+  usingChatGPTOAuth,
   onProviderChange,
   onTierChange,
 }: ProviderSelectorProps) {
@@ -87,7 +91,10 @@ export function ProviderSelector({
       <View style={styles.chipRow}>
         {TIERS.map((t) => {
           const active = t.id === selectedTier;
-          const modelName = AI_MODELS[selectedProvider][t.id];
+          const modelName =
+            usingChatGPTOAuth && selectedProvider === "openai"
+              ? CHATGPT_OAUTH_MODELS[t.id]
+              : AI_MODELS[selectedProvider][t.id];
           return (
             <TouchableOpacity
               key={t.id}
