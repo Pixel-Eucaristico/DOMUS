@@ -2,6 +2,7 @@ import {
   OpenAIAdapter,
   GeminiAdapter,
   ClaudeAdapter,
+  OpenRouterAdapter,
   AI_MODELS,
 } from "@packages/ai";
 import type { AIProviderAdapter, AIProvider, AIModelTier } from "@packages/ai";
@@ -18,6 +19,8 @@ export class AIProviderFactory {
         return new GeminiAdapter();
       case "claude":
         return new ClaudeAdapter();
+      case "openrouter":
+        return new OpenRouterAdapter();
       default: {
         // Exhaustive check — TypeScript ensures this is unreachable,
         // but at runtime unknown values fall back to OpenAI.

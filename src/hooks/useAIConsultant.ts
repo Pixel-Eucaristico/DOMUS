@@ -1,8 +1,10 @@
 import { useState, useCallback, useRef } from "react";
 import { ConsultantChatUseCase } from "@/src/modules/ai/application/ConsultantChatUseCase";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { useSync } from "@/src/context/SyncProvider";
 import type { ChatMessage } from "@packages/ai";
 import type { AISettings } from "@/src/modules/ai/domain/AISettings";
+import type { ContextData } from "@/src/modules/ai/application/AIContextBuilder";
 import { generateId } from "@packages/events/src/factory";
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -14,13 +16,15 @@ export interface UseAIConsultantResult {
     text: string,
     wishlistItemPrice?: number | null,
   ) => Promise<void>;
+  generateWelcome: () => Promise<ChatMessage | null>;
   clearHistory: () => void;
 }
 
 export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { domain } = useAppState();
+  const { domain, gamification, wishlist } = useAppState();
+  const syncCtx = useSync();
   const historyRef = useRef<ChatMessage[]>([]);
 
   const sendMessage = useCallback(
@@ -40,16 +44,26 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
       setIsLoading(true);
 
       try {
-        const transactions = Object.values(domain.transactions ?? {});
-        const accounts = Object.values(domain.accounts ?? {});
-        const categories = domain.categories ?? {};
+        const contextData: ContextData = {
+          transactions: Object.values(domain.transactions ?? {}),
+          accounts: Object.values(domain.accounts ?? {}),
+          categories: domain.categories ?? {},
+          invoices: domain.invoices ?? {},
+          wishlist: wishlist,
+          gamification: gamification,
+          sync: {
+            groupId: syncCtx.groupId,
+            eventCount: syncCtx.eventCount,
+            relayCount: syncCtx.relayCount,
+            isAutoSyncEnabled: syncCtx.isAutoSyncEnabled,
+            lastSyncTime: syncCtx.lastSyncTime,
+          },
+        };
 
         const reply = await ConsultantChatUseCase.execute(
           text,
           historyRef.current,
-          transactions,
-          accounts,
-          categories,
+          contextData,
           wishlistItemPrice ?? null,
           settings,
         );
@@ -73,13 +87,37 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
         setIsLoading(false);
       }
     },
-    [isLoading, domain, settings],
+    [isLoading, domain, gamification, wishlist, syncCtx, settings],
   );
+
+  const generateWelcome = useCallback(async (): Promise<ChatMessage | null> => {
+    const contextData: ContextData = {
+      transactions: Object.values(domain.transactions ?? {}),
+      accounts: Object.values(domain.accounts ?? {}),
+      categories: domain.categories ?? {},
+      invoices: domain.invoices ?? {},
+      wishlist: wishlist,
+      gamification: gamification,
+      sync: {
+        groupId: syncCtx.groupId,
+        eventCount: syncCtx.eventCount,
+        relayCount: syncCtx.relayCount,
+        isAutoSyncEnabled: syncCtx.isAutoSyncEnabled,
+        lastSyncTime: syncCtx.lastSyncTime,
+      },
+    };
+
+    try {
+      return await ConsultantChatUseCase.generateWelcome(contextData, settings);
+    } catch {
+      return null;
+    }
+  }, [domain, gamification, wishlist, syncCtx, settings]);
 
   const clearHistory = useCallback(() => {
     historyRef.current = [];
     setMessages([]);
   }, []);
 
-  return { messages, isLoading, sendMessage, clearHistory };
+  return { messages, isLoading, sendMessage, generateWelcome, clearHistory };
 }

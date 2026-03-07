@@ -8,6 +8,7 @@ import { AI_MODELS } from "@packages/ai";
 interface ProviderSelectorProps {
   selectedProvider: AIProvider;
   selectedTier: AIModelTier;
+  apiKeyStatus?: Partial<Record<AIProvider, boolean>>;
   onProviderChange: (provider: AIProvider) => void;
   onTierChange: (tier: AIModelTier) => void;
 }
@@ -16,16 +17,18 @@ const PROVIDERS: Array<{ id: AIProvider; label: string }> = [
   { id: "openai", label: "OpenAI" },
   { id: "gemini", label: "Gemini" },
   { id: "claude", label: "Claude" },
+  { id: "openrouter", label: "OpenRouter" },
 ];
 
 const TIERS: Array<{ id: AIModelTier; label: string }> = [
-  { id: "fast", label: "Rápido" },
-  { id: "smart", label: "Avançado" },
+  { id: "fast", label: "Rapido" },
+  { id: "smart", label: "Avancado" },
 ];
 
 export function ProviderSelector({
   selectedProvider,
   selectedTier,
+  apiKeyStatus,
   onProviderChange,
   onTierChange,
 }: ProviderSelectorProps) {
@@ -40,6 +43,7 @@ export function ProviderSelector({
       <View style={styles.chipRow}>
         {PROVIDERS.map((p) => {
           const active = p.id === selectedProvider;
+          const hasKey = apiKeyStatus?.[p.id] === true;
           return (
             <TouchableOpacity
               key={p.id}
@@ -52,15 +56,25 @@ export function ProviderSelector({
                 },
               ]}
             >
-              <Text
-                style={{
-                  color: active ? "#fff" : theme.textColor,
-                  fontSize: 13,
-                  fontWeight: active ? "600" : "400",
-                }}
-              >
-                {p.label}
-              </Text>
+              <View style={styles.chipContent}>
+                <Text
+                  style={{
+                    color: active ? "#fff" : theme.textColor,
+                    fontSize: 13,
+                    fontWeight: active ? "600" : "400",
+                  }}
+                >
+                  {p.label}
+                </Text>
+                {hasKey && (
+                  <View
+                    style={[
+                      styles.keyDot,
+                      { backgroundColor: active ? "#fff" : theme.success },
+                    ]}
+                  />
+                )}
+              </View>
             </TouchableOpacity>
           );
         })}
@@ -133,5 +147,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     alignItems: "center",
+  },
+  chipContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  keyDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
   },
 });

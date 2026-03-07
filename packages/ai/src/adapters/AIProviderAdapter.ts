@@ -27,7 +27,7 @@ export const DEFAULT_ADAPTER_OPTIONS: AdapterOptions = {
 export async function fetchWithTimeout(
   url: string,
   init: RequestInit,
-  timeoutMs = 15_000,
+  timeoutMs = 30_000,
 ): Promise<Response> {
   const controller = new AbortController();
   const timerId = setTimeout(() => controller.abort(), timeoutMs);

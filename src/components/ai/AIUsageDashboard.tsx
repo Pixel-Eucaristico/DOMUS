@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
 import { DAILY_TOKEN_BUDGET } from "@/src/modules/ai/domain/AISettings";
@@ -39,7 +39,7 @@ export function AIUsageDashboard() {
       ]}
     >
       <View style={styles.header}>
-        <Feather name="cpu" size={14} color={theme.secondaryText} />
+        <MaterialCommunityIcons name="robot-happy" size={14} color={theme.secondaryText} />
         <Text style={[styles.title, { color: theme.secondaryText }]}>
           Uso diário de tokens
         </Text>

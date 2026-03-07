@@ -12,6 +12,7 @@ import {
 import type { MonthlySummary } from "@packages/ai";
 import { AIClientService } from "./AIClientService";
 import type { AISettings } from "../domain/AISettings";
+import { hasActiveKey } from "../domain/AISettings";
 
 // ─── GenerateMonthlySummaryUseCase ────────────────────────────────────────────
 
@@ -34,7 +35,7 @@ export class GenerateMonthlySummaryUseCase {
       month,
     );
 
-    if (!settings.isEnabled || !settings.hasApiKey) {
+    if (!settings.isEnabled || !hasActiveKey(settings)) {
       return localSummary;
     }
 

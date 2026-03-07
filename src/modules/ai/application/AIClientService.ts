@@ -2,7 +2,6 @@ import * as ExpoCrypto from "expo-crypto";
 import { CircuitBreaker, CacheService } from "@packages/ai";
 import type { AIProvider, AIModelTier, AdapterMessage } from "@packages/ai";
 import { SecureKeyService } from "../infrastructure/SecureKeyService";
-import { BiometricGate } from "../infrastructure/BiometricGate";
 import { ConnectivityService } from "../infrastructure/ConnectivityService";
 import { TokenTracker } from "./TokenTracker";
 import { AIProviderFactory } from "./AIProviderFactory";
@@ -28,7 +27,6 @@ export type AIClientErrorCode =
   | "OFFLINE"
   | "TOKEN_BUDGET_EXCEEDED"
   | "CIRCUIT_OPEN"
-  | "BIOMETRIC_FAILED"
   | "NO_API_KEY"
   | "REQUEST_FAILED";
 
@@ -102,16 +100,7 @@ export class AIClientService {
       );
     }
 
-    // 5. Biometric gate
-    const authed = await BiometricGate.authenticate();
-    if (!authed) {
-      throw new AIClientError(
-        "BIOMETRIC_FAILED",
-        "Autenticação biométrica necessária para acessar a chave de API",
-      );
-    }
-
-    // 6. Decrypt API key
+    // 5. Decrypt API key
     const apiKey = await SecureKeyService.retrieveKey(provider);
     if (!apiKey) {
       throw new AIClientError("NO_API_KEY", `Chave de API não encontrada para ${provider}`);
@@ -183,9 +172,9 @@ export class AIClientService {
   /** Estimates a sensible max_tokens based on total input size. */
   private static dynamicMaxTokens(messages: AdapterMessage[]): number {
     const totalChars = messages.reduce((s, m) => s + m.content.length, 0);
-    if (totalChars < 500) return 256;
-    if (totalChars < 1500) return 512;
-    return 768;
+    if (totalChars < 500) return 512;
+    if (totalChars < 1500) return 1024;
+    return 1536;
   }
 
   /** Resets the circuit breaker for a provider (call after key change). */

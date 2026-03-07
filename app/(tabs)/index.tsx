@@ -233,8 +233,9 @@ export default function HomeScreen() {
             />
             )}
             <AnimatedIconButton
-              name="cpu"
-              size={20}
+              name="robot-happy"
+              iconSet="MaterialCommunityIcons"
+              size={22}
               color={theme.primaryColor}
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
               onPress={() => router.push("/ai-chat")}

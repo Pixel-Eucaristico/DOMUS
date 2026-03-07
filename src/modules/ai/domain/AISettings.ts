@@ -1,14 +1,76 @@
 import type { AIProvider, AIModelTier } from "@packages/ai";
 
+// ─── Data Access Permissions ─────────────────────────────────────────────────
+
+export interface AIDataPermissions {
+  /** Acesso a transacoes (descricao, valor, data, categoria) */
+  transactions: boolean;
+  /** Acesso a contas (nome, tipo, saldo, limite) */
+  accounts: boolean;
+  /** Acesso a categorias e orcamento */
+  categories: boolean;
+  /** Acesso a notas fiscais importadas */
+  invoices: boolean;
+  /** Acesso a lista de desejos (itens, precos, prioridade) */
+  wishlist: boolean;
+  /** Acesso a trofeus, conquistas, nivel e streaks */
+  gamification: boolean;
+  /** Acesso a info de sincronizacao (grupo, dispositivos, status) */
+  sync: boolean;
+}
+
+export const DEFAULT_AI_DATA_PERMISSIONS: AIDataPermissions = {
+  transactions: false,
+  accounts: false,
+  categories: false,
+  invoices: false,
+  wishlist: false,
+  gamification: false,
+  sync: false,
+};
+
+export const AI_DATA_PERMISSION_LABELS: Record<keyof AIDataPermissions, { title: string; description: string }> = {
+  transactions: {
+    title: "Transacoes",
+    description: "Descricao, valor, data e categoria das suas transacoes",
+  },
+  accounts: {
+    title: "Contas",
+    description: "Nome, tipo, saldo e limite de credito das suas contas",
+  },
+  categories: {
+    title: "Categorias",
+    description: "Nomes e grupos das suas categorias de gastos",
+  },
+  invoices: {
+    title: "Notas Fiscais",
+    description: "Itens, valores e emitentes das notas importadas",
+  },
+  wishlist: {
+    title: "Lista de Desejos",
+    description: "Itens desejados, precos, urgencia e metas de poupanca",
+  },
+  gamification: {
+    title: "Trofeus e Conquistas",
+    description: "Nivel, XP, streaks, conquistas desbloqueadas e trofeus",
+  },
+  sync: {
+    title: "Sincronizacao",
+    description: "Grupo de sincronizacao, status e quantidade de eventos",
+  },
+};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface AISettings {
   provider: AIProvider;
   modelTier: AIModelTier;
-  /** true when a key is present in SecureStore for the active provider */
-  hasApiKey: boolean;
+  /** Per-provider API key status: true when a key is present in SecureStore */
+  apiKeyStatus: Partial<Record<AIProvider, boolean>>;
   /** master toggle — user must explicitly enable AI features */
   isEnabled: boolean;
+  /** Per-data-type access permissions */
+  dataPermissions: AIDataPermissions;
   /**
    * true after the system prompt has been sent once this session.
    *
@@ -23,13 +85,19 @@ export interface AISettings {
   systemPromptSent: boolean;
 }
 
+/** Helper to check if the active provider has an API key configured */
+export function hasActiveKey(settings: AISettings): boolean {
+  return settings.apiKeyStatus[settings.provider] === true;
+}
+
 // ─── Defaults & Keys ─────────────────────────────────────────────────────────
 
 export const DEFAULT_AI_SETTINGS: AISettings = {
   provider: "openai",
   modelTier: "fast",
-  hasApiKey: false,
+  apiKeyStatus: {},
   isEnabled: false,
+  dataPermissions: { ...DEFAULT_AI_DATA_PERMISSIONS },
   systemPromptSent: false,
 };
 

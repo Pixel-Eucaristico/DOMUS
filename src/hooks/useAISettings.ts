@@ -2,12 +2,16 @@ import { useState, useCallback, useEffect } from "react";
 import { SecureStorageService } from "@/src/modules/security/infrastructure/SecureStorageService";
 import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
 import { AIClientService } from "@/src/modules/ai/application/AIClientService";
-import type { AISettings } from "@/src/modules/ai/domain/AISettings";
+import type { AISettings, AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
 import {
   DEFAULT_AI_SETTINGS,
+  DEFAULT_AI_DATA_PERMISSIONS,
   AI_SETTINGS_STORE_KEY,
+  hasActiveKey,
 } from "@/src/modules/ai/domain/AISettings";
 import type { AIProvider } from "@packages/ai";
+
+const ALL_PROVIDERS: AIProvider[] = ["openai", "gemini", "claude", "openrouter"];
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -17,7 +21,7 @@ export interface UseAISettingsResult {
   /** Encrypts and stores an API key. Returns false if biometric auth fails. */
   saveApiKey: (provider: AIProvider, key: string) => Promise<boolean>;
   deleteApiKey: (provider: AIProvider) => Promise<void>;
-  updateSettings: (changes: Partial<Omit<AISettings, "hasApiKey">>) => Promise<void>;
+  updateSettings: (changes: Partial<Omit<AISettings, "apiKeyStatus">>) => Promise<void>;
 }
 
 export function useAISettings(): UseAISettingsResult {
@@ -30,10 +34,34 @@ export function useAISettings(): UseAISettingsResult {
       try {
         const raw = await SecureStorageService.get(AI_SETTINGS_STORE_KEY);
         if (raw && mounted) {
-          const stored = JSON.parse(raw) as AISettings;
-          // Re-check hasApiKey from SecureStore (key may have been deleted externally)
-          const hasKey = await SecureKeyService.hasKey(stored.provider);
-          setSettings({ ...stored, hasApiKey: hasKey });
+          const stored = JSON.parse(raw) as AISettings & { hasApiKey?: boolean };
+
+          // Migration: convert old hasApiKey boolean to per-provider apiKeyStatus
+          if (!stored.apiKeyStatus && "hasApiKey" in stored) {
+            const apiKeyStatus: Partial<Record<AIProvider, boolean>> = {};
+            if (stored.hasApiKey) {
+              apiKeyStatus[stored.provider] = true;
+            }
+            stored.apiKeyStatus = apiKeyStatus;
+          }
+
+          // Re-check apiKeyStatus from SecureStore for all providers
+          const apiKeyStatus: Partial<Record<AIProvider, boolean>> = {};
+          for (const p of ALL_PROVIDERS) {
+            const has = await SecureKeyService.hasKey(p);
+            if (has) apiKeyStatus[p] = true;
+          }
+
+          if (mounted) {
+            setSettings({
+              provider: stored.provider ?? DEFAULT_AI_SETTINGS.provider,
+              modelTier: stored.modelTier ?? DEFAULT_AI_SETTINGS.modelTier,
+              apiKeyStatus,
+              isEnabled: stored.isEnabled ?? false,
+              dataPermissions: stored.dataPermissions ?? { ...DEFAULT_AI_DATA_PERMISSIONS },
+              systemPromptSent: stored.systemPromptSent ?? false,
+            });
+          }
         }
       } catch {
         // Use defaults on error
@@ -59,8 +87,7 @@ export function useAISettings(): UseAISettingsResult {
         AIClientService.resetBreaker(provider);
         const next: AISettings = {
           ...settings,
-          provider,
-          hasApiKey: true,
+          apiKeyStatus: { ...settings.apiKeyStatus, [provider]: true },
           isEnabled: true,
           systemPromptSent: false,
         };
@@ -76,10 +103,12 @@ export function useAISettings(): UseAISettingsResult {
   const deleteApiKey = useCallback(
     async (provider: AIProvider): Promise<void> => {
       await SecureKeyService.deleteKey(provider);
+      const nextStatus = { ...settings.apiKeyStatus, [provider]: false };
+      const isActiveProvider = settings.provider === provider;
       const next: AISettings = {
         ...settings,
-        hasApiKey: false,
-        isEnabled: false,
+        apiKeyStatus: nextStatus,
+        isEnabled: isActiveProvider ? false : settings.isEnabled,
       };
       await persist(next);
     },
@@ -87,7 +116,7 @@ export function useAISettings(): UseAISettingsResult {
   );
 
   const updateSettings = useCallback(
-    async (changes: Partial<Omit<AISettings, "hasApiKey">>): Promise<void> => {
+    async (changes: Partial<Omit<AISettings, "apiKeyStatus">>): Promise<void> => {
       const next = { ...settings, ...changes };
       await persist(next);
     },

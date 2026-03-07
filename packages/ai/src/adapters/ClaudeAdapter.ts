@@ -46,7 +46,7 @@ export class ClaudeAdapter implements AIProviderAdapter {
 
     // Ensure first message is always "user"
     if (anthropicMessages.length > 0 && anthropicMessages[0]!.role !== "user") {
-      anthropicMessages.unshift({ role: "user", content: "" });
+      anthropicMessages.unshift({ role: "user", content: "." });
     }
 
     const body: AnthropicRequestBody = {
@@ -68,6 +68,7 @@ export class ClaudeAdapter implements AIProviderAdapter {
           "Content-Type": "application/json",
           "x-api-key": apiKey,
           "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
         },
         body: JSON.stringify(body),
       },

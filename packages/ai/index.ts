@@ -48,4 +48,5 @@ export { fetchWithTimeout } from "./src/adapters/AIProviderAdapter";
 export { OpenAIAdapter } from "./src/adapters/OpenAIAdapter";
 export { GeminiAdapter } from "./src/adapters/GeminiAdapter";
 export { ClaudeAdapter } from "./src/adapters/ClaudeAdapter";
+export { OpenRouterAdapter } from "./src/adapters/OpenRouterAdapter";
 

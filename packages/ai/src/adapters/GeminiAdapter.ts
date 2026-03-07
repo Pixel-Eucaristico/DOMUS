@@ -15,24 +15,35 @@ interface GeminiSystemInstruction {
   parts: GeminiPart[];
 }
 
+interface GeminiSafetySetting {
+  category: string;
+  threshold: string;
+}
+
 interface GeminiRequestBody {
   contents: GeminiContent[];
   systemInstruction?: GeminiSystemInstruction;
+  safetySettings?: GeminiSafetySetting[];
   generationConfig: {
     temperature: number;
     maxOutputTokens: number;
   };
 }
 
+interface GeminiCandidate {
+  content?: { parts: GeminiPart[] };
+  finishReason: string;
+}
+
 interface GeminiResponse {
-  candidates: Array<{
-    content: { parts: GeminiPart[] };
-    finishReason: string;
-  }>;
-  usageMetadata: {
+  candidates?: GeminiCandidate[];
+  usageMetadata?: {
     promptTokenCount: number;
     candidatesTokenCount: number;
     totalTokenCount: number;
+  };
+  promptFeedback?: {
+    blockReason?: string;
   };
 }
 
@@ -65,6 +76,10 @@ export class GeminiAdapter implements AIProviderAdapter {
 
     const body: GeminiRequestBody = {
       contents,
+      safetySettings: [
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+      ],
       generationConfig: {
         temperature: options.temperature ?? 0.2,
         maxOutputTokens: options.maxTokens ?? 512,
@@ -83,7 +98,25 @@ export class GeminiAdapter implements AIProviderAdapter {
     await assertOk(response, "Gemini");
 
     const json = (await response.json()) as GeminiResponse;
-    const content = json.candidates[0]?.content.parts[0]?.text ?? "";
+
+    // Handle blocked prompts
+    if (!json.candidates || json.candidates.length === 0) {
+      const blockReason = json.promptFeedback?.blockReason ?? "UNKNOWN";
+      throw new Error(
+        `Gemini bloqueou a requisicao (blockReason: ${blockReason}). Tente reformular sua pergunta.`,
+      );
+    }
+
+    const candidate = json.candidates[0]!;
+
+    // Handle safety-filtered responses
+    if (candidate.finishReason === "SAFETY") {
+      throw new Error(
+        "Gemini filtrou a resposta por motivos de seguranca. Tente reformular sua pergunta.",
+      );
+    }
+
+    const content = candidate.content?.parts[0]?.text ?? "";
     const tokensUsed = json.usageMetadata?.totalTokenCount ?? 0;
 
     return { content, tokensUsed };

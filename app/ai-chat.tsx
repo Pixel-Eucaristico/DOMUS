@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from "react";
+import React, { useRef, useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -17,23 +17,97 @@ import { useAIConsultant } from "@/src/hooks/useAIConsultant";
 import { useAISettings } from "@/src/hooks/useAISettings";
 import { ChatBubble } from "@/src/components/ai/ChatBubble";
 import { TypingIndicator } from "@/src/components/ai/TypingIndicator";
+import { AIUsageBar } from "@/src/components/ai/AIUsageBar";
+import { DataPermissionModal } from "@/src/components/ai/DataPermissionModal";
+import { detectMissingPermission } from "@/src/modules/ai/application/PermissionDetector";
 import type { ChatMessage } from "@packages/ai";
-import { useState } from "react";
+import type { AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
 
 export default function AIChatScreen() {
   const { theme } = useAppState();
-  const { settings } = useAISettings();
-  const { messages, isLoading, sendMessage, clearHistory } = useAIConsultant(settings);
+  const { settings, isLoading: settingsLoading, updateSettings } = useAISettings();
+  const { messages, isLoading, sendMessage, generateWelcome, clearHistory } = useAIConsultant(settings);
   const [input, setInput] = useState("");
   const listRef = useRef<FlatList<ChatMessage>>(null);
+
+  // ─── Welcome message (AI-generated) ────────────────────────────────────────
+  const [welcomeMsg, setWelcomeMsg] = useState<ChatMessage | null>(null);
+  const welcomeGenerated = useRef(false);
+  const [welcomeLoading, setWelcomeLoading] = useState(false);
+
+  useEffect(() => {
+    if (settingsLoading) return; // wait for settings to load from SecureStore
+    if (welcomeGenerated.current || messages.length > 0) return;
+    welcomeGenerated.current = true;
+    setWelcomeLoading(true);
+
+    generateWelcome()
+      .then((msg) => {
+        if (msg) setWelcomeMsg(msg);
+      })
+      .finally(() => setWelcomeLoading(false));
+  }, [settingsLoading, generateWelcome, messages.length]);
+
+  // Combined messages: welcome + real messages
+  const displayMessages = useMemo(() => {
+    if (messages.length > 0) return messages;
+    if (welcomeMsg) return [welcomeMsg];
+    return [];
+  }, [messages, welcomeMsg]);
+
+  // ─── Permission modal ──────────────────────────────────────────────────────
+  const [permissionModal, setPermissionModal] = useState<{
+    key: keyof AIDataPermissions;
+    pendingText: string;
+  } | null>(null);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || isLoading) return;
+
+    // Check if the message needs a permission the user hasn't granted
+    const missingPerm = detectMissingPermission(text, settings.dataPermissions);
+    if (missingPerm) {
+      setPermissionModal({ key: missingPerm, pendingText: text });
+      return;
+    }
+
     setInput("");
     await sendMessage(text);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-  }, [input, isLoading, sendMessage]);
+  }, [input, isLoading, sendMessage, settings.dataPermissions]);
+
+  const handlePermissionAllow = useCallback(async () => {
+    if (!permissionModal) return;
+    const { key, pendingText } = permissionModal;
+    setPermissionModal(null);
+
+    // Grant permission
+    await updateSettings({
+      dataPermissions: {
+        ...settings.dataPermissions,
+        [key]: true,
+      },
+    });
+
+    // Now send the message
+    setInput("");
+    await sendMessage(pendingText);
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+  }, [permissionModal, updateSettings, settings.dataPermissions, sendMessage]);
+
+  const handlePermissionDeny = useCallback(() => {
+    if (!permissionModal) return;
+    const { pendingText } = permissionModal;
+    setPermissionModal(null);
+
+    // Send anyway without the permission
+    setInput("");
+    sendMessage(pendingText);
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+  }, [permissionModal, sendMessage]);
+
+  // ─── Render ────────────────────────────────────────────────────────────────
 
   const renderItem = useCallback(
     ({ item }: { item: ChatMessage }) => <ChatBubble message={item} />,
@@ -76,7 +150,7 @@ export default function AIChatScreen() {
         <TouchableOpacity
           onPress={() => router.push("/ai-settings")}
           style={styles.settingsBtn}
-          accessibilityLabel="Configurações de IA"
+          accessibilityLabel="Configuracoes de IA"
         >
           <Feather name="settings" size={18} color={theme.secondaryText} />
         </TouchableOpacity>
@@ -97,28 +171,30 @@ export default function AIChatScreen() {
               style={{ fontWeight: "700" }}
               onPress={() => router.push("/ai-settings")}
             >
-              Configurações
+              Configuracoes
             </Text>{" "}
-            para ativar a IA. Análise local disponível.
+            para ativar a IA. Analise local disponivel.
           </Text>
         </View>
       )}
 
-      {/* Financial disclaimer — Play Store & consumer protection compliance */}
+      {/* Financial disclaimer */}
       <View
         style={[
           styles.disclaimer,
           { backgroundColor: `${theme.border}60`, borderColor: theme.border },
         ]}
         accessibilityRole="text"
-        accessibilityLabel="Aviso: análises financeiras informativas, não são aconselhamento profissional"
       >
         <Feather name="alert-circle" size={12} color={theme.secondaryText} />
         <Text style={[styles.disclaimerText, { color: theme.secondaryText }]}>
-          As análises são meramente informativas e não constituem
+          As analises sao meramente informativas e nao constituem
           aconselhamento financeiro profissional.
         </Text>
       </View>
+
+      {/* Token usage bar */}
+      <AIUsageBar refreshKey={messages.length} />
 
       {/* Messages */}
       <KeyboardAvoidingView
@@ -128,23 +204,11 @@ export default function AIChatScreen() {
       >
         <FlatList
           ref={listRef}
-          data={messages}
+          data={displayMessages}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.messageList}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Feather name="message-circle" size={48} color={theme.border} />
-              <Text style={[styles.emptyTitle, { color: theme.textColor }]}>
-                Olá! Sou o DOMUS
-              </Text>
-              <Text style={[styles.emptySubtitle, { color: theme.secondaryText }]}>
-                Pergunte sobre seus gastos, faça análises mensais ou peça
-                conselho antes de uma compra.
-              </Text>
-            </View>
-          }
-          ListFooterComponent={isLoading ? <TypingIndicator /> : null}
+          ListFooterComponent={isLoading || welcomeLoading ? <TypingIndicator /> : null}
           onContentSizeChange={() =>
             listRef.current?.scrollToEnd({ animated: true })
           }
@@ -163,7 +227,7 @@ export default function AIChatScreen() {
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder="Pergunte algo sobre suas finanças…"
+            placeholder="Pergunte algo sobre suas financas..."
             placeholderTextColor={theme.secondaryText}
             style={[
               styles.textInput,
@@ -195,6 +259,14 @@ export default function AIChatScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Permission request modal */}
+      <DataPermissionModal
+        visible={permissionModal !== null}
+        permissionKey={permissionModal?.key ?? null}
+        onAllow={handlePermissionAllow}
+        onDeny={handlePermissionDeny}
+      />
     </SafeAreaView>
   );
 }
@@ -269,22 +341,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 4,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    paddingTop: 60,
-    paddingHorizontal: 40,
-    gap: 14,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    textAlign: "center",
-    lineHeight: 20,
   },
   inputBar: {
     flexDirection: "row",

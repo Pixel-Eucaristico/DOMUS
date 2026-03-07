@@ -2,7 +2,7 @@
 
 export type RiskTolerance = "Conservative" | "Moderate" | "Aggressive";
 
-export type AIProvider = "openai" | "gemini" | "claude";
+export type AIProvider = "openai" | "gemini" | "claude" | "openrouter";
 
 export type AIModelTier = "fast" | "smart";
 
@@ -22,7 +22,7 @@ export type CircuitState = "closed" | "open" | "half_open";
 
 export const AI_MODELS: Record<AIProvider, Record<AIModelTier, string>> = {
   openai: {
-    fast: "gpt-4.1-mini",
+    fast: "gpt-5-mini",
     smart: "gpt-4.1",
   },
   gemini: {
@@ -32,6 +32,10 @@ export const AI_MODELS: Record<AIProvider, Record<AIModelTier, string>> = {
   claude: {
     fast: "claude-haiku-4-5-20251001",
     smart: "claude-sonnet-4-6",
+  },
+  openrouter: {
+    fast: "google/gemini-2.5-flash",
+    smart: "anthropic/claude-sonnet-4-6",
   },
 } as const;
 
@@ -154,16 +158,6 @@ export interface DailyTokenUsage {
   date: string;
   totalTokens: number;
   byProvider: Partial<Record<AIProvider, number>>;
-}
-
-// ─── Adapter Contract ─────────────────────────────────────────────────────────
-
-export interface AIProviderAdapter {
-  complete(
-    messages: AdapterMessage[],
-    options: AdapterOptions,
-    apiKey: string,
-  ): Promise<AdapterResult>;
 }
 
 // ─── AI Client Result ─────────────────────────────────────────────────────────

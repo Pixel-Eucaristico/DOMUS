@@ -74,6 +74,7 @@ export function APIKeyManager({
     openai: "OpenAI API Key",
     gemini: "Google AI API Key",
     claude: "Anthropic API Key",
+    openrouter: "OpenRouter API Key",
   };
 
   return (

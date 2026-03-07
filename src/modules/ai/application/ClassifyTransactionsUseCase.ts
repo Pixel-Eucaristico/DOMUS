@@ -10,6 +10,7 @@ import {
 import type { TransactionClassification } from "@packages/ai";
 import { AIClientService } from "./AIClientService";
 import type { AISettings } from "../domain/AISettings";
+import { hasActiveKey } from "../domain/AISettings";
 
 // ─── ClassifyTransactionsUseCase ──────────────────────────────────────────────
 
@@ -51,7 +52,7 @@ export class ClassifyTransactionsUseCase {
     if (needsAI.length === 0) return results;
 
     // 2. AI pass for unmatched transactions
-    if (settings.isEnabled && settings.hasApiKey) {
+    if (settings.isEnabled && hasActiveKey(settings)) {
       try {
         const toon = TOONSerializer.buildClassificationRequest({
           transactions: needsAI.map((tx) => ({

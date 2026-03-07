@@ -14,6 +14,8 @@ import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { useAISettings } from "@/src/hooks/useAISettings";
 import { useAIConsultant } from "@/src/hooks/useAIConsultant";
+import { hasActiveKey, AI_DATA_PERMISSION_LABELS } from "@/src/modules/ai/domain/AISettings";
+import type { AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
 import { APIKeyManager } from "@/src/components/ai/APIKeyManager";
 import { ProviderSelector } from "@/src/components/ai/ProviderSelector";
 import { AIUsageDashboard } from "@/src/components/ai/AIUsageDashboard";
@@ -75,11 +77,11 @@ export default function AISettingsScreen() {
             <Switch
               value={settings.isEnabled}
               onValueChange={(v) =>
-                updateSettings({ isEnabled: v && settings.hasApiKey })
+                updateSettings({ isEnabled: v && hasActiveKey(settings) })
               }
               trackColor={{ false: theme.border, true: theme.primaryColor }}
               thumbColor="#fff"
-              disabled={!settings.hasApiKey}
+              disabled={!hasActiveKey(settings)}
             />
           </View>
         </View>
@@ -98,6 +100,7 @@ export default function AISettingsScreen() {
             <ProviderSelector
               selectedProvider={settings.provider}
               selectedTier={settings.modelTier}
+              apiKeyStatus={settings.apiKeyStatus}
               onProviderChange={(provider) =>
                 updateSettings({ provider, systemPromptSent: false })
               }
@@ -123,10 +126,82 @@ export default function AISettingsScreen() {
           <View style={styles.cardBody}>
             <APIKeyManager
               provider={settings.provider}
-              hasKey={settings.hasApiKey}
+              hasKey={settings.apiKeyStatus[settings.provider] === true}
               onSave={saveApiKey}
               onDelete={deleteApiKey}
             />
+          </View>
+        </View>
+
+        {/* Data access permissions */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.cardBackground, borderColor: theme.border },
+          ]}
+        >
+          <Text style={[styles.cardTitle, { color: theme.textColor }]}>
+            Acesso aos dados
+          </Text>
+          <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+            Escolha quais dados a IA pode acessar para respostas mais
+            detalhadas. Nenhum dado pessoal (CPF, nome, conta) e enviado.
+          </Text>
+          <View style={styles.cardBody}>
+            {(Object.keys(AI_DATA_PERMISSION_LABELS) as Array<keyof AIDataPermissions>).map(
+              (key) => {
+                const label = AI_DATA_PERMISSION_LABELS[key];
+                const enabled = settings.dataPermissions[key] ?? false;
+
+                const handleToggle = (value: boolean) => {
+                  if (value && !enabled) {
+                    Alert.alert(
+                      `Permitir acesso: ${label.title}`,
+                      `A IA podera ver: ${label.description}.\n\nVoce pode desativar a qualquer momento.`,
+                      [
+                        { text: "Cancelar", style: "cancel" },
+                        {
+                          text: "Permitir",
+                          onPress: () =>
+                            updateSettings({
+                              dataPermissions: {
+                                ...settings.dataPermissions,
+                                [key]: true,
+                              },
+                            }),
+                        },
+                      ],
+                    );
+                  } else {
+                    updateSettings({
+                      dataPermissions: {
+                        ...settings.dataPermissions,
+                        [key]: false,
+                      },
+                    });
+                  }
+                };
+
+                return (
+                  <View key={key} style={styles.permissionRow}>
+                    <View style={styles.permissionInfo}>
+                      <Text style={[styles.permissionLabel, { color: theme.textColor }]}>
+                        {label.title}
+                      </Text>
+                      <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                        {label.description}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={enabled}
+                      onValueChange={handleToggle}
+                      trackColor={{ false: theme.border, true: theme.primaryColor }}
+                      thumbColor="#fff"
+                    />
+                  </View>
+                );
+              },
+            )}
           </View>
         </View>
 
@@ -147,9 +222,9 @@ export default function AISettingsScreen() {
             </Text>
           </View>
           <Text style={[styles.privacyText, { color: theme.secondaryText }]}>
-            A IA recebe apenas métricas agregadas (saldo total, média de
-            gastos, scores de perfil). Nunca são enviados CPF, nome, número
-            de conta, cartão ou IDs internos.
+            Os dados sao enviados diretamente ao provedor de IA escolhido.
+            Nunca passam por servidores do DOMUS. CPF, nome, numero de
+            conta, cartao ou IDs internos nunca sao incluidos.
           </Text>
         </View>
 
@@ -319,5 +394,19 @@ const styles = StyleSheet.create({
   rowDivider: {
     height: StyleSheet.hairlineWidth,
     marginHorizontal: 14,
+  },
+  permissionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    gap: 12,
+  },
+  permissionInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  permissionLabel: {
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
