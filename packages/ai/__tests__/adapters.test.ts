@@ -4,6 +4,7 @@ import { OpenAIAdapter } from "../src/adapters/OpenAIAdapter";
 import { GeminiAdapter } from "../src/adapters/GeminiAdapter";
 import { ClaudeAdapter } from "../src/adapters/ClaudeAdapter";
 import { OpenRouterAdapter } from "../src/adapters/OpenRouterAdapter";
+import { ChatGPTOAuthAdapter } from "../src/adapters/ChatGPTOAuthAdapter";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -216,5 +217,65 @@ describe("OpenRouterAdapter", () => {
     await expect(
       adapter.complete(MESSAGES, API_KEY, DEFAULT_OPTIONS),
     ).rejects.toThrow("OpenRouter HTTP 429");
+  });
+});
+
+// ─── ChatGPT OAuth Adapter (Responses API) ──────────────────────────────────
+
+describe("ChatGPTOAuthAdapter", () => {
+  it("sends Responses API format and parses output", async () => {
+    const mockResponse = {
+      id: "resp_test123",
+      output: [
+        {
+          type: "message",
+          role: "assistant",
+          content: [{ type: "output_text", text: "Hello from ChatGPT!" }],
+        },
+      ],
+      usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+    };
+    globalThis.fetch = mockFetchResponse(mockResponse);
+
+    const adapter = new ChatGPTOAuthAdapter();
+    const token = "oauth-access-token-123";
+    const result = await adapter.complete(MESSAGES, token, DEFAULT_OPTIONS);
+
+    expect(result.content).toBe("Hello from ChatGPT!");
+    expect(result.tokensUsed).toBe(15);
+
+    const call = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(call[0]).toBe("https://chatgpt.com/backend-api/codex/responses");
+    const init = call[1] as RequestInit;
+    const headers = init.headers as Record<string, string>;
+    expect(headers["Authorization"]).toBe(`Bearer ${token}`);
+
+    const body = JSON.parse(init.body as string);
+    expect(body.model).toBe("test-model");
+    expect(body.instructions).toBe("You are a helper.");
+    expect(body.input).toEqual([{ role: "user", content: "Hello" }]);
+    expect(body.max_output_tokens).toBe(512);
+  });
+
+  it("throws on API error in response body", async () => {
+    const mockResponse = {
+      id: "resp_err",
+      output: [],
+      error: { message: "Model not found", code: "model_not_found" },
+    };
+    globalThis.fetch = mockFetchResponse(mockResponse);
+
+    const adapter = new ChatGPTOAuthAdapter();
+    await expect(
+      adapter.complete(MESSAGES, API_KEY, DEFAULT_OPTIONS),
+    ).rejects.toThrow("Model not found");
+  });
+
+  it("throws on HTTP error", async () => {
+    globalThis.fetch = mockFetchResponse({ error: "unauthorized" }, 401);
+    const adapter = new ChatGPTOAuthAdapter();
+    await expect(
+      adapter.complete(MESSAGES, API_KEY, DEFAULT_OPTIONS),
+    ).rejects.toThrow("ChatGPT HTTP 401");
   });
 });
