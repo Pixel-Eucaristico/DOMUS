@@ -6,8 +6,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Clipboard,
 } from "react-native";
+import * as WebBrowser from "expo-web-browser";
+import * as ExpoClipboard from "expo-clipboard";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
@@ -45,6 +46,8 @@ export function APIKeyManager({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [deviceCode, setDeviceCode] = useState<string | null>(null);
+  const [deviceUrl, setDeviceUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -93,12 +96,16 @@ export function APIKeyManager({
     if (!onLoginChatGPT) return;
     setError(null);
     setDeviceCode(null);
+    setDeviceUrl(null);
+    setCopied(false);
     setIsLoggingIn(true);
     try {
-      const ok = await onLoginChatGPT((code, _url) => {
+      const ok = await onLoginChatGPT((code, url) => {
         setDeviceCode(code);
+        setDeviceUrl(url);
       });
       setDeviceCode(null);
+      setDeviceUrl(null);
       if (ok) {
         setSuccess(true);
         soundManager.play("success");
@@ -108,6 +115,7 @@ export function APIKeyManager({
       }
     } catch {
       setDeviceCode(null);
+      setDeviceUrl(null);
       setError("Erro ao conectar com ChatGPT.");
       soundManager.play("error");
     } finally {
@@ -115,10 +123,18 @@ export function APIKeyManager({
     }
   };
 
-  const handleCopyCode = () => {
+  const handleCopyCode = async () => {
     if (deviceCode) {
-      Clipboard.setString(deviceCode);
+      await ExpoClipboard.setStringAsync(deviceCode);
+      setCopied(true);
       soundManager.play("tap");
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleOpenBrowser = () => {
+    if (deviceUrl) {
+      WebBrowser.openBrowserAsync(deviceUrl).catch(() => {});
     }
   };
 
@@ -294,26 +310,40 @@ export function APIKeyManager({
 
               {/* Device code display */}
               {deviceCode ? (
-                <TouchableOpacity
-                  onPress={handleCopyCode}
-                  style={[styles.codeCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-                >
+                <View style={[styles.codeCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
                   <Text style={[styles.codeLabel, { color: theme.secondaryText }]}>
-                    Digite este codigo no navegador:
+                    1. Copie o codigo abaixo:
                   </Text>
                   <Text style={[styles.codeValue, { color: PROVIDER_GREEN }]}>
                     {deviceCode}
                   </Text>
-                  <View style={styles.codeCopyRow}>
-                    <Feather name="copy" size={12} color={theme.secondaryText} />
-                    <Text style={[styles.codeCopyText, { color: theme.secondaryText }]}>
-                      Toque para copiar
+
+                  <TouchableOpacity onPress={handleCopyCode} style={[styles.codeCopyBtn, { borderColor: theme.border }]}>
+                    <Feather name={copied ? "check" : "copy"} size={14} color={copied ? theme.success : theme.secondaryText} />
+                    <Text style={[styles.codeCopyBtnText, { color: copied ? theme.success : theme.textColor }]}>
+                      {copied ? "Copiado!" : "Copiar codigo"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <Text style={[styles.codeLabel, { color: theme.secondaryText, marginTop: 4 }]}>
+                    2. Abra o navegador e faca login:
+                  </Text>
+
+                  <TouchableOpacity
+                    onPress={handleOpenBrowser}
+                    style={[styles.openBrowserBtn, { backgroundColor: PROVIDER_GREEN }]}
+                  >
+                    <Feather name="external-link" size={14} color="#fff" />
+                    <Text style={styles.openBrowserBtnText}>Abrir navegador</Text>
+                  </TouchableOpacity>
+
+                  <View style={styles.waitingRow}>
+                    <ActivityIndicator size="small" color={theme.secondaryText} />
+                    <Text style={[styles.codeWaiting, { color: theme.secondaryText }]}>
+                      Aguardando login... (expira em 15 min)
                     </Text>
                   </View>
-                  <Text style={[styles.codeWaiting, { color: theme.secondaryText }]}>
-                    Aguardando login... (expira em 15 min)
-                  </Text>
-                </TouchableOpacity>
+                </View>
               ) : (
                 <Text style={[styles.oauthHint, { color: theme.secondaryText }]}>
                   Use sua assinatura ChatGPT Plus/Team sem API key
@@ -426,20 +456,48 @@ const styles = StyleSheet.create({
   },
   codeLabel: {
     fontSize: 12,
+    textAlign: "center",
   },
   codeValue: {
     fontSize: 28,
     fontWeight: "700",
     fontFamily: "monospace",
     letterSpacing: 4,
+    marginVertical: 4,
   },
-  codeCopyRow: {
+  codeCopyBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
-  codeCopyText: {
-    fontSize: 11,
+  codeCopyBtnText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  openBrowserBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    width: "100%",
+  },
+  openBrowserBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  waitingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
   },
   codeWaiting: {
     fontSize: 11,

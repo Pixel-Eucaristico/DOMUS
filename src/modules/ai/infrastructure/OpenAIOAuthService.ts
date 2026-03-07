@@ -76,9 +76,8 @@ export class OpenAIOAuthService {
       ? parseInt(device.interval, 10) || 5
       : device.interval || 5;
 
-    // Step 2: Notify UI of the code and open browser
+    // Step 2: Notify UI of the code (UI handles browser opening)
     onCode(device.user_code, DEVICE_VERIFY_URL);
-    WebBrowser.openBrowserAsync(DEVICE_VERIFY_URL).catch(() => {});
 
     // Step 3: Poll for authorization
     const pollResult = await OpenAIOAuthService.pollForToken(
