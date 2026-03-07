@@ -194,7 +194,7 @@ export default function AIChatScreen() {
       </View>
 
       {/* Token usage bar */}
-      <AIUsageBar refreshKey={messages.length} />
+      <AIUsageBar provider={settings.provider} refreshKey={messages.length} />
 
       {/* Messages */}
       <KeyboardAvoidingView

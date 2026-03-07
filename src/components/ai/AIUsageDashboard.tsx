@@ -3,8 +3,8 @@ import { View, Text, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
-import { DAILY_TOKEN_BUDGET } from "@/src/modules/ai/domain/AISettings";
-import type { DailyTokenUsage } from "@packages/ai";
+import { DAILY_TOKEN_BUDGET, PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
+import type { AIProvider, DailyTokenUsage } from "@packages/ai";
 
 export function AIUsageDashboard() {
   const { theme } = useAppState();
@@ -22,14 +22,16 @@ export function AIUsageDashboard() {
 
   if (!usage) return null;
 
-  const pct = Math.min(100, (usage.totalTokens / DAILY_TOKEN_BUDGET) * 100);
-  const isOver = usage.totalTokens >= DAILY_TOKEN_BUDGET;
+  const providers = Object.entries(usage.byProvider).filter(
+    ([, tokens]) => (tokens ?? 0) > 0,
+  ) as Array<[AIProvider, number]>;
 
-  const barColor = isOver
-    ? theme.danger
-    : pct > 75
-      ? theme.warning
-      : theme.success;
+  if (providers.length === 0 && usage.totalTokens === 0) return null;
+
+  // Check if any provider is over budget
+  const anyOver = providers.some(
+    ([p, tokens]) => tokens >= DAILY_TOKEN_BUDGET[p],
+  );
 
   return (
     <View
@@ -41,37 +43,53 @@ export function AIUsageDashboard() {
       <View style={styles.header}>
         <MaterialCommunityIcons name="robot-happy" size={14} color={theme.secondaryText} />
         <Text style={[styles.title, { color: theme.secondaryText }]}>
-          Uso diário de tokens
-        </Text>
-        <Text style={[styles.value, { color: isOver ? theme.danger : theme.textColor }]}>
-          {usage.totalTokens.toLocaleString("pt-BR")} / {DAILY_TOKEN_BUDGET.toLocaleString("pt-BR")}
+          Uso diario de tokens
         </Text>
       </View>
 
-      {/* Progress bar */}
-      <View style={[styles.track, { backgroundColor: theme.border }]}>
-        <View
-          style={[styles.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]}
-        />
-      </View>
+      {/* Per-provider bars */}
+      {providers.map(([provider, tokens]) => {
+        const budget = DAILY_TOKEN_BUDGET[provider];
+        const pTheme = PROVIDER_THEME[provider];
+        const pct = Math.min(100, (tokens / budget) * 100);
+        const isOver = tokens >= budget;
 
-      {/* Per-provider breakdown */}
-      {Object.entries(usage.byProvider).length > 0 && (
-        <View style={styles.breakdown}>
-          {Object.entries(usage.byProvider).map(([provider, tokens]) => (
-            <Text
-              key={provider}
-              style={[styles.breakdownItem, { color: theme.secondaryText }]}
-            >
-              {provider}: {(tokens ?? 0).toLocaleString("pt-BR")}
-            </Text>
-          ))}
-        </View>
-      )}
+        const barColor = isOver
+          ? theme.danger
+          : pct > 80
+            ? theme.warning
+            : pTheme.color;
 
-      {isOver && (
+        return (
+          <View key={provider} style={styles.providerSection}>
+            <View style={styles.providerHeader}>
+              <MaterialCommunityIcons
+                name={pTheme.icon as keyof typeof MaterialCommunityIcons.glyphMap}
+                size={12}
+                color={pTheme.color}
+              />
+              <Text style={[styles.providerName, { color: theme.textColor }]}>
+                {provider}
+              </Text>
+              <Text style={[styles.providerValue, { color: isOver ? theme.danger : theme.secondaryText }]}>
+                {tokens.toLocaleString("pt-BR")} / {budget.toLocaleString("pt-BR")}
+              </Text>
+              <Text style={[styles.providerPct, { color: barColor }]}>
+                {Math.round(pct)}%
+              </Text>
+            </View>
+            <View style={[styles.track, { backgroundColor: theme.border }]}>
+              <View
+                style={[styles.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]}
+              />
+            </View>
+          </View>
+        );
+      })}
+
+      {anyOver && (
         <Text style={[styles.overBudget, { color: theme.danger }]}>
-          Limite diário atingido. Retomará amanhã.
+          Limite diario atingido em um ou mais provedores.
         </Text>
       )}
     </View>
@@ -94,26 +112,37 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
   },
-  value: {
-    fontSize: 13,
+  providerSection: {
+    gap: 4,
+  },
+  providerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  providerName: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "500",
+    textTransform: "capitalize",
+  },
+  providerValue: {
+    fontSize: 11,
+  },
+  providerPct: {
+    fontSize: 11,
     fontWeight: "600",
+    minWidth: 30,
+    textAlign: "right",
   },
   track: {
-    height: 6,
-    borderRadius: 3,
+    height: 4,
+    borderRadius: 2,
     overflow: "hidden",
   },
   fill: {
     height: "100%",
-    borderRadius: 3,
-  },
-  breakdown: {
-    flexDirection: "row",
-    gap: 12,
-    flexWrap: "wrap",
-  },
-  breakdownItem: {
-    fontSize: 12,
+    borderRadius: 2,
   },
   overBudget: {
     fontSize: 12,

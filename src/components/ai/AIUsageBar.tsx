@@ -1,20 +1,23 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { View, Text, StyleSheet } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
-import { DAILY_TOKEN_BUDGET } from "@/src/modules/ai/domain/AISettings";
-import type { DailyTokenUsage } from "@packages/ai";
+import { DAILY_TOKEN_BUDGET, PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
+import type { AIProvider, DailyTokenUsage } from "@packages/ai";
 
 interface AIUsageBarProps {
+  /** Active provider to display usage for */
+  provider: AIProvider;
   /** Triggers a refresh when this value changes (e.g. messages.length) */
   refreshKey?: number;
 }
 
 /**
  * Compact token usage bar for the chat screen.
- * Shows current usage and auto-refreshes when refreshKey changes.
+ * Shows per-provider usage with themed color and icon.
  */
-export function AIUsageBar({ refreshKey }: AIUsageBarProps) {
+export function AIUsageBar({ provider, refreshKey }: AIUsageBarProps) {
   const { theme } = useAppState();
   const [usage, setUsage] = useState<DailyTokenUsage | null>(null);
 
@@ -26,23 +29,34 @@ export function AIUsageBar({ refreshKey }: AIUsageBarProps) {
     refresh();
   }, [refresh, refreshKey]);
 
-  if (!usage || usage.totalTokens === 0) return null;
+  const providerTokens = usage?.byProvider[provider] ?? 0;
+  const budget = DAILY_TOKEN_BUDGET[provider];
+  const providerTheme = PROVIDER_THEME[provider];
 
-  const pct = Math.min(100, (usage.totalTokens / DAILY_TOKEN_BUDGET) * 100);
-  const isOver = usage.totalTokens >= DAILY_TOKEN_BUDGET;
+  if (!usage || providerTokens === 0) return null;
+
+  const pct = Math.min(100, (providerTokens / budget) * 100);
+  const isOver = providerTokens >= budget;
 
   const barColor = isOver
     ? theme.danger
-    : pct > 75
+    : pct > 80
       ? theme.warning
-      : theme.success;
+      : providerTheme.color;
 
   return (
     <View style={[styles.container, { borderColor: theme.border }]}>
       <View style={styles.row}>
-        <Text style={[styles.label, { color: theme.secondaryText }]}>
-          Tokens: {usage.totalTokens.toLocaleString("pt-BR")} / {DAILY_TOKEN_BUDGET.toLocaleString("pt-BR")}
-        </Text>
+        <View style={styles.labelRow}>
+          <MaterialCommunityIcons
+            name={providerTheme.icon as keyof typeof MaterialCommunityIcons.glyphMap}
+            size={12}
+            color={providerTheme.color}
+          />
+          <Text style={[styles.label, { color: theme.secondaryText }]}>
+            {providerTokens.toLocaleString("pt-BR")} / {budget.toLocaleString("pt-BR")}
+          </Text>
+        </View>
         <Text style={[styles.pct, { color: barColor }]}>
           {Math.round(pct)}%
         </Text>
@@ -67,6 +81,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   label: {
     fontSize: 11,

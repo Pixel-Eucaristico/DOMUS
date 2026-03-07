@@ -82,12 +82,12 @@ export class AIClientService {
       throw new AIClientError("OFFLINE", "Sem conexão à internet");
     }
 
-    // 3. Token budget
-    const overBudget = await TokenTracker.isOverBudget();
+    // 3. Token budget (per-provider)
+    const overBudget = await TokenTracker.isOverBudget(provider);
     if (overBudget) {
       throw new AIClientError(
         "TOKEN_BUDGET_EXCEEDED",
-        "Limite diário de tokens atingido",
+        `Limite diário de tokens atingido para ${provider}`,
       );
     }
 

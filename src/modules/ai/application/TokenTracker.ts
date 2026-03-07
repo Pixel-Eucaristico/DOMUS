@@ -1,6 +1,6 @@
 import { SecureStorageService } from "@/src/modules/security/infrastructure/SecureStorageService";
 import type { AIProvider, DailyTokenUsage } from "@packages/ai";
-import { DAILY_TOKEN_BUDGET } from "../domain/AISettings";
+import { getProviderBudget } from "../domain/AISettings";
 
 // ─── TokenTracker ─────────────────────────────────────────────────────────────
 
@@ -53,10 +53,19 @@ export class TokenTracker {
     }
   }
 
-  /** Returns true when the daily budget has been reached or exceeded. */
-  static async isOverBudget(): Promise<boolean> {
+  /** Returns true when the daily budget for a provider has been reached or exceeded. */
+  static async isOverBudget(provider?: AIProvider): Promise<boolean> {
     const usage = await TokenTracker.getToday();
-    return usage.totalTokens >= DAILY_TOKEN_BUDGET;
+    if (provider) {
+      const budget = getProviderBudget(provider);
+      const used = usage.byProvider[provider] ?? 0;
+      return used >= budget;
+    }
+    // Fallback: check total across all providers
+    return Object.entries(usage.byProvider).some(([p, used]) => {
+      const budget = getProviderBudget(p as AIProvider);
+      return (used ?? 0) >= budget;
+    });
   }
 
   /** Resets today's counter (for testing or manual reset). */

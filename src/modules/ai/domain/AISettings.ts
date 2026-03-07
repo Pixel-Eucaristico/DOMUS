@@ -107,5 +107,23 @@ export const AI_SETTINGS_STORE_KEY = "domus_ai_settings_v1";
 /** SecureStore key prefix for encrypted API keys: {prefix}{provider} */
 export const AI_KEY_PREFIX = "domus_ai_key_";
 
-/** Daily token budget — requests are blocked when exceeded */
-export const DAILY_TOKEN_BUDGET = 50_000;
+/** Daily token budget per provider — requests are blocked when exceeded */
+export const DAILY_TOKEN_BUDGET: Record<AIProvider, number> = {
+  openai: 80_000,
+  gemini: 80_000,
+  claude: 40_000,
+  openrouter: 60_000,
+};
+
+/** Provider visual identity (color + icon) */
+export const PROVIDER_THEME: Record<AIProvider, { color: string; icon: string }> = {
+  openai: { color: "#10A37F", icon: "creation" },
+  gemini: { color: "#4285F4", icon: "google" },
+  claude: { color: "#D97706", icon: "atom" },
+  openrouter: { color: "#6366F1", icon: "router-wireless" },
+};
+
+/** Helper to get the budget for a specific provider */
+export function getProviderBudget(provider: AIProvider): number {
+  return DAILY_TOKEN_BUDGET[provider];
+}
