@@ -70,7 +70,7 @@ export function AIUsageBar({
           </Text>
           {costBrl !== null && (
             <Text style={[styles.costLabel, { color: theme.secondaryText }]}>
-              · R$ {costBrl.toFixed(4)}
+              · R$ {costBrl.toFixed(2)}
             </Text>
           )}
         </View>

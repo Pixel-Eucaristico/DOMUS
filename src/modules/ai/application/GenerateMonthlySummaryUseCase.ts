@@ -68,6 +68,9 @@ export class GenerateMonthlySummaryUseCase {
         cacheKey,
         openaiAuthMethod: settings.openaiAuthMethod,
         customBudgets: settings.customBudgets,
+        budgetMode: settings.budgetMode,
+        monthlyBudgets: settings.monthlyBudgets,
+        billingDay: settings.billingDay,
       });
 
       const aiSummary = TOONParser.parseSummaryResponse(response.content, month);

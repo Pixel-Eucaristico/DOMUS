@@ -19,6 +19,7 @@ export type {
   CircuitBreakerConfig,
   CacheEntry,
   DailyTokenUsage,
+  MonthlyTokenUsage,
 } from "./src/types";
 export { AI_MODELS, CHATGPT_OAUTH_MODELS } from "./src/types";
 
@@ -48,6 +49,7 @@ export { fetchWithTimeout } from "./src/adapters/AIProviderAdapter";
 export { OpenAIAdapter } from "./src/adapters/OpenAIAdapter";
 export { GeminiAdapter } from "./src/adapters/GeminiAdapter";
 export { ClaudeAdapter } from "./src/adapters/ClaudeAdapter";
-export { OpenRouterAdapter } from "./src/adapters/OpenRouterAdapter";
+export { DeepSeekAdapter } from "./src/adapters/DeepSeekAdapter";
+export { QwenAdapter } from "./src/adapters/QwenAdapter";
 export { ChatGPTOAuthAdapter } from "./src/adapters/ChatGPTOAuthAdapter";
 

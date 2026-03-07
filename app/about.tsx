@@ -119,6 +119,7 @@ export default function AboutScreen() {
 
           {/* ── SETTINGS ────────────────────────────────────────────────── */}
           <SectionCard theme={theme} icon="settings" title="Configurações" accentColor={theme.accentColor} collapsible>
+            <LinkRow icon="cpu" label="IA Financeira" description="Provedor, chave de API, limites e custos" color="#6366F1" theme={theme} onPress={() => router.push("/ai-settings")} />
             <LinkRow icon="lock" label="Segurança" description="Bloqueio por PIN ou biometria" color={theme.primaryColor} theme={theme} onPress={() => router.push("/security-settings")} />
             <LinkRow icon="download-cloud" label="Backup & Restauração" description="Exportar e importar dados cifrados" color={theme.warning} theme={theme} onPress={() => router.push("/backup")} />
             <LinkRow icon="shield" label="Política de Privacidade" description="Como seus dados são protegidos" color={theme.primaryColor} theme={theme} onPress={() => router.push("/privacy-policy")} />

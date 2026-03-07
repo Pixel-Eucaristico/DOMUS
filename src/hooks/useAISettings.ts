@@ -12,7 +12,7 @@ import {
 } from "@/src/modules/ai/domain/AISettings";
 import type { AIProvider } from "@packages/ai";
 
-const ALL_PROVIDERS: AIProvider[] = ["openai", "gemini", "claude", "openrouter"];
+const ALL_PROVIDERS: AIProvider[] = ["openai", "gemini", "claude", "deepseek", "qwen"];
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -69,6 +69,10 @@ export function useAISettings(): UseAISettingsResult {
               hasOAuthSession: hasOAuth,
               isEnabled: stored.isEnabled ?? false,
               dataPermissions: stored.dataPermissions ?? { ...DEFAULT_AI_DATA_PERMISSIONS },
+              customBudgets: stored.customBudgets,
+              budgetMode: stored.budgetMode,
+              monthlyBudgets: stored.monthlyBudgets,
+              billingDay: stored.billingDay,
               systemPromptSent: stored.systemPromptSent ?? false,
             });
           }

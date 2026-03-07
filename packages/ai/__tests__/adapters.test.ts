@@ -3,7 +3,8 @@ import type { AdapterMessage, AdapterOptions } from "../src/types";
 import { OpenAIAdapter } from "../src/adapters/OpenAIAdapter";
 import { GeminiAdapter } from "../src/adapters/GeminiAdapter";
 import { ClaudeAdapter } from "../src/adapters/ClaudeAdapter";
-import { OpenRouterAdapter } from "../src/adapters/OpenRouterAdapter";
+import { DeepSeekAdapter } from "../src/adapters/DeepSeekAdapter";
+import { QwenAdapter } from "../src/adapters/QwenAdapter";
 import { ChatGPTOAuthAdapter } from "../src/adapters/ChatGPTOAuthAdapter";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -180,43 +181,62 @@ describe("ClaudeAdapter", () => {
   });
 });
 
-// ─── OpenRouter Adapter ──────────────────────────────────────────────────────
+// ─── DeepSeek Adapter ────────────────────────────────────────────────────────
 
-describe("OpenRouterAdapter", () => {
-  it("sends correct request with extra headers", async () => {
+describe("DeepSeekAdapter", () => {
+  it("sends correct request to DeepSeek API", async () => {
     const mockResponse = {
-      choices: [{ message: { content: "Router says hi" }, finish_reason: "stop" }],
+      choices: [{ message: { content: "DeepSeek says hi" }, finish_reason: "stop" }],
       usage: { prompt_tokens: 8, completion_tokens: 4, total_tokens: 12 },
     };
     globalThis.fetch = mockFetchResponse(mockResponse);
 
-    const adapter = new OpenRouterAdapter();
+    const adapter = new DeepSeekAdapter();
     const result = await adapter.complete(MESSAGES, API_KEY, {
       ...DEFAULT_OPTIONS,
-      model: "google/gemini-2.5-flash",
+      model: "deepseek-chat",
     });
 
-    expect(result.content).toBe("Router says hi");
+    expect(result.content).toBe("DeepSeek says hi");
     expect(result.tokensUsed).toBe(12);
 
     const call = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]!;
-    expect(call[0]).toBe("https://openrouter.ai/api/v1/chat/completions");
+    expect(call[0]).toBe("https://api.deepseek.com/chat/completions");
     const init = call[1] as RequestInit;
     const headers = init.headers as Record<string, string>;
     expect(headers["Authorization"]).toBe(`Bearer ${API_KEY}`);
-    expect(headers["HTTP-Referer"]).toBe("https://domus.app");
-    expect(headers["X-OpenRouter-Title"]).toBe("DOMUS");
-
-    const body = JSON.parse(init.body as string);
-    expect(body.model).toBe("google/gemini-2.5-flash");
   });
 
   it("throws on HTTP 429 rate limit", async () => {
     globalThis.fetch = mockFetchResponse({ error: "rate limited" }, 429);
-    const adapter = new OpenRouterAdapter();
+    const adapter = new DeepSeekAdapter();
     await expect(
       adapter.complete(MESSAGES, API_KEY, DEFAULT_OPTIONS),
-    ).rejects.toThrow("OpenRouter HTTP 429");
+    ).rejects.toThrow("DeepSeek HTTP 429");
+  });
+});
+
+// ─── Qwen Adapter ────────────────────────────────────────────────────────────
+
+describe("QwenAdapter", () => {
+  it("sends correct request to DashScope API", async () => {
+    const mockResponse = {
+      choices: [{ message: { content: "Qwen says hi" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    };
+    globalThis.fetch = mockFetchResponse(mockResponse);
+
+    const adapter = new QwenAdapter();
+    const result = await adapter.complete(MESSAGES, API_KEY, {
+      ...DEFAULT_OPTIONS,
+      model: "qwen3.5-flash",
+    });
+
+    expect(result.content).toBe("Qwen says hi");
+    expect(result.tokensUsed).toBe(15);
+
+    const call = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(call[0]).toBe("https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions");
   });
 });
 

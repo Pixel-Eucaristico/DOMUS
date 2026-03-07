@@ -6,7 +6,7 @@ import { OpenAIOAuthService } from "../infrastructure/OpenAIOAuthService";
 import { ConnectivityService } from "../infrastructure/ConnectivityService";
 import { TokenTracker } from "./TokenTracker";
 import { AIProviderFactory } from "./AIProviderFactory";
-import type { OpenAIAuthMethod } from "../domain/AISettings";
+import type { OpenAIAuthMethod, BudgetMode } from "../domain/AISettings";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -18,8 +18,14 @@ export interface ClientRequestOptions {
   cacheKey?: string;
   /** OpenAI auth method — defaults to "apikey" */
   openaiAuthMethod?: OpenAIAuthMethod;
-  /** User-defined budgets per provider */
+  /** User-defined daily budgets per provider */
   customBudgets?: Partial<Record<AIProvider, number>>;
+  /** "daily" or "monthly" budget mode */
+  budgetMode?: BudgetMode;
+  /** Monthly token budgets per provider */
+  monthlyBudgets?: Partial<Record<AIProvider, number>>;
+  /** Day of month when billing cycle resets (1-31) */
+  billingDay?: number;
 }
 
 export interface ClientResult {
@@ -88,12 +94,19 @@ export class AIClientService {
       throw new AIClientError("OFFLINE", "Sem conexão à internet");
     }
 
-    // 3. Token budget (per-provider)
-    const overBudget = await TokenTracker.isOverBudget(provider, options.customBudgets);
+    // 3. Token budget (per-provider, daily or monthly)
+    const overBudget = await TokenTracker.isOverBudget(
+      provider,
+      options.customBudgets,
+      options.budgetMode,
+      options.monthlyBudgets,
+      options.billingDay,
+    );
     if (overBudget) {
+      const modeLabel = options.budgetMode === "monthly" ? "mensal" : "diário";
       throw new AIClientError(
         "TOKEN_BUDGET_EXCEEDED",
-        `Limite diário de tokens atingido para ${provider}`,
+        `Limite ${modeLabel} de tokens atingido para ${provider}`,
       );
     }
 
@@ -163,7 +176,7 @@ export class AIClientService {
     }
 
     // 8. Record token usage
-    await TokenTracker.record(provider, tokensUsed);
+    await TokenTracker.record(provider, tokensUsed, options.billingDay);
 
     const clientResult: ClientResult = {
       content,

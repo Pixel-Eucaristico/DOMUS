@@ -160,6 +160,9 @@ export class ConsultantChatUseCase {
         cacheKey,
         openaiAuthMethod: settings.openaiAuthMethod,
         customBudgets: settings.customBudgets,
+        budgetMode: settings.budgetMode,
+        monthlyBudgets: settings.monthlyBudgets,
+        billingDay: settings.billingDay,
       });
 
       let textContent: string;
@@ -267,6 +270,9 @@ export class ConsultantChatUseCase {
         cacheKey,
         openaiAuthMethod: settings.openaiAuthMethod,
         customBudgets: settings.customBudgets,
+        budgetMode: settings.budgetMode,
+        monthlyBudgets: settings.monthlyBudgets,
+        billingDay: settings.billingDay,
       });
 
       return {

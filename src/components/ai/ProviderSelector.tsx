@@ -20,7 +20,8 @@ const PROVIDERS: Array<{ id: AIProvider; label: string }> = [
   { id: "openai", label: "OpenAI" },
   { id: "gemini", label: "Gemini" },
   { id: "claude", label: "Claude" },
-  { id: "openrouter", label: "OpenRouter" },
+  { id: "deepseek", label: "DeepSeek" },
+  { id: "qwen", label: "Qwen" },
 ];
 
 const TIERS: Array<{ id: AIModelTier; label: string }> = [

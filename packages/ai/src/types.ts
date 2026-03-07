@@ -2,7 +2,7 @@
 
 export type RiskTolerance = "Conservative" | "Moderate" | "Aggressive";
 
-export type AIProvider = "openai" | "gemini" | "claude" | "openrouter";
+export type AIProvider = "openai" | "gemini" | "claude" | "deepseek" | "qwen";
 
 export type AIModelTier = "fast" | "smart";
 
@@ -33,9 +33,13 @@ export const AI_MODELS: Record<AIProvider, Record<AIModelTier, string>> = {
     fast: "claude-haiku-4-5-20251001",
     smart: "claude-sonnet-4-6",
   },
-  openrouter: {
-    fast: "google/gemini-2.5-flash",
-    smart: "anthropic/claude-sonnet-4-6",
+  deepseek: {
+    fast: "deepseek-chat",
+    smart: "deepseek-reasoner",
+  },
+  qwen: {
+    fast: "qwen3.5-flash",
+    smart: "qwen3.5-plus",
   },
 } as const;
 
@@ -167,6 +171,15 @@ export interface CacheEntry<T> {
 export interface DailyTokenUsage {
   /** "YYYY-MM-DD" */
   date: string;
+  totalTokens: number;
+  byProvider: Partial<Record<AIProvider, number>>;
+}
+
+export interface MonthlyTokenUsage {
+  /** Billing cycle identifier: "YYYY-MM-DD" of cycle start */
+  cycleStart: string;
+  /** "YYYY-MM-DD" of cycle end (exclusive) */
+  cycleEnd: string;
   totalTokens: number;
   byProvider: Partial<Record<AIProvider, number>>;
 }

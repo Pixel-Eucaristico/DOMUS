@@ -63,6 +63,10 @@ export const AI_DATA_PERMISSION_LABELS: Record<keyof AIDataPermissions, { title:
   },
 };
 
+// ─── Budget Mode ─────────────────────────────────────────────────────────────
+
+export type BudgetMode = "daily" | "monthly";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface AISettings {
@@ -80,6 +84,12 @@ export interface AISettings {
   dataPermissions: AIDataPermissions;
   /** User-defined daily token budget per provider (overrides DAILY_TOKEN_BUDGET) */
   customBudgets?: Partial<Record<AIProvider, number>>;
+  /** "daily" = fixed daily limit, "monthly" = total divided by remaining days */
+  budgetMode?: BudgetMode;
+  /** Monthly token budget per provider (used when budgetMode = "monthly") */
+  monthlyBudgets?: Partial<Record<AIProvider, number>>;
+  /** Day of month when billing cycle resets (1-31, default 1) */
+  billingDay?: number;
   /**
    * true after the system prompt has been sent once this session.
    *
@@ -126,7 +136,8 @@ export const DAILY_TOKEN_BUDGET: Record<AIProvider, number> = {
   openai: 80_000,
   gemini: 80_000,
   claude: 40_000,
-  openrouter: 60_000,
+  deepseek: 80_000,
+  qwen: 80_000,
 };
 
 /** Provider visual identity (color + icon) */
@@ -134,7 +145,8 @@ export const PROVIDER_THEME: Record<AIProvider, { color: string; icon: string }>
   openai: { color: "#10A37F", icon: "creation" },
   gemini: { color: "#4285F4", icon: "google" },
   claude: { color: "#D97706", icon: "atom" },
-  openrouter: { color: "#6366F1", icon: "router-wireless" },
+  deepseek: { color: "#4D6BFE", icon: "brain" },
+  qwen: { color: "#FF6A00", icon: "cloud" },
 };
 
 /** Budget value that means "unlimited" (no daily cap) */
@@ -155,4 +167,77 @@ export function isUnlimitedBudget(
   customBudgets?: Partial<Record<AIProvider, number>>,
 ): boolean {
   return getProviderBudget(provider, customBudgets) === UNLIMITED_BUDGET;
+}
+
+// ─── Monthly Budget Helpers ──────────────────────────────────────────────────
+
+/** Default monthly token budgets (approx daily * 30) */
+export const MONTHLY_TOKEN_BUDGET: Record<AIProvider, number> = {
+  openai: 2_400_000,
+  gemini: 2_400_000,
+  claude: 1_200_000,
+  deepseek: 2_400_000,
+  qwen: 2_400_000,
+};
+
+/** Get the monthly budget for a provider, respecting user overrides. */
+export function getMonthlyBudget(
+  provider: AIProvider,
+  monthlyBudgets?: Partial<Record<AIProvider, number>>,
+): number {
+  return monthlyBudgets?.[provider] ?? MONTHLY_TOKEN_BUDGET[provider];
+}
+
+/** Returns true if the monthly budget is unlimited */
+export function isUnlimitedMonthlyBudget(
+  provider: AIProvider,
+  monthlyBudgets?: Partial<Record<AIProvider, number>>,
+): boolean {
+  return getMonthlyBudget(provider, monthlyBudgets) === UNLIMITED_BUDGET;
+}
+
+/** Compute the billing cycle start and end dates for a given billing day. */
+export function getBillingCycle(billingDay: number = 1): { start: Date; end: Date } {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = today.getMonth(); // 0-based
+  const d = today.getDate();
+  const clampedDay = Math.min(billingDay, 28); // avoid month-overflow issues
+
+  let start: Date;
+  let end: Date;
+
+  if (d >= clampedDay) {
+    // Current cycle started this month
+    start = new Date(y, m, clampedDay);
+    end = new Date(y, m + 1, clampedDay);
+  } else {
+    // Current cycle started last month
+    start = new Date(y, m - 1, clampedDay);
+    end = new Date(y, m, clampedDay);
+  }
+
+  return { start, end };
+}
+
+/** Compute effective daily allowance for monthly mode.
+ *  = (monthlyBudget - usedThisCycle) / daysRemaining */
+export function getEffectiveDailyBudget(
+  provider: AIProvider,
+  usedThisCycle: number,
+  billingDay: number = 1,
+  monthlyBudgets?: Partial<Record<AIProvider, number>>,
+): number {
+  if (isUnlimitedMonthlyBudget(provider, monthlyBudgets)) return UNLIMITED_BUDGET;
+
+  const monthlyBudget = getMonthlyBudget(provider, monthlyBudgets);
+  const remaining = Math.max(0, monthlyBudget - usedThisCycle);
+  const { end } = getBillingCycle(billingDay);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const msPerDay = 86_400_000;
+  const daysLeft = Math.max(1, Math.ceil((end.getTime() - today.getTime()) / msPerDay));
+
+  return Math.floor(remaining / daysLeft);
 }

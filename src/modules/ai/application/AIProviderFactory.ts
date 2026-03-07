@@ -2,7 +2,8 @@ import {
   OpenAIAdapter,
   GeminiAdapter,
   ClaudeAdapter,
-  OpenRouterAdapter,
+  DeepSeekAdapter,
+  QwenAdapter,
   ChatGPTOAuthAdapter,
   AI_MODELS,
   CHATGPT_OAUTH_MODELS,
@@ -21,8 +22,10 @@ export class AIProviderFactory {
         return new GeminiAdapter();
       case "claude":
         return new ClaudeAdapter();
-      case "openrouter":
-        return new OpenRouterAdapter();
+      case "deepseek":
+        return new DeepSeekAdapter();
+      case "qwen":
+        return new QwenAdapter();
       default: {
         // Exhaustive check — TypeScript ensures this is unreachable,
         // but at runtime unknown values fall back to OpenAI.

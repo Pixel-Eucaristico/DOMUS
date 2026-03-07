@@ -76,6 +76,9 @@ export class ClassifyTransactionsUseCase {
           cacheKey,
           openaiAuthMethod: settings.openaiAuthMethod,
           customBudgets: settings.customBudgets,
+          budgetMode: settings.budgetMode,
+          monthlyBudgets: settings.monthlyBudgets,
+          billingDay: settings.billingDay,
         });
 
         const parsed = TOONParser.parseClassificationResponse(

@@ -6,11 +6,12 @@ export const TOKEN_PRICES_USD: Record<AIProvider, Record<AIModelTier, number>> =
   openai: { fast: 0.40, smart: 4.00 },    // gpt-5-mini / gpt-4.1
   gemini: { fast: 0.15, smart: 2.50 },     // gemini-2.5-flash / gemini-2.5-pro
   claude: { fast: 1.00, smart: 9.00 },     // haiku-4.5 / sonnet-4.6
-  openrouter: { fast: 0.15, smart: 3.00 }, // varies by model
+  deepseek: { fast: 0.35, smart: 0.35 },   // deepseek-chat / deepseek-reasoner (same pricing)
+  qwen: { fast: 0.10, smart: 0.39 },       // qwen3.5-flash / qwen3.5-plus
 };
 
 const CUSTOM_PRICES_KEY = "domus_ai_custom_prices";
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const FALLBACK_USD_BRL = 5.50;
 
 export interface CostEstimate {
@@ -28,24 +29,73 @@ type CustomPrices = Partial<Record<AIProvider, Partial<Record<AIModelTier, numbe
 let cachedRate: { value: number; timestamp: number } | null = null;
 let cachedCustomPrices: CustomPrices | null = null;
 
+/** Creates an AbortSignal with timeout, compatible with Hermes/RN */
+function timeoutSignal(ms: number): AbortSignal {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  controller.signal.addEventListener("abort", () => clearTimeout(timer), { once: true });
+  return controller.signal;
+}
+
 export class TokenPricingService {
-  /** Fetches USD→BRL rate. Caches for 1 hour. Falls back to 5.50. */
+  /** Fetches USD→BRL rate with 3 API fallbacks. Caches for 30 min. */
   static async getUsdToBrl(): Promise<number> {
     if (cachedRate && Date.now() - cachedRate.timestamp < CACHE_TTL_MS) {
       return cachedRate.value;
     }
+
+    const rate =
+      (await TokenPricingService.fetchAwesomeApi()) ??
+      (await TokenPricingService.fetchDolarApi()) ??
+      (await TokenPricingService.fetchExchangeRateApi()) ??
+      FALLBACK_USD_BRL;
+
+    cachedRate = { value: rate, timestamp: Date.now() };
+    return rate;
+  }
+
+  /** AwesomeAPI: economia.awesomeapi.com.br */
+  private static async fetchAwesomeApi(): Promise<number | null> {
     try {
       const resp = await fetch(
         "https://economia.awesomeapi.com.br/json/last/USD-BRL",
+        { signal: timeoutSignal(5000) },
       );
       const data = (await resp.json()) as { USDBRL?: { bid?: string } };
       const rate = parseFloat(data.USDBRL?.bid ?? "");
-      if (isNaN(rate) || rate <= 0) throw new Error("Invalid rate");
-      cachedRate = { value: rate, timestamp: Date.now() };
-      return rate;
+      return isNaN(rate) || rate <= 0 ? null : rate;
     } catch {
-      cachedRate = { value: FALLBACK_USD_BRL, timestamp: Date.now() };
-      return FALLBACK_USD_BRL;
+      return null;
+    }
+  }
+
+  /** DolarAPI Brasil: br.dolarapi.com */
+  private static async fetchDolarApi(): Promise<number | null> {
+    try {
+      const resp = await fetch(
+        "https://br.dolarapi.com/v1/cotacoes/usd",
+        { signal: timeoutSignal(5000) },
+      );
+      const data = (await resp.json()) as { compra?: number; venda?: number };
+      const rate = data.venda ?? data.compra;
+      return rate && rate > 0 ? rate : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** ExchangeRate-API (free, no key): open.er-api.com */
+  private static async fetchExchangeRateApi(): Promise<number | null> {
+    try {
+      const resp = await fetch(
+        "https://open.er-api.com/v6/latest/USD",
+        { signal: timeoutSignal(5000) },
+      );
+      const data = (await resp.json()) as { rates?: { BRL?: number } };
+      const rate = data.rates?.BRL;
+      return rate && rate > 0 ? rate : null;
+    } catch {
+      return null;
     }
   }
 
