@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { SecureStorageService } from "@/src/modules/security/infrastructure/SecureStorageService";
 import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
+import { OpenAIOAuthService } from "@/src/modules/ai/infrastructure/OpenAIOAuthService";
 import { AIClientService } from "@/src/modules/ai/application/AIClientService";
 import type { AISettings, AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
 import {
@@ -21,6 +22,10 @@ export interface UseAISettingsResult {
   /** Encrypts and stores an API key. Returns false if biometric auth fails. */
   saveApiKey: (provider: AIProvider, key: string) => Promise<boolean>;
   deleteApiKey: (provider: AIProvider) => Promise<void>;
+  /** Start OpenAI OAuth login (ChatGPT subscription). Returns true on success. */
+  loginWithChatGPT: () => Promise<boolean>;
+  /** Logout from ChatGPT OAuth session. */
+  logoutChatGPT: () => Promise<void>;
   updateSettings: (changes: Partial<Omit<AISettings, "apiKeyStatus">>) => Promise<void>;
 }
 
@@ -52,15 +57,26 @@ export function useAISettings(): UseAISettingsResult {
             if (has) apiKeyStatus[p] = true;
           }
 
+          // Check OAuth session
+          const hasOAuth = await OpenAIOAuthService.hasSession();
+
           if (mounted) {
             setSettings({
               provider: stored.provider ?? DEFAULT_AI_SETTINGS.provider,
               modelTier: stored.modelTier ?? DEFAULT_AI_SETTINGS.modelTier,
               apiKeyStatus,
+              openaiAuthMethod: stored.openaiAuthMethod ?? "apikey",
+              hasOAuthSession: hasOAuth,
               isEnabled: stored.isEnabled ?? false,
               dataPermissions: stored.dataPermissions ?? { ...DEFAULT_AI_DATA_PERMISSIONS },
               systemPromptSent: stored.systemPromptSent ?? false,
             });
+          }
+        } else if (mounted) {
+          // No stored settings — still check OAuth
+          const hasOAuth = await OpenAIOAuthService.hasSession();
+          if (hasOAuth) {
+            setSettings((prev) => ({ ...prev, hasOAuthSession: true }));
           }
         }
       } catch {
@@ -83,11 +99,12 @@ export function useAISettings(): UseAISettingsResult {
     async (provider: AIProvider, key: string): Promise<boolean> => {
       try {
         await SecureKeyService.storeKey(provider, key);
-        // Reset circuit breaker so a fresh attempt is made
         AIClientService.resetBreaker(provider);
         const next: AISettings = {
           ...settings,
           apiKeyStatus: { ...settings.apiKeyStatus, [provider]: true },
+          // If saving OpenAI key, switch to apikey method
+          ...(provider === "openai" ? { openaiAuthMethod: "apikey" as const } : {}),
           isEnabled: true,
           systemPromptSent: false,
         };
@@ -115,6 +132,40 @@ export function useAISettings(): UseAISettingsResult {
     [settings, persist],
   );
 
+  const loginWithChatGPT = useCallback(async (): Promise<boolean> => {
+    try {
+      const tokens = await OpenAIOAuthService.login();
+      if (!tokens) return false;
+
+      AIClientService.resetBreaker("openai");
+      const next: AISettings = {
+        ...settings,
+        provider: "openai",
+        openaiAuthMethod: "chatgpt_oauth",
+        hasOAuthSession: true,
+        isEnabled: true,
+        systemPromptSent: false,
+      };
+      await persist(next);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [settings, persist]);
+
+  const logoutChatGPT = useCallback(async (): Promise<void> => {
+    await OpenAIOAuthService.logout();
+    const wasUsingOAuth =
+      settings.provider === "openai" && settings.openaiAuthMethod === "chatgpt_oauth";
+    const next: AISettings = {
+      ...settings,
+      openaiAuthMethod: "apikey",
+      hasOAuthSession: false,
+      isEnabled: wasUsingOAuth ? false : settings.isEnabled,
+    };
+    await persist(next);
+  }, [settings, persist]);
+
   const updateSettings = useCallback(
     async (changes: Partial<Omit<AISettings, "apiKeyStatus">>): Promise<void> => {
       const next = { ...settings, ...changes };
@@ -123,5 +174,13 @@ export function useAISettings(): UseAISettingsResult {
     [settings, persist],
   );
 
-  return { settings, isLoading, saveApiKey, deleteApiKey, updateSettings };
+  return {
+    settings,
+    isLoading,
+    saveApiKey,
+    deleteApiKey,
+    loginWithChatGPT,
+    logoutChatGPT,
+    updateSettings,
+  };
 }

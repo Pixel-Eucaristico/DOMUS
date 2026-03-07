@@ -158,6 +158,7 @@ export class ConsultantChatUseCase {
         modelTier: tier,
         messages,
         cacheKey,
+        openaiAuthMethod: settings.openaiAuthMethod,
       });
 
       let textContent: string;
@@ -263,6 +264,7 @@ export class ConsultantChatUseCase {
         modelTier: "fast",
         messages,
         cacheKey,
+        openaiAuthMethod: settings.openaiAuthMethod,
       });
 
       return {

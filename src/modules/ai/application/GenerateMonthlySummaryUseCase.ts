@@ -66,6 +66,7 @@ export class GenerateMonthlySummaryUseCase {
         modelTier: "fast",
         messages,
         cacheKey,
+        openaiAuthMethod: settings.openaiAuthMethod,
       });
 
       const aiSummary = TOONParser.parseSummaryResponse(response.content, month);

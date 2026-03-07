@@ -3,6 +3,7 @@ import {
   GeminiAdapter,
   ClaudeAdapter,
   OpenRouterAdapter,
+  ChatGPTOAuthAdapter,
   AI_MODELS,
 } from "@packages/ai";
 import type { AIProviderAdapter, AIProvider, AIModelTier } from "@packages/ai";
@@ -29,6 +30,11 @@ export class AIProviderFactory {
         return new OpenAIAdapter();
       }
     }
+  }
+
+  /** Creates the ChatGPT OAuth adapter (uses ChatGPT subscription, not API credits). */
+  static createChatGPTOAuth(): AIProviderAdapter {
+    return new ChatGPTOAuthAdapter();
   }
 
   /** Resolves the model ID string for a provider + tier combination. */

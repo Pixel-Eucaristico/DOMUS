@@ -2,9 +2,11 @@ import * as ExpoCrypto from "expo-crypto";
 import { CircuitBreaker, CacheService } from "@packages/ai";
 import type { AIProvider, AIModelTier, AdapterMessage } from "@packages/ai";
 import { SecureKeyService } from "../infrastructure/SecureKeyService";
+import { OpenAIOAuthService } from "../infrastructure/OpenAIOAuthService";
 import { ConnectivityService } from "../infrastructure/ConnectivityService";
 import { TokenTracker } from "./TokenTracker";
 import { AIProviderFactory } from "./AIProviderFactory";
+import type { OpenAIAuthMethod } from "../domain/AISettings";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,6 +16,8 @@ export interface ClientRequestOptions {
   messages: AdapterMessage[];
   /** Pre-computed SHA256 cache key. If provided, response is cached. */
   cacheKey?: string;
+  /** OpenAI auth method — defaults to "apikey" */
+  openaiAuthMethod?: OpenAIAuthMethod;
 }
 
 export interface ClientResult {
@@ -100,13 +104,25 @@ export class AIClientService {
       );
     }
 
-    // 5. Decrypt API key
-    const apiKey = await SecureKeyService.retrieveKey(provider);
-    if (!apiKey) {
-      throw new AIClientError("NO_API_KEY", `Chave de API não encontrada para ${provider}`);
+    // 5. Get credentials (API key or OAuth token)
+    const useOAuth = provider === "openai" && options.openaiAuthMethod === "chatgpt_oauth";
+    let apiKey: string | null;
+
+    if (useOAuth) {
+      apiKey = await OpenAIOAuthService.getValidAccessToken();
+      if (!apiKey) {
+        throw new AIClientError("NO_API_KEY", "Sessão ChatGPT expirada. Faça login novamente.");
+      }
+    } else {
+      apiKey = await SecureKeyService.retrieveKey(provider);
+      if (!apiKey) {
+        throw new AIClientError("NO_API_KEY", `Chave de API não encontrada para ${provider}`);
+      }
     }
 
-    const adapter = AIProviderFactory.create(provider);
+    const adapter = useOAuth
+      ? AIProviderFactory.createChatGPTOAuth()
+      : AIProviderFactory.create(provider);
     const modelId = AIProviderFactory.getModelId(provider, modelTier);
     const adapterOptions = {
       model: modelId,

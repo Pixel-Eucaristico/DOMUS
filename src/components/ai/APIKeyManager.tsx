@@ -7,31 +7,48 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import type { AIProvider } from "@packages/ai";
+import type { OpenAIAuthMethod } from "@/src/modules/ai/domain/AISettings";
 
 interface APIKeyManagerProps {
   provider: AIProvider;
   hasKey: boolean;
+  /** OpenAI-specific: current auth method */
+  openaiAuthMethod?: OpenAIAuthMethod;
+  /** OpenAI-specific: has active OAuth session */
+  hasOAuthSession?: boolean;
   onSave: (provider: AIProvider, key: string) => Promise<boolean>;
   onDelete: (provider: AIProvider) => Promise<void>;
+  /** OpenAI-specific: start ChatGPT OAuth login */
+  onLoginChatGPT?: () => Promise<boolean>;
+  /** OpenAI-specific: logout from ChatGPT OAuth */
+  onLogoutChatGPT?: () => Promise<void>;
 }
 
 export function APIKeyManager({
   provider,
   hasKey,
+  openaiAuthMethod,
+  hasOAuthSession,
   onSave,
   onDelete,
+  onLoginChatGPT,
+  onLogoutChatGPT,
 }: APIKeyManagerProps) {
   const { theme } = useAppState();
   const [input, setInput] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const isOpenAI = provider === "openai";
+  const usingOAuth = isOpenAI && openaiAuthMethod === "chatgpt_oauth" && hasOAuthSession;
 
   const handleSave = async () => {
     const trimmed = input.trim();
@@ -49,7 +66,7 @@ export function APIKeyManager({
         soundManager.play("success");
         setTimeout(() => setSuccess(false), 2500);
       } else {
-        setError("Falha ao salvar — autenticação necessária.");
+        setError("Falha ao salvar.");
         soundManager.play("error");
       }
     } catch {
@@ -70,6 +87,38 @@ export function APIKeyManager({
     }
   };
 
+  const handleLoginChatGPT = async () => {
+    if (!onLoginChatGPT) return;
+    setError(null);
+    setIsLoggingIn(true);
+    try {
+      const ok = await onLoginChatGPT();
+      if (ok) {
+        setSuccess(true);
+        soundManager.play("success");
+        setTimeout(() => setSuccess(false), 2500);
+      } else {
+        setError("Login cancelado ou falhou.");
+      }
+    } catch {
+      setError("Erro ao conectar com ChatGPT.");
+      soundManager.play("error");
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogoutChatGPT = async () => {
+    if (!onLogoutChatGPT) return;
+    soundManager.play("trash");
+    setIsDeleting(true);
+    try {
+      await onLogoutChatGPT();
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const providerLabels: Record<AIProvider, string> = {
     openai: "OpenAI API Key",
     gemini: "Google AI API Key",
@@ -79,63 +128,96 @@ export function APIKeyManager({
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: theme.secondaryText }]}>
-        {providerLabels[provider]}
-      </Text>
-
-      {hasKey ? (
-        <View
-          style={[
-            styles.hasKeyRow,
-            { backgroundColor: theme.cardBackground, borderColor: theme.border },
-          ]}
-        >
-          <Feather name="lock" size={16} color={theme.success} />
-          <Text style={[styles.hasKeyText, { color: theme.textColor }]}>
-            Chave armazenada com segurança
+      {/* OAuth session active */}
+      {usingOAuth ? (
+        <>
+          <Text style={[styles.label, { color: theme.secondaryText }]}>
+            ChatGPT (assinatura)
           </Text>
-          <TouchableOpacity
-            onPress={handleDelete}
-            disabled={isDeleting}
-            style={styles.deleteBtn}
-          >
-            {isDeleting ? (
-              <ActivityIndicator size="small" color={theme.danger} />
-            ) : (
-              <Feather name="trash-2" size={16} color={theme.danger} />
-            )}
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={styles.inputRow}>
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder="sk-... ou AIza... ou ant..."
-            placeholderTextColor={theme.secondaryText}
-            secureTextEntry={!showKey}
-            autoCapitalize="none"
-            autoCorrect={false}
+          <View
             style={[
-              styles.input,
-              {
-                color: theme.textColor,
-                backgroundColor: theme.cardBackground,
-                borderColor: error ? theme.danger : theme.border,
-              },
+              styles.hasKeyRow,
+              { backgroundColor: `${PROVIDER_GREEN}15`, borderColor: PROVIDER_GREEN },
             ]}
-          />
-          <TouchableOpacity
-            onPress={() => setShowKey((v) => !v)}
-            style={styles.eyeBtn}
           >
-            <Feather
-              name={showKey ? "eye-off" : "eye"}
-              size={18}
-              color={theme.secondaryText}
-            />
-          </TouchableOpacity>
-        </View>
+            <MaterialCommunityIcons name="creation" size={16} color={PROVIDER_GREEN} />
+            <Text style={[styles.hasKeyText, { color: theme.textColor }]}>
+              Conectado via ChatGPT
+            </Text>
+            <TouchableOpacity
+              onPress={handleLogoutChatGPT}
+              disabled={isDeleting}
+              style={styles.deleteBtn}
+            >
+              {isDeleting ? (
+                <ActivityIndicator size="small" color={theme.danger} />
+              ) : (
+                <Feather name="log-out" size={16} color={theme.danger} />
+              )}
+            </TouchableOpacity>
+          </View>
+        </>
+      ) : (
+        <>
+          <Text style={[styles.label, { color: theme.secondaryText }]}>
+            {providerLabels[provider]}
+          </Text>
+
+          {hasKey ? (
+            <View
+              style={[
+                styles.hasKeyRow,
+                { backgroundColor: theme.cardBackground, borderColor: theme.border },
+              ]}
+            >
+              <Feather name="lock" size={16} color={theme.success} />
+              <Text style={[styles.hasKeyText, { color: theme.textColor }]}>
+                Chave armazenada com seguranca
+              </Text>
+              <TouchableOpacity
+                onPress={handleDelete}
+                disabled={isDeleting}
+                style={styles.deleteBtn}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color={theme.danger} />
+                ) : (
+                  <Feather name="trash-2" size={16} color={theme.danger} />
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.inputRow}>
+              <TextInput
+                value={input}
+                onChangeText={setInput}
+                placeholder="sk-... ou AIza... ou ant..."
+                placeholderTextColor={theme.secondaryText}
+                secureTextEntry={!showKey}
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={[
+                  styles.input,
+                  {
+                    color: theme.textColor,
+                    backgroundColor: theme.cardBackground,
+                    borderColor: error ? theme.danger : theme.border,
+                  },
+                ]}
+              />
+              <TouchableOpacity
+                onPress={() => setShowKey((v) => !v)}
+                style={styles.eyeBtn}
+              >
+                <Feather
+                  name={showKey ? "eye-off" : "eye"}
+                  size={18}
+                  color={theme.secondaryText}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+        </>
       )}
 
       {error && (
@@ -144,33 +226,70 @@ export function APIKeyManager({
 
       {success && (
         <Text style={[styles.success, { color: theme.success }]}>
-          Chave salva com sucesso!
+          {usingOAuth ? "Conectado com sucesso!" : "Chave salva com sucesso!"}
         </Text>
       )}
 
-      {!hasKey && (
-        <TouchableOpacity
-          onPress={handleSave}
-          disabled={isSaving || !input.trim()}
-          style={[
-            styles.saveBtn,
-            {
-              backgroundColor: isSaving || !input.trim()
-                ? theme.border
-                : theme.primaryColor,
-            },
-          ]}
-        >
-          {isSaving ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.saveBtnText}>Salvar chave</Text>
+      {!hasKey && !usingOAuth && (
+        <View style={styles.actionsColumn}>
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={isSaving || !input.trim()}
+            style={[
+              styles.saveBtn,
+              {
+                backgroundColor: isSaving || !input.trim()
+                  ? theme.border
+                  : theme.primaryColor,
+              },
+            ]}
+          >
+            {isSaving ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.saveBtnText}>Salvar chave</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* ChatGPT OAuth option for OpenAI */}
+          {isOpenAI && onLoginChatGPT && (
+            <>
+              <View style={styles.dividerRow}>
+                <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+                <Text style={[styles.dividerText, { color: theme.secondaryText }]}>ou</Text>
+                <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+              </View>
+
+              <TouchableOpacity
+                onPress={handleLoginChatGPT}
+                disabled={isLoggingIn}
+                style={[
+                  styles.oauthBtn,
+                  { backgroundColor: PROVIDER_GREEN, opacity: isLoggingIn ? 0.7 : 1 },
+                ]}
+              >
+                {isLoggingIn ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="creation" size={18} color="#fff" />
+                    <Text style={styles.oauthBtnText}>Entrar com ChatGPT</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <Text style={[styles.oauthHint, { color: theme.secondaryText }]}>
+                Use sua assinatura ChatGPT Plus/Team sem API key
+              </Text>
+            </>
           )}
-        </TouchableOpacity>
+        </View>
       )}
     </View>
   );
 }
+
+const PROVIDER_GREEN = "#10A37F";
 
 const styles = StyleSheet.create({
   container: {
@@ -217,6 +336,9 @@ const styles = StyleSheet.create({
   deleteBtn: {
     padding: 4,
   },
+  actionsColumn: {
+    gap: 10,
+  },
   saveBtn: {
     borderRadius: 10,
     paddingVertical: 12,
@@ -226,6 +348,36 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "600",
     fontSize: 15,
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+  },
+  dividerText: {
+    fontSize: 12,
+  },
+  oauthBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  oauthBtnText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  oauthHint: {
+    fontSize: 11,
+    textAlign: "center",
+    lineHeight: 16,
   },
   error: {
     fontSize: 13,

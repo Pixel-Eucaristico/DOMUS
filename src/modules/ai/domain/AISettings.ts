@@ -1,5 +1,8 @@
 import type { AIProvider, AIModelTier } from "@packages/ai";
 
+/** How the user authenticates with OpenAI: API key or ChatGPT OAuth login */
+export type OpenAIAuthMethod = "apikey" | "chatgpt_oauth";
+
 // ─── Data Access Permissions ─────────────────────────────────────────────────
 
 export interface AIDataPermissions {
@@ -67,6 +70,10 @@ export interface AISettings {
   modelTier: AIModelTier;
   /** Per-provider API key status: true when a key is present in SecureStore */
   apiKeyStatus: Partial<Record<AIProvider, boolean>>;
+  /** How OpenAI authenticates: API key or ChatGPT OAuth */
+  openaiAuthMethod: OpenAIAuthMethod;
+  /** true when ChatGPT OAuth session is active */
+  hasOAuthSession: boolean;
   /** master toggle — user must explicitly enable AI features */
   isEnabled: boolean;
   /** Per-data-type access permissions */
@@ -85,8 +92,11 @@ export interface AISettings {
   systemPromptSent: boolean;
 }
 
-/** Helper to check if the active provider has an API key configured */
+/** Helper to check if the active provider has credentials configured */
 export function hasActiveKey(settings: AISettings): boolean {
+  if (settings.provider === "openai" && settings.openaiAuthMethod === "chatgpt_oauth") {
+    return settings.hasOAuthSession;
+  }
   return settings.apiKeyStatus[settings.provider] === true;
 }
 
@@ -96,6 +106,8 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
   provider: "openai",
   modelTier: "fast",
   apiKeyStatus: {},
+  openaiAuthMethod: "apikey",
+  hasOAuthSession: false,
   isEnabled: false,
   dataPermissions: { ...DEFAULT_AI_DATA_PERMISSIONS },
   systemPromptSent: false,

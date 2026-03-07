@@ -22,8 +22,15 @@ import { AIUsageDashboard } from "@/src/components/ai/AIUsageDashboard";
 
 export default function AISettingsScreen() {
   const { theme } = useAppState();
-  const { settings, isLoading, saveApiKey, deleteApiKey, updateSettings } =
-    useAISettings();
+  const {
+    settings,
+    isLoading,
+    saveApiKey,
+    deleteApiKey,
+    loginWithChatGPT,
+    logoutChatGPT,
+    updateSettings,
+  } = useAISettings();
   const { clearHistory } = useAIConsultant(settings);
 
   if (isLoading) {
@@ -127,8 +134,12 @@ export default function AISettingsScreen() {
             <APIKeyManager
               provider={settings.provider}
               hasKey={settings.apiKeyStatus[settings.provider] === true}
+              openaiAuthMethod={settings.openaiAuthMethod}
+              hasOAuthSession={settings.hasOAuthSession}
               onSave={saveApiKey}
               onDelete={deleteApiKey}
+              onLoginChatGPT={loginWithChatGPT}
+              onLogoutChatGPT={logoutChatGPT}
             />
           </View>
         </View>
