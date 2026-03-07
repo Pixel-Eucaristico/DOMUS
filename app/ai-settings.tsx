@@ -372,6 +372,7 @@ function BudgetCostSection({
   const unlimited = isUnlimitedBudget(provider, customBudgets);
   const defaultBudget = DAILY_TOKEN_BUDGET[provider];
   const [budgetInput, setBudgetInput] = useState(unlimited ? "" : String(budget));
+  const [brlInput, setBrlInput] = useState("");
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [budgetCost, setBudgetCost] = useState<CostEstimate | null>(null);
   const usdPrice = TOKEN_PRICES_USD[provider][modelTier];
@@ -418,6 +419,26 @@ function BudgetCostSection({
     }
   };
 
+  /** Convert R$ input to tokens and set as budget */
+  const handleBrlSave = () => {
+    const val = parseFloat(brlInput.replace(",", "."));
+    if (isNaN(val) || val <= 0 || !exchangeRate) {
+      setBrlInput("");
+      return;
+    }
+    // R$ → USD → tokens
+    const costUsdPerToken = usdPrice / 1_000_000;
+    const costBrlPerToken = costUsdPerToken * exchangeRate;
+    const tokens = Math.floor(val / costBrlPerToken);
+    if (tokens < 1000) {
+      Alert.alert("Valor muito baixo", `R$ ${val.toFixed(2)} equivale a menos de 1.000 tokens.`);
+      setBrlInput("");
+      return;
+    }
+    onBudgetChange(tokens);
+    setBrlInput("");
+  };
+
   return (
     <>
       <View style={styles.sectionHeader}>
@@ -457,29 +478,63 @@ function BudgetCostSection({
         </View>
 
         {!unlimited && (
-          <View style={budgetStyles.inputRow}>
-            <TextInput
-              value={budgetInput}
-              onChangeText={setBudgetInput}
-              keyboardType="numeric"
-              onBlur={handleBudgetSave}
-              onSubmitEditing={handleBudgetSave}
-              style={[
-                budgetStyles.input,
-                {
-                  color: theme.textColor,
-                  backgroundColor: theme.background,
-                  borderColor: theme.border,
-                },
-              ]}
-            />
-            <Text style={[budgetStyles.unit, { color: theme.secondaryText }]}>tokens</Text>
-            {budget !== defaultBudget && (
-              <TouchableOpacity onPress={handleReset}>
-                <Feather name="rotate-ccw" size={14} color={theme.secondaryText} />
-              </TouchableOpacity>
-            )}
-          </View>
+          <>
+            <View style={budgetStyles.inputRow}>
+              <TextInput
+                value={budgetInput}
+                onChangeText={setBudgetInput}
+                keyboardType="numeric"
+                onBlur={handleBudgetSave}
+                onSubmitEditing={handleBudgetSave}
+                style={[
+                  budgetStyles.input,
+                  {
+                    color: theme.textColor,
+                    backgroundColor: theme.background,
+                    borderColor: theme.border,
+                  },
+                ]}
+              />
+              <Text style={[budgetStyles.unit, { color: theme.secondaryText }]}>tokens</Text>
+              {budget !== defaultBudget && (
+                <TouchableOpacity onPress={handleReset}>
+                  <Feather name="rotate-ccw" size={14} color={theme.secondaryText} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <Text style={[budgetStyles.orText, { color: theme.secondaryText }]}>
+              ou defina por valor em reais:
+            </Text>
+            <View style={budgetStyles.inputRow}>
+              <Text style={[budgetStyles.unit, { color: theme.secondaryText }]}>R$</Text>
+              <TextInput
+                value={brlInput}
+                onChangeText={setBrlInput}
+                keyboardType="decimal-pad"
+                placeholder="0,00"
+                placeholderTextColor={theme.secondaryText}
+                onBlur={handleBrlSave}
+                onSubmitEditing={handleBrlSave}
+                style={[
+                  budgetStyles.input,
+                  {
+                    color: theme.textColor,
+                    backgroundColor: theme.background,
+                    borderColor: theme.border,
+                  },
+                ]}
+              />
+              <Text style={[budgetStyles.hint, { color: theme.secondaryText }]}>
+                = {exchangeRate && brlInput
+                  ? `${Math.floor(
+                      (parseFloat(brlInput.replace(",", ".")) || 0) /
+                        ((usdPrice / 1_000_000) * exchangeRate),
+                    ).toLocaleString("pt-BR")} tokens`
+                  : "? tokens"}
+              </Text>
+            </View>
+          </>
         )}
 
         {/* Cost estimate */}
@@ -547,6 +602,15 @@ const budgetStyles = StyleSheet.create({
   },
   unit: {
     fontSize: 13,
+  },
+  orText: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  hint: {
+    fontSize: 12,
+    fontStyle: "italic",
+    flex: 1,
   },
   costCard: {
     borderRadius: 10,
