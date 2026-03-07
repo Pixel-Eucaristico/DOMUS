@@ -20,7 +20,7 @@ export type {
   CacheEntry,
   DailyTokenUsage,
 } from "./src/types";
-export { AI_MODELS } from "./src/types";
+export { AI_MODELS, CHATGPT_OAUTH_MODELS } from "./src/types";
 
 // ─── TOON ─────────────────────────────────────────────────────────────────────
 export { TOONSerializer } from "./src/toon/TOONSerializer";

@@ -5,6 +5,7 @@ import {
   OpenRouterAdapter,
   ChatGPTOAuthAdapter,
   AI_MODELS,
+  CHATGPT_OAUTH_MODELS,
 } from "@packages/ai";
 import type { AIProviderAdapter, AIProvider, AIModelTier } from "@packages/ai";
 
@@ -40,5 +41,10 @@ export class AIProviderFactory {
   /** Resolves the model ID string for a provider + tier combination. */
   static getModelId(provider: AIProvider, tier: AIModelTier): string {
     return AI_MODELS[provider][tier];
+  }
+
+  /** Resolves the model ID for ChatGPT OAuth (Codex backend models). */
+  static getChatGPTOAuthModelId(tier: AIModelTier): string {
+    return CHATGPT_OAUTH_MODELS[tier];
   }
 }

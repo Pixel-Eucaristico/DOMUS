@@ -123,7 +123,10 @@ export class AIClientService {
     const adapter = useOAuth
       ? AIProviderFactory.createChatGPTOAuth()
       : AIProviderFactory.create(provider);
-    const modelId = AIProviderFactory.getModelId(provider, modelTier);
+    // ChatGPT backend uses different models than the standard OpenAI API
+    const modelId = useOAuth
+      ? AIProviderFactory.getChatGPTOAuthModelId(modelTier)
+      : AIProviderFactory.getModelId(provider, modelTier);
     const adapterOptions = {
       model: modelId,
       temperature: 0.2,

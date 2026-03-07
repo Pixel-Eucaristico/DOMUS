@@ -39,6 +39,17 @@ export const AI_MODELS: Record<AIProvider, Record<AIModelTier, string>> = {
   },
 } as const;
 
+/**
+ * Models available on the ChatGPT backend (chatgpt.com/backend-api/codex).
+ * These are different from the standard API models and are required when
+ * using ChatGPT OAuth (subscription-based access).
+ * Source: Codex CLI bundled models.json catalog.
+ */
+export const CHATGPT_OAUTH_MODELS: Record<AIModelTier, string> = {
+  fast: "gpt-5.1-codex-mini",
+  smart: "gpt-5.4",
+} as const;
+
 // ─── Domain Shapes ────────────────────────────────────────────────────────────
 
 export interface FinancialSnapshot {
