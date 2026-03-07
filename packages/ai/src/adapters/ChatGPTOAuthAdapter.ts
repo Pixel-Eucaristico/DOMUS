@@ -10,34 +10,12 @@ import { fetchWithTimeout, assertOk } from "./AIProviderAdapter";
  * This uses the user's ChatGPT subscription (Plus/Team) — no API credits needed.
  *
  * Endpoint: https://chatgpt.com/backend-api/codex/responses
- * Format: OpenAI Responses API (NOT Chat Completions)
+ * Format: OpenAI Responses API with SSE streaming (stream: true is required)
  *
  * Required headers (from Codex CLI source):
  * - Authorization: Bearer <access_token>
  * - ChatGPT-Account-ID: <account_id> (extracted from JWT)
  */
-
-/** Responses API response shape */
-interface ResponsesAPIResponse {
-  id: string;
-  output: Array<{
-    type: string;
-    role?: string;
-    content?: Array<{
-      type: string;
-      text?: string;
-    }>;
-  }>;
-  usage?: {
-    input_tokens: number;
-    output_tokens: number;
-    total_tokens: number;
-  };
-  error?: {
-    message: string;
-    code: string;
-  };
-}
 
 const CHATGPT_RESPONSES_URL =
   "https://chatgpt.com/backend-api/codex/responses";
@@ -50,9 +28,7 @@ function decodeJwtPayload(jwt: string): Record<string, unknown> {
   const parts = jwt.split(".");
   if (parts.length < 2) return {};
   try {
-    // JWT uses base64url encoding — convert to standard base64
     let base64 = parts[1]!.replace(/-/g, "+").replace(/_/g, "/");
-    // Pad to multiple of 4
     while (base64.length % 4 !== 0) base64 += "=";
     const json = atob(base64);
     return JSON.parse(json) as Record<string, unknown>;
@@ -67,13 +43,83 @@ function decodeJwtPayload(jwt: string): Record<string, unknown> {
  */
 function extractAccountId(accessToken: string): string | null {
   const payload = decodeJwtPayload(accessToken);
-  // Try common claim names used by OpenAI
   return (
-    (payload["https://api.openai.com/auth"]  as Record<string, string>)?.["account_id"] ??
+    (payload["https://api.openai.com/auth"] as Record<string, string>)?.["account_id"] ??
     (payload["account_id"] as string) ??
     (payload["org_id"] as string) ??
     null
   );
+}
+
+/**
+ * Parses an SSE stream and collects all text deltas + usage from Responses API events.
+ *
+ * Key SSE event types:
+ * - response.output_text.delta  → { delta: "text chunk" }
+ * - response.completed          → { response: { usage: {...} } }
+ * - response.failed             → { response: { error: {...} } }
+ */
+async function consumeSSEStream(
+  response: Response,
+): Promise<{ content: string; tokensUsed: number }> {
+  const body = response.body;
+  if (!body) throw new Error("ChatGPT: response body is null");
+
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let content = "";
+  let tokensUsed = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // Process complete SSE lines
+      const lines = buffer.split("\n");
+      // Keep the last incomplete line in the buffer
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") continue;
+
+        let event: Record<string, unknown>;
+        try {
+          event = JSON.parse(data) as Record<string, unknown>;
+        } catch {
+          continue;
+        }
+
+        const type = event.type as string;
+
+        if (type === "response.output_text.delta") {
+          const delta = event.delta as string;
+          if (delta) content += delta;
+        } else if (type === "response.completed") {
+          const resp = event.response as Record<string, unknown> | undefined;
+          const usage = resp?.usage as Record<string, number> | undefined;
+          if (usage?.total_tokens) {
+            tokensUsed = usage.total_tokens;
+          }
+        } else if (type === "response.failed") {
+          const resp = event.response as Record<string, unknown> | undefined;
+          const error = resp?.error as Record<string, string> | undefined;
+          throw new Error(
+            `ChatGPT API error: ${error?.message ?? "unknown error"} (${error?.code ?? "unknown"})`,
+          );
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return { content, tokensUsed };
 }
 
 export class ChatGPTOAuthAdapter implements AIProviderAdapter {
@@ -99,11 +145,10 @@ export class ChatGPTOAuthAdapter implements AIProviderAdapter {
       input,
       max_output_tokens: options.maxTokens ?? 512,
       temperature: options.temperature ?? 0.2,
-      stream: false,
+      stream: true,
       store: false,
     };
 
-    // System prompt goes in `instructions` field
     if (systemMsg) {
       body.instructions = systemMsg.content;
     }
@@ -112,9 +157,9 @@ export class ChatGPTOAuthAdapter implements AIProviderAdapter {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
+      Accept: "text/event-stream",
     };
 
-    // Extract and add ChatGPT-Account-ID from JWT (required by backend)
     const accountId = extractAccountId(accessToken);
     if (accountId) {
       headers["ChatGPT-Account-ID"] = accountId;
@@ -127,29 +172,13 @@ export class ChatGPTOAuthAdapter implements AIProviderAdapter {
         headers,
         body: JSON.stringify(body),
       },
+      60_000, // Streaming needs longer timeout
     );
 
     await assertOk(response, "ChatGPT");
 
-    const json = (await response.json()) as ResponsesAPIResponse;
-
-    if (json.error) {
-      throw new Error(`ChatGPT API error: ${json.error.message}`);
-    }
-
-    // Extract text from Responses API output
-    let content = "";
-    for (const item of json.output ?? []) {
-      if (item.type === "message" && item.content) {
-        for (const block of item.content) {
-          if (block.type === "output_text" && block.text) {
-            content += block.text;
-          }
-        }
-      }
-    }
-
-    const tokensUsed = json.usage?.total_tokens ?? 0;
+    // Parse SSE stream and collect full response
+    const { content, tokensUsed } = await consumeSSEStream(response);
 
     return { content, tokensUsed };
   }

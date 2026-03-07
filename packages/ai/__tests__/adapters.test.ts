@@ -220,7 +220,25 @@ describe("OpenRouterAdapter", () => {
   });
 });
 
-// ─── ChatGPT OAuth Adapter (Responses API) ──────────────────────────────────
+// ─── ChatGPT OAuth Adapter (Responses API + SSE Streaming) ──────────────────
+
+/** Helper: builds a mock SSE stream Response from a series of SSE events */
+function mockSSEResponse(events: string[], status = 200) {
+  const sseText = events.map((e) => `data: ${e}\n\n`).join("");
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(sseText));
+      controller.close();
+    },
+  });
+  return vi.fn().mockResolvedValue({
+    ok: status >= 200 && status < 300,
+    status,
+    body: stream,
+    text: () => Promise.resolve(sseText),
+  } as unknown as Response);
+}
 
 describe("ChatGPTOAuthAdapter", () => {
   // Build a fake JWT with an account_id claim for testing
@@ -231,19 +249,18 @@ describe("ChatGPTOAuthAdapter", () => {
   const b64Payload = btoa(fakePayload).replace(/=/g, "");
   const FAKE_JWT = `eyJhbGciOiJSUzI1NiJ9.${b64Payload}.fakesig`;
 
-  it("sends Responses API format with ChatGPT-Account-ID header", async () => {
-    const mockResponse = {
-      id: "resp_test123",
-      output: [
-        {
-          type: "message",
-          role: "assistant",
-          content: [{ type: "output_text", text: "Hello from ChatGPT!" }],
-        },
-      ],
-      usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
-    };
-    globalThis.fetch = mockFetchResponse(mockResponse);
+  it("sends SSE streaming request and collects text deltas", async () => {
+    const events = [
+      JSON.stringify({ type: "response.created", response: { id: "resp_123" } }),
+      JSON.stringify({ type: "response.output_text.delta", delta: "Hello " }),
+      JSON.stringify({ type: "response.output_text.delta", delta: "from ChatGPT!" }),
+      JSON.stringify({
+        type: "response.completed",
+        response: { usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 } },
+      }),
+      "[DONE]",
+    ];
+    globalThis.fetch = mockSSEResponse(events);
 
     const adapter = new ChatGPTOAuthAdapter();
     const result = await adapter.complete(MESSAGES, FAKE_JWT, DEFAULT_OPTIONS);
@@ -257,26 +274,29 @@ describe("ChatGPTOAuthAdapter", () => {
     const headers = init.headers as Record<string, string>;
     expect(headers["Authorization"]).toBe(`Bearer ${FAKE_JWT}`);
     expect(headers["ChatGPT-Account-ID"]).toBe("acct_test_123");
+    expect(headers["Accept"]).toBe("text/event-stream");
 
     const body = JSON.parse(init.body as string);
     expect(body.model).toBe("test-model");
     expect(body.instructions).toBe("You are a helper.");
     expect(body.input).toEqual([{ role: "user", content: "Hello" }]);
     expect(body.max_output_tokens).toBe(512);
-    expect(body.stream).toBe(false);
+    expect(body.stream).toBe(true);
   });
 
-  it("throws on API error in response body", async () => {
-    const mockResponse = {
-      id: "resp_err",
-      output: [],
-      error: { message: "Model not found", code: "model_not_found" },
-    };
-    globalThis.fetch = mockFetchResponse(mockResponse);
+  it("throws on response.failed SSE event", async () => {
+    const events = [
+      JSON.stringify({ type: "response.created", response: { id: "resp_err" } }),
+      JSON.stringify({
+        type: "response.failed",
+        response: { error: { message: "Model not found", code: "model_not_found" } },
+      }),
+    ];
+    globalThis.fetch = mockSSEResponse(events);
 
     const adapter = new ChatGPTOAuthAdapter();
     await expect(
-      adapter.complete(MESSAGES, API_KEY, DEFAULT_OPTIONS),
+      adapter.complete(MESSAGES, FAKE_JWT, DEFAULT_OPTIONS),
     ).rejects.toThrow("Model not found");
   });
 
@@ -284,7 +304,7 @@ describe("ChatGPTOAuthAdapter", () => {
     globalThis.fetch = mockFetchResponse({ error: "unauthorized" }, 401);
     const adapter = new ChatGPTOAuthAdapter();
     await expect(
-      adapter.complete(MESSAGES, API_KEY, DEFAULT_OPTIONS),
+      adapter.complete(MESSAGES, FAKE_JWT, DEFAULT_OPTIONS),
     ).rejects.toThrow("ChatGPT HTTP 401");
   });
 });
