@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Text, Pressable, ScrollView } from "react-native";
 import Animated, { FadeIn, FadeOut, FadeInDown } from "react-native-reanimated";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 import type { ThemeColors } from "@packages/theme";
 import { soundManager } from "@/src/services/SoundManager";
@@ -108,7 +108,7 @@ const TOUR_STEPS: TourStep[] = [
     description:
       "Converse com o assistente de IA sobre suas finanças. Ele analisa seu histórico, " +
       "sugere metas e responde dúvidas com base nos seus dados reais.",
-    icon: "cpu",
+    icon: "robot-happy",
   },
   {
     tag: "Recurso: Segurança",
@@ -178,6 +178,8 @@ export function TourOverlay({ theme }: { theme: ThemeColors }) {
     }
   };
 
+  const IconComponent = step.icon.startsWith("robot") ? MaterialCommunityIcons : Feather;
+
   return (
     // Outer: full-screen. Backdrop cobrindo apenas a metade superior (app visível ao fundo).
     <Animated.View entering={FadeIn} exiting={FadeOut} style={s.container} pointerEvents="box-none">
@@ -201,7 +203,7 @@ export function TourOverlay({ theme }: { theme: ThemeColors }) {
         {/* Linha: ícone + título */}
         <View style={s.header}>
           <View style={[s.iconCircle, { backgroundColor: `${theme.primaryColor}18` }]}>
-            <Feather name={step.icon as any} size={22} color={theme.primaryColor} />
+            <IconComponent name={step.icon as any} size={22} color={theme.primaryColor} />
           </View>
           <Text style={[s.title, { color: theme.textColor }]}>{step.title}</Text>
         </View>

@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import { CameraView } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
@@ -118,7 +118,7 @@ export function OcrScanScreen({
               style={[s.processBtn, { backgroundColor: theme.primaryColor }]}
               onPress={handleProcess}
             >
-              <Feather name="cpu" size={16} color="#FFF" />
+              <MaterialCommunityIcons name="robot-happy" size={16} color="#FFF" />
               <Text style={s.processBtnText}>Processar ({photoCount})</Text>
             </Pressable>
           </View>
