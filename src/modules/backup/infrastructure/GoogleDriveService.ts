@@ -65,6 +65,7 @@ export const GoogleDriveService = {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           client_id: clientId,
+          client_secret: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_SECRET ?? "",
           grant_type: "refresh_token",
           refresh_token: refreshToken,
         }).toString(),
@@ -126,7 +127,7 @@ export const GoogleDriveService = {
     try {
       const query = encodeURIComponent(`name='${DRIVE_BACKUP_FILENAME}' and trashed=false`);
       const res = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)&spaces=drive`,
+        `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)&spaces=appDataFolder`,
         { headers: { Authorization: `Bearer ${accessToken}` } },
       );
       if (!res.ok) return null;
@@ -152,6 +153,7 @@ export const GoogleDriveService = {
     const metadata = JSON.stringify({
       name: DRIVE_BACKUP_FILENAME,
       mimeType: "application/octet-stream",
+      ...(existingId ? {} : { parents: ["appDataFolder"] }),
     });
 
     const body = [

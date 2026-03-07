@@ -111,8 +111,7 @@ function ShareIntentHandler() {
 }
 
 function SplashWrapper({ onFinish }: { onFinish: () => void }) {
-  const { theme, loading } = useAppState();
-  if (loading) return null;
+  const { theme } = useAppState();
   return <AnimatedSplash onAnimationFinish={onFinish} theme={theme} />;
 }
 

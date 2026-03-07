@@ -66,37 +66,58 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
   // Hydrate from SQLite/AsyncStorage
   useEffect(() => {
     let mounted = true;
-    (async () => {
-      let did = await AsyncStorage.getItem(DEVICE_ID_KEY);
-      if (!did) {
-        did = generateDeviceId();
-        await AsyncStorage.setItem(DEVICE_ID_KEY, did);
-      }
-      if (mounted) setDeviceId(did);
-
-      let events: SyncEvent[] = [];
-      if (Platform.OS === "web") {
-        const backup = await AsyncStorage.getItem(EVENTS_BACKUP_KEY);
-        if (backup) {
-          try { events = JSON.parse(backup); } catch {}
-        }
-      } else {
-        const store = await getEventStore();
-        if (store) events = store.getAllEvents();
-      }
-
-      if (mounted) {
-        const migratedEvents = events.map((e) => {
-          if (e.deviceId === "local" || !e.deviceId) {
-            return { ...e, deviceId: did || "local" };
-          }
-          return e;
-        });
-        setAllEvents(migratedEvents);
+    
+    // Safety timeout: force loading to false after 5 seconds
+    const safetyTimeout = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn("[EventStore] Safety timeout reached, forcing loading to false");
         setLoading(false);
       }
+    }, 5000);
+
+    (async () => {
+      try {
+        let did = await AsyncStorage.getItem(DEVICE_ID_KEY);
+        if (!did) {
+          did = generateDeviceId();
+          await AsyncStorage.setItem(DEVICE_ID_KEY, did);
+        }
+        if (mounted) setDeviceId(did);
+
+        let events: SyncEvent[] = [];
+        if (Platform.OS === "web") {
+          const backup = await AsyncStorage.getItem(EVENTS_BACKUP_KEY);
+          if (backup) {
+            try { events = JSON.parse(backup); } catch {}
+          }
+        } else {
+          const store = await getEventStore();
+          if (store) events = store.getAllEvents();
+        }
+
+        if (mounted) {
+          const migratedEvents = events.map((e) => {
+            if (e.deviceId === "local" || !e.deviceId) {
+              return { ...e, deviceId: did || "local" };
+            }
+            return e;
+          });
+          setAllEvents(migratedEvents);
+          setLoading(false);
+          clearTimeout(safetyTimeout);
+        }
+      } catch (err) {
+        console.error("[EventStore] Hydration error:", err);
+        if (mounted) {
+          setLoading(false);
+          clearTimeout(safetyTimeout);
+        }
+      }
     })();
-    return () => { mounted = false; };
+    return () => { 
+      mounted = false;
+      clearTimeout(safetyTimeout);
+    };
   }, []);
 
   const dispatch = useCallback(

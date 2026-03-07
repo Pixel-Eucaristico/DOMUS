@@ -88,16 +88,15 @@
 - [x] Atualizar tela de configuracoes OCR
 - [x] Atualizar documentacao
 
-### 06 - Corrigir Google Drive no APK
+### 06 - Corrigir Google Drive no APK (CONCLUIDA)
 - **Dificuldade:** MEDIO-COMPLEXO | **Urgencia:** CRITICA | **~4-6h**
-- **Problema:** OAuth retorna "parametros incorretos". Provavelmente Client ID criado como tipo "Web" ao inves de "Android" no Google Cloud Console
-- **Causa:** Client ID type mismatch + refresh token com clientId incompativel + redirect URI mismatch
-- **Solucao:** Verificar/recriar OAuth clients no Google Cloud Console com tipo correto, atualizar SHA-1, limpar tokens cacheados
+- **Problema:** OAuth retornava "Acesso bloqueado" (app nao verificado) + "Erro ao obter token" (faltava client_secret)
+- **Solucao:** Migrado scope de `drive.file` para `drive.appdata` (nao exige verificacao Google), adicionado `client_secret` na troca de auth code e refresh token, configurado `appDataFolder` para operacoes do Drive
 - **Detalhes:** [docs/roadmap/06-fix-google-drive.md](docs/roadmap/06-fix-google-drive.md)
-- [ ] Verificar tipo do client ID no Google Cloud Console
-- [ ] Criar Android client com package + SHA-1 corretos
-- [ ] Atualizar .env com novos client IDs
-- [ ] Testar OAuth flow completo no APK
+- [x] Migrar scope para `drive.appdata` (sem verificacao)
+- [x] Adicionar `client_secret` no token exchange e refresh
+- [x] Configurar `appDataFolder` no upload e busca de arquivos
+- [x] Testar OAuth flow completo no APK
 
 ### 07 - Melhorar Tour (Baloes, Setas, Minimizar)
 - **Dificuldade:** COMPLEXO | **Urgencia:** MEDIA | **~8-12h**
@@ -138,7 +137,7 @@
 ```
 URGENCIA CRITICA (fazer primeiro):
   05 - Fix OCR Android .......... [MEDIO]     ~3-4h
-  06 - Fix Google Drive ......... [MEDIO-COMPLEXO] ~4-6h
+  06 - Fix Google Drive ......... [CONCLUIDA]
 
 URGENCIA ALTA:
   03 - Testar API OCR ........... [FACIL]     ~1h

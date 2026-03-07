@@ -1,25 +1,24 @@
 import { useState, useEffect, useCallback } from "react";
-import * as Google from "expo-auth-session/providers/google";
-import * as WebBrowser from "expo-web-browser";
+import {
+  GoogleSignin,
+  statusCodes,
+} from "@react-native-google-signin/google-signin";
 import { GoogleDriveService } from "@/src/modules/backup/infrastructure/GoogleDriveService";
 import type { DriveTokens } from "@/src/modules/backup/infrastructure/GoogleDriveService";
 
-// ─── Expo OAuth Browser redirect ─────────────────────────────────────────────
-WebBrowser.maybeCompleteAuthSession();
-
-// ─── Google OAuth Client IDs (configurar em .env) ────────────────────────────
-// Crie um projeto no Google Cloud Console, ative a Google Drive API e gere:
-//   - EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID → cliente "Android"
-//       Pacote: br.com.pixeleucaristico.domus
-//       SHA-1:  5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25
-//   - EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID     → cliente "iOS"
-//       Bundle: br.com.pixeleucaristico.domus
-//   - EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID     → cliente "Web" (para autenticação cruzada/id token)
-// Ver: https://docs.expo.dev/guides/google-authentication/
-
+// ─── Google OAuth ────────────────────────────────────────────────────────────
+// Usa Google Sign-In nativo (não browser). Requer no Google Cloud Console:
+//   - Client ID "Android" com package br.com.pixeleucaristico.domus + SHA-1
+//   - Client ID "Web" para obter serverAuthCode (usado para trocar por tokens)
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
-const IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "";
-const ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? "";
+const CLIENT_SECRET = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_SECRET ?? "";
+
+GoogleSignin.configure({
+  webClientId: WEB_CLIENT_ID,
+  scopes: ["https://www.googleapis.com/auth/drive.appdata"],
+  offlineAccess: true,
+  forceCodeForRefreshToken: true,
+});
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
@@ -30,17 +29,6 @@ export function useGoogleDriveBackup() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
-
-  // expo-auth-session Google provider
-  // O redirectUri é gerenciado automaticamente pelo provider:
-  //   - Em builds nativas: br.com.pixeleucaristico.domus:/oauthredirect
-  //   - Requer cliente Android/iOS no Google Cloud Console (não "Web" ou "Instalado")
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: WEB_CLIENT_ID || undefined,
-    iosClientId: IOS_CLIENT_ID || undefined,
-    androidClientId: ANDROID_CLIENT_ID || undefined,
-    scopes: ["https://www.googleapis.com/auth/drive.file", "email"],
-  });
 
   // ── Load saved state on mount ────────────────────────────────────────────
 
@@ -57,59 +45,89 @@ export function useGoogleDriveBackup() {
     })();
   }, []);
 
-  // ── Handle OAuth response ─────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (response?.type !== "success") {
-      if (response?.type === "error" || response?.type === "dismiss") {
-        setIsConnecting(false);
-      }
-      return;
-    }
-
-    setIsConnecting(false);
-    const { authentication } = response;
-    if (!authentication?.accessToken) return;
-
-    (async () => {
-      try {
-        const userEmail = await GoogleDriveService.fetchUserEmail(authentication.accessToken);
-
-        // Determina o clientId usado (preferência: nativo > web)
-        const clientId = IOS_CLIENT_ID || ANDROID_CLIENT_ID || WEB_CLIENT_ID;
-
-        const tokens: DriveTokens = {
-          accessToken: authentication.accessToken,
-          refreshToken: authentication.refreshToken ?? "",
-          expiresAt: Date.now() + (authentication.expiresIn ?? 3600) * 1000,
-          email: userEmail,
-          clientId,
-        };
-        await GoogleDriveService.saveTokens(tokens);
-
-        setIsConnected(true);
-        setEmail(userEmail);
-      } catch {
-        setSyncError("Não foi possível salvar as credenciais do Google.");
-      }
-    })();
-  }, [response]);
-
   // ── Actions ───────────────────────────────────────────────────────────────
 
   const connect = useCallback(async () => {
-    if (!WEB_CLIENT_ID && !IOS_CLIENT_ID && !ANDROID_CLIENT_ID) {
+    if (!WEB_CLIENT_ID) {
       setSyncError(
-        "Google Client ID não configurado. Adicione EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID no .env",
+        "Google Client ID nao configurado. Adicione EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID no .env",
       );
       return;
     }
     setSyncError(null);
     setIsConnecting(true);
-    await promptAsync();
-  }, [promptAsync]);
+
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+
+      if (!response.data) {
+        setIsConnecting(false);
+        return;
+      }
+
+      const { serverAuthCode } = response.data;
+      const userEmail = response.data.user.email;
+
+      if (!serverAuthCode) {
+        setSyncError("Nao foi possivel obter o codigo de autorizacao do Google.");
+        setIsConnecting(false);
+        return;
+      }
+
+      // Trocar o serverAuthCode por access + refresh tokens
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: WEB_CLIENT_ID,
+          client_secret: CLIENT_SECRET,
+          code: serverAuthCode,
+          grant_type: "authorization_code",
+        }).toString(),
+      });
+
+      if (!tokenRes.ok) {
+        const err = await tokenRes.text();
+        setSyncError(`Erro ao obter token: ${err}`);
+        setIsConnecting(false);
+        return;
+      }
+
+      const tokenData = await tokenRes.json();
+
+      const tokens: DriveTokens = {
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token ?? "",
+        expiresAt: Date.now() + (tokenData.expires_in ?? 3600) * 1000,
+        email: userEmail,
+        clientId: WEB_CLIENT_ID,
+      };
+      await GoogleDriveService.saveTokens(tokens);
+
+      setIsConnected(true);
+      setEmail(userEmail);
+    } catch (e: any) {
+      if (e?.code === statusCodes.SIGN_IN_CANCELLED) {
+        // Usuário cancelou — não exibir erro
+      } else if (e?.code === statusCodes.IN_PROGRESS) {
+        setSyncError("Login ja em andamento.");
+      } else if (e?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        setSyncError("Google Play Services nao disponivel.");
+      } else {
+        setSyncError(e instanceof Error ? e.message : "Erro ao conectar com o Google.");
+      }
+    } finally {
+      setIsConnecting(false);
+    }
+  }, []);
 
   const disconnect = useCallback(async () => {
+    try {
+      await GoogleSignin.signOut();
+    } catch {
+      // Ignora erro ao deslogar do Google Sign-In
+    }
     await GoogleDriveService.clearTokens();
     setIsConnected(false);
     setEmail(null);
@@ -118,7 +136,7 @@ export function useGoogleDriveBackup() {
   }, []);
 
   /**
-   * Faz upload de um conteúdo (string) para o Google Drive.
+   * Faz upload de um conteudo (string) para o Google Drive.
    * Pode ser chamado externamente (ex: useAutoBackup).
    */
   const uploadContent = useCallback(async (content: string): Promise<boolean> => {
@@ -138,7 +156,7 @@ export function useGoogleDriveBackup() {
     }
   }, [isConnected]);
 
-  const isConfigured = !!(WEB_CLIENT_ID || IOS_CLIENT_ID || ANDROID_CLIENT_ID);
+  const isConfigured = !!WEB_CLIENT_ID;
 
   return {
     isConnected,
@@ -151,6 +169,6 @@ export function useGoogleDriveBackup() {
     connect,
     disconnect,
     uploadContent,
-    canConnect: !!request && isConfigured,
+    canConnect: isConfigured,
   };
 }

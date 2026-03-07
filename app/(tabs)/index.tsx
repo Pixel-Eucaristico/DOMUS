@@ -223,6 +223,7 @@ export default function HomeScreen() {
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
               onPress={() => router.push("/sync")}
             />
+            {__DEV__ && (
             <AnimatedIconButton
               name="maximize"
               size={20}
@@ -230,6 +231,7 @@ export default function HomeScreen() {
               style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
               onPress={() => router.push("/import-invoice")}
             />
+            )}
             <AnimatedIconButton
               name="cpu"
               size={20}
@@ -305,7 +307,7 @@ export default function HomeScreen() {
         <AccountsStrip accounts={accountsSorted} transactions={txArr} theme={theme} />
 
         {/* ── INVOICE BANNER ─────────────────────────────────────────────── */}
-        {unconfirmedInvoices.length > 0 && (
+        {__DEV__ && unconfirmedInvoices.length > 0 && (
           <Pressable
             style={[s.invoiceBanner, { backgroundColor: theme.cardBackground, borderColor: "#FDE68A" }]}
             onPress={() => { soundManager.play("tap"); router.push("/import-invoice"); }}
