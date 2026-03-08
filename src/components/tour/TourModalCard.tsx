@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { StyleSheet, Pressable } from "react-native";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import type { ThemeColors } from "@packages/theme";
@@ -26,9 +26,21 @@ export function TourModalCard({
   onMinimize,
   isLast,
 }: Props) {
+  // Guard: ignore backdrop press right after mount to avoid
+  // capturing the "Próximo" click from the previous step on web
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 350);
+    return () => clearTimeout(t);
+  }, []);
+
+  const handleBackdropPress = useCallback(() => {
+    if (ready) onMinimize();
+  }, [ready, onMinimize]);
+
   return (
     <Animated.View entering={FadeIn.duration(200)} style={s.overlay}>
-      <Pressable style={s.backdrop} onPress={onMinimize} />
+      <Pressable style={s.backdrop} onPress={handleBackdropPress} />
       <Animated.View
         entering={FadeInUp.duration(300).springify().damping(20)}
         style={s.cardWrapper}

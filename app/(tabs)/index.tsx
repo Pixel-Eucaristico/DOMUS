@@ -266,7 +266,7 @@ export default function HomeScreen() {
         </View>
 
         {/* ── STATS ROW ──────────────────────────────────────────────────── */}
-        <ResponsiveRow>
+        <ResponsiveRow style={Platform.OS === "web" ? { zIndex: 1 } : {}}>
           <ResponsiveColumn span={columns}>
             <AnimatedCard index={0}>
               <View style={[s.statsRow, { paddingHorizontal: isMobile ? 16 : 0 }]}>
@@ -300,7 +300,7 @@ export default function HomeScreen() {
         </ResponsiveRow>
 
         {/* ── GAMIFICATION WIDGET ────────────────────────────────────────── */}
-        <ResponsiveRow>
+        <ResponsiveRow style={Platform.OS === "web" ? { zIndex: 1 } : {}}>
           <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
             <GamificationWidget
               theme={theme}
@@ -315,8 +315,8 @@ export default function HomeScreen() {
 
         {/* ── BALANCE + ACCOUNTS ─────────────────────────────────────────── */}
         {/* ── BALANCE + ACCOUNTS ─────────────────────────────────────────── */}
-        <ResponsiveRow gap={16}>
-          <ResponsiveColumn span={accountCount === 0 ? columns : 1} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
+        <ResponsiveRow gap={16} style={Platform.OS === "web" ? { zIndex: balanceActive ? 9999 : 1 } : {}}>
+          <ResponsiveColumn span={accountCount === 0 ? columns : 1} style={Object.assign({ paddingHorizontal: isMobile ? 16 : 0 }, balanceActive || {})}>
             <AnimatedCard index={2}>
               <View ref={balanceRef} collapsable={false} style={[s.balanceCard, { backgroundColor: theme.primaryColor, marginHorizontal: 0, width: "100%" }, balanceActive]}>
                 <View style={s.balanceHeader}>
@@ -328,8 +328,8 @@ export default function HomeScreen() {
                 </View>
                 <Text style={s.balanceValue}>{formatCurrency(totalBalance)}</Text>
               </View>
-              <BalanceTourCard />
             </AnimatedCard>
+            <BalanceTourCard />
           </ResponsiveColumn>
 
           {accountCount > 0 && (
@@ -367,9 +367,9 @@ export default function HomeScreen() {
         />
 
         {/* ── BUDGET 50/30/20 ────────────────────────────────────────────── */}
-        <ResponsiveRow>
-          <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
-            <AnimatedCard index={3}>
+        <ResponsiveRow style={Platform.OS === "web" ? { zIndex: budgetActive ? 9999 : 1 } : {}}>
+          <ResponsiveColumn span={columns} style={Object.assign({ paddingHorizontal: isMobile ? 16 : 0 }, budgetActive || {})}>
+            <AnimatedCard index={3} style={budgetActive}>
               <View ref={budgetRef} collapsable={false} style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }, budgetActive]}>
                 <View style={s.monthFilterContainer}>
                   <Text style={[s.cardTitle, { color: theme.textColor }]}>
@@ -405,14 +405,14 @@ export default function HomeScreen() {
                   </View>
                 )}
               </View>
-              <BudgetTourCard />
             </AnimatedCard>
+            <BudgetTourCard />
           </ResponsiveColumn>
         </ResponsiveRow>
 
         {/* ── SEASON CARD ────────────────────────────────────────────────── */}
         {season.currentSeason?.active && (
-          <ResponsiveRow>
+          <ResponsiveRow style={Platform.OS === "web" ? { zIndex: 1 } : {}}>
             <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
               <Pressable
                 style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }]}
@@ -454,7 +454,7 @@ export default function HomeScreen() {
         )}
 
         {/* ── SAVINGS GOALS + RECENT TRANSACTIONS ─────────────────────── */}
-        <ResponsiveRow gap={16}>
+        <ResponsiveRow gap={16} style={Platform.OS === "web" ? { zIndex: 1 } : {}}>
           {savingsGoalAccounts.length > 0 && (
             <ResponsiveColumn style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
               <SavingsGoalCard

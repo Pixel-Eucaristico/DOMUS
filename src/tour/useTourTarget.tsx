@@ -2,7 +2,6 @@ import React, { useRef, useEffect, useMemo } from "react";
 import {
   View as RNView,
   Platform,
-  findNodeHandle,
   useWindowDimensions,
   type View,
   type ScrollView,
@@ -17,7 +16,6 @@ import { useAppState } from "@/src/context/AppStateProvider";
 
 /** Z-index elevado para o alvo ficar acima do fume */
 const ACTIVE_STYLE: ViewStyle = {
-  position: "relative",
   zIndex: 9998,
   elevation: 22,
 };
@@ -29,15 +27,25 @@ const CARD_STYLE: ViewStyle = {
   elevation: 21,
 };
 
-const BACKDROP_STYLE: ViewStyle = {
-  position: "absolute",
-  top: -10000,
-  left: -10000,
-  width: 30000,
-  height: 30000,
-  backgroundColor: "rgba(0,0,0,0.5)",
-  zIndex: 9996,
-};
+const BACKDROP_STYLE: ViewStyle = Platform.OS === "web"
+  ? ({
+      position: "fixed",
+      top: -10000,
+      left: -10000,
+      right: -10000,
+      bottom: -10000,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      zIndex: 9996,
+    } as any)
+  : {
+      position: "absolute",
+      top: -10000,
+      left: -10000,
+      width: 30000,
+      height: 30000,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      zIndex: 9996,
+    };
 
 /**
  * Hook para elementos da UI exibirem um card de tour inline.
@@ -110,11 +118,8 @@ function TourCardRenderer({
 
       if (Platform.OS === "web") {
         try {
-          const node = findNodeHandle(targetRef.current) as unknown;
-          const domNode =
-            node && typeof (node as any).scrollIntoView === "function"
-              ? (node as Element)
-              : (targetRef.current as any);
+          // On web, refs already point to DOM nodes — no need for findNodeHandle
+          const domNode = targetRef.current as any;
           if (domNode && typeof domNode.scrollIntoView === "function") {
             domNode.scrollIntoView({ behavior: "smooth", block: "center" });
             return;
@@ -125,10 +130,8 @@ function TourCardRenderer({
       }
 
       if (scrollViewRef?.current && targetRef.current) {
-        const scrollNode = findNodeHandle(scrollViewRef.current);
-        if (!scrollNode) return;
         targetRef.current.measureLayout(
-          scrollNode as any,
+          scrollViewRef.current as any,
           (_x: number, y: number) => {
             (scrollViewRef.current as any)?.scrollTo?.({
               y: Math.max(0, y - 120),

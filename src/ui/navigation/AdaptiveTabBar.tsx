@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
 import { useAppState } from '@/src/context/AppStateProvider';
+import { useDemoMode } from '@/src/context/DemoModeProvider';
 import { soundManager } from '@/src/services/SoundManager';
 
 interface NavItem {
@@ -28,6 +29,7 @@ const QUICK_LINKS: NavItem[] = [
 
 export const AdaptiveTabBar = memo(function AdaptiveTabBar() {
   const { theme } = useAppState();
+  const { isDemoActive } = useDemoMode();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -106,6 +108,7 @@ export const AdaptiveTabBar = memo(function AdaptiveTabBar() {
           </Pressable>
         ))}
       </View>
+      {isDemoActive && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999 }]} />}
     </View>
   );
 });

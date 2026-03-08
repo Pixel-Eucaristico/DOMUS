@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useMemo } from "react";
+import { View, StyleSheet } from "react-native";
 import { useRouter, usePathname } from "expo-router";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { useTourNavigation } from "@/src/tour/useTourNavigation";
@@ -112,22 +113,30 @@ export function TourOverlay({ theme, children }: Props) {
 
   return (
     <TourControlProvider value={controlValue}>
-      {children}
-      {isDemoActive && isTourMinimized && (
-        <TourMiniBadge theme={theme} onRestore={handleRestore} />
-      )}
-      {isDemoActive && !isTourMinimized && !hasTarget && step && (
-        <TourModalCard
-          step={step}
-          stepIndex={currentTourStep}
-          theme={theme}
-          onNext={handleNext}
-          onPrev={handlePrev}
-          onSkip={handleSkip}
-          onMinimize={handleMinimize}
-          isLast={currentIsLast}
-        />
-      )}
+      <View style={styles.root}>
+        {children}
+        {isDemoActive && isTourMinimized && (
+          <TourMiniBadge theme={theme} onRestore={handleRestore} />
+        )}
+        {isDemoActive && !isTourMinimized && !hasTarget && step && (
+          <TourModalCard
+            step={step}
+            stepIndex={currentTourStep}
+            theme={theme}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            onSkip={handleSkip}
+            onMinimize={handleMinimize}
+            isLast={currentIsLast}
+          />
+        )}
+      </View>
     </TourControlProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});

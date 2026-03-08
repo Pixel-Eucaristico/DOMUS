@@ -7,6 +7,8 @@ import { InstallmentBadge } from "@/src/components/transaction/InstallmentBadge"
 import { formatCurrency } from "@/src/utils/formatCurrency";
 import Animated, { SlideInRight, Layout } from "react-native-reanimated";
 import { useResponsive } from "@/src/ui/layout/useResponsive";
+import { useDemoMode } from "@/src/context/DemoModeProvider";
+import { Platform } from "react-native";
 
 interface RecentTransactionsListProps {
   recentTxs: any[];
@@ -18,6 +20,7 @@ interface RecentTransactionsListProps {
 export function RecentTransactionsList({ recentTxs, txCount, categories, theme }: RecentTransactionsListProps) {
   const router = useRouter();
   const { isMobile } = useResponsive();
+  const { isDemoActive } = useDemoMode();
 
   return (
     <Pressable
@@ -40,11 +43,21 @@ export function RecentTransactionsList({ recentTxs, txCount, categories, theme }
           {recentTxs.map((tx, idx) => {
             const cat = categories[tx.categoryId];
             const isExpense = tx.type === "expense";
+            
+            // Reanimated Spring/Slide causes transform matrix on web, trapping the Z-Index below the tour Fume.
+            // On web Tour mode, we degrade to normal React Native View cleanly matching the structure.
+            const Wrapper = Platform.OS === "web" && isDemoActive ? View : Animated.View;
+            const animatedProps = Platform.OS === "web" && isDemoActive 
+              ? {} 
+              : { 
+                  entering: SlideInRight.delay(idx * 50).springify().damping(20),
+                  layout: Layout.springify()
+                };
+
             return (
-              <Animated.View
+              <Wrapper
                 key={tx.id}
-                entering={SlideInRight.delay(idx * 50).springify().damping(20)}
-                layout={Layout.springify()}
+                {...animatedProps}
               >
                 <Pressable
                   style={({ pressed }) => [
@@ -104,7 +117,7 @@ export function RecentTransactionsList({ recentTxs, txCount, categories, theme }
                     {formatCurrency(tx.amount)}
                   </Text>
                 </Pressable>
-              </Animated.View>
+              </Wrapper>
             );
           })}
         </View>

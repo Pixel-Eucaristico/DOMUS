@@ -189,13 +189,14 @@ function RootLayoutNav() {
 function DesktopLayout({ children }: { children: React.ReactNode }) {
   const { sidebarEnabled } = useResponsive();
   const { theme } = useAppState();
+  const { isDemoActive } = useDemoMode();
 
   if (!sidebarEnabled) return <>{children}</>;
 
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: theme.background }}>
       <AdaptiveTabBar />
-      <View style={{ flex: 1 }}>{children}</View>
+      <View style={{ flex: 1, zIndex: isDemoActive ? 9999 : 1, elevation: isDemoActive ? 9999 : 0 }}>{children}</View>
     </View>
   );
 }
