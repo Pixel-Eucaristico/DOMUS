@@ -178,7 +178,14 @@ function TourCardRenderer({
         pointerEvents="none"
       />
       {/* Card inline */}
-      <RNView ref={cardRef} collapsable={false} style={CARD_STYLE}>
+      <RNView 
+        ref={cardRef} 
+        collapsable={false} 
+        style={[
+          CARD_STYLE,
+          targetId === "accounts-add" ? { marginTop: 12 } : {}
+        ]}
+      >
         <TourInlineCard
           step={step}
           stepIndex={stepIndex}

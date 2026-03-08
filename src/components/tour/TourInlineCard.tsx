@@ -62,8 +62,11 @@ export function TourInlineCard({
       onLayout={onLayout}
     >
       {showArrow && (
-        <View style={s.arrowContainer}>
-          <TourArrow direction="up" color={theme.cardBackground} />
+        <View style={[
+          step.arrowDirection === "up" ? s.arrowContainerUp : s.arrowContainerDown,
+          step.arrowAlign === "right" ? { left: undefined, right: 20 } : { left: 24, right: undefined }
+        ]}>
+          <TourArrow direction={step.arrowDirection || "up"} color={theme.cardBackground} />
         </View>
       )}
 
@@ -168,10 +171,13 @@ const s = StyleSheet.create({
     shadowRadius: 16,
     elevation: 12,
   },
-  arrowContainer: {
+  arrowContainerUp: {
     position: "absolute",
     top: -10,
-    left: 24,
+  },
+  arrowContainerDown: {
+    position: "absolute",
+    bottom: -10,
   },
   topRow: {
     flexDirection: "row",

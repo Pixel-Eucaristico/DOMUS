@@ -10,6 +10,7 @@ export interface TourStepDef {
   route?: string;
   targetId?: string;
   arrowDirection?: ArrowDirection;
+  arrowAlign?: "left" | "right" | "center";
 }
 
 export const TOUR_STEPS: TourStepDef[] = [
@@ -33,7 +34,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     icon: "home",
     route: "/(tabs)",
     targetId: "dashboard-balance",
-    arrowDirection: "down",
+    arrowDirection: "up",
   },
   {
     id: 2,
@@ -45,7 +46,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     icon: "pie-chart",
     route: "/(tabs)",
     targetId: "budget-section",
-    arrowDirection: "down",
+    arrowDirection: "up",
   },
   {
     id: 3,
@@ -57,7 +58,8 @@ export const TOUR_STEPS: TourStepDef[] = [
     icon: "credit-card",
     route: "/(tabs)/accounts",
     targetId: "accounts-header",
-    arrowDirection: "down",
+    arrowDirection: "up",
+    arrowAlign: "right",
   },
   {
     id: 4,
@@ -68,7 +70,7 @@ export const TOUR_STEPS: TourStepDef[] = [
       "Defina categoria, status (pendente/confirmado), recorrência e até parcelas.",
     icon: "plus-circle",
     route: "/(tabs)",
-    targetId: "fab-add",
+    targetId: "accounts-add",
     arrowDirection: "up",
   },
   {
@@ -101,7 +103,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     icon: "heart",
     route: "/(tabs)/wishlist",
     targetId: "wishlist-header",
-    arrowDirection: "down",
+    arrowDirection: "up",
   },
   {
     id: 8,
@@ -123,7 +125,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     icon: "star",
     route: "/(tabs)/season",
     targetId: "xp-section",
-    arrowDirection: "down",
+    arrowDirection: "up",
   },
   {
     id: 10,
@@ -135,7 +137,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     icon: "gift",
     route: "/(tabs)/season",
     targetId: "trophy-section",
-    arrowDirection: "down",
+    arrowDirection: "up",
   },
   {
     id: 11,
