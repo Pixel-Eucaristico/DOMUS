@@ -13,26 +13,26 @@ function isTabRoute(path: string): boolean {
  * Navega automaticamente para a aba correta quando o passo do tour muda.
  */
 export function useTourNavigation() {
-  const { isDemoActive, currentTourStep } = useDemoMode();
+  const { isDemoActive, currentTourStep, isTourMinimized } = useDemoMode();
   const router = useRouter();
   const pathname = usePathname();
   const lastNavigatedStep = useRef(-1);
 
   useEffect(() => {
-    if (!isDemoActive) {
-      lastNavigatedStep.current = -1;
+    if (!isDemoActive || isTourMinimized) {
       return;
     }
 
     const step = TOUR_STEPS[currentTourStep];
     if (!step?.route) return;
-    if (lastNavigatedStep.current === currentTourStep) return;
 
     // Normalize tab paths: "/" → "/(tabs)", "/accounts" → "/(tabs)/accounts"
     // Stack paths stay as-is: "/sync" → "/sync"
     const normalizedCurrent = isTabRoute(pathname)
       ? (pathname === "/" ? "/(tabs)" : `/(tabs)${pathname}`)
       : pathname;
+
+    // Se já estamos na rota certa, só atualiza o ref
     if (normalizedCurrent === step.route) {
       lastNavigatedStep.current = currentTourStep;
       return;
@@ -59,5 +59,5 @@ export function useTourNavigation() {
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [isDemoActive, currentTourStep, router, pathname]);
+  }, [isDemoActive, currentTourStep, isTourMinimized, router, pathname]);
 }

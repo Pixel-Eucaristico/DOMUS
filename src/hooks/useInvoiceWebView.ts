@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback } from "react";
-import WebView from "react-native-webview";
 import { Alert } from "react-native";
 import {
   InvoiceItem,
@@ -27,7 +26,7 @@ interface Phase1Data {
 }
 
 export interface UseInvoiceWebViewResult {
-  webviewRef: React.RefObject<WebView | null>;
+  webviewRef: React.RefObject<any>;
   webviewUrl: string;
   webviewLoading: boolean;
   isEnrichingMode: boolean;
@@ -46,7 +45,7 @@ export function useInvoiceWebView(
   onImported: (payload: InvoiceImportedPayload) => void,
   onError: (msg: string) => void,
 ): UseInvoiceWebViewResult {
-  const webviewRef = useRef<WebView>(null);
+  const webviewRef = useRef<any>(null);
   const pendingPhase1Ref = useRef<Phase1Data | null>(null);
   const webviewLoadingRef = useRef(true);
   const parser = useRef(new InvoiceParser()).current;

@@ -6,10 +6,9 @@ import {
   Modal,
   TouchableOpacity,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { WebView } from "react-native-webview";
-import type { WebViewNavigation } from "react-native-webview";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
@@ -46,9 +45,7 @@ interface Props {
   visible: boolean;
   initialUrl: string;
   theme: ThemeColors;
-  /** Chamado quando o usuário toca "Adicionar à lista" em uma página de produto. */
   onProductSelected: (url: string) => void;
-  /** Chamado quando o usuário aborta sem selecionar nada. */
   onAbort: () => void;
 }
 
@@ -64,7 +61,13 @@ export function WishlistSearchWebView({
   const [isProduct, setIsProduct] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const handleNavigationStateChange = useCallback((state: WebViewNavigation) => {
+  // No web, não renderizar nada — a busca abre em nova aba
+  if (Platform.OS === "web") return null;
+
+  // Lazy require para evitar crash no web
+  const WebView = require("react-native-webview").default;
+
+  const handleNavigationStateChange = useCallback((state: any) => {
     const url = state.url ?? "";
     setCurrentUrl(url);
     setIsProduct(isProductUrl(url));
@@ -76,7 +79,6 @@ export function WishlistSearchWebView({
     onProductSelected(affiliateUrl);
   }, [currentUrl, onProductSelected]);
 
-  // Reseta estado quando modal abre
   const handleModalShow = useCallback(() => {
     setCurrentUrl(initialUrl);
     setIsProduct(false);
@@ -109,10 +111,7 @@ export function WishlistSearchWebView({
           <WebView
             source={{ uri: initialUrl }}
             onNavigationStateChange={handleNavigationStateChange}
-            onShouldStartLoadWithRequest={({ url }) => {
-              // Bloqueia schemes que abrem apps nativos (Amazon, ML, Play Store, etc.)
-              // originWhitelist=["*"] força todas as URLs a passarem por este callback;
-              // sem isso, no Android URLs com scheme não-http bypassam o callback e abrem o app nativo.
+            onShouldStartLoadWithRequest={({ url }: { url: string }) => {
               if (!url.startsWith("http://") && !url.startsWith("https://")) {
                 return false;
               }
@@ -151,60 +150,22 @@ export function WishlistSearchWebView({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    gap: 8,
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, gap: 8,
   },
-  closeBtn: {
-    padding: 4,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 13,
-    fontFamily: "DMSans_500Medium",
-    textAlign: "center",
-  },
-  abortBtn: {
-    padding: 4,
-  },
-  abortText: {
-    fontSize: 14,
-    fontFamily: "DMSans_600SemiBold",
-  },
-  webviewContainer: {
-    flex: 1,
-  },
-  webview: {
-    flex: 1,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  floatingBar: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-  },
+  closeBtn: { padding: 4 },
+  headerTitle: { flex: 1, fontSize: 13, fontFamily: "DMSans_500Medium", textAlign: "center" },
+  abortBtn: { padding: 4 },
+  abortText: { fontSize: 14, fontFamily: "DMSans_600SemiBold" },
+  webviewContainer: { flex: 1 },
+  webview: { flex: 1 },
+  loadingOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: "center", alignItems: "center" },
+  floatingBar: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1 },
   addProductBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    height: 52,
-    borderRadius: 14,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, height: 52, borderRadius: 14,
   },
-  addProductBtnText: {
-    fontSize: 15,
-    fontFamily: "DMSans_600SemiBold",
-    color: "#fff",
-  },
+  addProductBtnText: { fontSize: 15, fontFamily: "DMSans_600SemiBold", color: "#fff" },
 });

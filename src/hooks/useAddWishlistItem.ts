@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Animated } from "react-native";
+import { Animated, Platform } from "react-native";
 import { wishlistScraperService, AFFILIATE_CONFIG } from "@packages/wishlist";
 import type { UrgencyLevel, WishlistItem, SavingsGoalConfig } from "@packages/wishlist";
 
@@ -150,6 +150,12 @@ export function useAddWishlistItem({
 
   const handleScrapeUrl = useCallback(async () => {
     if (!form.url.trim()) return;
+    if (Platform.OS === "web") {
+      // CORS impede scraping no web — apenas aplica URL de afiliado
+      const data = { affiliateUrl: wishlistScraperService.buildAffiliateUrl(form.url.trim()) };
+      if (data.affiliateUrl) applyScrapeData(data);
+      return;
+    }
     setScraping(true);
     try {
       const data = await wishlistScraperService.scrape(form.url.trim());
@@ -160,6 +166,12 @@ export function useAddWishlistItem({
   }, [form.url, applyScrapeData]);
 
   const openSearchWebView = useCallback((platform: "amazon" | "ml") => {
+    if (Platform.OS === "web") {
+      const url =
+        platform === "amazon" ? "https://www.amazon.com.br" : "https://www.mercadolivre.com.br";
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
     const url =
       platform === "amazon" ? "https://www.amazon.com.br" : "https://www.mercadolivre.com.br";
     setWebView({ visible: true, url });

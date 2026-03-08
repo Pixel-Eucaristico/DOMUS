@@ -1,6 +1,5 @@
 import React from "react";
-import { View, Text, Pressable, ActivityIndicator, StyleSheet } from "react-native";
-import WebView from "react-native-webview";
+import { View, Text, Pressable, ActivityIndicator, StyleSheet, Platform, Linking } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
@@ -10,7 +9,7 @@ import { soundManager } from "@/src/services/SoundManager";
 interface Props {
   theme: ThemeColors;
   insets: EdgeInsets;
-  webviewRef: React.RefObject<WebView | null>;
+  webviewRef: React.RefObject<any>;
   webviewUrl: string;
   webviewLoading: boolean;
   isEnrichingMode: boolean;
@@ -42,6 +41,20 @@ export function WebViewScreen({
   onCapture,
   onClose,
 }: Props) {
+  // No web, sites como SEFAZ bloqueiam iframe — abrir em nova aba
+  if (Platform.OS === "web") {
+    return (
+      <WebViewScreenWeb
+        theme={theme}
+        insets={insets}
+        webviewUrl={webviewUrl}
+        onClose={onClose}
+      />
+    );
+  }
+
+  const WebView = require("react-native-webview").default;
+
   return (
     <View style={s.container}>
       {/* Header */}
@@ -93,7 +106,7 @@ export function WebViewScreen({
         </Text>
       </View>
 
-      {/* Floating capture button — oculto enquanto aguarda clique do usuário no WebView */}
+      {/* Floating capture button */}
       {isEnrichingMode ? (
         <View style={[s.captureBtn, { backgroundColor: `${theme.primaryColor}99`, bottom: insets.bottom + 16 }]}>
           <ActivityIndicator size="small" color="#FFF" />
@@ -108,6 +121,56 @@ export function WebViewScreen({
           <Text style={s.captureBtnText}>Capturar Dados da Nota</Text>
         </Pressable>
       ) : null}
+    </View>
+  );
+}
+
+/* ─── Versão Web: abre SEFAZ em nova aba ─── */
+
+function WebViewScreenWeb({
+  theme,
+  insets,
+  webviewUrl,
+  onClose,
+}: {
+  theme: ThemeColors;
+  insets: EdgeInsets;
+  webviewUrl: string;
+  onClose: () => void;
+}) {
+  const handleOpen = () => {
+    window.open(webviewUrl, "_blank", "noopener,noreferrer");
+  };
+
+  return (
+    <View style={s.container}>
+      <View style={[s.header, { paddingTop: insets.top + 10, backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
+        <Pressable onPress={() => { soundManager.play("tap"); onClose(); }} hitSlop={12}>
+          <Feather name="x" size={22} color={theme.textColor} />
+        </Pressable>
+        <Text style={[s.headerTitle, { color: theme.textColor }]} numberOfLines={1}>
+          Consulta SEFAZ
+        </Text>
+        <View style={{ width: 22 }} />
+      </View>
+
+      <View style={s.webFallback}>
+        <Feather name="external-link" size={40} color={theme.primaryColor} />
+        <Text style={[s.webFallbackTitle, { color: theme.textColor }]}>
+          Consulta SEFAZ
+        </Text>
+        <Text style={[s.webFallbackDesc, { color: theme.secondaryText }]}>
+          A consulta SEFAZ não pode ser exibida dentro do app na versão web.
+          Clique no botão abaixo para abrir em uma nova aba.
+        </Text>
+        <Pressable
+          style={[s.webFallbackBtn, { backgroundColor: theme.primaryColor }]}
+          onPress={handleOpen}
+        >
+          <Feather name="external-link" size={18} color="#FFF" />
+          <Text style={s.webFallbackBtnText}>Abrir SEFAZ em nova aba</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -135,4 +198,36 @@ const s = StyleSheet.create({
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
   captureBtnText: { color: "#FFF", fontSize: 16, fontWeight: "700" },
+  // Web fallback
+  webFallback: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+    gap: 16,
+  },
+  webFallbackTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  webFallbackDesc: {
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
+    maxWidth: 400,
+  },
+  webFallbackBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  webFallbackBtnText: {
+    color: "#FFF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
 });
