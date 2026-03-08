@@ -79,7 +79,7 @@ export default function AccountsScreen() {
       >
        <ResponsiveContainer>
         <View style={Platform.OS === "web" ? { zIndex: accountsAddActive ? 9999 : 1, position: "relative" } : {}}>
-          <View style={s.header}>
+          <View style={[s.header, Platform.OS === "web" && accountsAddActive ? { zIndex: 9998, position: "relative" } : {}]}>
             <Text style={[s.title, { color: theme.textColor }]}>Contas</Text>
             <Pressable
               ref={accountsAddRef as any}
