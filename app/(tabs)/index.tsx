@@ -474,27 +474,42 @@ export default function HomeScreen() {
             />
           </ResponsiveColumn>
         </ResponsiveRow>
-        <FabTourCard />
        </ResponsiveContainer>
       </ScrollView>
 
       {/* ── FAB ──────────────────────────────────────────────────────────── */}
-      <Pressable
-        ref={fabRef}
-        collapsable={false}
-        style={({ pressed }) => [
-          s.fab,
+      <View
+        style={[
           {
+            position: "absolute",
+            right: 24,
             bottom: insets.bottom + webBottomInset + 80,
-            backgroundColor: theme.primaryColor,
+            alignItems: "flex-end",
           },
-          pressed && s.fabPressed,
-          fabActive,
+          Platform.OS === "web" && fabActive ? { zIndex: 9999 } : { zIndex: 1 },
         ]}
-        onPress={handleAddPress}
       >
-        <Feather name="plus" size={28} color="#FFFFFF" />
-      </Pressable>
+        <FabTourCard />
+        <Pressable
+          ref={fabRef}
+          collapsable={false}
+          style={({ pressed }) => [
+            s.fab,
+            {
+              position: "relative",
+              right: 0,
+              bottom: 0,
+              backgroundColor: theme.primaryColor,
+              marginTop: 12,
+            },
+            pressed && s.fabPressed,
+            fabActive,
+          ]}
+          onPress={handleAddPress}
+        >
+          <Feather name="plus" size={28} color="#FFFFFF" />
+        </Pressable>
+      </View>
 
       <TransactionBottomSheet
         visible={showAddSheet}

@@ -72,6 +72,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     route: "/(tabs)",
     targetId: "fab-add",
     arrowDirection: "down",
+    arrowAlign: "right",
   },
   {
     id: 5,
