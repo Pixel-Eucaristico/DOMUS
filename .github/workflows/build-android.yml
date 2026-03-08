@@ -1,7 +1,8 @@
-# GitHub Actions - Build Android APK (Orcafacil / DOMUS)
-# Builds natively without EAS Build, using expo prebuild + Gradle
+# GitHub Actions - Build Android APK + Web (DOMUS)
+# Builds Android natively using expo prebuild + Gradle
+# Builds Web using expo export
 
-name: Build Android APK
+name: Build Android & Web
 
 on:
   push:
@@ -122,3 +123,31 @@ jobs:
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 90
+
+  build-web:
+    name: Build Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Export Web
+        run: npx expo export --platform web
+
+      - name: Upload Web Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: domus-web
+          path: dist/
+          retention-days: 30
