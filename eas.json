@@ -8,20 +8,26 @@
       "distribution": "internal",
       "android": {
         "credentialsSource": "local",
-        "buildType": "apk"
+        "buildType": "apk",
+        "image": "latest"
       }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "credentialsSource": "local",
-        "buildType": "apk"
+        "buildType": "apk",
+        "image": "latest"
       }
     },
     "production": {
       "android": {
-        "credentialsSource": "local",
-        "buildType": "app-bundle"
+        "credentialsSource": "remote",
+        "buildType": "app-bundle",
+        "image": "latest"
+      },
+      "ios": {
+        "image": "latest"
       }
     }
   },

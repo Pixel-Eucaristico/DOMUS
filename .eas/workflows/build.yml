@@ -1,0 +1,14 @@
+name: Build DOMUS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_android:
+    name: Build Android APK (Preview)
+    type: build
+    params:
+      platform: android
+      profile: preview
