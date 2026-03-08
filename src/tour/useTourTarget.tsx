@@ -109,6 +109,12 @@ function TourCardRenderer({
     currentTourStep === stepIndex;
   const isLast = stepIndex === TOUR_TOTAL - 1;
 
+  // Register inline card visibility with TourOverlay
+  useEffect(() => {
+    if (!isActive || !tourControl) return;
+    return tourControl.registerInlineCard();
+  }, [isActive, tourControl]);
+
   // Scroll to target when step activates
   useEffect(() => {
     if (!isActive || !targetRef.current) return;

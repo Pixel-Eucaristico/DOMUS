@@ -8,6 +8,7 @@ import { TourMiniBadge } from "@/src/components/tour/TourMiniBadge";
 import { TourModalCard } from "@/src/components/tour/TourModalCard";
 import {
   TourControlProvider,
+  useInlineCardTracker,
   type TourControlContextValue,
 } from "@/src/tour/TourControlContext";
 import { soundManager } from "@/src/services/SoundManager";
@@ -83,6 +84,8 @@ export function TourOverlay({ theme, children }: Props) {
     setTourMinimized(true);
   }, [setTourMinimized]);
 
+  const { registerInlineCard, inlineCardVisible } = useInlineCardTracker();
+
   const autoMinRef = useRef(false);
 
   const handleRestore = useCallback(() => {
@@ -104,21 +107,25 @@ export function TourOverlay({ theme, children }: Props) {
       currentTourStep,
       isTourMinimized,
       isDemoActive,
+      registerInlineCard,
+      inlineCardVisible,
     }),
-    [handleNext, handlePrev, handleSkip, handleMinimize, currentTourStep, isTourMinimized, isDemoActive],
+    [handleNext, handlePrev, handleSkip, handleMinimize, currentTourStep, isTourMinimized, isDemoActive, registerInlineCard, inlineCardVisible],
   );
 
   const hasTarget = !!step?.targetId;
   const currentIsLast = currentTourStep === TOUR_TOTAL - 1;
+  const showModal = isDemoActive && !isTourMinimized && !hasTarget && !!step;
+  const showBadge = isDemoActive && !showModal && !inlineCardVisible;
 
   return (
     <TourControlProvider value={controlValue}>
       <View style={styles.root}>
         {children}
-        {isDemoActive && isTourMinimized && (
+        {showBadge && (
           <TourMiniBadge theme={theme} onRestore={handleRestore} />
         )}
-        {isDemoActive && !isTourMinimized && !hasTarget && step && (
+        {showModal && (
           <TourModalCard
             step={step}
             stepIndex={currentTourStep}
