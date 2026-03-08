@@ -21,6 +21,7 @@ import { TypingIndicator } from "@/src/components/ai/TypingIndicator";
 import { AIUsageBar } from "@/src/components/ai/AIUsageBar";
 import { DataPermissionModal } from "@/src/components/ai/DataPermissionModal";
 import { detectMissingPermission } from "@/src/modules/ai/application/PermissionDetector";
+import { useTourTarget } from "@/src/tour/useTourTarget";
 import type { ChatMessage } from "@packages/ai";
 import type { AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
 
@@ -28,6 +29,7 @@ export default function AIChatScreen() {
   const { theme } = useAppState();
   const { settings, isLoading: settingsLoading, updateSettings } = useAISettings();
   const { messages, isLoading, sendMessage, generateWelcome, clearHistory } = useAIConsultant(settings);
+  const { targetRef: configRef, TourCard: ConfigTourCard, activeStyle: configActive } = useTourTarget("ai-config-btn");
   const [input, setInput] = useState("");
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
@@ -121,40 +123,47 @@ export default function AIChatScreen() {
       edges={["top", "bottom"]}
     >
       {/* Header */}
-      <View
-        style={[
-          styles.header,
-          { borderBottomColor: theme.border, backgroundColor: theme.background },
-        ]}
-      >
-        <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }} style={styles.backBtn}>
-          <Feather name="arrow-left" size={22} color={theme.textColor} />
-        </TouchableOpacity>
+      <View style={Platform.OS === "web" ? { zIndex: configActive ? 9999 : 1, position: "relative" } : {}}>
+        <View
+          style={[
+            styles.header,
+            configActive,
+            Platform.OS === "web" && configActive ? { zIndex: 9998, position: "relative" } : {},
+            { borderBottomColor: theme.border, backgroundColor: theme.background },
+          ]}
+        >
+          <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }} style={styles.backBtn}>
+            <Feather name="arrow-left" size={22} color={theme.textColor} />
+          </TouchableOpacity>
 
-        <View style={styles.headerCenter}>
-          <Text style={[styles.headerTitle, { color: theme.textColor }]}>
-            DOMUS IA
-          </Text>
-          <Text style={[styles.headerSubtitle, { color: theme.secondaryText }]}>
-            Consultor financeiro
-          </Text>
+          <View style={styles.headerCenter}>
+            <Text style={[styles.headerTitle, { color: theme.textColor }]}>
+              DOMUS IA
+            </Text>
+            <Text style={[styles.headerSubtitle, { color: theme.secondaryText }]}>
+              Consultor financeiro
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => { soundManager.play("trash"); clearHistory(); }}
+            style={styles.clearBtn}
+            accessibilityLabel="Limpar conversa"
+          >
+            <Feather name="trash-2" size={18} color={theme.secondaryText} />
+          </TouchableOpacity>
+
+          <View ref={configRef as any} collapsable={false}>
+            <TouchableOpacity
+              onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }}
+              style={styles.settingsBtn}
+              accessibilityLabel="Configurações de IA"
+            >
+              <Feather name="settings" size={18} color={theme.secondaryText} />
+            </TouchableOpacity>
+          </View>
         </View>
-
-        <TouchableOpacity
-          onPress={() => { soundManager.play("trash"); clearHistory(); }}
-          style={styles.clearBtn}
-          accessibilityLabel="Limpar conversa"
-        >
-          <Feather name="trash-2" size={18} color={theme.secondaryText} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }}
-          style={styles.settingsBtn}
-          accessibilityLabel="Configurações de IA"
-        >
-          <Feather name="settings" size={18} color={theme.secondaryText} />
-        </TouchableOpacity>
+        <ConfigTourCard />
       </View>
 
       {/* Offline / no-key banner */}

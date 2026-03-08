@@ -11,6 +11,7 @@ export interface TourStepDef {
   targetId?: string;
   arrowDirection?: ArrowDirection;
   arrowAlign?: "left" | "right" | "center";
+  arrowOffset?: number;
 }
 
 export const TOUR_STEPS: TourStepDef[] = [
@@ -165,9 +166,27 @@ export const TOUR_STEPS: TourStepDef[] = [
     icon: "robot-happy",
     iconSet: "MaterialCommunityIcons",
     route: "/(tabs)",
+    targetId: "ai-chat-btn",
+    arrowDirection: "up",
+    arrowAlign: "right",
+    arrowOffset: 74,
   },
   {
     id: 13,
+    tag: "Recurso: IA",
+    title: "Configurar API",
+    description:
+      "Para conversar com a IA, você precisa cadastrar sua chave de API (OpenAI ou Google Gemini). " +
+      "Clique no ícone de configurações no topo para acessar a tela de chaves.",
+    icon: "settings",
+    route: "/ai-chat",
+    targetId: "ai-config-btn",
+    arrowDirection: "up",
+    arrowAlign: "right",
+    arrowOffset: 24,
+  },
+  {
+    id: 14,
     tag: "Recurso: Segurança",
     title: "Bloqueio por PIN ou Biometria",
     description:
@@ -177,7 +196,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     route: "/(tabs)",
   },
   {
-    id: 14,
+    id: 15,
     tag: "Recurso: Backup",
     title: "Backup Criptografado",
     description:
@@ -187,7 +206,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     route: "/(tabs)",
   },
   {
-    id: 15,
+    id: 16,
     tag: "Pronto!",
     title: "Tudo Configurado!",
     description:

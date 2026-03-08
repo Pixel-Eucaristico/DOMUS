@@ -68,7 +68,11 @@ export function TourInlineCard({
       {showArrow && (
         <View style={[
           step.arrowDirection === "up" ? s.arrowContainerUp : s.arrowContainerDown,
-          step.arrowAlign === "right" ? { left: undefined, right: 28 } : { left: 24, right: undefined }
+          step.arrowAlign === "right" 
+            ? { left: undefined, right: step.arrowOffset ?? 28 } 
+            : step.arrowAlign === "center"
+              ? { alignSelf: "center", left: undefined, right: undefined }
+              : { left: step.arrowOffset ?? 24, right: undefined }
         ]}>
           <TourArrow direction={step.arrowDirection || "up"} color={theme.cardBackground} />
         </View>

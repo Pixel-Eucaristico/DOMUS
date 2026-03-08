@@ -59,6 +59,7 @@ export default function HomeScreen() {
   const { targetRef: xpRef, TourCard: XpTourCard, activeStyle: xpActive } = useTourTarget("xp-section", scrollRef);
   const { targetRef: trophyRef, TourCard: TrophyTourCard, activeStyle: trophyActive } = useTourTarget("trophy-section", scrollRef);
   const { targetRef: fabRef, TourCard: FabTourCard, activeStyle: fabActive } = useTourTarget("fab-add");
+  const { targetRef: aiChatRef, TourCard: AiChatTourCard, activeStyle: aiChatActive } = useTourTarget("ai-chat-btn");
 
   // Month/Year filter state
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -220,51 +221,56 @@ export default function HomeScreen() {
       >
        <ResponsiveContainer style={{ gap: 16 }}>
         {/* ── HEADER ─────────────────────────────────────────────────────── */}
-        <View style={s.header}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <DomusLogo size={36} theme={theme} />
-            <View>
-              <Text style={[s.greeting, { color: theme.textColor }]}>DOMUS</Text>
-              <Text style={[s.subtitle, { color: theme.secondaryText }]}>
-                {archetype.charAt(0).toUpperCase() + archetype.slice(1)} / Nível{" "}
-                {levelInfo.level}
-              </Text>
+        <View style={Platform.OS === "web" ? { zIndex: aiChatActive ? 9999 : 1, position: "relative" } : {}}>
+          <View style={[s.header, aiChatActive, Platform.OS === "web" && aiChatActive ? { zIndex: 9998, position: "relative" } : {}]}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <DomusLogo size={36} theme={theme} />
+              <View>
+                <Text style={[s.greeting, { color: theme.textColor }]}>DOMUS</Text>
+                <Text style={[s.subtitle, { color: theme.secondaryText }]}>
+                  {archetype.charAt(0).toUpperCase() + archetype.slice(1)} / Nível{" "}
+                  {levelInfo.level}
+                </Text>
+              </View>
+            </View>
+            <View style={s.headerActions}>
+              <AnimatedIconButton
+                name="refresh-cw"
+                size={20}
+                color={theme.primaryColor}
+                isLoading={syncStatus === "syncing"}
+                style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
+                onPress={() => router.push("/sync")}
+              />
+              {__DEV__ && (
+              <AnimatedIconButton
+                name="maximize"
+                size={20}
+                color={theme.primaryColor}
+                style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
+                onPress={() => router.push("/import-invoice")}
+              />
+              )}
+              <View ref={aiChatRef as any} collapsable={false}>
+                <AnimatedIconButton
+                  name="robot-happy"
+                  iconSet="MaterialCommunityIcons"
+                  size={22}
+                  color={theme.primaryColor}
+                  style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
+                  onPress={() => router.push("/ai-chat")}
+                />
+              </View>
+              <AnimatedIconButton
+                name="settings"
+                size={20}
+                color={theme.primaryColor}
+                style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
+                onPress={() => router.push("/about")}
+              />
             </View>
           </View>
-          <View style={s.headerActions}>
-            <AnimatedIconButton
-              name="refresh-cw"
-              size={20}
-              color={theme.primaryColor}
-              isLoading={syncStatus === "syncing"}
-              style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
-              onPress={() => router.push("/sync")}
-            />
-            {__DEV__ && (
-            <AnimatedIconButton
-              name="maximize"
-              size={20}
-              color={theme.primaryColor}
-              style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
-              onPress={() => router.push("/import-invoice")}
-            />
-            )}
-            <AnimatedIconButton
-              name="robot-happy"
-              iconSet="MaterialCommunityIcons"
-              size={22}
-              color={theme.primaryColor}
-              style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
-              onPress={() => router.push("/ai-chat")}
-            />
-            <AnimatedIconButton
-              name="settings"
-              size={20}
-              color={theme.primaryColor}
-              style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
-              onPress={() => router.push("/about")}
-            />
-          </View>
+          <AiChatTourCard />
         </View>
 
         {/* ── STATS ROW ──────────────────────────────────────────────────── */}
