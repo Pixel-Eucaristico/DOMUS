@@ -23,8 +23,8 @@ const ACTIVE_STYLE: ViewStyle = {
 /** Card fica entre o alvo (9998) e o fume (9996) */
 const CARD_STYLE: ViewStyle = {
   position: "relative",
-  zIndex: 9997,
-  elevation: 21,
+  zIndex: 10000,
+  elevation: 24,
 };
 
 const BACKDROP_STYLE: ViewStyle = Platform.OS === "web"
