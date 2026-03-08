@@ -16,7 +16,7 @@ import { soundManager } from "@/src/services/SoundManager";
 
 const LAST_UPDATED = "Março de 2026";
 const EXTERNAL_POLICY_URL =
-  "https://github.com/WillianQuintino/domus-privacy-policy";
+  "https://pixel-eucaristico.com.br/domus/privacy";
 
 async function safeOpenUrl(url: string): Promise<void> {
   try {
