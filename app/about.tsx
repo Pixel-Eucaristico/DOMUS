@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -36,8 +36,13 @@ import { LinkRow } from "@/src/components/about/DonationSection";
 export default function AboutScreen() {
   const router = useRouter();
   const { theme, themeMode, setThemeMode, soundEnabled, setSoundEnabled, resetApp } = useAppState();
-  const { startDemo } = useDemoMode();
-  const { targetRef: securityRef, TourCard: SecurityTourCard, activeStyle: securityActive } = useTourTarget("security-btn");
+  const { isDemoActive, currentTourStep } = useDemoMode();
+  const startDemo = useDemoMode().startDemo;
+  const scrollRef = useRef<ScrollView>(null);
+  const { targetRef: securityRef, TourCard: SecurityTourCard, activeStyle: securityActive } = useTourTarget("security-btn", scrollRef);
+
+  // Force open settings accordion when tour targets security-btn
+  const forceSettingsOpen = isDemoActive && !!securityActive;
 
   const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
@@ -80,6 +85,7 @@ export default function AboutScreen() {
         </View>
 
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={s.content}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -122,7 +128,7 @@ export default function AboutScreen() {
 
           {/* ── SETTINGS ────────────────────────────────────────────────── */}
           <View style={Platform.OS === "web" ? { zIndex: securityActive ? 9999 : 1, position: "relative" } : {}}>
-            <SectionCard theme={theme} icon="settings" title="Configurações" accentColor={theme.accentColor} collapsible>
+            <SectionCard theme={theme} icon="settings" title="Configurações" accentColor={theme.accentColor} collapsible forceOpen={forceSettingsOpen}>
               <LinkRow icon="cpu" label="IA Financeira" description="Provedor, chave de API, limites e custos" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }} />
               <LinkRow icon="lock" label="Segurança" description="Bloqueio por PIN ou biometria" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/security-settings"); }} targetRef={securityRef as any} tourCard={<SecurityTourCard />} />
               <LinkRow icon="download-cloud" label="Backup & Restauração" description="Exportar e importar dados cifrados" color={theme.warning} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/backup"); }} />
@@ -250,6 +256,7 @@ function SectionCard({
   title,
   accentColor,
   collapsible = false,
+  forceOpen = false,
   children,
 }: {
   theme: any;
@@ -257,10 +264,19 @@ function SectionCard({
   title: string;
   accentColor: string;
   collapsible?: boolean;
+  forceOpen?: boolean;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-  const rotationAnim = useSharedValue(0);
+  const [open, setOpen] = useState(forceOpen);
+  const rotationAnim = useSharedValue(forceOpen ? 1 : 0);
+
+  // Auto-expand when forceOpen becomes true
+  React.useEffect(() => {
+    if (forceOpen && !open) {
+      rotationAnim.value = withTiming(1, { duration: 250 });
+      setOpen(true);
+    }
+  }, [forceOpen]);
 
   const chevronStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotationAnim.value * 180}deg` }],

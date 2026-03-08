@@ -119,6 +119,7 @@ function TourCardRenderer({
   useEffect(() => {
     if (!isActive || !targetRef.current) return;
 
+    // Delay enough for accordion animations to finish before scrolling
     const timer = setTimeout(() => {
       if (!targetRef.current) return;
 
@@ -147,7 +148,7 @@ function TourCardRenderer({
           () => {},
         );
       }
-    }, 300);
+    }, 600);
 
     return () => clearTimeout(timer);
   }, [isActive, targetRef, scrollViewRef]);

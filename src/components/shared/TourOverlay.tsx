@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useMemo } from "react";
 import { View, StyleSheet } from "react-native";
-import { useRouter, usePathname } from "expo-router";
+// Navigation is fully handled by useTourNavigation
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { useTourNavigation } from "@/src/tour/useTourNavigation";
 import { TOUR_STEPS, TOUR_TOTAL } from "@/src/tour/tourStepConfig";
@@ -34,45 +34,27 @@ export function TourOverlay({ theme, children }: Props) {
     setTourMinimized,
   } = useDemoMode();
 
-  const router = useRouter();
-  const pathname = usePathname();
-
   useTourNavigation();
 
   const step = TOUR_STEPS[currentTourStep];
 
-  const navigateAndScroll = useCallback(
-    (stepDef: (typeof TOUR_STEPS)[number] | undefined) => {
-      if (!stepDef) return;
-      const normalizedCurrent =
-        pathname === "/" ? "/(tabs)" : `/(tabs)${pathname}`;
-      if (stepDef.route && normalizedCurrent !== stepDef.route) {
-        router.navigate(stepDef.route as any);
-      }
-    },
-    [pathname, router],
-  );
-
+  // Navigation is handled by useTourNavigation — just update the step
   const handleNext = useCallback(() => {
     soundManager.play("tap");
     if (currentTourStep < TOUR_TOTAL - 1) {
-      const nextStep = TOUR_STEPS[currentTourStep + 1];
       setTourStep(currentTourStep + 1);
-      navigateAndScroll(nextStep);
     } else {
       stopDemo();
       soundManager.play("success");
     }
-  }, [currentTourStep, setTourStep, navigateAndScroll, stopDemo]);
+  }, [currentTourStep, setTourStep, stopDemo]);
 
   const handlePrev = useCallback(() => {
     if (currentTourStep > 0) {
       soundManager.play("tap");
-      const prevStep = TOUR_STEPS[currentTourStep - 1];
       setTourStep(currentTourStep - 1);
-      navigateAndScroll(prevStep);
     }
-  }, [currentTourStep, setTourStep, navigateAndScroll]);
+  }, [currentTourStep, setTourStep]);
 
   const handleSkip = useCallback(() => {
     soundManager.play("tap");
@@ -90,13 +72,12 @@ export function TourOverlay({ theme, children }: Props) {
 
   const handleRestore = useCallback(() => {
     soundManager.play("pop");
-    const currentStep = TOUR_STEPS[currentTourStep];
-    navigateAndScroll(currentStep);
+    // useTourNavigation handles route changes when isTourMinimized becomes false
     setTimeout(() => {
       autoMinRef.current = false;
       setTourMinimized(false);
-    }, 500);
-  }, [currentTourStep, navigateAndScroll, setTourMinimized]);
+    }, 200);
+  }, [setTourMinimized]);
 
   const controlValue = useMemo<TourControlContextValue>(
     () => ({
