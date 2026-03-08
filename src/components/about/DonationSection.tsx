@@ -135,6 +135,7 @@ export function LinkRow({
   onPress,
   targetRef,
   tourCard,
+  disabled = false,
 }: {
   icon: string;
   label: string;
@@ -144,13 +145,14 @@ export function LinkRow({
   onPress: () => void;
   targetRef?: any;
   tourCard?: React.ReactNode;
+  disabled?: boolean;
 }) {
   const content = (
     <Pressable
       ref={targetRef}
       collapsable={false}
-      style={({ pressed }) => [linkStyles.row, pressed && { opacity: 0.6 }]}
-      onPress={() => { soundManager.play("tap"); onPress(); }}
+      style={({ pressed }) => [linkStyles.row, pressed && !disabled && { opacity: 0.6 }]}
+      onPress={() => { if (disabled) return; soundManager.play("tap"); onPress(); }}
     >
       <View style={[linkStyles.iconBg, { backgroundColor: color + "18" }]}>
         <Feather name={icon as any} size={16} color={color} />

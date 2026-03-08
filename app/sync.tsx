@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -21,6 +21,7 @@ import { useSync } from "@/src/context/SyncProvider";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { QRScannerModal } from "@/src/components/sync/QRScannerModal";
+import { useTourTarget } from "@/src/tour/useTourTarget";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const QR_SIZE = Math.min(SCREEN_W * 0.5, SCREEN_H * 0.3, 220);
@@ -69,6 +70,8 @@ export default function SyncScreen() {
   const [actionLoading, setActionLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const { targetRef: syncFooterRef, TourCard: SyncTourCard, activeStyle: syncFooterActive } = useTourTarget("sync-footer", scrollRef);
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
@@ -137,7 +140,7 @@ export default function SyncScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView contentContainerStyle={[s.content, { paddingBottom: insets.bottom + webBottomInset + 24 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[s.content, { paddingBottom: insets.bottom + webBottomInset + 24 }]} showsVerticalScrollIndicator={false}>
         {/* Status card */}
         <View style={[s.statusCard, { backgroundColor: theme.cardBackground }]}>
           <View style={s.statusRow}>
@@ -191,10 +194,10 @@ export default function SyncScreen() {
               </Text>
             </View>
 
-            <View style={s.actionsRow}>
+            <View ref={syncFooterRef as any} collapsable={false} style={[s.actionsRow, syncFooterActive]}>
               <Pressable
-                style={({ pressed }) => [s.actionCard, { backgroundColor: theme.primaryColor }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
-                onPress={handleCreateGroup}
+                style={({ pressed }) => [s.actionCard, { backgroundColor: theme.primaryColor }, pressed && !syncFooterActive && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                onPress={() => { if (syncFooterActive) return; handleCreateGroup(); }}
                 disabled={isBusy}
               >
                 {isBusy ? <ActivityIndicator size="small" color="#FFFFFF" /> : (
@@ -217,6 +220,7 @@ export default function SyncScreen() {
                 <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Com codigo</Text>
               </Pressable>
             </View>
+            <SyncTourCard />
 
             {Platform.OS !== "web" && (
               <Pressable

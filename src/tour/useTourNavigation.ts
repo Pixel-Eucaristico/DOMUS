@@ -36,18 +36,16 @@ export function useTourNavigation() {
 
     lastNavigatedStep.current = currentTourStep;
 
-    // Se estamos em tela stack (não-tab) e o destino é tab,
-    // precisamos voltar antes de navegar para as tabs
     const onStackScreen = !isTabRoute(pathname);
     const targetIsTab = step.route.startsWith("/(tabs)");
 
-    if (onStackScreen && targetIsTab) {
-      // Dismiss stack screen(s) primeiro, depois navega para a tab correta
+    if (onStackScreen) {
+      // Estamos em tela stack — dismiss tudo antes de navegar
       const timer = setTimeout(() => {
         try { router.dismissAll(); } catch { /* ignore */ }
         setTimeout(() => {
           router.navigate(step.route as any);
-        }, 50);
+        }, targetIsTab ? 50 : 150);
       }, 100);
       return () => clearTimeout(timer);
     }

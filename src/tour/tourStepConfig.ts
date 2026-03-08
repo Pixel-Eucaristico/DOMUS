@@ -213,16 +213,41 @@ export const TOUR_STEPS: TourStepDef[] = [
   },
   {
     id: 16,
+    tag: "Recurso: Sync",
+    title: "Sincronizar Dispositivos",
+    description:
+      "Toque aqui para abrir a tela de sincronização. " +
+      "Conecte dois ou mais celulares para manter seus dados sempre atualizados — sem nuvem.",
+    icon: "refresh-cw",
+    route: "/(tabs)",
+    targetId: "sync-btn",
+    arrowDirection: "down",
+    arrowAlign: "left",
+  },
+  {
+    id: 17,
+    tag: "Recurso: Sync",
+    title: "Sincronização P2P",
+    description:
+      "Crie um grupo e compartilhe o código ou QR Code. " +
+      "Seus dados são replicados via relays Nostr com criptografia ponta-a-ponta, sem servidor central.",
+    icon: "refresh-cw",
+    route: "/sync",
+    targetId: "sync-footer",
+    arrowDirection: "up",
+  },
+  {
+    id: 18,
     tag: "Recurso: Backup",
     title: "Backup Criptografado",
     description:
       "Exporte todos os dados em um arquivo .domusbackup protegido por senha (AES-256). " +
       "Restaure em qualquer dispositivo — nenhum dado vai para a nuvem.",
     icon: "database",
-    route: "/(tabs)",
+    route: "/backup",
   },
   {
-    id: 17,
+    id: 18,
     tag: "Pronto!",
     title: "Tudo Configurado!",
     description:

@@ -61,6 +61,7 @@ export default function HomeScreen() {
   const { targetRef: fabRef, TourCard: FabTourCard, activeStyle: fabActive } = useTourTarget("fab-add");
   const { targetRef: aiChatRef, TourCard: AiChatTourCard, activeStyle: aiChatActive } = useTourTarget("ai-chat-btn");
   const { targetRef: settingsRef, TourCard: SettingsTourCard, activeStyle: settingsActive } = useTourTarget("dashboard-settings");
+  const { targetRef: syncBtnRef, TourCard: SyncBtnTourCard, activeStyle: syncBtnActive } = useTourTarget("sync-btn");
 
   // Month/Year filter state
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -235,14 +236,16 @@ export default function HomeScreen() {
               </View>
             </View>
             <View style={s.headerActions}>
-              <AnimatedIconButton
-                name="refresh-cw"
-                size={20}
-                color={theme.primaryColor}
-                isLoading={syncStatus === "syncing"}
-                style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
-                onPress={() => router.push("/sync")}
-              />
+              <View ref={syncBtnRef as any} collapsable={false} style={syncBtnActive}>
+                <AnimatedIconButton
+                  name="refresh-cw"
+                  size={20}
+                  color={theme.primaryColor}
+                  isLoading={syncStatus === "syncing"}
+                  style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
+                  onPress={() => router.push("/sync")}
+                />
+              </View>
               {__DEV__ && (
               <AnimatedIconButton
                 name="maximize"
@@ -273,6 +276,7 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
+          <SyncBtnTourCard />
           <AiChatTourCard />
           <SettingsTourCard />
         </View>
