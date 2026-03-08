@@ -1,0 +1,68 @@
+import React from "react";
+import { StyleSheet, Pressable } from "react-native";
+import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
+import type { ThemeColors } from "@packages/theme";
+import type { TourStepDef } from "@/src/tour/tourStepConfig";
+import { TourInlineCard } from "./TourInlineCard";
+
+interface Props {
+  step: TourStepDef;
+  stepIndex: number;
+  theme: ThemeColors;
+  onNext: () => void;
+  onPrev: () => void;
+  onSkip: () => void;
+  onMinimize: () => void;
+  isLast: boolean;
+}
+
+export function TourModalCard({
+  step,
+  stepIndex,
+  theme,
+  onNext,
+  onPrev,
+  onSkip,
+  onMinimize,
+  isLast,
+}: Props) {
+  return (
+    <Animated.View entering={FadeIn.duration(200)} style={s.overlay}>
+      <Pressable style={s.backdrop} onPress={onMinimize} />
+      <Animated.View
+        entering={FadeInUp.duration(300).springify().damping(20)}
+        style={s.cardWrapper}
+      >
+        <TourInlineCard
+          step={step}
+          stepIndex={stepIndex}
+          theme={theme}
+          onNext={onNext}
+          onPrev={onPrev}
+          onSkip={onSkip}
+          onMinimize={onMinimize}
+          isLast={isLast}
+          showArrow={false}
+        />
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
+const s = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9998,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  cardWrapper: {
+    maxWidth: 340,
+    width: "90%",
+    zIndex: 1,
+  },
+});

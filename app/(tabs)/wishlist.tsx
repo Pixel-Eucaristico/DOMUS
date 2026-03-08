@@ -14,12 +14,15 @@ import { soundManager } from "@/src/services/SoundManager";
 import { useWishlist } from "@/src/hooks/useWishlist";
 import { WishlistListCard } from "@/src/components/wishlist/WishlistListCard";
 import { CreateListModal } from "@/src/components/wishlist/CreateListModal";
+import { useTourTarget } from "@/src/tour/useTourTarget";
+
 
 export default function WishlistTab() {
   const { theme } = useAppState();
   const router = useRouter();
   const { lists, getItemsByList, createList } = useWishlist();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const { targetRef: wishlistHeaderRef, TourCard: WishlistTourCard, activeStyle: wishlistActive } = useTourTarget("wishlist-header");
 
   const sortedLists = useMemo(
     () => [...lists].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
@@ -35,7 +38,7 @@ export default function WishlistTab() {
     <SafeAreaView
       style={[styles.safe, { backgroundColor: theme.background }]}
     >
-      <View style={styles.header}>
+      <View ref={wishlistHeaderRef} collapsable={false} style={[styles.header, wishlistActive]}>
         <Text style={[styles.title, { color: theme.textColor }]}>
           Lista de Desejos
         </Text>
@@ -50,6 +53,7 @@ export default function WishlistTab() {
           <Feather name="plus" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
+      <WishlistTourCard />
 
       {sortedLists.length === 0 ? (
         <View style={styles.emptyState}>

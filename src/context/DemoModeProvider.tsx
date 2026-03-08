@@ -11,39 +11,46 @@ import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { DEMO_SEED_EVENTS } from "@/src/constants/mockDemoEvents";
 
 const TOUR_SHOWN_KEY = "domus_tour_shown_v1";
+const TOUR_STEP_KEY = "domus_tour_step_v1";
 
 interface DemoModeContextValue {
   isDemoActive: boolean;
   startDemo: () => void;
   stopDemo: () => void;
-  /** In-memory events for the sandbox — empty when demo is inactive. */
   demoEvents: SyncEvent[];
-  /** Append an event to the sandbox without touching SQLite. */
   dispatchDemoEvent: (event: { id: string; type: string; payload?: object; timestamp: number }) => void;
+  currentTourStep: number;
+  setTourStep: (step: number) => void;
+  isTourMinimized: boolean;
+  setTourMinimized: (minimized: boolean) => void;
 }
 
 const DemoModeContext = createContext<DemoModeContextValue | null>(null);
 
-/**
- * Gerenciador de Sandboxing para o Tur Guiado.
- *
- * SRP: Responsável apenas por controlar o estado do modo demo e detectar
- *      o primeiro acesso (para exibir o tour automaticamente).
- * OCP: Novos tipos de seed events podem ser adicionados em mockDemoEvents.ts
- *      sem alterar este provider.
- */
 export function DemoModeProvider({ children }: { children: React.ReactNode }) {
   const [isDemoActive, setIsDemoActive] = useState(false);
   const [demoEvents, setDemoEvents] = useState<SyncEvent[]>([]);
+  const [currentTourStep, setCurrentTourStepState] = useState(0);
+  const [isTourMinimized, setTourMinimized] = useState(false);
+
+  const setTourStep = useCallback((step: number) => {
+    setCurrentTourStepState(step);
+    AsyncStorage.setItem(TOUR_STEP_KEY, String(step)).catch(() => {});
+  }, []);
 
   const startDemo = useCallback(() => {
     setDemoEvents(DEMO_SEED_EVENTS);
     setIsDemoActive(true);
+    setCurrentTourStepState(0);
+    setTourMinimized(false);
+    AsyncStorage.setItem(TOUR_STEP_KEY, "0").catch(() => {});
   }, []);
 
   const stopDemo = useCallback(() => {
     setIsDemoActive(false);
-    setDemoEvents([]); // Dados voláteis — cleanup automático
+    setDemoEvents([]);
+    setTourMinimized(false);
+    AsyncStorage.removeItem(TOUR_STEP_KEY).catch(() => {});
   }, []);
 
   const dispatchDemoEvent = useCallback(
@@ -61,19 +68,38 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  /** Detecta o primeiro acesso ao app e inicia o tour automaticamente. */
   useEffect(() => {
-    AsyncStorage.getItem(TOUR_SHOWN_KEY).then((value) => {
-      if (value === null) {
+    Promise.all([
+      AsyncStorage.getItem(TOUR_SHOWN_KEY),
+      AsyncStorage.getItem(TOUR_STEP_KEY),
+    ]).then(([shown, savedStep]) => {
+      if (shown === null) {
         AsyncStorage.setItem(TOUR_SHOWN_KEY, "shown");
         startDemo();
+      } else if (savedStep !== null) {
+        const step = parseInt(savedStep, 10);
+        if (!isNaN(step) && step >= 0) {
+          setCurrentTourStepState(step);
+          setDemoEvents(DEMO_SEED_EVENTS);
+          setIsDemoActive(true);
+        }
       }
     });
   }, [startDemo]);
 
   const value = useMemo(
-    () => ({ isDemoActive, startDemo, stopDemo, demoEvents, dispatchDemoEvent }),
-    [isDemoActive, startDemo, stopDemo, demoEvents, dispatchDemoEvent],
+    () => ({
+      isDemoActive,
+      startDemo,
+      stopDemo,
+      demoEvents,
+      dispatchDemoEvent,
+      currentTourStep,
+      setTourStep,
+      isTourMinimized,
+      setTourMinimized,
+    }),
+    [isDemoActive, startDemo, stopDemo, demoEvents, dispatchDemoEvent, currentTourStep, setTourStep, isTourMinimized],
   );
 
   return (

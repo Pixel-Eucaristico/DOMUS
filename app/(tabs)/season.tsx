@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -21,6 +21,8 @@ import { MonthlyTrophiesList } from "@/src/components/gamification/MonthlyTrophi
 import { AchievementGrid } from "@/src/components/gamification/AchievementGrid";
 import { soundManager } from "@/src/services/SoundManager";
 import { useSeasonData, MONTHS } from "@/src/hooks/useSeasonData";
+import { useTourTarget } from "@/src/tour/useTourTarget";
+
 
 export default function SeasonScreen() {
   const insets = useSafeAreaInsets();
@@ -28,6 +30,9 @@ export default function SeasonScreen() {
     useAppState();
   const [selectedAch, setSelectedAch] = useState<Achievement | null>(null);
   const [activeTab, setActiveTab] = useState<"current" | "collection">("current");
+  const seasonScrollRef = useRef<ScrollView>(null);
+  const { targetRef: xpRef, TourCard: XpTourCard, activeStyle: xpActive } = useTourTarget("xp-section", seasonScrollRef);
+  const { targetRef: trophyRef, TourCard: TrophyTourCard, activeStyle: trophyActive } = useTourTarget("trophy-section", seasonScrollRef);
 
   const webTopInset = 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
@@ -91,6 +96,7 @@ export default function SeasonScreen() {
       </View>
 
       <ScrollView
+        ref={seasonScrollRef}
         contentContainerStyle={[st.content, { paddingBottom: insets.bottom + webBottomInset + 32 }]}
         showsVerticalScrollIndicator={false}
       >
@@ -98,19 +104,26 @@ export default function SeasonScreen() {
           <>
             {/* Season progress / start */}
             {!sd.hasSeason ? (
-              <View style={[st.card, { backgroundColor: theme.cardBackground }]}>
-                <Feather name="calendar" size={32} color={theme.secondaryText} />
-                <Text style={[st.cardText, { color: theme.textColor }]}>Nenhuma temporada ativa</Text>
-                <Pressable style={[st.actionBtn, { backgroundColor: theme.primaryColor }]} onPress={sd.handleStartSeason}>
-                  <Feather name="play" size={18} color="#FFF" />
-                  <Text style={st.actionBtnText}>Iniciar temporada</Text>
-                </Pressable>
-              </View>
+              <>
+                <View ref={xpRef} collapsable={false} style={[st.card, { backgroundColor: theme.cardBackground }, xpActive]}>
+                  <Feather name="calendar" size={32} color={theme.secondaryText} />
+                  <Text style={[st.cardText, { color: theme.textColor }]}>Nenhuma temporada ativa</Text>
+                  <Pressable style={[st.actionBtn, { backgroundColor: theme.primaryColor }]} onPress={sd.handleStartSeason}>
+                    <Feather name="play" size={18} color="#FFF" />
+                    <Text style={st.actionBtnText}>Iniciar temporada</Text>
+                  </Pressable>
+                </View>
+                <XpTourCard />
+              </>
             ) : (
+              <>
               <View
-                ref={sd.progressCardRef}
+                ref={(node) => {
+                  (sd.progressCardRef as React.MutableRefObject<any>).current = node;
+                  (xpRef as React.MutableRefObject<any>).current = node;
+                }}
                 collapsable={false}
-                style={[st.card, { backgroundColor: theme.cardBackground, paddingVertical: 16 }]}
+                style={[st.card, { backgroundColor: theme.cardBackground, paddingVertical: 16 }, xpActive]}
               >
                 <View style={[st.progressHeader, { marginBottom: 8 }]}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -156,6 +169,8 @@ export default function SeasonScreen() {
                   </Pressable>
                 )}
               </View>
+              <XpTourCard />
+              </>
             )}
 
             {/* Recent achievement highlights */}
@@ -166,16 +181,19 @@ export default function SeasonScreen() {
               onViewAll={() => setActiveTab("collection")}
             />
 
-            <SurpriseTrophyCard
-              currentYear={sd.currentYear}
-              currentMonth={sd.currentMonth}
-              gamification={gamification}
-              domain={domain}
-              budget={budget}
-              theme={theme}
-              isCatholic={!!isCatholic}
-              setIsCatholic={setIsCatholic}
-            />
+            <View ref={trophyRef} collapsable={false} style={trophyActive}>
+              <SurpriseTrophyCard
+                currentYear={sd.currentYear}
+                currentMonth={sd.currentMonth}
+                gamification={gamification}
+                domain={domain}
+                budget={budget}
+                theme={theme}
+                isCatholic={!!isCatholic}
+                setIsCatholic={setIsCatholic}
+              />
+            </View>
+            <TrophyTourCard />
 
             <MonthlyTrophiesList
               theme={theme}

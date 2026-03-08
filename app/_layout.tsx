@@ -244,23 +244,24 @@ export default function RootLayout() {
                 <SyncProvider>
                   <SavingsGoalScheduler />
                   <AutoBackupScheduler />
-                  <SecurityGuard>
-                    <DesktopLayout>
-                      <RootLayoutNav />
-                    </DesktopLayout>
-                  </SecurityGuard>
+                  <TourContent>
+                    <SecurityGuard>
+                      <DesktopLayout>
+                        <RootLayoutNav />
+                      </DesktopLayout>
+                    </SecurityGuard>
 
-                  {/* Modais e Overlays globais só aparecem após o término da animação de Splash para evitar sobreposição visual */}
-                  {splashFinished && (
-                    <>
-                      <ShareIntentHandler />
-                      <TourContent />
-                      <AchievementToastHost />
-                      <SeasonalToastHost />
-                      <ReligiousPreferenceHost />
-                      {__DEV__ && <DebugTools />}
-                    </>
-                  )}
+                    {/* Modais e Overlays globais só aparecem após o término da animação de Splash para evitar sobreposição visual */}
+                    {splashFinished && (
+                      <>
+                        <ShareIntentHandler />
+                        <AchievementToastHost />
+                        <SeasonalToastHost />
+                        <ReligiousPreferenceHost />
+                        {__DEV__ && <DebugTools />}
+                      </>
+                    )}
+                  </TourContent>
                 </SyncProvider>
               </KeyboardProvider>
             </AppContainer>
@@ -271,9 +272,9 @@ export default function RootLayout() {
   );
 }
 
-function TourContent() {
+function TourContent({ children }: { children: React.ReactNode }) {
   const { theme } = useAppState();
-  return <TourOverlay theme={theme} />;
+  return <TourOverlay theme={theme}>{children}</TourOverlay>;
 }
 
 function AchievementToastHost() {

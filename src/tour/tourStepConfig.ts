@@ -1,0 +1,183 @@
+export type ArrowDirection = "up" | "down" | "left" | "right";
+
+export interface TourStepDef {
+  id: number;
+  tag: string;
+  title: string;
+  description: string;
+  icon: string;
+  iconSet?: "Feather" | "MaterialCommunityIcons";
+  route?: string;
+  targetId?: string;
+  arrowDirection?: ArrowDirection;
+}
+
+export const TOUR_STEPS: TourStepDef[] = [
+  {
+    id: 0,
+    tag: "Boas-vindas",
+    title: "Bem-vindo ao DOMUS!",
+    description:
+      "Tudo o que você fizer agora é apenas um teste — ambiente sandbox seguro. " +
+      "Seus dados reais estão protegidos e nada será salvo ao encerrar o tour.",
+    icon: "award",
+    route: "/(tabs)",
+  },
+  {
+    id: 1,
+    tag: "Aba: Início",
+    title: "Dashboard & Saldo Total",
+    description:
+      "A tela inicial exibe seu saldo consolidado de todas as contas, " +
+      "evolução mensal e resumo das finanças do mês atual.",
+    icon: "home",
+    route: "/(tabs)",
+    targetId: "dashboard-balance",
+    arrowDirection: "down",
+  },
+  {
+    id: 2,
+    tag: "Aba: Início",
+    title: "Regra 50 / 30 / 20",
+    description:
+      "Suas despesas são classificadas automaticamente: 50% Essencial (moradia, saúde), " +
+      "30% Estilo de Vida (lazer, vestuário) e 20% Futuro (investimentos, poupança).",
+    icon: "pie-chart",
+    route: "/(tabs)",
+    targetId: "budget-section",
+    arrowDirection: "down",
+  },
+  {
+    id: 3,
+    tag: "Aba: Contas",
+    title: "Contas & Cartões",
+    description:
+      "Cadastre carteiras, contas bancárias, cartões de crédito e contas poupança. " +
+      "Cada conta tem cor, limite e saldo atualizados automaticamente a cada transação.",
+    icon: "credit-card",
+    route: "/(tabs)/accounts",
+    targetId: "accounts-header",
+    arrowDirection: "down",
+  },
+  {
+    id: 4,
+    tag: "Função: Transação",
+    title: "Registrar Transação",
+    description:
+      "Toque em '+' para lançar receita, despesa ou transferência. " +
+      "Defina categoria, status (pendente/confirmado), recorrência e até parcelas.",
+    icon: "plus-circle",
+    route: "/(tabs)",
+    targetId: "fab-add",
+    arrowDirection: "up",
+  },
+  {
+    id: 5,
+    tag: "Função: Importação",
+    title: "Importar Nota Fiscal",
+    description:
+      "Escaneie o QR Code da NF-e com a câmera, fotografe via OCR (múltiplas fotos) " +
+      "ou digite a chave de acesso. O DOMUS preenche tudo automaticamente.",
+    icon: "camera",
+    route: "/(tabs)",
+  },
+  {
+    id: 6,
+    tag: "Função: Dízimo",
+    title: "Calculadora de Dízimo",
+    description:
+      "Ao selecionar «Dízimo / Oferta» como categoria, um painel aparece para calcular " +
+      "o percentual sobre a renda bruta ou líquida. O valor é preenchido automaticamente.",
+    icon: "percent",
+    route: "/(tabs)",
+  },
+  {
+    id: 7,
+    tag: "Aba: Desejos",
+    title: "Lista de Desejos",
+    description:
+      "Organize compras futuras em listas com prioridades (Urgente → Baixa). " +
+      "Arraste para reordenar, vincule links da Amazon / Mercado Livre e veja links de afiliado.",
+    icon: "heart",
+    route: "/(tabs)/wishlist",
+    targetId: "wishlist-header",
+    arrowDirection: "down",
+  },
+  {
+    id: 8,
+    tag: "Função: Poupança",
+    title: "Objetivo de Poupança",
+    description:
+      "Vincule uma conta poupança a itens da lista de desejos. " +
+      "O saldo vira barra de progresso no item — você vê exatamente quanto falta.",
+    icon: "target",
+    route: "/(tabs)/wishlist",
+  },
+  {
+    id: 9,
+    tag: "Aba: Temporada",
+    title: "Conquistas & XP",
+    description:
+      "Cada transação gera XP e mantém sua sequência diária (streak). " +
+      "Suba de nível e desbloqueie 8 conquistas: Prata, Ouro e Diamante.",
+    icon: "star",
+    route: "/(tabs)/season",
+    targetId: "xp-section",
+    arrowDirection: "down",
+  },
+  {
+    id: 10,
+    tag: "Aba: Temporada",
+    title: "Troféu do Mês",
+    description:
+      "Todo mês um troféu único é sorteado — secular ou litúrgico (para usuários católicos). " +
+      "Repetindo em anos seguintes, o nível sobe: Bronze, Prata e Ouro.",
+    icon: "gift",
+    route: "/(tabs)/season",
+    targetId: "trophy-section",
+    arrowDirection: "down",
+  },
+  {
+    id: 11,
+    tag: "Recurso: IA",
+    title: "Assistente Financeiro IA",
+    description:
+      "Converse com o assistente de IA sobre suas finanças. Ele analisa seu histórico, " +
+      "sugere metas e responde dúvidas com base nos seus dados reais.",
+    icon: "robot-happy",
+    iconSet: "MaterialCommunityIcons",
+    route: "/(tabs)",
+  },
+  {
+    id: 12,
+    tag: "Recurso: Segurança",
+    title: "Bloqueio por PIN ou Biometria",
+    description:
+      "Ative a tela de bloqueio em Configurações → Segurança. " +
+      "O app trava ao ir para segundo plano e exige PIN ou digital para entrar.",
+    icon: "lock",
+    route: "/(tabs)",
+  },
+  {
+    id: 13,
+    tag: "Recurso: Backup",
+    title: "Backup Criptografado",
+    description:
+      "Exporte todos os dados em um arquivo .domusbackup protegido por senha (AES-256). " +
+      "Restaure em qualquer dispositivo — nenhum dado vai para a nuvem.",
+    icon: "database",
+    route: "/(tabs)",
+  },
+  {
+    id: 14,
+    tag: "Pronto!",
+    title: "Tudo Configurado!",
+    description:
+      "Você conheceu todas as funções do DOMUS. " +
+      "Comece registrando sua primeira transação real — cada passo conta para sua liberdade financeira!",
+    icon: "zap",
+    route: "/(tabs)",
+  },
+];
+
+export const TOUR_TOTAL = TOUR_STEPS.length;

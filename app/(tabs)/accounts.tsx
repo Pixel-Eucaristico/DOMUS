@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { StyleSheet, View, Text, Pressable, ScrollView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -12,6 +12,8 @@ import { AccountCard } from "@/src/components/shared/AccountCard";
 import { AccountFormModal } from "@/src/components/shared/AccountFormModal";
 import { ResponsiveContainer } from "@/src/ui/components/ResponsiveContainer";
 import { ResponsiveGrid } from "@/src/ui/components/ResponsiveGrid";
+import { useTourTarget } from "@/src/tour/useTourTarget";
+
 
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
@@ -23,6 +25,8 @@ export default function AccountsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingAccount, setEditingAccount] = useState<AccountPayload | null>(null);
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+  const scrollRef = useRef<ScrollView>(null);
+  const { targetRef: accountsHeaderRef, TourCard: AccountsTourCard, activeStyle: accountsActive } = useTourTarget("accounts-header", scrollRef);
 
   const accounts = Object.values(domain.accounts);
 
@@ -66,6 +70,7 @@ export default function AccountsScreen() {
   return (
     <View style={[s.root, { backgroundColor: theme.background }]}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[
           s.content,
           { paddingTop: insets.top + webTopInset + 16, paddingBottom: insets.bottom + webBottomInset + 100 },
@@ -73,7 +78,7 @@ export default function AccountsScreen() {
         showsVerticalScrollIndicator={false}
       >
        <ResponsiveContainer>
-        <View style={s.header}>
+        <View ref={accountsHeaderRef} collapsable={false} style={[s.header, accountsActive]}>
           <Text style={[s.title, { color: theme.textColor }]}>Contas</Text>
           <Pressable
             style={[s.addBtn, { backgroundColor: theme.primaryColor }]}
@@ -85,6 +90,7 @@ export default function AccountsScreen() {
             <Feather name="plus" size={20} color="#FFF" />
           </Pressable>
         </View>
+        <AccountsTourCard />
 
         {accounts.length === 0 ? (
           <View style={[s.emptyCard, { backgroundColor: theme.cardBackground }]}>

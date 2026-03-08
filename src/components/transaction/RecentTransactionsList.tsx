@@ -21,7 +21,7 @@ export function RecentTransactionsList({ recentTxs, txCount, categories, theme }
 
   return (
     <Pressable
-      style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: isMobile ? 16 : 0 }]}
+      style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }]}
       onPress={() => {
         soundManager.play("tap");
         router.push("/transactions");

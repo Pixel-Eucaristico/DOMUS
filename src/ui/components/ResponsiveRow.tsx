@@ -12,10 +12,8 @@ interface Props {
 export const ResponsiveRow = memo(function ResponsiveRow({ children, gap = 12, style, collapseOnMobile = true }: Props) {
   const { isMobile } = useResponsive();
 
-  const direction = collapseOnMobile && isMobile ? 'column' : 'row';
-
   return (
-    <View style={[styles.row, { flexDirection: direction, gap, paddingHorizontal: isMobile ? 0 : 16 }, style]}>
+    <View style={[styles.row, { flexDirection: 'row', gap, paddingHorizontal: isMobile ? 0 : 16 }, style]}>
       {children}
     </View>
   );

@@ -32,7 +32,7 @@ export function GamificationWidget({
 
   return (
     <AnimatedCard index={1}>
-      <View style={[s.gamificationWidget, { marginHorizontal: isMobile ? 16 : 0 }]}>
+      <View style={[s.gamificationWidget, { marginHorizontal: 0, width: "100%" }]}>
         <View style={s.widgetHeader}>
           <View style={s.widgetTitleRow}>
             <MaterialCommunityIcons name="shield-star" size={18} color={theme.primaryColor} />

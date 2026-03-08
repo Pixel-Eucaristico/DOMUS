@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -37,6 +37,9 @@ import { ResponsiveContainer } from "@/src/ui/components/ResponsiveContainer";
 import { ResponsiveRow } from "@/src/ui/components/ResponsiveRow";
 import { ResponsiveColumn } from "@/src/ui/components/ResponsiveColumn";
 import { useResponsive } from "@/src/ui/layout/useResponsive";
+import { useTourTarget } from "@/src/tour/useTourTarget";
+
+
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -49,6 +52,11 @@ export default function HomeScreen() {
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
   const [showAddSheet, setShowAddSheet] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+
+  const { targetRef: balanceRef, TourCard: BalanceTourCard, activeStyle: balanceActive } = useTourTarget("dashboard-balance", scrollRef);
+  const { targetRef: budgetRef, TourCard: BudgetTourCard, activeStyle: budgetActive } = useTourTarget("budget-section", scrollRef);
+  const { targetRef: fabRef, TourCard: FabTourCard, activeStyle: fabActive } = useTourTarget("fab-add");
 
   // Month/Year filter state
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -197,6 +205,7 @@ export default function HomeScreen() {
   return (
     <View style={[s.root, { backgroundColor: theme.background }]}>
       <ScrollView
+        ref={scrollRef}
         style={s.scrollView}
         contentContainerStyle={[
           s.scrollContent,
@@ -292,7 +301,7 @@ export default function HomeScreen() {
 
         {/* ── GAMIFICATION WIDGET ────────────────────────────────────────── */}
         <ResponsiveRow>
-          <ResponsiveColumn span={columns}>
+          <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
             <GamificationWidget
               theme={theme}
               currentTrophy={currentTrophy}
@@ -307,9 +316,9 @@ export default function HomeScreen() {
         {/* ── BALANCE + ACCOUNTS ─────────────────────────────────────────── */}
         {/* ── BALANCE + ACCOUNTS ─────────────────────────────────────────── */}
         <ResponsiveRow gap={16}>
-          <ResponsiveColumn span={accountCount === 0 ? columns : 1}>
+          <ResponsiveColumn span={accountCount === 0 ? columns : 1} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
             <AnimatedCard index={2}>
-              <View style={[s.balanceCard, { backgroundColor: theme.primaryColor, marginHorizontal: isMobile ? 16 : 0, width: "100%" }]}>
+              <View ref={balanceRef} collapsable={false} style={[s.balanceCard, { backgroundColor: theme.primaryColor, marginHorizontal: 0, width: "100%" }, balanceActive]}>
                 <View style={s.balanceHeader}>
                   <View style={s.balanceLabelRow}>
                     <Feather name="dollar-sign" size={16} color="rgba(255,255,255,0.7)" />
@@ -319,6 +328,7 @@ export default function HomeScreen() {
                 </View>
                 <Text style={s.balanceValue}>{formatCurrency(totalBalance)}</Text>
               </View>
+              <BalanceTourCard />
             </AnimatedCard>
           </ResponsiveColumn>
 
@@ -358,9 +368,9 @@ export default function HomeScreen() {
 
         {/* ── BUDGET 50/30/20 ────────────────────────────────────────────── */}
         <ResponsiveRow>
-          <ResponsiveColumn span={columns}>
+          <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
             <AnimatedCard index={3}>
-              <View style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: isMobile ? 16 : 0, width: "100%" }]}>
+              <View ref={budgetRef} collapsable={false} style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }, budgetActive]}>
                 <View style={s.monthFilterContainer}>
                   <Text style={[s.cardTitle, { color: theme.textColor }]}>
                     Orçamento 50/30/20
@@ -395,6 +405,7 @@ export default function HomeScreen() {
                   </View>
                 )}
               </View>
+              <BudgetTourCard />
             </AnimatedCard>
           </ResponsiveColumn>
         </ResponsiveRow>
@@ -402,9 +413,9 @@ export default function HomeScreen() {
         {/* ── SEASON CARD ────────────────────────────────────────────────── */}
         {season.currentSeason?.active && (
           <ResponsiveRow>
-            <ResponsiveColumn span={columns}>
+            <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
               <Pressable
-                style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: isMobile ? 16 : 0, width: "100%" }]}
+                style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }]}
                 onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
               >
                 <View style={s.seasonHeader}>
@@ -445,7 +456,7 @@ export default function HomeScreen() {
         {/* ── SAVINGS GOALS + RECENT TRANSACTIONS ─────────────────────── */}
         <ResponsiveRow gap={16}>
           {savingsGoalAccounts.length > 0 && (
-            <ResponsiveColumn>
+            <ResponsiveColumn style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
               <SavingsGoalCard
                 savingsGoalAccounts={savingsGoalAccounts}
                 savingsContributed={savingsContributed}
@@ -454,7 +465,7 @@ export default function HomeScreen() {
             </ResponsiveColumn>
           )}
 
-          <ResponsiveColumn span={savingsGoalAccounts.length === 0 ? columns : (columns > 1 ? columns - 1 : 1)}>
+          <ResponsiveColumn span={savingsGoalAccounts.length === 0 ? columns : (columns > 1 ? columns - 1 : 1)} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
             <RecentTransactionsList
               recentTxs={recentTxs}
               txCount={txCount}
@@ -463,11 +474,14 @@ export default function HomeScreen() {
             />
           </ResponsiveColumn>
         </ResponsiveRow>
+        <FabTourCard />
        </ResponsiveContainer>
       </ScrollView>
 
       {/* ── FAB ──────────────────────────────────────────────────────────── */}
       <Pressable
+        ref={fabRef}
+        collapsable={false}
         style={({ pressed }) => [
           s.fab,
           {
@@ -475,6 +489,7 @@ export default function HomeScreen() {
             backgroundColor: theme.primaryColor,
           },
           pressed && s.fabPressed,
+          fabActive,
         ]}
         onPress={handleAddPress}
       >
