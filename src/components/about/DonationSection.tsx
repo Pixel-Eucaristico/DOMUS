@@ -3,6 +3,7 @@ import {
   View,
   Text,
   TouchableOpacity,
+  Pressable,
   Linking,
   Alert,
   Platform,
@@ -132,6 +133,8 @@ export function LinkRow({
   color,
   theme,
   onPress,
+  targetRef,
+  tourCard,
 }: {
   icon: string;
   label: string;
@@ -139,12 +142,15 @@ export function LinkRow({
   color: string;
   theme: any;
   onPress: () => void;
+  targetRef?: any;
+  tourCard?: React.ReactNode;
 }) {
-  return (
-    <TouchableOpacity
-      style={linkStyles.row}
+  const content = (
+    <Pressable
+      ref={targetRef}
+      collapsable={false}
+      style={({ pressed }) => [linkStyles.row, pressed && { opacity: 0.6 }]}
       onPress={() => { soundManager.play("tap"); onPress(); }}
-      activeOpacity={0.6}
     >
       <View style={[linkStyles.iconBg, { backgroundColor: color + "18" }]}>
         <Feather name={icon as any} size={16} color={color} />
@@ -158,8 +164,19 @@ export function LinkRow({
         </Text>
       </View>
       <Feather name="chevron-right" size={16} color={theme.secondaryText} />
-    </TouchableOpacity>
+    </Pressable>
   );
+
+  if (tourCard) {
+    return (
+      <View style={Platform.OS === "web" ? { position: "relative" } : {}}>
+        {content}
+        {tourCard}
+      </View>
+    );
+  }
+
+  return content;
 }
 
 const linkStyles = StyleSheet.create({

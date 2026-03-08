@@ -26,6 +26,7 @@ import { useAppState } from "@/src/context/AppStateProvider";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { SelectionModal } from "@/src/components/shared/SelectionModal";
+import { useTourTarget } from "@/src/tour/useTourTarget";
 
 // Extracted components
 import { ContactForm } from "@/src/components/about/ContactForm";
@@ -36,6 +37,7 @@ export default function AboutScreen() {
   const router = useRouter();
   const { theme, themeMode, setThemeMode, soundEnabled, setSoundEnabled, resetApp } = useAppState();
   const { startDemo } = useDemoMode();
+  const { targetRef: securityRef, TourCard: SecurityTourCard, activeStyle: securityActive } = useTourTarget("security-btn");
 
   const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
@@ -119,15 +121,17 @@ export default function AboutScreen() {
           </SectionCard>
 
           {/* ── SETTINGS ────────────────────────────────────────────────── */}
-          <SectionCard theme={theme} icon="settings" title="Configurações" accentColor={theme.accentColor} collapsible>
-            <LinkRow icon="cpu" label="IA Financeira" description="Provedor, chave de API, limites e custos" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }} />
-            <LinkRow icon="lock" label="Segurança" description="Bloqueio por PIN ou biometria" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/security-settings"); }} />
-            <LinkRow icon="download-cloud" label="Backup & Restauração" description="Exportar e importar dados cifrados" color={theme.warning} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/backup"); }} />
-            <LinkRow icon="shield" label="Política de Privacidade" description="Como seus dados são protegidos" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/privacy-policy"); }} />
-            <LinkRow icon="moon" label="Tema" description={`Modo atual: ${themeMode === "system" ? "Sistema" : themeMode === "dark" ? "Escuro" : "Claro"}`} color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); setThemeModalVisible(true); }} />
-            <LinkRow icon="play-circle" label="Refazer Tour do App" description="Reveja o guia de todas as funções do DOMUS (sandbox seguro)" color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); router.back(); setTimeout(startDemo, 300); }} />
-            <SwitchRow icon="volume-2" label="Efeitos Sonoros" description="Sons de confirmação e interações" color={theme.primaryColor} theme={theme} value={soundEnabled} onValueChange={setSoundEnabled} />
-          </SectionCard>
+          <View style={Platform.OS === "web" ? { zIndex: securityActive ? 9999 : 1, position: "relative" } : {}}>
+            <SectionCard theme={theme} icon="settings" title="Configurações" accentColor={theme.accentColor} collapsible>
+              <LinkRow icon="cpu" label="IA Financeira" description="Provedor, chave de API, limites e custos" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }} />
+              <LinkRow icon="lock" label="Segurança" description="Bloqueio por PIN ou biometria" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/security-settings"); }} targetRef={securityRef as any} tourCard={<SecurityTourCard />} />
+              <LinkRow icon="download-cloud" label="Backup & Restauração" description="Exportar e importar dados cifrados" color={theme.warning} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/backup"); }} />
+              <LinkRow icon="shield" label="Política de Privacidade" description="Como seus dados são protegidos" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/privacy-policy"); }} />
+              <LinkRow icon="moon" label="Tema" description={`Modo atual: ${themeMode === "system" ? "Sistema" : themeMode === "dark" ? "Escuro" : "Claro"}`} color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); setThemeModalVisible(true); }} />
+              <LinkRow icon="play-circle" label="Refazer Tour do App" description="Reveja o guia de todas as funções do DOMUS (sandbox seguro)" color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); router.back(); setTimeout(startDemo, 300); }} />
+              <SwitchRow icon="volume-2" label="Efeitos Sonoros" description="Sons de confirmação e interações" color={theme.primaryColor} theme={theme} value={soundEnabled} onValueChange={setSoundEnabled} />
+            </SectionCard>
+          </View>
 
           {/* ── CONTACT FORM ────────────────────────────────────────────── */}
           <SectionCard theme={theme} icon="mail" title="Fale Conosco" accentColor={theme.primaryColor} collapsible>

@@ -60,6 +60,7 @@ export default function HomeScreen() {
   const { targetRef: trophyRef, TourCard: TrophyTourCard, activeStyle: trophyActive } = useTourTarget("trophy-section", scrollRef);
   const { targetRef: fabRef, TourCard: FabTourCard, activeStyle: fabActive } = useTourTarget("fab-add");
   const { targetRef: aiChatRef, TourCard: AiChatTourCard, activeStyle: aiChatActive } = useTourTarget("ai-chat-btn");
+  const { targetRef: settingsRef, TourCard: SettingsTourCard, activeStyle: settingsActive } = useTourTarget("dashboard-settings");
 
   // Month/Year filter state
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -221,8 +222,8 @@ export default function HomeScreen() {
       >
        <ResponsiveContainer style={{ gap: 16 }}>
         {/* ── HEADER ─────────────────────────────────────────────────────── */}
-        <View style={Platform.OS === "web" ? { zIndex: aiChatActive ? 9999 : 1, position: "relative" } : {}}>
-          <View style={[s.header, aiChatActive, Platform.OS === "web" && aiChatActive ? { zIndex: 9998, position: "relative" } : {}]}>
+        <View style={Platform.OS === "web" ? { zIndex: (aiChatActive || settingsActive) ? 9999 : 1, position: "relative" } : {}}>
+          <View style={[s.header, aiChatActive || settingsActive, Platform.OS === "web" && (aiChatActive || settingsActive) ? { zIndex: 9998, position: "relative" } : {}]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <DomusLogo size={36} theme={theme} />
               <View>
@@ -261,16 +262,19 @@ export default function HomeScreen() {
                   onPress={() => router.push("/ai-chat")}
                 />
               </View>
-              <AnimatedIconButton
-                name="settings"
-                size={20}
-                color={theme.primaryColor}
-                style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
-                onPress={() => router.push("/about")}
-              />
+              <View ref={settingsRef as any} collapsable={false}>
+                <AnimatedIconButton
+                  name="settings"
+                  size={20}
+                  color={theme.primaryColor}
+                  style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
+                  onPress={() => router.push("/about")}
+                />
+              </View>
             </View>
           </View>
           <AiChatTourCard />
+          <SettingsTourCard />
         </View>
 
         {/* ── STATS ROW ──────────────────────────────────────────────────── */}

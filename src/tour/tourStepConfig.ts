@@ -187,16 +187,32 @@ export const TOUR_STEPS: TourStepDef[] = [
   },
   {
     id: 14,
+    tag: "Aba: Início",
+    title: "Configurações Gerais",
+    description:
+      "Acesse este menu para configurar Segurança, Exportação de Backup, Temas Claro/Escuro e mais.",
+    icon: "settings",
+    route: "/(tabs)",
+    targetId: "dashboard-settings",
+    arrowDirection: "up",
+    arrowAlign: "right",
+    arrowOffset: 34,
+  },
+  {
+    id: 15,
     tag: "Recurso: Segurança",
     title: "Bloqueio por PIN ou Biometria",
     description:
       "Ative a tela de bloqueio em Configurações → Segurança. " +
       "O app trava ao ir para segundo plano e exige PIN ou digital para entrar.",
     icon: "lock",
-    route: "/(tabs)",
+    route: "/about",
+    targetId: "security-btn",
+    arrowDirection: "up",
+    arrowAlign: "center",
   },
   {
-    id: 15,
+    id: 16,
     tag: "Recurso: Backup",
     title: "Backup Criptografado",
     description:
@@ -206,7 +222,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     route: "/(tabs)",
   },
   {
-    id: 16,
+    id: 17,
     tag: "Pronto!",
     title: "Tudo Configurado!",
     description:
