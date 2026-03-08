@@ -1,9 +1,10 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ThemeColors } from "@packages/theme";
 import { soundManager } from "@/src/services/SoundManager";
+import { useTourTarget } from "@/src/tour/useTourTarget";
 
 interface Props {
   theme: ThemeColors;
@@ -14,6 +15,8 @@ interface Props {
 
 export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Props) {
   const router = useRouter();
+  const { targetRef: qrRef, TourCard: QrTourCard, activeStyle: qrActive } = useTourTarget("import-qr");
+  const { targetRef: manualRef, TourCard: ManualTourCard, activeStyle: manualActive } = useTourTarget("import-manual");
 
   return (
     <View style={s.container}>
@@ -21,15 +24,23 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
       <Text style={[s.title, { color: theme.textColor }]}>Importar Nota Fiscal</Text>
       <Text style={[s.subtitle, { color: theme.secondaryText }]}>Escolha como deseja importar</Text>
 
-      <View style={s.actions}>
-        <Pressable style={[s.mainBtn, { backgroundColor: theme.primaryColor }]} onPress={() => { soundManager.play("tap"); onQRPress(); }}>
-          <Feather name="maximize" size={28} color="#FFF" />
-          <View style={s.btnTextGroup}>
-            <Text style={s.mainBtnLabel}>QR Code</Text>
-            <Text style={s.mainBtnSub}>Câmera, galeria ou digitar chave</Text>
-          </View>
-          <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.6)" />
-        </Pressable>
+      <View style={[s.actions, Platform.OS === "web" ? { zIndex: qrActive || manualActive ? 9999 : 1, position: "relative" } : {}]}>
+        <View style={Platform.OS === "web" && qrActive ? { zIndex: 9998, position: "relative" } : {}}>
+          <Pressable 
+            ref={qrRef as any}
+            collapsable={false}
+            style={[s.mainBtn, { backgroundColor: theme.primaryColor }, qrActive ? { backgroundColor: theme.primaryColor, zIndex: 9998, position: "relative" } : {}]} 
+            onPress={() => { soundManager.play("tap"); onQRPress(); }}
+          >
+            <Feather name="maximize" size={28} color="#FFF" />
+            <View style={s.btnTextGroup}>
+              <Text style={s.mainBtnLabel}>QR Code</Text>
+              <Text style={s.mainBtnSub}>Câmera, galeria ou digitar chave</Text>
+            </View>
+            <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.6)" />
+          </Pressable>
+          <QrTourCard />
+        </View>
 
         <Pressable style={[s.mainBtn, { backgroundColor: theme.accentColor }]} onPress={() => { soundManager.play("tap"); onOCRPress(); }}>
           <Feather name="type" size={28} color="#FFF" />
@@ -40,10 +51,18 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
           <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.6)" />
         </Pressable>
 
-        <Pressable style={[s.outlineBtn, { borderColor: theme.border }]} onPress={() => { soundManager.play("tap"); onManualEntry(); }}>
-          <Feather name="edit-3" size={20} color={theme.textColor} />
-          <Text style={[s.outlineBtnText, { color: theme.textColor }]}>Lançar manualmente</Text>
-        </Pressable>
+        <View style={Platform.OS === "web" && manualActive ? { zIndex: 9998, position: "relative" } : {}}>
+          <Pressable 
+            ref={manualRef as any}
+            collapsable={false}
+            style={[s.outlineBtn, { borderColor: theme.border }, manualActive ? { backgroundColor: theme.cardBackground, zIndex: 9998, position: "relative" } : {}]} 
+            onPress={() => { soundManager.play("tap"); onManualEntry(); }}
+          >
+            <Feather name="edit-3" size={20} color={theme.textColor} />
+            <Text style={[s.outlineBtnText, { color: theme.textColor }]}>Lançar manualmente</Text>
+          </Pressable>
+          <ManualTourCard />
+        </View>
       </View>
 
       <Pressable style={s.settingsLink} onPress={() => { soundManager.play("tap"); router.push("/ocr-settings"); }}>

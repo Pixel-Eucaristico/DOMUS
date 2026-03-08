@@ -79,13 +79,25 @@ export const TOUR_STEPS: TourStepDef[] = [
     tag: "Função: Importação",
     title: "Importar Nota Fiscal",
     description:
-      "Escaneie o QR Code da NF-e com a câmera, fotografe via OCR (múltiplas fotos) " +
-      "ou digite a chave de acesso. O DOMUS preenche tudo automaticamente.",
+      "Escaneie o QR Code da NF-e com a câmera ou digite a chave de acesso. O DOMUS preenche tudo automaticamente.",
     icon: "camera",
-    route: "/(tabs)",
+    route: "/import-invoice",
+    targetId: "import-qr",
+    arrowDirection: "up",
   },
   {
     id: 6,
+    tag: "Função: Importação",
+    title: "Lançamento Manual",
+    description:
+      "Se preferir, use este botão para lançar manualmente a nota fiscal ou a despesa passo a passo.",
+    icon: "edit-3",
+    route: "/import-invoice",
+    targetId: "import-manual",
+    arrowDirection: "up",
+  },
+  {
+    id: 7,
     tag: "Função: Dízimo",
     title: "Calculadora de Dízimo",
     description:
@@ -95,7 +107,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     route: "/(tabs)",
   },
   {
-    id: 7,
+    id: 8,
     tag: "Aba: Desejos",
     title: "Lista de Desejos",
     description:
@@ -107,7 +119,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     arrowDirection: "up",
   },
   {
-    id: 8,
+    id: 9,
     tag: "Função: Poupança",
     title: "Objetivo de Poupança",
     description:
@@ -117,7 +129,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     route: "/(tabs)/wishlist",
   },
   {
-    id: 9,
+    id: 10,
     tag: "Aba: Temporada",
     title: "Conquistas & XP",
     description:
@@ -129,7 +141,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     arrowDirection: "up",
   },
   {
-    id: 10,
+    id: 11,
     tag: "Aba: Temporada",
     title: "Troféu do Mês",
     description:
@@ -141,7 +153,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     arrowDirection: "up",
   },
   {
-    id: 11,
+    id: 12,
     tag: "Recurso: IA",
     title: "Assistente Financeiro IA",
     description:
@@ -152,7 +164,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     route: "/(tabs)",
   },
   {
-    id: 12,
+    id: 13,
     tag: "Recurso: Segurança",
     title: "Bloqueio por PIN ou Biometria",
     description:
@@ -162,7 +174,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     route: "/(tabs)",
   },
   {
-    id: 13,
+    id: 14,
     tag: "Recurso: Backup",
     title: "Backup Criptografado",
     description:
@@ -172,7 +184,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     route: "/(tabs)",
   },
   {
-    id: 14,
+    id: 15,
     tag: "Pronto!",
     title: "Tudo Configurado!",
     description:

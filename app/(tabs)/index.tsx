@@ -56,6 +56,8 @@ export default function HomeScreen() {
 
   const { targetRef: balanceRef, TourCard: BalanceTourCard, activeStyle: balanceActive } = useTourTarget("dashboard-balance", scrollRef);
   const { targetRef: budgetRef, TourCard: BudgetTourCard, activeStyle: budgetActive } = useTourTarget("budget-section", scrollRef);
+  const { targetRef: xpRef, TourCard: XpTourCard, activeStyle: xpActive } = useTourTarget("xp-section", scrollRef);
+  const { targetRef: trophyRef, TourCard: TrophyTourCard, activeStyle: trophyActive } = useTourTarget("trophy-section", scrollRef);
   const { targetRef: fabRef, TourCard: FabTourCard, activeStyle: fabActive } = useTourTarget("fab-add");
 
   // Month/Year filter state
@@ -300,16 +302,21 @@ export default function HomeScreen() {
         </ResponsiveRow>
 
         {/* ── GAMIFICATION WIDGET ────────────────────────────────────────── */}
-        <ResponsiveRow style={Platform.OS === "web" ? { zIndex: 1 } : {}}>
+        <ResponsiveRow style={Platform.OS === "web" ? { zIndex: xpActive ? 9999 : 1, position: "relative" } : {}}>
           <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
-            <GamificationWidget
-              theme={theme}
-              currentTrophy={currentTrophy}
-              levelInfo={levelInfo}
-              recentAchievements={recentAchievements}
-              achievementPool={ALL_ACHIEVEMENTS || []}
-              monthProgress={monthProgress}
-            />
+            <AnimatedCard index={1} style={[xpActive, Platform.OS === "web" && xpActive ? { zIndex: 9998, position: "relative" } : {}]}>
+              <View ref={xpRef} collapsable={false} style={[{ width: "100%" }, xpActive]}>
+                <GamificationWidget
+                  theme={theme}
+                  currentTrophy={currentTrophy}
+                  levelInfo={levelInfo}
+                  recentAchievements={recentAchievements}
+                  achievementPool={ALL_ACHIEVEMENTS || []}
+                  monthProgress={monthProgress}
+                />
+              </View>
+            </AnimatedCard>
+            <XpTourCard />
           </ResponsiveColumn>
         </ResponsiveRow>
 
@@ -367,9 +374,9 @@ export default function HomeScreen() {
         />
 
         {/* ── BUDGET 50/30/20 ────────────────────────────────────────────── */}
-        <ResponsiveRow style={Platform.OS === "web" ? { zIndex: budgetActive ? 9999 : 1 } : {}}>
+        <ResponsiveRow style={Platform.OS === "web" ? { zIndex: budgetActive ? 9999 : 1, position: "relative" } : {}}>
           <ResponsiveColumn span={columns} style={Object.assign({ paddingHorizontal: isMobile ? 16 : 0 }, budgetActive || {})}>
-            <AnimatedCard index={3} style={budgetActive}>
+            <AnimatedCard index={3} style={[budgetActive, Platform.OS === "web" && budgetActive ? { zIndex: 9998, position: "relative" } : {}]}>
               <View ref={budgetRef} collapsable={false} style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }, budgetActive]}>
                 <View style={s.monthFilterContainer}>
                   <Text style={[s.cardTitle, { color: theme.textColor }]}>
@@ -412,43 +419,48 @@ export default function HomeScreen() {
 
         {/* ── SEASON CARD ────────────────────────────────────────────────── */}
         {season.currentSeason?.active && (
-          <ResponsiveRow style={Platform.OS === "web" ? { zIndex: 1 } : {}}>
+          <ResponsiveRow style={Platform.OS === "web" ? { zIndex: trophyActive ? 9999 : 1, position: "relative" } : {}}>
             <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
-              <Pressable
-                style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }]}
-                onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
-              >
-                <View style={s.seasonHeader}>
-                  <View style={s.seasonTitleRow}>
-                    <MaterialCommunityIcons name="trophy-outline" size={16} color={theme.accentColor} />
-                    <Text style={[s.seasonTitle, { color: theme.textColor }]}>Temporada</Text>
-                  </View>
-                  <View style={[s.seasonArchetypeBadge, { backgroundColor: `${theme.accentColor}20` }]}>
-                    <Text style={[s.seasonArchetypeText, { color: theme.accentColor }]}>
-                      {archetype.charAt(0).toUpperCase() + archetype.slice(1)}
-                    </Text>
-                  </View>
+              <AnimatedCard index={4} style={[trophyActive, Platform.OS === "web" && trophyActive ? { zIndex: 9998, position: "relative" } : {}]}>
+                <View ref={trophyRef} collapsable={false} style={[{ width: "100%" }, trophyActive]}>
+                  <Pressable
+                    style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }]}
+                    onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
+                  >
+                    <View style={s.seasonHeader}>
+                      <View style={s.seasonTitleRow}>
+                        <MaterialCommunityIcons name="trophy-outline" size={16} color={theme.accentColor} />
+                        <Text style={[s.seasonTitle, { color: theme.textColor }]}>Temporada</Text>
+                      </View>
+                      <View style={[s.seasonArchetypeBadge, { backgroundColor: `${theme.accentColor}20` }]}>
+                        <Text style={[s.seasonArchetypeText, { color: theme.accentColor }]}>
+                          {archetype.charAt(0).toUpperCase() + archetype.slice(1)}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={[s.xpBarBg, { backgroundColor: theme.border, marginBottom: 10 }]}>
+                      <View style={[s.xpBarFill, { width: `${monthProgress}%` as any, backgroundColor: theme.accentColor }]} />
+                    </View>
+                    <View style={s.seasonStatsRow}>
+                      <View style={s.seasonStat}>
+                        <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{gamification.seasonXp}</Text>
+                        <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>XP temporada</Text>
+                      </View>
+                      <View style={[s.seasonStatDivider, { backgroundColor: theme.border }]} />
+                      <View style={s.seasonStat}>
+                        <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{gamification.currentStreak}</Text>
+                        <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>dias seguidos</Text>
+                      </View>
+                      <View style={[s.seasonStatDivider, { backgroundColor: theme.border }]} />
+                      <View style={s.seasonStat}>
+                        <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{daysLeft}</Text>
+                        <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>dias restantes</Text>
+                      </View>
+                    </View>
+                  </Pressable>
                 </View>
-                <View style={[s.xpBarBg, { backgroundColor: theme.border, marginBottom: 10 }]}>
-                  <View style={[s.xpBarFill, { width: `${monthProgress}%` as any, backgroundColor: theme.accentColor }]} />
-                </View>
-                <View style={s.seasonStatsRow}>
-                  <View style={s.seasonStat}>
-                    <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{gamification.seasonXp}</Text>
-                    <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>XP temporada</Text>
-                  </View>
-                  <View style={[s.seasonStatDivider, { backgroundColor: theme.border }]} />
-                  <View style={s.seasonStat}>
-                    <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{gamification.currentStreak}</Text>
-                    <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>dias seguidos</Text>
-                  </View>
-                  <View style={[s.seasonStatDivider, { backgroundColor: theme.border }]} />
-                  <View style={s.seasonStat}>
-                    <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{daysLeft}</Text>
-                    <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>dias restantes</Text>
-                  </View>
-                </View>
-              </Pressable>
+              </AnimatedCard>
+              <TrophyTourCard />
             </ResponsiveColumn>
           </ResponsiveRow>
         )}
