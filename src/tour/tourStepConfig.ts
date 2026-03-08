@@ -221,8 +221,8 @@ export const TOUR_STEPS: TourStepDef[] = [
     icon: "refresh-cw",
     route: "/(tabs)",
     targetId: "sync-btn",
-    arrowDirection: "down",
-    arrowAlign: "left",
+    arrowDirection: "up",
+    arrowAlign: "center",
   },
   {
     id: 17,
@@ -233,11 +233,23 @@ export const TOUR_STEPS: TourStepDef[] = [
       "Seus dados são replicados via relays Nostr com criptografia ponta-a-ponta, sem servidor central.",
     icon: "refresh-cw",
     route: "/sync",
-    targetId: "sync-footer",
+    targetId: "sync-actions",
     arrowDirection: "up",
   },
   {
     id: 18,
+    tag: "Recurso: Backup",
+    title: "Backup & Restauração",
+    description:
+      "Toque aqui para acessar a tela de backup. " +
+      "Exporte seus dados criptografados (AES-256) ou restaure de um arquivo anterior.",
+    icon: "archive",
+    route: "/sync",
+    targetId: "sync-backup-link",
+    arrowDirection: "up",
+  },
+  {
+    id: 19,
     tag: "Recurso: Backup",
     title: "Backup Criptografado",
     description:
@@ -247,14 +259,15 @@ export const TOUR_STEPS: TourStepDef[] = [
     route: "/backup",
   },
   {
-    id: 18,
+    id: 20,
     tag: "Pronto!",
     title: "Tudo Configurado!",
     description:
-      "Você conheceu todas as funções do DOMUS. " +
-      "Comece registrando sua primeira transação real — cada passo conta para sua liberdade financeira!",
+      "Você conheceu todas as funções do DOMUS! " +
+      "Agora crie sua primeira conta para começar a organizar suas finanças. " +
+      "Cada passo conta para sua liberdade financeira!",
     icon: "zap",
-    route: "/(tabs)",
+    route: "/(tabs)/accounts",
   },
 ];
 

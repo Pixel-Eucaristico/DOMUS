@@ -71,7 +71,8 @@ export default function SyncScreen() {
   const [showScanner, setShowScanner] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-  const { targetRef: syncFooterRef, TourCard: SyncTourCard, activeStyle: syncFooterActive } = useTourTarget("sync-footer", scrollRef);
+  const { targetRef: syncActionsRef, TourCard: SyncActionsTourCard, activeStyle: syncActionsActive } = useTourTarget("sync-actions", scrollRef);
+  const { targetRef: syncBackupRef, TourCard: SyncBackupTourCard, activeStyle: syncBackupActive } = useTourTarget("sync-backup-link", scrollRef);
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
@@ -194,10 +195,10 @@ export default function SyncScreen() {
               </Text>
             </View>
 
-            <View ref={syncFooterRef as any} collapsable={false} style={[s.actionsRow, syncFooterActive]}>
+            <View ref={syncActionsRef as any} collapsable={false} style={[s.actionsRow, syncActionsActive]}>
               <Pressable
-                style={({ pressed }) => [s.actionCard, { backgroundColor: theme.primaryColor }, pressed && !syncFooterActive && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
-                onPress={() => { if (syncFooterActive) return; handleCreateGroup(); }}
+                style={({ pressed }) => [s.actionCard, { backgroundColor: theme.primaryColor }, pressed && !syncActionsActive && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                onPress={() => { if (syncActionsActive) return; handleCreateGroup(); }}
                 disabled={isBusy}
               >
                 {isBusy ? <ActivityIndicator size="small" color="#FFFFFF" /> : (
@@ -220,7 +221,7 @@ export default function SyncScreen() {
                 <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Com codigo</Text>
               </Pressable>
             </View>
-            <SyncTourCard />
+            <SyncActionsTourCard />
 
             {Platform.OS !== "web" && (
               <Pressable
@@ -343,19 +344,22 @@ export default function SyncScreen() {
             Exporta todos os dados criptografados para um arquivo que você guarda onde quiser
           </Text>
         </View>
-        <Pressable
-          style={({ pressed }) => [s.backupBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }, pressed && { opacity: 0.8 }]}
-          onPress={() => { haptic(); soundManager.play("tap"); router.push("/backup"); }}
-        >
-          <View style={[s.backupBtnIcon, { backgroundColor: "#6366F118" }]}>
-            <Feather name="archive" size={20} color="#6366F1" />
-          </View>
-          <View style={s.backupBtnText}>
-            <Text style={[s.backupBtnTitle, { color: theme.textColor }]}>Backup & Restauração</Text>
-            <Text style={[s.backupBtnDesc, { color: theme.secondaryText }]}>AES-256-GCM · protegido por senha</Text>
-          </View>
-          <Feather name="chevron-right" size={18} color={theme.secondaryText} />
-        </Pressable>
+        <View ref={syncBackupRef as any} collapsable={false} style={syncBackupActive}>
+          <Pressable
+            style={({ pressed }) => [s.backupBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }, pressed && !syncBackupActive && { opacity: 0.8 }]}
+            onPress={() => { if (syncBackupActive) return; haptic(); soundManager.play("tap"); router.push("/backup"); }}
+          >
+            <View style={[s.backupBtnIcon, { backgroundColor: "#6366F118" }]}>
+              <Feather name="archive" size={20} color="#6366F1" />
+            </View>
+            <View style={s.backupBtnText}>
+              <Text style={[s.backupBtnTitle, { color: theme.textColor }]}>Backup & Restauração</Text>
+              <Text style={[s.backupBtnDesc, { color: theme.secondaryText }]}>AES-256-GCM · protegido por senha</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={theme.secondaryText} />
+          </Pressable>
+        </View>
+        <SyncBackupTourCard />
       </ScrollView>
 
       <QRScannerModal visible={showScanner} onClose={() => setShowScanner(false)} onScanned={handleScanResult} theme={theme} />

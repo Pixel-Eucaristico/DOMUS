@@ -28,7 +28,11 @@ export function useTourNavigation() {
     if (!step?.route) return;
     if (lastNavigatedStep.current === currentTourStep) return;
 
-    const normalizedCurrent = pathname === "/" ? "/(tabs)" : `/(tabs)${pathname}`;
+    // Normalize tab paths: "/" → "/(tabs)", "/accounts" → "/(tabs)/accounts"
+    // Stack paths stay as-is: "/sync" → "/sync"
+    const normalizedCurrent = isTabRoute(pathname)
+      ? (pathname === "/" ? "/(tabs)" : `/(tabs)${pathname}`)
+      : pathname;
     if (normalizedCurrent === step.route) {
       lastNavigatedStep.current = currentTourStep;
       return;
