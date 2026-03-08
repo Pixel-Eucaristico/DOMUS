@@ -58,13 +58,17 @@ export function TourInlineCard({
     <Animated.View
       key={stepIndex}
       entering={FadeInDown.duration(300).springify().damping(20)}
-      style={[s.card, { backgroundColor: theme.cardBackground }]}
+      style={[
+        s.card, 
+        { backgroundColor: theme.cardBackground },
+        step.arrowAlign === "right" ? { alignSelf: "flex-end" } : {}
+      ]}
       onLayout={onLayout}
     >
       {showArrow && (
         <View style={[
           step.arrowDirection === "up" ? s.arrowContainerUp : s.arrowContainerDown,
-          step.arrowAlign === "right" ? { left: undefined, right: 20 } : { left: 24, right: undefined }
+          step.arrowAlign === "right" ? { left: undefined, right: 28 } : { left: 24, right: undefined }
         ]}>
           <TourArrow direction={step.arrowDirection || "up"} color={theme.cardBackground} />
         </View>

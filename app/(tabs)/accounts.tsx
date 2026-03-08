@@ -26,7 +26,6 @@ export default function AccountsScreen() {
   const [editingAccount, setEditingAccount] = useState<AccountPayload | null>(null);
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const scrollRef = useRef<ScrollView>(null);
-  const { targetRef: accountsHeaderRef, TourCard: AccountsTourCard, activeStyle: accountsActive } = useTourTarget("accounts-header", scrollRef);
   const { targetRef: accountsAddRef, TourCard: AccountsAddTourCard, activeStyle: accountsAddActive } = useTourTarget("accounts-add", scrollRef);
 
   const accounts = Object.values(domain.accounts);
@@ -79,8 +78,8 @@ export default function AccountsScreen() {
         showsVerticalScrollIndicator={false}
       >
        <ResponsiveContainer>
-        <View style={Platform.OS === "web" ? { zIndex: (accountsActive || accountsAddActive) ? 9999 : 1 } : {}}>
-          <View ref={accountsHeaderRef} collapsable={false} style={[s.header, accountsActive]}>
+        <View style={Platform.OS === "web" ? { zIndex: accountsAddActive ? 9999 : 1, position: "relative" } : {}}>
+          <View style={s.header}>
             <Text style={[s.title, { color: theme.textColor }]}>Contas</Text>
             <Pressable
               ref={accountsAddRef as any}
@@ -94,7 +93,6 @@ export default function AccountsScreen() {
               <Feather name="plus" size={20} color="#FFF" />
             </Pressable>
           </View>
-          <AccountsTourCard />
           <AccountsAddTourCard />
         </View>
 

@@ -14,10 +14,10 @@ import { TOUR_STEPS, TOUR_TOTAL } from "./tourStepConfig";
 import { TourInlineCard } from "@/src/components/tour/TourInlineCard";
 import { useAppState } from "@/src/context/AppStateProvider";
 
-/** Z-index elevado para o alvo ficar acima do fume */
 const ACTIVE_STYLE: ViewStyle = {
   zIndex: 9998,
   elevation: 22,
+  position: "relative",
 };
 
 /** Card fica entre o alvo (9998) e o fume (9996) */
@@ -155,13 +155,13 @@ function TourCardRenderer({
       if (!cardRef.current) return;
       cardRef.current.measureInWindow(
         (_x: number, y: number, _w: number, h: number) => {
-          if (h <= 0) return;
-          if (y + h < -50 || y > screenH + 50) {
+          if (h <= 0 || y === 0) return;
+          if (y + h < -200 || y > screenH + 200) {
             tourControl!.handleMinimize();
           }
         },
       );
-    }, 800);
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [isActive, screenH, tourControl]);

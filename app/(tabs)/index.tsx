@@ -56,7 +56,7 @@ export default function HomeScreen() {
 
   const { targetRef: balanceRef, TourCard: BalanceTourCard, activeStyle: balanceActive } = useTourTarget("dashboard-balance", scrollRef);
   const { targetRef: budgetRef, TourCard: BudgetTourCard, activeStyle: budgetActive } = useTourTarget("budget-section", scrollRef);
-  const { targetRef: fabRef, TourCard: FabTourCard, activeStyle: fabActive } = useTourTarget("accounts-add");
+  const { targetRef: fabRef, TourCard: FabTourCard, activeStyle: fabActive } = useTourTarget("fab-add");
 
   // Month/Year filter state
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -324,28 +324,7 @@ export default function HomeScreen() {
                     <Feather name="dollar-sign" size={16} color="rgba(255,255,255,0.7)" />
                     <Text style={s.balanceLabel}>Saldo total</Text>
                   </View>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                    <Text style={s.balanceCount}>{accountCount} contas</Text>
-                    <Pressable
-                      ref={fabRef as any}
-                      collapsable={false}
-                      style={[
-                        {
-                          width: 28,
-                          height: 28,
-                          borderRadius: 14,
-                          backgroundColor: "rgba(255,255,255,0.2)",
-                          justifyContent: "center",
-                          alignItems: "center"
-                        },
-                        fabActive,
-                      ]}
-                      onPress={handleAddPress}
-                    >
-                      <Feather name="plus" size={16} color="#FFFFFF" />
-                      <FabTourCard />
-                     </Pressable>
-                  </View>
+                  <Text style={s.balanceCount}>{accountCount} contas</Text>
                 </View>
                 <Text style={s.balanceValue}>{formatCurrency(totalBalance)}</Text>
               </View>
@@ -495,6 +474,7 @@ export default function HomeScreen() {
             />
           </ResponsiveColumn>
         </ResponsiveRow>
+        <FabTourCard />
        </ResponsiveContainer>
       </ScrollView>
 
