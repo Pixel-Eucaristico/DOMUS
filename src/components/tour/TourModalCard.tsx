@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { StyleSheet, Pressable } from "react-native";
+import { StyleSheet, Platform, Pressable } from "react-native";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import type { ThemeColors } from "@packages/theme";
 import type { TourStepDef } from "@/src/tour/tourStepConfig";
@@ -61,9 +61,13 @@ export function TourModalCard({
   );
 }
 
+const webFixed = Platform.OS === "web"
+  ? ({ position: "fixed", top: 0, left: 0, right: 0, bottom: 0 } as any)
+  : StyleSheet.absoluteFillObject;
+
 const s = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...webFixed,
     zIndex: 9998,
     justifyContent: "center",
     alignItems: "center",

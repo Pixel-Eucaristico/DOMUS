@@ -127,6 +127,9 @@ export const TOUR_STEPS: TourStepDef[] = [
       "O saldo vira barra de progresso no item — você vê exatamente quanto falta.",
     icon: "target",
     route: "/(tabs)/wishlist",
+    targetId: "wishlist-add",
+    arrowDirection: "down",
+    arrowAlign: "right",
   },
   {
     id: 10,

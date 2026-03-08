@@ -6,9 +6,10 @@ import {
   FlatList,
   TouchableOpacity,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { Platform, Pressable } from "react-native";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { useWishlist } from "@/src/hooks/useWishlist";
@@ -23,6 +24,9 @@ export default function WishlistTab() {
   const { lists, getItemsByList, createList } = useWishlist();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const { targetRef: wishlistHeaderRef, TourCard: WishlistTourCard, activeStyle: wishlistActive } = useTourTarget("wishlist-header");
+  const { targetRef: wishlistAddRef, TourCard: WishlistAddTourCard, activeStyle: wishlistAddActive } = useTourTarget("wishlist-add");
+  const insets = useSafeAreaInsets();
+  const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
   const sortedLists = useMemo(
     () => [...lists].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
@@ -42,16 +46,6 @@ export default function WishlistTab() {
         <Text style={[styles.title, { color: theme.textColor }]}>
           Lista de Desejos
         </Text>
-        <TouchableOpacity
-          style={[styles.addBtn, { backgroundColor: theme.primaryColor }]}
-          onPress={() => {
-            soundManager.play("pop");
-            setShowCreateModal(true);
-          }}
-          activeOpacity={0.7}
-        >
-          <Feather name="plus" size={20} color="#fff" />
-        </TouchableOpacity>
       </View>
       <WishlistTourCard />
 
@@ -115,6 +109,37 @@ export default function WishlistTab() {
         />
       )}
 
+      {/* ── FAB ──────────────────────────────────────────────────────────── */}
+      <View
+        style={[
+          {
+            position: "absolute",
+            right: 24,
+            bottom: insets.bottom + webBottomInset + 80,
+            alignItems: "flex-end",
+          },
+          Platform.OS === "web" && wishlistAddActive ? { zIndex: 9999 } : { zIndex: 1 },
+        ]}
+      >
+        <WishlistAddTourCard />
+        <Pressable
+          ref={wishlistAddRef as any}
+          collapsable={false}
+          style={({ pressed }) => [
+            styles.fab,
+            { backgroundColor: theme.primaryColor },
+            pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] },
+            wishlistAddActive,
+          ]}
+          onPress={() => {
+            soundManager.play("pop");
+            setShowCreateModal(true);
+          }}
+        >
+          <Feather name="plus" size={28} color="#FFFFFF" />
+        </Pressable>
+      </View>
+
       <CreateListModal
         visible={showCreateModal}
         theme={theme}
@@ -138,12 +163,19 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: "DMSans_700Bold",
   },
-  addBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  fab: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+    position: "relative",
+    marginTop: 12,
   },
   listContent: { paddingBottom: 100 },
   listHeader: {
