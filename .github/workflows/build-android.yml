@@ -14,7 +14,7 @@ jobs:
   build-android-debug:
     name: Build Debug APK
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -35,6 +35,15 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
       - name: Install dependencies
         run: npm ci
 
@@ -45,7 +54,7 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx2g"
+          ./gradlew assembleDebug --no-daemon --build-cache -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError" -Dorg.gradle.parallel=true
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -57,7 +66,7 @@ jobs:
   build-android-release:
     name: Build Release APK
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
 
     steps:
@@ -78,6 +87,15 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
 
       - name: Install dependencies
         run: npm ci
@@ -109,10 +127,10 @@ jobs:
         run: |
           chmod +x gradlew
           if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
-            ./gradlew assembleRelease --no-daemon -Dorg.gradle.jvmargs="-Xmx2g"
+            ./gradlew assembleRelease --no-daemon --build-cache -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError" -Dorg.gradle.parallel=true
           else
             echo "::warning::Keystore not configured. Building debug APK instead."
-            ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx2g"
+            ./gradlew assembleDebug --no-daemon --build-cache -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError" -Dorg.gradle.parallel=true
           fi
 
       - name: Upload Release APK

@@ -19,6 +19,7 @@
     },
     "android": {
       "package": "br.com.pixeleucaristico.domus",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#F5F7FA",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
@@ -28,7 +29,9 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "ios": {
@@ -37,7 +40,8 @@
         "NSCameraUsageDescription": "DOMUS precisa acessar a câmera para OCR de notas fiscais.",
         "NSPhotoLibraryUsageDescription": "DOMUS precisa acessar suas fotos para importar imagens de notas fiscais.",
         "NSMicrophoneUsageDescription": "DOMUS não usa o microfone.",
-        "NSFaceIDUsageDescription": "DOMUS usa Face ID para proteger o acesso aos seus dados financeiros."
+        "NSFaceIDUsageDescription": "DOMUS usa Face ID para proteger o acesso aos seus dados financeiros.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "plugins": [
@@ -100,9 +104,26 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "c61c9eb7-1884-4245-9419-eb099e085df5"
+        "projectId": "c61c9eb7-1884-4245-9419-eb099e085df5",
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "ShareExtension",
+                  "bundleIdentifier": "br.com.pixeleucaristico.domus.share-extension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.br.com.pixeleucaristico.domus"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
       }
     },
-    "owner": "willianquintino"
+    "owner": "pixel-eucaristico"
   }
 }
