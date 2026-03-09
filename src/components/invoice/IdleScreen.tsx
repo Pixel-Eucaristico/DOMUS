@@ -1,6 +1,6 @@
-// FIX-2026-03-09: overflow hidden para conter TourCard — ver docs/tour-crash-fixes.md #5
+// FIX-2026-03-09: ScrollView para conter TourCard overflow — ver docs/tour-crash-fixes.md #5
 import React from "react";
-import { View, Text, Pressable, StyleSheet, Platform } from "react-native";
+import { View, Text, Pressable, StyleSheet, Platform, ScrollView } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ThemeColors } from "@packages/theme";
@@ -23,7 +23,7 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
   const { targetRef: manualRef, TourCard: ManualTourCard, activeStyle: manualActive } = useTourTarget("import-manual");
 
   return (
-    <View style={s.container}>
+    <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
       <Feather name="file-text" size={56} color={theme.primaryColor} style={{ marginBottom: 24 }} />
       <Text style={[s.title, { color: theme.textColor }]}>Importar Nota Fiscal</Text>
       <Text style={[s.subtitle, { color: theme.secondaryText }]}>Escolha como deseja importar</Text>
@@ -98,15 +98,14 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
           <Text style={[s.settingsLinkText, { color: theme.secondaryText }]}>Configurar OCR</Text>
         </Pressable>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
   container: {
-    flex: 1, alignItems: "center", justifyContent: "center",
+    flexGrow: 1, alignItems: "center", justifyContent: "center",
     paddingHorizontal: 28, paddingBottom: 40,
-    overflow: "hidden",
   },
   title: { fontSize: 24, fontWeight: "800", marginBottom: 6, textAlign: "center" },
   subtitle: { fontSize: 15, marginBottom: 40, textAlign: "center" },

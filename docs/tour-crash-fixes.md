@@ -87,8 +87,9 @@ Quando o TourInlineCard renderiza abaixo do botao QR, o conteudo total
 Sem protecao, elementos saem da area visivel, podendo causar problemas
 de layout e medicao.
 
-**Solucao**: Adicionado `overflow: "hidden"` no container para conter
-o conteudo dentro da area visivel sem custo de ScrollView.
+**Solucao**: Container trocado de `View` para `ScrollView` com
+`contentContainerStyle` e `flexGrow: 1` para permitir scroll quando
+o TourCard excede a altura da tela.
 
 ---
 

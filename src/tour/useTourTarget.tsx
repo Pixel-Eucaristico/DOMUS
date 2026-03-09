@@ -30,27 +30,18 @@ const CARD_STYLE: ViewStyle = {
 
 // FIX: Backdrop agora usa dimensoes seguras ao inves de 30000px que crashava
 // GPUs Mali em Samsung S23+ (e similares). Ver docs/tour-crash-fixes.md #1
+const BACKDROP_BASE: ViewStyle = {
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: "rgba(0,0,0,0.5)",
+  zIndex: 9996,
+};
+
 const BACKDROP_STYLE: ViewStyle = Platform.OS === "web"
-  ? ({
-      position: "fixed",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: "rgba(0,0,0,0.5)",
-      zIndex: 9996,
-    } as any)
-  : {
-      ...({
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0,0,0,0.5)",
-        zIndex: 9996,
-      } as ViewStyle),
-    };
+  ? ({ ...BACKDROP_BASE, position: "fixed" } as any)
+  : { ...BACKDROP_BASE, position: "absolute" };
 
 /**
  * Hook para elementos da UI exibirem um card de tour inline.
@@ -158,20 +149,20 @@ function TourCardRenderer({
     return () => clearTimeout(timer);
   }, [isActive, targetRef, scrollViewRef]);
 
-  // FIX: Auto-minimize com guards robustos contra valores invalidos
-  // do measureInWindow durante transicoes. Ver docs/tour-crash-fixes.md #4
+  // FIX: Auto-minimize com guards contra valores invalidos do measureInWindow.
+  // Ver docs/tour-crash-fixes.md #4
   const { height: screenH } = useWindowDimensions();
   useEffect(() => {
     if (!isActive || !cardRef.current || !tourControl) return;
 
-    // Aguarda layout estabilizar antes de medir
-    const startDelay = setTimeout(() => {
-      const interval = setInterval(() => {
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const delayId = setTimeout(() => {
+      intervalId = setInterval(() => {
         if (!cardRef.current) return;
         try {
           cardRef.current.measureInWindow(
             (_x: number, y: number, _w: number, h: number) => {
-              // Ignora medidas invalidas (layout nao pronto ou transicao)
               if (h <= 0 || (y === 0 && h === 0)) return;
               if (!Number.isFinite(y) || !Number.isFinite(h)) return;
               if (y + h < -200 || y > screenH + 200) {
@@ -180,14 +171,15 @@ function TourCardRenderer({
             },
           );
         } catch {
-          // measureInWindow pode falhar durante unmount — ignorar
+          // measureInWindow pode falhar durante unmount
         }
       }, 1500);
-
-      return () => clearInterval(interval);
     }, 800);
 
-    return () => clearTimeout(startDelay);
+    return () => {
+      clearTimeout(delayId);
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [isActive, screenH, tourControl]);
 
   if (!isActive || !step || !tourControl) return null;
