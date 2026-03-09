@@ -41,9 +41,10 @@ export default function AboutScreen() {
   const startDemo = useDemoMode().startDemo;
   const scrollRef = useRef<ScrollView>(null);
   const { targetRef: securityRef, TourCard: SecurityTourCard, activeStyle: securityActive } = useTourTarget("security-btn", scrollRef);
+  const { targetRef: notificationsRef, TourCard: NotificationsTourCard, activeStyle: notificationsActive } = useTourTarget("notifications-btn", scrollRef);
 
-  // Force open settings accordion when tour targets security-btn
-  const forceSettingsOpen = isDemoActive && !!securityActive;
+  // Force open settings accordion when tour targets security-btn or notifications-btn
+  const forceSettingsOpen = isDemoActive && (!!securityActive || !!notificationsActive);
 
   const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
@@ -128,10 +129,12 @@ export default function AboutScreen() {
           </SectionCard>
 
           {/* ── SETTINGS ────────────────────────────────────────────────── */}
-          <View style={Platform.OS === "web" ? { zIndex: securityActive ? 9999 : 1, position: "relative" } : {}}>
+          <View style={Platform.OS === "web" ? { zIndex: (securityActive || notificationsActive) ? 9999 : 1, position: "relative" } : {}}>
             <SectionCard theme={theme} icon="settings" title="Configurações" accentColor={theme.accentColor} collapsible forceOpen={forceSettingsOpen}>
-              <LinkRow icon="cpu" label="IA Financeira" description="Provedor, chave de API, limites e custos" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }} disabled={!!securityActive} />
-              <LinkRow icon="lock" label="Segurança" description="Bloqueio por PIN ou biometria" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/security-settings"); }} targetRef={securityRef as any} tourCard={<SecurityTourCard />} disabled={!!securityActive} />
+              <LinkRow icon="cpu" label="IA Financeira" description="Provedor, chave de API, limites e custos" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }} disabled={!!(securityActive || notificationsActive)} />
+              <LinkRow icon="bell" label="Notificações" description="Lembretes, alertas de orçamento e resumos" color="#F59E0B" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/notification-settings"); }} targetRef={notificationsRef as any} tourCard={<NotificationsTourCard />} disabled={!!(securityActive || notificationsActive)} />
+              <LinkRow icon="bar-chart" label="Analytics & Performance" description="Compartilhamento de dados anônimos de uso" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/analytics-settings"); }} disabled={!!(securityActive || notificationsActive)} />
+              <LinkRow icon="lock" label="Segurança" description="Bloqueio por PIN ou biometria" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/security-settings"); }} targetRef={securityRef as any} tourCard={<SecurityTourCard />} disabled={!!(securityActive || notificationsActive)} />
               <LinkRow icon="download-cloud" label="Backup & Restauração" description="Exportar e importar dados cifrados" color={theme.warning} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/backup"); }} disabled={!!securityActive} />
               <LinkRow icon="shield" label="Política de Privacidade" description="Como seus dados são protegidos" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/privacy-policy"); }} disabled={!!securityActive} />
               <LinkRow icon="star" label="Avaliar na Play Store" description="Deixe sua avaliação e ajude o DOMUS a crescer" color="#34A853" theme={theme} onPress={() => { soundManager.play("tap"); Linking.openURL("https://play.google.com/store/apps/details?id=br.com.pixeleucaristico.domus"); }} disabled={!!securityActive} />

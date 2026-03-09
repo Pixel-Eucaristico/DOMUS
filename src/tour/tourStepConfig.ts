@@ -154,7 +154,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     icon: "gift",
     route: "/(tabs)/season",
     targetId: "trophy-section",
-    arrowDirection: "up",
+    arrowDirection: "down",
   },
   {
     id: 12,
@@ -200,6 +200,19 @@ export const TOUR_STEPS: TourStepDef[] = [
   },
   {
     id: 15,
+    tag: "Recurso: Notificações",
+    title: "Lembretes Inteligentes",
+    description:
+      "Configure lembretes de vencimento, alertas quando se aproximar do " +
+      "limite do orçamento e resumos semanais. Tudo local — sem servidores.",
+    icon: "bell",
+    route: "/about",
+    targetId: "notifications-btn",
+    arrowDirection: "up",
+    arrowAlign: "center",
+  },
+  {
+    id: 16,
     tag: "Recurso: Segurança",
     title: "Bloqueio por PIN ou Biometria",
     description:
@@ -212,7 +225,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     arrowAlign: "center",
   },
   {
-    id: 16,
+    id: 17,
     tag: "Recurso: Sync",
     title: "Sincronizar Dispositivos",
     description:
@@ -225,7 +238,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     arrowAlign: "center",
   },
   {
-    id: 17,
+    id: 18,
     tag: "Recurso: Sync",
     title: "Sincronização P2P",
     description:
@@ -237,7 +250,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     arrowDirection: "up",
   },
   {
-    id: 18,
+    id: 19,
     tag: "Recurso: Backup",
     title: "Backup & Restauração",
     description:
@@ -249,7 +262,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     arrowDirection: "up",
   },
   {
-    id: 19,
+    id: 20,
     tag: "Recurso: Backup",
     title: "Backup Criptografado",
     description:
@@ -259,7 +272,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     route: "/backup",
   },
   {
-    id: 20,
+    id: 21,
     tag: "Pronto!",
     title: "Tudo Configurado!",
     description:

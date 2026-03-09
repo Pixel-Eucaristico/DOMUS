@@ -20,6 +20,7 @@
     "android": {
       "package": "br.com.pixeleucaristico.domus",
       "versionCode": 1,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#F5F7FA",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
@@ -31,11 +32,13 @@
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "ios": {
       "bundleIdentifier": "br.com.pixeleucaristico.domus",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "DOMUS precisa acessar a câmera para OCR de notas fiscais.",
         "NSPhotoLibraryUsageDescription": "DOMUS precisa acessar suas fotos para importar imagens de notas fiscais.",
@@ -45,6 +48,20 @@
       }
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35
+          },
+          "ios": {
+            "deploymentTarget": "15.1",
+            "useFrameworks": "static"
+          }
+        }
+      ],
       [
         "expo-router",
         {}
@@ -95,7 +112,16 @@
           "ocrUseBundled": true
         }
       ],
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "expo-notifications",
+      [
+        "@react-native-firebase/app",
+        {
+          "android_app_id": "1:1098581898317:android:b7ffd1c59df1ae8170d804",
+          "ios_app_id": "1:1098581898317:ios:9c62b90f5890f34870d804"
+        }
+      ],
+      "@react-native-firebase/perf"
     ],
     "experiments": {
       "typedRoutes": true,

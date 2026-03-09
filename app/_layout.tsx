@@ -1,9 +1,9 @@
 import "@/src/modules/cryptoPolyfill";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState, useCallback } from "react";
-import { View } from "react-native";
+import { View, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import {
@@ -25,6 +25,15 @@ import { ReligiousPreferenceModal } from "@/src/components/shared/ReligiousPrefe
 import { ShareToWishlistModal } from "@/src/components/wishlist/ShareToWishlistModal";
 import { useSavingsGoalScheduler } from "@/src/hooks/useSavingsGoalScheduler";
 import { useAutoBackup } from "@/src/hooks/useAutoBackup";
+import { useNotificationScheduler } from "@/src/hooks/useNotificationScheduler";
+import { NotificationSetupModal } from "@/src/components/notifications/NotificationSetupModal";
+import { loadNotificationSettings } from "@/src/modules/notifications/application/NotificationSettingsStore";
+import { useAnalyticsInit } from "@/src/hooks/useAnalyticsInit";
+import { AnalyticsConsentModal } from "@/src/components/analytics/AnalyticsConsentModal";
+import { loadAnalyticsSettings } from "@/src/modules/analytics/application/AnalyticsSettingsStore";
+import { createEvent } from "@packages/events/src/factory";
+import { EVENT_TYPES } from "@packages/events/src/types";
+import type { TransactionUpdatedEvent } from "@packages/events/src/types";
 import { LockScreen } from "@/src/components/security/LockScreen";
 import { useSecurityLock } from "@/src/hooks/useSecurityLock";
 import { AnimatedSplash } from "@/src/components/shared/AnimatedSplash";
@@ -56,6 +65,58 @@ function SavingsGoalScheduler() {
 function AutoBackupScheduler() {
   useAutoBackup();
   return null;
+}
+
+/** Executa na inicialização: reagenda todas as notificações locais. */
+function NotificationSchedulerRunner() {
+  useNotificationScheduler();
+  return null;
+}
+
+/** Executa na inicialização: inicializa Firebase Analytics/Performance conforme consentimento. */
+function AnalyticsInitRunner() {
+  useAnalyticsInit();
+  return null;
+}
+
+/** Processa respostas dos botões de ação das notificações (efetivar/editar). */
+function useNotificationResponseHandler() {
+  const { dispatchDomainEvent, deviceId } = useAppState();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    let sub: { remove(): void } | undefined;
+    (async () => {
+      try {
+        const Notifications = await import("expo-notifications");
+        sub = Notifications.addNotificationResponseReceivedListener((response) => {
+          const action = response.actionIdentifier;
+          const data = response.notification.request.content.data as Record<string, unknown>;
+
+          if (action === "efetivar" && data.transactionId) {
+            const did = deviceId ?? "local";
+            const evt = createEvent<TransactionUpdatedEvent>(
+              EVENT_TYPES.TRANSACTION_UPDATED,
+              { id: data.transactionId as string, status: "confirmed" },
+              did,
+            );
+            dispatchDomainEvent(evt);
+          } else if (action === "editar" && data.transactionId) {
+            router.push(`/add-transaction?editId=${data.transactionId}`);
+          } else if (
+            action === Notifications.DEFAULT_ACTION_IDENTIFIER &&
+            data.type === "pending-transactions-group"
+          ) {
+            router.push("/transactions?filter=pending");
+          }
+        });
+      } catch {
+        // expo-notifications not available
+      }
+    })();
+    return () => sub?.remove();
+  }, [deviceId, dispatchDomainEvent, router]);
 }
 
 /**
@@ -179,6 +240,14 @@ function RootLayoutNav() {
         options={{ headerShown: false }}
       />
       <Stack.Screen
+        name="notification-settings"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="analytics-settings"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="privacy-policy"
         options={{ headerShown: false }}
       />
@@ -245,6 +314,8 @@ export default function RootLayout() {
                 <SyncProvider>
                   <SavingsGoalScheduler />
                   <AutoBackupScheduler />
+                  <NotificationSchedulerRunner />
+                  <AnalyticsInitRunner />
                   <TourContent>
                     <SecurityGuard>
                       <DesktopLayout>
@@ -259,6 +330,8 @@ export default function RootLayout() {
                         <AchievementToastHost />
                         <SeasonalToastHost />
                         <ReligiousPreferenceHost />
+                        <NotificationSetupHost />
+                        <AnalyticsConsentHost />
                         {__DEV__ && <DebugTools />}
                       </>
                     )}
@@ -309,6 +382,50 @@ function SeasonalToastHost() {
       }}
       onDismiss={clearPendingSeasonalToast}
       offsetTop={140}
+    />
+  );
+}
+
+function NotificationSetupHost() {
+  const { loading } = useAppState();
+  const { isDemoActive } = useDemoMode();
+  const [showModal, setShowModal] = useState(false);
+
+  useNotificationResponseHandler();
+
+  useEffect(() => {
+    if (loading || isDemoActive || Platform.OS === "web") return;
+    loadNotificationSettings().then((s) => {
+      if (!s.hasCompletedSetup) setShowModal(true);
+    });
+  }, [loading, isDemoActive]);
+
+  if (!showModal) return null;
+  return (
+    <NotificationSetupModal
+      visible
+      onDone={() => setShowModal(false)}
+    />
+  );
+}
+
+function AnalyticsConsentHost() {
+  const { loading } = useAppState();
+  const { isDemoActive } = useDemoMode();
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    if (loading || isDemoActive || Platform.OS === "web") return;
+    loadAnalyticsSettings().then((s) => {
+      if (!s.hasCompletedConsent) setShowModal(true);
+    });
+  }, [loading, isDemoActive]);
+
+  if (!showModal) return null;
+  return (
+    <AnalyticsConsentModal
+      visible
+      onDone={() => setShowModal(false)}
     />
   );
 }
