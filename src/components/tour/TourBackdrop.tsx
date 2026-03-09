@@ -4,10 +4,11 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { TOUR_STEPS } from "@/src/tour/tourStepConfig";
 
+// FIX-2026-03-09: ver docs/tour-crash-fixes.md #1
 /**
  * Backdrop fume full-screen.
  * Web: position fixed para ignorar stacking contexts.
- * Native: position absolute com dimensoes enormes.
+ * Native: position absolute com top/left/right/bottom 0 (seguro para GPU).
  * pointerEvents="none" para nao bloquear scroll.
  */
 export function TourBackdrop() {
@@ -40,10 +41,10 @@ const s = StyleSheet.create({
         } as any)
       : {
           position: "absolute",
-          top: -10000,
-          left: -10000,
-          width: 30000,
-          height: 30000,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
         }),
     backgroundColor: "rgba(0,0,0,0.5)",
     zIndex: 9996,

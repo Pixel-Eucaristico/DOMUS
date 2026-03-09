@@ -1,5 +1,6 @@
+// FIX-2026-03-09: overflow hidden para conter TourCard — ver docs/tour-crash-fixes.md #5
 import React from "react";
-import { View, Text, Pressable, StyleSheet, Platform, Linking } from "react-native";
+import { View, Text, Pressable, StyleSheet, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ThemeColors } from "@packages/theme";
@@ -105,6 +106,7 @@ const s = StyleSheet.create({
   container: {
     flex: 1, alignItems: "center", justifyContent: "center",
     paddingHorizontal: 28, paddingBottom: 40,
+    overflow: "hidden",
   },
   title: { fontSize: 24, fontWeight: "800", marginBottom: 6, textAlign: "center" },
   subtitle: { fontSize: 15, marginBottom: 40, textAlign: "center" },

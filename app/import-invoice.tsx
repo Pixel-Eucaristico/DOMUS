@@ -84,7 +84,15 @@ export default function InvoiceImportScreen() {
     setError(null);
   };
 
-  if (!scanner.permission) return <View />;
+  // FIX-2026-03-09: loading state ao inves de View vazio durante
+  // carregamento de permissao. Ver docs/tour-crash-fixes.md #3
+  if (!scanner.permission) {
+    return (
+      <View style={[s.container, s.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primaryColor} />
+      </View>
+    );
+  }
 
   const fullscreenState = state === "qr" || state === "webview";
 

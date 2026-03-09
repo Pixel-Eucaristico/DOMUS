@@ -1,10 +1,17 @@
+// FIX-2026-03-09: WebView com props de estabilidade Android e error boundary.
+// Ver docs/tour-crash-fixes.md #2
 import React from "react";
-import { View, Text, Pressable, ActivityIndicator, StyleSheet, Platform, Linking } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, StyleSheet, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
 import { BROWSER_UA } from "@/src/hooks/useInvoiceWebView";
 import { soundManager } from "@/src/services/SoundManager";
+
+// Require WebView fora do render para evitar crash durante mount em Samsung
+const NativeWebView = Platform.OS !== "web"
+  ? (() => { try { return require("react-native-webview").default; } catch { return null; } })()
+  : null;
 
 interface Props {
   theme: ThemeColors;
@@ -53,7 +60,18 @@ export function WebViewScreen({
     );
   }
 
-  const WebView = require("react-native-webview").default;
+  // FIX: NativeWebView carregado fora do render — ver docs/tour-crash-fixes.md #2
+  if (!NativeWebView) {
+    return (
+      <View style={[s.container, { justifyContent: "center", alignItems: "center" }]}>
+        <Feather name="alert-triangle" size={40} color={theme.primaryColor} />
+        <Text style={[s.loadingText, { color: theme.textColor }]}>WebView indisponivel</Text>
+        <Pressable onPress={onClose} style={{ marginTop: 20 }}>
+          <Text style={{ color: theme.primaryColor, fontSize: 16 }}>Voltar</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={s.container}>
@@ -78,7 +96,7 @@ export function WebViewScreen({
         </View>
       )}
 
-      <WebView
+      <NativeWebView
         ref={webviewRef}
         source={{ uri: webviewUrl }}
         style={s.flex1}
@@ -91,6 +109,10 @@ export function WebViewScreen({
         onLoadEnd={onLoadEnd}
         onNavigationStateChange={onNavigationStateChange}
         onError={onError}
+        originWhitelist={["*"]}
+        setSupportMultipleWindows={false}
+        onRenderProcessGone={() => onError()}
+        onContentProcessDidTerminate={() => onError()}
       />
 
       {/* Instruction strip */}

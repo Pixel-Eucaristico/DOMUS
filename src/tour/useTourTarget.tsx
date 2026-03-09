@@ -1,3 +1,4 @@
+// FIX-2026-03-09: Backdrop e measureInWindow fixes — ver docs/tour-crash-fixes.md
 import React, { useRef, useEffect, useMemo } from "react";
 import {
   View as RNView,
@@ -27,24 +28,28 @@ const CARD_STYLE: ViewStyle = {
   elevation: 24,
 };
 
+// FIX: Backdrop agora usa dimensoes seguras ao inves de 30000px que crashava
+// GPUs Mali em Samsung S23+ (e similares). Ver docs/tour-crash-fixes.md #1
 const BACKDROP_STYLE: ViewStyle = Platform.OS === "web"
   ? ({
       position: "fixed",
-      top: -10000,
-      left: -10000,
-      right: -10000,
-      bottom: -10000,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
       backgroundColor: "rgba(0,0,0,0.5)",
       zIndex: 9996,
     } as any)
   : {
-      position: "absolute",
-      top: -10000,
-      left: -10000,
-      width: 30000,
-      height: 30000,
-      backgroundColor: "rgba(0,0,0,0.5)",
-      zIndex: 9996,
+      ...({
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0,0,0,0.5)",
+        zIndex: 9996,
+      } as ViewStyle),
     };
 
 /**
@@ -153,24 +158,36 @@ function TourCardRenderer({
     return () => clearTimeout(timer);
   }, [isActive, targetRef, scrollViewRef]);
 
-  // Auto-minimize when card scrolls off screen
+  // FIX: Auto-minimize com guards robustos contra valores invalidos
+  // do measureInWindow durante transicoes. Ver docs/tour-crash-fixes.md #4
   const { height: screenH } = useWindowDimensions();
   useEffect(() => {
     if (!isActive || !cardRef.current || !tourControl) return;
 
-    const interval = setInterval(() => {
-      if (!cardRef.current) return;
-      cardRef.current.measureInWindow(
-        (_x: number, y: number, _w: number, h: number) => {
-          if (h <= 0 || y === 0) return;
-          if (y + h < -200 || y > screenH + 200) {
-            tourControl!.handleMinimize();
-          }
-        },
-      );
-    }, 1000);
+    // Aguarda layout estabilizar antes de medir
+    const startDelay = setTimeout(() => {
+      const interval = setInterval(() => {
+        if (!cardRef.current) return;
+        try {
+          cardRef.current.measureInWindow(
+            (_x: number, y: number, _w: number, h: number) => {
+              // Ignora medidas invalidas (layout nao pronto ou transicao)
+              if (h <= 0 || (y === 0 && h === 0)) return;
+              if (!Number.isFinite(y) || !Number.isFinite(h)) return;
+              if (y + h < -200 || y > screenH + 200) {
+                tourControl!.handleMinimize();
+              }
+            },
+          );
+        } catch {
+          // measureInWindow pode falhar durante unmount — ignorar
+        }
+      }, 1500);
 
-    return () => clearInterval(interval);
+      return () => clearInterval(interval);
+    }, 800);
+
+    return () => clearTimeout(startDelay);
   }, [isActive, screenH, tourControl]);
 
   if (!isActive || !step || !tourControl) return null;
