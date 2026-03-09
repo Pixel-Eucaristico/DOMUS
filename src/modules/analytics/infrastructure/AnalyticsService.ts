@@ -1,4 +1,4 @@
-// ─── Firebase Analytics & Performance Service ────────────────────────────────
+// ─── Firebase Analytics, Performance & Crashlytics Service ───────────────────
 // Inicializa Firebase somente quando o usuário consente.
 // Lazy-load para evitar crash quando as libs nativas não estão disponíveis (web).
 
@@ -6,9 +6,10 @@ import { Platform } from "react-native";
 import { loadAnalyticsSettings } from "../application/AnalyticsSettingsStore";
 
 let _initialized = false;
+let _globalHandlerInstalled = false;
 
 /**
- * Inicializa Firebase Analytics e/ou Performance conforme as preferências do usuário.
+ * Inicializa Firebase Analytics, Performance e Crashlytics conforme preferências.
  * Só executa uma vez — chamadas subsequentes são no-op.
  */
 export async function initFirebase(): Promise<void> {
@@ -17,15 +18,12 @@ export async function initFirebase(): Promise<void> {
   try {
     const settings = await loadAnalyticsSettings();
 
-    // Se o usuário não consentiu nada, não inicializa o Firebase
-    if (!settings.analyticsEnabled && !settings.performanceEnabled) return;
+    if (!settings.analyticsEnabled && !settings.performanceEnabled && !settings.crashlyticsEnabled) return;
 
     // Inicializa o Firebase App (necessário antes de qualquer módulo)
     const firebaseApp = await import("@react-native-firebase/app");
-    // Garante que o app default foi inicializado
     if (!firebaseApp.default.apps.length) {
-      // O Firebase é auto-inicializado pelo google-services.json / GoogleService-Info.plist
-      // mas fazemos a verificação para segurança
+      // Auto-inicializado pelo google-services.json / GoogleService-Info.plist
     }
 
     // Analytics
@@ -54,10 +52,52 @@ export async function initFirebase(): Promise<void> {
       }
     }
 
+    // Crashlytics
+    if (settings.crashlyticsEnabled) {
+      const crashlytics = await import("@react-native-firebase/crashlytics");
+      await crashlytics.default().setCrashlyticsCollectionEnabled(true);
+      installGlobalErrorHandler();
+    } else {
+      try {
+        const crashlytics = await import("@react-native-firebase/crashlytics");
+        await crashlytics.default().setCrashlyticsCollectionEnabled(false);
+      } catch {
+        // module not available
+      }
+    }
+
     _initialized = true;
   } catch {
     // Firebase não disponível (web ou dependência ausente) — silencioso
   }
+}
+
+/**
+ * Instala handler global para capturar erros JS não tratados e enviar ao Crashlytics.
+ * Preserva o handler anterior (chain).
+ */
+function installGlobalErrorHandler(): void {
+  if (_globalHandlerInstalled || Platform.OS === "web") return;
+  _globalHandlerInstalled = true;
+
+  const originalHandler = ErrorUtils.getGlobalHandler();
+
+  ErrorUtils.setGlobalHandler(async (error: Error, isFatal?: boolean) => {
+    try {
+      const crashlytics = await import("@react-native-firebase/crashlytics");
+      if (isFatal) {
+        crashlytics.default().log(`Fatal error: ${error.message}`);
+      }
+      await crashlytics.default().recordError(error);
+    } catch {
+      // Crashlytics indisponível — não impede o handler original
+    }
+
+    // Chama o handler original para manter comportamento padrão do React Native
+    if (originalHandler) {
+      originalHandler(error, isFatal);
+    }
+  });
 }
 
 /**
@@ -67,6 +107,7 @@ export async function initFirebase(): Promise<void> {
 export async function applyAnalyticsPreferences(
   analyticsEnabled: boolean,
   performanceEnabled: boolean,
+  crashlyticsEnabled: boolean,
 ): Promise<void> {
   if (Platform.OS === "web") return;
 
@@ -83,11 +124,39 @@ export async function applyAnalyticsPreferences(
   } catch {
     // module not available
   }
+
+  try {
+    const crashlytics = await import("@react-native-firebase/crashlytics");
+    await crashlytics.default().setCrashlyticsCollectionEnabled(crashlyticsEnabled);
+    if (crashlyticsEnabled) {
+      installGlobalErrorHandler();
+    }
+  } catch {
+    // module not available
+  }
+}
+
+/**
+ * Reporta erro do ErrorBoundary ao Crashlytics (se habilitado).
+ */
+export async function reportCrashToFirebase(error: Error, componentStack?: string): Promise<void> {
+  if (Platform.OS === "web") return;
+  try {
+    const settings = await loadAnalyticsSettings();
+    if (!settings.crashlyticsEnabled) return;
+
+    const crashlytics = await import("@react-native-firebase/crashlytics");
+    if (componentStack) {
+      crashlytics.default().log(`Component stack: ${componentStack}`);
+    }
+    await crashlytics.default().recordError(error);
+  } catch {
+    // silencioso
+  }
 }
 
 /**
  * Registra um evento personalizado no Firebase Analytics.
- * No-op se analytics não está habilitado.
  */
 export async function logEvent(
   name: string,

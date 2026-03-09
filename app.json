@@ -121,7 +121,8 @@
           "ios_app_id": "1:1098581898317:ios:9c62b90f5890f34870d804"
         }
       ],
-      "@react-native-firebase/perf"
+      "@react-native-firebase/perf",
+      "@react-native-firebase/crashlytics"
     ],
     "experiments": {
       "typedRoutes": true,

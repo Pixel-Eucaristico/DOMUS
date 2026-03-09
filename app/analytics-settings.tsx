@@ -41,7 +41,7 @@ export default function AnalyticsSettingsScreen() {
       const next = { ...settings, ...patch };
       setSettings(next);
       await saveAnalyticsSettings(next);
-      await applyAnalyticsPreferences(next.analyticsEnabled, next.performanceEnabled);
+      await applyAnalyticsPreferences(next.analyticsEnabled, next.performanceEnabled, next.crashlyticsEnabled);
     },
     [settings],
   );
@@ -50,7 +50,7 @@ export default function AnalyticsSettingsScreen() {
 
   if (loading) return null;
 
-  const anyEnabled = settings.analyticsEnabled || settings.performanceEnabled;
+  const anyEnabled = settings.analyticsEnabled || settings.performanceEnabled || settings.crashlyticsEnabled;
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
@@ -123,6 +123,15 @@ export default function AnalyticsSettingsScreen() {
               value={settings.performanceEnabled}
               onValueChange={(v) => update({ performanceEnabled: v })}
             />
+            <SwitchRow
+              icon="alert-triangle"
+              label="Crash Reports"
+              description="Relatórios de erros e crashes para correção rápida"
+              color="#F59E0B"
+              theme={theme}
+              value={settings.crashlyticsEnabled}
+              onValueChange={(v) => update({ crashlyticsEnabled: v })}
+            />
           </View>
         </View>
 
@@ -171,7 +180,7 @@ export default function AnalyticsSettingsScreen() {
             style={[s.disableBtn, { borderColor: "#EF4444" }]}
             onPress={() => {
               soundManager.play("tap");
-              update({ analyticsEnabled: false, performanceEnabled: false });
+              update({ analyticsEnabled: false, performanceEnabled: false, crashlyticsEnabled: false });
             }}
             activeOpacity={0.8}
           >

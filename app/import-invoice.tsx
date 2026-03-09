@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { InvoiceImportedPayload } from "@packages/parsers";
 
@@ -21,7 +22,42 @@ import { ErrorScreen } from "@/src/components/invoice/ErrorScreen";
 
 type ScreenState = "idle" | "qr" | "ocr" | "webview" | "fetching" | "parsed" | "error";
 
+/**
+ * FIX-2026-03-09: Quando em demo mode (tour), renderiza apenas a UI visual
+ * sem montar useInvoiceScanner, evitando que useCameraPermissions() seja
+ * chamado e cause crash no Samsung S23+ (GPU Mali texture overflow).
+ * Ver docs/tour-crash-fixes.md
+ */
+function DemoImportScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { theme } = useAppState();
+
+  return (
+    <View style={[s.container, { backgroundColor: theme.background }]}>
+      <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+        <Pressable onPress={() => { soundManager.play("tap"); router.back(); }} hitSlop={12}>
+          <Feather name="arrow-left" size={24} color={theme.textColor} />
+        </Pressable>
+        <Text style={[s.title, { color: theme.textColor }]}>Importar NF</Text>
+        <View style={{ width: 24 }} />
+      </View>
+      <IdleScreen
+        theme={theme}
+        onQRPress={() => {}}
+        onOCRPress={() => {}}
+        onManualEntry={() => {}}
+      />
+    </View>
+  );
+}
+
 export default function InvoiceImportScreen() {
+  const { isDemoActive } = useDemoMode();
+
+  // FIX-2026-03-09: Evita montar camera hooks durante o tour (demo mode).
+  // Retorna componente separado para não violar regra de hooks do React.
+  if (isDemoActive) return <DemoImportScreen />;
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { domain, theme } = useAppState();

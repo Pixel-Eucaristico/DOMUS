@@ -32,10 +32,11 @@ export function AnalyticsConsentModal({ visible, onDone }: Props) {
         ...settings,
         analyticsEnabled: true,
         performanceEnabled: true,
+        crashlyticsEnabled: true,
         hasCompletedConsent: true,
       };
       await saveAnalyticsSettings(updated);
-      await applyAnalyticsPreferences(true, true);
+      await applyAnalyticsPreferences(true, true, true);
     } catch {
       // best-effort
     }
@@ -50,6 +51,7 @@ export function AnalyticsConsentModal({ visible, onDone }: Props) {
         ...settings,
         analyticsEnabled: false,
         performanceEnabled: false,
+        crashlyticsEnabled: false,
         hasCompletedConsent: true,
       });
     } catch {

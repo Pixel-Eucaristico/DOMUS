@@ -5,6 +5,8 @@ export interface AnalyticsSettings {
   analyticsEnabled: boolean;
   /** Usuário optou por enviar dados de performance (FPS, slow frames) */
   performanceEnabled: boolean;
+  /** Usuário optou por enviar crash reports (Crashlytics) */
+  crashlyticsEnabled: boolean;
   /** true após o usuário ter visto o modal de consentimento */
   hasCompletedConsent: boolean;
 }
@@ -12,6 +14,7 @@ export interface AnalyticsSettings {
 export const DEFAULT_ANALYTICS_SETTINGS: AnalyticsSettings = {
   analyticsEnabled: false,
   performanceEnabled: false,
+  crashlyticsEnabled: false,
   hasCompletedConsent: false,
 };
 
