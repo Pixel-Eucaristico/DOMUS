@@ -1,23 +1,34 @@
 diff --git a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/views/EdgeToEdgeReactViewGroup.kt b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/views/EdgeToEdgeReactViewGroup.kt
-index 1234567..abcdefg 100644
+index e13177c..daa3615 100644
 --- a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/views/EdgeToEdgeReactViewGroup.kt
 +++ b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/views/EdgeToEdgeReactViewGroup.kt
-@@ -3,6 +3,8 @@ package com.reactnativekeyboardcontroller.views
+@@ -2,8 +2,10 @@ package com.reactnativekeyboardcontroller.views
+ 
  import android.annotation.SuppressLint
  import android.content.res.Configuration
- import android.os.Handler
-+import android.view.View
 +import android.graphics.Canvas
+ import android.os.Handler
  import android.os.Looper
++import android.view.View
  import android.widget.FrameLayout
  import androidx.core.view.ViewCompat
-@@ -71,6 +73,30 @@ class EdgeToEdgeReactViewGroup(
+ import androidx.core.view.WindowCompat
+@@ -72,6 +74,35 @@ class EdgeToEdgeReactViewGroup(
      EdgeToEdgeViewRegistry.register(this)
    }
-
+ 
 +  // Workaround for Samsung Fabric crash: "contains null child at index N"
-+  // Samsung's ViewGroup.dispatchGetDisplayList throws when it encounters null children
-+  // during async view removal on Fabric.
++  // Samsung's ViewGroup.dispatchGetDisplayList throws IllegalStateException when it
++  // encounters null children during async view removal on Fabric (New Architecture).
++  // Overriding dispatchDraw catches the crash at the rendering level.
++  override fun dispatchDraw(canvas: Canvas) {
++    try {
++      super.dispatchDraw(canvas)
++    } catch (e: IllegalStateException) {
++      // Silently recover from Samsung "contains null child" crash
++    }
++  }
++
 +  override fun removeView(view: View?) {
 +    if (view == null) return
 +    try {
@@ -35,22 +46,13 @@ index 1234567..abcdefg 100644
 +    }
 +  }
 +
-+  override fun dispatchDraw(canvas: Canvas) {
-+    try {
-+      super.dispatchDraw(canvas)
-+    } catch (e: IllegalStateException) {
-+      // Catch Samsung-specific "contains null child at index N" crash
-+      // during display list traversal and silently recover
-+    }
-+  }
-+
    // region View life cycles
    override fun onAttachedToWindow() {
      super.onAttachedToWindow()
-@@ -196,12 +222,16 @@ class EdgeToEdgeReactViewGroup(
+@@ -185,16 +216,19 @@ class EdgeToEdgeReactViewGroup(
    private fun removeKeyboardCallbacks() {
      callback?.destroy()
-
+ 
 -    // capture view into closure, because if `onDetachedFromWindow` and `onAttachedToWindow`
 -    // dispatched synchronously after each other (open application on Fabric), then `.post`
 -    // will destroy just newly created view (if we have a reference via `this`)
@@ -74,3 +76,5 @@ index 1234567..abcdefg 100644
 +      Handler(Looper.getMainLooper()).post { view.removeSelf() }
 +    }
    }
+ 
+   private fun reApplyWindowInsets() {
