@@ -3,6 +3,7 @@ import React, { useRef, useEffect, useMemo } from "react";
 import {
   View as RNView,
   Platform,
+  Dimensions,
   useWindowDimensions,
   type View,
   type ScrollView,
@@ -28,20 +29,25 @@ const CARD_STYLE: ViewStyle = {
   elevation: 24,
 };
 
-// FIX: Backdrop agora usa dimensoes seguras ao inves de 30000px que crashava
-// GPUs Mali em Samsung S23+ (e similares). Ver docs/tour-crash-fixes.md #1
+// FIX: Backdrop usa dimensoes da tela real para garantir cobertura fullscreen.
+// Dentro de ScrollViews, position:absolute com top/right/bottom/left:0 fica
+// limitado ao contentContainer. Usamos width/height da tela + offset negativo
+// para cobrir tudo. Valores seguros para GPU (< 5000px). Ver docs/tour-crash-fixes.md #1
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
+
 const BACKDROP_BASE: ViewStyle = {
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
+  position: "absolute",
+  top: -500,
+  left: -500,
+  width: SCREEN_W + 1000,
+  height: SCREEN_H + 1000,
   backgroundColor: "rgba(0,0,0,0.5)",
   zIndex: 9996,
 };
 
 const BACKDROP_STYLE: ViewStyle = Platform.OS === "web"
-  ? ({ ...BACKDROP_BASE, position: "fixed" } as any)
-  : { ...BACKDROP_BASE, position: "absolute" };
+  ? ({ ...BACKDROP_BASE, position: "fixed", top: 0, left: 0, right: 0, bottom: 0, width: undefined, height: undefined } as any)
+  : BACKDROP_BASE;
 
 /**
  * Hook para elementos da UI exibirem um card de tour inline.
