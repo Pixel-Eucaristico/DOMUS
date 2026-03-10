@@ -47,18 +47,20 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
           <QrTourCard />
         </View>
 
-        <Pressable
-          style={[s.mainBtn, { backgroundColor: theme.accentColor, opacity: isWeb ? 0.5 : 1 }]}
-          onPress={() => { if (isWeb) return; soundManager.play("tap"); onOCRPress(); }}
-          disabled={isWeb}
-        >
-          <Feather name="type" size={28} color="#FFF" />
-          <View style={s.btnTextGroup}>
-            <Text style={s.mainBtnLabel}>OCR — Foto</Text>
-            <Text style={s.mainBtnSub}>{isWeb ? "Disponível no app Android" : "Fotografar a nota fiscal"}</Text>
-          </View>
-          <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.6)" />
-        </Pressable>
+        {__DEV__ && (
+          <Pressable
+            style={[s.mainBtn, { backgroundColor: theme.accentColor, opacity: isWeb ? 0.5 : 1 }]}
+            onPress={() => { if (isWeb) return; soundManager.play("tap"); onOCRPress(); }}
+            disabled={isWeb}
+          >
+            <Feather name="type" size={28} color="#FFF" />
+            <View style={s.btnTextGroup}>
+              <Text style={s.mainBtnLabel}>OCR — Foto</Text>
+              <Text style={s.mainBtnSub}>{isWeb ? "Disponível no app Android" : "Fotografar a nota fiscal"}</Text>
+            </View>
+            <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.6)" />
+          </Pressable>
+        )}
 
         {Platform.OS === "web" && (
           <Pressable
@@ -92,7 +94,7 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
         </View>
       </View>
 
-      {!isWeb && (
+      {__DEV__ && !isWeb && (
         <Pressable style={s.settingsLink} onPress={() => { soundManager.play("tap"); router.push("/ocr-settings"); }}>
           <Feather name="settings" size={14} color={theme.secondaryText} />
           <Text style={[s.settingsLinkText, { color: theme.secondaryText }]}>Configurar OCR</Text>
