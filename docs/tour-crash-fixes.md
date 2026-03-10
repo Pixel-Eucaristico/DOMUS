@@ -93,6 +93,93 @@ o TourCard excede a altura da tela.
 
 ---
 
+## #6 — EdgeToEdgeReactViewGroup "null child" crash (Samsung Android 14+)
+
+**Arquivos**: `android/app/src/main/java/.../MainApplication.kt`,
+`patches/react-native-keyboard-controller+1.18.5.patch`
+
+**Erro**:
+```
+java.lang.IllegalStateException: EdgeToEdgeReactViewGroup contains null child
+at index 2 when traversal in dispatchGetDisplayList
+```
+
+**Problema**: Samsung Android 14+ tem um metodo privado `dispatchGetDisplayList()`
+no ViewGroup que traversa `mChildren[]` diretamente (sem `getChildAt`).
+Quando o Fabric (New Architecture) remove Views filhas durante navegacao
+de tela, `mChildren[i]` fica null antes de `mChildrenCount` decrementar.
+O `EdgeToEdgeReactViewGroup` do `react-native-keyboard-controller` envolve
+toda a arvore React, entao qualquer navegacao pode provocar o crash.
+
+**Tentativas que FALHARAM** (documentadas para nao repetir):
+
+1. **Override `dispatchDraw()` com try-catch** — Samsung NAO chama
+   `dispatchDraw()` antes de `dispatchGetDisplayList()`. O crash acontece
+   ANTES do dispatchDraw ser invocado.
+
+2. **Override `draw()` com try-catch** — Samsung tambem bypassa `draw()`.
+   A pipeline vai direto de `updateDisplayListIfDirty()` para
+   `dispatchGetDisplayList()` sem passar por `draw()` ou `dispatchDraw()`.
+
+3. **`removeViewInLayout()` ao inves de `removeView()`** — Nao ajudou pois
+   o crash nao vem do removeView da lib, e sim do Fabric removendo React
+   children durante a reconciliacao da arvore.
+
+4. **`OnPreDrawListener` + reflection para limpar nulls em `mChildren`** —
+   Android 14+ bloqueia acesso a `mChildren` e `mChildrenCount` via
+   reflection (hidden API restrictions). O `isAccessible = true` falha
+   silenciosamente.
+
+5. **`Thread.setDefaultUncaughtExceptionHandler` ANTES do RN** — O handler
+   era sobrescrito pelo React Native, Expo DevLauncher e Firebase Crashlytics
+   durante suas proprias inicializacoes.
+
+6. **`Thread.setDefaultUncaughtExceptionHandler` DEPOIS do RN** — Capturou
+   a excecao mas o main Looper morria (stack unwind), causando freeze/ANR.
+
+**Solucao que FUNCIONOU**: Main Looper wrapper ("Cockroach" pattern).
+
+**Arquivo**: `android/app/src/main/java/.../MainApplication.kt`
+
+Apos toda a inicializacao (loadReactNative, Expo, Firebase), posta um
+Runnable no main Handler que entra em loop infinito chamando `Looper.loop()`.
+Quando Samsung lanca o `IllegalStateException`, o catch verifica se e o
+crash especifico ("null child" + "dispatchGetDisplayList"), engole a excecao
+e faz `continue` para reiniciar o Looper. O proximo frame renderiza
+normalmente. Qualquer outra excecao e encaminhada ao handler padrao.
+
+```kotlin
+mainHandler.post {
+  while (true) {
+    try {
+      Looper.loop()
+    } catch (e: Throwable) {
+      if (e is IllegalStateException &&
+          e.message?.contains("null child") == true &&
+          e.message?.contains("dispatchGetDisplayList") == true) {
+        continue // Samsung crash — restart Looper
+      }
+      Thread.getDefaultUncaughtExceptionHandler()
+        ?.uncaughtException(Thread.currentThread(), e)
+      break
+    }
+  }
+}
+```
+
+**Por que funciona**: `Looper.loop()` e o event loop do main thread Android.
+Quando uma excecao escapa do Looper, normalmente o processo morre. Ao
+re-chamar `Looper.loop()` dentro do catch, reiniciamos o event loop e o
+proximo frame desenha com a arvore ja consistente (o Fabric terminou de
+reconciliar).
+
+**NUNCA MAIS FAZER**:
+- Confiar que `dispatchDraw` ou `draw` capturam crashes de rendering Samsung
+- Usar reflection para `mChildren` em Android 14+ (bloqueado)
+- Setar UncaughtExceptionHandler antes do RN/Expo/Firebase (sera sobrescrito)
+
+---
+
 ## Checklist para futuros passos do tour
 
 - [ ] Nunca usar Views > 5000px com animacao Reanimated
@@ -100,3 +187,4 @@ o TourCard excede a altura da tela.
 - [ ] Sempre ter fallback/loading para estados de permissao
 - [ ] Testar measureInWindow com guards de valores invalidos
 - [ ] Testar em Samsung Galaxy S series antes de release
+- [ ] Patches nativos: guardar em `draw()` alem de `dispatchDraw()` para Samsung

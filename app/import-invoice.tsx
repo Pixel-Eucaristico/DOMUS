@@ -53,11 +53,8 @@ function DemoImportScreen() {
 }
 
 export default function InvoiceImportScreen() {
-  const { isDemoActive } = useDemoMode();
-
-  // FIX-2026-03-09: Evita montar camera hooks durante o tour (demo mode).
-  // Retorna componente separado para não violar regra de hooks do React.
-  if (isDemoActive) return <DemoImportScreen />;
+  // Samsung crash agora protegido pelo Looper wrapper em MainApplication.kt
+  // (docs/tour-crash-fixes.md #6) — camera hooks podem rodar durante o tour.
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { domain, theme } = useAppState();
