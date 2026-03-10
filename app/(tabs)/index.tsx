@@ -246,7 +246,6 @@ export default function HomeScreen() {
                   onPress={() => router.push("/sync")}
                 />
               </View>
-              {__DEV__ && (
               <AnimatedIconButton
                 name="maximize"
                 size={20}
@@ -254,7 +253,6 @@ export default function HomeScreen() {
                 style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
                 onPress={() => router.push("/import-invoice")}
               />
-              )}
               <View ref={aiChatRef as any} collapsable={false}>
                 <AnimatedIconButton
                   name="robot-happy"
