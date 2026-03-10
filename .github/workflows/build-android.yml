@@ -7,67 +7,17 @@ name: Build Android & Web
 on:
   push:
     branches: [main]
-    tags: ["v*"]
-  workflow_dispatch:  # Permite trigger manual
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  build-android-debug:
-    name: Build Debug APK
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: gradle-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Expo prebuild (Android)
-        run: npx expo prebuild --platform android --clean --no-install
-
-      - name: Build debug APK
-        working-directory: android
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --build-cache -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError" -Dorg.gradle.parallel=true
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: domus-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
-
-  build-android-release:
+  build-android:
     name: Build Release APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout
@@ -129,18 +79,46 @@ jobs:
           if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
             ./gradlew assembleRelease --no-daemon --build-cache -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError" -Dorg.gradle.parallel=true
           else
-            echo "::warning::Keystore not configured. Building debug APK instead."
-            ./gradlew assembleDebug --no-daemon --build-cache -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError" -Dorg.gradle.parallel=true
+            echo "::warning::Keystore não configurado. Buildando APK release não-assinado."
+            ./gradlew assembleRelease --no-daemon --build-cache -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError" -Dorg.gradle.parallel=true
           fi
 
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
+      - name: Rename APK
+        id: apk
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          SHORT_SHA=${GITHUB_SHA::7}
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG=${GITHUB_REF#refs/tags/}
+            APK_NAME="domus-${TAG}.apk"
+          else
+            APK_NAME="domus-v${VERSION}-${SHORT_SHA}.apk"
+          fi
+          cp android/app/build/outputs/apk/release/app-release-unsigned.apk "$APK_NAME" 2>/dev/null || \
+          cp android/app/build/outputs/apk/release/app-release.apk "$APK_NAME"
+          echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+
+      - name: Publish pre-release (push na main)
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
         with:
-          name: domus-release-apk
-          path: |
-            android/app/build/outputs/apk/release/app-release.apk
-            android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 90
+          tag_name: pre-${{ steps.apk.outputs.short_sha }}
+          name: DOMUS v${{ steps.apk.outputs.version }}-${{ steps.apk.outputs.short_sha }} (pré-release)
+          prerelease: true
+          generate_release_notes: false
+          files: ${{ steps.apk.outputs.apk_name }}
+
+      - name: Publish release (tag v*.*.*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: DOMUS ${{ github.ref_name }}
+          prerelease: false
+          generate_release_notes: true
+          files: ${{ steps.apk.outputs.apk_name }}
 
   build-web:
     name: Build Web
