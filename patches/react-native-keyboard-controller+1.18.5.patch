@@ -3,7 +3,7 @@ index e13177c..daa3615 100644
 --- a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/views/EdgeToEdgeReactViewGroup.kt
 +++ b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/views/EdgeToEdgeReactViewGroup.kt
 @@ -2,8 +2,10 @@ package com.reactnativekeyboardcontroller.views
- 
+
  import android.annotation.SuppressLint
  import android.content.res.Configuration
 +import android.graphics.Canvas
@@ -13,14 +13,26 @@ index e13177c..daa3615 100644
  import android.widget.FrameLayout
  import androidx.core.view.ViewCompat
  import androidx.core.view.WindowCompat
-@@ -72,6 +74,35 @@ class EdgeToEdgeReactViewGroup(
+@@ -72,6 +74,44 @@ class EdgeToEdgeReactViewGroup(
      EdgeToEdgeViewRegistry.register(this)
    }
- 
+
 +  // Workaround for Samsung Fabric crash: "contains null child at index N"
-+  // Samsung's ViewGroup.dispatchGetDisplayList throws IllegalStateException when it
-+  // encounters null children during async view removal on Fabric (New Architecture).
-+  // Overriding dispatchDraw catches the crash at the rendering level.
++  // Android 16 added a strict null check in ViewGroup.dispatchGetDisplayList that throws
++  // IllegalStateException when a child is null during the hardware renderer traversal.
++  // This happens when a child view is removed asynchronously while the hardware renderer
++  // is already traversing the view hierarchy (race condition on Fabric/New Architecture).
++  override fun dispatchGetDisplayList() {
++    try {
++      super.dispatchGetDisplayList()
++    } catch (e: IllegalStateException) {
++      // Android 16+: "contains null child at index N when traversal in dispatchGetDisplayList"
++      // ViewGroup gained this strict null check in Android 16. Recover silently so
++      // the next render frame reflects the updated view hierarchy.
++    }
++  }
++
++  // Fallback for older Android versions where the crash surfaces during draw instead.
 +  override fun dispatchDraw(canvas: Canvas) {
 +    try {
 +      super.dispatchDraw(canvas)
@@ -49,10 +61,10 @@ index e13177c..daa3615 100644
    // region View life cycles
    override fun onAttachedToWindow() {
      super.onAttachedToWindow()
-@@ -185,16 +216,19 @@ class EdgeToEdgeReactViewGroup(
+@@ -185,16 +225,19 @@ class EdgeToEdgeReactViewGroup(
    private fun removeKeyboardCallbacks() {
      callback?.destroy()
- 
+
 -    // capture view into closure, because if `onDetachedFromWindow` and `onAttachedToWindow`
 -    // dispatched synchronously after each other (open application on Fabric), then `.post`
 -    // will destroy just newly created view (if we have a reference via `this`)
@@ -76,5 +88,5 @@ index e13177c..daa3615 100644
 +      Handler(Looper.getMainLooper()).post { view.removeSelf() }
 +    }
    }
- 
+
    private fun reApplyWindowInsets() {
