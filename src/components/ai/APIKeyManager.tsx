@@ -113,10 +113,10 @@ export function APIKeyManager({
       } else {
         setError("Login cancelado ou expirou.");
       }
-    } catch {
+    } catch (e) {
       setDeviceCode(null);
       setDeviceUrl(null);
-      setError("Erro ao conectar com ChatGPT.");
+      setError(e instanceof Error ? e.message : "Erro ao conectar com ChatGPT.");
       soundManager.play("error");
     } finally {
       setIsLoggingIn(false);

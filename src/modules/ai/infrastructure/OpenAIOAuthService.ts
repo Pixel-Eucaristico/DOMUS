@@ -1,5 +1,6 @@
 import * as WebBrowser from "expo-web-browser";
 import { SecureStorageService } from "@/src/modules/security/infrastructure/SecureStorageService";
+import { ConnectivityService } from "./ConnectivityService";
 
 // ─── Constants from Codex CLI (public, open-source) ────────────────────────────
 
@@ -59,6 +60,11 @@ export class OpenAIOAuthService {
     onCode: (code: string, verifyUrl: string) => void,
     signal?: AbortSignal,
   ): Promise<OpenAIOAuthTokens | null> {
+    const online = await ConnectivityService.isOnline();
+    if (!online) {
+      throw new Error("Sem conexão com a internet. Verifique sua conexão e tente novamente.");
+    }
+
     // Step 1: Request user code
     const deviceResp = await fetch(`${API_BASE}/deviceauth/usercode`, {
       method: "POST",
