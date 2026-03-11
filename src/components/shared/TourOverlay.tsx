@@ -103,10 +103,14 @@ export function TourOverlay({ theme, children }: Props) {
     <TourControlProvider value={controlValue}>
       <View style={styles.root}>
         {children}
-        {showBadge && (
+        {/* FIX-2026-03-11: showBadge e showModal são mutuamente exclusivos.
+            Usar dois blocos `&&` separados cria dois slots filhos que ficam
+            null alternadamente no EdgeToEdgeReactViewGroup, causando crash
+            "null child at index 2" no Android 16. Um único ternário encadeado
+            garante no máximo 2 filhos no View, sem slots nulos fixos. */}
+        {showBadge ? (
           <TourMiniBadge theme={theme} onRestore={handleRestore} />
-        )}
-        {showModal && (
+        ) : showModal ? (
           <TourModalCard
             step={step}
             stepIndex={currentTourStep}
@@ -117,7 +121,7 @@ export function TourOverlay({ theme, children }: Props) {
             onMinimize={handleMinimize}
             isLast={currentIsLast}
           />
-        )}
+        ) : null}
       </View>
     </TourControlProvider>
   );
