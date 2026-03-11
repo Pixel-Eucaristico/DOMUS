@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Platform } from "react-native";
 import { GoogleDriveService } from "@/src/modules/backup/infrastructure/GoogleDriveService";
 import type { DriveTokens } from "@/src/modules/backup/infrastructure/GoogleDriveService";
+import { ConnectivityService } from "@/src/modules/ai/infrastructure/ConnectivityService";
 
 // ─── Google OAuth ────────────────────────────────────────────────────────────
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
@@ -157,6 +158,13 @@ export function useGoogleDriveBackup() {
     setSyncError(null);
     setIsConnecting(true);
 
+    const online = await ConnectivityService.isOnline();
+    if (!online) {
+      setSyncError("Sem conexão com a internet. Verifique sua conexão e tente novamente.");
+      setIsConnecting(false);
+      return;
+    }
+
     try {
       if (Platform.OS === "web") {
         await connectWeb();
@@ -199,6 +207,11 @@ export function useGoogleDriveBackup() {
    */
   const uploadContent = useCallback(async (content: string): Promise<boolean> => {
     if (!isConnected) return false;
+    const online = await ConnectivityService.isOnline();
+    if (!online) {
+      setSyncError("Sem conexão com a internet. Verifique sua conexão e tente novamente.");
+      return false;
+    }
     setIsSyncing(true);
     setSyncError(null);
     try {

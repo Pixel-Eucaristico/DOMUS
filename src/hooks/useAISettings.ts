@@ -140,24 +140,20 @@ export function useAISettings(): UseAISettingsResult {
 
   const loginWithChatGPT = useCallback(
     async (onCode: (code: string, verifyUrl: string) => void): Promise<boolean> => {
-      try {
-        const tokens = await OpenAIOAuthService.loginWithDeviceCode(onCode);
-        if (!tokens) return false;
+      const tokens = await OpenAIOAuthService.loginWithDeviceCode(onCode);
+      if (!tokens) return false;
 
-        AIClientService.resetBreaker("openai");
-        const next: AISettings = {
-          ...settings,
-          provider: "openai",
-          openaiAuthMethod: "chatgpt_oauth",
-          hasOAuthSession: true,
-          isEnabled: true,
-          systemPromptSent: false,
-        };
-        await persist(next);
-        return true;
-      } catch {
-        return false;
-      }
+      AIClientService.resetBreaker("openai");
+      const next: AISettings = {
+        ...settings,
+        provider: "openai",
+        openaiAuthMethod: "chatgpt_oauth",
+        hasOAuthSession: true,
+        isEnabled: true,
+        systemPromptSent: false,
+      };
+      await persist(next);
+      return true;
     },
     [settings, persist],
   );
