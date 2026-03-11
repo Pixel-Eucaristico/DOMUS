@@ -76,8 +76,11 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           chmod +x gradlew
-          GRADLE_OPTS="-Dorg.gradle.jvmargs=-Xmx4g -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.parallel=true --no-daemon --build-cache"
-          ./gradlew assembleRelease bundleRelease $GRADLE_OPTS
+          ./gradlew assembleRelease bundleRelease \
+            --no-daemon \
+            --build-cache \
+            -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError" \
+            -Dorg.gradle.parallel=true
 
       - name: Rename APK and AAB
         id: apk
