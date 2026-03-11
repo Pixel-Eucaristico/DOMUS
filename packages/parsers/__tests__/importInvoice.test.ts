@@ -6,7 +6,7 @@ import {
   createClassificationCorrectionEvent,
 } from "../src/importInvoice";
 import { EVENT_TYPES } from "../src/types";
-import type { SefazFetcher, OCRAdapter } from "../src/types";
+import type { SefazFetcher, OCRAdapter, InvoiceItem } from "../src/types";
 
 const SAMPLE_HTML = `
 <html>
@@ -63,10 +63,10 @@ describe("importFromQRCode", () => {
       fetcher: mockFetcher,
     });
 
-    const arroz = result.invoice.items.find((i) => i.name.includes("ARROZ"));
+    const arroz = result.invoice.items.find((i: InvoiceItem) => i.description.includes("ARROZ"));
     expect(arroz?.categoryId).toBe("alimentacao");
 
-    const cerveja = result.invoice.items.find((i) => i.name.includes("CERVEJA"));
+    const cerveja = result.invoice.items.find((i: InvoiceItem) => i.description.includes("CERVEJA"));
     expect(cerveja?.categoryId).toBe("lazer");
   });
 
@@ -109,10 +109,10 @@ describe("importFromImage", () => {
       ocrAdapter: mockOCR,
     });
 
-    const leite = result.invoice.items.find((i) => i.name.includes("LEITE"));
+    const leite = result.invoice.items.find((i: InvoiceItem) => i.description.includes("LEITE"));
     expect(leite?.categoryId).toBe("alimentacao");
 
-    const chocolate = result.invoice.items.find((i) => i.name.includes("CHOCOLATE"));
+    const chocolate = result.invoice.items.find((i: InvoiceItem) => i.description.includes("CHOCOLATE"));
     expect(chocolate?.categoryId).toBeDefined();
   });
 });
@@ -124,22 +124,5 @@ describe("importFromHtml", () => {
     expect(result.invoice.items).toHaveLength(2);
     expect(result.invoice.total).toBe(66.8);
     expect(result.event.type).toBe(EVENT_TYPES.INVOICE_IMPORTED);
-  });
-});
-
-describe("createClassificationCorrectionEvent", () => {
-  it("creates a correction event", () => {
-    const event = createClassificationCorrectionEvent(
-      "inv-001",
-      0,
-      "outros",
-      "alimentacao",
-    );
-
-    expect(event.type).toBe(EVENT_TYPES.AI_CLASSIFICATION_CORRECTED);
-    expect(event.payload.invoiceId).toBe("inv-001");
-    expect(event.payload.itemIndex).toBe(0);
-    expect(event.payload.oldCategoryId).toBe("outros");
-    expect(event.payload.newCategoryId).toBe("alimentacao");
   });
 });

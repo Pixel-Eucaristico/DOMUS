@@ -14,7 +14,7 @@ export class WishlistAffordabilityService {
 
     let remaining = availableAmount;
     for (const item of sortedItems) {
-      const price = item.price ?? 0;
+      const price = (item.price ?? 0) * (item.quantity ?? 1);
       if (remaining >= price) {
         affordableIds.add(item.id);
         remaining -= price;

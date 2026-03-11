@@ -101,6 +101,81 @@ export default function AISettingsScreen() {
           </View>
         </View>
 
+        {/* Voice mode — only for OpenAI and Gemini */}
+        {(settings.provider === "openai" || settings.provider === "gemini") && (
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: theme.cardBackground, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleInfo}>
+                <Text style={[styles.cardTitle, { color: theme.textColor }]}>
+                  Modo Voz
+                </Text>
+                <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                  {settings.provider === "openai"
+                    ? "Microfone (Whisper) + resposta em áudio (TTS)"
+                    : "Microfone + resposta via voz nativa"}
+                </Text>
+              </View>
+              <Switch
+                value={settings.voiceEnabled ?? false}
+                onValueChange={(v) => {
+                  soundManager.play("tap");
+                  updateSettings({ voiceEnabled: v });
+                }}
+                trackColor={{ false: theme.border, true: theme.primaryColor }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            {/* OpenAI voice selector */}
+            {settings.provider === "openai" && (settings.voiceEnabled ?? false) && (
+              <View style={{ marginTop: 12, gap: 8 }}>
+                <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                  Voz OpenAI TTS
+                </Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {(["alloy", "echo", "fable", "onyx", "nova", "shimmer"] as const).map((v) => (
+                    <TouchableOpacity
+                      key={v}
+                      onPress={() => { soundManager.play("tap"); updateSettings({ openaiVoice: v }); }}
+                      style={[
+                        styles.voiceChip,
+                        {
+                          backgroundColor:
+                            (settings.openaiVoice ?? "nova") === v
+                              ? theme.primaryColor
+                              : theme.cardBackground,
+                          borderColor:
+                            (settings.openaiVoice ?? "nova") === v
+                              ? theme.primaryColor
+                              : theme.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          color:
+                            (settings.openaiVoice ?? "nova") === v ? "#fff" : theme.textColor,
+                        }}
+                      >
+                        {v}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={[{ fontSize: 11, color: theme.secondaryText }]}>
+                  ⚠️ Voz OpenAI gera custos extras de API
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Provider + Model */}
         <View
           style={[
@@ -429,6 +504,12 @@ const styles = StyleSheet.create({
   toggleInfo: {
     flex: 1,
     gap: 2,
+  },
+  voiceChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
   },
   privacyHeader: {
     flexDirection: "row",

@@ -69,6 +69,8 @@ export type BudgetMode = "daily" | "monthly";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type OpenAIVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
+
 export interface AISettings {
   provider: AIProvider;
   modelTier: AIModelTier;
@@ -90,6 +92,10 @@ export interface AISettings {
   monthlyBudgets?: Partial<Record<AIProvider, number>>;
   /** Day of month when billing cycle resets (1-31, default 1) */
   billingDay?: number;
+  /** Voice mode: microphone input + spoken responses (OpenAI and Gemini only) */
+  voiceEnabled?: boolean;
+  /** Voice used by OpenAI TTS (default: "nova") */
+  openaiVoice?: OpenAIVoice;
   /**
    * true after the system prompt has been sent once this session.
    *

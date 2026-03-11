@@ -74,6 +74,8 @@ export function useAISettings(): UseAISettingsResult {
               monthlyBudgets: stored.monthlyBudgets,
               billingDay: stored.billingDay,
               systemPromptSent: stored.systemPromptSent ?? false,
+              voiceEnabled: stored.voiceEnabled ?? false,
+              openaiVoice: stored.openaiVoice,
             });
           }
         } else if (mounted) {

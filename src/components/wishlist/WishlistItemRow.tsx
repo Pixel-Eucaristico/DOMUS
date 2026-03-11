@@ -148,10 +148,22 @@ export function WishlistItemRow({
               )}
             </View>
           ) : item.price !== undefined ? (
-            <Text style={[styles.price, { color: theme.primaryColor }]}>
-              R${" "}
-              {item.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              {(item.quantity ?? 1) > 1 && (
+                <Text style={[styles.price, { color: theme.secondaryText, fontSize: 11 }]}>
+                  {`×${item.quantity}`}
+                </Text>
+              )}
+              <Text style={[styles.price, { color: theme.primaryColor }]}>
+                R${" "}
+                {((item.price) * (item.quantity ?? 1)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </Text>
+              {(item.quantity ?? 1) > 1 && (
+                <Text style={[styles.price, { color: theme.secondaryText, fontSize: 10 }]}>
+                  {`(un. R$ ${item.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })})`}
+                </Text>
+              )}
+            </View>
           ) : null}
 
           {item.category && (
@@ -268,11 +280,11 @@ export function WishlistItemRow({
                 {purchased && <Feather name="check" size={10} color="#fff" />}
               </View>
               <Text style={[styles.bundlePieceName, { color: purchased ? theme.secondaryText : theme.textColor, textDecorationLine: purchased ? "line-through" : "none" }]} numberOfLines={1}>
-                {bItem.name || "Sem nome"}
+                {(bItem.quantity ?? 1) > 1 ? `×${bItem.quantity} ${bItem.name || "Sem nome"}` : (bItem.name || "Sem nome")}
               </Text>
               {bItem.price !== undefined && (
                 <Text style={[styles.bundlePiecePrice, { color: purchased ? theme.secondaryText : theme.primaryColor }]}>
-                  {`R$ ${bItem.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                  {`R$ ${(bItem.price * (bItem.quantity ?? 1)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                 </Text>
               )}
               {(bItem.affiliateUrl ?? bItem.originalUrl) && (

@@ -44,6 +44,8 @@ export interface BundleItem {
   id: string;
   name: string;
   price?: number;
+  /** Quantidade desta peça no kit (padrão 1) */
+  quantity?: number;
   originalUrl?: string;
   affiliateUrl?: string;
   imageUrl?: string;
@@ -67,6 +69,8 @@ export interface WishlistItem {
   affiliateUrl?: string;
   imageUrl?: string;
   price?: number;
+  /** Quantidade do item (padrão 1) — o preço exibido é price × quantity */
+  quantity?: number;
   canBuyThisMonth?: boolean;
   savingsGoal?: SavingsGoalConfig;
   /** Peças/componentes do kit — quando presente, o item é tratado como bundle */

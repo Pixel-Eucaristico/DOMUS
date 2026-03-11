@@ -7,6 +7,7 @@ import type { ChatMessage } from "@packages/ai";
 import type { AISettings } from "@/src/modules/ai/domain/AISettings";
 import type { ContextData } from "@/src/modules/ai/application/AIContextBuilder";
 import { generateId } from "@packages/events/src/factory";
+import type { GeminiAudioAttachment } from "@packages/../packages/ai/src/adapters/GeminiAdapter";
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -16,6 +17,7 @@ export interface UseAIConsultantResult {
   sendMessage: (
     text: string,
     wishlistItemPrice?: number | null,
+    audioAttachment?: GeminiAudioAttachment,
   ) => Promise<void>;
   generateWelcome: () => Promise<ChatMessage | null>;
   clearHistory: () => void;
@@ -34,7 +36,7 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
   }, [settings.provider]);
 
   const sendMessage = useCallback(
-    async (text: string, wishlistItemPrice?: number | null): Promise<void> => {
+    async (text: string, wishlistItemPrice?: number | null, audioAttachment?: GeminiAudioAttachment): Promise<void> => {
       if (isLoading) return;
 
       const userMessage: ChatMessage = {
@@ -72,6 +74,7 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
           contextData,
           wishlistItemPrice ?? null,
           settings,
+          audioAttachment,
         );
 
         const withReply = [...historyRef.current, reply];

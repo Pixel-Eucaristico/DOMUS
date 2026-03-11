@@ -18,6 +18,7 @@ import { buildFinancialContext } from "./AIContextBuilder";
 import type { ContextData } from "./AIContextBuilder";
 import type { AISettings } from "../domain/AISettings";
 import { hasActiveKey } from "../domain/AISettings";
+import type { GeminiAudioAttachment } from "@packages/../packages/ai/src/adapters/GeminiAdapter";
 
 // ─── System Prompt ────────────────────────────────────────────────────────────
 
@@ -83,6 +84,7 @@ export class ConsultantChatUseCase {
     contextData: ContextData,
     wishlistItemPrice: number | null,
     settings: AISettings,
+    audioAttachment?: GeminiAudioAttachment,
   ): Promise<ChatMessage> {
     const { transactions, accounts, categories } = contextData;
     const intent: AIIntent = IntentClassifier.classify(userMessage);
@@ -163,6 +165,7 @@ export class ConsultantChatUseCase {
         budgetMode: settings.budgetMode,
         monthlyBudgets: settings.monthlyBudgets,
         billingDay: settings.billingDay,
+        audioAttachment,
       });
 
       let textContent: string;

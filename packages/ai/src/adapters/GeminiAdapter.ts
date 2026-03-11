@@ -3,7 +3,8 @@ import type { AIProviderAdapter } from "./AIProviderAdapter";
 import { fetchWithTimeout, assertOk } from "./AIProviderAdapter";
 
 interface GeminiPart {
-  text: string;
+  text?: string;
+  inlineData?: { mimeType: string; data: string };
 }
 
 interface GeminiContent {
@@ -47,6 +48,11 @@ interface GeminiResponse {
   };
 }
 
+export interface GeminiAudioAttachment {
+  base64: string;
+  mimeType: string;
+}
+
 export class GeminiAdapter implements AIProviderAdapter {
   readonly provider = "gemini";
 
@@ -54,6 +60,7 @@ export class GeminiAdapter implements AIProviderAdapter {
     messages: AdapterMessage[],
     apiKey: string,
     options: AdapterOptions,
+    audioAttachment?: GeminiAudioAttachment,
   ): Promise<AdapterResult> {
     const systemMessages = messages.filter((m) => m.role === "system");
     const conversationMessages = messages.filter((m) => m.role !== "system");
@@ -67,10 +74,23 @@ export class GeminiAdapter implements AIProviderAdapter {
           }
         : undefined;
 
-    const contents: GeminiContent[] = conversationMessages.map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    }));
+    const contents: GeminiContent[] = conversationMessages.map((m, idx) => {
+      const parts: GeminiPart[] = [{ text: m.content }];
+      // Anexa áudio apenas na última mensagem do usuário
+      if (
+        audioAttachment &&
+        m.role === "user" &&
+        idx === conversationMessages.length - 1
+      ) {
+        parts.push({
+          inlineData: {
+            mimeType: audioAttachment.mimeType,
+            data: audioAttachment.base64,
+          },
+        });
+      }
+      return { role: m.role === "assistant" ? "model" : "user", parts };
+    });
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${options.model}:generateContent?key=${apiKey}`;
 

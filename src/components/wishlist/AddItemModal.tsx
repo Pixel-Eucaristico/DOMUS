@@ -13,6 +13,7 @@ import {
   Animated,
   Pressable,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
@@ -87,7 +88,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
   // Calcula preço total do bundle para exibir
   const bundleTotalPrice = React.useMemo(() => {
     if (!isBundleMode || bundleItems.length === 0) return 0;
-    return bundleItems.reduce((acc, b) => acc + (b.price ?? 0), 0);
+    return bundleItems.reduce((acc, b) => acc + (b.price ?? 0) * (b.quantity ?? 1), 0);
   }, [isBundleMode, bundleItems]);
 
   const productName = form.name.trim();
@@ -101,7 +102,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
 
         <KeyboardAvoidingView
           style={s.kav}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           pointerEvents="box-none"
         >
           <View style={s.flex} pointerEvents="none" />
@@ -124,7 +125,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <KeyboardAwareScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bottomOffset={20}>
               {/* URL — oculto no modo kit */}
               {!isBundleMode && (
                 <>
@@ -224,6 +225,37 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                   />
                 </>
               )}
+
+              {/* Quantidade */}
+              <Text style={[s.label, { color: theme.secondaryText }]}>Quantidade</Text>
+              <View style={s.stepperRow}>
+                <TouchableOpacity
+                  style={[s.stepperBtn, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}
+                  onPress={() => { soundManager.play("tap"); updateField("quantity", Math.max(1, form.quantity - 1)); }}
+                >
+                  <Feather name="minus" size={16} color={theme.textColor} />
+                </TouchableOpacity>
+                <TextInput
+                  style={[s.stepperInput, { color: theme.textColor, borderColor: theme.border, backgroundColor: theme.cardBackground }]}
+                  value={String(form.quantity)}
+                  onChangeText={(v) => {
+                    const n = parseInt(v.replace(/[^0-9]/g, ""), 10);
+                    updateField("quantity", isNaN(n) || n < 1 ? 1 : n);
+                  }}
+                  keyboardType="number-pad"
+                />
+                <TouchableOpacity
+                  style={[s.stepperBtn, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}
+                  onPress={() => { soundManager.play("tap"); updateField("quantity", form.quantity + 1); }}
+                >
+                  <Feather name="plus" size={16} color={theme.textColor} />
+                </TouchableOpacity>
+                {form.quantity > 1 && form.price !== "" && !isNaN(parseFloat(form.price.replace(",", "."))) && (
+                  <Text style={[s.stepperTotal, { color: theme.primaryColor }]}>
+                    {`= R$ ${(form.quantity * parseFloat(form.price.replace(",", "."))).toFixed(2).replace(".", ",")}`}
+                  </Text>
+                )}
+              </View>
 
               {/* Category */}
               <Text style={[s.label, { color: theme.secondaryText }]}>Categoria</Text>
@@ -338,9 +370,32 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                         value={bItem.name}
                         onChangeText={(v) => updateBundleItem(idx, { name: v })}
                       />
+                      {/* Quantidade da peça */}
+                      <TouchableOpacity
+                        onPress={() => { soundManager.play("tap"); updateBundleItem(idx, { quantity: Math.max(1, (bItem.quantity ?? 1) - 1) }); }}
+                        style={[s.stepperBtnSm, { borderColor: theme.border }]}
+                      >
+                        <Feather name="minus" size={12} color={theme.textColor} />
+                      </TouchableOpacity>
+                      <TextInput
+                        style={[s.stepperInputSm, { color: theme.textColor, borderColor: theme.border }]}
+                        value={String(bItem.quantity ?? 1)}
+                        onChangeText={(v) => {
+                          const n = parseInt(v.replace(/[^0-9]/g, ""), 10);
+                          updateBundleItem(idx, { quantity: isNaN(n) || n < 1 ? 1 : n });
+                        }}
+                        keyboardType="number-pad"
+                      />
+                      <TouchableOpacity
+                        onPress={() => { soundManager.play("tap"); updateBundleItem(idx, { quantity: (bItem.quantity ?? 1) + 1 }); }}
+                        style={[s.stepperBtnSm, { borderColor: theme.border }]}
+                      >
+                        <Feather name="plus" size={12} color={theme.textColor} />
+                      </TouchableOpacity>
+
                       {bItem.price !== undefined && (
                         <Text style={[s.bundlePrice, { color: theme.secondaryText }]}>
-                          {`R$ ${bItem.price.toFixed(2).replace(".", ",")}`}
+                          {`R$ ${(bItem.price * (bItem.quantity ?? 1)).toFixed(2).replace(".", ",")}`}
                         </Text>
                       )}
                       <TouchableOpacity
@@ -383,7 +438,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                   </TouchableOpacity>
                 )}
               </View>
-            </ScrollView>
+            </KeyboardAwareScrollView>
           </Animated.View>
         </KeyboardAvoidingView>
 
@@ -460,6 +515,13 @@ const s = StyleSheet.create({
   scrapeBtn: { width: 44, height: 44, borderRadius: 10, justifyContent: "center", alignItems: "center" },
   affiliateNote: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 6, marginBottom: 2 },
   affiliateNoteText: { fontSize: 11, fontFamily: "DMSans_400Regular", flex: 1 },
+  stepperRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 2 },
+  stepperBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, justifyContent: "center", alignItems: "center" },
+  stepperBtnSm: { width: 24, height: 24, borderRadius: 6, borderWidth: 1, justifyContent: "center", alignItems: "center" },
+  stepperInputSm: { width: 36, height: 28, borderRadius: 6, borderWidth: 1, textAlign: "center", fontSize: 13, fontFamily: "DMSans_700Bold" },
+  stepperValue: { fontSize: 18, fontFamily: "DMSans_700Bold", minWidth: 28, textAlign: "center" },
+  stepperInput: { width: 52, height: 40, borderRadius: 10, borderWidth: 1, textAlign: "center", fontSize: 16, fontFamily: "DMSans_700Bold" },
+  stepperTotal: { fontSize: 13, fontFamily: "DMSans_600SemiBold" },
   urgencyRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 2 },
   urgencyChip: { borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
   urgencyText: { fontSize: 12, fontFamily: "DMSans_600SemiBold" },

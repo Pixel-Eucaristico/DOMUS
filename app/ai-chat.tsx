@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -16,11 +17,15 @@ import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { useAIConsultant } from "@/src/hooks/useAIConsultant";
 import { useAISettings } from "@/src/hooks/useAISettings";
+import { useVoiceRecorder } from "@/src/hooks/useVoiceRecorder";
+import { voiceOutputService } from "@/src/services/VoiceOutputService";
 import { ChatBubble } from "@/src/components/ai/ChatBubble";
 import { TypingIndicator } from "@/src/components/ai/TypingIndicator";
 import { AIUsageBar } from "@/src/components/ai/AIUsageBar";
 import { DataPermissionModal } from "@/src/components/ai/DataPermissionModal";
 import { detectMissingPermission } from "@/src/modules/ai/application/PermissionDetector";
+import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
+import { OpenAIAdapter } from "@packages/../packages/ai/src/adapters/OpenAIAdapter";
 import { useTourTarget } from "@/src/tour/useTourTarget";
 import type { ChatMessage } from "@packages/ai";
 import type { AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
@@ -32,6 +37,11 @@ export default function AIChatScreen() {
   const { targetRef: configRef, TourCard: ConfigTourCard, activeStyle: configActive } = useTourTarget("ai-config-btn");
   const [input, setInput] = useState("");
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const { isRecording, startRecording, stopRecording } = useVoiceRecorder();
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const lastAssistantId = useRef<string | null>(null);
 
   // ─── Welcome message (AI-generated) ────────────────────────────────────────
   const [welcomeMsg, setWelcomeMsg] = useState<ChatMessage | null>(null);
@@ -109,6 +119,92 @@ export default function AIChatScreen() {
     sendMessage(pendingText);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, [permissionModal, sendMessage]);
+
+  // ─── Pulse animation during recording ──────────────────────────────────────
+  useEffect(() => {
+    if (isRecording) {
+      pulseLoop.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.3, duration: 500, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+        ]),
+      );
+      pulseLoop.current.start();
+    } else {
+      pulseLoop.current?.stop();
+      pulseAnim.setValue(1);
+    }
+  }, [isRecording, pulseAnim]);
+
+  // ─── Auto-play AI response when voiceEnabled ───────────────────────────────
+  useEffect(() => {
+    if (!settings.voiceEnabled) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    if (last.id === lastAssistantId.current) return;
+    lastAssistantId.current = last.id;
+
+    SecureKeyService.retrieveKey(settings.provider).then((apiKey) => {
+      voiceOutputService.speak(
+        last.content,
+        settings.provider,
+        apiKey ?? undefined,
+        settings.openaiVoice ?? "nova",
+      );
+    });
+  }, [messages, settings.voiceEnabled, settings.provider, settings.openaiVoice]);
+
+  // ─── Voice recording handler ────────────────────────────────────────────────
+  const handleVoicePress = useCallback(async () => {
+    if (isRecording) {
+      setIsTranscribing(true);
+      const result = await stopRecording();
+
+      if (result) {
+        if (settings.provider === "gemini") {
+          // Gemini: envia áudio diretamente como multimodal (sem transcrição)
+          setIsTranscribing(false);
+          const audioAttachment = { base64: result.base64, mimeType: "audio/mp4" };
+          await sendMessage("🎤 [mensagem de voz]", null, audioAttachment);
+          setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+        } else if (settings.provider === "openai") {
+          // OpenAI: transcreve com Whisper e envia o texto
+          let transcribed = "";
+          try {
+            const apiKey = await SecureKeyService.retrieveKey("openai");
+            if (apiKey) {
+              const adapter = new OpenAIAdapter();
+              transcribed = await adapter.transcribeAudio(result.uri, apiKey);
+            }
+          } catch {
+            // ignore transcription errors
+          }
+          setIsTranscribing(false);
+          if (transcribed.trim()) {
+            const missingPerm = detectMissingPermission(transcribed.trim(), settings.dataPermissions);
+            if (missingPerm) {
+              setInput(transcribed.trim());
+              setPermissionModal({ key: missingPerm, pendingText: transcribed.trim() });
+            } else {
+              await sendMessage(transcribed.trim());
+              setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+            }
+          }
+        } else {
+          setIsTranscribing(false);
+        }
+      } else {
+        setIsTranscribing(false);
+      }
+    } else {
+      await voiceOutputService.stop();
+      try {
+        await startRecording();
+      } catch {
+        // ignore permission errors
+      }
+    }
+  }, [isRecording, stopRecording, startRecording, settings.provider, settings.dataPermissions, sendMessage]);
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -214,7 +310,7 @@ export default function AIChatScreen() {
       {/* Messages */}
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={0}
       >
         <FlatList
@@ -257,6 +353,32 @@ export default function AIChatScreen() {
             returnKeyType="send"
             onSubmitEditing={handleSend}
           />
+          {settings.voiceEnabled && (
+            <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+              <TouchableOpacity
+                onPress={() => { soundManager.play("tap"); handleVoicePress(); }}
+                disabled={isLoading || isTranscribing}
+                style={[
+                  styles.micBtn,
+                  {
+                    backgroundColor: isRecording
+                      ? "#e53935"
+                      : isTranscribing
+                      ? theme.border
+                      : theme.cardBackground,
+                    borderColor: isRecording ? "#e53935" : theme.border,
+                  },
+                ]}
+              >
+                <Feather
+                  name={isRecording ? "mic-off" : isTranscribing ? "loader" : "mic"}
+                  size={18}
+                  color={isRecording ? "#fff" : theme.secondaryText}
+                />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+
           <TouchableOpacity
             onPress={() => { soundManager.play("pop"); handleSend(); }}
             disabled={!input.trim() || isLoading}
@@ -378,6 +500,14 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  micBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },

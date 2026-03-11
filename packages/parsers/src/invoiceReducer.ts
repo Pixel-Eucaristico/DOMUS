@@ -1,4 +1,4 @@
-import type { InvoiceItem, InvoiceImportedPayload, AIClassificationCorrectedPayload } from "./types";
+import type { InvoiceItem, InvoiceImportedPayload } from "./types";
 import { EVENT_TYPES } from "./types";
 
 export interface InvoiceState {
@@ -46,7 +46,7 @@ export function invoiceReducer(
     }
 
     case EVENT_TYPES.INVOICE_CONFIRMED: {
-      const payload = event.payload as InvoiceConfirmedPayload;
+      const payload = event.payload as { invoiceId: string };
       const invoice = state.invoices.get(payload.invoiceId);
       if (!invoice) return state;
 

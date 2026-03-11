@@ -7,6 +7,7 @@ import { ConnectivityService } from "../infrastructure/ConnectivityService";
 import { TokenTracker } from "./TokenTracker";
 import { AIProviderFactory } from "./AIProviderFactory";
 import type { OpenAIAuthMethod, BudgetMode } from "../domain/AISettings";
+import type { GeminiAudioAttachment } from "@packages/../packages/ai/src/adapters/GeminiAdapter";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,8 @@ export interface ClientRequestOptions {
   monthlyBudgets?: Partial<Record<AIProvider, number>>;
   /** Day of month when billing cycle resets (1-31) */
   billingDay?: number;
+  /** Audio attachment for Gemini multimodal voice input */
+  audioAttachment?: GeminiAudioAttachment;
 }
 
 export interface ClientResult {
@@ -155,7 +158,7 @@ export class AIClientService {
 
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const result = await adapter.complete(messages, apiKey, adapterOptions);
+        const result = await (adapter as any).complete(messages, apiKey, adapterOptions, options.audioAttachment);
         content = result.content;
         tokensUsed = result.tokensUsed;
         breaker.recordSuccess();
