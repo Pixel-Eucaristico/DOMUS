@@ -51,6 +51,9 @@ jobs:
         run: npm ci
 
       - name: Expo prebuild (Android)
+        env:
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_CLIENT_SECRET: ${{ secrets.EXPO_PUBLIC_GOOGLE_CLIENT_SECRET }}
         run: npx expo prebuild --platform android --clean --no-install
 
       - name: Configure signing
@@ -74,6 +77,8 @@ jobs:
         working-directory: android
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_CLIENT_SECRET: ${{ secrets.EXPO_PUBLIC_GOOGLE_CLIENT_SECRET }}
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease bundleRelease \
