@@ -4,6 +4,7 @@ import { CameraView } from "expo-camera";
 import { Feather } from "@expo/vector-icons";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
+import { useIsFocused } from "@react-navigation/native";
 import { soundManager } from "@/src/services/SoundManager";
 
 type ScanMode = "qr" | "barcode";
@@ -35,11 +36,12 @@ export function QrScanScreen({
 }: Props) {
   const [scanMode, setScanMode] = useState<ScanMode>("qr");
   const [showKeyInput, setShowKeyInput] = useState(false);
+  const isFocused = useIsFocused();
   const digitCount = manualChave.replace(/\D/g, "").length;
 
   return (
     <View style={s.container}>
-      {permissionGranted ? (
+      {permissionGranted && isFocused ? (
         <CameraView
           style={StyleSheet.absoluteFill}
           onBarcodeScanned={onBarcodeScanned}

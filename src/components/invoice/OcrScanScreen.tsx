@@ -6,6 +6,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
+import { useIsFocused } from "@react-navigation/native";
 import { soundManager } from "@/src/services/SoundManager";
 
 interface Props {
@@ -26,6 +27,7 @@ export function OcrScanScreen({
   onClose,
 }: Props) {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const cameraRef = useRef<CameraView>(null);
   const [capturing, setCapturing] = useState(false);
   const [capturedUris, setCapturedUris] = useState<string[]>([]);
@@ -69,7 +71,7 @@ export function OcrScanScreen({
 
   return (
     <View style={s.container}>
-      {permissionGranted ? (
+      {permissionGranted && isFocused ? (
         <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} />
       ) : (
         <View style={[StyleSheet.absoluteFill, s.noCamera]}>
