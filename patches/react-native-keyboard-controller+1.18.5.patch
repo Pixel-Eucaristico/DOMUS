@@ -11,26 +11,12 @@ index e13177c..daa3615 100644
  import android.os.Handler
  import android.os.Looper
  import android.widget.FrameLayout
-@@ -72,6 +74,47 @@
+@@ -72,6 +74,33 @@
      EdgeToEdgeViewRegistry.register(this)
    }
  
 +  // Workaround for Samsung Fabric crash: "contains null child at index N"
-+  // Android 16 added a strict null check in ViewGroup.dispatchGetDisplayList that throws
-+  // IllegalStateException when a child is null during the hardware renderer traversal.
-+  // This happens when a child view is removed asynchronously while the hardware renderer
-+  // is already traversing the view hierarchy (race condition on Fabric/New Architecture).
-+  override fun dispatchGetDisplayList() {
-+    try {
-+      super.dispatchGetDisplayList()
-+    } catch (e: IllegalStateException) {
-+      // Android 16+: "contains null child at index N when traversal in dispatchGetDisplayList"
-+      // ViewGroup gained this strict null check in Android 16. Recover silently so
-+      // the next render frame reflects the updated view hierarchy.
-+    }
-+  }
-+
-+  // Fallback for older Android versions where the crash surfaces during draw instead.
++  // Overriding dispatchDraw catches the crash at the rendering level for older Android.
 +  override fun dispatchDraw(canvas: Canvas) {
 +    try {
 +      super.dispatchDraw(canvas)
@@ -59,7 +45,7 @@ index e13177c..daa3615 100644
    // region View life cycles
    override fun onAttachedToWindow() {
      super.onAttachedToWindow()
-@@ -185,16 +228,19 @@
+@@ -185,16 +214,19 @@
    private fun removeKeyboardCallbacks() {
      callback?.destroy()
  
