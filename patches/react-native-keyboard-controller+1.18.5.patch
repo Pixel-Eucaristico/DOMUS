@@ -3,7 +3,7 @@ index e13177c..f5a8b21 100644
 --- a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/views/EdgeToEdgeReactViewGroup.kt
 +++ b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/views/EdgeToEdgeReactViewGroup.kt
 @@ -2,8 +2,10 @@ package com.reactnativekeyboardcontroller.views
-
+ 
  import android.annotation.SuppressLint
  import android.content.res.Configuration
 +import android.graphics.Canvas
@@ -16,7 +16,7 @@ index e13177c..f5a8b21 100644
 @@ -72,6 +74,60 @@ class EdgeToEdgeReactViewGroup(
      EdgeToEdgeViewRegistry.register(this)
    }
-
+ 
 +  // FIX-2026-03-09: Samsung Android 14+ "null child at index N" crash prevention.
 +  // Samsung's ViewGroup has a private dispatchGetDisplayList() that traverses mChildren[]
 +  // directly (bypassing getChildAt) during display list building. When Fabric removes
@@ -86,7 +86,7 @@ index e13177c..f5a8b21 100644
 @@ -185,16 +241,21 @@ class EdgeToEdgeReactViewGroup(
    private fun removeKeyboardCallbacks() {
      callback?.destroy()
-
+ 
 -    // capture view into closure, because if `onDetachedFromWindow` and `onAttachedToWindow`
 -    // dispatched synchronously after each other (open application on Fabric), then `.post`
 -    // will destroy just newly created view (if we have a reference via `this`)
@@ -112,5 +112,6 @@ index e13177c..f5a8b21 100644
 +      }
 +    }
    }
-
+ 
    private fun reApplyWindowInsets() {
+ 
