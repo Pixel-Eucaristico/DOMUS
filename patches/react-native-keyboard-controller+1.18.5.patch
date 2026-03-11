@@ -11,17 +11,53 @@ index e13177c..daa3615 100644
  import android.os.Handler
  import android.os.Looper
  import android.widget.FrameLayout
-@@ -72,6 +74,33 @@
+@@ -72,6 +74,69 @@
      EdgeToEdgeViewRegistry.register(this)
    }
  
-+  // Workaround for Samsung Fabric crash: "contains null child at index N"
-+  // Overriding dispatchDraw catches the crash at the rendering level for older Android.
++  // Fix for Android 16 crash: "contains null child at index N when traversal in dispatchGetDisplayList"
++  // Android 16's ViewGroup.dispatchGetDisplayList() added a strict null check that throws
++  // IllegalStateException. This method is @hide and cannot be overridden. However, it is
++  // always called AFTER dispatchDraw() in the hardware rendering pipeline (updateDisplayListIfDirty
++  // records via draw/dispatchDraw first, then calls dispatchGetDisplayList). So we clean
++  // null entries from mChildren via reflection in dispatchDraw before they are traversed.
++  private fun cleanNullChildren() {
++    try {
++      val childrenField = ViewGroup::class.java.getDeclaredField("mChildren")
++      childrenField.isAccessible = true
++      @Suppress("UNCHECKED_CAST")
++      val children = childrenField.get(this) as? Array<View?> ?: return
++      val countField = ViewGroup::class.java.getDeclaredField("mChildrenCount")
++      countField.isAccessible = true
++      val count = countField.getInt(this)
++
++      // Fast path: check if there are any nulls before doing work
++      var hasNull = false
++      for (i in 0 until count) {
++        if (children[i] == null) { hasNull = true; break }
++      }
++      if (!hasNull) return
++
++      // Compact: shift non-null elements left
++      var write = 0
++      for (read in 0 until count) {
++        if (children[read] != null) children[write++] = children[read]
++      }
++      for (i in write until count) children[i] = null
++      countField.setInt(this, write)
++    } catch (_: Exception) {
++      // Reflection unavailable - silently ignore
++    }
++  }
++
 +  override fun dispatchDraw(canvas: Canvas) {
++    // Clean any null children introduced by async view mutations before
++    // dispatchGetDisplayList traverses mChildren and throws on Android 16+.
++    cleanNullChildren()
 +    try {
 +      super.dispatchDraw(canvas)
 +    } catch (e: IllegalStateException) {
-+      // Silently recover from Samsung "contains null child" crash
++      // Fallback catch for software rendering or unexpected paths
 +    }
 +  }
 +
@@ -45,7 +81,7 @@ index e13177c..daa3615 100644
    // region View life cycles
    override fun onAttachedToWindow() {
      super.onAttachedToWindow()
-@@ -185,16 +214,19 @@
+@@ -185,16 +250,19 @@
    private fun removeKeyboardCallbacks() {
      callback?.destroy()
  
