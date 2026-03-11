@@ -6,7 +6,6 @@ import {
   ScrollView,
   PanResponder,
   Animated,
-  LayoutRectangle,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
@@ -92,11 +91,17 @@ export function DraggableWishlistList({
 }: Props) {
   const scrollRef = useRef<ScrollView>(null);
   const scrollYRef = useRef(0);
-  const containerYRef = useRef(0);
   const containerHeightRef = useRef(0);
-  // Ref estável para o callback (evita recrear computeVisibleIds a cada render)
+
+  // Refs estáveis para callbacks — evitam recriar PanResponders quando callbacks mudam
   const onVisibleItemIdsRef = useRef(onVisibleItemIds);
+  const onReorderRef = useRef(onReorder);
+  const onPriorityChangeRef = useRef(onPriorityChange);
+  const itemsRef = useRef(items);
   useEffect(() => { onVisibleItemIdsRef.current = onVisibleItemIds; });
+  useEffect(() => { onReorderRef.current = onReorder; }, [onReorder]);
+  useEffect(() => { onPriorityChangeRef.current = onPriorityChange; }, [onPriorityChange]);
+  useEffect(() => { itemsRef.current = items; }, [items]);
 
   const itemLayouts = useRef<Map<string, LayoutEntry>>(new Map());
   const sectionLayouts = useRef<Map<UrgencyLevel, LayoutEntry>>(new Map());
@@ -110,10 +115,10 @@ export function DraggableWishlistList({
 
   const getItemsByUrgency = useCallback(
     (urgency: UrgencyLevel): WishlistItem[] =>
-      items
+      itemsRef.current
         .filter((i) => i.urgencyLevel === urgency)
         .sort((a, b) => a.orderIndex - b.orderIndex),
-    [items],
+    [],
   );
 
   /** Calcula os IDs visíveis com base no scroll e nos layouts dos itens */
@@ -124,41 +129,61 @@ export function DraggableWishlistList({
     const height = containerHeightRef.current;
     const visible: string[] = [];
     itemLayouts.current.forEach((layout, id) => {
-      const top = layout.y - scrollY;
-      const bottom = top + layout.height;
-      // Tolera 80px fora da área visível (itens quase na tela)
-      if (bottom > -80 && top < height + 80) {
+      const item = itemsRef.current.find((i) => i.id === id);
+      const sectionY = item
+        ? (sectionLayouts.current.get(item.urgencyLevel)?.y ?? 0)
+        : 0;
+      const contentTop = sectionY + layout.y - scrollY;
+      const contentBottom = contentTop + layout.height;
+      if (contentBottom > -80 && contentTop < height + 80) {
         visible.push(id);
       }
     });
     if (visible.length > 0) cb(visible);
   }, []);
 
-  // Dispara a detecção inicial após os items serem medidos (~400ms)
   useEffect(() => {
     const timer = setTimeout(computeVisibleIds, 400);
     return () => clearTimeout(timer);
   }, [items, computeVisibleIds]);
 
+  /**
+   * Calcula o drop target com base em `contentY` — posição em coordenadas
+   * do conteúdo do ScrollView (section.y + item.y, sem tela absoluta).
+   */
   const findDropTarget = useCallback(
-    (absY: number): { urgency: UrgencyLevel; index: number } | null => {
-      const adjustedY = absY + scrollYRef.current - containerYRef.current;
-
+    (contentY: number): { urgency: UrgencyLevel; index: number } | null => {
       let targetUrgency: UrgencyLevel | null = null;
-      let closestDist = Infinity;
 
+      // Prioridade 1: contentY está dentro dos limites da seção
       for (const urgency of URGENCY_ORDER) {
         const section = sectionLayouts.current.get(urgency);
         if (!section) continue;
-        const sectionCenter = section.y + section.height / 2;
-        const dist = Math.abs(adjustedY - sectionCenter);
-        if (dist < closestDist) {
-          closestDist = dist;
+        if (contentY >= section.y && contentY <= section.y + section.height) {
           targetUrgency = urgency;
+          break;
+        }
+      }
+
+      // Fallback: seção com centro mais próximo (quando entre seções ou fora de todas)
+      if (!targetUrgency) {
+        let closestDist = Infinity;
+        for (const urgency of URGENCY_ORDER) {
+          const section = sectionLayouts.current.get(urgency);
+          if (!section) continue;
+          const sectionCenter = section.y + section.height / 2;
+          const dist = Math.abs(contentY - sectionCenter);
+          if (dist < closestDist) {
+            closestDist = dist;
+            targetUrgency = urgency;
+          }
         }
       }
 
       if (!targetUrgency) return null;
+
+      const sectionLayout = sectionLayouts.current.get(targetUrgency);
+      const sectionOffsetY = sectionLayout?.y ?? 0;
 
       const sectionItems = getItemsByUrgency(targetUrgency);
       let targetIndex = sectionItems.length;
@@ -166,8 +191,9 @@ export function DraggableWishlistList({
       for (let i = 0; i < sectionItems.length; i++) {
         const layout = itemLayouts.current.get(sectionItems[i].id);
         if (!layout) continue;
-        const itemMid = layout.y + layout.height / 2;
-        if (adjustedY < itemMid) {
+        // itemLayouts.y é relativo à seção — converte para conteúdo do ScrollView
+        const itemMid = sectionOffsetY + layout.y + layout.height / 2;
+        if (contentY < itemMid) {
           targetIndex = i;
           break;
         }
@@ -178,74 +204,102 @@ export function DraggableWishlistList({
     [getItemsByUrgency],
   );
 
-  const createPanResponder = useCallback(
-    (item: WishlistItem) =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_, gs) =>
-          Math.abs(gs.dy) > 5,
-        onPanResponderGrant: () => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          const floatY = new Animated.Value(0);
-          const state: DragState = {
-            itemId: item.id,
-            urgency: item.urgencyLevel,
-            orderIndex: item.orderIndex,
-            startY: 0,
-            floatY,
-            scrollY: scrollYRef.current,
-          };
-          dragStateRef.current = state;
-          setDragState(state);
-        },
-        onPanResponderMove: (_, gs) => {
-          const current = dragStateRef.current;
-          if (!current) return;
-          current.floatY.setValue(gs.dy);
-          const absY = gs.moveY;
-          const target = findDropTarget(absY);
-          setDropTarget(target);
-        },
-        onPanResponderRelease: (_, gs) => {
-          const current = dragStateRef.current;
-          if (!current) return;
+  // Ref estável para findDropTarget — usada dentro dos PanResponders memoizados
+  const findDropTargetRef = useRef(findDropTarget);
+  useEffect(() => { findDropTargetRef.current = findDropTarget; }, [findDropTarget]);
 
-          const absY = gs.moveY;
-          const target = findDropTarget(absY);
+  // Mapa de PanResponders memoizados por item.id — evita recriar durante gestos ativos
+  const panResponderMap = useRef<Map<string, ReturnType<typeof PanResponder.create>>>(new Map());
 
-          if (target) {
-            if (target.urgency !== current.urgency) {
-              onPriorityChange(
-                current.itemId,
-                item.listId,
-                current.urgency,
-                target.urgency,
-                target.index,
-              );
-            } else if (target.index !== current.orderIndex) {
-              onReorder(
-                current.itemId,
-                item.listId,
-                current.orderIndex,
-                target.index,
-                current.urgency,
-              );
+  // Limpa PanResponders de itens que foram removidos
+  useEffect(() => {
+    const currentIds = new Set(items.map((i) => i.id));
+    panResponderMap.current.forEach((_, id) => {
+      if (!currentIds.has(id)) panResponderMap.current.delete(id);
+    });
+  }, [items]);
+
+  const getOrCreatePanResponder = useCallback((item: WishlistItem) => {
+    if (!panResponderMap.current.has(item.id)) {
+      panResponderMap.current.set(
+        item.id,
+        PanResponder.create({
+          onStartShouldSetPanResponder: () => true,
+          onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dy) > 5,
+          onPanResponderGrant: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            const floatY = new Animated.Value(0);
+            // Lê estado atual do item via ref — não usa closure stale
+            const currentItem = itemsRef.current.find((i) => i.id === item.id) ?? item;
+            const itemLayout = itemLayouts.current.get(item.id);
+            const sectionLayout = sectionLayouts.current.get(currentItem.urgencyLevel);
+            const itemCenterY =
+              (sectionLayout?.y ?? 0) +
+              (itemLayout?.y ?? 0) +
+              (itemLayout?.height ?? 0) / 2;
+            const state: DragState = {
+              itemId: item.id,
+              urgency: currentItem.urgencyLevel,
+              orderIndex: currentItem.orderIndex,
+              startY: itemCenterY,
+              floatY,
+              scrollY: scrollYRef.current,
+            };
+            dragStateRef.current = state;
+            setDragState({ ...state });
+          },
+          onPanResponderMove: (_, gs) => {
+            const current = dragStateRef.current;
+            if (!current) return;
+            current.floatY.setValue(gs.dy);
+            const contentY = current.startY + gs.dy;
+            const target = findDropTargetRef.current(contentY);
+            setDropTarget(target);
+          },
+          onPanResponderRelease: (_, gs) => {
+            const current = dragStateRef.current;
+            if (!current) return;
+
+            const contentY = current.startY + gs.dy;
+            const target = findDropTargetRef.current(contentY);
+
+            if (target) {
+              const currentItem = itemsRef.current.find((i) => i.id === item.id);
+              const listId = currentItem?.listId ?? item.listId;
+              if (target.urgency !== current.urgency) {
+                onPriorityChangeRef.current(
+                  current.itemId,
+                  listId,
+                  current.urgency,
+                  target.urgency,
+                  target.index,
+                );
+              } else if (target.index !== current.orderIndex) {
+                onReorderRef.current(
+                  current.itemId,
+                  listId,
+                  current.orderIndex,
+                  target.index,
+                  current.urgency,
+                );
+              }
             }
-          }
 
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          dragStateRef.current = null;
-          setDragState(null);
-          setDropTarget(null);
-        },
-        onPanResponderTerminate: () => {
-          dragStateRef.current = null;
-          setDragState(null);
-          setDropTarget(null);
-        },
-      }),
-    [findDropTarget, onReorder, onPriorityChange],
-  );
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            dragStateRef.current = null;
+            setDragState(null);
+            setDropTarget(null);
+          },
+          onPanResponderTerminate: () => {
+            dragStateRef.current = null;
+            setDragState(null);
+            setDropTarget(null);
+          },
+        }),
+      );
+    }
+    return panResponderMap.current.get(item.id)!;
+  }, []);
 
   return (
     <ScrollView
@@ -257,13 +311,14 @@ export function DraggableWishlistList({
         computeVisibleIds();
       }}
       onLayout={(e) => {
-        containerYRef.current = e.nativeEvent.layout.y;
         containerHeightRef.current = e.nativeEvent.layout.height;
       }}
       scrollEnabled={dragState === null}
     >
       {URGENCY_ORDER.map((urgency) => {
-        const sectionItems = getItemsByUrgency(urgency);
+        const sectionItems = items
+          .filter((i) => i.urgencyLevel === urgency)
+          .sort((a, b) => a.orderIndex - b.orderIndex);
         const urgencyColor = URGENCY_COLORS[urgency];
 
         return (
@@ -328,7 +383,7 @@ export function DraggableWishlistList({
                   dragState !== null &&
                   dragState.itemId !== item.id;
 
-                const panResponder = createPanResponder(item);
+                const panResponder = getOrCreatePanResponder(item);
 
                 return (
                   <React.Fragment key={item.id}>
