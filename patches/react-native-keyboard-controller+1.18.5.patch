@@ -2,21 +2,19 @@ diff --git a/node_modules/react-native-keyboard-controller/android/src/main/java
 index e13177c..daa3615 100644
 --- a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/views/EdgeToEdgeReactViewGroup.kt
 +++ b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/views/EdgeToEdgeReactViewGroup.kt
-@@ -2,8 +2,10 @@ package com.reactnativekeyboardcontroller.views
-
+@@ -2,6 +2,8 @@
+ 
  import android.annotation.SuppressLint
  import android.content.res.Configuration
 +import android.graphics.Canvas
++import android.view.View
  import android.os.Handler
  import android.os.Looper
-+import android.view.View
  import android.widget.FrameLayout
- import androidx.core.view.ViewCompat
- import androidx.core.view.WindowCompat
-@@ -72,6 +74,44 @@ class EdgeToEdgeReactViewGroup(
+@@ -72,6 +74,47 @@
      EdgeToEdgeViewRegistry.register(this)
    }
-
+ 
 +  // Workaround for Samsung Fabric crash: "contains null child at index N"
 +  // Android 16 added a strict null check in ViewGroup.dispatchGetDisplayList that throws
 +  // IllegalStateException when a child is null during the hardware renderer traversal.
@@ -61,10 +59,10 @@ index e13177c..daa3615 100644
    // region View life cycles
    override fun onAttachedToWindow() {
      super.onAttachedToWindow()
-@@ -185,16 +225,19 @@ class EdgeToEdgeReactViewGroup(
+@@ -185,16 +228,19 @@
    private fun removeKeyboardCallbacks() {
      callback?.destroy()
-
+ 
 -    // capture view into closure, because if `onDetachedFromWindow` and `onAttachedToWindow`
 -    // dispatched synchronously after each other (open application on Fabric), then `.post`
 -    // will destroy just newly created view (if we have a reference via `this`)
@@ -88,5 +86,5 @@ index e13177c..daa3615 100644
 +      Handler(Looper.getMainLooper()).post { view.removeSelf() }
 +    }
    }
-
+ 
    private fun reApplyWindowInsets() {
