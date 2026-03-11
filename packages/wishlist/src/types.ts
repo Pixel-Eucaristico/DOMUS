@@ -37,6 +37,21 @@ export interface SavingsGoalConfig {
   linkedAccountId?: string;
 }
 
+// ─── Bundle / Kit ─────────────────────────────────────────────────────────────
+
+/** Componente individual de um kit (ex: peça de PC) */
+export interface BundleItem {
+  id: string;
+  name: string;
+  price?: number;
+  originalUrl?: string;
+  affiliateUrl?: string;
+  imageUrl?: string;
+  storeId?: string;
+  /** true = esta peça já foi comprada */
+  purchased?: boolean;
+}
+
 // ─── Domain types ──────────────────────────────────────────────────────────────
 
 export interface WishlistItem {
@@ -54,6 +69,8 @@ export interface WishlistItem {
   price?: number;
   canBuyThisMonth?: boolean;
   savingsGoal?: SavingsGoalConfig;
+  /** Peças/componentes do kit — quando presente, o item é tratado como bundle */
+  bundleItems?: BundleItem[];
 }
 
 export interface WishlistList {

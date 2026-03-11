@@ -21,6 +21,7 @@ import type { UrgencyLevel, WishlistItem } from "@packages/wishlist";
 import type { AccountPayload } from "@packages/events";
 import { CATEGORY_OPTIONS, GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { WishlistSearchWebView } from "./WishlistSearchWebView";
+import { StoreGridModal } from "./StoreGridModal";
 import { SelectionModal } from "../shared/SelectionModal";
 import { useAddWishlistItem } from "@/src/hooks/useAddWishlistItem";
 import { soundManager } from "@/src/services/SoundManager";
@@ -51,6 +52,7 @@ interface Props {
 
 export function AddItemModal({ visible, listId, theme, accounts = [], editItem, onConfirm, onCancel }: Props) {
   const insets = useSafeAreaInsets();
+  const [storeGridVisible, setStoreGridVisible] = React.useState(false);
   const {
     form,
     updateField,
@@ -74,7 +76,21 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
     handleConfirm,
     handleCancel,
     handleProductSelected,
+    isBundleMode,
+    setIsBundleMode,
+    bundleItems,
+    addBundleItem,
+    updateBundleItem,
+    removeBundleItem,
   } = useAddWishlistItem({ visible, listId, editItem, onConfirm, onCancel });
+
+  // Calcula preço total do bundle para exibir
+  const bundleTotalPrice = React.useMemo(() => {
+    if (!isBundleMode || bundleItems.length === 0) return 0;
+    return bundleItems.reduce((acc, b) => acc + (b.price ?? 0), 0);
+  }, [isBundleMode, bundleItems]);
+
+  const productName = form.name.trim();
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleCancel}>
@@ -109,46 +125,49 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              {/* URL */}
-              <Text style={[s.label, { color: theme.secondaryText }]}>Link do produto (opcional)</Text>
-              <View style={s.urlRow}>
-                <TextInput
-                  style={[s.input, s.inputFlex, { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground }]}
-                  placeholder="Cole o link ou use a lupa para pesquisar"
-                  placeholderTextColor={theme.secondaryText}
-                  value={form.url}
-                  onChangeText={(v) => updateField("url", v)}
-                  onBlur={handleUrlBlur}
-                  autoCapitalize="none"
-                  keyboardType="url"
-                />
-                {hasUrl && (
-                  <TouchableOpacity style={s.clearBtn} onPress={() => { soundManager.play("tap"); clearUrl(); }} activeOpacity={0.7}>
-                    <Feather name="x" size={16} color={theme.secondaryText} />
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity
-                  style={[s.scrapeBtn, { backgroundColor: hasUrl ? theme.primaryColor : theme.primaryColor + "CC" }]}
-                  onPress={() => { soundManager.play("pop"); handleSearchOrImport(); }}
-                  disabled={scraping}
-                  activeOpacity={0.7}
-                >
-                  {scraping ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : hasUrl ? (
-                    <Feather name="download" size={16} color="#fff" />
-                  ) : (
-                    <Feather name="search" size={16} color="#fff" />
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              <View style={s.affiliateNote}>
-                <Feather name="heart" size={10} color={theme.secondaryText} />
-                <Text style={[s.affiliateNoteText, { color: theme.secondaryText }]}>
-                  Links da Amazon são convertidos para afiliados — isso ajuda a manter o app gratuito
-                </Text>
-              </View>
+              {/* URL — oculto no modo kit */}
+              {!isBundleMode && (
+                <>
+                  <Text style={[s.label, { color: theme.secondaryText }]}>Link do produto (opcional)</Text>
+                  <View style={s.urlRow}>
+                    <TextInput
+                      style={[s.input, s.inputFlex, { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground }]}
+                      placeholder="Cole o link ou use a lupa para pesquisar"
+                      placeholderTextColor={theme.secondaryText}
+                      value={form.url}
+                      onChangeText={(v) => updateField("url", v)}
+                      onBlur={handleUrlBlur}
+                      autoCapitalize="none"
+                      keyboardType="url"
+                    />
+                    {hasUrl && (
+                      <TouchableOpacity style={s.clearBtn} onPress={() => { soundManager.play("tap"); clearUrl(); }} activeOpacity={0.7}>
+                        <Feather name="x" size={16} color={theme.secondaryText} />
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={[s.scrapeBtn, { backgroundColor: hasUrl ? theme.primaryColor : theme.primaryColor + "CC" }]}
+                      onPress={() => { soundManager.play("pop"); handleSearchOrImport(); }}
+                      disabled={scraping}
+                      activeOpacity={0.7}
+                    >
+                      {scraping ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : hasUrl ? (
+                        <Feather name="download" size={16} color="#fff" />
+                      ) : (
+                        <Feather name="search" size={16} color="#fff" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                  <View style={s.affiliateNote}>
+                    <Feather name="heart" size={10} color={theme.secondaryText} />
+                    <Text style={[s.affiliateNoteText, { color: theme.secondaryText }]}>
+                      Links da Amazon são convertidos para afiliados — isso ajuda a manter o app gratuito
+                    </Text>
+                  </View>
+                </>
+              )}
 
               {/* Name */}
               <Text style={[s.label, { color: theme.secondaryText }]}>Nome *</Text>
@@ -181,16 +200,30 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                 })}
               </View>
 
-              {/* Price */}
-              <Text style={[s.label, { color: theme.secondaryText }]}>Preço (R$)</Text>
-              <TextInput
-                style={[s.input, { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground }]}
-                placeholder="0,00"
-                placeholderTextColor={theme.secondaryText}
-                value={form.price}
-                onChangeText={(v) => updateField("price", v)}
-                keyboardType="decimal-pad"
-              />
+              {/* Preço — manual quando item simples, automático (soma das peças) no modo kit */}
+              {isBundleMode ? (
+                <View style={[s.bundlePriceDisplay, { backgroundColor: theme.cardBackground }]}>
+                  <Feather name="layers" size={13} color={theme.secondaryText} />
+                  <Text style={[s.bundlePriceLabel, { color: theme.secondaryText }]}>Preço total (automático)</Text>
+                  <Text style={[s.bundlePriceValue, { color: bundleTotalPrice > 0 ? theme.primaryColor : theme.secondaryText }]}>
+                    {bundleTotalPrice > 0
+                      ? `R$ ${bundleTotalPrice.toFixed(2).replace(".", ",")}`
+                      : "—"}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={[s.label, { color: theme.secondaryText }]}>Preço (R$)</Text>
+                  <TextInput
+                    style={[s.input, { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground }]}
+                    placeholder="0,00"
+                    placeholderTextColor={theme.secondaryText}
+                    value={form.price}
+                    onChangeText={(v) => updateField("price", v)}
+                    keyboardType="decimal-pad"
+                  />
+                </>
+              )}
 
               {/* Category */}
               <Text style={[s.label, { color: theme.secondaryText }]}>Categoria</Text>
@@ -277,6 +310,63 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                 </View>
               )}
 
+              {/* Kit / Montagem */}
+              <TouchableOpacity
+                style={[s.bundleToggle, { borderColor: isBundleMode ? theme.primaryColor : theme.cardBackground, backgroundColor: isBundleMode ? theme.primaryColor + "15" : theme.cardBackground }]}
+                onPress={() => { soundManager.play("tap"); setIsBundleMode((v) => !v); }}
+                activeOpacity={0.7}
+              >
+                <Feather name="layers" size={15} color={isBundleMode ? theme.primaryColor : theme.secondaryText} />
+                <Text style={[s.bundleToggleText, { color: isBundleMode ? theme.primaryColor : theme.secondaryText }]}>
+                  {isBundleMode ? "Modo Kit ativado" : "Adicionar como kit / montagem"}
+                </Text>
+                {isBundleMode && bundleTotalPrice > 0 && (
+                  <Text style={[s.bundleTotal, { color: theme.primaryColor }]}>
+                    {`R$ ${bundleTotalPrice.toFixed(2).replace(".", ",")}`}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              {isBundleMode && (
+                <View style={s.bundleSection}>
+                  {bundleItems.map((bItem, idx) => (
+                    <View key={bItem.id} style={[s.bundleRow, { backgroundColor: theme.cardBackground, borderColor: theme.cardBackground }]}>
+                      <TextInput
+                        style={[s.bundleNameInput, { color: theme.textColor }]}
+                        placeholder={`Peça ${idx + 1}...`}
+                        placeholderTextColor={theme.secondaryText}
+                        value={bItem.name}
+                        onChangeText={(v) => updateBundleItem(idx, { name: v })}
+                      />
+                      {bItem.price !== undefined && (
+                        <Text style={[s.bundlePrice, { color: theme.secondaryText }]}>
+                          {`R$ ${bItem.price.toFixed(2).replace(".", ",")}`}
+                        </Text>
+                      )}
+                      <TouchableOpacity
+                        style={[s.bundleSearchBtn, { backgroundColor: theme.primaryColor + "20" }]}
+                        onPress={() => {
+                          soundManager.play("pop");
+                          setSearchModalVisible(true);
+                          // marca qual bundle item vai receber o produto
+                          setWebView((prev) => ({ ...prev, bundleIndex: idx }));
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Feather name="search" size={14} color={theme.primaryColor} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => { soundManager.play("tap"); removeBundleItem(idx); }} activeOpacity={0.7}>
+                        <Feather name="x" size={16} color={theme.secondaryText} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  <TouchableOpacity style={[s.bundleAddBtn, { borderColor: theme.primaryColor + "50" }]} onPress={() => { soundManager.play("tap"); addBundleItem(); }} activeOpacity={0.7}>
+                    <Feather name="plus" size={14} color={theme.primaryColor} />
+                    <Text style={[s.bundleAddText, { color: theme.primaryColor }]}>Adicionar peça</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {/* Actions */}
               <View style={s.actions}>
                 <TouchableOpacity style={[s.btn, { borderColor: theme.border ?? "#E5E7EB" }]} onPress={() => { soundManager.play("tap"); handleCancel(); }} activeOpacity={0.7}>
@@ -308,13 +398,47 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
         <SelectionModal
           visible={searchModalVisible}
           title="Pesquisar produto"
-          subtitle={form.name.trim() ? `Pesquisar "${form.name.trim()}" em:` : "Escolha onde pesquisar:"}
+          subtitle={productName ? `Pesquisar "${productName}" em:` : "Escolha onde pesquisar:"}
           theme={theme}
           onCancel={() => { soundManager.play("tap"); setSearchModalVisible(false); }}
           options={[
-            { label: "Amazon", icon: "shopping-cart", onPress: () => { soundManager.play("pop"); openSearchWebView("amazon"); } },
-            { label: "Mercado Livre", icon: "shopping-bag", onPress: () => { soundManager.play("pop"); openSearchWebView("ml"); } },
+            {
+              label: "Amazon", icon: "shopping-cart",
+              onPress: () => {
+                soundManager.play("pop");
+                openSearchWebView(
+                  productName
+                    ? `https://www.amazon.com.br/s?k=${encodeURIComponent(productName)}`
+                    : "https://www.amazon.com.br",
+                  webView.bundleIndex,
+                );
+              },
+            },
+            {
+              label: "Mercado Livre", icon: "shopping-bag",
+              onPress: () => {
+                soundManager.play("pop");
+                openSearchWebView(
+                  productName
+                    ? `https://lista.mercadolivre.com.br/${encodeURIComponent(productName)}`
+                    : "https://www.mercadolivre.com.br",
+                  webView.bundleIndex,
+                );
+              },
+            },
+            {
+              label: "Mais lojas...", icon: "grid", color: theme.secondaryText,
+              onPress: () => { setStoreGridVisible(true); },
+            },
           ]}
+        />
+
+        <StoreGridModal
+          visible={storeGridVisible}
+          theme={theme}
+          searchQuery={productName}
+          onSelectStore={(url) => { setStoreGridVisible(false); openSearchWebView(url, webView.bundleIndex); }}
+          onCancel={() => setStoreGridVisible(false)}
         />
       </View>
     </Modal>
@@ -347,6 +471,19 @@ const s = StyleSheet.create({
   savingsScroll: { marginBottom: 4 },
   savingsChip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 20, borderWidth: 1.5, paddingHorizontal: 10, paddingVertical: 6, marginRight: 6 },
   savingsChipText: { fontSize: 12, fontFamily: "DMSans_600SemiBold" },
+  bundlePriceDisplay: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, marginBottom: 2, marginTop: 10 },
+  bundlePriceLabel: { flex: 1, fontSize: 13, fontFamily: "DMSans_400Regular" },
+  bundlePriceValue: { fontSize: 15, fontFamily: "DMSans_700Bold" },
+  bundleToggle: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 12, paddingVertical: 10, marginTop: 12 },
+  bundleToggleText: { flex: 1, fontSize: 13, fontFamily: "DMSans_500Medium" },
+  bundleTotal: { fontSize: 13, fontFamily: "DMSans_700Bold" },
+  bundleSection: { marginTop: 8, gap: 6 },
+  bundleRow: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8 },
+  bundleNameInput: { flex: 1, fontSize: 13, fontFamily: "DMSans_400Regular" },
+  bundlePrice: { fontSize: 11, fontFamily: "DMSans_600SemiBold" },
+  bundleSearchBtn: { width: 30, height: 30, borderRadius: 8, justifyContent: "center", alignItems: "center" },
+  bundleAddBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1.5, borderRadius: 10, borderStyle: "dashed", paddingVertical: 10 },
+  bundleAddText: { fontSize: 13, fontFamily: "DMSans_600SemiBold" },
   actions: { flexDirection: "row", gap: 10, marginTop: 16, marginBottom: 8 },
   btn: { flex: 1, height: 48, borderRadius: 12, borderWidth: 1.5, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   btnPrimary: { borderWidth: 0 },

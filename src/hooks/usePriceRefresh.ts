@@ -107,29 +107,65 @@ export function usePriceRefresh({ items, updateItem }: Options): Result {
     const itemId = queueRef.current.shift()!;
     const item = itemsRef.current.get(itemId);
 
-    // Item sem URL: pula para o próximo imediatamente
-    if (!item?.originalUrl) {
+    const isBundleItem = (item?.bundleItems?.length ?? 0) > 0;
+
+    // Item sem URL e sem filhos: pula para o próximo imediatamente
+    if (!item?.originalUrl && !isBundleItem) {
       processNext();
       return;
     }
 
-    // Delay aleatório antes de raspar (simula comportamento humano)
-    await sleep(randomDelay());
-    if (!activeRef.current) return;
-
     setRefreshingId(itemId);
+
     try {
-      const data = await wishlistScraperService.scrape(item.originalUrl);
-      if (!activeRef.current) return;
+      if (isBundleItem && item) {
+        // Kit: raspa cada peça que tem URL, recalcula total
+        const updatedBundleItems = [...item.bundleItems!];
+        let changed = false;
 
-      // Registra o timestamp independente de ter mudado o preço
-      await saveTimestamp(timestampsRef.current, itemId);
+        for (let i = 0; i < updatedBundleItems.length; i++) {
+          const bItem = updatedBundleItems[i];
+          if (!bItem.originalUrl) continue;
 
-      if (data.price !== undefined) {
-        const current = itemsRef.current.get(itemId);
-        // Só atualiza se o preço mudou
-        if (current && data.price !== current.price) {
-          updateItemRef.current(itemId, item.listId, { price: data.price });
+          await sleep(randomDelay());
+          if (!activeRef.current) return;
+
+          try {
+            const data = await wishlistScraperService.scrape(bItem.originalUrl);
+            if (data.price !== undefined && data.price !== bItem.price) {
+              updatedBundleItems[i] = { ...bItem, price: data.price };
+              changed = true;
+            }
+          } catch {
+            // Peça com erro: mantém preço anterior
+          }
+        }
+
+        if (!activeRef.current) return;
+        await saveTimestamp(timestampsRef.current, itemId);
+
+        if (changed) {
+          const newTotal = updatedBundleItems.reduce((acc, b) => acc + (b.price ?? 0), 0);
+          updateItemRef.current(itemId, item.listId, {
+            bundleItems: updatedBundleItems,
+            price: newTotal > 0 ? newTotal : item.price,
+          });
+        }
+      } else if (item?.originalUrl) {
+        // Item simples: delay + scrape
+        await sleep(randomDelay());
+        if (!activeRef.current) return;
+
+        const data = await wishlistScraperService.scrape(item.originalUrl);
+        if (!activeRef.current) return;
+
+        await saveTimestamp(timestampsRef.current, itemId);
+
+        if (data.price !== undefined) {
+          const current = itemsRef.current.get(itemId);
+          if (current && data.price !== current.price) {
+            updateItemRef.current(itemId, item.listId, { price: data.price });
+          }
         }
       }
     } catch {
@@ -150,9 +186,11 @@ export function usePriceRefresh({ items, updateItem }: Options): Result {
       for (const id of visibleIds) {
         // Já enfileirado nesta sessão
         if (seenRef.current.has(id)) continue;
-        // Sem URL
         const item = itemsRef.current.get(id);
-        if (!item?.originalUrl) continue;
+        // Sem URL e sem bundle: pula
+        const hasUrl = !!item?.originalUrl;
+        const hasBundle = (item?.bundleItems?.length ?? 0) > 0;
+        if (!hasUrl && !hasBundle) continue;
         // Atualizado nas últimas 24h — pula
         if (!needsRefresh(timestampsRef.current, id)) {
           seenRef.current.add(id); // marca como visto para não checar de novo

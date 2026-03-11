@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
-import type { WishlistItem, UrgencyLevel } from "@packages/wishlist";
+import type { WishlistItem, UrgencyLevel, BundleItem } from "@packages/wishlist";
 import { soundManager } from "@/src/services/SoundManager";
 
 const URGENCY_COLORS: Record<UrgencyLevel, string> = {
@@ -40,6 +40,8 @@ interface Props {
   onRemove?: (item: WishlistItem) => void;
   onConvert?: (item: WishlistItem) => void;
   onChangePriority?: (item: WishlistItem, newUrgency: UrgencyLevel) => void;
+  /** Chamado quando uma peça do bundle tem purchased alterado */
+  onBundleItemToggle?: (item: WishlistItem, bundleItemId: string, purchased: boolean) => void;
 }
 
 export function WishlistItemRow({
@@ -54,8 +56,11 @@ export function WishlistItemRow({
   onRemove,
   onConvert,
   onChangePriority,
+  onBundleItemToggle,
 }: Props) {
   const urgencyColor = URGENCY_COLORS[item.urgencyLevel];
+  const hasBundle = (item.bundleItems?.length ?? 0) > 0;
+  const [bundleOpen, setBundleOpen] = useState(false);
 
   const openUrl = () => {
     const url = item.affiliateUrl ?? item.originalUrl;
@@ -63,6 +68,7 @@ export function WishlistItemRow({
   };
 
   return (
+    <View style={styles.wrapper}>
     <View
       style={[
         styles.container,
@@ -199,6 +205,21 @@ export function WishlistItemRow({
         )}
       </TouchableOpacity>
 
+      {/* Badge + toggle de bundle */}
+      {hasBundle && (
+        <TouchableOpacity
+          style={styles.bundleToggleBtn}
+          onPress={() => { soundManager.play("tap"); setBundleOpen((v) => !v); }}
+          activeOpacity={0.7}
+        >
+          <Feather name="layers" size={13} color={theme.primaryColor} />
+          <Text style={[styles.bundleBadgeText, { color: theme.primaryColor }]}>
+            {`Kit · ${item.bundleItems!.length} peças`}
+          </Text>
+          <Feather name={bundleOpen ? "chevron-up" : "chevron-down"} size={13} color={theme.primaryColor} />
+        </TouchableOpacity>
+      )}
+
       {/* Actions */}
       <View style={styles.actions}>
         {onEdit && (
@@ -230,17 +251,70 @@ export function WishlistItemRow({
         )}
       </View>
     </View>
+
+    {/* Accordion de peças do kit */}
+    {hasBundle && bundleOpen && (
+      <View style={[styles.bundleAccordion, { backgroundColor: theme.cardBackground + "80", borderColor: theme.primaryColor + "30" }]}>
+        {item.bundleItems!.map((bItem: BundleItem) => {
+          const purchased = bItem.purchased ?? false;
+          return (
+            <TouchableOpacity
+              key={bItem.id}
+              style={[styles.bundlePieceRow, { borderBottomColor: theme.primaryColor + "15" }]}
+              onPress={() => onBundleItemToggle?.(item, bItem.id, !purchased)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.bundleCheck, { borderColor: purchased ? "#16A34A" : theme.secondaryText, backgroundColor: purchased ? "#16A34A" : "transparent" }]}>
+                {purchased && <Feather name="check" size={10} color="#fff" />}
+              </View>
+              <Text style={[styles.bundlePieceName, { color: purchased ? theme.secondaryText : theme.textColor, textDecorationLine: purchased ? "line-through" : "none" }]} numberOfLines={1}>
+                {bItem.name || "Sem nome"}
+              </Text>
+              {bItem.price !== undefined && (
+                <Text style={[styles.bundlePiecePrice, { color: purchased ? theme.secondaryText : theme.primaryColor }]}>
+                  {`R$ ${bItem.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                </Text>
+              )}
+              {(bItem.affiliateUrl ?? bItem.originalUrl) && (
+                <TouchableOpacity onPress={() => Linking.openURL(bItem.affiliateUrl ?? bItem.originalUrl!)} activeOpacity={0.7}>
+                  <Feather name="external-link" size={12} color={bItem.affiliateUrl ? "#22C55E" : theme.secondaryText} />
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+        {/* Botões comprar tudo / desmarcar tudo */}
+        <View style={styles.bundleActions}>
+          <TouchableOpacity
+            style={[styles.bundleActionBtn, { backgroundColor: "#16A34A20" }]}
+            onPress={() => item.bundleItems!.forEach((b) => onBundleItemToggle?.(item, b.id, true))}
+            activeOpacity={0.7}
+          >
+            <Feather name="check-square" size={13} color="#16A34A" />
+            <Text style={[styles.bundleActionText, { color: "#16A34A" }]}>Comprar tudo</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.bundleActionBtn, { backgroundColor: theme.primaryColor + "15" }]}
+            onPress={() => item.bundleItems!.forEach((b) => onBundleItemToggle?.(item, b.id, false))}
+            activeOpacity={0.7}
+          >
+            <Feather name="square" size={13} color={theme.primaryColor} />
+            <Text style={[styles.bundleActionText, { color: theme.primaryColor }]}>Desmarcar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: { marginHorizontal: 16, marginVertical: 4 },
   container: {
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 12,
     borderWidth: 1.5,
-    marginVertical: 4,
-    marginHorizontal: 16,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -356,6 +430,57 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: "DMSans_400Regular",
   },
+  bundleToggleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    alignSelf: "stretch",
+    borderLeftWidth: 1,
+    borderLeftColor: "transparent",
+  },
+  bundleBadgeText: { fontSize: 10, fontFamily: "DMSans_600SemiBold" },
+  bundleAccordion: {
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    overflow: "hidden",
+  },
+  bundlePieceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  bundleCheck: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  bundlePieceName: { flex: 1, fontSize: 12, fontFamily: "DMSans_500Medium" },
+  bundlePiecePrice: { fontSize: 11, fontFamily: "DMSans_700Bold" },
+  bundleActions: {
+    flexDirection: "row",
+    gap: 8,
+    padding: 10,
+  },
+  bundleActionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    borderRadius: 8,
+    paddingVertical: 7,
+  },
+  bundleActionText: { fontSize: 11, fontFamily: "DMSans_600SemiBold" },
   actions: {
     flexDirection: "column",
     paddingRight: 8,
