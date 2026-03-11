@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAppState } from "@/src/context/AppStateProvider";
 import type { TransactionPayload } from "@packages/events/src/types";
 
@@ -93,11 +93,10 @@ export function useTitheCalculator(): UseTitheCalculatorResult {
   const [periodType, setPeriodType] = useState<TithePeriodType>("previous_month");
   const [customDays, setCustomDays] = useState("30");
 
-  // Computado inline — sempre fresco a cada render
-  const pct = parseFloat(percentage.replace(",", "."));
-  let result: TitheCalculateResult | null = null;
+  const result = useMemo((): TitheCalculateResult | null => {
+    const pct = parseFloat(percentage.replace(",", "."));
+    if (!(pct > 0)) return null;
 
-  if (pct > 0) {
     const days = parseInt(customDays, 10) || 30;
     const [startDate, endDate] =
       periodType === "previous_month"
@@ -108,8 +107,8 @@ export function useTitheCalculator(): UseTitheCalculatorResult {
 
     const txList = Object.values(domain.transactions);
     const base = calcBase(txList, startDate, endDate, baseType);
-    result = { amount: parseFloat((base * (pct / 100)).toFixed(2)), base };
-  }
+    return { amount: parseFloat((base * (pct / 100)).toFixed(2)), base };
+  }, [percentage, baseType, periodType, customDays, domain.transactions]);
 
   return {
     percentage, setPercentage,
