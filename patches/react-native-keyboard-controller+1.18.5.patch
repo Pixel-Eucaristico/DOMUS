@@ -83,7 +83,7 @@ index e13177c..f5a8b21 100644
    // region View life cycles
    override fun onAttachedToWindow() {
      super.onAttachedToWindow()
-@@ -185,17 +250,22 @@ class EdgeToEdgeReactViewGroup(
+@@ -185,16 +250,21 @@ class EdgeToEdgeReactViewGroup(
    private fun removeKeyboardCallbacks() {
      callback?.destroy()
  
