@@ -2,16 +2,17 @@ diff --git a/node_modules/react-native-keyboard-controller/android/src/main/java
 index e13177c..daa3615 100644
 --- a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/views/EdgeToEdgeReactViewGroup.kt
 +++ b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/views/EdgeToEdgeReactViewGroup.kt
-@@ -2,6 +2,8 @@
+@@ -2,6 +2,9 @@
  
  import android.annotation.SuppressLint
  import android.content.res.Configuration
 +import android.graphics.Canvas
 +import android.view.View
++import android.view.ViewGroup
  import android.os.Handler
  import android.os.Looper
  import android.widget.FrameLayout
-@@ -72,6 +74,69 @@
+@@ -72,6 +75,69 @@
      EdgeToEdgeViewRegistry.register(this)
    }
  
@@ -81,7 +82,7 @@ index e13177c..daa3615 100644
    // region View life cycles
    override fun onAttachedToWindow() {
      super.onAttachedToWindow()
-@@ -185,16 +250,19 @@
+@@ -185,16 +251,19 @@
    private fun removeKeyboardCallbacks() {
      callback?.destroy()
  
