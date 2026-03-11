@@ -17,8 +17,9 @@ if (Platform.OS !== "web") {
   GoogleSignin.configure({
     webClientId: WEB_CLIENT_ID,
     scopes: ["https://www.googleapis.com/auth/drive.appdata"],
-    offlineAccess: true,
-    forceCodeForRefreshToken: true,
+    ...(WEB_CLIENT_ID
+      ? { offlineAccess: true, forceCodeForRefreshToken: true }
+      : {}),
   });
 }
 
