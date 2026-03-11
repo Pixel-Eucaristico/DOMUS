@@ -52,12 +52,16 @@ function DemoImportScreen() {
   );
 }
 
+// FIX: Wrapper que decide qual componente renderizar sem violar regras de hooks.
+// O early return condicional estava APÓS outros hooks, causando crash ao sair do tour
+// ("Rendered more hooks than during the previous render"). Ver docs/tour-crash-fixes.md
 export default function InvoiceImportScreen() {
   const { isDemoActive } = useDemoMode();
-
-  // FIX-2026-03-09: Evita montar camera hooks durante o tour (demo mode).
-  // Retorna componente separado para não violar regra de hooks do React.
   if (isDemoActive) return <DemoImportScreen />;
+  return <RealInvoiceImportScreen />;
+}
+
+function RealInvoiceImportScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { domain, theme } = useAppState();
