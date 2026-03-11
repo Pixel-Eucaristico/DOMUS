@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Animated, Platform } from "react-native";
 import { wishlistScraperService, AFFILIATE_CONFIG } from "@packages/wishlist";
-import type { UrgencyLevel, WishlistItem, SavingsGoalConfig } from "@packages/wishlist";
+import type { UrgencyLevel, WishlistItem, SavingsGoalConfig, BundleItem } from "@packages/wishlist";
 
 export interface WishlistFormState {
   name: string;
@@ -66,10 +66,16 @@ export function useAddWishlistItem({
   const [scraping, setScraping] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [searchModalVisible, setSearchModalVisible] = useState(false);
-  const [webView, setWebView] = useState<{ visible: boolean; url: string }>({
-    visible: false,
-    url: "",
-  });
+  const [webView, setWebView] = useState<{
+    visible: boolean;
+    url: string;
+    /** Se definido, o produto selecionado preenche este índice do bundle */
+    bundleIndex?: number;
+  }>({ visible: false, url: "" });
+
+  // Bundle / Kit
+  const [bundleItems, setBundleItems] = useState<BundleItem[]>([]);
+  const [isBundleMode, setIsBundleMode] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(600)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -165,16 +171,30 @@ export function useAddWishlistItem({
     }
   }, [form.url, applyScrapeData]);
 
-  const openSearchWebView = useCallback((platform: "amazon" | "ml") => {
+  const openSearchWebView = useCallback((storeUrl: string, bundleIndex?: number) => {
     if (Platform.OS === "web") {
-      const url =
-        platform === "amazon" ? "https://www.amazon.com.br" : "https://www.mercadolivre.com.br";
-      window.open(url, "_blank", "noopener,noreferrer");
+      window.open(storeUrl, "_blank", "noopener,noreferrer");
       return;
     }
-    const url =
-      platform === "amazon" ? "https://www.amazon.com.br" : "https://www.mercadolivre.com.br";
-    setWebView({ visible: true, url });
+    setWebView({ visible: true, url: storeUrl, bundleIndex });
+  }, []);
+
+  // ─── Bundle helpers ──────────────────────────────────────────────────────────
+  const addBundleItem = useCallback(() => {
+    setBundleItems((prev) => [
+      ...prev,
+      { id: Date.now().toString(), name: "", purchased: false },
+    ]);
+  }, []);
+
+  const updateBundleItem = useCallback((index: number, changes: Partial<BundleItem>) => {
+    setBundleItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, ...changes } : item)),
+    );
+  }, []);
+
+  const removeBundleItem = useCallback((index: number) => {
+    setBundleItems((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   const handleSearchOrImport = useCallback(() => {
@@ -187,7 +207,14 @@ export function useAddWishlistItem({
 
   const handleConfirm = useCallback(() => {
     if (!isValid) return;
-    const priceVal = parseFloat(form.price.replace(",", "."));
+    let priceVal = parseFloat(form.price.replace(",", "."));
+
+    // Se bundle e sem preço manual, calcula soma das peças
+    if (isBundleMode && isNaN(priceVal) && bundleItems.length > 0) {
+      const sum = bundleItems.reduce((acc, b) => acc + (b.price ?? 0), 0);
+      if (sum > 0) priceVal = sum;
+    }
+
     const item = {
       listId,
       name: form.name.trim(),
@@ -202,27 +229,56 @@ export function useAddWishlistItem({
       imageUrl: form.imageUrl.trim() || undefined,
       canBuyThisMonth: false,
       savingsGoal: savingsGoal.enabled ? savingsGoal : undefined,
+      bundleItems: isBundleMode && bundleItems.length > 0 ? bundleItems : undefined,
     };
     animateClose(() => {
       onConfirm(item);
       setForm(INITIAL_FORM);
       setSavingsGoal({ enabled: false });
       setShowAdvanced(false);
+      setBundleItems([]);
+      setIsBundleMode(false);
     });
-  }, [isValid, form, savingsGoal, listId, animateClose, onConfirm]);
+  }, [isValid, form, savingsGoal, listId, isBundleMode, bundleItems, animateClose, onConfirm]);
 
   const handleCancel = useCallback(() => {
     animateClose(() => {
       setForm(INITIAL_FORM);
       setSavingsGoal({ enabled: false });
       setShowAdvanced(false);
+      setBundleItems([]);
+      setIsBundleMode(false);
       onCancel();
     });
   }, [animateClose, onCancel]);
 
   const handleProductSelected = useCallback(
     async (url: string) => {
+      const { bundleIndex } = webView;
       setWebView({ visible: false, url: "" });
+
+      if (bundleIndex !== undefined) {
+        // Produto vai para um item do bundle
+        setScraping(true);
+        try {
+          const data = await wishlistScraperService.scrape(url);
+          updateBundleItem(bundleIndex, {
+            originalUrl: url,
+            affiliateUrl: data.affiliateUrl ?? url,
+            name: data.name ?? bundleItems[bundleIndex]?.name ?? "",
+            price: data.price,
+            imageUrl: data.imageUrl,
+            storeId: wishlistScraperService.isAmazonUrl(url) ? "amazon"
+              : wishlistScraperService.isMercadoLivreUrl(url) ? "mercadolivre"
+              : undefined,
+          });
+        } finally {
+          setScraping(false);
+        }
+        return;
+      }
+
+      // Produto vai para o item principal
       setForm((p) => ({ ...p, url }));
       setScraping(true);
       try {
@@ -232,7 +288,7 @@ export function useAddWishlistItem({
         setScraping(false);
       }
     },
-    [applyScrapeData],
+    [webView, applyScrapeData, updateBundleItem, bundleItems],
   );
 
   const updateField = useCallback(<K extends keyof WishlistFormState>(key: K, value: WishlistFormState[K]) => {
@@ -267,5 +323,12 @@ export function useAddWishlistItem({
     handleConfirm,
     handleCancel,
     handleProductSelected,
+    // Bundle
+    isBundleMode,
+    setIsBundleMode,
+    bundleItems,
+    addBundleItem,
+    updateBundleItem,
+    removeBundleItem,
   };
 }
