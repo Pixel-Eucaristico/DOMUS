@@ -44,14 +44,19 @@ export function useTourNavigation() {
     const targetIsTab = step.route.startsWith("/(tabs)");
 
     if (onStackScreen) {
-      // Estamos em tela stack — dismiss tudo antes de navegar
+      // Estamos em tela stack — dismiss tudo antes de navegar.
+      // FIX: flag "cancelled" garante que o setTimeout interno (sem ref direto)
+      // tambem seja cancelado se o demo terminar antes de disparar.
+      let cancelled = false;
       const timer = setTimeout(() => {
+        if (cancelled) return;
         try { router.dismissAll(); } catch { /* ignore */ }
         setTimeout(() => {
+          if (cancelled) return;
           router.navigate(step.route as any);
         }, targetIsTab ? 50 : 150);
       }, 100);
-      return () => clearTimeout(timer);
+      return () => { cancelled = true; clearTimeout(timer); };
     }
 
     const timer = setTimeout(() => {
