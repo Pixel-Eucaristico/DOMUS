@@ -13,6 +13,7 @@ import { DEMO_SEED_EVENTS } from "@/src/constants/mockDemoEvents";
 const TOUR_SHOWN_KEY = "domus_tour_shown_v1";
 const TOUR_STEP_KEY = "domus_tour_step_v1";
 const TOUR_MIN_KEY = "domus_tour_minimized_v1";
+const WELCOME_KEY = "domus_welcome_done_v1";
 
 interface DemoModeContextValue {
   isDemoActive: boolean;
@@ -36,6 +37,7 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
   const [demoEvents, setDemoEvents] = useState<SyncEvent[]>([]);
   const [currentTourStep, setCurrentTourStepState] = useState(0);
   const [isTourMinimized, setTourMinimizedState] = useState(false);
+  const [showWelcomeCarousel, setShowWelcomeCarousel] = useState(false);
 
   const setTourMinimized = useCallback((minimized: boolean) => {
     setTourMinimizedState(minimized);
@@ -95,7 +97,8 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.getItem(TOUR_SHOWN_KEY),
       AsyncStorage.getItem(TOUR_STEP_KEY),
       AsyncStorage.getItem(TOUR_MIN_KEY),
-    ]).then(([shown, savedStep, savedMin]) => {
+      AsyncStorage.getItem(WELCOME_KEY),
+    ]).then(([shown, savedStep, savedMin, welcomeDone]) => {
       if (shown === null) {
         // First launch ever
         AsyncStorage.setItem(TOUR_SHOWN_KEY, "shown").catch(() => {});
@@ -136,7 +139,7 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
       completeWelcomeCarousel,
       restartWithCarousel,
     }),
-    [isDemoActive, startDemo, stopDemo, demoEvents, dispatchDemoEvent, currentTourStep, setTourStep, isTourMinimized, setTourMinimized],
+    [isDemoActive, startDemo, stopDemo, demoEvents, dispatchDemoEvent, currentTourStep, setTourStep, isTourMinimized, setTourMinimized, showWelcomeCarousel, completeWelcomeCarousel, restartWithCarousel],
   );
 
   return (
