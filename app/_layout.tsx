@@ -22,16 +22,11 @@ import { DemoModeProvider, useDemoMode } from "@/src/context/DemoModeProvider";
 import { TourOverlay } from "@/src/components/shared/TourOverlay";
 import { WelcomeCarousel } from "@/src/components/tour/WelcomeCarousel";
 import { AchievementToast } from "@/src/components/gamification/AchievementToast";
-import { ReligiousPreferenceModal } from "@/src/components/shared/ReligiousPreferenceModal";
 import { ShareToWishlistModal } from "@/src/components/wishlist/ShareToWishlistModal";
 import { useSavingsGoalScheduler } from "@/src/hooks/useSavingsGoalScheduler";
 import { useAutoBackup } from "@/src/hooks/useAutoBackup";
 import { useNotificationScheduler } from "@/src/hooks/useNotificationScheduler";
-import { NotificationSetupModal } from "@/src/components/notifications/NotificationSetupModal";
-import { loadNotificationSettings } from "@/src/modules/notifications/application/NotificationSettingsStore";
 import { useAnalyticsInit } from "@/src/hooks/useAnalyticsInit";
-import { AnalyticsConsentModal } from "@/src/components/analytics/AnalyticsConsentModal";
-import { loadAnalyticsSettings } from "@/src/modules/analytics/application/AnalyticsSettingsStore";
 import { createEvent } from "@packages/events/src/factory";
 import { EVENT_TYPES } from "@packages/events/src/types";
 import type { TransactionUpdatedEvent } from "@packages/events/src/types";
@@ -83,6 +78,12 @@ function NotificationSchedulerRunner() {
 /** Executa na inicialização: inicializa Firebase Analytics/Performance conforme consentimento. */
 function AnalyticsInitRunner() {
   useAnalyticsInit();
+  return null;
+}
+
+/** Processa respostas dos botões de ação das notificações (efetivar/editar). */
+function NotificationResponseRunner() {
+  useNotificationResponseHandler();
   return null;
 }
 
@@ -323,6 +324,7 @@ export default function RootLayout() {
                   <AutoBackupScheduler />
                   <NotificationSchedulerRunner />
                   <AnalyticsInitRunner />
+                  <NotificationResponseRunner />
                   <TourContent>
                     <SecurityGuard>
                       <DesktopLayout>
@@ -337,9 +339,6 @@ export default function RootLayout() {
                         <AchievementToastHost />
                         <SeasonalToastHost />
                         <WelcomeCarouselHost />
-                        <ReligiousPreferenceHost />
-                        <NotificationSetupHost />
-                        <AnalyticsConsentHost />
                         <MonetizationHosts />
                         {__DEV__ && <DebugTools />}
                       </>
@@ -365,18 +364,6 @@ function AchievementToastHost() {
   return <AchievementToast toast={pendingToast} onDismiss={clearPendingToast} />;
 }
 
-function ReligiousPreferenceHost() {
-  const { isCatholic, loading, setIsCatholic } = useAppState();
-  const { isDemoActive, showWelcomeCarousel } = useDemoMode();
-  if (loading || isCatholic !== null || isDemoActive || showWelcomeCarousel) return null;
-  return (
-    <ReligiousPreferenceModal
-      visible
-      onSelect={setIsCatholic}
-    />
-  );
-}
-
 function SeasonalToastHost() {
   const { pendingSeasonalToast, clearPendingSeasonalToast } = useAppState();
   if (!pendingSeasonalToast) return null;
@@ -391,29 +378,6 @@ function SeasonalToastHost() {
       }}
       onDismiss={clearPendingSeasonalToast}
       offsetTop={140}
-    />
-  );
-}
-
-function NotificationSetupHost() {
-  const { loading } = useAppState();
-  const { isDemoActive, showWelcomeCarousel } = useDemoMode();
-  const [showModal, setShowModal] = useState(false);
-
-  useNotificationResponseHandler();
-
-  useEffect(() => {
-    if (loading || isDemoActive || showWelcomeCarousel || Platform.OS === "web") return;
-    loadNotificationSettings().then((s) => {
-      if (!s.hasCompletedSetup) setShowModal(true);
-    });
-  }, [loading, isDemoActive, showWelcomeCarousel]);
-
-  if (!showModal) return null;
-  return (
-    <NotificationSetupModal
-      visible
-      onDone={() => setShowModal(false)}
     />
   );
 }
@@ -471,26 +435,5 @@ function MonetizationHosts() {
       )}
       <AppOpenAdHost enabled={modes.includes("app_open")} />
     </>
-  );
-}
-
-function AnalyticsConsentHost() {
-  const { loading } = useAppState();
-  const { isDemoActive, showWelcomeCarousel } = useDemoMode();
-  const [showModal, setShowModal] = useState(false);
-
-  useEffect(() => {
-    if (loading || isDemoActive || showWelcomeCarousel || Platform.OS === "web") return;
-    loadAnalyticsSettings().then((s) => {
-      if (!s.hasCompletedConsent) setShowModal(true);
-    });
-  }, [loading, isDemoActive, showWelcomeCarousel]);
-
-  if (!showModal) return null;
-  return (
-    <AnalyticsConsentModal
-      visible
-      onDone={() => setShowModal(false)}
-    />
   );
 }
