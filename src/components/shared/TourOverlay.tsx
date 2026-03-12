@@ -14,6 +14,8 @@ import {
 } from "@/src/tour/TourControlContext";
 import { soundManager } from "@/src/services/SoundManager";
 import type { ThemeColors } from "@packages/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { TourInlineCard } from "@/src/components/tour/TourInlineCard";
 
 interface Props {
   theme: ThemeColors;
