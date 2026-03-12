@@ -424,7 +424,7 @@ function WelcomeCarouselHost() {
       visible
       onComplete={() => {
         completeWelcomeCarousel();
-        startDemo();
+        setTimeout(() => startDemo(), 600);
       }}
     />
   );
