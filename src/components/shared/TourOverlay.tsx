@@ -1,5 +1,7 @@
 import React, { useCallback, useRef, useMemo, useState } from "react";
 import { View, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { TourInlineCard } from "@/src/components/tour/TourInlineCard";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { useTourNavigation } from "@/src/tour/useTourNavigation";
 import { TOUR_STEPS, TOUR_TOTAL } from "@/src/tour/tourStepConfig";
