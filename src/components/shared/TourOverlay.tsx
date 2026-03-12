@@ -137,6 +137,7 @@ export function TourOverlay({ theme, children }: Props) {
   // garante no maximo 2 filhos no View, sem slots nulos fixos.
   const showModal = isDemoActive && !isTourMinimized && !hasTarget && !!step;
   const showBadge = isDemoActive && !showModal && !inlineCardVisible;
+  const showBottomCard = isDemoActive && !isTourMinimized && inlineCardVisible && hasTarget && !!step;
 
   return (
     <TourControlProvider value={controlValue}>
@@ -161,14 +162,79 @@ export function TourOverlay({ theme, children }: Props) {
             onMinimize={handleMinimize}
             isLast={currentIsLast}
           />
+        ) : showBottomCard ? (
+          <BottomInlineCard
+            step={step}
+            stepIndex={currentTourStep}
+            theme={theme}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            onSkip={handleSkip}
+            onMinimize={handleMinimize}
+            isLast={currentIsLast}
+          />
         ) : null}
       </View>
     </TourControlProvider>
   );
 }
 
+function BottomInlineCard({
+  step,
+  stepIndex,
+  theme,
+  onNext,
+  onPrev,
+  onSkip,
+  onMinimize,
+  isLast,
+}: {
+  step: any;
+  stepIndex: number;
+  theme: ThemeColors;
+  onNext: () => void;
+  onPrev: () => void;
+  onSkip: () => void;
+  onMinimize: () => void;
+  isLast: boolean;
+}) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View
+      style={[
+        styles.bottomCardContainer,
+        { paddingBottom: insets.bottom + 8 },
+      ]}
+      pointerEvents="box-none"
+    >
+      <TourInlineCard
+        step={step}
+        stepIndex={stepIndex}
+        theme={theme}
+        onNext={onNext}
+        onPrev={onPrev}
+        onSkip={onSkip}
+        onMinimize={onMinimize}
+        isLast={isLast}
+        showArrow={false}
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  bottomCardContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    zIndex: 10000,
+    elevation: 24,
   },
 });

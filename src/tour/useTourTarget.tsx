@@ -2,16 +2,13 @@ import React, { useRef, useEffect, useMemo } from "react";
 import {
   View as RNView,
   Platform,
-  useWindowDimensions,
   type View,
   type ScrollView,
   type ViewStyle,
 } from "react-native";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { useTourControl } from "./TourControlContext";
-import { TOUR_STEPS, TOUR_TOTAL } from "./tourStepConfig";
-import { TourInlineCard } from "@/src/components/tour/TourInlineCard";
-import { useAppState } from "@/src/context/AppStateProvider";
+import { TOUR_STEPS } from "./tourStepConfig";
 
 const ACTIVE_STYLE: ViewStyle = {
   zIndex: 9998,
@@ -27,7 +24,8 @@ const CARD_STYLE: ViewStyle = {
 };
 
 /**
- * Hook para elementos da UI exibirem um card de tour inline.
+ * Hook para elementos da UI exibirem destaque (backdrop) durante o tour.
+ * O card de explicação é renderizado na base da tela via TourOverlay.
  *
  * Quando o passo correspondente ao targetId esta ativo:
  * 1. Mede a posicao do elemento alvo na tela via measureInWindow.
@@ -60,7 +58,7 @@ export function useTourTarget(
     () =>
       function TourCardInner() {
         return (
-          <TourCardRenderer
+          <TourBackdropRenderer
             targetId={targetId}
             targetRef={targetRef}
             scrollViewRef={scrollViewRef}
@@ -73,7 +71,7 @@ export function useTourTarget(
   return { targetRef, TourCard, activeStyle };
 }
 
-function TourCardRenderer({
+function TourBackdropRenderer({
   targetId,
   targetRef,
   scrollViewRef,
@@ -83,10 +81,7 @@ function TourCardRenderer({
   scrollViewRef?: React.RefObject<ScrollView | null>;
 }) {
   const { isDemoActive, isTourMinimized, currentTourStep } = useDemoMode();
-  const { theme } = useAppState();
   const tourControl = useTourControl();
-
-  const cardRef = useRef<View>(null);
 
   const stepIndex = TOUR_STEPS.findIndex((s) => s.targetId === targetId);
   const step = stepIndex >= 0 ? TOUR_STEPS[stepIndex] : null;
@@ -95,9 +90,8 @@ function TourCardRenderer({
     !isTourMinimized &&
     step !== null &&
     currentTourStep === stepIndex;
-  const isLast = stepIndex === TOUR_TOTAL - 1;
 
-  // Register inline card visibility with TourOverlay
+  // Register inline card visibility with TourOverlay (so it renders the bottom card)
   useEffect(() => {
     if (!isActive || !tourControl) return;
     return tourControl.registerInlineCard();

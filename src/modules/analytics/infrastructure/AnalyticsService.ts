@@ -27,43 +27,28 @@ export async function initFirebase(): Promise<void> {
     }
 
     // Analytics
-    if (settings.analyticsEnabled) {
+    try {
       const analytics = await import("@react-native-firebase/analytics");
-      await analytics.default().setAnalyticsCollectionEnabled(true);
-    } else {
-      try {
-        const analytics = await import("@react-native-firebase/analytics");
-        await analytics.default().setAnalyticsCollectionEnabled(false);
-      } catch {
-        // module not available
-      }
+      await analytics.default().setAnalyticsCollectionEnabled(settings.analyticsEnabled);
+    } catch {
+      // module not available
     }
 
     // Performance Monitoring
-    if (settings.performanceEnabled) {
+    try {
       const perf = await import("@react-native-firebase/perf");
-      await perf.default().setPerformanceCollectionEnabled(true);
-    } else {
-      try {
-        const perf = await import("@react-native-firebase/perf");
-        await perf.default().setPerformanceCollectionEnabled(false);
-      } catch {
-        // module not available
-      }
+      await perf.default().setPerformanceCollectionEnabled(settings.performanceEnabled);
+    } catch {
+      // module not available
     }
 
     // Crashlytics
-    if (settings.crashlyticsEnabled) {
+    try {
       const crashlytics = await import("@react-native-firebase/crashlytics");
-      await crashlytics.default().setCrashlyticsCollectionEnabled(true);
-      installGlobalErrorHandler();
-    } else {
-      try {
-        const crashlytics = await import("@react-native-firebase/crashlytics");
-        await crashlytics.default().setCrashlyticsCollectionEnabled(false);
-      } catch {
-        // module not available
-      }
+      await crashlytics.default().setCrashlyticsCollectionEnabled(settings.crashlyticsEnabled);
+      if (settings.crashlyticsEnabled) installGlobalErrorHandler();
+    } catch {
+      // module not available
     }
 
     _initialized = true;
@@ -128,9 +113,7 @@ export async function applyAnalyticsPreferences(
   try {
     const crashlytics = await import("@react-native-firebase/crashlytics");
     await crashlytics.default().setCrashlyticsCollectionEnabled(crashlyticsEnabled);
-    if (crashlyticsEnabled) {
-      installGlobalErrorHandler();
-    }
+    if (crashlyticsEnabled) installGlobalErrorHandler();
   } catch {
     // module not available
   }
