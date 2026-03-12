@@ -1,15 +1,16 @@
-import React, { useCallback, useRef, useMemo } from "react";
+import React, { useCallback, useRef, useMemo, useState } from "react";
 import { View, StyleSheet } from "react-native";
-// Navigation is fully handled by useTourNavigation
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { useTourNavigation } from "@/src/tour/useTourNavigation";
 import { TOUR_STEPS, TOUR_TOTAL } from "@/src/tour/tourStepConfig";
 import { TourMiniBadge } from "@/src/components/tour/TourMiniBadge";
 import { TourModalCard } from "@/src/components/tour/TourModalCard";
+import { SpotlightBackdrop } from "@/src/components/tour/TourBackdrop";
 import {
   TourControlProvider,
   useInlineCardTracker,
   type TourControlContextValue,
+  type SpotlightRect,
 } from "@/src/tour/TourControlContext";
 import { soundManager } from "@/src/services/SoundManager";
 import type { ThemeColors } from "@packages/theme";
@@ -21,8 +22,14 @@ interface Props {
 
 /**
  * Tour overlay + context provider.
+ *
  * Steps com alvo: card inline dentro da ScrollView (via useTourTarget).
- * Steps sem alvo: TourModalCard centralizado com backdrop.
+ *   - Backdrop: SVG SpotlightBackdrop renderizado aqui (nivel raiz), com buraco
+ *     ao redor do elemento alvo para evitar "null child" no Animated.View.
+ *   - As coordenadas do alvo chegam via TourControlContext.setSpotlightRect()
+ *     chamado em useTourTarget quando measureInWindow retorna dimensoes validas.
+ *
+ * Steps sem alvo: TourModalCard centralizado (sem backdrop de spotlight).
  */
 export function TourOverlay({ theme, children }: Props) {
   const {
@@ -38,7 +45,6 @@ export function TourOverlay({ theme, children }: Props) {
 
   const step = TOUR_STEPS[currentTourStep];
 
-  // Navigation is handled by useTourNavigation — just update the step
   const handleNext = useCallback(() => {
     soundManager.play("tap");
     if (currentTourStep < TOUR_TOTAL - 1) {
@@ -68,11 +74,20 @@ export function TourOverlay({ theme, children }: Props) {
 
   const { registerInlineCard, inlineCardVisible } = useInlineCardTracker();
 
+  // Spotlight rect received from useTourTarget via context.
+  // Cleared when step changes or tour deactivates.
+  const [spotlightRect, setSpotlightRectState] = useState<SpotlightRect | null>(null);
+  const setSpotlightRect = useCallback((rect: SpotlightRect | null) => {
+    setSpotlightRectState(rect);
+  }, []);
+
+  // Note: spotlightRect is cleared by useTourTarget via setSpotlightRect(null)
+  // whenever isActive becomes false (step change, minimize, or tour stop).
+
   const autoMinRef = useRef(false);
 
   const handleRestore = useCallback(() => {
     soundManager.play("pop");
-    // useTourNavigation handles route changes when isTourMinimized becomes false
     setTimeout(() => {
       autoMinRef.current = false;
       setTourMinimized(false);
@@ -90,12 +105,36 @@ export function TourOverlay({ theme, children }: Props) {
       isDemoActive,
       registerInlineCard,
       inlineCardVisible,
+      spotlightRect,
+      setSpotlightRect,
     }),
-    [handleNext, handlePrev, handleSkip, handleMinimize, currentTourStep, isTourMinimized, isDemoActive, registerInlineCard, inlineCardVisible],
+    [
+      handleNext,
+      handlePrev,
+      handleSkip,
+      handleMinimize,
+      currentTourStep,
+      isTourMinimized,
+      isDemoActive,
+      registerInlineCard,
+      inlineCardVisible,
+      spotlightRect,
+      setSpotlightRect,
+    ],
   );
 
   const hasTarget = !!step?.targetId;
   const currentIsLast = currentTourStep === TOUR_TOTAL - 1;
+
+  // Spotlight: only when tour is active, not minimized, step has a target, and
+  // valid coordinates arrived via measureInWindow in useTourTarget
+  const showSpotlight = isDemoActive && !isTourMinimized && hasTarget && !!spotlightRect;
+
+  // FIX-2026-03-11: showBadge e showModal sao mutuamente exclusivos.
+  // Usar dois blocos `&&` separados cria dois slots filhos que ficam
+  // null alternadamente no EdgeToEdgeReactViewGroup, causando crash
+  // "null child at index N" no Android 16. Um unico ternario encadeado
+  // garante no maximo 2 filhos no View, sem slots nulos fixos.
   const showModal = isDemoActive && !isTourMinimized && !hasTarget && !!step;
   const showBadge = isDemoActive && !showModal && !inlineCardVisible;
 
@@ -103,11 +142,12 @@ export function TourOverlay({ theme, children }: Props) {
     <TourControlProvider value={controlValue}>
       <View style={styles.root}>
         {children}
-        {/* FIX-2026-03-11: showBadge e showModal são mutuamente exclusivos.
-            Usar dois blocos `&&` separados cria dois slots filhos que ficam
-            null alternadamente no EdgeToEdgeReactViewGroup, causando crash
-            "null child at index 2" no Android 16. Um único ternário encadeado
-            garante no máximo 2 filhos no View, sem slots nulos fixos. */}
+        {/* SVG spotlight backdrop — nivel raiz, acima de todo o conteudo.
+            Renderizado como Animated.View SEM prop "entering" no proximo nivel.
+            O FadeIn/FadeOut esta dentro de SpotlightBackdrop que usa Animated.View
+            wrappeando o SVG — o SVG em si nao tem callbacks de animacao nativos,
+            portanto nao gera "obj == null" no JNI handler do Reanimated. */}
+        {showSpotlight && <SpotlightBackdrop rect={spotlightRect} />}
         {showBadge ? (
           <TourMiniBadge theme={theme} onRestore={handleRestore} />
         ) : showModal ? (
