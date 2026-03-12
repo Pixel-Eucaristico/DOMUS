@@ -337,6 +337,9 @@ export default function RootLayout() {
                         <AchievementToastHost />
                         <SeasonalToastHost />
                         <WelcomeCarouselHost />
+                        <ReligiousPreferenceHost />
+                        <NotificationSetupHost />
+                        <AnalyticsConsentHost />
                         <MonetizationHosts />
                         {__DEV__ && <DebugTools />}
                       </>
