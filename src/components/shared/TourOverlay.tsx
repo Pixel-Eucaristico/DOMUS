@@ -1,11 +1,12 @@
 import React, { useCallback, useRef, useMemo } from "react";
 import { View, StyleSheet } from "react-native";
-// Navigation is fully handled by useTourNavigation
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { useTourNavigation } from "@/src/tour/useTourNavigation";
 import { TOUR_STEPS, TOUR_TOTAL } from "@/src/tour/tourStepConfig";
 import { TourMiniBadge } from "@/src/components/tour/TourMiniBadge";
 import { TourModalCard } from "@/src/components/tour/TourModalCard";
+import { TourInlineCard } from "@/src/components/tour/TourInlineCard";
 import {
   TourControlProvider,
   useInlineCardTracker,
@@ -21,7 +22,7 @@ interface Props {
 
 /**
  * Tour overlay + context provider.
- * Steps com alvo: card inline dentro da ScrollView (via useTourTarget).
+ * Steps com alvo: backdrop inline (via useTourTarget) + card fixo na base (aqui).
  * Steps sem alvo: TourModalCard centralizado com backdrop.
  */
 export function TourOverlay({ theme, children }: Props) {
@@ -38,7 +39,6 @@ export function TourOverlay({ theme, children }: Props) {
 
   const step = TOUR_STEPS[currentTourStep];
 
-  // Navigation is handled by useTourNavigation — just update the step
   const handleNext = useCallback(() => {
     soundManager.play("tap");
     if (currentTourStep < TOUR_TOTAL - 1) {
@@ -72,7 +72,6 @@ export function TourOverlay({ theme, children }: Props) {
 
   const handleRestore = useCallback(() => {
     soundManager.play("pop");
-    // useTourNavigation handles route changes when isTourMinimized becomes false
     setTimeout(() => {
       autoMinRef.current = false;
       setTourMinimized(false);
@@ -98,6 +97,7 @@ export function TourOverlay({ theme, children }: Props) {
   const currentIsLast = currentTourStep === TOUR_TOTAL - 1;
   const showModal = isDemoActive && !isTourMinimized && !hasTarget && !!step;
   const showBadge = isDemoActive && !showModal && !inlineCardVisible;
+  const showBottomCard = isDemoActive && !isTourMinimized && inlineCardVisible && hasTarget && !!step;
 
   return (
     <TourControlProvider value={controlValue}>
@@ -121,14 +121,79 @@ export function TourOverlay({ theme, children }: Props) {
             onMinimize={handleMinimize}
             isLast={currentIsLast}
           />
+        ) : showBottomCard ? (
+          <BottomInlineCard
+            step={step}
+            stepIndex={currentTourStep}
+            theme={theme}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            onSkip={handleSkip}
+            onMinimize={handleMinimize}
+            isLast={currentIsLast}
+          />
         ) : null}
       </View>
     </TourControlProvider>
   );
 }
 
+function BottomInlineCard({
+  step,
+  stepIndex,
+  theme,
+  onNext,
+  onPrev,
+  onSkip,
+  onMinimize,
+  isLast,
+}: {
+  step: any;
+  stepIndex: number;
+  theme: ThemeColors;
+  onNext: () => void;
+  onPrev: () => void;
+  onSkip: () => void;
+  onMinimize: () => void;
+  isLast: boolean;
+}) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View
+      style={[
+        styles.bottomCardContainer,
+        { paddingBottom: insets.bottom + 8 },
+      ]}
+      pointerEvents="box-none"
+    >
+      <TourInlineCard
+        step={step}
+        stepIndex={stepIndex}
+        theme={theme}
+        onNext={onNext}
+        onPrev={onPrev}
+        onSkip={onSkip}
+        onMinimize={onMinimize}
+        isLast={isLast}
+        showArrow={false}
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  bottomCardContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    zIndex: 10000,
+    elevation: 24,
   },
 });

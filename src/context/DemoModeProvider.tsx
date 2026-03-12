@@ -12,6 +12,7 @@ import { DEMO_SEED_EVENTS } from "@/src/constants/mockDemoEvents";
 
 const TOUR_SHOWN_KEY = "domus_tour_shown_v1";
 const TOUR_STEP_KEY = "domus_tour_step_v1";
+const WELCOME_KEY = "domus_welcome_v2";
 
 interface DemoModeContextValue {
   isDemoActive: boolean;
@@ -23,6 +24,9 @@ interface DemoModeContextValue {
   setTourStep: (step: number) => void;
   isTourMinimized: boolean;
   setTourMinimized: (minimized: boolean) => void;
+  showWelcomeCarousel: boolean;
+  completeWelcomeCarousel: () => void;
+  restartWithCarousel: () => void;
 }
 
 const DemoModeContext = createContext<DemoModeContextValue | null>(null);
@@ -32,6 +36,7 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
   const [demoEvents, setDemoEvents] = useState<SyncEvent[]>([]);
   const [currentTourStep, setCurrentTourStepState] = useState(0);
   const [isTourMinimized, setTourMinimized] = useState(false);
+  const [showWelcomeCarousel, setShowWelcomeCarousel] = useState(false);
 
   const setTourStep = useCallback((step: number) => {
     setCurrentTourStepState(step);
@@ -53,6 +58,17 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.removeItem(TOUR_STEP_KEY).catch(() => {});
   }, []);
 
+  const completeWelcomeCarousel = useCallback(() => {
+    AsyncStorage.setItem(WELCOME_KEY, "done").catch(() => {});
+    setShowWelcomeCarousel(false);
+    // startDemo is called by WelcomeCarousel's onComplete handler
+  }, []);
+
+  const restartWithCarousel = useCallback(() => {
+    AsyncStorage.removeItem(WELCOME_KEY).catch(() => {});
+    setShowWelcomeCarousel(true);
+  }, []);
+
   const dispatchDemoEvent = useCallback(
     (event: { id: string; type: string; payload?: object; timestamp: number }) => {
       const syncEvt: SyncEvent = {
@@ -72,11 +88,20 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
     Promise.all([
       AsyncStorage.getItem(TOUR_SHOWN_KEY),
       AsyncStorage.getItem(TOUR_STEP_KEY),
-    ]).then(([shown, savedStep]) => {
+      AsyncStorage.getItem(WELCOME_KEY),
+    ]).then(([shown, savedStep, welcomeDone]) => {
       if (shown === null) {
-        AsyncStorage.setItem(TOUR_SHOWN_KEY, "shown");
-        startDemo();
+        // First launch ever
+        AsyncStorage.setItem(TOUR_SHOWN_KEY, "shown").catch(() => {});
+        if (welcomeDone === null) {
+          // Show welcome carousel first
+          setShowWelcomeCarousel(true);
+        } else {
+          // Welcome done but tour never started (edge case)
+          startDemo();
+        }
       } else if (savedStep !== null) {
+        // Resume interrupted tour
         const step = parseInt(savedStep, 10);
         if (!isNaN(step) && step >= 0) {
           setCurrentTourStepState(step);
@@ -98,8 +123,11 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
       setTourStep,
       isTourMinimized,
       setTourMinimized,
+      showWelcomeCarousel,
+      completeWelcomeCarousel,
+      restartWithCarousel,
     }),
-    [isDemoActive, startDemo, stopDemo, demoEvents, dispatchDemoEvent, currentTourStep, setTourStep, isTourMinimized],
+    [isDemoActive, startDemo, stopDemo, demoEvents, dispatchDemoEvent, currentTourStep, setTourStep, isTourMinimized, showWelcomeCarousel, completeWelcomeCarousel, restartWithCarousel],
   );
 
   return (

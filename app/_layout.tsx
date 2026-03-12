@@ -20,6 +20,7 @@ import { AppStateProvider } from "@/src/context/AppStateProvider";
 import { SyncProvider } from "@/src/context/SyncProvider";
 import { DemoModeProvider, useDemoMode } from "@/src/context/DemoModeProvider";
 import { TourOverlay } from "@/src/components/shared/TourOverlay";
+import { WelcomeCarousel } from "@/src/components/tour/WelcomeCarousel";
 import { AchievementToast } from "@/src/components/gamification/AchievementToast";
 import { ReligiousPreferenceModal } from "@/src/components/shared/ReligiousPreferenceModal";
 import { ShareToWishlistModal } from "@/src/components/wishlist/ShareToWishlistModal";
@@ -42,6 +43,12 @@ import { DebugTools } from "@/src/components/debug/DebugTools";
 import { ResponsiveLayoutProvider } from "@/src/ui/layout/ResponsiveLayoutProvider";
 import { useResponsive } from "@/src/ui/layout/useResponsive";
 import { AdaptiveTabBar } from "@/src/ui/navigation/AdaptiveTabBar";
+import { SupportBanner } from "@/src/components/monetization/SupportBanner";
+import { DailyAdModal } from "@/src/components/monetization/DailyAdModal";
+import { NativeAdBanner } from "@/src/components/monetization/NativeAdBanner";
+import { AppOpenAdHost } from "@/src/components/monetization/AppOpenAdHost";
+import { loadSupportModes, loadLastDailyAdDate, saveLastDailyAdDate } from "@/src/modules/monetization/MonetizationSettingsStore";
+import type { SupportMode } from "@/src/modules/monetization/MonetizationSettingsStore";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -329,9 +336,8 @@ export default function RootLayout() {
                         <ShareIntentHandler />
                         <AchievementToastHost />
                         <SeasonalToastHost />
-                        <ReligiousPreferenceHost />
-                        <NotificationSetupHost />
-                        <AnalyticsConsentHost />
+                        <WelcomeCarouselHost />
+                        <MonetizationHosts />
                         {__DEV__ && <DebugTools />}
                       </>
                     )}
@@ -358,8 +364,8 @@ function AchievementToastHost() {
 
 function ReligiousPreferenceHost() {
   const { isCatholic, loading, setIsCatholic } = useAppState();
-  const { isDemoActive } = useDemoMode();
-  if (loading || isCatholic !== null || isDemoActive) return null;
+  const { isDemoActive, showWelcomeCarousel } = useDemoMode();
+  if (loading || isCatholic !== null || isDemoActive || showWelcomeCarousel) return null;
   return (
     <ReligiousPreferenceModal
       visible
@@ -388,17 +394,17 @@ function SeasonalToastHost() {
 
 function NotificationSetupHost() {
   const { loading } = useAppState();
-  const { isDemoActive } = useDemoMode();
+  const { isDemoActive, showWelcomeCarousel } = useDemoMode();
   const [showModal, setShowModal] = useState(false);
 
   useNotificationResponseHandler();
 
   useEffect(() => {
-    if (loading || isDemoActive || Platform.OS === "web") return;
+    if (loading || isDemoActive || showWelcomeCarousel || Platform.OS === "web") return;
     loadNotificationSettings().then((s) => {
       if (!s.hasCompletedSetup) setShowModal(true);
     });
-  }, [loading, isDemoActive]);
+  }, [loading, isDemoActive, showWelcomeCarousel]);
 
   if (!showModal) return null;
   return (
@@ -409,17 +415,73 @@ function NotificationSetupHost() {
   );
 }
 
-function AnalyticsConsentHost() {
+function WelcomeCarouselHost() {
+  const { showWelcomeCarousel, completeWelcomeCarousel, startDemo } = useDemoMode();
+  console.log("[WelcomeCarouselHost] showWelcomeCarousel =", showWelcomeCarousel);
+  if (!showWelcomeCarousel) return null;
+  return (
+    <WelcomeCarousel
+      visible
+      onComplete={() => {
+        completeWelcomeCarousel();
+        startDemo();
+      }}
+    />
+  );
+}
+
+function MonetizationHosts() {
+  const [modes, setModes] = useState<SupportMode[]>([]);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [nativeDismissed, setNativeDismissed] = useState(false);
+  const [showDailyModal, setShowDailyModal] = useState(false);
   const { loading } = useAppState();
   const { isDemoActive } = useDemoMode();
-  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     if (loading || isDemoActive || Platform.OS === "web") return;
+    loadSupportModes().then(async (ms) => {
+      setModes(ms);
+      if (ms.includes("daily_ad")) {
+        const last = await loadLastDailyAdDate();
+        const today = new Date().toISOString().slice(0, 10);
+        if (last !== today) {
+          await saveLastDailyAdDate(today);
+          setShowDailyModal(true);
+        }
+      }
+    });
+  }, [loading, isDemoActive]);
+
+  if (isDemoActive || modes.length === 0) return null;
+
+  return (
+    <>
+      {modes.includes("banners") && !bannerDismissed && (
+        <SupportBanner onDismiss={() => setBannerDismissed(true)} />
+      )}
+      {modes.includes("native_ad") && !nativeDismissed && (
+        <NativeAdBanner onDismiss={() => setNativeDismissed(true)} />
+      )}
+      {modes.includes("daily_ad") && showDailyModal && (
+        <DailyAdModal onClose={() => setShowDailyModal(false)} />
+      )}
+      <AppOpenAdHost enabled={modes.includes("app_open")} />
+    </>
+  );
+}
+
+function AnalyticsConsentHost() {
+  const { loading } = useAppState();
+  const { isDemoActive, showWelcomeCarousel } = useDemoMode();
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    if (loading || isDemoActive || showWelcomeCarousel || Platform.OS === "web") return;
     loadAnalyticsSettings().then((s) => {
       if (!s.hasCompletedConsent) setShowModal(true);
     });
-  }, [loading, isDemoActive]);
+  }, [loading, isDemoActive, showWelcomeCarousel]);
 
   if (!showModal) return null;
   return (
