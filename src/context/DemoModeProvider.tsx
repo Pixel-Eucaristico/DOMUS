@@ -12,7 +12,7 @@ import { DEMO_SEED_EVENTS } from "@/src/constants/mockDemoEvents";
 
 const TOUR_SHOWN_KEY = "domus_tour_shown_v1";
 const TOUR_STEP_KEY = "domus_tour_step_v1";
-const WELCOME_KEY = "domus_welcome_v2";
+const TOUR_MIN_KEY = "domus_tour_minimized_v1";
 
 interface DemoModeContextValue {
   isDemoActive: boolean;
@@ -35,8 +35,12 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
   const [isDemoActive, setIsDemoActive] = useState(false);
   const [demoEvents, setDemoEvents] = useState<SyncEvent[]>([]);
   const [currentTourStep, setCurrentTourStepState] = useState(0);
-  const [isTourMinimized, setTourMinimized] = useState(false);
-  const [showWelcomeCarousel, setShowWelcomeCarousel] = useState(false);
+  const [isTourMinimized, setTourMinimizedState] = useState(false);
+
+  const setTourMinimized = useCallback((minimized: boolean) => {
+    setTourMinimizedState(minimized);
+    AsyncStorage.setItem(TOUR_MIN_KEY, minimized ? "1" : "0").catch(() => {});
+  }, []);
 
   const setTourStep = useCallback((step: number) => {
     setCurrentTourStepState(step);
@@ -47,15 +51,17 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
     setDemoEvents(DEMO_SEED_EVENTS);
     setIsDemoActive(true);
     setCurrentTourStepState(0);
-    setTourMinimized(false);
+    setTourMinimizedState(false);
     AsyncStorage.setItem(TOUR_STEP_KEY, "0").catch(() => {});
+    AsyncStorage.setItem(TOUR_MIN_KEY, "0").catch(() => {});
   }, []);
 
   const stopDemo = useCallback(() => {
     setIsDemoActive(false);
     setDemoEvents([]);
-    setTourMinimized(false);
+    setTourMinimizedState(false);
     AsyncStorage.removeItem(TOUR_STEP_KEY).catch(() => {});
+    AsyncStorage.removeItem(TOUR_MIN_KEY).catch(() => {});
   }, []);
 
   const completeWelcomeCarousel = useCallback(() => {
@@ -88,8 +94,8 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
     Promise.all([
       AsyncStorage.getItem(TOUR_SHOWN_KEY),
       AsyncStorage.getItem(TOUR_STEP_KEY),
-      AsyncStorage.getItem(WELCOME_KEY),
-    ]).then(([shown, savedStep, welcomeDone]) => {
+      AsyncStorage.getItem(TOUR_MIN_KEY),
+    ]).then(([shown, savedStep, savedMin]) => {
       if (shown === null) {
         // First launch ever
         AsyncStorage.setItem(TOUR_SHOWN_KEY, "shown").catch(() => {});
@@ -107,6 +113,9 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
           setCurrentTourStepState(step);
           setDemoEvents(DEMO_SEED_EVENTS);
           setIsDemoActive(true);
+          if (savedMin === "1") {
+            setTourMinimizedState(true);
+          }
         }
       }
     });
@@ -127,7 +136,7 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
       completeWelcomeCarousel,
       restartWithCarousel,
     }),
-    [isDemoActive, startDemo, stopDemo, demoEvents, dispatchDemoEvent, currentTourStep, setTourStep, isTourMinimized, showWelcomeCarousel, completeWelcomeCarousel, restartWithCarousel],
+    [isDemoActive, startDemo, stopDemo, demoEvents, dispatchDemoEvent, currentTourStep, setTourStep, isTourMinimized, setTourMinimized],
   );
 
   return (

@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useRef, useCallback, useSyncExternalStore } from "react";
 
+export interface SpotlightRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface TourControlContextValue {
   handleNext: () => void;
   handlePrev: () => void;
@@ -11,6 +18,9 @@ export interface TourControlContextValue {
   /** Inline card registers/unregisters visibility */
   registerInlineCard: () => () => void;
   inlineCardVisible: boolean;
+  /** Spotlight rect for the SVG backdrop (screen coordinates) */
+  spotlightRect: SpotlightRect | null;
+  setSpotlightRect: (rect: SpotlightRect | null) => void;
 }
 
 const TourControlContext = createContext<TourControlContextValue | null>(null);
