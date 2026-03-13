@@ -2,13 +2,26 @@ import React, { useRef, useEffect, useMemo } from "react";
 import {
   View as RNView,
   Platform,
+  useWindowDimensions,
   type View,
   type ScrollView,
   type ViewStyle,
 } from "react-native";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
+import { useAppState } from "@/src/context/AppStateProvider";
 import { useTourControl } from "./TourControlContext";
-import { TOUR_STEPS } from "./tourStepConfig";
+import { TOUR_STEPS, TOUR_TOTAL } from "./tourStepConfig";
+import { TourInlineCard } from "@/src/components/tour/TourInlineCard";
+
+const SPOTLIGHT_MEASURE_DELAY_MS = 500;
+const SCROLL_TO_TARGET_DELAY_MS = 600;
+const OFF_SCREEN_CHECK_INTERVAL_MS = 1500;
+const OFF_SCREEN_CHECK_START_DELAY_MS = 800;
+const OFF_SCREEN_THRESHOLD_PX = 200;
+const SCROLL_OFFSET_PX = 120;
+
+const TARGET_WITH_TOP_MARGIN = "accounts-add";
+const TARGET_TOP_MARGIN_PX = 12;
 
 const ACTIVE_STYLE: ViewStyle = {
   zIndex: 9998,
@@ -16,28 +29,12 @@ const ACTIVE_STYLE: ViewStyle = {
   position: "relative",
 };
 
-/** Card fica acima do spotlight (zIndex > backdrop 9996) */
 const CARD_STYLE: ViewStyle = {
   position: "relative",
   zIndex: 10000,
   elevation: 24,
 };
 
-/**
- * Hook para elementos da UI exibirem destaque (backdrop) durante o tour.
- * O card de explicação é renderizado na base da tela via TourOverlay.
- *
- * Quando o passo correspondente ao targetId esta ativo:
- * 1. Mede a posicao do elemento alvo na tela via measureInWindow.
- * 2. Envia as coordenadas para TourControlContext.setSpotlightRect() para que
- *    TourOverlay renderize o SpotlightBackdrop SVG em nivel raiz (sem null-child).
- * 3. Renderiza o TourInlineCard abaixo/perto do elemento alvo.
- *
- * IMPORTANTE: O backdrop (Animated.View com entering/exiting) foi REMOVIDO daqui
- * e substituido pelo SpotlightBackdrop SVG renderizado em TourOverlay. Isso elimina
- * o Fragment com dois filhos animados que causava "null child at index N" no
- * EdgeToEdgeReactViewGroup no Android 16.
- */
 export function useTourTarget(
   targetId: string,
   scrollViewRef?: React.RefObject<ScrollView | null>,
@@ -81,9 +78,12 @@ function TourBackdropRenderer({
   scrollViewRef?: React.RefObject<ScrollView | null>;
 }) {
   const { isDemoActive, isTourMinimized, currentTourStep } = useDemoMode();
+  const { theme } = useAppState();
   const tourControl = useTourControl();
+  const cardRef = useRef<RNView | null>(null);
 
   const stepIndex = TOUR_STEPS.findIndex((s) => s.targetId === targetId);
+  const isLast = stepIndex === TOUR_TOTAL - 1;
   const step = stepIndex >= 0 ? TOUR_STEPS[stepIndex] : null;
   const isActive =
     isDemoActive &&
@@ -91,27 +91,16 @@ function TourBackdropRenderer({
     step !== null &&
     currentTourStep === stepIndex;
 
-  // Register inline card visibility with TourOverlay (so it renders the bottom card)
-  useEffect(() => {
-    if (!isActive || !tourControl) return;
-    return tourControl.registerInlineCard();
-  }, [isActive, tourControl]);
-
-  // Measure target element position (screen coords) and send to TourOverlay
-  // for the SVG SpotlightBackdrop. Cleared when step deactivates.
-  // Guard: only send if dimensions are valid (w > 0, h > 0).
   useEffect(() => {
     if (!isActive || !targetRef.current || !tourControl) {
       tourControl?.setSpotlightRect(null);
       return;
     }
 
-    // Delay to let layout/accordion animations settle before measuring
     const timerId = setTimeout(() => {
       if (!targetRef.current || !tourControl) return;
 
       if (Platform.OS === "web") {
-        // On web measureInWindow is not reliable; use getBoundingClientRect
         try {
           const domNode = targetRef.current as any;
           if (domNode && typeof domNode.getBoundingClientRect === "function") {
@@ -127,22 +116,17 @@ function TourBackdropRenderer({
       }
 
       targetRef.current.measureInWindow((x, y, w, h) => {
-        if (!Number.isFinite(x) || !Number.isFinite(y) || w <= 0 || h <= 0) {
-          // Target has no measurable size yet — do not render backdrop
-          return;
-        }
+        if (!Number.isFinite(x) || !Number.isFinite(y) || w <= 0 || h <= 0) return;
         tourControl.setSpotlightRect({ x, y, w, h });
       });
-    }, 500);
+    }, SPOTLIGHT_MEASURE_DELAY_MS);
 
     return () => {
       clearTimeout(timerId);
-      // Clear spotlight when this step deactivates
       tourControl?.setSpotlightRect(null);
     };
   }, [isActive, targetRef, tourControl]);
 
-  // Scroll to target when step activates
   useEffect(() => {
     if (!isActive || !targetRef.current) return;
 
@@ -166,20 +150,19 @@ function TourBackdropRenderer({
           scrollViewRef.current as any,
           (_x: number, y: number) => {
             (scrollViewRef.current as any)?.scrollTo?.({
-              y: Math.max(0, y - 120),
+              y: Math.max(0, y - SCROLL_OFFSET_PX),
               animated: true,
             });
           },
           () => {},
         );
       }
-    }, 600);
+    }, SCROLL_TO_TARGET_DELAY_MS);
 
     return () => clearTimeout(timer);
   }, [isActive, targetRef, scrollViewRef]);
 
-  // Auto-minimize when the card scrolls off screen
-  const { height: screenH } = useWindowDimensions();
+  const { height: screenHeight } = useWindowDimensions();
   useEffect(() => {
     if (!isActive || !cardRef.current || !tourControl) return;
 
@@ -193,7 +176,9 @@ function TourBackdropRenderer({
             (_x: number, y: number, _w: number, h: number) => {
               if (h <= 0 || (y === 0 && h === 0)) return;
               if (!Number.isFinite(y) || !Number.isFinite(h)) return;
-              if (y + h < -200 || y > screenH + 200) {
+              const isOffScreenAbove = y + h < -OFF_SCREEN_THRESHOLD_PX;
+              const isOffScreenBelow = y > screenHeight + OFF_SCREEN_THRESHOLD_PX;
+              if (isOffScreenAbove || isOffScreenBelow) {
                 tourControl!.handleMinimize();
               }
             },
@@ -201,29 +186,24 @@ function TourBackdropRenderer({
         } catch {
           // measureInWindow pode falhar durante unmount
         }
-      }, 1500);
-    }, 800);
+      }, OFF_SCREEN_CHECK_INTERVAL_MS);
+    }, OFF_SCREEN_CHECK_START_DELAY_MS);
 
     return () => {
       clearTimeout(delayId);
       if (intervalId) clearInterval(intervalId);
     };
-  }, [isActive, screenH, tourControl]);
+  }, [isActive, screenHeight, tourControl]);
 
   if (!isActive || !step || !tourControl) return null;
 
-  // NOTE: No Fragment and no backdrop Animated.View here.
-  // The backdrop is now SpotlightBackdrop rendered by TourOverlay at root level
-  // (see TourOverlay.tsx). This eliminates the "null child at index N" crash
-  // caused by Animated.View entering/exiting callbacks running on a detached
-  // view in the EdgeToEdgeReactViewGroup on Android 16.
   return (
     <RNView
       ref={cardRef}
       collapsable={false}
       style={[
         CARD_STYLE,
-        targetId === "accounts-add" ? { marginTop: 12 } : {},
+        targetId === TARGET_WITH_TOP_MARGIN ? { marginTop: TARGET_TOP_MARGIN_PX } : {},
       ]}
     >
       <TourInlineCard

@@ -1,11 +1,3 @@
-/**
- * AdMob Native Advanced banner.
- * Rendered inline above the tab bar — blends with the app's visual style.
- *
- * Requires react-native-google-mobile-ads:
- *   npx expo install react-native-google-mobile-ads
- *   + add androidAppId to app.json plugins
- */
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
@@ -13,31 +5,28 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { ADMOB_IDS } from "./AdMobConfig";
 
+const TAB_BAR_BASE_HEIGHT = 49;
+
+// NativeAd class component is incompatible with new React architecture — disabled for now
+const NativeAdComponent: React.ComponentType<any> | null = null;
+
 interface Props {
   onDismiss: () => void;
 }
 
 export function NativeAdBanner({ onDismiss }: Props) {
+  "use no memo";
   const { theme } = useAppState();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = 49 + insets.bottom;
+  const tabBarHeight = TAB_BAR_BASE_HEIGHT + insets.bottom;
   const [adLoaded, setAdLoaded] = useState(false);
   const [adError, setAdError] = useState(false);
 
   if (Platform.OS === "web") return null;
 
-  // Lazy-load the AdMob NativeAd component to avoid crashes when SDK not installed
-  let NativeAd: React.ComponentType<any> | null = null;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const admob = require("react-native-google-mobile-ads");
-    NativeAd = admob.NativeAd ?? admob.default?.NativeAd ?? null;
-  } catch {
-    // SDK not installed yet
-  }
+  const NativeAd = NativeAdComponent;
 
   if (!NativeAd || adError) {
-    // Fallback: affiliate banner while AdMob SDK not configured
     return null;
   }
 

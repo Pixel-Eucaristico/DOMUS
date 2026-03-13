@@ -326,6 +326,8 @@ export default function RootLayout() {
                   <AnalyticsInitRunner />
                   <NotificationResponseRunner />
                   <TourContent>
+                    {/* SupportBanner rendered before navigator so tab bar stays on top */}
+                    {splashFinished && <MonetizationHosts />}
                     <SecurityGuard>
                       <DesktopLayout>
                         <RootLayoutNav />
@@ -339,7 +341,6 @@ export default function RootLayout() {
                         <AchievementToastHost />
                         <SeasonalToastHost />
                         <WelcomeCarouselHost />
-                        <MonetizationHosts />
                         {__DEV__ && <DebugTools />}
                       </>
                     )}

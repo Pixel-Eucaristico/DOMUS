@@ -1,23 +1,14 @@
-/**
- * AdMob App Open Ad.
- * Shown when the user opens or returns to the app — overlays the splash/loading screen.
- *
- * Requires react-native-google-mobile-ads:
- *   npx expo install react-native-google-mobile-ads
- *   + add androidAppId to app.json plugins
- */
 import { useEffect, useRef } from "react";
 import { AppState, Platform } from "react-native";
 import { ADMOB_IDS } from "./AdMobConfig";
 
 interface Props {
-  /** Only show if supportMode === "app_open" */
   enabled: boolean;
 }
 
 export function AppOpenAdHost({ enabled }: Props) {
-  const appOpenAd = useRef<any>(null);
-  const appState = useRef(AppState.currentState);
+  const appOpenAdRef = useRef<any>(null);
+  const appStateRef = useRef(AppState.currentState);
 
   useEffect(() => {
     if (!enabled || Platform.OS === "web") return;
@@ -36,39 +27,35 @@ export function AppOpenAdHost({ enabled }: Props) {
       });
 
       ad.addAdEventListener(AdEventType.LOADED, () => {
-        appOpenAd.current = ad;
+        appOpenAdRef.current = ad;
       });
 
       ad.addAdEventListener(AdEventType.CLOSED, () => {
-        appOpenAd.current = null;
-        // Preload next ad
+        appOpenAdRef.current = null;
         ad.load();
       });
 
       ad.addAdEventListener(AdEventType.ERROR, () => {
-        appOpenAd.current = null;
+        appOpenAdRef.current = null;
       });
 
       ad.load();
     } catch {
-      // SDK not installed yet
       return;
     }
 
     const subscription = AppState.addEventListener("change", (nextState) => {
-      if (
-        appState.current.match(/inactive|background/) &&
-        nextState === "active" &&
-        appOpenAd.current
-      ) {
-        appOpenAd.current.show();
+      const isReturningToForeground =
+        appStateRef.current.match(/inactive|background/) && nextState === "active";
+
+      if (isReturningToForeground && appOpenAdRef.current) {
+        appOpenAdRef.current.show();
       }
-      appState.current = nextState;
+      appStateRef.current = nextState;
     });
 
     return () => subscription.remove();
   }, [enabled]);
 
-  // Renders nothing — side-effect only
   return null;
 }

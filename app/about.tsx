@@ -25,7 +25,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
-import { saveSupportModes } from "@/src/modules/monetization/MonetizationSettingsStore";
+import { SupportModeSelector } from "@/src/components/monetization/SupportModeSelector";
 import { soundManager } from "@/src/services/SoundManager";
 import { SelectionModal } from "@/src/components/shared/SelectionModal";
 import { useTourTarget } from "@/src/tour/useTourTarget";
@@ -128,6 +128,11 @@ export default function AboutScreen() {
             <DonationSection theme={theme} />
           </SectionCard>
 
+          {/* ── APOIO & ANÚNCIOS ─────────────────────────────────────────── */}
+          <SectionCard theme={theme} icon="radio" title="Apoio & Anúncios" accentColor="#F59E0B" collapsible>
+            <SupportModeSelector theme={theme} />
+          </SectionCard>
+
           {/* ── SETTINGS ────────────────────────────────────────────────── */}
           <View style={Platform.OS === "web" ? { zIndex: (securityActive || notificationsActive) ? 9999 : 1, position: "relative" } : {}}>
             <SectionCard theme={theme} icon="settings" title="Configurações" accentColor={theme.accentColor} collapsible forceOpen={forceSettingsOpen}>
@@ -140,7 +145,6 @@ export default function AboutScreen() {
               <LinkRow icon="star" label="Avaliar na Play Store" description="Deixe sua avaliação e ajude o DOMUS a crescer" color="#34A853" theme={theme} onPress={() => { soundManager.play("tap"); Linking.openURL("https://play.google.com/store/apps/details?id=br.com.pixeleucaristico.domus"); }} disabled={!!securityActive} />
               <LinkRow icon="moon" label="Tema" description={`Modo atual: ${themeMode === "system" ? "Sistema" : themeMode === "dark" ? "Escuro" : "Claro"}`} color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); setThemeModalVisible(true); }} disabled={!!securityActive} />
               <LinkRow icon="play-circle" label="Refazer Tour do App" description="Reveja o guia de todas as funções do DOMUS (sandbox seguro)" color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); router.back(); setTimeout(restartWithCarousel, 300); }} disabled={!!securityActive} />
-              <LinkRow icon="heart" label="Reconfigurar Apoio" description="Altere como deseja apoiar o DOMUS (links, banners ou diário)" color="#F59E0B" theme={theme} onPress={() => { soundManager.play("tap"); saveSupportModes(["links"]); router.back(); setTimeout(restartWithCarousel, 300); }} disabled={!!securityActive} />
               <SwitchRow icon="volume-2" label="Efeitos Sonoros" description="Sons de confirmação e interações" color={theme.primaryColor} theme={theme} value={soundEnabled} onValueChange={setSoundEnabled} />
             </SectionCard>
           </View>

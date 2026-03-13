@@ -68,8 +68,8 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
 
   const completeWelcomeCarousel = useCallback(() => {
     AsyncStorage.setItem(WELCOME_KEY, "done").catch(() => {});
+    AsyncStorage.setItem(TOUR_SHOWN_KEY, "shown").catch(() => {});
     setShowWelcomeCarousel(false);
-    // startDemo is called by WelcomeCarousel's onComplete handler
   }, []);
 
   const restartWithCarousel = useCallback(() => {
@@ -100,13 +100,11 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.getItem(WELCOME_KEY),
     ]).then(([shown, savedStep, savedMin, welcomeDone]) => {
       if (shown === null) {
-        // First launch ever
-        AsyncStorage.setItem(TOUR_SHOWN_KEY, "shown").catch(() => {});
         if (welcomeDone === null) {
-          // Show welcome carousel first
           setShowWelcomeCarousel(true);
         } else {
-          // Welcome done but tour never started (edge case)
+          // Welcome done but tour never started — mark shown and start
+          AsyncStorage.setItem(TOUR_SHOWN_KEY, "shown").catch(() => {});
           startDemo();
         }
       } else if (savedStep !== null) {

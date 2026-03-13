@@ -1,8 +1,3 @@
-/**
- * DailyAdModal — AdMob Interstitial (ca-app-pub-8693115758199908/6825035120)
- * Shown once per day when user opens the app (supportMode === "daily_ad").
- * Falls back to affiliate links modal if SDK not available.
- */
 import React, { useEffect, useState, useCallback } from "react";
 import {
   Modal,
@@ -20,13 +15,11 @@ import { useAppState } from "@/src/context/AppStateProvider";
 import { ClipboardService } from "@/src/modules/security/application/ClipboardService";
 import { soundManager } from "@/src/services/SoundManager";
 import { ADMOB_IDS } from "./AdMobConfig";
+import { AFFILIATE_URLS, DONATION_PIX_KEY } from "./AffiliateLinks";
 
-const AMAZON_URL = "https://www.amazon.com.br?tag=willianquinti-20";
-const ML_URL = "https://meli.la/2oDNho4";
-const PIX_KEY = "55.075.291/0001-79";
-const KOFI_URL = "https://ko-fi.com/willianquintino33618";
+const PIX_COPIED_RESET_DELAY_MS = 2500;
 
-async function openUrl(url: string) {
+async function openAffiliateUrl(url: string): Promise<void> {
   try {
     await Linking.openURL(url);
   } catch {
@@ -50,7 +43,7 @@ export function DailyAdModal({ onClose }: Props) {
     }
 
     let interstitial: any = null;
-    let unsubscribes: Array<() => void> = [];
+    const unsubscribes: Array<() => void> = [];
 
     (async () => {
       try {
@@ -77,14 +70,12 @@ export function DailyAdModal({ onClose }: Props) {
 
         unsubscribes.push(
           interstitial.addAdEventListener(AdEventType.ERROR, () => {
-            // AdMob failed — show affiliate fallback
             setShowFallback(true);
           }),
         );
 
         interstitial.load();
       } catch {
-        // SDK not installed or error
         setShowFallback(true);
       }
     })();
@@ -94,13 +85,9 @@ export function DailyAdModal({ onClose }: Props) {
     };
   }, [onClose]);
 
-  // AdMob interstitial was shown and closed — nothing to render
   if (adShown) return null;
-
-  // Waiting for AdMob to load — don't show fallback yet (give it a moment)
   if (!showFallback && !adReady) return null;
 
-  // Fallback: affiliate + donation modal
   return <AffiliateFallbackModal onClose={onClose} />;
 }
 
@@ -111,15 +98,20 @@ function AffiliateFallbackModal({ onClose }: { onClose: () => void }) {
 
   const handleCopyPix = useCallback(async () => {
     soundManager.play("success");
-    const ok = await ClipboardService.copy(PIX_KEY);
+    const ok = await ClipboardService.copy(DONATION_PIX_KEY);
     if (ok) {
       if (Platform.OS !== "web") {
         const Haptics = await import("expo-haptics");
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
       setPixCopied(true);
-      setTimeout(() => setPixCopied(false), 2500);
+      setTimeout(() => setPixCopied(false), PIX_COPIED_RESET_DELAY_MS);
     }
+  }, []);
+
+  const handlePlayTap = useCallback((action: () => void) => {
+    soundManager.play("tap");
+    action();
   }, []);
 
   return (
@@ -146,7 +138,7 @@ function AffiliateFallbackModal({ onClose }: { onClose: () => void }) {
 
           <TouchableOpacity
             style={[st.bigBtn, { backgroundColor: "#FF9900" }]}
-            onPress={() => { soundManager.play("tap"); openUrl(AMAZON_URL); }}
+            onPress={() => handlePlayTap(() => openAffiliateUrl(AFFILIATE_URLS.amazon))}
             activeOpacity={0.85}
           >
             <Feather name="shopping-cart" size={18} color="#111" />
@@ -155,7 +147,7 @@ function AffiliateFallbackModal({ onClose }: { onClose: () => void }) {
 
           <TouchableOpacity
             style={[st.bigBtn, { backgroundColor: "#FFE600" }]}
-            onPress={() => { soundManager.play("tap"); openUrl(ML_URL); }}
+            onPress={() => handlePlayTap(() => openAffiliateUrl(AFFILIATE_URLS.mercadoLivre))}
             activeOpacity={0.85}
           >
             <Feather name="shopping-bag" size={18} color="#333" />
@@ -188,7 +180,7 @@ function AffiliateFallbackModal({ onClose }: { onClose: () => void }) {
 
             <TouchableOpacity
               style={[st.directBtn, { backgroundColor: "#FF5E5B18", borderColor: "#FF5E5B40" }]}
-              onPress={() => { soundManager.play("tap"); openUrl(KOFI_URL); }}
+              onPress={() => handlePlayTap(() => openAffiliateUrl(AFFILIATE_URLS.kofi))}
               activeOpacity={0.8}
             >
               <Feather name="coffee" size={16} color="#FF5E5B" />
@@ -198,7 +190,7 @@ function AffiliateFallbackModal({ onClose }: { onClose: () => void }) {
 
           <TouchableOpacity
             style={[st.closeBtn, { borderColor: theme.border }]}
-            onPress={() => { soundManager.play("tap"); onClose(); }}
+            onPress={() => handlePlayTap(onClose)}
             activeOpacity={0.8}
           >
             <Text style={[st.closeBtnText, { color: theme.secondaryText }]}>Fechar</Text>

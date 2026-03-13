@@ -1,7 +1,3 @@
-/**
- * SupportBanner — AdMob Banner (ca-app-pub-8693115758199908/8752689887)
- * Fixed above the tab bar. Falls back to affiliate links if SDK not available.
- */
 import React, { useState } from "react";
 import {
   View,
@@ -14,13 +10,13 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { EdgeInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/src/context/AppStateProvider";
+import type { ThemeColors } from "@packages/theme";
 import { ADMOB_IDS } from "./AdMobConfig";
+import { AFFILIATE_URLS } from "./AffiliateLinks";
 
-const AMAZON_URL = "https://www.amazon.com.br?tag=willianquinti-20";
-const ML_URL = "https://meli.la/2oDNho4";
-
-async function openUrl(url: string) {
+async function openAffiliatUrl(url: string): Promise<void> {
   try {
     await Linking.openURL(url);
   } catch {
@@ -35,12 +31,12 @@ interface Props {
 export function SupportBanner({ onDismiss }: Props) {
   const { theme } = useAppState();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = 49 + insets.bottom;
   const [adError, setAdError] = useState(false);
 
-  if (Platform.OS === "web") return <AffiliateBanner onDismiss={onDismiss} />;
+  if (Platform.OS === "web") {
+    return <AffiliateBanner onDismiss={onDismiss} insets={insets} theme={theme} />;
+  }
 
-  // Try AdMob BannerAd
   let BannerAd: React.ComponentType<any> | null = null;
   let BannerAdSize: any = null;
   try {
@@ -53,20 +49,11 @@ export function SupportBanner({ onDismiss }: Props) {
   }
 
   if (!BannerAd || !BannerAdSize || adError) {
-    return <AffiliateBanner onDismiss={onDismiss} />;
+    return <AffiliateBanner onDismiss={onDismiss} insets={insets} theme={theme} />;
   }
 
   return (
-    <View
-      style={[
-        st.container,
-        {
-          bottom: tabBarHeight,
-          backgroundColor: theme.cardBackground,
-          borderColor: theme.border,
-        },
-      ]}
-    >
+    <View style={[st.container, { bottom: 0, paddingBottom: insets.bottom, backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
       <BannerAd
         unitId={ADMOB_IDS.banner}
         size={BannerAdSize.BANNER}
@@ -79,29 +66,22 @@ export function SupportBanner({ onDismiss }: Props) {
   );
 }
 
-function AffiliateBanner({ onDismiss }: { onDismiss: () => void }) {
-  const { theme } = useAppState();
-  const insets = useSafeAreaInsets();
-  const tabBarHeight = 49 + insets.bottom;
+interface AffiliateBannerProps {
+  onDismiss: () => void;
+  insets: EdgeInsets;
+  theme: ThemeColors;
+}
 
+function AffiliateBanner({ onDismiss, insets, theme }: AffiliateBannerProps) {
   return (
-    <View
-      style={[
-        st.container,
-        {
-          bottom: tabBarHeight,
-          backgroundColor: `${theme.primaryColor}14`,
-          borderColor: `${theme.primaryColor}30`,
-        },
-      ]}
-    >
+    <View style={[st.container, { bottom: 0, paddingBottom: insets.bottom, backgroundColor: `${theme.primaryColor}14`, borderColor: `${theme.primaryColor}30` }]}>
       <Feather name="shopping-bag" size={14} color={theme.primaryColor} />
       <Text style={[st.label, { color: theme.primaryColor }]} numberOfLines={1}>
         Apoie o DOMUS
       </Text>
       <TouchableOpacity
         style={[st.pill, { backgroundColor: "#FF9900" }]}
-        onPress={() => openUrl(AMAZON_URL)}
+        onPress={() => openAffiliatUrl(AFFILIATE_URLS.amazon)}
         activeOpacity={0.8}
         hitSlop={8}
       >
@@ -109,7 +89,7 @@ function AffiliateBanner({ onDismiss }: { onDismiss: () => void }) {
       </TouchableOpacity>
       <TouchableOpacity
         style={[st.pill, { backgroundColor: "#FFE600" }]}
-        onPress={() => openUrl(ML_URL)}
+        onPress={() => openAffiliatUrl(AFFILIATE_URLS.mercadoLivre)}
         activeOpacity={0.8}
         hitSlop={8}
       >
@@ -130,11 +110,11 @@ const st = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingTop: 6,
     gap: 8,
     borderTopWidth: 1,
-    zIndex: 900,
-    elevation: 10,
+    zIndex: 0,
+    elevation: 0,
   },
   label: {
     fontFamily: "DMSans_600SemiBold",

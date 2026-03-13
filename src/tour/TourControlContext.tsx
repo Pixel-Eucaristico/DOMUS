@@ -18,8 +18,6 @@ export interface TourControlContextValue {
   /** Inline card registers/unregisters visibility */
   registerInlineCard: () => () => void;
   inlineCardVisible: boolean;
-  /** Spotlight rect for the SVG backdrop (screen coordinates) */
-  spotlightRect: SpotlightRect | null;
   setSpotlightRect: (rect: SpotlightRect | null) => void;
 }
 

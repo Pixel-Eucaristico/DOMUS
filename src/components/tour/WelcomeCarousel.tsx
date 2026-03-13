@@ -31,10 +31,7 @@ import {
   saveAnalyticsSettings,
 } from "@/src/modules/analytics/application/AnalyticsSettingsStore";
 import { applyAnalyticsPreferences } from "@/src/modules/analytics/infrastructure/AnalyticsService";
-import {
-  saveSupportModes,
-  type SupportMode,
-} from "@/src/modules/monetization/MonetizationSettingsStore";
+import { SupportModeSelector } from "@/src/components/monetization/SupportModeSelector";
 import { ClipboardService } from "@/src/modules/security/application/ClipboardService";
 import { useAISettings } from "@/src/hooks/useAISettings";
 import type { AIProvider } from "@packages/ai";
@@ -72,30 +69,7 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
   const [notifGranted, setNotifGranted] = useState(false);
   // Slide 3: analytics
   const [analyticsChoice, setAnalyticsChoice] = useState<boolean | null>(null);
-  // Slide 4: suporte/monetização (multi-select)
-  const [supportModes, setSupportModes] = useState<Set<SupportMode>>(new Set(["links"]));
   const [pixCopied, setPixCopied] = useState(false);
-
-  const toggleMode = useCallback((mode: SupportMode) => {
-    soundManager.play("tap");
-    setSupportModes((prev) => {
-      const next = new Set(prev);
-      if (mode === "links") {
-        // "links" é autônomo — selecionar ele limpa os outros
-        return new Set(["links"]);
-      }
-      // Ao selecionar outro modo, remove "links" se estava sozinho
-      next.delete("links");
-      if (next.has(mode)) {
-        next.delete(mode);
-        // Se ficou vazio, volta para "links"
-        if (next.size === 0) next.add("links");
-      } else {
-        next.add(mode);
-      }
-      return next;
-    });
-  }, []);
   // Slide 5: IA
   const { settings: aiSettings, saveApiKey, updateSettings } = useAISettings();
   const [selectedProvider, setSelectedProvider] = useState<AIProvider>("gemini");
@@ -186,8 +160,7 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
       // Mark notifications setup as done
       const notifSettings = await loadNotificationSettings();
       await saveNotificationSettings({ ...notifSettings, hasCompletedSetup: true });
-      // Save support modes choice
-      await saveSupportModes(Array.from(supportModes));
+      // Support modes auto-saved by SupportModeSelector
     } catch {
       // best-effort
     }
@@ -424,53 +397,7 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
                 </Text>
               </View>
               <Text style={[st.sectionLabel, { color: theme.secondaryText }]}>Escolha seu nível de apoio:</Text>
-              <View style={st.choiceRow}>
-                <SupportOption
-                  mode="links"
-                  active={supportModes.has("links")}
-                  onToggle={toggleMode}
-                  color={theme.primaryColor}
-                  label="🔗  Apenas Links na Lista"
-                  desc="Padrão — sem anúncios extras"
-                  theme={theme}
-                />
-                <SupportOption
-                  mode="banners"
-                  active={supportModes.has("banners")}
-                  onToggle={toggleMode}
-                  color={theme.primaryColor}
-                  label="📢  Banner de Afiliados"
-                  desc="Barra discreta Amazon/ML acima da navegação"
-                  theme={theme}
-                />
-                <SupportOption
-                  mode="daily_ad"
-                  active={supportModes.has("daily_ad")}
-                  onToggle={toggleMode}
-                  color="#F59E0B"
-                  label="⭐  Intersticial Diário"
-                  desc="Anúncio Google em tela cheia 1× por dia"
-                  theme={theme}
-                />
-                <SupportOption
-                  mode="native_ad"
-                  active={supportModes.has("native_ad")}
-                  onToggle={toggleMode}
-                  color="#6366F1"
-                  label="🎯  Anúncio Nativo"
-                  desc="Banner Google integrado ao layout do app"
-                  theme={theme}
-                />
-                <SupportOption
-                  mode="app_open"
-                  active={supportModes.has("app_open")}
-                  onToggle={toggleMode}
-                  color="#10B981"
-                  label="🚀  Abertura do App"
-                  desc="Anúncio Google ao abrir ou retornar ao app"
-                  theme={theme}
-                />
-              </View>
+              <SupportModeSelector theme={theme} />
               <View style={st.donateRow}>
                 <TouchableOpacity
                   style={[
@@ -605,38 +532,6 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
   );
 }
 
-function SupportOption({
-  mode, active, onToggle, color, label, desc, theme,
-}: {
-  mode: SupportMode; active: boolean; onToggle: (m: SupportMode) => void;
-  color: string; label: string; desc: string; theme: any;
-}) {
-  return (
-    <TouchableOpacity
-      style={[
-        st.choiceBtn,
-        { borderColor: active ? color : theme.border },
-        active && { backgroundColor: color + "15" },
-      ]}
-      onPress={() => onToggle(mode)}
-      activeOpacity={0.75}
-    >
-      <View style={st.choiceBtnRow}>
-        <Text style={[st.choiceBtnText, { color: active ? color : theme.textColor, flex: 1 }]}>
-          {label}
-        </Text>
-        <View style={[
-          st.checkbox,
-          { borderColor: active ? color : theme.border },
-          active && { backgroundColor: color },
-        ]}>
-          {active && <Feather name="check" size={11} color="#FFF" />}
-        </View>
-      </View>
-      <Text style={[st.choiceDesc, { color: theme.secondaryText }]}>{desc}</Text>
-    </TouchableOpacity>
-  );
-}
 
 function SlideWrapper({ children }: { children: React.ReactNode }) {
   return (

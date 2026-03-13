@@ -14,3 +14,5 @@ export type { UseTransactionFormResult } from "./useTransactionForm";
 
 export { useWishlist } from "./useWishlist";
 export type { UseWishlistResult } from "./useWishlist";
+
+export { useSupportModes } from "./useSupportModes";
