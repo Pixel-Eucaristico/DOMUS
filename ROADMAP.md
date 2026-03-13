@@ -163,3 +163,99 @@ URGENCIA BAIXA (quando houver tempo):
 ```
 
 *Nota: Antes de cada tarefa, sera realizada uma analise tecnica detalhada com planejamento via Task Master.*
+
+# 🚀 Plano Mestre de Evolução: DOMUS 2.0
+
+Este documento detalha o roteiro estratégico para estabilização técnica, modernização visual e upgrade de experiência do utilizador (UX) do ecossistema DOMUS.
+
+---
+
+## 🛠 Fase 1: Estabilização Crítica (Urgente)
+*Foco: Eliminar o erro "Something went wrong" e os crashes de layout no Android 16 (Samsung S23+).*
+
+- [ ] **Correção de Layout Edge-to-Edge:**
+    - Implementar `react-native-safe-area-context` em todos os componentes de layout base.
+    - Garantir que o conteúdo respeite as barras de sistema (status bar e navigation bar) para evitar o erro `null child` no `EdgeToEdgeReactViewGroup`.
+- [ ] **Refatoração do Tour Backdrop:**
+    - Substituir a `View` de opacidade manual pela biblioteca **`react-native-masked-animated-view`**.
+    - Implementar um spotlight (furo circular) real. Isto remove o peso das Views sobrepostas que confundem o motor de renderização do Android.
+- [ ] **Proteção de Nulidade no Tour:**
+    - Adicionar verificações `if (!isVisible || !target)` no `TourOverlay.tsx` para impedir tentativas de desenho em elementos que já foram desmontados da árvore.
+
+## ⌨️ Fase 2: Eficiência e Entrada de Dados
+*Foco: Melhorar a interação com o teclado e a velocidade de registo de gastos.*
+
+- [ ] **Otimização de Teclado (KeyboardAvoidingView):**
+    - Integrar `KeyboardAvoidingView` nativo em todos os formulários e na tela de Chat da IA.
+    - Configuração recomendada: `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}`.
+- [ ] **Menu de Ações Circular (Circular Action Menu):**
+    - Substituir o botão "+" estático por um menu radial fluido para acesso rápido:
+        - 🎙️ Comando de Voz
+        - 📸 OCR / Nota Fiscal
+        - 📄 Cadastro Manual
+
+## 🎨 Fase 3: Design System "Premium" (Tamagui & Rive)
+*Foco: Transformar a identidade visual e a performance da interface.*
+
+- [ ] **Migração para Tamagui:**
+    - Implementar Temas Dinâmicos (Católico/Laico) com suporte nativo a Dark Mode.
+    - Substituir `StyleSheet` tradicional por componentes atómicos do Tamagui para renderização ultra-rápida.
+- [ ] **Animações Interativas (Troféus):**
+    - Integrar `@rive-app/react-native`.
+    - Converter os 167 troféus em vetores animados que reagem ao toque e brilham ao ganhar XP.
+- [ ] **Listas Ultra-Rápidas (FlashList):**
+    - Substituir `FlatList` pelo **FlashList (Shopify)** para garantir scroll de 120Hz constante em ecrãs modernos.
+
+## 🤖 Fase 4: Inteligência e Consultoria Financeira
+*Foco: Tornar a IA uma ferramenta de nível profissional.*
+
+- [ ] **Interface de Chat com Gifted Chat:**
+    - Bolhas de chat profissionais, suporte a anexos e indicadores de "IA a escrever".
+    - Renderização de mini-gráficos financeiros diretamente dentro da conversa.
+- [ ] **Tooltips Inteligentes:**
+    - Implementar `react-native-smart-tooltip` para dicas contextuais (ex: explicar a regra 50/30/20 na primeira vez que o utilizador vê o gráfico).
+- [ ] **Upgrade de OCR:**
+    - Finalizar o motor de leitura de Olerite/Holerite para automação total de receitas mensais.
+
+---
+
+## 📦 Checklist de Novas Dependências (Para Instalar)
+
+```bash
+# UI & Performance
+yarn add tamagui @rive-app/react-native @shopify/flash-list @bsky.app/expo-scroll-edge-effect
+
+# Tour & Overlay
+yarn add react-native-masked-animated-view react-native-safe-area-context
+
+# UX & Chat
+yarn add react-native-gifted-chat react-native-circular-action-menu react-native-smart-tooltip react-native-sprinkle-toast
+
+
+https://reactnative.directory/package/react-native-safe-area-context
+
+https://reactnative.directory/package/@instantdb/react-native
+
+https://reactnative.directory/package/@shoutem/ui
+
+https://reactnative.directory/package/ignite-cli
+
+https://reactnative.directory/package/@react-native-firebase/app-distribution
+
+https://reactnative.directory/package/@bsky.app/expo-scroll-edge-effect
+
+https://reactnative.directory/package/react-native-smart-tooltip
+
+https://reactnative.directory/package/react-native-masked-animated-view
+
+https://reactnative.directory/package/react-native-sprinkle-toast
+
+https://reactnative.directory/package/@rive-app/react-native
+
+https://reactnative.directory/package/rn-tourguide
+
+https://reactnative.directory/package/react-native-spotlight-tour
+
+https://github.com/FaridSafi/react-native-gifted-chat
+
+https://github.com/geremih/react-native-circular-action-menu?fref=gc
