@@ -80,6 +80,7 @@ function TourGuideStarter({ groupId, scrollRef, scrollYRef }: StarterProps) {
   const { minimizedAtGuideStep, setTourMinimized } = useDemoMode();
   const { start, stop, canStart, eventEmitter, getCurrentStep } = useTourGuideController();
   const startedRef = useRef(false);
+  const guideHasStartedRef = useRef(false);
   const currentStepOrderRef = useRef(1);
 
   // Listen to stepChange → auto-scroll to element before spotlight renders.
@@ -110,7 +111,14 @@ function TourGuideStarter({ groupId, scrollRef, scrollYRef }: StarterProps) {
       }
     };
 
+    const onStart = () => {
+      guideHasStartedRef.current = true;
+    };
+
     const onStop = () => {
+      // Ignore spurious stop emitted by TourGuideProvider on mount
+      // (visible._default initializes to false, triggering a stop before start)
+      if (!guideHasStartedRef.current) return;
       if (!isIntentionalStop) {
         const currentZone = currentStepOrderRef.current;
         setTourMinimized(true, currentZone);
@@ -118,9 +126,11 @@ function TourGuideStarter({ groupId, scrollRef, scrollYRef }: StarterProps) {
       clearIntentionalStop();
     };
 
+    eventEmitter.on("start", onStart);
     eventEmitter.on("stepChange", onStepChange);
     eventEmitter.on("stop", onStop);
     return () => {
+      eventEmitter.off("start", onStart);
       eventEmitter.off("stepChange", onStepChange);
       eventEmitter.off("stop", onStop);
     };
@@ -133,7 +143,7 @@ function TourGuideStarter({ groupId, scrollRef, scrollYRef }: StarterProps) {
       const order = currentStepOrderRef.current;
       if (order > 1) {
         // Navigate directly to previous step without stopping the guide
-        start(String(order - 1));
+        start(order - 1);
       } else {
         // First step: minimize
         markIntentionalStop();
@@ -151,6 +161,7 @@ function TourGuideStarter({ groupId, scrollRef, scrollYRef }: StarterProps) {
   useEffect(() => {
     if (!isGuideActive) {
       startedRef.current = false;
+      guideHasStartedRef.current = false;
       return;
     }
 
@@ -158,7 +169,7 @@ function TourGuideStarter({ groupId, scrollRef, scrollYRef }: StarterProps) {
       startedRef.current = true;
       scrollRef?.current?.scrollTo({ y: 0, animated: false });
       const resumeFrom = minimizedAtGuideStep ?? undefined;
-      const t = setTimeout(() => start(resumeFrom), 400);
+      const t = setTimeout(() => start(resumeFrom), 650);
       return () => clearTimeout(t);
     }
 

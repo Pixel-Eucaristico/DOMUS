@@ -59,9 +59,8 @@ export function useTourGroupNavigation() {
     const onStack = !isTabRoute(pathname);
     const targetIsStack = !targetRoute.startsWith("/(tabs)");
 
-    // Always clear stack screens before navigating to avoid deep stack accumulation.
-    // dismissAll() is a no-op when there are no stack screens to dismiss.
-    if (onStack || targetIsStack) {
+    if (onStack) {
+      // Stack → anywhere: dismiss current stack screens first, then navigate
       if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
       pendingNavigateRef.current = targetRoute;
 
@@ -77,7 +76,7 @@ export function useTourGroupNavigation() {
       return () => clearTimeout(timer);
     }
 
-    // Tab → tab: just switch
+    // Tab → anywhere: just navigate (no stack to dismiss)
     const timer = setTimeout(() => {
       try { router.navigate(targetRoute as any); } catch { /* ignore */ }
     }, 100);

@@ -250,6 +250,7 @@ export default function AIChatScreen() {
 
           <TourGuideZone zone={1} text="13" isTourGuide borderRadius={20}>
             <TouchableOpacity
+              collapsable={false}
               onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }}
               style={styles.settingsBtn}
               accessibilityLabel="Configurações de IA"
