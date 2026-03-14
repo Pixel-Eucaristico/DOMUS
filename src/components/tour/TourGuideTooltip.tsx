@@ -1,5 +1,6 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 import type { TooltipProps } from "rn-tourguide";
 import { TOUR_STEPS } from "@/src/tour/tourStepConfig";
 import { globalStepIndex } from "@/src/tour/tourPageGroups";
@@ -25,6 +26,7 @@ export function TourGuideTooltip({
   handleStop,
 }: TooltipProps) {
   const { nextPageGroup, prevPageGroup, stopDemo, setTourMinimized } = useDemoMode();
+  const router = useRouter();
   const { theme } = useAppState();
   const groupId = useTourPageGroupId();
 
@@ -54,7 +56,6 @@ export function TourGuideTooltip({
     if (isFirstStep) {
       markIntentionalStop();
       prevPageGroup();
-      handleStop?.();
     } else {
       handlePrev?.();
     }

@@ -55,8 +55,9 @@ interface DemoModeContextValue {
   /**
    * Called by TourTooltip's first-step "Prev" button.
    * Goes back to the previous group's last guide step.
+   * Returns the target route so the caller can navigate immediately.
    */
-  prevPageGroup: () => void;
+  prevPageGroup: () => string | null;
 
   isTourMinimized: boolean;
   /** Zone order to resume from when restoring after minimize (1-based) */
@@ -187,14 +188,14 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
   }, [currentPageGroup, groupPhase, groupModalIndex, enterGroup, persist]);
 
   // ─── prevPageGroup: called by TourGuide's first step prev button ─────────────
-  const prevPageGroup = useCallback(() => {
+  const prevPageGroup = useCallback((): string | null => {
     let prevGroup = currentPageGroup - 1;
     while (prevGroup >= 0) {
       const g = PAGE_GROUPS[prevGroup];
       if (g && g.guideSteps.length > 0) break;
       prevGroup--;
     }
-    if (prevGroup < 0) return;
+    if (prevGroup < 0) return null;
     const group = PAGE_GROUPS[prevGroup];
     const lastStepOrder = group.guideSteps.length;
     setCurrentPageGroup(prevGroup);
@@ -202,6 +203,7 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
     setGroupModalIndex(0);
     setMinimizedAtGuideStep(lastStepOrder);
     persist(prevGroup, "guide", 0);
+    return group.route;
   }, [currentPageGroup, persist]);
 
   // ─── nextPageGroup: called by TourGuide's last step ──────────────────────────

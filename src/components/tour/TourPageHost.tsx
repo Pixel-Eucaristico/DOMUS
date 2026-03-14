@@ -13,7 +13,7 @@ interface Props {
   groupId: number;
   children: React.ReactNode;
   /** Pass a ScrollView ref so the guide can auto-scroll to each target element. */
-  scrollRef?: React.RefObject<ScrollView>;
+  scrollRef?: React.RefObject<ScrollView | null>;
   /** Pass a ref that tracks the current scrollY offset (updated via onScroll). */
   scrollYRef?: React.MutableRefObject<number>;
   /** Distance from screen top to the ScrollView top (default 56). Increase for screens with a header. */
@@ -73,7 +73,7 @@ export function TourPageHost({ groupId, children, scrollRef, scrollYRef, scrollV
 
 interface StarterProps {
   groupId: number;
-  scrollRef?: React.RefObject<ScrollView>;
+  scrollRef?: React.RefObject<ScrollView | null>;
   scrollYRef?: React.MutableRefObject<number>;
   scrollViewTop?: number;
 }

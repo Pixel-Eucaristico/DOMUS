@@ -12,6 +12,7 @@ import {
   Pressable,
 } from "react-native";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { ALL_SEASONAL_TROPHIES, getTierColor } from "@packages/gamification/src/seasonalTrophies";
 import { ALL_LITURGICAL_TROPHIES } from "@packages/gamification/src/liturgicalTrophies";
 import { ALL_ACHIEVEMENTS, MONTHLY_TROPHIES } from "@packages/gamification/src/achievements";
@@ -40,9 +41,11 @@ export function DebugTools() {
   const [debugTier, setDebugTier] = useState<number>(1);
   const [selectedTrophy, setSelectedTrophy] = useState<any>(null);
   
-  const { 
-    theme, 
-    debugArchetype, 
+  const { restartWithCarousel, startDemo } = useDemoMode();
+
+  const {
+    theme,
+    debugArchetype,
     setDebugArchetype, 
     setIsCatholic,
     setPendingToast,
@@ -293,8 +296,24 @@ export function DebugTools() {
               {activeTab === "triggers" && (
                 <View style={st.section}>
                   <Text style={[st.sectionTitle, { color: theme.textColor }]}>UI Triggers</Text>
-                  
-                  <TouchableOpacity 
+
+                  <TouchableOpacity
+                    style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                    onPress={() => { startDemo(); setVisible(false); }}
+                  >
+                    <Text style={{ color: theme.textColor, fontWeight: '500' }}>Iniciar Tour (sem carrossel)</Text>
+                    <Feather name="play" size={20} color={theme.primaryColor} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                    onPress={() => { restartWithCarousel(); setVisible(false); }}
+                  >
+                    <Text style={{ color: theme.textColor, fontWeight: '500' }}>Iniciar Tour com Carrossel</Text>
+                    <Feather name="play-circle" size={20} color={theme.primaryColor} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
                     style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
                     onPress={() => setIsCatholic(null as any)}
                   >

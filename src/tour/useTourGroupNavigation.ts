@@ -21,7 +21,6 @@ export function useTourGroupNavigation() {
   const wasMiniRef = useRef(false);
   // Store pending navigate target so pathname changes don't cancel it mid-flight
   const pendingNavigateRef = useRef<string | null>(null);
-  const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!isDemoActive) return;
@@ -57,29 +56,14 @@ export function useTourGroupNavigation() {
     lastNavigatedGroup.current = currentPageGroup;
 
     const onStack = !isTabRoute(pathname);
-    const targetIsStack = !targetRoute.startsWith("/(tabs)");
 
     if (onStack) {
-      // Stack → anywhere: dismiss current stack screens first, then navigate
-      if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
-      pendingNavigateRef.current = targetRoute;
-
-      const timer = setTimeout(() => {
-        try { router.dismissAll(); } catch { /* ignore */ }
-        pendingTimerRef.current = setTimeout(() => {
-          pendingNavigateRef.current = null;
-          pendingTimerRef.current = null;
-          try { router.navigate(targetRoute as any); } catch { /* ignore */ }
-        }, targetIsStack ? 400 : 300);
-      }, 150);
-
-      return () => clearTimeout(timer);
+      // Stack → anywhere: navigate directly, no delay
+      try { router.navigate(targetRoute as any); } catch { /* ignore */ }
+      return;
     }
 
     // Tab → anywhere: just navigate (no stack to dismiss)
-    const timer = setTimeout(() => {
-      try { router.navigate(targetRoute as any); } catch { /* ignore */ }
-    }, 100);
-    return () => clearTimeout(timer);
+    try { router.navigate(targetRoute as any); } catch { /* ignore */ }
   }, [isDemoActive, isTourMinimized, currentPageGroup, router, pathname]);
 }
