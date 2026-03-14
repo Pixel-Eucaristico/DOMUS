@@ -173,14 +173,76 @@ Este documento detalha o roteiro estratégico para estabilização técnica, mod
 ## 🛠 Fase 1: Estabilização Crítica (Urgente)
 *Foco: Eliminar o erro "Something went wrong" e os crashes de layout no Android 16 (Samsung S23+).*
 
-- [ ] **Correção de Layout Edge-to-Edge:**
-    - Implementar `react-native-safe-area-context` em todos os componentes de layout base.
-    - Garantir que o conteúdo respeite as barras de sistema (status bar e navigation bar) para evitar o erro `null child` no `EdgeToEdgeReactViewGroup`.
-- [ ] **Refatoração do Tour Backdrop:**
-    - Substituir a `View` de opacidade manual pela biblioteca **`react-native-masked-animated-view`**.
-    - Implementar um spotlight (furo circular) real. Isto remove o peso das Views sobrepostas que confundem o motor de renderização do Android.
-- [ ] **Proteção de Nulidade no Tour:**
-    - Adicionar verificações `if (!isVisible || !target)` no `TourOverlay.tsx` para impedir tentativas de desenho em elementos que já foram desmontados da árvore.
+**Contexto do Problema:**
+O Android 16 (API 36) adotou Edge-to-Edge obrigatório por padrão. O sistema agora injeta `EdgeToEdgeReactViewGroup` na hierarquia de views, e qualquer componente que não respeite as `WindowInsets` causa o erro `null child` — um crash de layout silencioso que resulta na tela "Something went wrong". O Samsung S23+ foi o primeiro vetor de reporte por usar One UI 7 (baseado em Android 16 beta).
+
+---
+
+### 1.1 — Correção de Layout Edge-to-Edge
+- **Dificuldade:** MÉDIO | **Urgência:** CRÍTICA | **~3-5h**
+- **Raiz do Problema:** Componentes de layout base (`_layout.tsx`, `ScrollView`, modais) assumem que a área utilizável começa em `y=0`, ignorando a status bar e a navigation bar dinâmica do Android 16.
+- **Arquivos Afetados:**
+    - `app/_layout.tsx` — layout raiz (deve envolver tudo em `SafeAreaProvider`)
+    - `app/(tabs)/_layout.tsx` — layout das abas
+    - Todos os modais em `src/components/shared/` que usam `View` como container raiz
+- **Solução Técnica:**
+    - [ ] Instalar/verificar `react-native-safe-area-context` (já deve estar no projeto via Expo, confirmar versão >= 4.10)
+    - [ ] Envolver o `_layout.tsx` raiz com `<SafeAreaProvider>`
+    - [ ] Substituir `View` container por `<SafeAreaView edges={['top','bottom']}>` nos modais críticos
+    - [ ] Usar o hook `useSafeAreaInsets()` nos componentes que precisam de padding dinâmico em vez de valores fixos hardcoded
+    - [ ] Adicionar `android:windowSoftInputMode="adjustResize"` no `AndroidManifest.xml` se ainda não estiver presente
+    - [ ] Testar em emulador Android API 35+ e no dispositivo físico Samsung S23+
+
+---
+
+### 1.2 — Correção do SVG Mask (renderização incorreta) e Scroll com Spotlight
+- **Dificuldade:** MÉDIO-COMPLEXO | **Urgência:** ALTA | **~4-6h**
+- **Arquitetura atual do tour** (não substituir por lib externa — incompatível):
+    - `src/tour/tourStepConfig.ts` — 22 steps com `targetId`, `route`, `arrowDirection`
+    - `src/tour/useTourTarget.tsx` — hook central: mede com `measureInWindow`, scroll automático, detector off-screen
+    - `src/components/tour/TourBackdrop.tsx` — SVG Mask com spotlight (`react-native-svg`)
+    - `src/tour/TourControlContext.tsx` — contexto com `setSpotlightRect`, navegação e minimizar
+
+#### Bug A — SVG Mask renderiza na posição errada
+- **Causa:** O `measureInWindow` tem delay fixo de `500ms` (`SPOTLIGHT_MEASURE_DELAY_MS`). Após navegação entre telas via `useTourNavigation`, o elemento pode não ter terminado de montar quando a medição dispara, retornando coordenadas `(0, 0, 0, 0)` ou as do step anterior.
+- **Causa secundária:** `CARD_CLEARANCE = 400` hardcoded no `TourBackdrop.tsx` — o spotlight "extende" 400px para baixo independente do tamanho real do `TourInlineCard`, cortando mal em telas pequenas ou quando o card ainda não renderizou.
+- **Fixes:**
+    - [ ] Em `useTourTarget.tsx`: trocar o `setTimeout` fixo por retry com `requestAnimationFrame` (até 3 tentativas) — medir só quando `w > 0 && h > 0`
+    - [ ] Em `TourBackdrop.tsx`: receber a altura real do card via prop (`cardHeight`) em vez de usar `CARD_CLEARANCE = 400` fixo; usar `onLayout` no `TourInlineCard` para medir e passar para cima
+
+#### Bug B — Tour trava/minimiza sozinho durante scroll
+- **Causa:** O detector off-screen em `useTourTarget.tsx` executa `setInterval` a cada `1500ms` e chama `handleMinimize()` se o card sair da viewport. Durante o scroll automático (`scrollTo` com `animated: true`), o card fica momentaneamente fora da tela — o detector dispara e minimiza o tour antes do scroll terminar.
+- **Causa secundária:** `measureLayout` para rolar até o elemento usa `scrollViewRef.current as any` — se o `ScrollView` ainda não terminou de montar após a navegação (600ms de delay pode não ser suficiente em dispositivos lentos), falha silenciosamente e o elemento-alvo fica fora da tela, disparando o off-screen detector.
+- **Fixes:**
+    - [ ] Em `useTourTarget.tsx`: pausar o off-screen detector (`clearInterval`) durante o período de scroll — reativá-lo só após `SCROLL_TO_TARGET_DELAY_MS + 800ms`
+    - [ ] Antes de chamar `measureLayout`, verificar `scrollViewRef.current !== null` e adicionar retry se retornar `y === 0 && height === 0`
+    - [ ] Aumentar tolerância do off-screen: só minimizar após **2 leituras consecutivas** fora da tela (evitar falso positivo durante scroll animado)
+
+#### Bug C — `FadeOut` do backdrop causa crash no Android 16
+- **Causa:** O `Animated.View` em `TourBackdrop.tsx` usa `exiting={FadeOut.duration(150)}`. No Android 16, se o componente desmontar enquanto a animação de saída ainda roda, o Reanimated tenta acessar uma view nativa já destruída → crash JNI `obj == null`.
+- **Fix:**
+    - [ ] Em `TourBackdrop.tsx`: substituir `entering={FadeIn}` / `exiting={FadeOut}` por animação manual com `useSharedValue(0)` + `useAnimatedStyle` + `withTiming` — controlar o desmonte via estado interno em vez de deixar o Reanimated gerenciar o ciclo de vida
+
+---
+
+### 1.3 — Proteção de Nulidade no Tour
+- **Dificuldade:** FÁCIL | **Urgência:** ALTA | **~1h**
+- **Raiz do Problema:** O `TourOverlay` tenta medir e desenhar sobre elementos que podem ter sido desmontados da árvore (ex: navegação entre telas durante o tour). O `measure()` de uma `ref` para um elemento desmontado retorna `null` ou lança exceção, causando crash silencioso.
+- **Arquivos Afetados:** `src/components/tour/TourOverlay.tsx`
+- **Solução Técnica:**
+    - [ ] Adicionar guard no início do render: `if (!isVisible || !targetRef?.current) return null;`
+    - [ ] Envolver a chamada `targetRef.current.measure(...)` em `try/catch`
+    - [ ] No callback do `measure`, verificar se os valores retornados são válidos: `if (!width || !height) return;`
+    - [ ] Adicionar listener de `beforeRemove` na navegação para pausar/cancelar o tour quando o usuário navega manualmente
+    - [ ] Garantir que `stopTour()` seja chamado no `useEffect` cleanup do componente hospedeiro do tour
+
+---
+
+### Critérios de Conclusão da Fase 1
+- [ ] App abre sem crash em Samsung S23+ (Android 16) após 10 sessões consecutivas de teste
+- [ ] O tour completo (22 steps) executa sem flickering, trava ou minimização indevida no mesmo dispositivo
+- [ ] Nenhum erro `null child` ou `EdgeToEdgeReactViewGroup` nos logs do Metro/Logcat
+- [ ] Screenshot comparativo (antes/depois) com as insets corretas nas telas principais
 
 ## ⌨️ Fase 2: Eficiência e Entrada de Dados
 *Foco: Melhorar a interação com o teclado e a velocidade de registo de gastos.*
@@ -225,37 +287,24 @@ Este documento detalha o roteiro estratégico para estabilização técnica, mod
 # UI & Performance
 yarn add tamagui @rive-app/react-native @shopify/flash-list @bsky.app/expo-scroll-edge-effect
 
-# Tour & Overlay
-yarn add react-native-masked-animated-view react-native-safe-area-context
+# Tour & Overlay (SVG Mask já implementado — só validar safe-area-context)
+yarn add react-native-safe-area-context
 
 # UX & Chat
 yarn add react-native-gifted-chat react-native-circular-action-menu react-native-smart-tooltip react-native-sprinkle-toast
+```
 
+### Referências das Bibliotecas
 
-https://reactnative.directory/package/react-native-safe-area-context
-
-https://reactnative.directory/package/@instantdb/react-native
-
-https://reactnative.directory/package/@shoutem/ui
-
-https://reactnative.directory/package/ignite-cli
-
-https://reactnative.directory/package/@react-native-firebase/app-distribution
-
-https://reactnative.directory/package/@bsky.app/expo-scroll-edge-effect
-
-https://reactnative.directory/package/react-native-smart-tooltip
-
-https://reactnative.directory/package/react-native-masked-animated-view
-
-https://reactnative.directory/package/react-native-sprinkle-toast
-
-https://reactnative.directory/package/@rive-app/react-native
-
-https://reactnative.directory/package/rn-tourguide
-
-https://reactnative.directory/package/react-native-spotlight-tour
-
-https://github.com/FaridSafi/react-native-gifted-chat
-
-https://github.com/geremih/react-native-circular-action-menu?fref=gc
+| Biblioteca | Fase | Expo Managed | Docs |
+|---|---|:---:|---|
+| `react-native-safe-area-context` | 1.1 | ✅ | [reactnative.directory](https://reactnative.directory/package/react-native-safe-area-context) |
+| `rn-tourguide` | ~~1.2~~ incompatível | ❌ | [reactnative.directory](https://reactnative.directory/package/rn-tourguide) |
+| `react-native-spotlight-tour` | ~~1.2~~ incompatível | ❌ | [reactnative.directory](https://reactnative.directory/package/react-native-spotlight-tour) |
+| `react-native-masked-animated-view` | ~~1.2~~ incompatível | ❓ | [reactnative.directory](https://reactnative.directory/package/react-native-masked-animated-view) |
+| `@bsky.app/expo-scroll-edge-effect` | 3 | ✅ | [reactnative.directory](https://reactnative.directory/package/@bsky.app/expo-scroll-edge-effect) |
+| `react-native-smart-tooltip` | 4 | ✅ | [reactnative.directory](https://reactnative.directory/package/react-native-smart-tooltip) |
+| `react-native-sprinkle-toast` | 4 | ✅ | [reactnative.directory](https://reactnative.directory/package/react-native-sprinkle-toast) |
+| `@rive-app/react-native` | 3 | ✅ | [reactnative.directory](https://reactnative.directory/package/@rive-app/react-native) |
+| `react-native-gifted-chat` | 4 | ✅ | [github.com](https://github.com/FaridSafi/react-native-gifted-chat) |
+| `react-native-circular-action-menu` | 2 | ❓ | [github.com](https://github.com/geremih/react-native-circular-action-menu) |

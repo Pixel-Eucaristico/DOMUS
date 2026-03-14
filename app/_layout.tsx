@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState, useCallback } from "react";
 import { View, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import {
   useFonts,
@@ -282,9 +283,11 @@ function AppContainer({ children }: { children: React.ReactNode }) {
   const { theme } = useAppState();
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
-      <ResponsiveLayoutProvider>
-        {children}
-      </ResponsiveLayoutProvider>
+      <SafeAreaProvider>
+        <ResponsiveLayoutProvider>
+          {children}
+        </ResponsiveLayoutProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
@@ -316,9 +319,9 @@ export default function RootLayout() {
           <AppStateProvider>
             <AppContainer>
               <KeyboardProvider>
-                {!splashFinished && (
+                {!splashFinished ? (
                   <SplashWrapper onFinish={() => setSplashFinished(true)} />
-                )}
+                ) : null}
                 <SyncProvider>
                   <SavingsGoalScheduler />
                   <AutoBackupScheduler />
@@ -326,24 +329,26 @@ export default function RootLayout() {
                   <AnalyticsInitRunner />
                   <NotificationResponseRunner />
                   <TourContent>
-                    {/* SupportBanner rendered before navigator so tab bar stays on top */}
-                    {splashFinished && <MonetizationHosts />}
                     <SecurityGuard>
                       <DesktopLayout>
                         <RootLayoutNav />
                       </DesktopLayout>
                     </SecurityGuard>
 
-                    {/* Modais e Overlays globais só aparecem após o término da animação de Splash para evitar sobreposição visual */}
-                    {splashFinished && (
+                    {/* Todos os overlays/modais pós-splash num único slot condicional para
+                        evitar múltiplas entradas/saídas simultâneas de filhos no
+                        EdgeToEdgeReactViewGroup, que causa crash "null child at index N"
+                        no Android 16 quando o rendering pipeline encontra inconsistência. */}
+                    {splashFinished ? (
                       <>
+                        <MonetizationHosts />
                         <ShareIntentHandler />
                         <AchievementToastHost />
                         <SeasonalToastHost />
                         <WelcomeCarouselHost />
-                        {__DEV__ && <DebugTools />}
+                        {__DEV__ ? <DebugTools /> : null}
                       </>
-                    )}
+                    ) : null}
                   </TourContent>
                 </SyncProvider>
               </KeyboardProvider>
@@ -385,14 +390,25 @@ function SeasonalToastHost() {
 
 function WelcomeCarouselHost() {
   const { showWelcomeCarousel, completeWelcomeCarousel, startDemo } = useDemoMode();
-  console.log("[WelcomeCarouselHost] showWelcomeCarousel =", showWelcomeCarousel);
+  // Keep modal visible state separate from mount state so the Modal can close
+  // gracefully before the component unmounts (avoids EdgeToEdge null-child crash
+  // on Android 16 when Modal is destroyed mid-animation).
+  const [modalVisible, setModalVisible] = React.useState(true);
+
   if (!showWelcomeCarousel) return null;
+
   return (
     <WelcomeCarousel
-      visible
+      visible={modalVisible}
       onComplete={() => {
-        completeWelcomeCarousel();
-        setTimeout(() => startDemo(), 600);
+        // 1. Hide the Modal (starts its closing animation ~300ms)
+        setModalVisible(false);
+        // 2. After animation, mark carousel done → unmounts this component
+        setTimeout(() => {
+          completeWelcomeCarousel();
+        }, 400);
+        // 3. Start demo tour after modal is fully gone
+        setTimeout(() => startDemo(), 1000);
       }}
     />
   );

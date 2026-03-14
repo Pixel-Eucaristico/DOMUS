@@ -155,7 +155,7 @@ export default function SyncScreen() {
                 <StatusDot status={syncStatus} />
                 <Text style={[s.statusLabelText, { color: theme.textColor }]}>{statusLabel(syncStatus)}</Text>
               </View>
-              {groupId && <Text style={[s.groupIdText, { color: theme.secondaryText }]}>Grupo: {groupId}</Text>}
+              {groupId ? <Text style={[s.groupIdText, { color: theme.secondaryText }]}>Grupo: {groupId}</Text> : null}
             </View>
           </View>
           <View style={s.statsRow}>

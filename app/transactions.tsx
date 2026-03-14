@@ -279,18 +279,18 @@ export default function TransactionsScreen() {
                       <Text style={[s.txDesc, { color: theme.textColor }]} numberOfLines={1}>
                         {tx.description || cat?.name || tx.type}
                       </Text>
-                      {tx.installmentInfo && (
+                      {tx.installmentInfo ? (
                         <InstallmentBadge
                           current={tx.installmentInfo.current}
                           total={tx.installmentInfo.total}
                           theme={theme}
                         />
-                      )}
-                      {tx.status === "pending" && (
+                      ) : null}
+                      {tx.status === "pending" ? (
                         <View style={s.pendingBadge}>
                           <Text style={s.pendingBadgeText}>Pendente</Text>
                         </View>
-                      )}
+                      ) : null}
                     </View>
                     <View style={s.txSub}>
                       {!accountId && <Text style={[s.txAcc, { color: theme.secondaryText }]}>{acc?.name || "Conta"} • </Text>}

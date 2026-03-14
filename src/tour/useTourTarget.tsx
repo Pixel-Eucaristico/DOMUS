@@ -13,11 +13,27 @@ import { useTourControl } from "./TourControlContext";
 import { TOUR_STEPS, TOUR_TOTAL } from "./tourStepConfig";
 import { TourInlineCard } from "@/src/components/tour/TourInlineCard";
 
-const SPOTLIGHT_MEASURE_DELAY_MS = 500;
+// How long after navigation before we attempt to measure the target element.
+// Uses RAF retries instead of a fixed delay now, but we still wait for the
+// navigation animation to settle before the first attempt.
+const MEASURE_INITIAL_DELAY_MS = 300;
+// Max RAF retry attempts if measure returns (0,0,0,0)
+const MEASURE_MAX_RETRIES = 6;
+// Delay between RAF retries (ms)
+const MEASURE_RETRY_DELAY_MS = 120;
+
 const SCROLL_TO_TARGET_DELAY_MS = 600;
+// How long after scroll starts before the off-screen detector is re-enabled.
+// Must be longer than SCROLL_TO_TARGET_DELAY_MS + scroll animation duration.
+const SCROLL_OFFSCREEN_RESUME_MS = SCROLL_TO_TARGET_DELAY_MS + 900;
+
 const OFF_SCREEN_CHECK_INTERVAL_MS = 1500;
 const OFF_SCREEN_CHECK_START_DELAY_MS = 800;
 const OFF_SCREEN_THRESHOLD_PX = 200;
+// How many consecutive off-screen readings before we minimise the tour.
+// Avoids false positives during animated scrolls.
+const OFF_SCREEN_CONSECUTIVE_REQUIRED = 2;
+
 const SCROLL_OFFSET_PX = 120;
 
 const TARGET_WITH_TOP_MARGIN = "accounts-add";
@@ -91,14 +107,20 @@ function TourBackdropRenderer({
     step !== null &&
     currentTourStep === stepIndex;
 
+  // ─── Bug A fix: retry measureInWindow with RAF until valid coords ───────────
   useEffect(() => {
     if (!isActive || !targetRef.current || !tourControl) {
       tourControl?.setSpotlightRect(null);
       return;
     }
 
-    const timerId = setTimeout(() => {
-      if (!targetRef.current || !tourControl) return;
+    let cancelled = false;
+    let retryCount = 0;
+    let rafId: ReturnType<typeof requestAnimationFrame> | null = null;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+
+    function attemptMeasure() {
+      if (cancelled || !targetRef.current || !tourControl) return;
 
       if (Platform.OS === "web") {
         try {
@@ -115,23 +137,61 @@ function TourBackdropRenderer({
         return;
       }
 
-      targetRef.current.measureInWindow((x, y, w, h) => {
-        if (!Number.isFinite(x) || !Number.isFinite(y) || w <= 0 || h <= 0) return;
-        tourControl.setSpotlightRect({ x, y, w, h });
-      });
-    }, SPOTLIGHT_MEASURE_DELAY_MS);
+      try {
+        targetRef.current.measureInWindow((x, y, w, h) => {
+          if (cancelled) return;
+          if (Number.isFinite(x) && Number.isFinite(y) && w > 0 && h > 0) {
+            tourControl?.setSpotlightRect({ x, y, w, h });
+          } else if (retryCount < MEASURE_MAX_RETRIES) {
+            // Coords not ready yet — retry after a short delay via RAF
+            retryCount++;
+            timerId = setTimeout(() => {
+              if (!cancelled) {
+                rafId = requestAnimationFrame(attemptMeasure);
+              }
+            }, MEASURE_RETRY_DELAY_MS);
+          }
+          // If max retries exhausted, leave spotlight off — better than wrong position
+        });
+      } catch {
+        // measureInWindow can throw if view was unmounted between check and call
+      }
+    }
+
+    // Wait for navigation animation to settle before first attempt
+    timerId = setTimeout(() => {
+      if (!cancelled) {
+        rafId = requestAnimationFrame(attemptMeasure);
+      }
+    }, MEASURE_INITIAL_DELAY_MS);
 
     return () => {
-      clearTimeout(timerId);
+      cancelled = true;
+      if (timerId) clearTimeout(timerId);
+      if (rafId) cancelAnimationFrame(rafId);
       tourControl?.setSpotlightRect(null);
     };
   }, [isActive, targetRef, tourControl]);
 
+  // ─── Bug B fix: scroll to target, pause off-screen detector during scroll ──
+  // isScrollingRef is shared between the scroll effect and the off-screen effect
+  const isScrollingRef = useRef(false);
+  const scrollResumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (!isActive || !targetRef.current) return;
 
+    let cancelled = false;
+
     const timer = setTimeout(() => {
-      if (!targetRef.current) return;
+      if (cancelled || !targetRef.current) return;
+
+      // Mark scroll as in-progress so off-screen detector pauses
+      isScrollingRef.current = true;
+      if (scrollResumeTimerRef.current) clearTimeout(scrollResumeTimerRef.current);
+      scrollResumeTimerRef.current = setTimeout(() => {
+        isScrollingRef.current = false;
+      }, SCROLL_OFFSCREEN_RESUME_MS - SCROLL_TO_TARGET_DELAY_MS);
 
       if (Platform.OS === "web") {
         try {
@@ -145,31 +205,69 @@ function TourBackdropRenderer({
         }
       }
 
-      if (scrollViewRef?.current && targetRef.current) {
-        targetRef.current.measureLayout(
-          scrollViewRef.current as any,
-          (_x: number, y: number) => {
-            (scrollViewRef.current as any)?.scrollTo?.({
-              y: Math.max(0, y - SCROLL_OFFSET_PX),
-              animated: true,
-            });
-          },
-          () => {},
-        );
+      if (!scrollViewRef?.current || !targetRef.current) return;
+
+      function doScroll() {
+        if (cancelled || !targetRef.current || !scrollViewRef?.current) return;
+        try {
+          targetRef.current.measureLayout(
+            scrollViewRef.current as any,
+            (_x: number, y: number, _w: number, h: number) => {
+              if (cancelled) return;
+              // Retry if measureLayout returns zeroes (ScrollView not ready)
+              if (y === 0 && h === 0) {
+                setTimeout(() => {
+                  if (!cancelled) doScroll();
+                }, 200);
+                return;
+              }
+              (scrollViewRef.current as any)?.scrollTo?.({
+                y: Math.max(0, y - SCROLL_OFFSET_PX),
+                animated: true,
+              });
+            },
+            () => {
+              // Error callback — ScrollView not ready, retry once
+              setTimeout(() => {
+                if (!cancelled) doScroll();
+              }, 200);
+            },
+          );
+        } catch {
+          // measureLayout can throw during unmount
+        }
       }
+
+      doScroll();
     }, SCROLL_TO_TARGET_DELAY_MS);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      if (scrollResumeTimerRef.current) {
+        clearTimeout(scrollResumeTimerRef.current);
+        scrollResumeTimerRef.current = null;
+      }
+      isScrollingRef.current = false;
+    };
   }, [isActive, targetRef, scrollViewRef]);
 
+  // ─── Bug B fix: off-screen detector with consecutive-reading guard ──────────
   const { height: screenHeight } = useWindowDimensions();
   useEffect(() => {
     if (!isActive || !cardRef.current || !tourControl) return;
 
+    let offScreenCount = 0;
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const delayId = setTimeout(() => {
       intervalId = setInterval(() => {
+        // Do not trigger while scroll animation is running
+        if (isScrollingRef.current) {
+          offScreenCount = 0; // reset streak during scroll
+          return;
+        }
+
         if (!cardRef.current) return;
         try {
           cardRef.current.measureInWindow(
@@ -179,7 +277,12 @@ function TourBackdropRenderer({
               const isOffScreenAbove = y + h < -OFF_SCREEN_THRESHOLD_PX;
               const isOffScreenBelow = y > screenHeight + OFF_SCREEN_THRESHOLD_PX;
               if (isOffScreenAbove || isOffScreenBelow) {
-                tourControl!.handleMinimize();
+                offScreenCount++;
+                if (offScreenCount >= OFF_SCREEN_CONSECUTIVE_REQUIRED) {
+                  tourControl!.handleMinimize();
+                }
+              } else {
+                offScreenCount = 0; // back in view, reset streak
               }
             },
           );

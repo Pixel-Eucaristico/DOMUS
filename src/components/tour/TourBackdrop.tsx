@@ -1,16 +1,15 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useWindowDimensions, StyleSheet, Platform } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from "react-native-reanimated";
 import Svg, { Defs, Mask, Rect } from "react-native-svg";
 import type { SpotlightRect } from "@/src/tour/TourControlContext";
 
 const SPOTLIGHT_PADDING = 14;
 const SPOTLIGHT_RADIUS = 12;
-// Extra height below target to ensure the inline TourCard is also inside the spotlight
-const CARD_CLEARANCE = 400;
 
 interface Props {
   rect: SpotlightRect;
+  cardHeight?: number;
 }
 
 /**
@@ -18,30 +17,47 @@ interface Props {
  *
  * Renders a semi-transparent dark overlay with a rounded rectangular "hole"
  * around the active tour target so it remains clearly visible.
- * The hole extends CARD_CLEARANCE px below the target to also reveal the
- * inline TourCard that renders beneath the target element.
+ * The hole extends below the target by cardHeight (measured via onLayout on
+ * TourInlineCard) to also reveal the inline card.
  *
- * Uses SVG Mask instead of an animated View opacity so there are no Reanimated
- * "entering/exiting" callbacks — eliminating the "obj == null" JNI crash on
- * Android 16 that appeared when the Animated.View was unmounted mid-animation.
+ * Uses SVG Mask instead of animated View opacity.
+ * Uses manual useSharedValue animation instead of entering/exiting props to
+ * avoid the "obj == null" JNI crash on Android 16 when Reanimated tries to
+ * access a native view that was already destroyed mid-animation.
  */
-export function SpotlightBackdrop({ rect }: Props) {
+export function SpotlightBackdrop({ rect, cardHeight }: Props) {
   const { width: sw, height: sh } = useWindowDimensions();
+  const opacity = useSharedValue(0);
+  const [mounted, setMounted] = useState(true);
 
-  // Safety guard: do not render if target has no measurable size
-  if (rect.w <= 0 || rect.h <= 0) return null;
+  useEffect(() => {
+    opacity.value = withTiming(1, { duration: 200 });
+    return () => {
+      // Fade out then unmount — controlled manually to avoid Reanimated
+      // accessing a destroyed native view on Android 16.
+      opacity.value = withTiming(0, { duration: 150 }, (finished) => {
+        if (finished) runOnJS(setMounted)(false);
+      });
+    };
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  // Safety guard: do not render if target has no measurable size or unmounted
+  if (!mounted || rect.w <= 0 || rect.h <= 0) return null;
+
+  const CARD_CLEARANCE = cardHeight != null && cardHeight > 0 ? cardHeight + 24 : 400;
 
   const holeX = Math.max(0, rect.x - SPOTLIGHT_PADDING);
   const holeY = Math.max(0, rect.y - SPOTLIGHT_PADDING);
   const holeW = Math.min(sw - holeX, rect.w + SPOTLIGHT_PADDING * 2);
-  // Extend downward to reveal the card rendered below the target
   const holeH = Math.min(sh - holeY, rect.h + SPOTLIGHT_PADDING + CARD_CLEARANCE);
 
   return (
     <Animated.View
-      entering={FadeIn.duration(200)}
-      exiting={FadeOut.duration(150)}
-      style={[StyleSheet.absoluteFillObject, s.container]}
+      style={[StyleSheet.absoluteFillObject, s.container, animatedStyle]}
       pointerEvents="none"
     >
       <Svg

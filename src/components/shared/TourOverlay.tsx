@@ -148,7 +148,7 @@ export function TourOverlay({ theme, children }: Props) {
             O FadeIn/FadeOut esta dentro de SpotlightBackdrop que usa Animated.View
             wrappeando o SVG — o SVG em si nao tem callbacks de animacao nativos,
             portanto nao gera "obj == null" no JNI handler do Reanimated. */}
-        {showSpotlight && <SpotlightBackdrop rect={spotlightRect} />}
+        {showSpotlight ? <SpotlightBackdrop rect={spotlightRect} /> : null}
         {showBadge ? (
           <TourMiniBadge theme={theme} onRestore={handleRestore} />
         ) : showModal ? (
