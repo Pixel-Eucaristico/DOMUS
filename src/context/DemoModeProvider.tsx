@@ -52,6 +52,12 @@ interface DemoModeContextValue {
    */
   nextPageGroup: () => void;
 
+  /**
+   * Called by TourTooltip's first-step "Prev" button.
+   * Goes back to the previous group's last guide step.
+   */
+  prevPageGroup: () => void;
+
   isTourMinimized: boolean;
   /** Zone order to resume from when restoring after minimize (1-based) */
   minimizedAtGuideStep: number | null;
@@ -180,6 +186,24 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [currentPageGroup, groupPhase, groupModalIndex, enterGroup, persist]);
 
+  // ─── prevPageGroup: called by TourGuide's first step prev button ─────────────
+  const prevPageGroup = useCallback(() => {
+    let prevGroup = currentPageGroup - 1;
+    while (prevGroup >= 0) {
+      const g = PAGE_GROUPS[prevGroup];
+      if (g && g.guideSteps.length > 0) break;
+      prevGroup--;
+    }
+    if (prevGroup < 0) return;
+    const group = PAGE_GROUPS[prevGroup];
+    const lastStepOrder = group.guideSteps.length;
+    setCurrentPageGroup(prevGroup);
+    setGroupPhase("guide");
+    setGroupModalIndex(0);
+    setMinimizedAtGuideStep(lastStepOrder);
+    persist(prevGroup, "guide", 0);
+  }, [currentPageGroup, persist]);
+
   // ─── nextPageGroup: called by TourGuide's last step ──────────────────────────
   const nextPageGroup = useCallback(() => {
     const group = PAGE_GROUPS[currentPageGroup];
@@ -304,6 +328,7 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
       activeModalStep,
       nextGroupPhase,
       nextPageGroup,
+      prevPageGroup,
       isTourMinimized,
       minimizedAtGuideStep,
       setTourMinimized,
@@ -314,7 +339,7 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
     [
       isDemoActive, startDemo, stopDemo, demoEvents, dispatchDemoEvent,
       currentPageGroup, groupPhase, groupModalIndex, activeModalStep,
-      nextGroupPhase, nextPageGroup,
+      nextGroupPhase, nextPageGroup, prevPageGroup,
       isTourMinimized, minimizedAtGuideStep, setTourMinimized,
       showWelcomeCarousel, completeWelcomeCarousel, restartWithCarousel,
     ],

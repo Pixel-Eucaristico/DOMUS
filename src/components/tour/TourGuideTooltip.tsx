@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React from "react";
 import { View, StyleSheet } from "react-native";
 import type { TooltipProps } from "rn-tourguide";
 import { TOUR_STEPS } from "@/src/tour/tourStepConfig";
@@ -24,7 +24,7 @@ export function TourGuideTooltip({
   handlePrev,
   handleStop,
 }: TooltipProps) {
-  const { nextPageGroup, stopDemo, setTourMinimized } = useDemoMode();
+  const { nextPageGroup, prevPageGroup, stopDemo, setTourMinimized } = useDemoMode();
   const { theme } = useAppState();
   const groupId = useTourPageGroupId();
 
@@ -50,8 +50,12 @@ export function TourGuideTooltip({
   };
 
   const handlePrevWrapped = () => {
-    if (!isFirstStep) {
-      soundManager.play("tap");
+    soundManager.play("tap");
+    if (isFirstStep) {
+      markIntentionalStop();
+      prevPageGroup();
+      handleStop?.();
+    } else {
       handlePrev?.();
     }
   };
