@@ -53,9 +53,13 @@ export function TourGuideTooltip({
 
   const handlePrevWrapped = () => {
     soundManager.play("tap");
-    if (isFirstStep) {
+    if (zoneOrder === 1) {
       markIntentionalStop();
-      prevPageGroup();
+      const needsNavigation = prevPageGroup();
+      if (!needsNavigation) {
+        // Staying on same page (went back to pre-modal or nothing to do)
+        handleStop?.();
+      }
     } else {
       handlePrev?.();
     }

@@ -57,7 +57,11 @@ interface DemoModeContextValue {
    * Goes back to the previous group's last guide step.
    * Returns the target route so the caller can navigate immediately.
    */
-  prevPageGroup: () => string | null;
+  /**
+   * Returns true if navigation to another page is needed (handled by useTourGroupNavigation).
+   * Returns false if staying on same page (went back to pre-modal) or nothing to do.
+   */
+  prevPageGroup: () => boolean;
 
   isTourMinimized: boolean;
   /** Zone order to resume from when restoring after minimize (1-based) */
@@ -188,22 +192,35 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
   }, [currentPageGroup, groupPhase, groupModalIndex, enterGroup, persist]);
 
   // ─── prevPageGroup: called by TourGuide's first step prev button ─────────────
-  const prevPageGroup = useCallback((): string | null => {
+  const prevPageGroup = useCallback((): boolean => {
     let prevGroup = currentPageGroup - 1;
     while (prevGroup >= 0) {
       const g = PAGE_GROUPS[prevGroup];
       if (g && g.guideSteps.length > 0) break;
       prevGroup--;
     }
-    if (prevGroup < 0) return null;
-    const group = PAGE_GROUPS[prevGroup];
-    const lastStepOrder = group.guideSteps.length;
-    setCurrentPageGroup(prevGroup);
-    setGroupPhase("guide");
-    setGroupModalIndex(0);
-    setMinimizedAtGuideStep(lastStepOrder);
-    persist(prevGroup, "guide", 0);
-    return group.route;
+
+    if (prevGroup >= 0) {
+      // Navigate to previous group's last guide step
+      const group = PAGE_GROUPS[prevGroup];
+      const lastStepOrder = group.guideSteps.length;
+      setCurrentPageGroup(prevGroup);
+      setGroupPhase("guide");
+      setGroupModalIndex(0);
+      setMinimizedAtGuideStep(lastStepOrder);
+      persist(prevGroup, "guide", 0);
+      return true; // useTourGroupNavigation will handle navigation
+    }
+
+    // No previous group with guide steps — fall back to pre-modals of current group
+    const currentGroup = PAGE_GROUPS[currentPageGroup];
+    if (currentGroup && currentGroup.modalsBefore.length > 0) {
+      setGroupPhase("pre");
+      setGroupModalIndex(currentGroup.modalsBefore.length - 1);
+      persist(currentPageGroup, "pre", currentGroup.modalsBefore.length - 1);
+    }
+
+    return false; // stay on same page, tooltip should call handleStop
   }, [currentPageGroup, persist]);
 
   // ─── nextPageGroup: called by TourGuide's last step ──────────────────────────

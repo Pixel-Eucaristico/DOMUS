@@ -19,8 +19,8 @@ export function useTourGroupNavigation() {
   const pathname = usePathname();
   const lastNavigatedGroup = useRef(-1);
   const wasMiniRef = useRef(false);
-  // Store pending navigate target so pathname changes don't cancel it mid-flight
   const pendingNavigateRef = useRef<string | null>(null);
+  const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!isDemoActive) return;
@@ -49,21 +49,42 @@ export function useTourGroupNavigation() {
       return;
     }
 
-    // If a delayed navigate for this route is already scheduled, don't re-schedule
     if (pendingNavigateRef.current === targetRoute) return;
 
     if (lastNavigatedGroup.current === currentPageGroup) return;
     lastNavigatedGroup.current = currentPageGroup;
 
     const onStack = !isTabRoute(pathname);
+    const targetIsStack = !targetRoute.startsWith("/(tabs)");
 
     if (onStack) {
-      // Stack → anywhere: navigate directly, no delay
-      try { router.navigate(targetRoute as any); } catch { /* ignore */ }
-      return;
+      if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+      pendingNavigateRef.current = targetRoute;
+
+      const timer = setTimeout(() => {
+        try { router.dismissAll(); } catch { /* ignore */ }
+        pendingTimerRef.current = setTimeout(() => {
+          pendingNavigateRef.current = null;
+          pendingTimerRef.current = null;
+          try { router.navigate(targetRoute as any); } catch { /* ignore */ }
+        }, targetIsStack ? 400 : 300);
+      }, 150);
+
+      return () => {
+        clearTimeout(timer);
+        pendingNavigateRef.current = null;
+      };
     }
 
-    // Tab → anywhere: just navigate (no stack to dismiss)
-    try { router.navigate(targetRoute as any); } catch { /* ignore */ }
+    // Tab → anywhere
+    pendingNavigateRef.current = targetRoute;
+    const timer = setTimeout(() => {
+      pendingNavigateRef.current = null;
+      try { router.navigate(targetRoute as any); } catch { /* ignore */ }
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      pendingNavigateRef.current = null;
+    };
   }, [isDemoActive, isTourMinimized, currentPageGroup, router, pathname]);
 }
