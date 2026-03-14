@@ -147,7 +147,7 @@ export function TourInlineCard({
           onPress={onNext}
           style={[s.nextBtn, { backgroundColor: theme.primaryColor }]}
         >
-          <Text style={s.nextText}>{isLast ? "Comecar!" : "Proximo"}</Text>
+          <Text style={s.nextText}>{isLast ? "Próxima Tela" : "Próximo"}</Text>
           <Feather
             name={isLast ? "check" : "arrow-right"}
             size={15}

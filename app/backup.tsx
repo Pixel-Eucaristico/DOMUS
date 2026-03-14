@@ -20,6 +20,7 @@ import { ConfirmRestoreModal } from "@/src/components/backup/ConfirmRestoreModal
 import { useGoogleDriveBackup } from "@/src/hooks/useGoogleDriveBackup";
 import { useBackupRestore, STATUS_LABELS, isLoading } from "@/src/hooks/useBackupRestore";
 import { autoBackupFilePath } from "@/src/hooks/useAutoBackup";
+import { TourPageHost } from "@/src/components/tour/TourPageHost";
 
 type TabId = "export" | "restore" | "drive";
 
@@ -39,6 +40,7 @@ export default function BackupScreen() {
   const eventCount = getAllEvents().length;
 
   return (
+    <TourPageHost groupId={8}>
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }} style={s.backBtn} activeOpacity={0.7}>
@@ -379,6 +381,7 @@ export default function BackupScreen() {
         onCancel={() => { soundManager.play("tap"); bk.setShowConfirmModal(false); bk.setPendingPayload(null); }}
       />
     </SafeAreaView>
+    </TourPageHost>
   );
 }
 

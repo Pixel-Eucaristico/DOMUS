@@ -28,7 +28,9 @@ import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { SupportModeSelector } from "@/src/components/monetization/SupportModeSelector";
 import { soundManager } from "@/src/services/SoundManager";
 import { SelectionModal } from "@/src/components/shared/SelectionModal";
-import { useTourTarget } from "@/src/tour/useTourTarget";
+import { TourGuideZone } from "rn-tourguide";
+import { TourPageHost } from "@/src/components/tour/TourPageHost";
+import { useTourPage } from "@/src/tour/useTourPage";
 
 // Extracted components
 import { ContactForm } from "@/src/components/about/ContactForm";
@@ -38,13 +40,12 @@ import { LinkRow } from "@/src/components/about/DonationSection";
 export default function AboutScreen() {
   const router = useRouter();
   const { theme, themeMode, setThemeMode, soundEnabled, setSoundEnabled, resetApp } = useAppState();
-  const { isDemoActive, currentTourStep, restartWithCarousel } = useDemoMode();
+  const { isDemoActive, restartWithCarousel } = useDemoMode();
+  const { isGuideActive: aboutGuideActive } = useTourPage(6);
   const scrollRef = useRef<ScrollView>(null);
-  const { targetRef: securityRef, TourCard: SecurityTourCard, activeStyle: securityActive } = useTourTarget("security-btn", scrollRef);
-  const { targetRef: notificationsRef, TourCard: NotificationsTourCard, activeStyle: notificationsActive } = useTourTarget("notifications-btn", scrollRef);
 
   // Force open settings accordion when tour targets security-btn or notifications-btn
-  const forceSettingsOpen = isDemoActive && (!!securityActive || !!notificationsActive);
+  const forceSettingsOpen = aboutGuideActive;
 
   const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
@@ -67,6 +68,7 @@ export default function AboutScreen() {
   const s = styles(theme);
 
   return (
+    <TourPageHost groupId={6}>
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -134,20 +136,22 @@ export default function AboutScreen() {
           </SectionCard>
 
           {/* ── SETTINGS ────────────────────────────────────────────────── */}
-          <View style={Platform.OS === "web" ? { zIndex: (securityActive || notificationsActive) ? 9999 : 1, position: "relative" } : {}}>
-            <SectionCard theme={theme} icon="settings" title="Configurações" accentColor={theme.accentColor} collapsible forceOpen={forceSettingsOpen}>
-              <LinkRow icon="cpu" label="IA Financeira" description="Provedor, chave de API, limites e custos" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }} disabled={!!(securityActive || notificationsActive)} />
-              <LinkRow icon="bell" label="Notificações" description="Lembretes, alertas de orçamento e resumos" color="#F59E0B" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/notification-settings"); }} targetRef={notificationsRef as any} tourCard={<NotificationsTourCard />} disabled={!!(securityActive || notificationsActive)} />
-              <LinkRow icon="bar-chart" label="Analytics & Performance" description="Compartilhamento de dados anônimos de uso" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/analytics-settings"); }} disabled={!!(securityActive || notificationsActive)} />
-              <LinkRow icon="lock" label="Segurança" description="Bloqueio por PIN ou biometria" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/security-settings"); }} targetRef={securityRef as any} tourCard={<SecurityTourCard />} disabled={!!(securityActive || notificationsActive)} />
-              <LinkRow icon="download-cloud" label="Backup & Restauração" description="Exportar e importar dados cifrados" color={theme.warning} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/backup"); }} disabled={!!securityActive} />
-              <LinkRow icon="shield" label="Política de Privacidade" description="Como seus dados são protegidos" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/privacy-policy"); }} disabled={!!securityActive} />
-              <LinkRow icon="star" label="Avaliar na Play Store" description="Deixe sua avaliação e ajude o DOMUS a crescer" color="#34A853" theme={theme} onPress={() => { soundManager.play("tap"); Linking.openURL("https://play.google.com/store/apps/details?id=br.com.pixeleucaristico.domus"); }} disabled={!!securityActive} />
-              <LinkRow icon="moon" label="Tema" description={`Modo atual: ${themeMode === "system" ? "Sistema" : themeMode === "dark" ? "Escuro" : "Claro"}`} color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); setThemeModalVisible(true); }} disabled={!!securityActive} />
-              <LinkRow icon="play-circle" label="Refazer Tour do App" description="Reveja o guia de todas as funções do DOMUS (sandbox seguro)" color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); router.back(); setTimeout(restartWithCarousel, 300); }} disabled={!!securityActive} />
+          <SectionCard theme={theme} icon="settings" title="Configurações" accentColor={theme.accentColor} collapsible forceOpen={forceSettingsOpen}>
+              <LinkRow icon="cpu" label="IA Financeira" description="Provedor, chave de API, limites e custos" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }} />
+              <TourGuideZone zone={1} text="15" isTourGuide borderRadius={12}>
+              <LinkRow icon="bell" label="Notificações" description="Lembretes, alertas de orçamento e resumos" color="#F59E0B" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/notification-settings"); }} />
+              </TourGuideZone>
+              <LinkRow icon="bar-chart" label="Analytics & Performance" description="Compartilhamento de dados anônimos de uso" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/analytics-settings"); }} />
+              <TourGuideZone zone={2} text="16" isTourGuide borderRadius={12}>
+              <LinkRow icon="lock" label="Segurança" description="Bloqueio por PIN ou biometria" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/security-settings"); }} />
+              </TourGuideZone>
+              <LinkRow icon="download-cloud" label="Backup & Restauração" description="Exportar e importar dados cifrados" color={theme.warning} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/backup"); }} />
+              <LinkRow icon="shield" label="Política de Privacidade" description="Como seus dados são protegidos" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/privacy-policy"); }} />
+              <LinkRow icon="star" label="Avaliar na Play Store" description="Deixe sua avaliação e ajude o DOMUS a crescer" color="#34A853" theme={theme} onPress={() => { soundManager.play("tap"); Linking.openURL("https://play.google.com/store/apps/details?id=br.com.pixeleucaristico.domus"); }} />
+              <LinkRow icon="moon" label="Tema" description={`Modo atual: ${themeMode === "system" ? "Sistema" : themeMode === "dark" ? "Escuro" : "Claro"}`} color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); setThemeModalVisible(true); }} />
+              <LinkRow icon="play-circle" label="Refazer Tour do App" description="Reveja o guia de todas as funções do DOMUS (sandbox seguro)" color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); router.back(); setTimeout(restartWithCarousel, 300); }} />
               <SwitchRow icon="volume-2" label="Efeitos Sonoros" description="Sons de confirmação e interações" color={theme.primaryColor} theme={theme} value={soundEnabled} onValueChange={setSoundEnabled} />
             </SectionCard>
-          </View>
 
           {/* ── CONTACT FORM ────────────────────────────────────────────── */}
           <SectionCard theme={theme} icon="mail" title="Fale Conosco" accentColor={theme.primaryColor} collapsible>
@@ -255,6 +259,7 @@ export default function AboutScreen() {
         ]}
       />
     </SafeAreaView>
+    </TourPageHost>
   );
 }
 

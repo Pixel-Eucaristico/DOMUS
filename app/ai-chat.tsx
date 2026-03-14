@@ -26,7 +26,8 @@ import { DataPermissionModal } from "@/src/components/ai/DataPermissionModal";
 import { detectMissingPermission } from "@/src/modules/ai/application/PermissionDetector";
 import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
 import { OpenAIAdapter } from "@packages/../packages/ai/src/adapters/OpenAIAdapter";
-import { useTourTarget } from "@/src/tour/useTourTarget";
+import { TourGuideZone } from "rn-tourguide";
+import { TourPageHost } from "@/src/components/tour/TourPageHost";
 import type { ChatMessage } from "@packages/ai";
 import type { AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
 
@@ -34,7 +35,6 @@ export default function AIChatScreen() {
   const { theme } = useAppState();
   const { settings, isLoading: settingsLoading, updateSettings } = useAISettings();
   const { messages, isLoading, sendMessage, generateWelcome, clearHistory } = useAIConsultant(settings);
-  const { targetRef: configRef, TourCard: ConfigTourCard, activeStyle: configActive } = useTourTarget("ai-config-btn");
   const [input, setInput] = useState("");
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const { isRecording, startRecording, stopRecording } = useVoiceRecorder();
@@ -214,17 +214,16 @@ export default function AIChatScreen() {
   );
 
   return (
+    <TourPageHost groupId={5}>
     <SafeAreaView
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={["top", "bottom"]}
     >
       {/* Header */}
-      <View style={Platform.OS === "web" ? { zIndex: configActive ? 9999 : 1, position: "relative" } : {}}>
+      <View>
         <View
           style={[
             styles.header,
-            configActive,
-            Platform.OS === "web" && configActive ? { zIndex: 9998, position: "relative" } : {},
             { borderBottomColor: theme.border, backgroundColor: theme.background },
           ]}
         >
@@ -249,7 +248,7 @@ export default function AIChatScreen() {
             <Feather name="trash-2" size={18} color={theme.secondaryText} />
           </TouchableOpacity>
 
-          <View ref={configRef as any} collapsable={false}>
+          <TourGuideZone zone={1} text="13" isTourGuide borderRadius={20}>
             <TouchableOpacity
               onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }}
               style={styles.settingsBtn}
@@ -257,9 +256,8 @@ export default function AIChatScreen() {
             >
               <Feather name="settings" size={18} color={theme.secondaryText} />
             </TouchableOpacity>
-          </View>
+          </TourGuideZone>
         </View>
-        <ConfigTourCard />
       </View>
 
       {/* Offline / no-key banner */}
@@ -405,6 +403,7 @@ export default function AIChatScreen() {
         onDeny={handlePermissionDeny}
       />
     </SafeAreaView>
+    </TourPageHost>
   );
 }
 

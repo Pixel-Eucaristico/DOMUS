@@ -14,6 +14,7 @@ import { useEditableItems } from "@/src/hooks/useEditableItems";
 import { useInvoiceConfirm } from "@/src/hooks/useInvoiceConfirm";
 
 import { IdleScreen } from "@/src/components/invoice/IdleScreen";
+import { TourPageHost } from "@/src/components/tour/TourPageHost";
 import { QrScanScreen } from "@/src/components/invoice/QrScanScreen";
 import { OcrScanScreen } from "@/src/components/invoice/OcrScanScreen";
 import { WebViewScreen } from "@/src/components/invoice/WebViewScreen";
@@ -34,6 +35,7 @@ function DemoImportScreen() {
   const { theme } = useAppState();
 
   return (
+    <TourPageHost groupId={2}>
     <View style={[s.container, { backgroundColor: theme.background }]}>
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
         <Pressable onPress={() => { soundManager.play("tap"); router.back(); }} hitSlop={12}>
@@ -49,6 +51,7 @@ function DemoImportScreen() {
         onManualEntry={() => {}}
       />
     </View>
+    </TourPageHost>
   );
 }
 

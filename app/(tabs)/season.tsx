@@ -21,7 +21,8 @@ import { MonthlyTrophiesList } from "@/src/components/gamification/MonthlyTrophi
 import { AchievementGrid } from "@/src/components/gamification/AchievementGrid";
 import { soundManager } from "@/src/services/SoundManager";
 import { useSeasonData, MONTHS } from "@/src/hooks/useSeasonData";
-import { useTourTarget } from "@/src/tour/useTourTarget";
+import { TourGuideZone } from "rn-tourguide";
+import { TourPageHost } from "@/src/components/tour/TourPageHost";
 
 
 export default function SeasonScreen() {
@@ -31,8 +32,6 @@ export default function SeasonScreen() {
   const [selectedAch, setSelectedAch] = useState<Achievement | null>(null);
   const [activeTab, setActiveTab] = useState<"current" | "collection">("current");
   const seasonScrollRef = useRef<ScrollView>(null);
-  const { targetRef: xpRef, TourCard: XpTourCard, activeStyle: xpActive } = useTourTarget("xp-section", seasonScrollRef);
-  const { targetRef: trophyRef, TourCard: TrophyTourCard, activeStyle: trophyActive } = useTourTarget("trophy-section", seasonScrollRef);
 
   const webTopInset = 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
@@ -52,6 +51,7 @@ export default function SeasonScreen() {
   };
 
   return (
+    <TourPageHost groupId={4}>
     <View style={[st.root, { backgroundColor: theme.background }]}>
       {/* Header */}
       <View style={[st.header, { paddingTop: insets.top + webTopInset + 16, backgroundColor: theme.background }]}>
@@ -105,7 +105,8 @@ export default function SeasonScreen() {
             {/* Season progress / start */}
             {!sd.hasSeason ? (
               <>
-                <View ref={xpRef} collapsable={false} style={[st.card, { backgroundColor: theme.cardBackground }, xpActive]}>
+                <TourGuideZone zone={1} text="10" isTourGuide borderRadius={16}>
+                <View collapsable={false} style={[st.card, { backgroundColor: theme.cardBackground }]}>
                   <Feather name="calendar" size={32} color={theme.secondaryText} />
                   <Text style={[st.cardText, { color: theme.textColor }]}>Nenhuma temporada ativa</Text>
                   <Pressable style={[st.actionBtn, { backgroundColor: theme.primaryColor }]} onPress={sd.handleStartSeason}>
@@ -113,17 +114,15 @@ export default function SeasonScreen() {
                     <Text style={st.actionBtnText}>Iniciar temporada</Text>
                   </Pressable>
                 </View>
-                <XpTourCard />
+                </TourGuideZone>
               </>
             ) : (
               <>
+              <TourGuideZone zone={1} text="10" isTourGuide borderRadius={16}>
               <View
-                ref={(node) => {
-                  (sd.progressCardRef as React.MutableRefObject<any>).current = node;
-                  (xpRef as React.MutableRefObject<any>).current = node;
-                }}
+                ref={(node) => { (sd.progressCardRef as React.MutableRefObject<any>).current = node; }}
                 collapsable={false}
-                style={[st.card, { backgroundColor: theme.cardBackground, paddingVertical: 16 }, xpActive]}
+                style={[st.card, { backgroundColor: theme.cardBackground, paddingVertical: 16 }]}
               >
                 <View style={[st.progressHeader, { marginBottom: 8 }]}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -169,7 +168,7 @@ export default function SeasonScreen() {
                   </Pressable>
                 )}
               </View>
-              <XpTourCard />
+              </TourGuideZone>
               </>
             )}
 
@@ -181,7 +180,8 @@ export default function SeasonScreen() {
               onViewAll={() => setActiveTab("collection")}
             />
 
-            <View ref={trophyRef} collapsable={false} style={trophyActive}>
+            <TourGuideZone zone={2} text="11" isTourGuide borderRadius={16}>
+            <View collapsable={false}>
               <SurpriseTrophyCard
                 currentYear={sd.currentYear}
                 currentMonth={sd.currentMonth}
@@ -193,7 +193,7 @@ export default function SeasonScreen() {
                 setIsCatholic={setIsCatholic}
               />
             </View>
-            <TrophyTourCard />
+            </TourGuideZone>
 
             <MonthlyTrophiesList
               theme={theme}
@@ -229,6 +229,7 @@ export default function SeasonScreen() {
         onShare={() => sd.handleShareTrophy(selectedAch)}
       />
     </View>
+    </TourPageHost>
   );
 }
 

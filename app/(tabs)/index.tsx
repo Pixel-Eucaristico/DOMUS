@@ -37,7 +37,10 @@ import { ResponsiveContainer } from "@/src/ui/components/ResponsiveContainer";
 import { ResponsiveRow } from "@/src/ui/components/ResponsiveRow";
 import { ResponsiveColumn } from "@/src/ui/components/ResponsiveColumn";
 import { useResponsive } from "@/src/ui/layout/useResponsive";
-import { useTourTarget } from "@/src/tour/useTourTarget";
+import { TourGuideZone } from "rn-tourguide";
+import { TourPageHost } from "@/src/components/tour/TourPageHost";
+import { useTourPage } from "@/src/tour/useTourPage";
+import { HomeFab } from "@/src/components/shared/HomeFab";
 
 
 
@@ -53,15 +56,9 @@ export default function HomeScreen() {
 
   const [showAddSheet, setShowAddSheet] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef<number>(0);
+  const { isGuideActive: tourActive } = useTourPage(0);
 
-  const { targetRef: balanceRef, TourCard: BalanceTourCard, activeStyle: balanceActive } = useTourTarget("dashboard-balance", scrollRef);
-  const { targetRef: budgetRef, TourCard: BudgetTourCard, activeStyle: budgetActive } = useTourTarget("budget-section", scrollRef);
-  const { targetRef: xpRef, TourCard: XpTourCard, activeStyle: xpActive } = useTourTarget("xp-section", scrollRef);
-  const { targetRef: trophyRef, TourCard: TrophyTourCard, activeStyle: trophyActive } = useTourTarget("trophy-section", scrollRef);
-  const { targetRef: fabRef, TourCard: FabTourCard, activeStyle: fabActive } = useTourTarget("fab-add");
-  const { targetRef: aiChatRef, TourCard: AiChatTourCard, activeStyle: aiChatActive } = useTourTarget("ai-chat-btn");
-  const { targetRef: settingsRef, TourCard: SettingsTourCard, activeStyle: settingsActive } = useTourTarget("dashboard-settings");
-  const { targetRef: syncBtnRef, TourCard: SyncBtnTourCard, activeStyle: syncBtnActive } = useTourTarget("sync-btn");
 
   // Month/Year filter state
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -208,6 +205,7 @@ export default function HomeScreen() {
   }
 
   return (
+    <TourPageHost groupId={0} scrollRef={scrollRef} scrollYRef={scrollYRef}>
     <View style={[s.root, { backgroundColor: theme.background }]}>
       <ScrollView
         ref={scrollRef}
@@ -220,11 +218,14 @@ export default function HomeScreen() {
           },
         ]}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={!tourActive}
+        onScroll={e => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+        scrollEventThrottle={16}
       >
        <ResponsiveContainer style={{ gap: 16 }}>
         {/* ── HEADER ─────────────────────────────────────────────────────── */}
-        <View style={Platform.OS === "web" ? { zIndex: (aiChatActive || settingsActive) ? 9999 : 1, position: "relative" } : {}}>
-          <View style={[s.header, aiChatActive || settingsActive, Platform.OS === "web" && (aiChatActive || settingsActive) ? { zIndex: 9998, position: "relative" } : {}]}>
+        <View style={Platform.OS === "web" ? { zIndex: 1, position: "relative" } : {}}>
+          <View style={[s.header]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <DomusLogo size={36} theme={theme} />
               <View>
@@ -236,7 +237,7 @@ export default function HomeScreen() {
               </View>
             </View>
             <View style={s.headerActions}>
-              <View ref={syncBtnRef as any} collapsable={false} style={syncBtnActive}>
+              <TourGuideZone zone={6} text="17" isTourGuide borderRadius={20}>
                 <AnimatedIconButton
                   name="refresh-cw"
                   size={20}
@@ -245,7 +246,7 @@ export default function HomeScreen() {
                   style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
                   onPress={() => router.push("/sync")}
                 />
-              </View>
+              </TourGuideZone>
               <AnimatedIconButton
                 name="maximize"
                 size={20}
@@ -253,7 +254,7 @@ export default function HomeScreen() {
                 style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
                 onPress={() => router.push("/import-invoice")}
               />
-              <View ref={aiChatRef as any} collapsable={false}>
+              <TourGuideZone zone={4} text="12" isTourGuide borderRadius={20}>
                 <AnimatedIconButton
                   name="robot-happy"
                   iconSet="MaterialCommunityIcons"
@@ -262,8 +263,8 @@ export default function HomeScreen() {
                   style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
                   onPress={() => router.push("/ai-chat")}
                 />
-              </View>
-              <View ref={settingsRef as any} collapsable={false}>
+              </TourGuideZone>
+              <TourGuideZone zone={5} text="14" isTourGuide borderRadius={20}>
                 <AnimatedIconButton
                   name="settings"
                   size={20}
@@ -271,12 +272,9 @@ export default function HomeScreen() {
                   style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
                   onPress={() => router.push("/about")}
                 />
-              </View>
+              </TourGuideZone>
             </View>
           </View>
-          <SyncBtnTourCard />
-          <AiChatTourCard />
-          <SettingsTourCard />
         </View>
 
         {/* ── STATS ROW ──────────────────────────────────────────────────── */}
@@ -314,10 +312,10 @@ export default function HomeScreen() {
         </ResponsiveRow>
 
         {/* ── GAMIFICATION WIDGET ────────────────────────────────────────── */}
-        <ResponsiveRow style={Platform.OS === "web" ? { zIndex: xpActive ? 9999 : 1, position: "relative" } : {}}>
+        <ResponsiveRow style={Platform.OS === "web" ? { position: "relative" } : {}}>
           <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
-            <AnimatedCard index={1} style={[xpActive, Platform.OS === "web" && xpActive ? { zIndex: 9998, position: "relative" } : {}]}>
-              <View ref={xpRef} collapsable={false} style={[{ width: "100%" }, xpActive]}>
+            <AnimatedCard index={1} >
+              <View collapsable={false} style={{ width: "100%" }}>
                 <GamificationWidget
                   theme={theme}
                   currentTrophy={currentTrophy}
@@ -328,16 +326,16 @@ export default function HomeScreen() {
                 />
               </View>
             </AnimatedCard>
-            <XpTourCard />
           </ResponsiveColumn>
         </ResponsiveRow>
 
         {/* ── BALANCE + ACCOUNTS ─────────────────────────────────────────── */}
         {/* ── BALANCE + ACCOUNTS ─────────────────────────────────────────── */}
-        <ResponsiveRow gap={16} style={Platform.OS === "web" ? { zIndex: balanceActive ? 9999 : 1 } : {}}>
-          <ResponsiveColumn span={accountCount === 0 ? columns : 1} style={Object.assign({ paddingHorizontal: isMobile ? 16 : 0 }, balanceActive || {})}>
+        <ResponsiveRow gap={16}>
+          <ResponsiveColumn span={accountCount === 0 ? columns : 1} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
+            <TourGuideZone zone={1} text="1" isTourGuide borderRadius={20}>
             <AnimatedCard index={2}>
-              <View ref={balanceRef} collapsable={false} style={[s.balanceCard, { backgroundColor: theme.primaryColor, marginHorizontal: 0, width: "100%" }, balanceActive]}>
+              <View collapsable={false} style={[s.balanceCard, { backgroundColor: theme.primaryColor, marginHorizontal: 0, width: "100%" }]}>
                 <View style={s.balanceHeader}>
                   <View style={s.balanceLabelRow}>
                     <Feather name="dollar-sign" size={16} color="rgba(255,255,255,0.7)" />
@@ -348,7 +346,7 @@ export default function HomeScreen() {
                 <Text style={s.balanceValue}>{formatCurrency(totalBalance)}</Text>
               </View>
             </AnimatedCard>
-            <BalanceTourCard />
+            </TourGuideZone>
           </ResponsiveColumn>
 
           {accountCount > 0 && (
@@ -386,10 +384,11 @@ export default function HomeScreen() {
         />
 
         {/* ── BUDGET 50/30/20 ────────────────────────────────────────────── */}
-        <ResponsiveRow style={Platform.OS === "web" ? { zIndex: budgetActive ? 9999 : 1, position: "relative" } : {}}>
-          <ResponsiveColumn span={columns} style={Object.assign({ paddingHorizontal: isMobile ? 16 : 0 }, budgetActive || {})}>
-            <AnimatedCard index={3} style={[budgetActive, Platform.OS === "web" && budgetActive ? { zIndex: 9998, position: "relative" } : {}]}>
-              <View ref={budgetRef} collapsable={false} style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }, budgetActive]}>
+        <ResponsiveRow>
+          <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
+            <TourGuideZone zone={2} text="2" isTourGuide borderRadius={20}>
+            <AnimatedCard index={3}>
+              <View collapsable={false} style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }]}>
                 <View style={s.monthFilterContainer}>
                   <Text style={[s.cardTitle, { color: theme.textColor }]}>
                     Orçamento 50/30/20
@@ -425,16 +424,16 @@ export default function HomeScreen() {
                 )}
               </View>
             </AnimatedCard>
-            <BudgetTourCard />
+            </TourGuideZone>
           </ResponsiveColumn>
         </ResponsiveRow>
 
         {/* ── SEASON CARD ────────────────────────────────────────────────── */}
         {season.currentSeason?.active && (
-          <ResponsiveRow style={Platform.OS === "web" ? { zIndex: trophyActive ? 9999 : 1, position: "relative" } : {}}>
+          <ResponsiveRow style={Platform.OS === "web" ? { position: "relative" } : {}}>
             <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
-              <AnimatedCard index={4} style={[trophyActive, Platform.OS === "web" && trophyActive ? { zIndex: 9998, position: "relative" } : {}]}>
-                <View ref={trophyRef} collapsable={false} style={[{ width: "100%" }, trophyActive]}>
+              <AnimatedCard index={4}>
+                <View collapsable={false} style={{ width: "100%" }}>
                   <Pressable
                     style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }]}
                     onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
@@ -472,7 +471,6 @@ export default function HomeScreen() {
                   </Pressable>
                 </View>
               </AnimatedCard>
-              <TrophyTourCard />
             </ResponsiveColumn>
           </ResponsiveRow>
         )}
@@ -502,38 +500,12 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* ── FAB ──────────────────────────────────────────────────────────── */}
-      <View
-        style={[
-          {
-            position: "absolute",
-            right: 24,
-            bottom: insets.bottom + webBottomInset + 80,
-            alignItems: "flex-end",
-          },
-          Platform.OS === "web" && fabActive ? { zIndex: 9999 } : { zIndex: 1 },
-        ]}
-      >
-        <FabTourCard />
-        <Pressable
-          ref={fabRef}
-          collapsable={false}
-          style={({ pressed }) => [
-            s.fab,
-            {
-              position: "relative",
-              right: 0,
-              bottom: 0,
-              backgroundColor: theme.primaryColor,
-              marginTop: 12,
-            },
-            pressed && s.fabPressed,
-            fabActive,
-          ]}
-          onPress={handleAddPress}
-        >
-          <Feather name="plus" size={28} color="#FFFFFF" />
-        </Pressable>
-      </View>
+      <HomeFab
+        bottom={insets.bottom + webBottomInset + 80}
+        primaryColor={theme.primaryColor}
+        disabled={tourActive}
+        onPress={handleAddPress}
+      />
 
       <TransactionBottomSheet
         visible={showAddSheet}
@@ -541,6 +513,7 @@ export default function HomeScreen() {
         theme={theme}
       />
     </View>
+    </TourPageHost>
   );
 }
 
@@ -665,19 +638,4 @@ const s = StyleSheet.create({
   seasonStatDivider: { width: 1, height: 28 },
   seasonStatValue: { fontFamily: "DMSans_700Bold", fontSize: 18 },
   seasonStatLabel: { fontFamily: "DMSans_400Regular", fontSize: 11, marginTop: 2, textAlign: "center" },
-  fab: {
-    position: "absolute",
-    right: 24,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  fabPressed: { transform: [{ scale: 0.92 }], opacity: 0.9 },
 });

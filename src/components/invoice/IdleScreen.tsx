@@ -5,7 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ThemeColors } from "@packages/theme";
 import { soundManager } from "@/src/services/SoundManager";
-import { useTourTarget } from "@/src/tour/useTourTarget";
+import { TourGuideZone } from "rn-tourguide";
 
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=br.com.pixeleucaristico.domus";
 
@@ -19,8 +19,6 @@ interface Props {
 export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Props) {
   const isWeb = Platform.OS === "web";
   const router = useRouter();
-  const { targetRef: qrRef, TourCard: QrTourCard, activeStyle: qrActive } = useTourTarget("import-qr");
-  const { targetRef: manualRef, TourCard: ManualTourCard, activeStyle: manualActive } = useTourTarget("import-manual");
 
   return (
     <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
@@ -28,12 +26,11 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
       <Text style={[s.title, { color: theme.textColor }]}>Importar Nota Fiscal</Text>
       <Text style={[s.subtitle, { color: theme.secondaryText }]}>Escolha como deseja importar</Text>
 
-      <View style={[s.actions, Platform.OS === "web" ? { zIndex: qrActive || manualActive ? 9999 : 1, position: "relative" } : {}]}>
-        <View style={qrActive ? { zIndex: 9998, position: "relative" } : {}}>
+      <View style={s.actions}>
+        <TourGuideZone zone={1} text="5" isTourGuide borderRadius={16}>
           <Pressable
-            ref={qrRef as any}
             collapsable={false}
-            style={[s.mainBtn, { backgroundColor: theme.primaryColor, opacity: isWeb ? 0.5 : 1 }, qrActive ? { backgroundColor: theme.primaryColor, zIndex: 9998, position: "relative" } : {}]}
+            style={[s.mainBtn, { backgroundColor: theme.primaryColor, opacity: isWeb ? 0.5 : 1 }]}
             onPress={() => { if (isWeb) return; soundManager.play("tap"); onQRPress(); }}
             disabled={isWeb}
           >
@@ -44,8 +41,7 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
             </View>
             <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.6)" />
           </Pressable>
-          <QrTourCard />
-        </View>
+        </TourGuideZone>
 
         {__DEV__ && (
           <Pressable
@@ -80,18 +76,16 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
           </Pressable>
         )}
 
-        <View style={Platform.OS === "web" && manualActive ? { zIndex: 9998, position: "relative" } : {}}>
+        <TourGuideZone zone={2} text="6" isTourGuide borderRadius={16}>
           <Pressable
-            ref={manualRef as any}
             collapsable={false}
-            style={[s.outlineBtn, { borderColor: theme.border }, manualActive ? { backgroundColor: theme.cardBackground, zIndex: 9998, position: "relative" } : {}]}
+            style={[s.outlineBtn, { borderColor: theme.border }]}
             onPress={() => { soundManager.play("tap"); onManualEntry(); }}
           >
             <Feather name="edit-3" size={20} color={theme.textColor} />
             <Text style={[s.outlineBtnText, { color: theme.textColor }]}>Lançar manualmente</Text>
           </Pressable>
-          <ManualTourCard />
-        </View>
+        </TourGuideZone>
       </View>
 
       {__DEV__ && !isWeb && (
