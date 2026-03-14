@@ -145,19 +145,33 @@ function TourGuideStarter({ groupId, scrollRef, scrollYRef }: StarterProps) {
     return () => sub.remove();
   }, [isGuideActive, stop, start, setTourMinimized]);
 
-  // Start guide when active and zones registered. Use 800ms delay to ensure
-  // all TourGuideZones have mounted and registered before guide begins.
+  // Start guide when active and zones registered.
+  // Also has a fallback after 1200ms in case canStart never fires (e.g. zones
+  // inside ScrollView measuring slowly).
   useEffect(() => {
-    if (isGuideActive && canStart && !startedRef.current) {
+    if (!isGuideActive) {
+      startedRef.current = false;
+      return;
+    }
+
+    if (canStart && !startedRef.current) {
       startedRef.current = true;
-      // Scroll to top first so initial zones are visible
       scrollRef?.current?.scrollTo({ y: 0, animated: false });
       const resumeFrom = minimizedAtGuideStep ?? undefined;
       const t = setTimeout(() => start(resumeFrom), 400);
       return () => clearTimeout(t);
     }
-    if (!isGuideActive) {
-      startedRef.current = false;
+
+    // Fallback: force start if canStart never became true
+    if (!startedRef.current) {
+      const fallback = setTimeout(() => {
+        if (!startedRef.current) {
+          startedRef.current = true;
+          scrollRef?.current?.scrollTo({ y: 0, animated: false });
+          start(minimizedAtGuideStep ?? undefined);
+        }
+      }, 1200);
+      return () => clearTimeout(fallback);
     }
   }, [isGuideActive, canStart, start, minimizedAtGuideStep, scrollRef]);
 
