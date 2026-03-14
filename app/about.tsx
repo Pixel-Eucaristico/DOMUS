@@ -138,13 +138,13 @@ export default function AboutScreen() {
           {/* ── SETTINGS ────────────────────────────────────────────────── */}
           <SectionCard theme={theme} icon="settings" title="Configurações" accentColor={theme.accentColor} collapsible forceOpen={forceSettingsOpen}>
               <LinkRow icon="cpu" label="IA Financeira" description="Provedor, chave de API, limites e custos" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }} />
-              <TourGuideZone zone={1} text="15" isTourGuide borderRadius={12}>
+              <TourGuideZone zone={1} text="14" isTourGuide borderRadius={12}>
               <View collapsable={false}>
               <LinkRow icon="bell" label="Notificações" description="Lembretes, alertas de orçamento e resumos" color="#F59E0B" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/notification-settings"); }} />
               </View>
               </TourGuideZone>
               <LinkRow icon="bar-chart" label="Analytics & Performance" description="Compartilhamento de dados anônimos de uso" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/analytics-settings"); }} />
-              <TourGuideZone zone={2} text="16" isTourGuide borderRadius={12}>
+              <TourGuideZone zone={2} text="15" isTourGuide borderRadius={12}>
               <View collapsable={false}>
               <LinkRow icon="lock" label="Segurança" description="Bloqueio por PIN ou biometria" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/security-settings"); }} />
               </View>

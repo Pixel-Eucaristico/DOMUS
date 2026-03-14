@@ -26,7 +26,6 @@ import { DataPermissionModal } from "@/src/components/ai/DataPermissionModal";
 import { detectMissingPermission } from "@/src/modules/ai/application/PermissionDetector";
 import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
 import { OpenAIAdapter } from "@packages/../packages/ai/src/adapters/OpenAIAdapter";
-import { TourGuideZone } from "rn-tourguide";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
 import type { ChatMessage } from "@packages/ai";
 import type { AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
@@ -248,16 +247,13 @@ export default function AIChatScreen() {
             <Feather name="trash-2" size={18} color={theme.secondaryText} />
           </TouchableOpacity>
 
-          <TourGuideZone zone={1} text="13" isTourGuide borderRadius={20}>
-            <TouchableOpacity
-              collapsable={false}
-              onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }}
-              style={styles.settingsBtn}
-              accessibilityLabel="Configurações de IA"
-            >
-              <Feather name="settings" size={18} color={theme.secondaryText} />
-            </TouchableOpacity>
-          </TourGuideZone>
+          <TouchableOpacity
+            onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }}
+            style={styles.settingsBtn}
+            accessibilityLabel="Configurações de IA"
+          >
+            <Feather name="settings" size={18} color={theme.secondaryText} />
+          </TouchableOpacity>
         </View>
       </View>
 

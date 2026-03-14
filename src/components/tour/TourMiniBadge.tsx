@@ -7,7 +7,7 @@ import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { TOUR_TOTAL } from "@/src/tour/tourStepConfig";
 import { soundManager } from "@/src/services/SoundManager";
 import type { ThemeColors } from "@packages/theme";
-import { TOTAL_PAGE_GROUPS } from "@/src/tour/tourPageGroups";
+import { globalStepIndex } from "@/src/tour/tourPageGroups";
 
 interface Props {
   theme: ThemeColors;
@@ -16,7 +16,10 @@ interface Props {
 
 export function TourMiniBadge({ theme, onRestore }: Props) {
   const insets = useSafeAreaInsets();
-  const { currentPageGroup } = useDemoMode();
+  const { currentPageGroup, minimizedAtGuideStep } = useDemoMode();
+
+  const zoneIndex = (minimizedAtGuideStep ?? 1) - 1;
+  const globalStep = globalStepIndex(currentPageGroup, "guide", zoneIndex) + 1;
 
   const handleRestore = () => {
     soundManager.play("pop");
@@ -31,7 +34,7 @@ export function TourMiniBadge({ theme, onRestore }: Props) {
     >
       <Pressable style={s.inner} onPress={handleRestore} hitSlop={8}>
         <Feather name="map" size={14} color="#FFF" />
-        <Text style={s.text}>Tour {currentPageGroup + 1}/{TOTAL_PAGE_GROUPS}</Text>
+        <Text style={s.text}>Tour {globalStep}/{TOUR_TOTAL}</Text>
         <Feather name="chevron-down" size={14} color="rgba(255,255,255,0.7)" />
       </Pressable>
     </Animated.View>

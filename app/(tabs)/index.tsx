@@ -237,7 +237,7 @@ export default function HomeScreen() {
               </View>
             </View>
             <View style={s.headerActions}>
-              <TourGuideZone zone={6} text="17" isTourGuide borderRadius={20}>
+              <TourGuideZone zone={6} text="16" isTourGuide borderRadius={20}>
                 <AnimatedIconButton
                   name="refresh-cw"
                   size={20}
@@ -264,7 +264,7 @@ export default function HomeScreen() {
                   onPress={() => router.push("/ai-chat")}
                 />
               </TourGuideZone>
-              <TourGuideZone zone={5} text="14" isTourGuide borderRadius={20}>
+              <TourGuideZone zone={5} text="13" isTourGuide borderRadius={20}>
                 <AnimatedIconButton
                   name="settings"
                   size={20}

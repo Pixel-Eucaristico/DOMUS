@@ -194,7 +194,7 @@ export default function SyncScreen() {
               </Text>
             </View>
 
-            <TourGuideZone zone={1} text="18" isTourGuide borderRadius={12}>
+            <TourGuideZone zone={1} text="17" isTourGuide borderRadius={12}>
             <View collapsable={false} style={s.actionsRow}>
               <Pressable
                 style={({ pressed }) => [s.actionCard, { backgroundColor: theme.primaryColor }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
@@ -344,7 +344,7 @@ export default function SyncScreen() {
             Exporta todos os dados criptografados para um arquivo que você guarda onde quiser
           </Text>
         </View>
-        <TourGuideZone zone={2} text="19" isTourGuide borderRadius={12}>
+        <TourGuideZone zone={2} text="18" isTourGuide borderRadius={12}>
         <View collapsable={false}>
           <Pressable
             style={({ pressed }) => [s.backupBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }, pressed && { opacity: 0.8 }]}

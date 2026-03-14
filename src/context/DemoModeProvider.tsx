@@ -98,6 +98,20 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
     (groupId: number) => {
       const group = PAGE_GROUPS[groupId];
       if (!group) return;
+      // Skip groups with no steps at all
+      const isEmpty =
+        group.modalsBefore.length === 0 &&
+        group.guideSteps.length === 0 &&
+        group.modalsAfter.length === 0;
+      if (isEmpty) {
+        const next = groupId + 1;
+        if (next < TOTAL_PAGE_GROUPS) {
+          enterGroup(next);
+        } else {
+          stopDemoInternal();
+        }
+        return;
+      }
       let phase: GroupPhase = "pre";
       let modalIdx = 0;
       if (group.modalsBefore.length === 0) {

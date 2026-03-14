@@ -35,8 +35,8 @@ export const PAGE_GROUPS: PageGroupDef[] = [
       TOUR_STEPS[2],  // budget-section
       TOUR_STEPS[4],  // fab-add
       TOUR_STEPS[12], // ai-chat-btn
-      TOUR_STEPS[14], // dashboard-settings
-      TOUR_STEPS[17], // sync-btn
+      TOUR_STEPS[13], // dashboard-settings
+      TOUR_STEPS[16], // sync-btn
     ],
     modalsAfter: [TOUR_STEPS[7]], // Dízimo
   },
@@ -81,7 +81,7 @@ export const PAGE_GROUPS: PageGroupDef[] = [
     groupId: 5,
     route: "/ai-chat",
     modalsBefore: [],
-    guideSteps: [TOUR_STEPS[13]], // ai-config-btn
+    guideSteps: [], // step removed
     modalsAfter: [],
   },
   {
@@ -89,8 +89,8 @@ export const PAGE_GROUPS: PageGroupDef[] = [
     route: "/about",
     modalsBefore: [],
     guideSteps: [
-      TOUR_STEPS[15], // notifications-btn
-      TOUR_STEPS[16], // security-btn
+      TOUR_STEPS[14], // notifications-btn
+      TOUR_STEPS[15], // security-btn
     ],
     modalsAfter: [],
   },
@@ -99,8 +99,8 @@ export const PAGE_GROUPS: PageGroupDef[] = [
     route: "/sync",
     modalsBefore: [],
     guideSteps: [
-      TOUR_STEPS[18], // sync-actions
-      TOUR_STEPS[19], // sync-backup-link
+      TOUR_STEPS[17], // sync-actions
+      TOUR_STEPS[18], // sync-backup-link
     ],
     modalsAfter: [],
   },
@@ -109,14 +109,14 @@ export const PAGE_GROUPS: PageGroupDef[] = [
     route: "/backup",
     modalsBefore: [],
     guideSteps: [],
-    modalsAfter: [TOUR_STEPS[20]], // Backup Criptografado
+    modalsAfter: [TOUR_STEPS[19]], // Backup Criptografado
   },
   {
     groupId: 9,
     route: "/(tabs)/accounts",
     modalsBefore: [],
     guideSteps: [],
-    modalsAfter: [TOUR_STEPS[21]], // Tudo Configurado!
+    modalsAfter: [TOUR_STEPS[20]], // Tudo Configurado!
   },
 ];
 

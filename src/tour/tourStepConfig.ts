@@ -173,20 +173,6 @@ export const TOUR_STEPS: TourStepDef[] = [
   },
   {
     id: 13,
-    tag: "Recurso: IA",
-    title: "Configurar API",
-    description:
-      "Para conversar com a IA, você precisa cadastrar sua chave de API (OpenAI ou Google Gemini). " +
-      "Clique no ícone de configurações no topo para acessar a tela de chaves.",
-    icon: "settings",
-    route: "/ai-chat",
-    targetId: "ai-config-btn",
-    arrowDirection: "up",
-    arrowAlign: "right",
-    arrowOffset: 24,
-  },
-  {
-    id: 14,
     tag: "Aba: Início",
     title: "Configurações Gerais",
     description:
@@ -199,7 +185,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     arrowOffset: 34,
   },
   {
-    id: 15,
+    id: 14,
     tag: "Recurso: Notificações",
     title: "Lembretes Inteligentes",
     description:
@@ -212,7 +198,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     arrowAlign: "center",
   },
   {
-    id: 16,
+    id: 15,
     tag: "Recurso: Segurança",
     title: "Bloqueio por PIN ou Biometria",
     description:
@@ -225,7 +211,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     arrowAlign: "center",
   },
   {
-    id: 17,
+    id: 16,
     tag: "Recurso: Sync",
     title: "Sincronizar Dispositivos",
     description:
@@ -238,7 +224,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     arrowAlign: "center",
   },
   {
-    id: 18,
+    id: 17,
     tag: "Recurso: Sync",
     title: "Sincronização P2P",
     description:
@@ -250,7 +236,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     arrowDirection: "up",
   },
   {
-    id: 19,
+    id: 18,
     tag: "Recurso: Backup",
     title: "Backup & Restauração",
     description:
@@ -262,7 +248,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     arrowDirection: "up",
   },
   {
-    id: 20,
+    id: 19,
     tag: "Recurso: Backup",
     title: "Backup Criptografado",
     description:
@@ -272,7 +258,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     route: "/backup",
   },
   {
-    id: 21,
+    id: 20,
     tag: "Pronto!",
     title: "Tudo Configurado!",
     description:
