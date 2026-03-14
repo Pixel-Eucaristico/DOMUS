@@ -16,6 +16,8 @@ interface Props {
   scrollRef?: React.RefObject<ScrollView>;
   /** Pass a ref that tracks the current scrollY offset (updated via onScroll). */
   scrollYRef?: React.MutableRefObject<number>;
+  /** Distance from screen top to the ScrollView top (default 56). Increase for screens with a header. */
+  scrollViewTop?: number;
 }
 
 /**
@@ -24,7 +26,7 @@ interface Props {
  *
  * Pages with only modal steps (no guideSteps) skip TourGuideProvider entirely.
  */
-export function TourPageHost({ groupId, children, scrollRef, scrollYRef }: Props) {
+export function TourPageHost({ groupId, children, scrollRef, scrollYRef, scrollViewTop }: Props) {
   const { theme } = useAppState();
   const { guideSteps, isModalActive, activeModalStep, activeModalStepIndex, onModalNext, onSkip, onMinimize } =
     useTourPage(groupId);
@@ -61,7 +63,7 @@ export function TourPageHost({ groupId, children, scrollRef, scrollYRef }: Props
         animationDuration={300}
         tooltipStyle={{ alignItems: "flex-start", paddingTop: 14, paddingLeft: 16 }}
       >
-        <TourGuideStarter groupId={groupId} scrollRef={scrollRef} scrollYRef={scrollYRef} />
+        <TourGuideStarter groupId={groupId} scrollRef={scrollRef} scrollYRef={scrollYRef} scrollViewTop={scrollViewTop} />
         {children}
         {modal}
       </TourGuideProvider>
@@ -73,9 +75,10 @@ interface StarterProps {
   groupId: number;
   scrollRef?: React.RefObject<ScrollView>;
   scrollYRef?: React.MutableRefObject<number>;
+  scrollViewTop?: number;
 }
 
-function TourGuideStarter({ groupId, scrollRef, scrollYRef }: StarterProps) {
+function TourGuideStarter({ groupId, scrollRef, scrollYRef, scrollViewTop = 56 }: StarterProps) {
   const { isGuideActive } = useTourPage(groupId);
   const { minimizedAtGuideStep, setTourMinimized } = useDemoMode();
   const { start, stop, canStart, eventEmitter, getCurrentStep } = useTourGuideController();
@@ -98,10 +101,7 @@ function TourGuideStarter({ groupId, scrollRef, scrollYRef }: StarterProps) {
         step.wrapper.measure(
           (_ox: number, _oy: number, _w: number, _h: number, _x: number, pageY: number) => {
             const currentScrollY = scrollYRef?.current ?? 0;
-            // contentY = element's position in ScrollView content
-            // When scroll=0, pageY ≈ contentY + scrollViewScreenTop (~56px for status bar)
-            const scrollViewScreenTop = 56;
-            const contentY = pageY + currentScrollY - scrollViewScreenTop;
+            const contentY = pageY + currentScrollY - scrollViewTop;
             scrollRef.current?.scrollTo({
               y: Math.max(0, contentY),
               animated: false,

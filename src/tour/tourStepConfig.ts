@@ -207,7 +207,7 @@ export const TOUR_STEPS: TourStepDef[] = [
     icon: "lock",
     route: "/about",
     targetId: "security-btn",
-    arrowDirection: "up",
+    arrowDirection: "down",
     arrowAlign: "center",
   },
   {

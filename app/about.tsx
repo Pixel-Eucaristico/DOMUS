@@ -43,6 +43,7 @@ export default function AboutScreen() {
   const { isDemoActive, restartWithCarousel } = useDemoMode();
   const { isGuideActive: aboutGuideActive } = useTourPage(6);
   const scrollRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef(0);
 
   // Force open settings accordion when tour targets security-btn or notifications-btn
   const forceSettingsOpen = aboutGuideActive;
@@ -68,7 +69,7 @@ export default function AboutScreen() {
   const s = styles(theme);
 
   return (
-    <TourPageHost groupId={6} scrollRef={scrollRef}>
+    <TourPageHost groupId={6} scrollRef={scrollRef} scrollYRef={scrollYRef} scrollViewTop={120}>
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -93,6 +94,8 @@ export default function AboutScreen() {
           contentContainerStyle={s.content}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={16}
         >
           {/* ── COMPANY ─────────────────────────────────────────────────── */}
           <SectionCard
