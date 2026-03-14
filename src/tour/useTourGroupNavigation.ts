@@ -57,26 +57,27 @@ export function useTourGroupNavigation() {
     lastNavigatedGroup.current = currentPageGroup;
 
     const onStack = !isTabRoute(pathname);
-    const targetIsTab = targetRoute.startsWith("/(tabs)");
+    const targetIsStack = !targetRoute.startsWith("/(tabs)");
 
-    if (onStack) {
-      // Clear any previous pending timer
+    // Always clear stack screens before navigating to avoid deep stack accumulation.
+    // dismissAll() is a no-op when there are no stack screens to dismiss.
+    if (onStack || targetIsStack) {
       if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
       pendingNavigateRef.current = targetRoute;
 
       const timer = setTimeout(() => {
         try { router.dismissAll(); } catch { /* ignore */ }
-        // Schedule the actual navigate independently — not cancelled by pathname change
         pendingTimerRef.current = setTimeout(() => {
           pendingNavigateRef.current = null;
           pendingTimerRef.current = null;
           try { router.navigate(targetRoute as any); } catch { /* ignore */ }
-        }, targetIsTab ? 300 : 400);
+        }, targetIsStack ? 400 : 300);
       }, 150);
 
       return () => clearTimeout(timer);
     }
 
+    // Tab → tab: just switch
     const timer = setTimeout(() => {
       try { router.navigate(targetRoute as any); } catch { /* ignore */ }
     }, 100);

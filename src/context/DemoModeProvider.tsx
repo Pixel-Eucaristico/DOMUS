@@ -224,7 +224,8 @@ export function DemoModeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const restartWithCarousel = useCallback(() => {
-    AsyncStorage.removeItem(WELCOME_KEY).catch(() => {});
+    stopDemoInternal();
+    AsyncStorage.multiRemove([WELCOME_KEY, TOUR_SHOWN_KEY]).catch(() => {});
     setShowWelcomeCarousel(true);
   }, []);
 

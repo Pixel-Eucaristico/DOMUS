@@ -147,12 +147,8 @@ export function TourInlineCard({
           onPress={onNext}
           style={[s.nextBtn, { backgroundColor: theme.primaryColor }]}
         >
-          <Text style={s.nextText}>{isLast ? "Próxima Tela" : "Próximo"}</Text>
-          <Feather
-            name={isLast ? "check" : "arrow-right"}
-            size={15}
-            color="#FFF"
-          />
+          <Text style={s.nextText}>Próximo</Text>
+          <Feather name="arrow-right" size={15} color="#FFF" />
         </Pressable>
       </View>
 

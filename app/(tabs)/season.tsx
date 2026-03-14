@@ -51,7 +51,7 @@ export default function SeasonScreen() {
   };
 
   return (
-    <TourPageHost groupId={4}>
+    <TourPageHost groupId={4} scrollRef={seasonScrollRef}>
     <View style={[st.root, { backgroundColor: theme.background }]}>
       {/* Header */}
       <View style={[st.header, { paddingTop: insets.top + webTopInset + 16, backgroundColor: theme.background }]}>
