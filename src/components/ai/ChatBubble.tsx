@@ -80,7 +80,7 @@ function parseInline(text: string): MdSegment[] {
   return segments;
 }
 
-function MarkdownText({
+export function MarkdownText({
   content,
   baseColor,
   isUser,

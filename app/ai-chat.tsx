@@ -2,10 +2,7 @@ import React, { useRef, useCallback, useEffect, useMemo, useState } from "react"
 import {
   View,
   Text,
-  TextInput,
-  FlatList,
   TouchableOpacity,
-  KeyboardAvoidingView,
   Platform,
   StyleSheet,
   Animated,
@@ -13,42 +10,61 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { GiftedChat, Bubble, InputToolbar, Composer, Send } from "react-native-gifted-chat";
+import type { IMessage, BubbleProps, InputToolbarProps, ComposerProps, SendProps } from "react-native-gifted-chat";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { useAIConsultant } from "@/src/hooks/useAIConsultant";
 import { useAISettings } from "@/src/hooks/useAISettings";
 import { useVoiceRecorder } from "@/src/hooks/useVoiceRecorder";
 import { voiceOutputService } from "@/src/services/VoiceOutputService";
-import { ChatBubble } from "@/src/components/ai/ChatBubble";
-import { TypingIndicator } from "@/src/components/ai/TypingIndicator";
 import { AIUsageBar } from "@/src/components/ai/AIUsageBar";
 import { DataPermissionModal } from "@/src/components/ai/DataPermissionModal";
 import { detectMissingPermission } from "@/src/modules/ai/application/PermissionDetector";
 import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
 import { OpenAIAdapter } from "@packages/../packages/ai/src/adapters/OpenAIAdapter";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
+import { MarkdownText } from "@/src/components/ai/ChatBubble";
 import type { ChatMessage } from "@packages/ai";
 import type { AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+const AI_USER = { _id: 2, name: "DOMUS IA" };
+const HUMAN_USER = { _id: 1, name: "Você" };
+
+/** Convert our ChatMessage to GiftedChat's IMessage format */
+function toGiftedMessage(msg: ChatMessage): IMessage {
+  return {
+    _id: msg.id,
+    text: msg.content,
+    createdAt: new Date(msg.timestamp),
+    user: msg.role === "user" ? HUMAN_USER : AI_USER,
+    // Preserve extra metadata for custom rendering
+    ...(msg.tokensUsed != null && { tokensUsed: msg.tokensUsed }),
+    ...(msg.isLocalFallback && { isLocalFallback: true }),
+  } as IMessage;
+}
+
+// ─── Screen ─────────────────────────────────────────────────────────────────
 
 export default function AIChatScreen() {
   const { theme } = useAppState();
   const { settings, isLoading: settingsLoading, updateSettings } = useAISettings();
   const { messages, isLoading, sendMessage, generateWelcome, clearHistory } = useAIConsultant(settings);
-  const [input, setInput] = useState("");
-  const listRef = useRef<FlatList<ChatMessage>>(null);
   const { isRecording, startRecording, stopRecording } = useVoiceRecorder();
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const lastAssistantId = useRef<string | null>(null);
 
-  // ─── Welcome message (AI-generated) ────────────────────────────────────────
+  // ─── Welcome message (AI-generated) ──────────────────────────────────────
   const [welcomeMsg, setWelcomeMsg] = useState<ChatMessage | null>(null);
   const welcomeGenerated = useRef(false);
   const [welcomeLoading, setWelcomeLoading] = useState(false);
 
   useEffect(() => {
-    if (settingsLoading) return; // wait for settings to load from SecureStore
+    if (settingsLoading) return;
     if (welcomeGenerated.current || messages.length > 0) return;
     welcomeGenerated.current = true;
     setWelcomeLoading(true);
@@ -60,41 +76,42 @@ export default function AIChatScreen() {
       .finally(() => setWelcomeLoading(false));
   }, [settingsLoading, generateWelcome, messages.length]);
 
-  // Combined messages: welcome + real messages
-  const displayMessages = useMemo(() => {
-    if (messages.length > 0) return messages;
-    if (welcomeMsg) return [welcomeMsg];
-    return [];
+  // ─── Convert messages to GiftedChat format (reversed for GiftedChat) ─────
+  const giftedMessages = useMemo(() => {
+    const source = messages.length > 0 ? messages : welcomeMsg ? [welcomeMsg] : [];
+    // GiftedChat expects newest first
+    return source.map(toGiftedMessage).reverse();
   }, [messages, welcomeMsg]);
 
-  // ─── Permission modal ──────────────────────────────────────────────────────
+  // ─── Permission modal ────────────────────────────────────────────────────
   const [permissionModal, setPermissionModal] = useState<{
     key: keyof AIDataPermissions;
     pendingText: string;
   } | null>(null);
 
-  const handleSend = useCallback(async () => {
-    const text = input.trim();
-    if (!text || isLoading) return;
+  const handleSend = useCallback(
+    async (newMessages: IMessage[] = []) => {
+      const text = newMessages[0]?.text?.trim();
+      if (!text || isLoading) return;
 
-    // Check if the message needs a permission the user hasn't granted
-    const missingPerm = detectMissingPermission(text, settings.dataPermissions);
-    if (missingPerm) {
-      setPermissionModal({ key: missingPerm, pendingText: text });
-      return;
-    }
+      // Check if the message needs a permission the user hasn't granted
+      const missingPerm = detectMissingPermission(text, settings.dataPermissions);
+      if (missingPerm) {
+        setPermissionModal({ key: missingPerm, pendingText: text });
+        return;
+      }
 
-    setInput("");
-    await sendMessage(text);
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-  }, [input, isLoading, sendMessage, settings.dataPermissions]);
+      soundManager.play("pop");
+      await sendMessage(text);
+    },
+    [isLoading, sendMessage, settings.dataPermissions],
+  );
 
   const handlePermissionAllow = useCallback(async () => {
     if (!permissionModal) return;
     const { key, pendingText } = permissionModal;
     setPermissionModal(null);
 
-    // Grant permission
     await updateSettings({
       dataPermissions: {
         ...settings.dataPermissions,
@@ -102,24 +119,17 @@ export default function AIChatScreen() {
       },
     });
 
-    // Now send the message
-    setInput("");
     await sendMessage(pendingText);
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, [permissionModal, updateSettings, settings.dataPermissions, sendMessage]);
 
   const handlePermissionDeny = useCallback(() => {
     if (!permissionModal) return;
     const { pendingText } = permissionModal;
     setPermissionModal(null);
-
-    // Send anyway without the permission
-    setInput("");
     sendMessage(pendingText);
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, [permissionModal, sendMessage]);
 
-  // ─── Pulse animation during recording ──────────────────────────────────────
+  // ─── Pulse animation during recording ────────────────────────────────────
   useEffect(() => {
     if (isRecording) {
       pulseLoop.current = Animated.loop(
@@ -135,7 +145,7 @@ export default function AIChatScreen() {
     }
   }, [isRecording, pulseAnim]);
 
-  // ─── Auto-play AI response when voiceEnabled ───────────────────────────────
+  // ─── Auto-play AI response when voiceEnabled ─────────────────────────────
   useEffect(() => {
     if (!settings.voiceEnabled) return;
     const last = messages[messages.length - 1];
@@ -153,7 +163,7 @@ export default function AIChatScreen() {
     });
   }, [messages, settings.voiceEnabled, settings.provider, settings.openaiVoice]);
 
-  // ─── Voice recording handler ────────────────────────────────────────────────
+  // ─── Voice recording handler ─────────────────────────────────────────────
   const handleVoicePress = useCallback(async () => {
     if (isRecording) {
       setIsTranscribing(true);
@@ -161,13 +171,10 @@ export default function AIChatScreen() {
 
       if (result) {
         if (settings.provider === "gemini") {
-          // Gemini: envia áudio diretamente como multimodal (sem transcrição)
           setIsTranscribing(false);
           const audioAttachment = { base64: result.base64, mimeType: "audio/mp4" };
           await sendMessage("🎤 [mensagem de voz]", null, audioAttachment);
-          setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
         } else if (settings.provider === "openai") {
-          // OpenAI: transcreve com Whisper e envia o texto
           let transcribed = "";
           try {
             const apiKey = await SecureKeyService.retrieveKey("openai");
@@ -182,11 +189,9 @@ export default function AIChatScreen() {
           if (transcribed.trim()) {
             const missingPerm = detectMissingPermission(transcribed.trim(), settings.dataPermissions);
             if (missingPerm) {
-              setInput(transcribed.trim());
               setPermissionModal({ key: missingPerm, pendingText: transcribed.trim() });
             } else {
               await sendMessage(transcribed.trim());
-              setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
             }
           }
         } else {
@@ -205,210 +210,296 @@ export default function AIChatScreen() {
     }
   }, [isRecording, stopRecording, startRecording, settings.provider, settings.dataPermissions, sendMessage]);
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // ─── Custom GiftedChat Renderers ─────────────────────────────────────────
 
-  const renderItem = useCallback(
-    ({ item }: { item: ChatMessage }) => <ChatBubble message={item} />,
-    [],
+  const renderBubble = useCallback(
+    (props: Readonly<BubbleProps<IMessage>>) => {
+      const msg = props.currentMessage;
+      const isUser = msg?.user?._id === HUMAN_USER._id;
+
+      return (
+        <Bubble
+          {...props}
+          wrapperStyle={{
+            left: {
+              backgroundColor: theme.cardBackground,
+              borderWidth: 1,
+              borderColor: theme.border,
+            },
+            right: {
+              backgroundColor: theme.primaryColor,
+            },
+          }}
+          renderMessageText={() => {
+            if (!msg) return null;
+            const textColor = isUser ? "#fff" : theme.textColor;
+            const extra = msg as IMessage & { tokensUsed?: number; isLocalFallback?: boolean };
+
+            return (
+              <View style={styles.messageContent}>
+                {isUser ? (
+                  <Text style={{ color: textColor, fontSize: 15, lineHeight: 22 }}>
+                    {msg.text}
+                  </Text>
+                ) : (
+                  <MarkdownText
+                    content={msg.text}
+                    baseColor={textColor}
+                    isUser={false}
+                  />
+                )}
+
+                {extra.isLocalFallback && !isUser && (
+                  <Text style={{ color: theme.secondaryText, fontSize: 10, marginTop: 4, fontStyle: "italic" }}>
+                    analise local
+                  </Text>
+                )}
+
+                {extra.tokensUsed != null && extra.tokensUsed > 0 && (
+                  <Text style={{ color: theme.secondaryText, fontSize: 10, marginTop: 2, textAlign: "right" }}>
+                    {extra.tokensUsed} tokens
+                  </Text>
+                )}
+
+                {/* Listen button for AI messages when voice is enabled */}
+                {!isUser && settings.voiceEnabled && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      soundManager.play("tap");
+                      SecureKeyService.retrieveKey(settings.provider).then((apiKey) => {
+                        voiceOutputService.speak(
+                          msg.text,
+                          settings.provider,
+                          apiKey ?? undefined,
+                          settings.openaiVoice ?? "nova",
+                        );
+                      });
+                    }}
+                    style={[styles.listenBtn, { borderColor: theme.border }]}
+                  >
+                    <Feather name="volume-2" size={13} color={theme.secondaryText} />
+                    <Text style={{ color: theme.secondaryText, fontSize: 11, marginLeft: 4 }}>
+                      Ouvir
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          }}
+        />
+      );
+    },
+    [theme, settings.voiceEnabled, settings.provider, settings.openaiVoice],
   );
 
-  return (
-    <TourPageHost groupId={5}>
-    <SafeAreaView
-      style={[styles.safe, { backgroundColor: theme.background }]}
-      edges={["top", "bottom"]}
-    >
-      {/* Header */}
-      <View>
-        <View
-          style={[
-            styles.header,
-            { borderBottomColor: theme.border, backgroundColor: theme.background },
-          ]}
-        >
-          <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }} style={styles.backBtn}>
-            <Feather name="arrow-left" size={22} color={theme.textColor} />
-          </TouchableOpacity>
-
-          <View style={styles.headerCenter}>
-            <Text style={[styles.headerTitle, { color: theme.textColor }]}>
-              DOMUS IA
-            </Text>
-            <Text style={[styles.headerSubtitle, { color: theme.secondaryText }]}>
-              Consultor financeiro
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            onPress={() => { soundManager.play("trash"); clearHistory(); }}
-            style={styles.clearBtn}
-            accessibilityLabel="Limpar conversa"
-          >
-            <Feather name="trash-2" size={18} color={theme.secondaryText} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }}
-            style={styles.settingsBtn}
-            accessibilityLabel="Configurações de IA"
-          >
-            <Feather name="settings" size={18} color={theme.secondaryText} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Offline / no-key banner */}
-      {!settings.isEnabled && (
-        <View
-          style={[
-            styles.banner,
-            { backgroundColor: `${theme.warning}20`, borderColor: theme.warning },
-          ]}
-        >
-          <Feather name="info" size={14} color={theme.warning} />
-          <Text style={[styles.bannerText, { color: theme.warning }]}>
-            Configure sua chave de API em{" "}
-            <Text
-              style={{ fontWeight: "700" }}
-              onPress={() => router.push("/ai-settings")}
-            >
-              Configurações
-            </Text>{" "}
-            para ativar a IA. Análise local disponível.
-          </Text>
-        </View>
-      )}
-
-      {/* Financial disclaimer */}
-      <View
-        style={[
-          styles.disclaimer,
-          { backgroundColor: `${theme.border}60`, borderColor: theme.border },
+  const renderInputToolbar = useCallback(
+    (props: InputToolbarProps<IMessage>) => (
+      <InputToolbar
+        {...props}
+        containerStyle={[
+          styles.inputToolbar,
+          { backgroundColor: theme.background, borderTopColor: theme.border },
         ]}
-        accessibilityRole="text"
-      >
-        <Feather name="alert-circle" size={12} color={theme.secondaryText} />
-        <Text style={[styles.disclaimerText, { color: theme.secondaryText }]}>
-          As análises são meramente informativas e não constituem
-          aconselhamento financeiro profissional.
-        </Text>
-      </View>
-
-      {/* Token usage bar */}
-      <AIUsageBar
-        provider={settings.provider}
-        modelTier={settings.modelTier}
-        customBudgets={settings.customBudgets}
-        refreshKey={messages.length}
       />
+    ),
+    [theme],
+  );
 
-      {/* Messages */}
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={0}
-      >
-        <FlatList
-          ref={listRef}
-          data={displayMessages}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.messageList}
-          ListFooterComponent={isLoading || welcomeLoading ? <TypingIndicator /> : null}
-          onContentSizeChange={() =>
-            listRef.current?.scrollToEnd({ animated: true })
-          }
-        />
-
-        {/* Input Bar */}
-        <View
-          style={[
-            styles.inputBar,
+  const renderComposer = useCallback(
+    (props: ComposerProps) => (
+      <Composer
+        {...props}
+        textInputProps={{
+          ...props.textInputProps,
+          style: [
+            styles.composer,
             {
-              backgroundColor: theme.background,
-              borderTopColor: theme.border,
+              color: theme.textColor,
+              backgroundColor: theme.cardBackground,
+              borderColor: theme.border,
             },
-          ]}
-        >
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder="Pergunte algo sobre suas finanças..."
-            placeholderTextColor={theme.secondaryText}
-            style={[
-              styles.textInput,
-              {
-                color: theme.textColor,
-                backgroundColor: theme.cardBackground,
-                borderColor: theme.border,
-              },
-            ]}
-            multiline
-            maxLength={500}
-            returnKeyType="send"
-            onSubmitEditing={handleSend}
-          />
-          {settings.voiceEnabled && (
-            <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-              <TouchableOpacity
-                onPress={() => { soundManager.play("tap"); handleVoicePress(); }}
-                disabled={isLoading || isTranscribing}
-                style={[
-                  styles.micBtn,
-                  {
-                    backgroundColor: isRecording
-                      ? "#e53935"
-                      : isTranscribing
-                      ? theme.border
-                      : theme.cardBackground,
-                    borderColor: isRecording ? "#e53935" : theme.border,
-                  },
-                ]}
-              >
-                <Feather
-                  name={isRecording ? "mic-off" : isTranscribing ? "loader" : "mic"}
-                  size={18}
-                  color={isRecording ? "#fff" : theme.secondaryText}
-                />
-              </TouchableOpacity>
-            </Animated.View>
-          )}
+          ],
+          maxLength: 500,
+          placeholder: "Pergunte algo sobre suas finanças...",
+          placeholderTextColor: theme.secondaryText,
+          multiline: true,
+        }}
+      />
+    ),
+    [theme],
+  );
 
-          <TouchableOpacity
-            onPress={() => { soundManager.play("pop"); handleSend(); }}
-            disabled={!input.trim() || isLoading}
+  const renderSend = useCallback(
+    (props: SendProps<IMessage>) => (
+      <View style={styles.sendRow}>
+        {settings.voiceEnabled && (
+          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+            <TouchableOpacity
+              onPress={() => { soundManager.play("tap"); handleVoicePress(); }}
+              disabled={isLoading || isTranscribing}
+              style={[
+                styles.micBtn,
+                {
+                  backgroundColor: isRecording
+                    ? "#e53935"
+                    : isTranscribing
+                    ? theme.border
+                    : theme.cardBackground,
+                  borderColor: isRecording ? "#e53935" : theme.border,
+                },
+              ]}
+            >
+              <Feather
+                name={isRecording ? "mic-off" : isTranscribing ? "loader" : "mic"}
+                size={18}
+                color={isRecording ? "#fff" : theme.secondaryText}
+              />
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+
+        <Send {...props} containerStyle={styles.sendContainer}>
+          <View
             style={[
               styles.sendBtn,
-              {
-                backgroundColor:
-                  input.trim() && !isLoading
-                    ? theme.primaryColor
-                    : theme.border,
-              },
+              { backgroundColor: theme.primaryColor },
             ]}
           >
             <Feather name="send" size={18} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+          </View>
+        </Send>
+      </View>
+    ),
+    [settings.voiceEnabled, pulseAnim, isRecording, isTranscribing, isLoading, handleVoicePress, theme],
+  );
 
-      {/* Permission request modal */}
-      <DataPermissionModal
-        visible={permissionModal !== null}
-        permissionKey={permissionModal?.key ?? null}
-        onAllow={handlePermissionAllow}
-        onDeny={handlePermissionDeny}
-      />
-    </SafeAreaView>
+  // ─── Render ──────────────────────────────────────────────────────────────
+
+  return (
+    <TourPageHost groupId={5}>
+      <SafeAreaView
+        style={[styles.safe, { backgroundColor: theme.background }]}
+        edges={["top", "bottom"]}
+      >
+        {/* Header */}
+        <View>
+          <View
+            style={[
+              styles.header,
+              { borderBottomColor: theme.border, backgroundColor: theme.background },
+            ]}
+          >
+            <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }} style={styles.backBtn}>
+              <Feather name="arrow-left" size={22} color={theme.textColor} />
+            </TouchableOpacity>
+
+            <View style={styles.headerCenter}>
+              <Text style={[styles.headerTitle, { color: theme.textColor }]}>
+                DOMUS IA
+              </Text>
+              <Text style={[styles.headerSubtitle, { color: theme.secondaryText }]}>
+                Consultor financeiro
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => { soundManager.play("trash"); clearHistory(); }}
+              style={styles.clearBtn}
+              accessibilityLabel="Limpar conversa"
+            >
+              <Feather name="trash-2" size={18} color={theme.secondaryText} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }}
+              style={styles.settingsBtn}
+              accessibilityLabel="Configurações de IA"
+            >
+              <Feather name="settings" size={18} color={theme.secondaryText} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Offline / no-key banner */}
+        {!settings.isEnabled && (
+          <View
+            style={[
+              styles.banner,
+              { backgroundColor: `${theme.warning}20`, borderColor: theme.warning },
+            ]}
+          >
+            <Feather name="info" size={14} color={theme.warning} />
+            <Text style={[styles.bannerText, { color: theme.warning }]}>
+              Configure sua chave de API em{" "}
+              <Text
+                style={{ fontWeight: "700" }}
+                onPress={() => router.push("/ai-settings")}
+              >
+                Configurações
+              </Text>{" "}
+              para ativar a IA. Análise local disponível.
+            </Text>
+          </View>
+        )}
+
+        {/* Financial disclaimer */}
+        <View
+          style={[
+            styles.disclaimer,
+            { backgroundColor: `${theme.border}60`, borderColor: theme.border },
+          ]}
+          accessibilityRole="text"
+        >
+          <Feather name="alert-circle" size={12} color={theme.secondaryText} />
+          <Text style={[styles.disclaimerText, { color: theme.secondaryText }]}>
+            As análises são meramente informativas e não constituem
+            aconselhamento financeiro profissional.
+          </Text>
+        </View>
+
+        {/* Token usage bar */}
+        <AIUsageBar
+          provider={settings.provider}
+          modelTier={settings.modelTier}
+          customBudgets={settings.customBudgets}
+          refreshKey={messages.length}
+        />
+
+        {/* GiftedChat */}
+        <GiftedChat
+          messages={giftedMessages}
+          onSend={handleSend}
+          user={HUMAN_USER}
+          isTyping={isLoading || welcomeLoading}
+          renderBubble={renderBubble}
+          renderInputToolbar={renderInputToolbar}
+          renderComposer={renderComposer}
+          renderSend={renderSend}
+          isSendButtonAlwaysVisible
+          messagesContainerStyle={{ backgroundColor: theme.background }}
+          timeTextStyle={{
+            left: { color: theme.secondaryText, fontSize: 11 },
+            right: { color: "rgba(255,255,255,0.6)", fontSize: 11 },
+          }}
+          dateFormat="DD/MM/YYYY"
+          timeFormat="HH:mm"
+          locale="pt-br"
+        />
+
+        {/* Permission request modal */}
+        <DataPermissionModal
+          visible={permissionModal !== null}
+          permissionKey={permissionModal?.key ?? null}
+          onAllow={handlePermissionAllow}
+          onDeny={handlePermissionDeny}
+        />
+      </SafeAreaView>
     </TourPageHost>
   );
 }
 
 const styles = StyleSheet.create({
   safe: {
-    flex: 1,
-  },
-  flex: {
     flex: 1,
   },
   header: {
@@ -470,27 +561,44 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
   },
-  messageList: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 4,
+  messageContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  inputBar: {
+  listenBtn: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    alignItems: "center",
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignSelf: "flex-start",
   },
-  textInput: {
-    flex: 1,
+  inputToolbar: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  composer: {
     borderWidth: 1,
     borderRadius: 20,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: Platform.OS === "ios" ? 10 : 8,
+    paddingBottom: Platform.OS === "ios" ? 10 : 8,
     fontSize: 15,
     maxHeight: 100,
+    marginRight: 8,
+  },
+  sendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+    marginRight: 4,
+  },
+  sendContainer: {
+    justifyContent: "center",
   },
   sendBtn: {
     width: 42,
