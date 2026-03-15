@@ -10,11 +10,11 @@ import {
   Linking,
   Platform,
   ActivityIndicator,
-  KeyboardAvoidingView,
   LayoutAnimation,
   Switch,
   Modal,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -71,11 +71,7 @@ export default function AboutScreen() {
   return (
     <TourPageHost groupId={6} scrollRef={scrollRef} scrollYRef={scrollYRef} scrollViewTop={120}>
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        {/* Header */}
+      {/* Header */}
         <View style={s.header}>
           <TouchableOpacity
             onPress={() => { soundManager.play("tap"); router.back(); }}
@@ -89,11 +85,12 @@ export default function AboutScreen() {
           </Text>
         </View>
 
-        <ScrollView
+        <KeyboardAwareScrollView
           ref={scrollRef}
           contentContainerStyle={s.content}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          bottomOffset={50}
           onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
           scrollEventThrottle={16}
         >
@@ -191,8 +188,7 @@ export default function AboutScreen() {
               DOMUS · Pixel Eucarístico · Privacidade em primeiro lugar
             </Text>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
 
       {/* Reset Modal */}
       <Modal

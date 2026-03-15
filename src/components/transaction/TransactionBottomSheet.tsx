@@ -7,9 +7,9 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { KeyboardSafeView } from "@/src/components/shared/KeyboardSafeView";
 import Animated, { 
   FadeIn, 
   FadeOut, 
@@ -102,10 +102,8 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
         >
           <Pressable style={s.flex} onPress={handleClose} />
         </Animated.View>
-        <KeyboardAvoidingView
+        <KeyboardSafeView
           style={s.flex}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          pointerEvents="box-none"
         >
           <View style={s.spacer} pointerEvents="none" />
           <Animated.View
@@ -462,7 +460,7 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
             </Pressable>
           </ScrollView>
         </Animated.View>
-      </KeyboardAvoidingView>
+      </KeyboardSafeView>
     </View>
     </Modal>
   );

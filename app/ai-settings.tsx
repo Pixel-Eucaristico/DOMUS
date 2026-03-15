@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -68,9 +69,11 @@ export default function AISettingsScreen() {
         </Text>
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={50}
       >
         {/* Master toggle */}
         <View
@@ -455,13 +458,16 @@ export default function AISettingsScreen() {
         </View>
 
         <View style={styles.spacer} />
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: {
+    flex: 1,
+  },
+  flex: {
     flex: 1,
   },
   header: {

@@ -10,6 +10,7 @@ import {
   Share,
   Switch,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -68,7 +69,7 @@ export default function BackupScreen() {
         })}
       </View>
 
-      <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bottomOffset={50}>
         {/* EXPORT TAB */}
         {activeTab === "export" && (
           <>
@@ -371,7 +372,7 @@ export default function BackupScreen() {
             PBKDF2-SHA256 · 100 000 iter · AES-256-GCM · salt e IV aleatórios
           </Text>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <ConfirmRestoreModal
         visible={bk.showConfirmModal}
@@ -406,6 +407,7 @@ function StatusRow({ status, theme }: { status: any; theme: { secondaryText: str
 
 const s = StyleSheet.create({
   safe: { flex: 1 },
+  flex: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
   backBtn: { padding: 4 },
   headerTitle: { fontFamily: "DMSans_700Bold", fontSize: 19, flex: 1 },

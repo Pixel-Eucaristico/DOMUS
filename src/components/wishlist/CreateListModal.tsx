@@ -6,12 +6,11 @@ import {
   TouchableOpacity,
   TextInput,
   TouchableWithoutFeedback,
-  KeyboardAvoidingView,
-  Platform,
   Animated,
   Text,
   Pressable,
 } from "react-native";
+import { KeyboardSafeView } from "@/src/components/shared/KeyboardSafeView";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
@@ -81,10 +80,8 @@ export function CreateListModal({ visible, theme, onConfirm, onCancel }: Props) 
           <Pressable style={styles.flex} onPress={handleCancel} />
         </Animated.View>
 
-        <KeyboardAvoidingView
+        <KeyboardSafeView
           style={styles.kav}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          pointerEvents="box-none"
         >
           <View style={styles.flex} pointerEvents="none" />
           <Animated.View
@@ -152,7 +149,7 @@ export function CreateListModal({ visible, theme, onConfirm, onCancel }: Props) 
               </TouchableOpacity>
             </View>
           </Animated.View>
-        </KeyboardAvoidingView>
+        </KeyboardSafeView>
       </View>
     </Modal>
   );

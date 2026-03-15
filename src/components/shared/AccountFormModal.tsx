@@ -11,8 +11,8 @@ import {
   Alert,
   Modal,
   Animated,
-  KeyboardAvoidingView,
 } from "react-native";
+import { KeyboardSafeView } from "@/src/components/shared/KeyboardSafeView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -224,10 +224,8 @@ export function AccountFormModal({
           />
         </Animated.View>
 
-        <KeyboardAvoidingView
+        <KeyboardSafeView
           style={s.modalRoot}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          pointerEvents="box-none"
         >
           <View style={s.flex} pointerEvents="none" />
           <Animated.View
@@ -459,7 +457,7 @@ export function AccountFormModal({
               </View>
             </Modal>
           </Animated.View>
-        </KeyboardAvoidingView>
+        </KeyboardSafeView>
       </View>
     </Modal>
   );

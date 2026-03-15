@@ -7,8 +7,8 @@ import {
   Pressable,
   ScrollView,
   Platform,
-  KeyboardAvoidingView,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
@@ -103,19 +103,17 @@ export default function AddTransactionScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
+    <>
+    <KeyboardAwareScrollView
       style={[s.root, { backgroundColor: theme.background }]}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={90}
+      contentContainerStyle={[
+        s.content,
+        { paddingTop: insets.top + webTopInset + 16, paddingBottom: insets.bottom + 32 },
+      ]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      bottomOffset={50}
     >
-      <ScrollView
-        contentContainerStyle={[
-          s.content,
-          { paddingTop: insets.top + webTopInset + 16, paddingBottom: insets.bottom + 32 },
-        ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
         <ResponsiveContainer>
         {/* Header */}
         <View style={s.topRow}>
@@ -450,7 +448,7 @@ export default function AddTransactionScreen() {
           </Pressable>
         )}
         </ResponsiveContainer>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* Installment group save modal */}
       <SelectionModal
@@ -479,7 +477,7 @@ export default function AddTransactionScreen() {
         onCancel={() => form.setInstallmentModal(null)}
         theme={theme}
       />
-    </KeyboardAvoidingView>
+    </>
   );
 }
 

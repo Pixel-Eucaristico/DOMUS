@@ -6,14 +6,12 @@ import {
   Modal,
   TouchableOpacity,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   ActivityIndicator,
   Animated,
   Pressable,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { KeyboardSafeView } from "@/src/components/shared/KeyboardSafeView";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
@@ -100,11 +98,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
           <Pressable style={s.flex} onPress={handleCancel} />
         </Animated.View>
 
-        <KeyboardAvoidingView
-          style={s.kav}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          pointerEvents="box-none"
-        >
+        <KeyboardSafeView style={s.kav}>
           <View style={s.flex} pointerEvents="none" />
           <Animated.View
             style={[
@@ -125,7 +119,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
               </TouchableOpacity>
             </View>
 
-            <KeyboardAwareScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bottomOffset={20}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {/* URL — oculto no modo kit */}
               {!isBundleMode && (
                 <>
@@ -438,9 +432,9 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                   </TouchableOpacity>
                 )}
               </View>
-            </KeyboardAwareScrollView>
+            </ScrollView>
           </Animated.View>
-        </KeyboardAvoidingView>
+        </KeyboardSafeView>
 
         <WishlistSearchWebView
           visible={webView.visible}
