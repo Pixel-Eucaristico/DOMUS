@@ -8,6 +8,7 @@ import {
   Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { GiftedChat, Bubble, InputToolbar, Composer, Send } from "react-native-gifted-chat";
@@ -376,6 +377,7 @@ export default function AIChatScreen() {
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
+    <KeyboardProvider>
     <TourPageHost groupId={5}>
       <SafeAreaView
         style={[styles.safe, { backgroundColor: theme.background }]}
@@ -495,6 +497,7 @@ export default function AIChatScreen() {
         />
       </SafeAreaView>
     </TourPageHost>
+    </KeyboardProvider>
   );
 }
 

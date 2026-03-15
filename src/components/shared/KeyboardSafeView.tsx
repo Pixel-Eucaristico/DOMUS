@@ -1,31 +1,47 @@
 import React from "react";
 import type { ReactNode } from "react";
-import type { StyleProp, ViewStyle } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { View, type StyleProp, type ViewStyle } from "react-native";
+import { useKeyboardHandler } from "react-native-keyboard-controller";
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+} from "react-native-reanimated";
 
 interface KeyboardSafeViewProps {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
-  /** Extra offset to add above the keyboard (default: 0) */
-  keyboardVerticalOffset?: number;
 }
 
 /**
- * Keyboard-safe wrapper for screens WITHOUT ScrollView (e.g. Modals with fixed layout).
- * For screens WITH ScrollView, use KeyboardAwareScrollView from react-native-keyboard-controller directly.
+ * Universal keyboard-safe wrapper using useKeyboardHandler.
+ * Creates an animated spacer that grows/shrinks with the keyboard height.
+ * Works on both Android and iOS regardless of softInputMode.
  */
-export function KeyboardSafeView({
-  children,
-  style,
-  keyboardVerticalOffset = 0,
-}: KeyboardSafeViewProps) {
+export function KeyboardSafeView({ children, style }: KeyboardSafeViewProps) {
+  const keyboardHeight = useSharedValue(0);
+
+  useKeyboardHandler(
+    {
+      onMove: (e) => {
+        "worklet";
+        keyboardHeight.value = Math.max(e.height, 0);
+      },
+      onEnd: (e) => {
+        "worklet";
+        keyboardHeight.value = Math.max(e.height, 0);
+      },
+    },
+    [],
+  );
+
+  const spacerStyle = useAnimatedStyle(() => ({
+    height: keyboardHeight.value,
+  }));
+
   return (
-    <KeyboardAvoidingView
-      style={[{ flex: 1 }, style]}
-      behavior="padding"
-      keyboardVerticalOffset={keyboardVerticalOffset}
-    >
+    <View style={[{ flex: 1 }, style]}>
       {children}
-    </KeyboardAvoidingView>
+      <Reanimated.View style={spacerStyle} />
+    </View>
   );
 }

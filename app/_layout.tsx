@@ -6,7 +6,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { View, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { KeyboardProvider } from "react-native-keyboard-controller";
+import { AvoidSoftInput } from "react-native-avoid-softinput";
 import {
   useFonts,
   DMSans_400Regular,
@@ -308,6 +308,18 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
+  // Enable native keyboard avoidance globally (react-native-avoid-softinput)
+  useEffect(() => {
+    AvoidSoftInput.setEnabled(true);
+    AvoidSoftInput.setAvoidOffset(8);
+    AvoidSoftInput.setEasing("easeIn");
+    AvoidSoftInput.setHideAnimationDuration(100);
+    AvoidSoftInput.setShowAnimationDuration(100);
+    return () => {
+      AvoidSoftInput.setEnabled(false);
+    };
+  }, []);
+
   if (!fontsLoaded && !fontError) {
     return null;
   }
@@ -318,7 +330,7 @@ export default function RootLayout() {
         <DemoModeProvider>
           <AppStateProvider>
             <AppContainer>
-              <KeyboardProvider>
+              <>
                 {!splashFinished ? (
                   <SplashWrapper onFinish={() => setSplashFinished(true)} />
                 ) : null}
@@ -351,7 +363,7 @@ export default function RootLayout() {
                     ) : null}
                   </TourContent>
                 </SyncProvider>
-              </KeyboardProvider>
+              </>
             </AppContainer>
           </AppStateProvider>
         </DemoModeProvider>
