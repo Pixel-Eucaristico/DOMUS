@@ -1,62 +1,9 @@
 # Roadmap OrcaFacil: Sons, Motion e Gamificacao
 
-## Fases Concluidas
-
-### Fase 1: Infraestrutura Core (CONCLUIDA)
-- [x] **AudioService / SoundManager.ts:** Singleton via `expo-av`.
-- [x] **Toggle "Efeitos Sonoros":** Nas configuracoes e no `AppStateProvider`.
-- [x] **Componentes Motion:** `AnimatedCard` (stagger), `AnimatedIconButton`.
-- [x] **Pre-load de audios no Splash:** `tap`, `success`, `pop`, `error`, `trash`, `level-up`.
-
-### Fase 2: Taxonomia de Categorias (UX) (CONCLUIDA)
-- [x] **Refatoracao Triade 50/30/20:** Categorias unificadas e mapeadas.
-- [x] **Grid Seletor Agrupado:** Implementado com Reanimated Layout Transitions.
-- [x] **Busca Instantanea:** Filtro em tempo real com normalizacao de texto.
-- [x] **Secao "Recentes/Sugeridas":** Hook `useCategoryIntelligence` criado e integrado.
-
-### Fase 3: Motor de Trofeus (Gamification) (CONCLUIDA)
-- [x] **Sistema de Conquistas:** 8 conquistas (Prata/Ouro/Diamante) com `checkNewAchievements()`.
-- [x] **Componente AnimatedTrophy:** Animacao rotateY pseudo-3D com `Math.cos(rotation)`.
-- [x] **SVG Premium:** Gradientes radiais (Ouro/Prata/Diamante) com shine animado via Reanimated.
-- [x] **AchievementToast:** Toast com som + haptic auto-dismiss em 4s.
-- [x] **Grid em Season:** Exibe trofeus desbloqueados (animados) e bloqueados (cadeado).
-
-### Fase 4: Demo Mode / Guided Tour (CONCLUIDA)
-- [x] **Sandbox State:** `isDemoActive` + `demoEvents` no `DemoModeProvider` com `mockDemoEvents.ts`.
-- [x] **Interceptador de Dispatch:** `dispatch` em `AppStateProvider` roteia para `dispatchDemoEvent` quando `isDemoActive`, sem tocar no SQLite.
-- [x] **Guided Tour:** `TourOverlay` 4 passos com maquina de estados local, `stopDemo()` no fim.
-- [x] **Auto-cleanup:** `stopDemo()` limpa `demoEvents` e desativa `isDemoActive`.
-- [x] **First-launch detection:** `DemoModeProvider` detecta primeiro acesso via `AsyncStorage("domus_tour_shown_v1")` e inicia o tour automaticamente.
-
----
-
 ## Fase 5: Correcoes, Polimento e Novas Features
 
 **Ordem: Mais facil ao mais complexo, priorizando urgencia.**
 **Detalhes completos em: `docs/roadmap/`**
-
-### 01 - Mudar Cor do Modal Catolico (CONCLUIDA)
-- **Dificuldade:** FACIL | **Urgencia:** BAIXA | **~30 min**
-- **Problema:** Cores hardcoded no modal `ReligiousPreferenceModal.tsx` podem nao estar alinhadas com design desejado
-- **Arquivo:** `src/components/shared/ReligiousPreferenceModal.tsx`
-- **Solucao:** Alterar valores de cores no StyleSheet para usar o tema do App
-- **Detalhes:** [docs/roadmap/01-cor-modal-catolico.md](docs/roadmap/01-cor-modal-catolico.md)
-- [x] Definir novas cores com o designer (Integrado ao sistema de Temas/Arquétipos)
-- [x] Aplicar e testar em tema claro/escuro (Validado via DebugTools)
-
-### 02 - Correcao do Som em Areas Sem Audio (CONCLUIDA)
-- **Dificuldade:** FACIL | **Urgencia:** MEDIA | **~2h**
-- **Problema:** SoundManager funciona mas 15+ componentes nao o utilizam. 4 sons definidos (`levelUp`, `reveal`, `trash`, `error`, `share`) nunca sao tocados
-- **Areas criticas:** Invoice Import (7 arquivos), Gamificacao (3), Transacoes (1), IA (3), Wishlist (2+)
-- **Solucao:** Adicionar `soundManager.play()` nos handlers de cada componente
-- **Detalhes:** [docs/roadmap/02-correcao-som.md](docs/roadmap/02-correcao-som.md)
-- [x] Adicionar sons no Invoice Import (7 telas)
-- [x] Adicionar sons na Gamificacao (reveal, levelUp)
-- [x] Adicionar sons em Transacoes, IA, Wishlist
-- [x] Mapear som `trash` para acoes de delete
-- [x] Mapear som `error` para falhas
-- [x] Mapear som `share` para camera shutter e QR scan
-- [x] Cobertura completa: 20+ componentes, 9/9 sons mapeados, 100% dos interativos
 
 ### 03 - Testar API de OCR
 - **Dificuldade:** FACIL-MEDIO | **Urgencia:** ALTA | **~1h**
@@ -66,6 +13,216 @@
 - [ ] Executar suite de testes existente
 - [ ] Validar cenarios de parsing (Qtd x Preco, R$ Preco)
 - [ ] Verificar fallback chain do HybridOCRAdapter
+
+### 07 - Melhorar Tour (Baloes, Setas, Minimizar)
+- **Dificuldade:** COMPLEXO | **Urgencia:** MEDIA | **~8-12h**
+- **Problema:** Tour reseta para step 0 ao remontar (parece travado na 1a pagina), bloqueia experimentacao, sem baloes/setas, sem minimizar
+- **Bugs:** Estado nao persistido (useState local reseta), backdrop 45% bloqueia visao, sem highlight de elementos
+- **Solucao:** 4 fases - Fix bugs (persist state) -> Minimizar/Badge -> Baloes/Setas -> Navegacao inteligente
+- **Detalhes:** [docs/roadmap/07-melhorar-tour.md](docs/roadmap/07-melhorar-tour.md)
+- [ ] Fix: Persistir step no AsyncStorage + mover estado para context
+- [ ] Adicionar botao minimizar + badge flutuante
+- [ ] Implementar spotlight mask + setas SVG
+- [ ] Navegacao automatica para tela do step
+
+### 08 - Animacao Individual para Cada Trofeu (167 trofeus)
+- **Dificuldade:** COMPLEXO | **Urgencia:** BAIXA | **~15-25h (com acompanhamento)**
+- **Problema:** Todos os trofeus usam mesma animacao generica. Precisa animacao unica por trofeu
+- **Total:** 40 conquistas + 6 mensais + 48 sazonais + 73 liturgicos = 167 trofeus
+- **Solucao:** Criar config map por trofeu/categoria com parametros de animacao customizados
+- **Detalhes:** [docs/roadmap/08-animacao-trofeus.md](docs/roadmap/08-animacao-trofeus.md) (lista completa de todos os 167 trofeus)
+- [ ] Criar `trophyAnimationConfigs.ts` com mapa de configs
+- [ ] Refatorar AnimatedTrophy e AnimatedSeasonalTrophy para aceitar config
+- [ ] Implementar um a um com aprovacao individual
+
+### 09 - Leitor de Olerite por OCR
+- **Dificuldade:** COMPLEXO | **Urgencia:** MEDIA | **~6-10h**
+- **Depende de:** Tarefa 05 (OCR Android funcionar)
+- **Problema:** Feature nova - capturar valores de medidores via OCR, armazenar historico
+- **Solucao:** Novo parser + nova tela + novo tipo de evento + historico com grafico
+- **Detalhes:** [docs/roadmap/09-olerite-ocr.md](docs/roadmap/09-olerite-ocr.md)
+- [ ] Criar `oleriteParser.ts`
+- [ ] Criar tela de captura reutilizando OcrScanScreen
+- [ ] Implementar historico com grafico de evolucao
+- [ ] Testes unitarios
+
+---
+
+## Ordem de Execucao Recomendada
+
+```
+URGENCIA CRITICA (fazer primeiro):
+  05 - Fix OCR Android .......... [MEDIO]     ~3-4h
+
+URGENCIA ALTA:
+  03 - Testar API OCR ........... [FACIL]     ~1h
+
+URGENCIA MEDIA:
+  07 - Melhorar Tour ............ [COMPLEXO]  ~8-12h
+  09 - Olerite OCR .............. [COMPLEXO]  ~6-10h
+
+URGENCIA BAIXA (quando houver tempo):
+  08 - Animacao Trofeus ......... [COMPLEXO]  ~15-25h
+```
+
+*Nota: Antes de cada tarefa, sera realizada uma analise tecnica detalhada com planejamento via Task Master.*
+
+# 🚀 Plano Mestre de Evolução: DOMUS 2.0
+
+Este documento detalha o roteiro estratégico para estabilização técnica, modernização visual e upgrade de experiência do utilizador (UX) do ecossistema DOMUS.
+
+## ⌨️ Fase 2: Eficiência e Entrada de Dados
+*Foco: Melhorar a interação com o teclado e a velocidade de registo de gastos.*
+
+- [ ] **Otimização de Teclado (KeyboardAvoidingView):**
+    - Integrar `KeyboardAvoidingView` nativo em todos os formulários e na tela de Chat da IA.
+    - Configuração recomendada: `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}`.
+- [ ] **Menu de Ações Circular (Circular Action Menu):**
+    - Substituir o botão "+" estático por um menu radial fluido para acesso rápido:
+        - 🎙️ Comando de Voz
+        - 📸 OCR / Nota Fiscal
+        - 📄 Cadastro Manual
+
+## 🎨 Fase 3: Design System "Premium" (Tamagui & Rive)
+*Foco: Transformar a identidade visual e a performance da interface.*
+
+- [ ] **Migração para Tamagui:**
+    - Implementar Temas Dinâmicos (Católico/Laico) com suporte nativo a Dark Mode.
+    - Substituir `StyleSheet` tradicional por componentes atómicos do Tamagui para renderização ultra-rápida.
+- [ ] **Animações Interativas (Troféus):**
+    - Integrar `@rive-app/react-native`.
+    - Converter os 167 troféus em vetores animados que reagem ao toque e brilham ao ganhar XP.
+- [ ] **Listas Ultra-Rápidas (FlashList):**
+    - Substituir `FlatList` pelo **FlashList (Shopify)** para garantir scroll de 120Hz constante em ecrãs modernos.
+
+## 🤖 Fase 4: Inteligência e Consultoria Financeira (Arquitetura Multi-IA)
+*Foco: Transformar a IA em um consultor financeiro multimodal de nível profissional, com arquitetura desacoplada e OCR baseado em Vision AI.*
+
+- [ ] **Interface de Chat com Gifted Chat:**
+    - Bolhas de chat profissionais, suporte a anexos e indicadores de "IA a escrever".
+    - Renderização de mini-gráficos financeiros diretamente dentro da conversa.
+> **🤖 [MEGA-PROMPT DE IMPLEMENTAÇÃO PARA CLAUDE AI]**
+> **Papel:** Atue como Engenheiro de Software Sênior especialista em React Native (Expo) e integração segura de LLMs.
+> **Diretrizes Arquiteturais Estritas:**
+> 1. **Segurança (BYOK - Bring Your Own Key):** Todas as chaves lidas devem vir localmente do `expo-secure-store`. **Nunca** faça hardcode, logs ou envie chaves para servidores intermediários.
+> 2. **Padrão Strategy (Desacoplamento Texto x Áudio):** O usuário pode usar Claude para raciocínio financeiro (Texto) e ElevenLabs para a voz (Áudio). Construa interfaces genéricas (`ITextProvider`, `IAudioProvider`) para que os conectores sejam instanciados de forma agnóstica.
+> 3. **Resiliência:** Trate limites de cota (HTTP 429), chaves inválidas (HTTP 401) e timeouts de forma amigável na UI.
+> 4. **OCR Determinístico (Vision):** Para leitura de Notas Fiscais e Olerites, use o modelo Vision da IA selecionada. Exija sempre a saída em `JSON format` estrito e valide imediatamente na volta usando a biblioteca `zod`.
+
+- [ ] **Motor Multi-Provedor de IA (Chat & Texto):**
+    - Implementar adapters seguindo as documentações oficiais:
+    - 🔗 **OpenAI (GPT-4o):** [Documentação Chat Completions](https://platform.openai.com/docs/api-reference/chat)
+    - 🔗 **Anthropic (Claude 3.5):** [Documentação Messages API](https://docs.anthropic.com/en/api/messages)
+    - 🔗 **DeepSeek (V3/R1):** [Documentação API](https://api-docs.deepseek.com/)
+    - 🔗 **Qwen (Alibaba DashScope):** [Documentação Text Generation](https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api)
+
+- [ ] **Motor Multi-Provedor de Áudio (Text-to-Speech / Voz):**
+    - Permitir integração de áudio para leitura e ditado, operando independentemente da IA de texto.
+    - 🔗 **OpenAI (TTS):** [Documentação Audio/Speech](https://platform.openai.com/docs/guides/text-to-speech)
+    - 🔗 **ElevenLabs:** [Documentação Text-to-Speech](https://elevenlabs.io/docs/api-reference/text-to-speech)
+    - 🔗 **Qwen (CosyVoice):** [Documentação Síntese de Áudio](https://help.aliyun.com/zh/model-studio/developer-reference/cosyvoice-quick-start)
+    - ⚠️ *Aviso de Domínio: A Anthropic (Claude) não possui API nativa de Text-to-Speech ativa publicamente. Se o usuário estiver usando Claude para Chat, obrigue-o/permita-o selecionar um fallback de áudio (OpenAI ou ElevenLabs) na tela de configurações.*
+
+- [ ] **Interface de Chat Avançada (`react-native-gifted-chat`):**
+    - 🔗 **Documentação Oficial:** Repositório GitHub Gifted Chat
+    - Criar tela protegida por `KeyboardAvoidingView`.
+    - Suportar renderização Markdown via custom message text.
+    - Ligar o estado fluído `isTyping={true}` durante o loading da requisição.
+    - Interceptar respostas da IA: Utilizar a prop `renderCustomView` para desenhar "Cards de Transação" ou "Mini-Gráficos" caso a IA retorne dados financeiros formatados de forma específica.
+    - Inserir botão de "Ouvir Mensagem 🔊" adjacente às bolhas de resposta para disparar o `IAudioProvider` configurado.
+
+- [ ] **Upgrade Definitivo de OCR via Inteligência Artificial Multimodal (Vision):**
+    - Substituir o processamento falho de strings por visão computacional inteligente. Capturar o olerite/fatura como Base64 e enviar para a IA resolver e mapear em categorias.
+    - 🔗 **OpenAI Vision:** [Guia Vision API](https://platform.openai.com/docs/guides/vision)
+    - 🔗 **Claude Vision:** [Guia de Construção com Imagens (Vision)](https://docs.anthropic.com/en/docs/build-with-claude/vision)
+    - 🔗 **Qwen VL:** [Guia Vision-Language](https://help.aliyun.com/zh/model-studio/developer-reference/qwen-vl-api)
+    - *Instrução para a IA:* O system prompt do OCR deve impor: "Analise esta imagem de folha de pagamento/nota fiscal. Extraia o valor líquido, descontos, CNPJ da empresa, etc., e retorne ESTRITAMENTE em formato JSON sem blocos de markdown. Não inclua conversas ou saudações."
+
+- [ ] **Tooltips Inteligentes:**
+    - Implementar `react-native-smart-tooltip` para dicas contextuais (ex: explicar a regra 50/30/20 na primeira vez que o utilizador vê o gráfico).
+    - Integrar `react-native-sprinkle-toast` (Documentação Oficial) para feedbacks rápidos e visuais ao enviar mensagens, capturar erros ou salvar análises de OCR no banco de dados.
+- [ ] **Upgrade de OCR:**
+    - Finalizar o motor de leitura de Olerite/Holerite para automação total de receitas mensais.
+
+---
+
+## 📦 Checklist de Novas Dependências (Para Instalar)
+
+```bash
+# UI & Performance
+yarn add tamagui @rive-app/react-native @shopify/flash-list @bsky.app/expo-scroll-edge-effect
+
+# Tour & Overlay (SVG Mask já implementado — só validar safe-area-context)
+yarn add react-native-safe-area-context
+
+# UX & Chat
+yarn add react-native-gifted-chat react-native-circular-action-menu react-native-smart-tooltip react-native-sprinkle-toast
+```
+
+### Referências das Bibliotecas
+
+| Biblioteca | Fase | Expo Managed | Docs |
+|---|---|:---:|---|
+| `react-native-safe-area-context` | 1.1 | ✅ | [reactnative.directory](https://reactnative.directory/package/react-native-safe-area-context) |
+| `rn-tourguide` | ~~1.2~~ incompatível | ❌ | [reactnative.directory](https://reactnative.directory/package/rn-tourguide) |
+| `react-native-spotlight-tour` | ~~1.2~~ incompatível | ❌ | [reactnative.directory](https://reactnative.directory/package/react-native-spotlight-tour) |
+| `react-native-masked-animated-view` | ~~1.2~~ incompatível | ❓ | [reactnative.directory](https://reactnative.directory/package/react-native-masked-animated-view) |
+| `@bsky.app/expo-scroll-edge-effect` | 3 | ✅ | [reactnative.directory](https://reactnative.directory/package/@bsky.app/expo-scroll-edge-effect) |
+| `react-native-smart-tooltip` | 4 | ✅ | [reactnative.directory](https://reactnative.directory/package/react-native-smart-tooltip) |
+| `react-native-sprinkle-toast` | 4 | ✅ | [reactnative.directory](https://reactnative.directory/package/react-native-sprinkle-toast) |
+| `@rive-app/react-native` | 3 | ✅ | [reactnative.directory](https://reactnative.directory/package/@rive-app/react-native) |
+| `react-native-gifted-chat` | 4 | ✅ | [github.com](https://github.com/FaridSafi/react-native-gifted-chat) |
+| `react-native-circular-action-menu` | 2 | ❓ | [github.com](https://github.com/geremih/react-native-circular-action-menu) |
+
+Termninados
+## 🤖 Fase 4: Inteligência e Consultoria Financeira (Arquitetura Multi-IA)
+*Foco: Transformar a IA em um consultor financeiro multimodal de nível profissional, com arquitetura desacoplada e OCR baseado em Vision AI.*
+
+- [ ] **Interface de Chat com Gifted Chat:**
+    - Bolhas de chat profissionais, suporte a anexos e indicadores de "IA a escrever".
+    - Renderização de mini-gráficos financeiros diretamente dentro da conversa.
+> **🤖 [MEGA-PROMPT DE IMPLEMENTAÇÃO PARA CLAUDE AI]**
+> **Papel:** Atue como Engenheiro de Software Sênior especialista em React Native (Expo) e integração segura de LLMs.
+> **Diretrizes Arquiteturais Estritas:**
+> 1. **Segurança (BYOK - Bring Your Own Key):** Todas as chaves lidas devem vir localmente do `expo-secure-store`. **Nunca** faça hardcode, logs ou envie chaves para servidores intermediários.
+> 2. **Padrão Strategy (Desacoplamento Texto x Áudio):** O usuário pode usar Claude para raciocínio financeiro (Texto) e ElevenLabs para a voz (Áudio). Construa interfaces genéricas (`ITextProvider`, `IAudioProvider`) para que os conectores sejam instanciados de forma agnóstica.
+> 3. **Resiliência:** Trate limites de cota (HTTP 429), chaves inválidas (HTTP 401) e timeouts de forma amigável na UI.
+> 4. **OCR Determinístico (Vision):** Para leitura de Notas Fiscais e Olerites, use o modelo Vision da IA selecionada. Exija sempre a saída em `JSON format` estrito e valide imediatamente na volta usando a biblioteca `zod`.
+
+- [ ] **Motor Multi-Provedor de IA (Chat & Texto):**
+    - Implementar adapters seguindo as documentações oficiais:
+    - 🔗 **OpenAI (GPT-4o):** [Documentação Chat Completions](https://platform.openai.com/docs/api-reference/chat)
+    - 🔗 **Anthropic (Claude 3.5):** [Documentação Messages API](https://docs.anthropic.com/en/api/messages)
+    - 🔗 **DeepSeek (V3/R1):** [Documentação API](https://api-docs.deepseek.com/)
+    - 🔗 **Qwen (Alibaba DashScope):** [Documentação Text Generation](https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api)
+
+- [ ] **Motor Multi-Provedor de Áudio (Text-to-Speech / Voz):**
+    - Permitir integração de áudio para leitura e ditado, operando independentemente da IA de texto.
+    - 🔗 **OpenAI (TTS):** [Documentação Audio/Speech](https://platform.openai.com/docs/guides/text-to-speech)
+    - 🔗 **ElevenLabs:** [Documentação Text-to-Speech](https://elevenlabs.io/docs/api-reference/text-to-speech)
+    - 🔗 **Qwen (CosyVoice):** [Documentação Síntese de Áudio](https://help.aliyun.com/zh/model-studio/developer-reference/cosyvoice-quick-start)
+    - ⚠️ *Aviso de Domínio: A Anthropic (Claude) não possui API nativa de Text-to-Speech ativa publicamente. Se o usuário estiver usando Claude para Chat, obrigue-o/permita-o selecionar um fallback de áudio (OpenAI ou ElevenLabs) na tela de configurações.*
+
+- [ ] **Interface de Chat Avançada (`react-native-gifted-chat`):**
+    - 🔗 **Documentação Oficial:** Repositório GitHub Gifted Chat
+    - Criar tela protegida por `KeyboardAvoidingView`.
+    - Suportar renderização Markdown via custom message text.
+    - Ligar o estado fluído `isTyping={true}` durante o loading da requisição.
+    - Interceptar respostas da IA: Utilizar a prop `renderCustomView` para desenhar "Cards de Transação" ou "Mini-Gráficos" caso a IA retorne dados financeiros formatados de forma específica.
+    - Inserir botão de "Ouvir Mensagem 🔊" adjacente às bolhas de resposta para disparar o `IAudioProvider` configurado.
+
+- [ ] **Upgrade Definitivo de OCR via Inteligência Artificial Multimodal (Vision):**
+    - Substituir o processamento falho de strings por visão computacional inteligente. Capturar o olerite/fatura como Base64 e enviar para a IA resolver e mapear em categorias.
+    - 🔗 **OpenAI Vision:** [Guia Vision API](https://platform.openai.com/docs/guides/vision)
+    - 🔗 **Claude Vision:** [Guia de Construção com Imagens (Vision)](https://docs.anthropic.com/en/docs/build-with-claude/vision)
+    - 🔗 **Qwen VL:** [Guia Vision-Language](https://help.aliyun.com/zh/model-studio/developer-reference/qwen-vl-api)
+    - *Instrução para a IA:* O system prompt do OCR deve impor: "Analise esta imagem de folha de pagamento/nota fiscal. Extraia o valor líquido, descontos, CNPJ da empresa, etc., e retorne ESTRITAMENTE em formato JSON sem blocos de markdown. Não inclua conversas ou saudações."
+
+- [ ] **Tooltips Inteligentes:**
+    - Implementar `react-native-smart-tooltip` para dicas contextuais (ex: explicar a regra 50/30/20 na primeira vez que o utilizador vê o gráfico).
+    - Integrar `react-native-sprinkle-toast` (Documentação Oficial) para feedbacks rápidos e visuais ao enviar mensagens, capturar erros ou salvar análises de OCR no banco de dados.
+- [ ] **Upgrade de OCR:**
+    - Finalizar o motor de leitura de Olerite/Holerite para automação total de receitas mensais.
 
 ### 04 - Corrigir e Melhorar APIs de IA (CONCLUIDA)
 - **Dificuldade:** MEDIO | **Urgencia:** MEDIA | **~2h**
@@ -107,66 +264,6 @@
 - [x] Configurar `appDataFolder` no upload e busca de arquivos
 - [x] Testar OAuth flow completo no APK
 
-### 07 - Melhorar Tour (Baloes, Setas, Minimizar)
-- **Dificuldade:** COMPLEXO | **Urgencia:** MEDIA | **~8-12h**
-- **Problema:** Tour reseta para step 0 ao remontar (parece travado na 1a pagina), bloqueia experimentacao, sem baloes/setas, sem minimizar
-- **Bugs:** Estado nao persistido (useState local reseta), backdrop 45% bloqueia visao, sem highlight de elementos
-- **Solucao:** 4 fases - Fix bugs (persist state) -> Minimizar/Badge -> Baloes/Setas -> Navegacao inteligente
-- **Detalhes:** [docs/roadmap/07-melhorar-tour.md](docs/roadmap/07-melhorar-tour.md)
-- [ ] Fix: Persistir step no AsyncStorage + mover estado para context
-- [ ] Adicionar botao minimizar + badge flutuante
-- [ ] Implementar spotlight mask + setas SVG
-- [ ] Navegacao automatica para tela do step
-
-### 08 - Animacao Individual para Cada Trofeu (167 trofeus)
-- **Dificuldade:** COMPLEXO | **Urgencia:** BAIXA | **~15-25h (com acompanhamento)**
-- **Problema:** Todos os trofeus usam mesma animacao generica. Precisa animacao unica por trofeu
-- **Total:** 40 conquistas + 6 mensais + 48 sazonais + 73 liturgicos = 167 trofeus
-- **Solucao:** Criar config map por trofeu/categoria com parametros de animacao customizados
-- **Detalhes:** [docs/roadmap/08-animacao-trofeus.md](docs/roadmap/08-animacao-trofeus.md) (lista completa de todos os 167 trofeus)
-- [ ] Criar `trophyAnimationConfigs.ts` com mapa de configs
-- [ ] Refatorar AnimatedTrophy e AnimatedSeasonalTrophy para aceitar config
-- [ ] Implementar um a um com aprovacao individual
-
-### 09 - Leitor de Olerite por OCR
-- **Dificuldade:** COMPLEXO | **Urgencia:** MEDIA | **~6-10h**
-- **Depende de:** Tarefa 05 (OCR Android funcionar)
-- **Problema:** Feature nova - capturar valores de medidores via OCR, armazenar historico
-- **Solucao:** Novo parser + nova tela + novo tipo de evento + historico com grafico
-- **Detalhes:** [docs/roadmap/09-olerite-ocr.md](docs/roadmap/09-olerite-ocr.md)
-- [ ] Criar `oleriteParser.ts`
-- [ ] Criar tela de captura reutilizando OcrScanScreen
-- [ ] Implementar historico com grafico de evolucao
-- [ ] Testes unitarios
-
----
-
-## Ordem de Execucao Recomendada
-
-```
-URGENCIA CRITICA (fazer primeiro):
-  05 - Fix OCR Android .......... [MEDIO]     ~3-4h
-  06 - Fix Google Drive ......... [CONCLUIDA]
-
-URGENCIA ALTA:
-  03 - Testar API OCR ........... [FACIL]     ~1h
-
-URGENCIA MEDIA:
-  01 - Cor Modal Catolico ....... [CONCLUIDA]
-  02 - Correcao Sons ............ [CONCLUIDA]
-  04 - Corrigir APIs IA ......... [CONCLUIDA]
-  07 - Melhorar Tour ............ [COMPLEXO]  ~8-12h
-  09 - Olerite OCR .............. [COMPLEXO]  ~6-10h
-
-URGENCIA BAIXA (quando houver tempo):
-  08 - Animacao Trofeus ......... [COMPLEXO]  ~15-25h
-```
-
-*Nota: Antes de cada tarefa, sera realizada uma analise tecnica detalhada com planejamento via Task Master.*
-
-# 🚀 Plano Mestre de Evolução: DOMUS 2.0
-
-Este documento detalha o roteiro estratégico para estabilização técnica, modernização visual e upgrade de experiência do utilizador (UX) do ecossistema DOMUS.
 
 ---
 
@@ -243,68 +340,3 @@ O Android 16 (API 36) adotou Edge-to-Edge obrigatório por padrão. O sistema ag
 - [ ] O tour completo (22 steps) executa sem flickering, trava ou minimização indevida no mesmo dispositivo
 - [ ] Nenhum erro `null child` ou `EdgeToEdgeReactViewGroup` nos logs do Metro/Logcat
 - [ ] Screenshot comparativo (antes/depois) com as insets corretas nas telas principais
-
-## ⌨️ Fase 2: Eficiência e Entrada de Dados
-*Foco: Melhorar a interação com o teclado e a velocidade de registo de gastos.*
-
-- [ ] **Otimização de Teclado (KeyboardAvoidingView):**
-    - Integrar `KeyboardAvoidingView` nativo em todos os formulários e na tela de Chat da IA.
-    - Configuração recomendada: `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}`.
-- [ ] **Menu de Ações Circular (Circular Action Menu):**
-    - Substituir o botão "+" estático por um menu radial fluido para acesso rápido:
-        - 🎙️ Comando de Voz
-        - 📸 OCR / Nota Fiscal
-        - 📄 Cadastro Manual
-
-## 🎨 Fase 3: Design System "Premium" (Tamagui & Rive)
-*Foco: Transformar a identidade visual e a performance da interface.*
-
-- [ ] **Migração para Tamagui:**
-    - Implementar Temas Dinâmicos (Católico/Laico) com suporte nativo a Dark Mode.
-    - Substituir `StyleSheet` tradicional por componentes atómicos do Tamagui para renderização ultra-rápida.
-- [ ] **Animações Interativas (Troféus):**
-    - Integrar `@rive-app/react-native`.
-    - Converter os 167 troféus em vetores animados que reagem ao toque e brilham ao ganhar XP.
-- [ ] **Listas Ultra-Rápidas (FlashList):**
-    - Substituir `FlatList` pelo **FlashList (Shopify)** para garantir scroll de 120Hz constante em ecrãs modernos.
-
-## 🤖 Fase 4: Inteligência e Consultoria Financeira
-*Foco: Tornar a IA uma ferramenta de nível profissional.*
-
-- [ ] **Interface de Chat com Gifted Chat:**
-    - Bolhas de chat profissionais, suporte a anexos e indicadores de "IA a escrever".
-    - Renderização de mini-gráficos financeiros diretamente dentro da conversa.
-- [ ] **Tooltips Inteligentes:**
-    - Implementar `react-native-smart-tooltip` para dicas contextuais (ex: explicar a regra 50/30/20 na primeira vez que o utilizador vê o gráfico).
-- [ ] **Upgrade de OCR:**
-    - Finalizar o motor de leitura de Olerite/Holerite para automação total de receitas mensais.
-
----
-
-## 📦 Checklist de Novas Dependências (Para Instalar)
-
-```bash
-# UI & Performance
-yarn add tamagui @rive-app/react-native @shopify/flash-list @bsky.app/expo-scroll-edge-effect
-
-# Tour & Overlay (SVG Mask já implementado — só validar safe-area-context)
-yarn add react-native-safe-area-context
-
-# UX & Chat
-yarn add react-native-gifted-chat react-native-circular-action-menu react-native-smart-tooltip react-native-sprinkle-toast
-```
-
-### Referências das Bibliotecas
-
-| Biblioteca | Fase | Expo Managed | Docs |
-|---|---|:---:|---|
-| `react-native-safe-area-context` | 1.1 | ✅ | [reactnative.directory](https://reactnative.directory/package/react-native-safe-area-context) |
-| `rn-tourguide` | ~~1.2~~ incompatível | ❌ | [reactnative.directory](https://reactnative.directory/package/rn-tourguide) |
-| `react-native-spotlight-tour` | ~~1.2~~ incompatível | ❌ | [reactnative.directory](https://reactnative.directory/package/react-native-spotlight-tour) |
-| `react-native-masked-animated-view` | ~~1.2~~ incompatível | ❓ | [reactnative.directory](https://reactnative.directory/package/react-native-masked-animated-view) |
-| `@bsky.app/expo-scroll-edge-effect` | 3 | ✅ | [reactnative.directory](https://reactnative.directory/package/@bsky.app/expo-scroll-edge-effect) |
-| `react-native-smart-tooltip` | 4 | ✅ | [reactnative.directory](https://reactnative.directory/package/react-native-smart-tooltip) |
-| `react-native-sprinkle-toast` | 4 | ✅ | [reactnative.directory](https://reactnative.directory/package/react-native-sprinkle-toast) |
-| `@rive-app/react-native` | 3 | ✅ | [reactnative.directory](https://reactnative.directory/package/@rive-app/react-native) |
-| `react-native-gifted-chat` | 4 | ✅ | [github.com](https://github.com/FaridSafi/react-native-gifted-chat) |
-| `react-native-circular-action-menu` | 2 | ❓ | [github.com](https://github.com/geremih/react-native-circular-action-menu) |
