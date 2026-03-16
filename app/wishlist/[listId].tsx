@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
+import { ConfirmDeleteModal } from "@/src/components/shared/ConfirmDeleteModal";
 import { useWishlist } from "@/src/hooks/useWishlist";
 import { usePriceRefresh } from "@/src/hooks/usePriceRefresh";
 import { createEvent, generateId } from "@packages/events/src/factory";
@@ -44,6 +45,7 @@ export default function WishlistDetailScreen() {
   } = useWishlist();
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Auto-open add modal when navigated with ?addItem=1
   useEffect(() => {
@@ -253,21 +255,7 @@ export default function WishlistDetailScreen() {
           {list.name}
         </Text>
         <TouchableOpacity
-          onPress={() => {
-            soundManager.play("tap");
-            Alert.alert(
-              "Excluir lista",
-              `Tem certeza que deseja excluir "${list.name}" e todos os itens?`,
-              [
-                { text: "Cancelar", style: "cancel" },
-                {
-                  text: "Excluir",
-                  style: "destructive",
-                  onPress: () => { soundManager.play("trash"); deleteList(list.id); router.back(); },
-                },
-              ],
-            );
-          }}
+          onPress={() => setShowDeleteConfirm(true)}
           style={styles.deleteBtn}
           activeOpacity={0.7}
         >
@@ -326,6 +314,14 @@ export default function WishlistDetailScreen() {
         theme={theme}
         onConfirm={handleConvertConfirm}
         onCancel={() => setConvertItem(null)}
+      />
+      <ConfirmDeleteModal
+        visible={showDeleteConfirm}
+        title="Excluir lista"
+        description={`Tem certeza que deseja excluir "${list.name}" e todos os seus itens? Esta ação não pode ser desfeita.`}
+        onConfirm={() => { setShowDeleteConfirm(false); deleteList(list.id); router.back(); }}
+        onCancel={() => setShowDeleteConfirm(false)}
+        theme={theme}
       />
     </SafeAreaView>
   );
