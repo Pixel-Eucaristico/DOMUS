@@ -84,14 +84,18 @@ export function ProviderSwitchModal({
 
 /** Detect if a message indicates a provider limit/failure */
 export function detectProviderIssue(text: string): string | null {
-  if (text.includes("circuit breaker") || text.includes("temporariamente indisponivel") || text.includes("temporariamente indisponível")) {
+  const lower = text.toLowerCase();
+  if (lower.includes("circuit breaker") || lower.includes("temporariamente indisponivel") || lower.includes("temporariamente indisponível")) {
     return "Muitas falhas consecutivas. O provedor foi bloqueado temporariamente.";
   }
-  if (text.includes("Limite") && (text.includes("tokens") || text.includes("atingido"))) {
+  if (lower.includes("limite") && (lower.includes("tokens") || lower.includes("atingido"))) {
     return "Limite de tokens atingido para este provedor.";
   }
-  if (text.includes("429") || text.includes("rate") || text.includes("excedido")) {
+  if (lower.includes("429") || lower.includes("rate") || lower.includes("excedido") || lower.includes("resource_exhausted")) {
     return "Limite de requisicoes excedido pelo provedor.";
+  }
+  if (lower.includes("invalida") && lower.includes("chave")) {
+    return "Chave de API invalida ou expirada.";
   }
   return null;
 }
