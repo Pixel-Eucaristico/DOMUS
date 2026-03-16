@@ -37,6 +37,7 @@ interface TransactionBottomSheetProps {
   visible: boolean;
   onClose: () => void;
   theme: ThemeColors;
+  initialType?: "income" | "expense" | "transfer";
 }
 
 const STATUS_OPTIONS: { key: TransactionStatus; label: string; icon: string }[] = [
@@ -54,7 +55,7 @@ const RECURRENCE_OPTIONS: { key: RecurrenceType; label: string }[] = [
 
 const SHEET_TRANSLATE = 700;
 
-export function TransactionBottomSheet({ visible, onClose, theme }: TransactionBottomSheetProps) {
+export function TransactionBottomSheet({ visible, onClose, theme, initialType }: TransactionBottomSheetProps) {
   const { domain } = useAppState();
   const insets = useSafeAreaInsets();
   const form = useTransactionForm(undefined, onClose);
@@ -65,8 +66,9 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
     if (visible) {
       soundManager.play("pop");
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      if (initialType) form.setTxType(initialType);
     }
-  }, [visible]);
+  }, [visible, initialType]);
 
   const handleClose = () => {
     soundManager.play("tap");

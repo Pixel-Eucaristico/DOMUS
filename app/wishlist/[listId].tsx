@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef } from "react";
+import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -26,7 +26,7 @@ import { ConvertToExpenseModal } from "@/src/components/wishlist/ConvertToExpens
 import type { WishlistItem, UrgencyLevel } from "@packages/wishlist";
 
 export default function WishlistDetailScreen() {
-  const { listId } = useLocalSearchParams<{ listId: string }>();
+  const { listId, addItem: addItemParam } = useLocalSearchParams<{ listId: string; addItem?: string }>();
   const router = useRouter();
   const { theme, domain, budget, dispatchDomainEvent, deviceId } = useAppState();
   const did = deviceId ?? "local";
@@ -43,6 +43,11 @@ export default function WishlistDetailScreen() {
   } = useWishlist();
 
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Auto-open add modal when navigated with ?addItem=1
+  useEffect(() => {
+    if (addItemParam === "1") setShowAddModal(true);
+  }, [addItemParam]);
   const [editItem, setEditItem] = useState<WishlistItem | null>(null);
   const [convertItem, setConvertItem] = useState<WishlistItem | null>(null);
 

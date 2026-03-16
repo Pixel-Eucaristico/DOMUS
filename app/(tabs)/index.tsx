@@ -19,6 +19,9 @@ import { DomusLogo } from "@/src/components/shared/DomusLogo";
 import { AnimatedCard } from "@/src/components/shared/AnimatedCard";
 import { AnimatedIconButton } from "@/src/components/shared/AnimatedIconButton";
 import { soundManager } from "@/src/services/SoundManager";
+import { useAISettings } from "@/src/hooks/useAISettings";
+import { useWishlist } from "@/src/hooks/useWishlist";
+import { SelectionModal } from "@/src/components/shared/SelectionModal";
 import { formatCurrency } from "@/src/utils/formatCurrency";
 import {
   ALL_SEASONAL_TROPHIES,
@@ -55,6 +58,10 @@ export default function HomeScreen() {
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
   const [showAddSheet, setShowAddSheet] = useState(false);
+  const [addSheetType, setAddSheetType] = useState<"income" | "expense" | "transfer" | undefined>(undefined);
+  const { settings: aiSettings } = useAISettings();
+  const { lists: wishlistLists } = useWishlist();
+  const [showListPicker, setShowListPicker] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const scrollYRef = useRef<number>(0);
   const { isGuideActive: tourActive } = useTourPage(0);
@@ -162,13 +169,64 @@ export default function HomeScreen() {
     return result;
   }, [txArr, savingsGoalAccounts]);
 
-  const handleAddPress = () => {
-    soundManager.play("pop");
+  const playTap = () => {
+    soundManager.play("tap");
     if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    setShowAddSheet(true);
   };
+
+  const fabActions = useMemo(() => {
+    const all = [
+      // ── Página 1: principais ──
+      {
+        id: "manual",
+        icon: "edit-3" as const,
+        label: "Cadastro",
+        color: theme.primaryColor,
+        onPress: () => { soundManager.play("pop"); setAddSheetType(undefined); setShowAddSheet(true); },
+      },
+      ...(wishlistLists.length > 0 ? [{
+        id: "wishlist",
+        icon: "heart" as const,
+        label: "Wishlist",
+        color: "#EC4899",
+        onPress: () => { soundManager.play("tap"); setShowListPicker(true); },
+      }] : []),
+      {
+        id: "ocr",
+        icon: "camera" as const,
+        label: "NF",
+        color: "#F59E0B",
+        onPress: () => { soundManager.play("tap"); router.push("/import-invoice"); },
+      },
+      // ── Página 2: secundárias ──
+      ...(aiSettings.isEnabled ? [
+        {
+          id: "ai",
+          icon: "cpu" as const,
+          label: "Chat IA",
+          color: "#8B5CF6",
+          onPress: () => { soundManager.play("tap"); router.push("/ai-chat"); },
+        },
+        {
+          id: "voice",
+          icon: "mic" as const,
+          label: "Voz",
+          color: "#EF4444",
+          onPress: () => { soundManager.play("tap"); router.push({ pathname: "/ai-chat", params: { voice: "1" } }); },
+        },
+      ] : []),
+      {
+        id: "transfer",
+        icon: "repeat" as const,
+        label: "Transferir",
+        color: "#06B6D4",
+        onPress: () => { soundManager.play("pop"); setAddSheetType("transfer"); setShowAddSheet(true); },
+      },
+    ];
+    return all;
+  }, [theme.primaryColor, router, aiSettings.isEnabled]);
 
   const handleBudgetPress = (group: string) => {
     router.push(`/category-detail/${group}?month=${selectedMonth}&year=${selectedYear}`);
@@ -504,12 +562,29 @@ export default function HomeScreen() {
         bottom={insets.bottom + webBottomInset + 80}
         primaryColor={theme.primaryColor}
         disabled={tourActive}
-        onPress={handleAddPress}
+        actions={fabActions}
       />
 
       <TransactionBottomSheet
         visible={showAddSheet}
-        onClose={() => setShowAddSheet(false)}
+        onClose={() => { setShowAddSheet(false); setAddSheetType(undefined); }}
+        theme={theme}
+        initialType={addSheetType}
+      />
+
+      {/* Wishlist list picker */}
+      <SelectionModal
+        visible={showListPicker}
+        title="Adicionar a qual lista?"
+        options={wishlistLists.map((list) => ({
+          label: list.name,
+          icon: "heart",
+          onPress: () => {
+            setShowListPicker(false);
+            router.push({ pathname: "/wishlist/[listId]", params: { listId: list.id, addItem: "1" } });
+          },
+        }))}
+        onCancel={() => setShowListPicker(false)}
         theme={theme}
       />
     </View>

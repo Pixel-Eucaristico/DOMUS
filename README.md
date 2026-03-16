@@ -49,6 +49,8 @@ Aplicativo mobile de cunho religioso/espiritual desenvolvido com React Native e 
 | [expo-status-bar](https://docs.expo.dev/versions/latest/sdk/status-bar) | ~3.0.9 | https://docs.expo.dev/versions/latest/sdk/status-bar |
 | [expo-system-ui](https://docs.expo.dev/versions/latest/sdk/system-ui) | ~6.0.9 | https://docs.expo.dev/versions/latest/sdk/system-ui |
 | [react-native-worklets](https://github.com/margelo/react-native-worklets) | 0.5.1 | https://github.com/margelo/react-native-worklets |
+| [react-native-gifted-chat](https://github.com/FaridSafi/react-native-gifted-chat) | ^2.6.4 | https://github.com/FaridSafi/react-native-gifted-chat |
+| [react-native-avoid-softinput](https://mateusz1913.github.io/react-native-avoid-softinput) | ^6.1.0 | https://mateusz1913.github.io/react-native-avoid-softinput |
 
 ---
 
@@ -222,6 +224,19 @@ Aplicativo mobile de cunho religioso/espiritual desenvolvido com React Native e 
 
 ---
 
+## Changelog
+
+### v1.3.0 (2026-03-15)
+- **feat(chat):** migrar interface de chat IA para `react-native-gifted-chat` com bolhas Markdown, indicador de digitacao nativo e botao "Ouvir"
+- **feat(keyboard):** integrar `react-native-avoid-softinput` para prevencao nativa de sobreposicao de teclado em todos os inputs
+- **feat(ui):** componentes reutilizaveis `AppTextInput` e `KeyboardSafeView`
+- **refactor:** remover `KeyboardProvider` global do layout raiz (isolado apenas na tela de chat)
+
+### v1.2.13 (2026-03-14)
+- release: bump version + fix CI disk space
+
+---
+
 ## Creditos
 
 Este projeto utiliza e e grato as seguintes comunidades e mantenedores de codigo aberto:
@@ -238,6 +253,8 @@ Este projeto utiliza e e grato as seguintes comunidades e mantenedores de codigo
 - **Marc Rousavy** — pelo react-native-vision-camera e react-native-worklets
 - **Paul Miller** — pelas bibliotecas noble-ciphers e noble-hashes
 - **Kirill Zyusko** — pelo react-native-keyboard-controller
+- **Mateusz Mierzwa** — pelo react-native-avoid-softinput
+- **Farid Safi** — pelo react-native-gifted-chat
 - **Colby Fayock / nostr-tools contributors** — pelo nostr-tools
 - **Naptha** — pelo Tesseract.js
 - **Todos os demais contribuidores** de cada pacote listado acima
