@@ -71,17 +71,8 @@ URGENCIA BAIXA (quando houver tempo):
 
 Este documento detalha o roteiro estratégico para estabilização técnica, modernização visual e upgrade de experiência do utilizador (UX) do ecossistema DOMUS.
 
-## ⌨️ Fase 2: Eficiência e Entrada de Dados
+## ⌨️ Fase 2: Eficiência e Entrada de Dados (CONCLUIDA)
 *Foco: Melhorar a interação com o teclado e a velocidade de registo de gastos.*
-
-- [ ] **Otimização de Teclado (KeyboardAvoidingView):**
-    - Integrar `KeyboardAvoidingView` nativo em todos os formulários e na tela de Chat da IA.
-    - Configuração recomendada: `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}`.
-- [ ] **Menu de Ações Circular (Circular Action Menu):**
-    - Substituir o botão "+" estático por um menu radial fluido para acesso rápido:
-        - 🎙️ Comando de Voz
-        - 📸 OCR / Nota Fiscal
-        - 📄 Cadastro Manual
 
 ## 🎨 Fase 3: Design System "Premium" (Tamagui & Rive)
 *Foco: Transformar a identidade visual e a performance da interface.*
@@ -263,6 +254,25 @@ Termninados
 - [x] Adicionar `client_secret` no token exchange e refresh
 - [x] Configurar `appDataFolder` no upload e busca de arquivos
 - [x] Testar OAuth flow completo no APK
+
+### Fase 2 - Eficiência e Entrada de Dados (CONCLUIDA)
+- [x] **Otimização de Teclado:**
+    - ~~KeyboardAvoidingView nativo~~ Substituído por `react-native-avoid-softinput` (solução nativa global).
+    - `AvoidSoftInput.setEnabled(true)` no `_layout.tsx` — funciona em todos os TextInput automaticamente.
+    - Chat da IA usa `KeyboardProvider` local do `react-native-keyboard-controller` (isolado).
+- [x] **Menu de Ações Circular (Speed Dial):**
+    - FAB "+" reescrito com Reanimated — arco de 1/4 de círculo (180°→270°) centralizado.
+    - 6 ações com paginação (3+3, botão rotacionar):
+        - Página 1: 📄 Cadastro Manual, 🎁 Wishlist (selecionar lista + add item), 📸 NF/OCR
+        - Página 2: 🤖 Chat IA, 🎙️ Comando de Voz, 💸 Transferência (modal com aba pré-selecionada)
+    - Chat IA e Voz ocultos se IA desabilitada. Wishlist oculto se sem listas.
+    - Backdrop semi-transparente, animação spring, sons e haptics.
+- [x] **Excluir Lista de Desejos:**
+    - Botão lixeira no header da tela de detalhe da lista.
+    - Modal customizado de confirmação (`ConfirmDeleteModal`) com som de exclusão só na confirmação.
+    - Remove lista e todos os itens associados.
+- [x] **Fix UI Wishlist:**
+    - Título "Lista de Desejos" com padding superior e lateral corrigidos.
 
 
 ---

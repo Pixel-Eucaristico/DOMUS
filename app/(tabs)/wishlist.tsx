@@ -163,6 +163,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontFamily: "DMSans_700Bold",
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 8,
   },
   fab: {
     width: 60,
