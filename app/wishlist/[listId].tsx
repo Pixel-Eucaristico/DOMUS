@@ -40,6 +40,7 @@ export default function WishlistDetailScreen() {
     changePriority,
     convertToExpense,
     computeAffordability,
+    deleteList,
   } = useWishlist();
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -252,6 +253,27 @@ export default function WishlistDetailScreen() {
           {list.name}
         </Text>
         <TouchableOpacity
+          onPress={() => {
+            soundManager.play("trash");
+            Alert.alert(
+              "Excluir lista",
+              `Tem certeza que deseja excluir "${list.name}" e todos os itens?`,
+              [
+                { text: "Cancelar", style: "cancel" },
+                {
+                  text: "Excluir",
+                  style: "destructive",
+                  onPress: () => { deleteList(list.id); router.back(); },
+                },
+              ],
+            );
+          }}
+          style={styles.deleteBtn}
+          activeOpacity={0.7}
+        >
+          <Feather name="trash-2" size={18} color={theme.danger ?? "#DC2626"} />
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.addBtn, { backgroundColor: theme.primaryColor }]}
           onPress={() => { soundManager.play("pop"); setShowAddModal(true); }}
           activeOpacity={0.7}
@@ -323,6 +345,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 20,
     fontFamily: "DMSans_700Bold",
+  },
+  deleteBtn: {
+    padding: 8,
   },
   addBtn: {
     width: 38,

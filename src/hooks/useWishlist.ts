@@ -12,6 +12,7 @@ import {
   updateWishlistPriceEvent,
   convertWishlistItemToExpenseEvent,
   setSavingsGoalEvent,
+  deleteWishlistListEvent,
 } from "@packages/wishlist";
 import type {
   WishlistItem,
@@ -26,6 +27,7 @@ export interface UseWishlistResult {
   getItemsByList: (listId: string) => WishlistItem[];
   getItemsByUrgency: (listId: string, urgency: UrgencyLevel) => WishlistItem[];
   createList: (name: string) => void;
+  deleteList: (listId: string) => void;
   addItem: (item: Omit<WishlistItem, "id"> & { id?: string }) => void;
   updateItem: (
     itemId: string,
@@ -89,6 +91,13 @@ export function useWishlist(): UseWishlistResult {
   const createList = useCallback(
     (name: string) => {
       dispatch(createWishlistListEvent(name, did));
+    },
+    [dispatch, did],
+  );
+
+  const deleteList = useCallback(
+    (listId: string) => {
+      dispatch(deleteWishlistListEvent(listId, did));
     },
     [dispatch, did],
   );
@@ -214,6 +223,7 @@ export function useWishlist(): UseWishlistResult {
     getItemsByList,
     getItemsByUrgency,
     createList,
+    deleteList,
     addItem,
     updateItem,
     changePriority,

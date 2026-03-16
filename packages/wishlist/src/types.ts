@@ -8,6 +8,7 @@ export const WISHLIST_EVENTS = {
   WISHLIST_PRICE_UPDATED: "WISHLIST_PRICE_UPDATED",
   WISHLIST_ITEM_CONVERTED_TO_EXPENSE: "WISHLIST_ITEM_CONVERTED_TO_EXPENSE",
   WISHLIST_SAVINGS_GOAL_SET: "WISHLIST_SAVINGS_GOAL_SET",
+  WISHLIST_LIST_DELETED: "WISHLIST_LIST_DELETED",
 } as const;
 
 export type WishlistEventType =
@@ -167,6 +168,11 @@ export interface WishlistSavingsGoalSetPayload {
   metadata: WishlistEventMetadata;
 }
 
+export interface WishlistListDeletedPayload {
+  listId: string;
+  metadata: WishlistEventMetadata;
+}
+
 // ─── Events ───────────────────────────────────────────────────────────────────
 
 interface WishlistBaseEvent {
@@ -222,6 +228,11 @@ export interface WishlistSavingsGoalSetEvent extends WishlistBaseEvent {
   payload: WishlistSavingsGoalSetPayload;
 }
 
+export interface WishlistListDeletedEvent extends WishlistBaseEvent {
+  type: typeof WISHLIST_EVENTS.WISHLIST_LIST_DELETED;
+  payload: WishlistListDeletedPayload;
+}
+
 export type WishlistEvent =
   | WishlistListCreatedEvent
   | WishlistItemAddedEvent
@@ -231,7 +242,8 @@ export type WishlistEvent =
   | WishlistItemRemovedEvent
   | WishlistPriceUpdatedEvent
   | WishlistItemConvertedToExpenseEvent
-  | WishlistSavingsGoalSetEvent;
+  | WishlistSavingsGoalSetEvent
+  | WishlistListDeletedEvent;
 
 // ─── Affordability ────────────────────────────────────────────────────────────
 
