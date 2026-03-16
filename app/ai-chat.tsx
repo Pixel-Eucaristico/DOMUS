@@ -26,7 +26,11 @@ import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyServi
 import { OpenAIAdapter } from "@packages/../packages/ai/src/adapters/OpenAIAdapter";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
 import { MarkdownText } from "@/src/components/ai/ChatBubble";
-import type { ChatMessage } from "@packages/ai";
+import { FinancialCard } from "@/src/components/ai/FinancialCard";
+import { QuickSuggestions } from "@/src/components/ai/QuickSuggestions";
+import { ChatActionMenu } from "@/src/components/ai/ChatActionMenu";
+import type { ChatAction } from "@/src/components/ai/ChatActionMenu";
+import type { ChatMessage, ConsultationResult } from "@packages/ai";
 import type { AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -45,6 +49,28 @@ function toGiftedMessage(msg: ChatMessage): IMessage {
     ...(msg.tokensUsed != null && { tokensUsed: msg.tokensUsed }),
     ...(msg.isLocalFallback && { isLocalFallback: true }),
   } as IMessage;
+}
+
+/** Try to extract a TOON-parsed ConsultationResult from message metadata */
+function tryParseConsultation(msg: IMessage): ConsultationResult | null {
+  const extra = msg as IMessage & { consultationResult?: ConsultationResult };
+  if (extra.consultationResult) return extra.consultationResult;
+
+  // Try to detect structured JSON in the message text (fallback)
+  try {
+    const text = msg.text ?? "";
+    // Look for JSON that looks like a ConsultationResult
+    const match = text.match(/\{[\s\S]*"decision"\s*:\s*"(Buy|Delay|Avoid)"[\s\S]*\}/);
+    if (match) {
+      const parsed = JSON.parse(match[0]) as ConsultationResult;
+      if (parsed.decision && parsed.risk && typeof parsed.confidence === "number") {
+        return { ...parsed, isLocalFallback: false, tokensUsed: 0 };
+      }
+    }
+  } catch {
+    // not structured data
+  }
+  return null;
 }
 
 // ─── Screen ─────────────────────────────────────────────────────────────────
@@ -108,6 +134,30 @@ export default function AIChatScreen() {
     [isLoading, sendMessage, settings.dataPermissions],
   );
 
+  // ─── Quick suggestion handler ───────────────────────────────────────────
+  const handleQuickSuggestion = useCallback(
+    (text: string) => {
+      handleSend([{ _id: Date.now(), text, createdAt: new Date(), user: HUMAN_USER }]);
+    },
+    [handleSend],
+  );
+
+  // ─── Action menu handler ──────────────────────────────────────────────
+  const handleAction = useCallback(
+    (action: ChatAction) => {
+      const prompts: Record<ChatAction, string> = {
+        scan_invoice: "Quero escanear uma nota fiscal para extrair os dados automaticamente",
+        scan_payslip: "Quero escanear meu holerite para registrar minha receita",
+        monthly_summary: "Faca um resumo financeiro completo do meu mes atual",
+        classify_transactions: "Classifique minhas transacoes recentes nas categorias corretas",
+        budget_check: "Como estou em relacao ao meu orcamento este mes?",
+        savings_tips: "Identifique onde estou gastando demais e sugira onde posso economizar",
+      };
+      handleQuickSuggestion(prompts[action]);
+    },
+    [handleQuickSuggestion],
+  );
+
   const handlePermissionAllow = useCallback(async () => {
     if (!permissionModal) return;
     const { key, pendingText } = permissionModal;
@@ -146,6 +196,25 @@ export default function AIChatScreen() {
     }
   }, [isRecording, pulseAnim]);
 
+  // ─── Resolve the audio API key (audio provider may differ from text provider)
+  const getAudioApiKey = useCallback(async () => {
+    const audioProv = settings.audioProvider ?? "openai";
+    if (audioProv === "elevenlabs") {
+      return SecureKeyService.retrieveKey("elevenlabs" as any);
+    }
+    // For openai, gemini, qwen audio: use the matching provider key
+    const keyMap: Record<string, string> = { openai: "openai", gemini: "gemini", qwen: "qwen" };
+    return SecureKeyService.retrieveKey((keyMap[audioProv] ?? "openai") as any);
+  }, [settings.audioProvider]);
+
+  const speakText = useCallback(async (text: string) => {
+    const apiKey = await getAudioApiKey();
+    if (!apiKey) return;
+    const audioProv = settings.audioProvider ?? "openai";
+    const voice = settings.audioVoice ?? settings.openaiVoice ?? "nova";
+    await voiceOutputService.speak(text, apiKey, audioProv, voice);
+  }, [getAudioApiKey, settings.audioProvider, settings.audioVoice, settings.openaiVoice]);
+
   // ─── Auto-play AI response when voiceEnabled ─────────────────────────────
   useEffect(() => {
     if (!settings.voiceEnabled) return;
@@ -154,15 +223,8 @@ export default function AIChatScreen() {
     if (last.id === lastAssistantId.current) return;
     lastAssistantId.current = last.id;
 
-    SecureKeyService.retrieveKey(settings.provider).then((apiKey) => {
-      voiceOutputService.speak(
-        last.content,
-        settings.provider,
-        apiKey ?? undefined,
-        settings.openaiVoice ?? "nova",
-      );
-    });
-  }, [messages, settings.voiceEnabled, settings.provider, settings.openaiVoice]);
+    speakText(last.content);
+  }, [messages, settings.voiceEnabled, speakText]);
 
   // ─── Voice recording handler ─────────────────────────────────────────────
   const handleVoicePress = useCallback(async () => {
@@ -262,25 +324,26 @@ export default function AIChatScreen() {
                   </Text>
                 )}
 
-                {/* Listen button for AI messages when voice is enabled */}
-                {!isUser && settings.voiceEnabled && (
+                {/* Listen button for AI messages — only when voice mode is enabled */}
+                {!isUser && settings.voiceEnabled && settings.isEnabled && (
                   <TouchableOpacity
                     onPress={() => {
                       soundManager.play("tap");
-                      SecureKeyService.retrieveKey(settings.provider).then((apiKey) => {
-                        voiceOutputService.speak(
-                          msg.text,
-                          settings.provider,
-                          apiKey ?? undefined,
-                          settings.openaiVoice ?? "nova",
-                        );
-                      });
+                      if (voiceOutputService.isSpeaking) {
+                        voiceOutputService.stop();
+                      } else {
+                        speakText(msg.text);
+                      }
                     }}
                     style={[styles.listenBtn, { borderColor: theme.border }]}
                   >
-                    <Feather name="volume-2" size={13} color={theme.secondaryText} />
-                    <Text style={{ color: theme.secondaryText, fontSize: 11, marginLeft: 4 }}>
-                      Ouvir
+                    <Feather
+                      name={voiceOutputService.isSpeaking ? "volume-x" : "volume-2"}
+                      size={13}
+                      color={theme.primaryColor}
+                    />
+                    <Text style={{ color: theme.primaryColor, fontSize: 11, marginLeft: 4 }}>
+                      {voiceOutputService.isSpeaking ? "Parar" : "Ouvir"}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -290,8 +353,26 @@ export default function AIChatScreen() {
         />
       );
     },
-    [theme, settings.voiceEnabled, settings.provider, settings.openaiVoice],
+    [theme, speakText, settings.voiceEnabled, settings.isEnabled],
   );
+
+  const renderCustomView = useCallback(
+    (props: BubbleProps<IMessage>) => {
+      const msg = props.currentMessage;
+      if (!msg || msg.user?._id === HUMAN_USER._id) return null;
+
+      const consultation = tryParseConsultation(msg);
+      if (!consultation) return null;
+
+      return (
+        <View style={{ paddingHorizontal: 8, paddingBottom: 4 }}>
+          <FinancialCard result={consultation} />
+        </View>
+      );
+    },
+    [],
+  );
+
 
   const renderInputToolbar = useCallback(
     (props: InputToolbarProps<IMessage>) => (
@@ -308,26 +389,40 @@ export default function AIChatScreen() {
 
   const renderComposer = useCallback(
     (props: ComposerProps) => (
-      <Composer
-        {...props}
-        textInputProps={{
-          ...props.textInputProps,
-          style: [
-            styles.composer,
-            {
-              color: theme.textColor,
-              backgroundColor: theme.cardBackground,
-              borderColor: theme.border,
-            },
-          ],
-          maxLength: 500,
-          placeholder: "Pergunte algo sobre suas finanças...",
-          placeholderTextColor: theme.secondaryText,
-          multiline: true,
-        }}
-      />
+      <View style={{ flexDirection: "row", alignItems: "flex-end", flex: 1, gap: 6 }}>
+        {/* Action menu "+" button */}
+        {settings.isEnabled && (
+          <View style={{ marginBottom: 4 }}>
+            <ChatActionMenu
+              onAction={handleAction}
+              visionOCREnabled={settings.visionOCREnabled}
+            />
+          </View>
+        )}
+
+        <View style={{ flex: 1 }}>
+          <Composer
+            {...props}
+            textInputProps={{
+              ...props.textInputProps,
+              style: [
+                styles.composer,
+                {
+                  color: theme.textColor,
+                  backgroundColor: theme.cardBackground,
+                  borderColor: theme.border,
+                },
+              ],
+              maxLength: 500,
+              placeholder: "Pergunte algo... (*negrito* _italico_)",
+              placeholderTextColor: theme.secondaryText,
+              multiline: true,
+            }}
+          />
+        </View>
+      </View>
     ),
-    [theme],
+    [theme, settings.isEnabled, settings.visionOCREnabled, handleAction],
   );
 
   const renderSend = useCallback(
@@ -464,6 +559,9 @@ export default function AIChatScreen() {
           provider={settings.provider}
           modelTier={settings.modelTier}
           customBudgets={settings.customBudgets}
+          budgetMode={settings.budgetMode}
+          monthlyBudgets={settings.monthlyBudgets}
+          billingDay={settings.billingDay}
           refreshKey={messages.length}
         />
 
@@ -474,10 +572,21 @@ export default function AIChatScreen() {
           user={HUMAN_USER}
           isTyping={isLoading || welcomeLoading}
           renderBubble={renderBubble}
+          renderCustomView={renderCustomView}
           renderInputToolbar={renderInputToolbar}
           renderComposer={renderComposer}
           renderSend={renderSend}
+          renderChatFooter={settings.isEnabled ? () => (
+            <QuickSuggestions
+              onSelect={handleQuickSuggestion}
+              hasMessages={messages.length > 0}
+            />
+          ) : undefined}
+          /* ── Avatars ── */
+          renderAvatar={() => null}
+          /* ── Keyboard & UX ── */
           isSendButtonAlwaysVisible
+          /* ── Styles ── */
           messagesContainerStyle={{ backgroundColor: theme.background }}
           timeTextStyle={{
             left: { color: theme.secondaryText, fontSize: 11 },

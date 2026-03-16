@@ -2,9 +2,8 @@ import { Platform } from "react-native";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import type { AudioPlayer } from "expo-audio";
 import { File, Paths } from "expo-file-system";
-import type { AIProvider } from "@packages/ai";
-import type { OpenAIVoiceId } from "@packages/../packages/ai/src/adapters/OpenAIAdapter";
-import { OpenAIAdapter } from "@packages/../packages/ai/src/adapters/OpenAIAdapter";
+import type { AudioProvider } from "@packages/ai";
+import { AudioProviderFactory } from "@packages/../packages/ai/src/audio/AudioProviderFactory";
 
 class VoiceOutputService {
   private player: AudioPlayer | null = null;
@@ -16,43 +15,21 @@ class VoiceOutputService {
 
   async speak(
     text: string,
-    provider: AIProvider,
-    apiKey?: string,
-    voice: OpenAIVoiceId = "nova",
+    apiKey: string,
+    audioProvider: AudioProvider = "openai",
+    voice: string = "nova",
   ): Promise<void> {
     await this.stop();
 
-    if (provider === "openai" && apiKey && Platform.OS !== "web") {
-      await this._speakOpenAI(text, apiKey, voice);
-    }
-    // For other providers: no TTS without expo-speech
-  }
+    if (Platform.OS === "web" || !apiKey) return;
 
-  async stop(): Promise<void> {
-    this._isSpeaking = false;
-    if (this.player) {
-      try {
-        this.player.pause();
-        this.player.remove();
-      } catch {
-        // ignore
-      }
-      this.player = null;
-    }
-  }
+    const adapter = AudioProviderFactory.create(audioProvider);
+    const { base64 } = await adapter.synthesize(text, apiKey, voice);
 
-  private async _speakOpenAI(
-    text: string,
-    apiKey: string,
-    voice: OpenAIVoiceId,
-  ): Promise<void> {
-    const adapter = new OpenAIAdapter();
-    const file = new File(Paths.cache, `domus_tts_${Date.now()}.mp3`);
-
-    // Use tmpDir path trick: pass dir string, adapter appends filename
-    const tmpDir = Paths.cache.uri;
-    const raw = await adapter.synthesizeSpeech(text, apiKey, voice, tmpDir);
-    const { base64 } = JSON.parse(raw) as { base64: string; path: string };
+    // Detect WAV header (starts with "RIFF") to use correct extension
+    const isWav = base64.startsWith("UklGR"); // "RIFF" in base64
+    const ext = isWav ? "wav" : "mp3";
+    const file = new File(Paths.cache, `domus_tts_${Date.now()}.${ext}`);
 
     // Write MP3 bytes from base64
     const binaryString = atob(base64);
@@ -83,6 +60,19 @@ class VoiceOutputService {
         if (this.player === player) this.player = null;
       }
     }, 500);
+  }
+
+  async stop(): Promise<void> {
+    this._isSpeaking = false;
+    if (this.player) {
+      try {
+        this.player.pause();
+        this.player.remove();
+      } catch {
+        // ignore
+      }
+      this.player = null;
+    }
   }
 }
 

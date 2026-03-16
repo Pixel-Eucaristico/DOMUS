@@ -1,11 +1,18 @@
-import React, { useMemo } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useMemo, useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import type { TextStyle } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import type { ChatMessage } from "@packages/ai";
 
 interface ChatBubbleProps {
   message: ChatMessage;
+  /** Callback to speak the message text via TTS */
+  onSpeak?: (text: string) => Promise<void>;
+  /** Whether TTS is currently playing */
+  isSpeaking?: boolean;
+  /** Callback to stop TTS */
+  onStopSpeaking?: () => void;
 }
 
 // ─── Lightweight Markdown Renderer ───────────────────────────────────────────
@@ -158,10 +165,25 @@ const mdStyles = StyleSheet.create({
 
 // ─── ChatBubble ──────────────────────────────────────────────────────────────
 
-export function ChatBubble({ message }: ChatBubbleProps) {
+export function ChatBubble({ message, onSpeak, isSpeaking, onStopSpeaking }: ChatBubbleProps) {
   const { theme } = useAppState();
   const isUser = message.role === "user";
   const textColor = isUser ? "#fff" : theme.textColor;
+  const [isSynthesizing, setIsSynthesizing] = useState(false);
+
+  const handleSpeak = async () => {
+    if (isSpeaking) {
+      onStopSpeaking?.();
+      return;
+    }
+    if (!onSpeak) return;
+    setIsSynthesizing(true);
+    try {
+      await onSpeak(message.content);
+    } finally {
+      setIsSynthesizing(false);
+    }
+  };
 
   return (
     <View
@@ -196,11 +218,33 @@ export function ChatBubble({ message }: ChatBubbleProps) {
           </Text>
         )}
 
-        {message.tokensUsed != null && message.tokensUsed > 0 && (
-          <Text style={[styles.tokens, { color: theme.secondaryText }]}>
-            {message.tokensUsed} tokens
-          </Text>
-        )}
+        {/* Footer row: tokens + listen button */}
+        <View style={styles.bubbleFooter}>
+          {message.tokensUsed != null && message.tokensUsed > 0 && (
+            <Text style={[styles.tokens, { color: theme.secondaryText }]}>
+              {message.tokensUsed} tokens
+            </Text>
+          )}
+
+          {/* Listen button for assistant messages */}
+          {!isUser && onSpeak && (
+            <TouchableOpacity
+              onPress={handleSpeak}
+              style={[styles.listenBtn, { borderColor: theme.border }]}
+              accessibilityLabel={isSpeaking ? "Parar audio" : "Ouvir mensagem"}
+            >
+              {isSynthesizing ? (
+                <ActivityIndicator size={12} color={theme.primaryColor} />
+              ) : (
+                <Feather
+                  name={isSpeaking ? "volume-x" : "volume-2"}
+                  size={13}
+                  color={theme.primaryColor}
+                />
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <Text style={[styles.time, { color: theme.secondaryText }]}>
@@ -242,8 +286,19 @@ const styles = StyleSheet.create({
   },
   tokens: {
     fontSize: 10,
-    marginTop: 2,
     textAlign: "right",
+  },
+  bubbleFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginTop: 4,
+  },
+  listenBtn: {
+    padding: 4,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   time: {
     fontSize: 11,

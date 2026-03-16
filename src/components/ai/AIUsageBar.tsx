@@ -4,13 +4,17 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
 import { TokenPricingService } from "@/src/modules/ai/infrastructure/TokenPricingService";
-import { getProviderBudget, isUnlimitedBudget, PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
+import { getProviderBudget, isUnlimitedBudget, getMonthlyBudget, isUnlimitedMonthlyBudget, PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
+import type { BudgetMode } from "@/src/modules/ai/domain/AISettings";
 import type { AIProvider, AIModelTier, DailyTokenUsage } from "@packages/ai";
 
 interface AIUsageBarProps {
   provider: AIProvider;
   modelTier?: AIModelTier;
   customBudgets?: Partial<Record<AIProvider, number>>;
+  budgetMode?: BudgetMode;
+  monthlyBudgets?: Partial<Record<AIProvider, number>>;
+  billingDay?: number;
   refreshKey?: number;
 }
 
@@ -18,6 +22,8 @@ export function AIUsageBar({
   provider,
   modelTier = "fast",
   customBudgets,
+  budgetMode,
+  monthlyBudgets,
   refreshKey,
 }: AIUsageBarProps) {
   const { theme } = useAppState();
@@ -41,8 +47,13 @@ export function AIUsageBar({
   }, [refresh, refreshKey]);
 
   const providerTokens = usage?.byProvider[provider] ?? 0;
-  const unlimited = isUnlimitedBudget(provider, customBudgets);
-  const budget = getProviderBudget(provider, customBudgets);
+  const isMonthly = budgetMode === "monthly";
+  const unlimited = isMonthly
+    ? isUnlimitedMonthlyBudget(provider, monthlyBudgets)
+    : isUnlimitedBudget(provider, customBudgets);
+  const budget = isMonthly
+    ? getMonthlyBudget(provider, monthlyBudgets)
+    : getProviderBudget(provider, customBudgets);
   const pTheme = PROVIDER_THEME[provider];
 
   if (!usage || providerTokens === 0) return null;

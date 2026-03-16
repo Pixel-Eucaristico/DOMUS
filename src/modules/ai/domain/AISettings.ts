@@ -1,4 +1,4 @@
-import type { AIProvider, AIModelTier } from "@packages/ai";
+import type { AIProvider, AIModelTier, AudioProvider } from "@packages/ai";
 
 /** How the user authenticates with OpenAI: API key or ChatGPT OAuth login */
 export type OpenAIAuthMethod = "apikey" | "chatgpt_oauth";
@@ -92,10 +92,20 @@ export interface AISettings {
   monthlyBudgets?: Partial<Record<AIProvider, number>>;
   /** Day of month when billing cycle resets (1-31, default 1) */
   billingDay?: number;
-  /** Voice mode: microphone input + spoken responses (OpenAI and Gemini only) */
+  /** Voice mode: microphone input + spoken responses */
   voiceEnabled?: boolean;
   /** Voice used by OpenAI TTS (default: "nova") */
   openaiVoice?: OpenAIVoice;
+  /** Independent audio/TTS provider (can differ from text provider) */
+  audioProvider?: AudioProvider;
+  /** Voice ID for the selected audio provider */
+  audioVoice?: string;
+  /** Whether an ElevenLabs API key is stored */
+  elevenLabsKeyStatus?: boolean;
+  /** Enable AI-powered Vision OCR for invoices/payslips */
+  visionOCREnabled?: boolean;
+  /** Enable financial tooltips/educational hints in chat */
+  tooltipsEnabled?: boolean;
   /**
    * true after the system prompt has been sent once this session.
    *

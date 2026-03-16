@@ -18,6 +18,8 @@ import { soundManager } from "@/src/services/SoundManager";
 import { OCRConfigService } from "@/src/services/ocrConfigService";
 import type { OCRProvider } from "@packages/parsers";
 
+type OCRProviderExtended = OCRProvider | "vision_ai";
+
 export default function OCRSettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -25,7 +27,7 @@ export default function OCRSettingsScreen() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [provider, setProvider] = useState<OCRProvider>("mlkit");
+  const [provider, setProvider] = useState<OCRProviderExtended>("mlkit");
   const [apiKey, setApiKey] = useState("");
 
   useEffect(() => {
@@ -57,7 +59,7 @@ export default function OCRSettingsScreen() {
         return;
       }
 
-      await OCRConfigService.setPreferredProvider(provider);
+      await OCRConfigService.setPreferredProvider(provider as OCRProvider);
 
       if (apiKey.trim()) {
         await OCRConfigService.setCloudVisionApiKey(apiKey.trim());

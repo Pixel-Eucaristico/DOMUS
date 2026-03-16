@@ -2,7 +2,6 @@ import React from "react";
 import {
   View,
   Text,
-  ScrollView,
   Switch,
   StyleSheet,
   TouchableOpacity,
@@ -26,7 +25,107 @@ import { APIKeyManager } from "@/src/components/ai/APIKeyManager";
 import { ProviderSelector } from "@/src/components/ai/ProviderSelector";
 import { AIUsageDashboard } from "@/src/components/ai/AIUsageDashboard";
 import { BudgetCostSection } from "@/src/components/ai/BudgetCostSection";
-import type { AIProvider } from "@packages/ai";
+import type { AIProvider, AudioProvider } from "@packages/ai";
+import { ELEVENLABS_VOICES } from "@packages/../packages/ai/src/audio/ElevenLabsAdapter";
+import { QWEN_TTS_VOICES } from "@packages/../packages/ai/src/audio/QwenAudioAdapter";
+import { GEMINI_TTS_VOICES } from "@packages/../packages/ai/src/audio/GeminiAudioAdapter";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function SectionHeader({ title, theme }: { title: string; theme: any }) {
+  return (
+    <View style={styles.sectionHeader}>
+      <Text style={[styles.sectionTitle, { color: theme.secondaryText }]}>
+        {title}
+      </Text>
+    </View>
+  );
+}
+
+function Card({ theme, children }: { theme: any; children: React.ReactNode }) {
+  return (
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: theme.cardBackground, borderColor: theme.border },
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
+
+function ToggleRow({
+  title,
+  subtitle,
+  value,
+  onToggle,
+  disabled,
+  theme,
+}: {
+  title: string;
+  subtitle: string;
+  value: boolean;
+  onToggle: (v: boolean) => void;
+  disabled?: boolean;
+  theme: any;
+}) {
+  return (
+    <View style={styles.toggleRow}>
+      <View style={styles.toggleInfo}>
+        <Text style={[styles.cardTitle, { color: disabled ? theme.secondaryText : theme.textColor }]}>
+          {title}
+        </Text>
+        <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+          {subtitle}
+        </Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={(v) => { soundManager.play("tap"); onToggle(v); }}
+        trackColor={{ false: theme.border, true: theme.primaryColor }}
+        thumbColor="#fff"
+        disabled={disabled}
+      />
+    </View>
+  );
+}
+
+function ChipSelector({
+  options,
+  selected,
+  onSelect,
+  theme,
+}: {
+  options: { id: string; label: string }[];
+  selected: string;
+  onSelect: (id: string) => void;
+  theme: any;
+}) {
+  return (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+      {options.map(({ id, label }) => (
+        <TouchableOpacity
+          key={id}
+          onPress={() => { soundManager.play("tap"); onSelect(id); }}
+          style={[
+            styles.voiceChip,
+            {
+              backgroundColor: selected === id ? theme.primaryColor : theme.cardBackground,
+              borderColor: selected === id ? theme.primaryColor : theme.border,
+            },
+          ]}
+        >
+          <Text style={{ fontSize: 13, color: selected === id ? "#fff" : theme.textColor }}>
+            {label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function AISettingsScreen() {
   const { theme } = useAppState();
@@ -41,6 +140,8 @@ export default function AISettingsScreen() {
   } = useAISettings();
   const { clearHistory } = useAIConsultant(settings);
 
+  const isEnabled = settings.isEnabled;
+
   if (isLoading) {
     return (
       <SafeAreaView
@@ -48,6 +149,19 @@ export default function AISettingsScreen() {
       />
     );
   }
+
+  // Voice list based on audio provider
+  const audioVoices = (() => {
+    const prov = settings.audioProvider ?? "openai";
+    if (prov === "openai") return ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+    if (prov === "elevenlabs") return Object.keys(ELEVENLABS_VOICES).slice(0, 12);
+    if (prov === "gemini") return Object.keys(GEMINI_TTS_VOICES).slice(0, 12);
+    return Object.keys(QWEN_TTS_VOICES);
+  })();
+
+  const currentAudioVoice = settings.audioVoice ?? (
+    (settings.audioProvider ?? "openai") === "openai" ? (settings.openaiVoice ?? "nova") : audioVoices[0] ?? "nova"
+  );
 
   return (
     <SafeAreaView
@@ -75,117 +189,25 @@ export default function AISettingsScreen() {
         keyboardShouldPersistTaps="handled"
         bottomOffset={50}
       >
+        {/* ════════════════════════════════════════════════════════════════════
+            SECAO 1: ATIVACAO E PROVEDOR
+            ════════════════════════════════════════════════════════════════════ */}
+        <SectionHeader title="Configuracao principal" theme={theme} />
+
         {/* Master toggle */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: theme.cardBackground, borderColor: theme.border },
-          ]}
-        >
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleInfo}>
-              <Text style={[styles.cardTitle, { color: theme.textColor }]}>
-                Ativar IA
-              </Text>
-              <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
-                Requer chave de API configurada
-              </Text>
-            </View>
-            <Switch
-              value={settings.isEnabled}
-              onValueChange={(v) => {
-                soundManager.play("tap");
-                updateSettings({ isEnabled: v && hasActiveKey(settings) });
-              }}
-              trackColor={{ false: theme.border, true: theme.primaryColor }}
-              thumbColor="#fff"
-              disabled={!hasActiveKey(settings)}
-            />
-          </View>
-        </View>
+        <Card theme={theme}>
+          <ToggleRow
+            title="Ativar IA"
+            subtitle="Requer chave de API configurada"
+            value={isEnabled}
+            onToggle={(v) => updateSettings({ isEnabled: v && hasActiveKey(settings) })}
+            disabled={!hasActiveKey(settings)}
+            theme={theme}
+          />
+        </Card>
 
-        {/* Voice mode — only for OpenAI and Gemini */}
-        {(settings.provider === "openai" || settings.provider === "gemini") && (
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: theme.cardBackground, borderColor: theme.border },
-            ]}
-          >
-            <View style={styles.toggleRow}>
-              <View style={styles.toggleInfo}>
-                <Text style={[styles.cardTitle, { color: theme.textColor }]}>
-                  Modo Voz
-                </Text>
-                <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
-                  {settings.provider === "openai"
-                    ? "Microfone (Whisper) + resposta em áudio (TTS)"
-                    : "Microfone + resposta via voz nativa"}
-                </Text>
-              </View>
-              <Switch
-                value={settings.voiceEnabled ?? false}
-                onValueChange={(v) => {
-                  soundManager.play("tap");
-                  updateSettings({ voiceEnabled: v });
-                }}
-                trackColor={{ false: theme.border, true: theme.primaryColor }}
-                thumbColor="#fff"
-              />
-            </View>
-
-            {/* OpenAI voice selector */}
-            {settings.provider === "openai" && (settings.voiceEnabled ?? false) && (
-              <View style={{ marginTop: 12, gap: 8 }}>
-                <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
-                  Voz OpenAI TTS
-                </Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                  {(["alloy", "echo", "fable", "onyx", "nova", "shimmer"] as const).map((v) => (
-                    <TouchableOpacity
-                      key={v}
-                      onPress={() => { soundManager.play("tap"); updateSettings({ openaiVoice: v }); }}
-                      style={[
-                        styles.voiceChip,
-                        {
-                          backgroundColor:
-                            (settings.openaiVoice ?? "nova") === v
-                              ? theme.primaryColor
-                              : theme.cardBackground,
-                          borderColor:
-                            (settings.openaiVoice ?? "nova") === v
-                              ? theme.primaryColor
-                              : theme.border,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 13,
-                          color:
-                            (settings.openaiVoice ?? "nova") === v ? "#fff" : theme.textColor,
-                        }}
-                      >
-                        {v}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <Text style={[{ fontSize: 11, color: theme.secondaryText }]}>
-                  ⚠️ Voz OpenAI gera custos extras de API
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Provider + Model */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: theme.cardBackground, borderColor: theme.border },
-          ]}
-        >
+        {/* Provider + Model — always visible so user can configure before enabling */}
+        <Card theme={theme}>
           <Text style={[styles.cardTitle, { color: theme.textColor }]}>
             Provedor e modelo
           </Text>
@@ -205,15 +227,10 @@ export default function AISettingsScreen() {
               onTierChange={(modelTier) => updateSettings({ modelTier })}
             />
           </View>
-        </View>
+        </Card>
 
-        {/* API Key */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: theme.cardBackground, borderColor: theme.border },
-          ]}
-        >
+        {/* API Key — always visible */}
+        <Card theme={theme}>
           <Text style={[styles.cardTitle, { color: theme.textColor }]}>
             Chave de API
           </Text>
@@ -233,94 +250,250 @@ export default function AISettingsScreen() {
               onLogoutChatGPT={logoutChatGPT}
             />
           </View>
-        </View>
+        </Card>
 
-        {/* Data access permissions */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: theme.cardBackground, borderColor: theme.border },
-          ]}
-        >
-          <Text style={[styles.cardTitle, { color: theme.textColor }]}>
-            Acesso aos dados
-          </Text>
-          <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
-            Escolha quais dados a IA pode acessar para respostas mais
-            detalhadas. Nenhum dado pessoal (CPF, nome, conta) é enviado.
-          </Text>
-          <View style={styles.cardBody}>
-            {(Object.keys(AI_DATA_PERMISSION_LABELS) as Array<keyof AIDataPermissions>).map(
-              (key) => {
-                const label = AI_DATA_PERMISSION_LABELS[key];
-                const enabled = settings.dataPermissions[key] ?? false;
+        {/* ════════════════════════════════════════════════════════════════════
+            SECAO 2: FUNCIONALIDADES (so aparece se IA habilitada)
+            ════════════════════════════════════════════════════════════════════ */}
+        {isEnabled && (
+          <>
+            <SectionHeader title="Funcionalidades" theme={theme} />
 
-                const handleToggle = (value: boolean) => {
-                  soundManager.play("tap");
-                  if (value && !enabled) {
-                    if (Platform.OS === "web") {
-                      const ok = window.confirm(
-                        `Permitir acesso: ${label.title}\n\nA IA poderá ver: ${label.description}.\n\nVocê pode desativar a qualquer momento.`,
-                      );
-                      if (ok) {
+            {/* Voice mode toggle */}
+            <Card theme={theme}>
+              <ToggleRow
+                title="Modo Voz"
+                subtitle="Microfone para entrada + resposta em audio (TTS)"
+                value={settings.voiceEnabled ?? false}
+                onToggle={(v) => updateSettings({ voiceEnabled: v })}
+                theme={theme}
+              />
+            </Card>
+
+            {/* Audio provider config — only when voice is enabled */}
+            {(settings.voiceEnabled ?? false) && (
+              <Card theme={theme}>
+                <Text style={[styles.cardTitle, { color: theme.textColor }]}>
+                  Provedor de Audio (TTS)
+                </Text>
+                <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                  Independente do provedor de texto. Cada um tem custos proprios.
+                </Text>
+
+                {/* Claude warning — no native TTS */}
+                {settings.provider === "claude" && (
+                  <View style={[styles.hint, { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4, backgroundColor: `${theme.warning}15`, padding: 8, borderRadius: 8 }]}>
+                    <Feather name="alert-triangle" size={13} color={theme.warning} />
+                    <Text style={{ fontSize: 12, color: theme.warning, flex: 1 }}>
+                      Claude nao possui TTS proprio. Selecione um provedor de audio abaixo para usar o modo voz.
+                    </Text>
+                  </View>
+                )}
+
+                <View style={{ marginTop: 8, gap: 12 }}>
+                  <ChipSelector
+                    options={[
+                      { id: "openai", label: "OpenAI TTS" },
+                      { id: "gemini", label: "Gemini TTS" },
+                      { id: "elevenlabs", label: "ElevenLabs" },
+                      { id: "qwen", label: "Qwen TTS" },
+                    ]}
+                    selected={settings.audioProvider ?? "openai"}
+                    onSelect={(id) => updateSettings({ audioProvider: id as AudioProvider, audioVoice: undefined })}
+                    theme={theme}
+                  />
+
+                  {/* ElevenLabs API Key */}
+                  {settings.audioProvider === "elevenlabs" && (
+                    <View style={{ gap: 4 }}>
+                      <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                        Chave ElevenLabs (BYOK)
+                      </Text>
+                      <APIKeyManager
+                        provider={"elevenlabs" as AIProvider}
+                        hasKey={settings.elevenLabsKeyStatus === true}
+                        openaiAuthMethod="apikey"
+                        hasOAuthSession={false}
+                        onSave={async (_, key) => {
+                          await saveApiKey("elevenlabs" as AIProvider, key);
+                          updateSettings({ elevenLabsKeyStatus: true });
+                          return true;
+                        }}
+                        onDelete={async () => {
+                          await deleteApiKey("elevenlabs" as AIProvider);
+                          updateSettings({ elevenLabsKeyStatus: false });
+                        }}
+                        onLoginChatGPT={async (_onCode) => false}
+                        onLogoutChatGPT={async () => {}}
+                      />
+                    </View>
+                  )}
+
+                  {/* Voice selector */}
+                  <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                    Voz
+                  </Text>
+                  <ChipSelector
+                    options={audioVoices.map((v) => ({ id: v, label: v }))}
+                    selected={currentAudioVoice}
+                    onSelect={(v) => updateSettings({ audioVoice: v })}
+                    theme={theme}
+                  />
+                </View>
+              </Card>
+            )}
+
+            {/* Vision OCR toggle */}
+            <Card theme={theme}>
+              <ToggleRow
+                title="OCR por Visao (IA)"
+                subtitle="Usar IA para ler notas fiscais e holerites via camera"
+                value={settings.visionOCREnabled ?? false}
+                onToggle={(v) => updateSettings({ visionOCREnabled: v })}
+                theme={theme}
+              />
+              {(settings.visionOCREnabled ?? false) && (
+                <Text style={[styles.hint, { color: theme.secondaryText }]}>
+                  Usa o provedor de IA ativo ({settings.provider}) para analisar imagens.
+                  Consome tokens do seu orcamento.
+                </Text>
+              )}
+            </Card>
+
+            {/* Tooltips toggle */}
+            <Card theme={theme}>
+              <ToggleRow
+                title="Dicas Financeiras"
+                subtitle="Tooltips educativos sobre termos financeiros no chat"
+                value={settings.tooltipsEnabled ?? true}
+                onToggle={(v) => updateSettings({ tooltipsEnabled: v })}
+                theme={theme}
+              />
+            </Card>
+          </>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════════
+            SECAO 3: PERMISSOES DE DADOS (so aparece se IA habilitada)
+            ════════════════════════════════════════════════════════════════════ */}
+        {isEnabled && (
+          <>
+            <SectionHeader title="Acesso aos dados" theme={theme} />
+
+            <Card theme={theme}>
+              <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                Escolha quais dados a IA pode acessar para respostas mais
+                detalhadas. Nenhum dado pessoal (CPF, nome, conta) e enviado.
+              </Text>
+              <View style={styles.cardBody}>
+                {(Object.keys(AI_DATA_PERMISSION_LABELS) as Array<keyof AIDataPermissions>).map(
+                  (key) => {
+                    const label = AI_DATA_PERMISSION_LABELS[key];
+                    const enabled = settings.dataPermissions[key] ?? false;
+
+                    const handleToggle = (value: boolean) => {
+                      soundManager.play("tap");
+                      if (value && !enabled) {
+                        if (Platform.OS === "web") {
+                          const ok = window.confirm(
+                            `Permitir acesso: ${label.title}\n\nA IA podera ver: ${label.description}.\n\nVoce pode desativar a qualquer momento.`,
+                          );
+                          if (ok) {
+                            updateSettings({
+                              dataPermissions: { ...settings.dataPermissions, [key]: true },
+                            });
+                          }
+                        } else {
+                          Alert.alert(
+                            `Permitir acesso: ${label.title}`,
+                            `A IA podera ver: ${label.description}.\n\nVoce pode desativar a qualquer momento.`,
+                            [
+                              { text: "Cancelar", style: "cancel" },
+                              {
+                                text: "Permitir",
+                                onPress: () =>
+                                  updateSettings({
+                                    dataPermissions: { ...settings.dataPermissions, [key]: true },
+                                  }),
+                              },
+                            ],
+                          );
+                        }
+                      } else {
                         updateSettings({
-                          dataPermissions: {
-                            ...settings.dataPermissions,
-                            [key]: true,
-                          },
+                          dataPermissions: { ...settings.dataPermissions, [key]: false },
                         });
                       }
-                    } else {
-                      Alert.alert(
-                        `Permitir acesso: ${label.title}`,
-                        `A IA poderá ver: ${label.description}.\n\nVocê pode desativar a qualquer momento.`,
-                        [
-                          { text: "Cancelar", style: "cancel" },
-                          {
-                            text: "Permitir",
-                            onPress: () =>
-                              updateSettings({
-                                dataPermissions: {
-                                  ...settings.dataPermissions,
-                                  [key]: true,
-                                },
-                              }),
-                          },
-                        ],
-                      );
-                    }
-                  } else {
-                    updateSettings({
-                      dataPermissions: {
-                        ...settings.dataPermissions,
-                        [key]: false,
-                      },
-                    });
-                  }
-                };
+                    };
 
-                return (
-                  <View key={key} style={styles.permissionRow}>
-                    <View style={styles.permissionInfo}>
-                      <Text style={[styles.permissionLabel, { color: theme.textColor }]}>
-                        {label.title}
-                      </Text>
-                      <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
-                        {label.description}
-                      </Text>
-                    </View>
-                    <Switch
-                      value={enabled}
-                      onValueChange={handleToggle}
-                      trackColor={{ false: theme.border, true: theme.primaryColor }}
-                      thumbColor="#fff"
-                    />
-                  </View>
-                );
-              },
-            )}
-          </View>
-        </View>
+                    return (
+                      <View key={key} style={styles.permissionRow}>
+                        <View style={styles.permissionInfo}>
+                          <Text style={[styles.permissionLabel, { color: theme.textColor }]}>
+                            {label.title}
+                          </Text>
+                          <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                            {label.description}
+                          </Text>
+                        </View>
+                        <Switch
+                          value={enabled}
+                          onValueChange={handleToggle}
+                          trackColor={{ false: theme.border, true: theme.primaryColor }}
+                          thumbColor="#fff"
+                        />
+                      </View>
+                    );
+                  },
+                )}
+              </View>
+            </Card>
+          </>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════════
+            SECAO 4: ORCAMENTO E USO (so aparece se IA habilitada)
+            ════════════════════════════════════════════════════════════════════ */}
+        {isEnabled && (
+          <>
+            <SectionHeader title="Orcamento e uso" theme={theme} />
+
+            <BudgetCostSection
+              provider={settings.provider}
+              modelTier={settings.modelTier}
+              customBudgets={settings.customBudgets}
+              budgetMode={settings.budgetMode ?? "daily"}
+              monthlyBudgets={settings.monthlyBudgets}
+              billingDay={settings.billingDay ?? 1}
+              onBudgetChange={(budget) =>
+                updateSettings({
+                  customBudgets: { ...settings.customBudgets, [settings.provider]: budget },
+                })
+              }
+              onMonthlyBudgetChange={(budget) =>
+                updateSettings({
+                  monthlyBudgets: { ...settings.monthlyBudgets, [settings.provider]: budget },
+                })
+              }
+              onBudgetModeChange={(mode) => updateSettings({ budgetMode: mode })}
+              onBillingDayChange={(day) => updateSettings({ billingDay: day })}
+            />
+
+            <SectionHeader title="Uso de tokens hoje" theme={theme} />
+            <AIUsageDashboard
+              modelTier={settings.modelTier}
+              customBudgets={settings.customBudgets}
+              budgetMode={settings.budgetMode}
+              monthlyBudgets={settings.monthlyBudgets}
+              billingDay={settings.billingDay}
+            />
+          </>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════════
+            SECAO 5: PRIVACIDADE (sempre visivel)
+            ════════════════════════════════════════════════════════════════════ */}
+        <SectionHeader title="Privacidade e dados" theme={theme} />
 
         {/* Privacy notice */}
         <View
@@ -339,77 +512,25 @@ export default function AISettingsScreen() {
             </Text>
           </View>
           <Text style={[styles.privacyText, { color: theme.secondaryText }]}>
-            Os dados são enviados diretamente ao provedor de IA escolhido.
-            Nunca passam por servidores do DOMUS. CPF, nome, número de
-            conta, cartão ou IDs internos nunca são incluídos.
+            Os dados sao enviados diretamente ao provedor de IA escolhido.
+            Nunca passam por servidores do DOMUS. CPF, nome, numero de
+            conta, cartao ou IDs internos nunca sao incluidos.
           </Text>
         </View>
 
-        {/* Budget & Cost */}
-        <BudgetCostSection
-          provider={settings.provider}
-          modelTier={settings.modelTier}
-          customBudgets={settings.customBudgets}
-          budgetMode={settings.budgetMode ?? "daily"}
-          monthlyBudgets={settings.monthlyBudgets}
-          billingDay={settings.billingDay ?? 1}
-          onBudgetChange={(budget) =>
-            updateSettings({
-              customBudgets: {
-                ...settings.customBudgets,
-                [settings.provider]: budget,
-              },
-            })
-          }
-          onMonthlyBudgetChange={(budget) =>
-            updateSettings({
-              monthlyBudgets: {
-                ...settings.monthlyBudgets,
-                [settings.provider]: budget,
-              },
-            })
-          }
-          onBudgetModeChange={(mode) => updateSettings({ budgetMode: mode })}
-          onBillingDayChange={(day) => updateSettings({ billingDay: day })}
-        />
-
-        {/* Token usage */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.secondaryText }]}>
-            Uso de tokens hoje
-          </Text>
-        </View>
-        <AIUsageDashboard
-          modelTier={settings.modelTier}
-          customBudgets={settings.customBudgets}
-          budgetMode={settings.budgetMode}
-          monthlyBudgets={settings.monthlyBudgets}
-          billingDay={settings.billingDay}
-        />
-
-        {/* Clear AI history */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.secondaryText }]}>
-            Dados e Privacidade
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: theme.cardBackground, borderColor: theme.border },
-          ]}
-        >
+        {/* Actions */}
+        <Card theme={theme}>
           <TouchableOpacity
             style={styles.actionRow}
             onPress={() => {
               soundManager.play("tap");
               if (Platform.OS === "web") {
-                const ok = window.confirm("Limpar histórico da IA\n\nIsso apagará todas as mensagens da conversa atual. Esta ação não pode ser desfeita.");
+                const ok = window.confirm("Limpar historico da IA\n\nIsso apagara todas as mensagens da conversa atual. Esta acao nao pode ser desfeita.");
                 if (ok) { soundManager.play("trash"); clearHistory(); }
               } else {
                 Alert.alert(
-                  "Limpar histórico da IA",
-                  "Isso apagará todas as mensagens da conversa atual. Esta ação não pode ser desfeita.",
+                  "Limpar historico da IA",
+                  "Isso apagara todas as mensagens da conversa atual. Esta acao nao pode ser desfeita.",
                   [
                     { text: "Cancelar", style: "cancel" },
                     {
@@ -421,13 +542,13 @@ export default function AISettingsScreen() {
                 );
               }
             }}
-            accessibilityLabel="Limpar histórico da IA"
+            accessibilityLabel="Limpar historico da IA"
             accessibilityRole="button"
           >
             <Feather name="trash-2" size={18} color={theme.warning} />
             <View style={styles.actionInfo}>
               <Text style={[styles.actionLabel, { color: theme.textColor }]}>
-                Limpar histórico da IA
+                Limpar historico da IA
               </Text>
               <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
                 Remove todas as mensagens da conversa atual
@@ -441,21 +562,21 @@ export default function AISettingsScreen() {
           <TouchableOpacity
             style={styles.actionRow}
             onPress={() => { soundManager.play("tap"); router.push("/privacy-policy"); }}
-            accessibilityLabel="Ver política de privacidade"
+            accessibilityLabel="Ver politica de privacidade"
             accessibilityRole="link"
           >
             <Feather name="shield" size={18} color={theme.primaryColor} />
             <View style={styles.actionInfo}>
               <Text style={[styles.actionLabel, { color: theme.textColor }]}>
-                Política de Privacidade
+                Politica de Privacidade
               </Text>
               <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
-                Como seus dados e chaves de IA são protegidos
+                Como seus dados e chaves de IA sao protegidos
               </Text>
             </View>
             <Feather name="chevron-right" size={16} color={theme.secondaryText} />
           </TouchableOpacity>
-        </View>
+        </Card>
 
         <View style={styles.spacer} />
       </KeyboardAwareScrollView>
@@ -463,11 +584,10 @@ export default function AISettingsScreen() {
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   safe: {
-    flex: 1,
-  },
-  flex: {
     flex: 1,
   },
   header: {
@@ -484,7 +604,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    gap: 14,
+    gap: 12,
   },
   card: {
     borderRadius: 14,
@@ -517,6 +637,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
   },
+  hint: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 4,
+    fontStyle: "italic",
+  },
   privacyHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -532,7 +658,7 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     paddingHorizontal: 4,
-    marginTop: 4,
+    marginTop: 6,
   },
   sectionTitle: {
     fontSize: 12,

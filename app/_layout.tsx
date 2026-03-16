@@ -45,6 +45,7 @@ import { NativeAdBanner } from "@/src/components/monetization/NativeAdBanner";
 import { AppOpenAdHost } from "@/src/components/monetization/AppOpenAdHost";
 import { loadSupportModes, loadLastDailyAdDate, saveLastDailyAdDate } from "@/src/modules/monetization/MonetizationSettingsStore";
 import type { SupportMode } from "@/src/modules/monetization/MonetizationSettingsStore";
+import { ToastProvider } from "react-native-sprinkle-toast";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -285,7 +286,9 @@ function AppContainer({ children }: { children: React.ReactNode }) {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
       <SafeAreaProvider>
         <ResponsiveLayoutProvider>
-          {children}
+          <ToastProvider>
+            {children}
+          </ToastProvider>
         </ResponsiveLayoutProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
