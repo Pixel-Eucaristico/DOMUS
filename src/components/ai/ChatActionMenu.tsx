@@ -93,6 +93,7 @@ export function ChatActionMenu({ onAction, visionOCREnabled }: ChatActionMenuPro
       <TouchableOpacity
         onPress={() => { soundManager.play("tap"); setVisible(true); }}
         style={[styles.triggerBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+        activeOpacity={0.7}
       >
         <Feather name="plus" size={20} color={theme.primaryColor} />
       </TouchableOpacity>
@@ -145,9 +146,9 @@ export function ChatActionMenu({ onAction, visionOCREnabled }: ChatActionMenuPro
 
 const styles = StyleSheet.create({
   triggerBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",

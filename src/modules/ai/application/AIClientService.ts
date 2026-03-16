@@ -65,9 +65,9 @@ export class AIClientService {
       AIClientService.breakers.set(
         provider,
         new CircuitBreaker({
-          failureThreshold: 3,
-          resetTimeoutMs: 30_000,
-          monitorWindowMs: 60_000,
+          failureThreshold: 5,
+          resetTimeoutMs: 15_000,
+          monitorWindowMs: 120_000,
         }),
       );
     }

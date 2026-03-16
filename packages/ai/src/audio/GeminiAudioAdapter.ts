@@ -91,9 +91,18 @@ export class GeminiAudioAdapter implements IAudioProvider {
     apiKey: string,
     voice: string,
   ): Promise<{ base64: string; format: "mp3" }> {
-    const voiceName = GEMINI_TTS_VOICES[voice.toLowerCase()] || voice || "Kore";
+    // Voice can be "pro:kore" or "flash:kore" or just "kore"
+    let modelId = "gemini-2.5-flash-preview-tts";
+    let voicePart = voice;
+    if (voice.startsWith("pro:")) {
+      modelId = "gemini-2.5-pro-preview-tts";
+      voicePart = voice.slice(4);
+    } else if (voice.startsWith("flash:")) {
+      voicePart = voice.slice(6);
+    }
+    const voiceName = GEMINI_TTS_VOICES[voicePart.toLowerCase()] || voicePart || "Kore";
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
 
     const response = await fetchWithTimeout(
       url,
@@ -110,6 +119,7 @@ export class GeminiAudioAdapter implements IAudioProvider {
               },
             },
           },
+          model: "gemini-2.5-flash-preview-tts",
         }),
       },
       60_000,

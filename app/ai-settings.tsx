@@ -270,6 +270,19 @@ export default function AISettingsScreen() {
               />
             </Card>
 
+            {/* Auto-play TTS toggle — only when voice is enabled */}
+            {(settings.voiceEnabled ?? false) && (
+              <Card theme={theme}>
+                <ToggleRow
+                  title="Falar direto"
+                  subtitle="Ler automaticamente cada resposta da IA em audio"
+                  value={settings.autoPlayTTS ?? false}
+                  onToggle={(v) => updateSettings({ autoPlayTTS: v })}
+                  theme={theme}
+                />
+              </Card>
+            )}
+
             {/* Audio provider config — only when voice is enabled */}
             {(settings.voiceEnabled ?? false) && (
               <Card theme={theme}>
@@ -303,7 +316,7 @@ export default function AISettingsScreen() {
                     theme={theme}
                   />
 
-                  {/* ElevenLabs API Key */}
+                  {/* API Key info per audio provider */}
                   {settings.audioProvider === "elevenlabs" && (
                     <View style={{ gap: 4 }}>
                       <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
@@ -325,6 +338,43 @@ export default function AISettingsScreen() {
                         }}
                         onLoginChatGPT={async (_onCode) => false}
                         onLogoutChatGPT={async () => {}}
+                      />
+                    </View>
+                  )}
+
+                  {/* For OpenAI/Gemini/Qwen TTS: show API key manager */}
+                  {(settings.audioProvider === "openai" || settings.audioProvider === "gemini" || settings.audioProvider === "qwen") && (
+                    <View style={{ gap: 4 }}>
+                      <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                        Chave {(settings.audioProvider ?? "openai").toUpperCase()} (mesma do provedor de texto)
+                      </Text>
+                      <APIKeyManager
+                        provider={(settings.audioProvider ?? "openai") as AIProvider}
+                        hasKey={settings.apiKeyStatus[settings.audioProvider ?? "openai"] === true}
+                        openaiAuthMethod="apikey"
+                        hasOAuthSession={false}
+                        onSave={saveApiKey}
+                        onDelete={deleteApiKey}
+                        onLoginChatGPT={async (_onCode) => false}
+                        onLogoutChatGPT={async () => {}}
+                      />
+                    </View>
+                  )}
+
+                  {/* Gemini TTS model selector (flash = fast, pro = quality) */}
+                  {settings.audioProvider === "gemini" && (
+                    <View style={{ gap: 4 }}>
+                      <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                        Modelo TTS
+                      </Text>
+                      <ChipSelector
+                        options={[
+                          { id: "gemini-2.5-flash-preview-tts", label: "Flash (rapido)" },
+                          { id: "gemini-2.5-pro-preview-tts", label: "Pro (qualidade)" },
+                        ]}
+                        selected={settings.audioVoice?.includes("pro") ? "gemini-2.5-pro-preview-tts" : "gemini-2.5-flash-preview-tts"}
+                        onSelect={(id) => updateSettings({ audioVoice: id.includes("pro") ? "pro:" + (settings.audioVoice?.split(":")[1] ?? "kore") : "flash:" + (settings.audioVoice?.split(":")[1] ?? "kore") })}
+                        theme={theme}
                       />
                     </View>
                   )}

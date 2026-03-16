@@ -60,6 +60,9 @@ export function useAISettings(): UseAISettingsResult {
           // Check OAuth session
           const hasOAuth = await OpenAIOAuthService.hasSession();
 
+          // Check if ElevenLabs key exists
+          const hasElevenLabs = await SecureKeyService.hasKey("elevenlabs" as any);
+
           if (mounted) {
             setSettings({
               provider: stored.provider ?? DEFAULT_AI_SETTINGS.provider,
@@ -76,6 +79,14 @@ export function useAISettings(): UseAISettingsResult {
               systemPromptSent: stored.systemPromptSent ?? false,
               voiceEnabled: stored.voiceEnabled ?? false,
               openaiVoice: stored.openaiVoice,
+              // Audio provider settings (new fields)
+              audioProvider: stored.audioProvider,
+              audioVoice: stored.audioVoice,
+              elevenLabsKeyStatus: hasElevenLabs || undefined,
+              // Feature toggles
+              visionOCREnabled: stored.visionOCREnabled,
+              tooltipsEnabled: stored.tooltipsEnabled,
+              autoPlayTTS: stored.autoPlayTTS,
             });
           }
         } else if (mounted) {

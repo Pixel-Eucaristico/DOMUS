@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ConsultantChatUseCase } from "@/src/modules/ai/application/ConsultantChatUseCase";
 import { AIClientService } from "@/src/modules/ai/application/AIClientService";
 import { useAppState } from "@/src/context/AppStateProvider";
@@ -9,7 +10,42 @@ import type { ContextData } from "@/src/modules/ai/application/AIContextBuilder"
 import { generateId } from "@packages/events/src/factory";
 import type { GeminiAudioAttachment } from "@packages/../packages/ai/src/adapters/GeminiAdapter";
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const HISTORY_STORAGE_KEY = "@domus:ai_chat_history";
+const MAX_STORED_MESSAGES = 200;
+
+// ─── Persistence helpers ─────────────────────────────────────────────────────
+
+async function loadHistory(): Promise<ChatMessage[]> {
+  try {
+    const raw = await AsyncStorage.getItem(HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as ChatMessage[];
+  } catch {
+    return [];
+  }
+}
+
+async function saveHistory(messages: ChatMessage[]): Promise<void> {
+  try {
+    // Keep only last N messages to avoid storage bloat
+    const trimmed = messages.slice(-MAX_STORED_MESSAGES);
+    await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmed));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+async function clearStoredHistory(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(HISTORY_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+// ─── Hook ────────────────────────────────────────────────────────────────────
 
 export interface UseAIConsultantResult {
   messages: ChatMessage[];
@@ -28,9 +64,23 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
   const [isLoading, setIsLoading] = useState(false);
   const { domain, gamification, wishlist } = useAppState();
   const syncCtx = useSync();
-  const historyRef = useRef<ChatMessage[]>([]);
 
-  // Reset circuit breaker when chat opens — clears stale failures from previous sessions
+  // historyRef = all messages (for display)
+  const historyRef = useRef<ChatMessage[]>([]);
+  // sessionRef = only messages from current session (for AI context)
+  const sessionRef = useRef<ChatMessage[]>([]);
+
+  // Load persisted history on mount
+  useEffect(() => {
+    loadHistory().then((stored) => {
+      if (stored.length > 0) {
+        historyRef.current = stored;
+        setMessages([...stored]);
+      }
+    });
+  }, []);
+
+  // Reset circuit breaker when chat opens
   useEffect(() => {
     AIClientService.resetBreaker(settings.provider);
   }, [settings.provider]);
@@ -46,9 +96,10 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
         timestamp: Date.now(),
       };
 
-      const nextMessages = [...historyRef.current, userMessage];
-      historyRef.current = nextMessages;
-      setMessages([...nextMessages]);
+      // Add to both history (display) and session (AI context)
+      historyRef.current = [...historyRef.current, userMessage];
+      sessionRef.current = [...sessionRef.current, userMessage];
+      setMessages([...historyRef.current]);
       setIsLoading(true);
 
       try {
@@ -68,20 +119,24 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
           },
         };
 
+        // Send only SESSION messages to AI (not full history) → controls cost
         const reply = await ConsultantChatUseCase.execute(
           text,
-          historyRef.current,
+          sessionRef.current,
           contextData,
           wishlistItemPrice ?? null,
           settings,
           audioAttachment,
         );
 
-        const withReply = [...historyRef.current, reply];
-        historyRef.current = withReply;
-        setMessages([...withReply]);
+        // Add reply to both
+        historyRef.current = [...historyRef.current, reply];
+        sessionRef.current = [...sessionRef.current, reply];
+        setMessages([...historyRef.current]);
+
+        // Persist full history locally
+        await saveHistory(historyRef.current);
       } catch {
-        // ConsultantChatUseCase never throws, but guard anyway
         const errorMsg: ChatMessage = {
           id: generateId(),
           role: "assistant",
@@ -89,9 +144,10 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
           timestamp: Date.now(),
           isLocalFallback: true,
         };
-        const withError = [...historyRef.current, errorMsg];
-        historyRef.current = withError;
-        setMessages([...withError]);
+        historyRef.current = [...historyRef.current, errorMsg];
+        sessionRef.current = [...sessionRef.current, errorMsg];
+        setMessages([...historyRef.current]);
+        await saveHistory(historyRef.current);
       } finally {
         setIsLoading(false);
       }
@@ -125,7 +181,9 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
 
   const clearHistory = useCallback(() => {
     historyRef.current = [];
+    sessionRef.current = [];
     setMessages([]);
+    clearStoredHistory();
   }, []);
 
   return { messages, isLoading, sendMessage, generateWelcome, clearHistory };

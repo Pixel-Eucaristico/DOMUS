@@ -106,6 +106,8 @@ export interface AISettings {
   visionOCREnabled?: boolean;
   /** Enable financial tooltips/educational hints in chat */
   tooltipsEnabled?: boolean;
+  /** Auto-play TTS on every AI response (falar direto) */
+  autoPlayTTS?: boolean;
   /**
    * true after the system prompt has been sent once this session.
    *

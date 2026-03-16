@@ -43,6 +43,12 @@ export const AI_MODELS: Record<AIProvider, Record<AIModelTier, string>> = {
   },
 } as const;
 
+/** Gemini TTS model options */
+export const GEMINI_TTS_MODELS = {
+  fast: "gemini-2.5-flash-preview-tts",
+  quality: "gemini-2.5-pro-preview-tts",
+} as const;
+
 /**
  * Models available on the ChatGPT backend (chatgpt.com/backend-api/codex).
  * These are different from the standard API models and are required when
