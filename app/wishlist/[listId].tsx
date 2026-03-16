@@ -254,7 +254,7 @@ export default function WishlistDetailScreen() {
         </Text>
         <TouchableOpacity
           onPress={() => {
-            soundManager.play("trash");
+            soundManager.play("tap");
             Alert.alert(
               "Excluir lista",
               `Tem certeza que deseja excluir "${list.name}" e todos os itens?`,
@@ -263,7 +263,7 @@ export default function WishlistDetailScreen() {
                 {
                   text: "Excluir",
                   style: "destructive",
-                  onPress: () => { deleteList(list.id); router.back(); },
+                  onPress: () => { soundManager.play("trash"); deleteList(list.id); router.back(); },
                 },
               ],
             );

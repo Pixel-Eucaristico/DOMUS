@@ -226,7 +226,7 @@ export default function HomeScreen() {
       },
     ];
     return all;
-  }, [theme.primaryColor, router, aiSettings.isEnabled]);
+  }, [theme.primaryColor, router, aiSettings.isEnabled, wishlistLists.length]);
 
   const handleBudgetPress = (group: string) => {
     router.push(`/category-detail/${group}?month=${selectedMonth}&year=${selectedYear}`);
