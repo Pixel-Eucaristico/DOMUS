@@ -39,12 +39,16 @@ const ARC_START = 180;
 const ARC_END = 270;
 
 // Pre-calculate positions for arc items
+const ITEM_ANGLE_GAP = 30; // fixed degrees between each item
+
 function getArcPositions(count: number) {
   const positions: { x: number; y: number }[] = [];
-  const spread = ARC_END - ARC_START;
-  const step = count > 1 ? spread / (count - 1) : spread / 2;
+  const totalSpan = (count - 1) * ITEM_ANGLE_GAP;
+  const midAngle = (ARC_START + ARC_END) / 2; // 225° = center of quarter
+  const startDeg = midAngle - totalSpan / 2;
+
   for (let i = 0; i < count; i++) {
-    const deg = ARC_START + step * i;
+    const deg = startDeg + i * ITEM_ANGLE_GAP;
     const rad = (deg * Math.PI) / 180;
     positions.push({
       x: Math.cos(rad) * RADIUS,
