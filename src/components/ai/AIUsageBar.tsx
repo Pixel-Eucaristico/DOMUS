@@ -41,8 +41,10 @@ function BarRow({
   theme: any;
 }) {
   const pTheme = PROVIDER_THEME[provider as AIProvider] ?? { color: "#888", icon: "robot" };
-  const pct = unlimited ? 0 : Math.min(100, (tokens / budget) * 100);
-  const isOver = !unlimited && tokens >= budget;
+  const safeTokens = tokens ?? 0;
+  const safeBudget = budget || 1;
+  const pct = unlimited ? 0 : Math.min(100, (safeTokens / safeBudget) * 100);
+  const isOver = !unlimited && safeTokens >= safeBudget;
   const barColor = isOver ? theme.danger : pct > 80 ? theme.warning : pTheme.color;
 
   return (
@@ -56,7 +58,7 @@ function BarRow({
           />
           <Text style={[styles.providerName, { color: pTheme.color }]}>{label}</Text>
           <Text style={[styles.label, { color: theme.secondaryText }]}>
-            {tokens.toLocaleString("pt-BR")}{unlimited ? "" : ` / ${budget.toLocaleString("pt-BR")}`}
+            {safeTokens.toLocaleString("pt-BR")}{unlimited ? "" : ` / ${safeBudget.toLocaleString("pt-BR")}`}
           </Text>
           {costBrl !== null && (
             <Text style={[styles.costLabel, { color: theme.secondaryText }]}>
@@ -122,44 +124,38 @@ export function AIUsageBar({
   const getUnlimited = (p: AIProvider) => isMonthly ? isUnlimitedMonthlyBudget(p, monthlyBudgets) : isUnlimitedBudget(p, customBudgets);
 
   if (sameProvider) {
-    // Same provider for text + audio → 1 bar with combined usage
-    if (textTokens > 0) {
-      bars.push({
-        id: provider,
-        label: provider,
-        tokens: textTokens,
-        budget: getBudget(provider),
-        unlimited: getUnlimited(provider),
-        cost: costs[provider] ?? null,
-      });
-    }
+    // Same provider for text + audio → 1 bar
+    bars.push({
+      id: provider,
+      label: provider,
+      tokens: textTokens,
+      budget: getBudget(provider),
+      unlimited: getUnlimited(provider),
+      cost: costs[provider] ?? null,
+    });
   } else {
     // Different providers → 2 bars
-    if (textTokens > 0) {
+    bars.push({
+      id: provider,
+      label: `${provider} (texto)`,
+      tokens: textTokens,
+      budget: getBudget(provider),
+      unlimited: getUnlimited(provider),
+      cost: costs[provider] ?? null,
+    });
+    // Audio provider bar
+    if (audioProv) {
+      const audioTokens = usage.byProvider[audioProv as AIProvider] ?? 0;
       bars.push({
-        id: provider,
-        label: `${provider} (texto)`,
-        tokens: textTokens,
-        budget: getBudget(provider),
-        unlimited: getUnlimited(provider),
-        cost: costs[provider] ?? null,
-      });
-    }
-    // Audio provider bar (ElevenLabs doesn't use token tracking the same way, but show if has usage)
-    const audioTokens = usage.byProvider[audioProv as AIProvider] ?? 0;
-    if (audioTokens > 0) {
-      bars.push({
-        id: audioProv!,
+        id: audioProv,
         label: `${audioProv} (voz)`,
         tokens: audioTokens,
         budget: getBudget(audioProv as AIProvider),
         unlimited: getUnlimited(audioProv as AIProvider),
-        cost: costs[audioProv!] ?? null,
+        cost: costs[audioProv] ?? null,
       });
     }
   }
-
-  if (bars.length === 0) return null;
 
   return (
     <View style={[styles.container, { borderColor: theme.border }]}>
