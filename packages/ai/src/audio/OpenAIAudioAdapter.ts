@@ -16,7 +16,7 @@ export class OpenAIAudioAdapter implements IAudioProvider {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "tts-1",
+          model: "gpt-4o-mini-tts",
           input: text,
           voice: voice || "nova",
         }),

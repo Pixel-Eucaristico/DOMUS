@@ -11,7 +11,7 @@ import * as Clipboard from "expo-clipboard";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { GiftedChat, Bubble } from "react-native-gifted-chat";
 import type { IMessage, BubbleProps } from "react-native-gifted-chat";
 import { useAppState } from "@/src/context/AppStateProvider";
@@ -23,6 +23,7 @@ import { voiceOutputService } from "@/src/services/VoiceOutputService";
 import { AIUsageBar } from "@/src/components/ai/AIUsageBar";
 import { DataPermissionModal } from "@/src/components/ai/DataPermissionModal";
 import { detectMissingPermission } from "@/src/modules/ai/application/PermissionDetector";
+import { PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
 import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
 import { OpenAIAdapter } from "@packages/../packages/ai/src/adapters/OpenAIAdapter";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
@@ -37,7 +38,15 @@ import type { AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const AI_USER = { _id: 2, name: "DOMUS IA", avatar: "https://ui-avatars.com/api/?name=IA&background=4CAF50&color=fff&size=64" };
+// Provider-specific avatars with official brand colors
+const AI_AVATARS: Record<string, { name: string; avatar: string }> = {
+  openai: { name: "OpenAI", avatar: "https://ui-avatars.com/api/?name=GPT&background=10A37F&color=fff&size=64&bold=true" },
+  gemini: { name: "Gemini", avatar: "https://ui-avatars.com/api/?name=G&background=4285F4&color=fff&size=64&bold=true" },
+  claude: { name: "Claude", avatar: "https://ui-avatars.com/api/?name=C&background=D97706&color=fff&size=64&bold=true" },
+  deepseek: { name: "DeepSeek", avatar: "https://ui-avatars.com/api/?name=DS&background=4D6BFE&color=fff&size=64&bold=true" },
+  qwen: { name: "Qwen", avatar: "https://ui-avatars.com/api/?name=QW&background=FF6A00&color=fff&size=64&bold=true" },
+};
+const DEFAULT_AI_USER = { _id: 2, name: "DOMUS IA", avatar: "https://ui-avatars.com/api/?name=IA&background=4CAF50&color=fff&size=64" };
 
 /** Strip markdown formatting from text before sending to TTS */
 function stripMarkdown(text: string): string {
@@ -62,7 +71,7 @@ function toGiftedMessage(msg: ChatMessage): IMessage {
     _id: msg.id,
     text: msg.content,
     createdAt: new Date(msg.timestamp),
-    user: msg.role === "user" ? HUMAN_USER : AI_USER,
+    user: msg.role === "user" ? HUMAN_USER : DEFAULT_AI_USER,
     ...(msg.tokensUsed != null && { tokensUsed: msg.tokensUsed }),
     ...(msg.isLocalFallback && { isLocalFallback: true }),
   } as IMessage;
@@ -94,6 +103,14 @@ export default function AIChatScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  // Map message IDs to their recorded audio URIs for replay
+  const audioUriMap = useRef<Record<string, string>>({});
+  // Pending audio URI to associate with next user message
+  const pendingAudioUri = useRef<string | null>(null);
+  // Flag: last user message was sent by voice → auto-play AI response
+  const lastWasVoice = useRef(false);
+  // Map message ID → provider for per-message avatar icons
+  const msgProviderMap = useRef<Record<string, string>>({});
   const lastAssistantId = useRef<string | null>(null);
   const [inputText, setInputText] = useState("");
   const [ttsState, setTtsState] = useState({ isSpeaking: false, isLoading: false });
@@ -104,6 +121,16 @@ export default function AIChatScreen() {
     const unsub = voiceOutputService.subscribe(setTtsState);
     return unsub;
   }, []);
+
+  // Associate pending audio URI with the latest user message
+  useEffect(() => {
+    if (!pendingAudioUri.current || messages.length === 0) return;
+    const lastUser = [...messages].reverse().find(m => m.role === "user");
+    if (lastUser) {
+      audioUriMap.current[lastUser.id] = pendingAudioUri.current;
+      pendingAudioUri.current = null;
+    }
+  }, [messages]);
 
   // Detect provider issues from AI error responses and show switch modal
   useEffect(() => {
@@ -132,7 +159,18 @@ export default function AIChatScreen() {
 
   const giftedMessages = useMemo(() => {
     const source = messages.length > 0 ? messages : welcomeMsg ? [welcomeMsg] : [];
-    return source.map(toGiftedMessage).reverse();
+    // Build provider map for avatar rendering
+    for (const msg of source) {
+      if (msg.provider) msgProviderMap.current[msg.id] = msg.provider;
+    }
+    return source.map((msg) => ({
+      _id: msg.id,
+      text: msg.content,
+      createdAt: new Date(msg.timestamp),
+      user: msg.role === "user" ? HUMAN_USER : DEFAULT_AI_USER,
+      ...(msg.tokensUsed != null && { tokensUsed: msg.tokensUsed }),
+      ...(msg.isLocalFallback && { isLocalFallback: true }),
+    } as IMessage)).reverse();
   }, [messages, welcomeMsg]);
 
   // ─── Permission modal ──────────────────────────────────────────────────
@@ -250,7 +288,7 @@ export default function AIChatScreen() {
     if (last.id === lastAssistantId.current) return;
     lastAssistantId.current = last.id;
     speakText(last.content);
-  }, [messages, settings.isEnabled, settings.voiceEnabled, speakText]);
+  }, [messages, settings.isEnabled, settings.voiceEnabled, settings.autoPlayTTS, speakText]);
 
   // ─── Voice recording ──────────────────────────────────────────────────
   const handleVoicePress = useCallback(async () => {
@@ -260,23 +298,30 @@ export default function AIChatScreen() {
       setIsTranscribing(true);
       const result = await stopRecording();
       if (result) {
+        pendingAudioUri.current = result.uri;
         if (settings.provider === "gemini") {
+          // Gemini: send audio directly as multimodal attachment
           setIsTranscribing(false);
           await sendMessage("🎤 [mensagem de voz]", null, { base64: result.base64, mimeType: "audio/mp4" });
-        } else if (settings.provider === "openai") {
+        } else {
+          // All other providers: transcribe via OpenAI STT then send as text
           let transcribed = "";
           try {
-            const apiKey = await SecureKeyService.retrieveKey("openai");
-            if (apiKey) transcribed = await new OpenAIAdapter().transcribeAudio(result.uri, apiKey);
+            // Try OpenAI key first, then current provider key for OpenAI-compatible STT
+            const openaiKey = await SecureKeyService.retrieveKey("openai");
+            if (openaiKey) {
+              transcribed = await new OpenAIAdapter().transcribeAudio(result.uri, openaiKey);
+            }
           } catch { /* ignore */ }
           setIsTranscribing(false);
           if (transcribed.trim()) {
             const mp = detectMissingPermission(transcribed.trim(), settings.dataPermissions);
             if (mp) setPermissionModal({ key: mp, pendingText: transcribed.trim() });
             else await sendMessage(transcribed.trim());
+          } else {
+            // No transcription available - inform user
+            soundManager.play("error");
           }
-        } else {
-          setIsTranscribing(false);
         }
       } else {
         setIsTranscribing(false);
@@ -320,6 +365,27 @@ export default function AIChatScreen() {
                   <Text style={{ color: isUser ? "rgba(255,255,255,0.6)" : theme.secondaryText, fontSize: 10, marginTop: 2, textAlign: "right" }}>
                     {extra.tokensUsed} tokens
                   </Text>
+                )}
+
+                {/* User voice replay button */}
+                {isUser && audioUriMap.current[String(msg._id)] && (
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        const uri = audioUriMap.current[String(msg._id)];
+                        if (!uri) return;
+                        try {
+                          const { createAudioPlayer, setAudioModeAsync } = require("expo-audio");
+                          await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+                          const player = createAudioPlayer({ uri });
+                          player.play();
+                        } catch (e) { console.warn("[VoiceReplay]", e); }
+                      }}
+                      style={[styles.actionBtn, { borderColor: "rgba(255,255,255,0.3)" }]}
+                    >
+                      <Feather name="play" size={12} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
                 )}
 
                 {/* Action row: Copy + Listen */}
@@ -486,9 +552,16 @@ export default function AIChatScreen() {
           renderAvatar={(props) => {
             const user = props.currentMessage?.user;
             if (!user || user._id === HUMAN_USER._id) return null;
+            const msgId = String(props.currentMessage?._id ?? "");
+            const msgProv = msgProviderMap.current[msgId] ?? settings.provider;
+            const pTheme = PROVIDER_THEME[msgProv as keyof typeof PROVIDER_THEME] ?? PROVIDER_THEME.openai;
             return (
-              <View style={[styles.avatar, { backgroundColor: theme.primaryColor }]}>
-                <Text style={styles.avatarText}>IA</Text>
+              <View style={[styles.avatar, { backgroundColor: pTheme.color }]}>
+                <MaterialCommunityIcons
+                  name={pTheme.icon as keyof typeof MaterialCommunityIcons.glyphMap}
+                  size={18}
+                  color="#fff"
+                />
               </View>
             );
           }}

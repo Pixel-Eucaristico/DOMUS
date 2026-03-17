@@ -111,6 +111,8 @@ export interface ChatMessage {
   timestamp: number;
   tokensUsed?: number;
   isLocalFallback?: boolean;
+  /** Provider that generated this message (for showing correct icon in history) */
+  provider?: AIProvider;
 }
 
 export interface TransactionClassification {

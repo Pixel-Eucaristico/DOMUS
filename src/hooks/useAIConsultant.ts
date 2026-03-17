@@ -94,6 +94,7 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
         role: "user",
         content: text,
         timestamp: Date.now(),
+        provider: settings.provider,
       };
 
       // Add to both history (display) and session (AI context)
@@ -129,6 +130,8 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
           audioAttachment,
         );
 
+        // Tag reply with provider
+        reply.provider = settings.provider;
         // Add reply to both
         historyRef.current = [...historyRef.current, reply];
         sessionRef.current = [...sessionRef.current, reply];
@@ -143,6 +146,7 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
           content: "Erro inesperado. Por favor, tente novamente.",
           timestamp: Date.now(),
           isLocalFallback: true,
+          provider: settings.provider,
         };
         historyRef.current = [...historyRef.current, errorMsg];
         sessionRef.current = [...sessionRef.current, errorMsg];

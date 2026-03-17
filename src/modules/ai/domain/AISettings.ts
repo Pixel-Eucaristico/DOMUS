@@ -69,7 +69,7 @@ export type BudgetMode = "daily" | "monthly";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type OpenAIVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
+export type OpenAIVoice = "alloy" | "ash" | "ballad" | "coral" | "echo" | "fable" | "nova" | "onyx" | "sage" | "shimmer" | "verse" | "marin" | "cedar";
 
 export interface AISettings {
   provider: AIProvider;

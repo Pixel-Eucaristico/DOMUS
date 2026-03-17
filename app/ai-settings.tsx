@@ -153,7 +153,7 @@ export default function AISettingsScreen() {
   // Voice list based on audio provider
   const audioVoices = (() => {
     const prov = settings.audioProvider ?? "openai";
-    if (prov === "openai") return ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+    if (prov === "openai") return ["alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar"];
     if (prov === "elevenlabs") return Object.keys(ELEVENLABS_VOICES).slice(0, 12);
     if (prov === "gemini") return Object.keys(GEMINI_TTS_VOICES).slice(0, 12);
     return Object.keys(QWEN_TTS_VOICES);

@@ -20,14 +20,13 @@ function splitIntoChunks(text: string): string[] {
       chunks.push(remaining);
       break;
     }
-    // Find last sentence break within limit
     const slice = remaining.slice(0, MAX_CHUNK_CHARS);
     let breakIdx = -1;
     for (const sep of [". ", "! ", "? ", ".\n", "!\n", "?\n", ", ", "; ", "\n"]) {
       const idx = slice.lastIndexOf(sep);
       if (idx > breakIdx) breakIdx = idx + sep.length;
     }
-    if (breakIdx <= 0) breakIdx = MAX_CHUNK_CHARS; // force split
+    if (breakIdx <= 0) breakIdx = MAX_CHUNK_CHARS;
     chunks.push(remaining.slice(0, breakIdx).trim());
     remaining = remaining.slice(breakIdx).trim();
   }
@@ -36,6 +35,11 @@ function splitIntoChunks(text: string): string[] {
 }
 
 type TTSListener = (state: { isSpeaking: boolean; isLoading: boolean }) => void;
+
+interface PreparedChunk {
+  file: File;
+  player: AudioPlayer;
+}
 
 class VoiceOutputService {
   private player: AudioPlayer | null = null;
@@ -47,7 +51,6 @@ class VoiceOutputService {
   get isSpeaking() { return this._isSpeaking; }
   get isLoading() { return this._isLoading; }
 
-  /** Subscribe to state changes (loading/speaking) */
   subscribe(listener: TTSListener): () => void {
     this._listeners.push(listener);
     return () => {
@@ -77,23 +80,69 @@ class VoiceOutputService {
     const chunks = splitIntoChunks(text);
 
     try {
-      for (let i = 0; i < chunks.length; i++) {
-        if (this._cancelled) break;
+      // Download ALL chunks in parallel for gapless playback
+      const downloadPromises = chunks.map(async (chunk, i): Promise<PreparedChunk | null> => {
+        if (this._cancelled) return null;
+        try {
+          const { base64 } = await adapter.synthesize(chunk, apiKey, voice);
+          if (this._cancelled) return null;
 
-        // Synthesize chunk
-        const { base64 } = await adapter.synthesize(chunks[i]!, apiKey, voice);
-        if (this._cancelled) break;
+          const isWav = base64.startsWith("UklGR");
+          const ext = isWav ? "wav" : "mp3";
+          const file = new File(Paths.cache, `domus_tts_${Date.now()}_${i}.${ext}`);
 
-        // First chunk: stop loading, start speaking
-        if (i === 0) {
+          const binaryString = atob(base64);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let j = 0; j < binaryString.length; j++) {
+            bytes[j] = binaryString.charCodeAt(j)!;
+          }
+          file.write(bytes);
+
+          await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+          const player = createAudioPlayer({ uri: file.uri });
+          return { file, player };
+        } catch (err) {
+          console.warn(`[TTS] Chunk ${i} falhou:`, err);
+          return null;
+        }
+      });
+
+      // Wait for at least the first chunk to be ready, then start playing immediately
+      const prepared: (PreparedChunk | null)[] = [];
+      for (let i = 0; i < downloadPromises.length; i++) {
+        const result = await downloadPromises[i];
+        prepared.push(result);
+
+        // Start playing as soon as first chunk is ready
+        if (i === 0 && result && !this._cancelled) {
           this._isLoading = false;
           this._isSpeaking = true;
           this.notify();
-        }
 
-        // Write and play
-        await this.playBase64(base64);
+          this.player = result.player;
+          result.player.play();
+          // Don't await - let downloads continue while first chunk plays
+        }
+      }
+
+      // Now play each chunk in sequence (first already started)
+      for (let i = 0; i < prepared.length; i++) {
         if (this._cancelled) break;
+        const chunk = prepared[i];
+        if (!chunk) continue;
+
+        if (i === 0) {
+          // First chunk already playing, just wait for it to finish
+          await this.waitForPlayer(chunk.player);
+          this.cleanupChunk(chunk);
+        } else {
+          // Play next chunk immediately (no gap)
+          if (this._cancelled) break;
+          this.player = chunk.player;
+          chunk.player.play();
+          await this.waitForPlayer(chunk.player);
+          this.cleanupChunk(chunk);
+        }
       }
     } catch (err) {
       console.error("[TTS] Erro:", err);
@@ -118,38 +167,23 @@ class VoiceOutputService {
     }
   }
 
-  private async playBase64(base64: string): Promise<void> {
-    const isWav = base64.startsWith("UklGR");
-    const ext = isWav ? "wav" : "mp3";
-    const file = new File(Paths.cache, `domus_tts_${Date.now()}.${ext}`);
-
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i)!;
-    }
-    file.write(bytes);
-
-    await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
-
-    const player = createAudioPlayer({ uri: file.uri });
-    this.player = player;
-    player.play();
-
-    // Wait for playback to finish
-    await new Promise<void>((resolve) => {
+  private waitForPlayer(player: AudioPlayer): Promise<void> {
+    return new Promise<void>((resolve) => {
       const checkDone = setInterval(() => {
         if (!player.playing || this._cancelled) {
           clearInterval(checkDone);
-          try {
-            player.remove();
-            file.delete();
-          } catch { /* ignore */ }
-          if (this.player === player) this.player = null;
           resolve();
         }
-      }, 300);
+      }, 100); // Check more frequently for smoother transitions
     });
+  }
+
+  private cleanupChunk(chunk: PreparedChunk) {
+    try {
+      chunk.player.remove();
+      chunk.file.delete();
+    } catch { /* ignore */ }
+    if (this.player === chunk.player) this.player = null;
   }
 }
 

@@ -2,7 +2,7 @@ import type { AdapterMessage, AdapterOptions, AdapterResult } from "../types";
 import type { AIProviderAdapter } from "./AIProviderAdapter";
 import { fetchWithTimeout, assertOk } from "./AIProviderAdapter";
 
-export type OpenAIVoiceId = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
+export type OpenAIVoiceId = "alloy" | "ash" | "ballad" | "coral" | "echo" | "fable" | "nova" | "onyx" | "sage" | "shimmer" | "verse" | "marin" | "cedar";
 
 interface OpenAIResponse {
   choices: Array<{
@@ -27,7 +27,7 @@ export class OpenAIAdapter implements AIProviderAdapter {
       type: "audio/m4a",
       name: "recording.m4a",
     } as unknown as Blob);
-    formData.append("model", "whisper-1");
+    formData.append("model", "gpt-4o-mini-transcribe");
     formData.append("language", "pt");
 
     const response = await fetchWithTimeout(
@@ -59,7 +59,7 @@ export class OpenAIAdapter implements AIProviderAdapter {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({ model: "tts-1", input: text, voice }),
+        body: JSON.stringify({ model: "gpt-4o-mini-tts", input: text, voice }),
       },
       30_000,
     );
@@ -110,8 +110,9 @@ export class OpenAIAdapter implements AIProviderAdapter {
             }
             return { role: m.role, content: m.content };
           }),
-          temperature: options.temperature ?? 0.2,
-          max_tokens: options.maxTokens ?? 512,
+          // o-series and reasoning models don't support temperature; gpt-5.x may also reject it
+          ...(/^(o[0-9]|gpt-5)/.test(options.model ?? "") ? {} : { temperature: Number(options.temperature ?? 0.2) }),
+          max_completion_tokens: options.maxTokens ?? 4096,
         }),
       },
     );
