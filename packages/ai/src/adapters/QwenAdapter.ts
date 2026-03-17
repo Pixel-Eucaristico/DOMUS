@@ -51,7 +51,7 @@ export class QwenAdapter implements AIProviderAdapter {
             return { role: m.role, content: m.content };
           }),
           temperature: options.temperature ?? 0.2,
-          max_tokens: options.maxTokens ?? 512,
+          max_tokens: options.maxTokens ?? 4096,
         }),
       },
     );
@@ -64,4 +64,5 @@ export class QwenAdapter implements AIProviderAdapter {
 
     return { content, tokensUsed };
   }
+
 }

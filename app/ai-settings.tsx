@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Linking,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -27,7 +28,6 @@ import { AIUsageDashboard } from "@/src/components/ai/AIUsageDashboard";
 import { BudgetCostSection } from "@/src/components/ai/BudgetCostSection";
 import type { AIProvider, AudioProvider } from "@packages/ai";
 import { ELEVENLABS_VOICES } from "@packages/../packages/ai/src/audio/ElevenLabsAdapter";
-import { QWEN_TTS_VOICES } from "@packages/../packages/ai/src/audio/QwenAudioAdapter";
 import { GEMINI_TTS_VOICES } from "@packages/../packages/ai/src/audio/GeminiAudioAdapter";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -156,7 +156,7 @@ export default function AISettingsScreen() {
     if (prov === "openai") return ["alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar"];
     if (prov === "elevenlabs") return Object.keys(ELEVENLABS_VOICES).slice(0, 12);
     if (prov === "gemini") return Object.keys(GEMINI_TTS_VOICES).slice(0, 12);
-    return Object.keys(QWEN_TTS_VOICES);
+    return [];
   })();
 
   const currentAudioVoice = settings.audioVoice ?? (
@@ -249,6 +249,45 @@ export default function AISettingsScreen() {
               onLoginChatGPT={loginWithChatGPT}
               onLogoutChatGPT={logoutChatGPT}
             />
+            {/* Link to official docs for getting API key */}
+            <TouchableOpacity
+              onPress={() => {
+                const urls: Record<string, string> = {
+                  openai: "https://platform.openai.com/api-keys",
+                  gemini: "https://aistudio.google.com/apikey",
+                  claude: "https://console.anthropic.com/settings/keys",
+                  deepseek: "https://platform.deepseek.com/api_keys",
+                  qwen: "https://bailian.console.alibabacloud.com/#/model-market/detail/qwen-plus-latest",
+                };
+                Linking.openURL(urls[settings.provider] ?? urls.openai);
+              }}
+              style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 8 }}
+            >
+              <Feather name="external-link" size={12} color={theme.primaryColor} />
+              <Text style={{ color: theme.primaryColor, fontSize: 12 }}>
+                Gerar chave de API — {
+                  { openai: "OpenAI Platform", gemini: "Google AI Studio", claude: "Anthropic Console", deepseek: "DeepSeek Platform", qwen: "Alibaba DashScope" }[settings.provider] ?? settings.provider
+                }
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                const docs: Record<string, string> = {
+                  openai: "https://platform.openai.com/docs/api-reference/chat",
+                  gemini: "https://ai.google.dev/gemini-api/docs",
+                  claude: "https://docs.anthropic.com/en/api/messages",
+                  deepseek: "https://api-docs.deepseek.com/",
+                  qwen: "https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api",
+                };
+                Linking.openURL(docs[settings.provider] ?? docs.openai);
+              }}
+              style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}
+            >
+              <Feather name="book-open" size={12} color={theme.secondaryText} />
+              <Text style={{ color: theme.secondaryText, fontSize: 11 }}>
+                Documentacao oficial
+              </Text>
+            </TouchableOpacity>
           </View>
         </Card>
 
@@ -309,7 +348,6 @@ export default function AISettingsScreen() {
                       { id: "openai", label: "OpenAI TTS" },
                       { id: "gemini", label: "Gemini TTS" },
                       { id: "elevenlabs", label: "ElevenLabs" },
-                      { id: "qwen", label: "Qwen TTS" },
                     ]}
                     selected={settings.audioProvider ?? "openai"}
                     onSelect={(id) => updateSettings({ audioProvider: id as AudioProvider, audioVoice: undefined })}
@@ -344,11 +382,18 @@ export default function AISettingsScreen() {
                         onLoginChatGPT={async (_onCode) => false}
                         onLogoutChatGPT={async () => {}}
                       />
+                      <TouchableOpacity
+                        onPress={() => Linking.openURL("https://elevenlabs.io/app/settings/api-keys")}
+                        style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}
+                      >
+                        <Feather name="external-link" size={11} color={theme.primaryColor} />
+                        <Text style={{ color: theme.primaryColor, fontSize: 11 }}>Obter chave ElevenLabs</Text>
+                      </TouchableOpacity>
                     </View>
                   )}
 
-                  {/* For OpenAI/Gemini/Qwen TTS: show API key manager */}
-                  {(settings.audioProvider === "openai" || settings.audioProvider === "gemini" || settings.audioProvider === "qwen") && (
+                  {/* For OpenAI/Gemini TTS: show API key manager */}
+                  {(settings.audioProvider === "openai" || settings.audioProvider === "gemini") && (
                     <View style={{ gap: 4 }}>
                       <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
                         Chave {(settings.audioProvider ?? "openai").toUpperCase()} (mesma do provedor de texto)

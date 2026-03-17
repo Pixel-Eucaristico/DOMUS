@@ -1,12 +1,16 @@
 import type { IAudioProvider } from "../types";
 import { fetchWithTimeout, assertOk } from "../adapters/AIProviderAdapter";
 
-/** Qwen TTS voices (multilingual) */
+/** Qwen TTS voices (multilingual, supports PT) */
 export const QWEN_TTS_VOICES: Record<string, string> = {
   cherry: "Cherry",
   serena: "Serena",
   ethan: "Ethan",
+  chelsie: "Chelsie",
+  momo: "Momo",
+  vivian: "Vivian",
   moon: "Moon",
+  maia: "Maia",
   kai: "Kai",
   neil: "Neil",
   bella: "Bella",

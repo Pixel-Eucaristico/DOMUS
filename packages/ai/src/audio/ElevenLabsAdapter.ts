@@ -73,4 +73,32 @@ export class ElevenLabsAdapter implements IAudioProvider {
 
     return { base64, format: "mp3" };
   }
+
+  /** Transcribe audio via ElevenLabs Scribe STT. audioUri = local file path */
+  async transcribeAudio(audioUri: string, apiKey: string): Promise<string> {
+    const formData = new FormData();
+    formData.append("file", {
+      uri: audioUri,
+      type: "audio/m4a",
+      name: "recording.m4a",
+    } as unknown as Blob);
+    formData.append("model_id", "scribe_v1");
+    formData.append("language_code", "pt");
+
+    const response = await fetchWithTimeout(
+      "https://api.elevenlabs.io/v1/speech-to-text",
+      {
+        method: "POST",
+        headers: { "xi-api-key": apiKey },
+        body: formData,
+      },
+      30_000,
+    );
+    if (response.status === 402) {
+      throw new Error("ElevenLabs STT requer plano pago.");
+    }
+    await assertOk(response, "ElevenLabs STT");
+    const json = (await response.json()) as { text?: string };
+    return json.text ?? "";
+  }
 }

@@ -309,27 +309,44 @@ export default function AIChatScreen() {
       const result = await stopRecording();
       if (result) {
         pendingAudioUri.current = result.uri;
-        if (settings.provider === "gemini") {
+        const prov = settings.provider;
+
+        if (prov === "gemini") {
           // Gemini: send audio directly as multimodal attachment
           setIsTranscribing(false);
           await sendMessage("🎤 [mensagem de voz]", null, { base64: result.base64, mimeType: "audio/mp4" });
         } else {
-          // All other providers: transcribe via OpenAI STT then send as text
+          // Transcribe using the provider's own STT when available
           let transcribed = "";
           try {
-            // Try OpenAI key first, then current provider key for OpenAI-compatible STT
-            const openaiKey = await SecureKeyService.retrieveKey("openai");
-            if (openaiKey) {
-              transcribed = await new OpenAIAdapter().transcribeAudio(result.uri, openaiKey);
+            const provKey = await SecureKeyService.retrieveKey(prov);
+            if (prov === "openai" && provKey) {
+              // OpenAI: native Whisper STT
+              transcribed = await new OpenAIAdapter().transcribeAudio(result.uri, provKey);
+            } else if ((prov === "claude" || prov === "deepseek" || prov === "qwen") && settings.audioProvider) {
+              // Claude/DeepSeek: no native STT — use audio provider's STT as fallback
+              const audioProv = settings.audioProvider;
+              const audioKey = await SecureKeyService.retrieveKey(audioProv as any);
+              if (audioProv === "openai" && audioKey) {
+                transcribed = await new OpenAIAdapter().transcribeAudio(result.uri, audioKey);
+              } else if (audioProv === "elevenlabs" && audioKey) {
+                const { ElevenLabsAdapter } = require("@packages/../packages/ai/src/audio/ElevenLabsAdapter");
+                transcribed = await new ElevenLabsAdapter().transcribeAudio(result.uri, audioKey);
+              } else if (audioProv === "gemini" && audioKey) {
+                // Gemini can process audio — send as multimodal
+                setIsTranscribing(false);
+                await sendMessage("🎤 [mensagem de voz]", null, { base64: result.base64, mimeType: "audio/mp4" });
+                return; // already sent
+              }
             }
-          } catch { /* ignore */ }
+          } catch (e) { console.warn("[STT] Erro:", e); }
           setIsTranscribing(false);
           if (transcribed.trim()) {
             const mp = detectMissingPermission(transcribed.trim(), settings.dataPermissions);
             if (mp) setPermissionModal({ key: mp, pendingText: transcribed.trim() });
             else await sendMessage(transcribed.trim());
           } else {
-            // No transcription available - inform user
+            // No transcription available
             soundManager.play("error");
           }
         }
@@ -472,7 +489,10 @@ export default function AIChatScreen() {
           handleSend([{ _id: Date.now(), text: inputText.trim(), createdAt: new Date(), user: HUMAN_USER }]);
         }}
         isEnabled={settings.isEnabled}
-        voiceEnabled={settings.voiceEnabled ?? false}
+        voiceEnabled={(settings.voiceEnabled ?? false) && (
+          settings.provider === "openai" || settings.provider === "gemini" ||
+          ((settings.provider === "claude" || settings.provider === "deepseek" || settings.provider === "qwen") && !!settings.audioProvider)
+        )}
         visionOCREnabled={settings.visionOCREnabled}
         isRecording={isRecording}
         isTranscribing={isTranscribing}

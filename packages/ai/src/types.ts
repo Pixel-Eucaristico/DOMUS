@@ -154,7 +154,7 @@ export type MultimodalContent = Array<TextContentPart | ImageUrlContentPart>;
 
 // ─── Audio Provider ──────────────────────────────────────────────────────────
 
-export type AudioProvider = "openai" | "elevenlabs" | "qwen" | "gemini";
+export type AudioProvider = "openai" | "elevenlabs" | "gemini";
 
 export interface IAudioProvider {
   /** Synthesize text to audio, returns base64-encoded audio */
