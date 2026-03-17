@@ -141,7 +141,7 @@ function isUnlocked(
       const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       const cats = new Set(
         txList
-          .filter((tx) => tx.date.startsWith(ym) && tx.categoryId)
+          .filter((tx) => tx.date?.startsWith(ym) && tx.categoryId)
           .map((tx) => tx.categoryId as string),
       );
       return cats.size >= 5;

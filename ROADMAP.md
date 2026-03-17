@@ -14,16 +14,18 @@
 - [ ] Validar cenarios de parsing (Qtd x Preco, R$ Preco)
 - [ ] Verificar fallback chain do HybridOCRAdapter
 
-### 07 - Melhorar Tour (Baloes, Setas, Minimizar)
+### 07 - Melhorar Tour (Baloes, Setas, Minimizar) — PARCIALMENTE CONCLUIDO
 - **Dificuldade:** COMPLEXO | **Urgencia:** MEDIA | **~8-12h**
-- **Problema:** Tour reseta para step 0 ao remontar (parece travado na 1a pagina), bloqueia experimentacao, sem baloes/setas, sem minimizar
-- **Bugs:** Estado nao persistido (useState local reseta), backdrop 45% bloqueia visao, sem highlight de elementos
-- **Solucao:** 4 fases - Fix bugs (persist state) -> Minimizar/Badge -> Baloes/Setas -> Navegacao inteligente
 - **Detalhes:** [docs/roadmap/07-melhorar-tour.md](docs/roadmap/07-melhorar-tour.md)
-- [ ] Fix: Persistir step no AsyncStorage + mover estado para context
-- [ ] Adicionar botao minimizar + badge flutuante
-- [ ] Implementar spotlight mask + setas SVG
-- [ ] Navegacao automatica para tela do step
+- [x] Implementar TourArrow (setas SVG entre steps)
+- [x] Implementar TourMiniBadge (badge flutuante para minimizar/retomar)
+- [x] Implementar TourGuideTooltip (baloes customizados)
+- [x] TourPageHost + TourPageContext (contexto por pagina)
+- [x] TourModalCard + TourInlineCard (cards de instrucao)
+- [x] WelcomeCarousel (onboarding inicial)
+- [x] Navegacao entre grupos de tour (useTourGroupNavigation)
+- [ ] **Fix: Persistir step no AsyncStorage** (ainda usa estado local, reseta ao remontar)
+- [ ] Navegacao automatica para tela do step correto
 
 ### 08 - Animacao Individual para Cada Trofeu (167 trofeus)
 - **Dificuldade:** COMPLEXO | **Urgencia:** BAIXA | **~15-25h (com acompanhamento)**
@@ -89,51 +91,65 @@ Este documento detalha o roteiro estratégico para estabilização técnica, mod
 ## 🤖 Fase 4: Inteligência e Consultoria Financeira (Arquitetura Multi-IA)
 *Foco: Transformar a IA em um consultor financeiro multimodal de nível profissional, com arquitetura desacoplada e OCR baseado em Vision AI.*
 
-- [ ] **Interface de Chat com Gifted Chat:**
-    - Bolhas de chat profissionais, suporte a anexos e indicadores de "IA a escrever".
-    - Renderização de mini-gráficos financeiros diretamente dentro da conversa.
-> **🤖 [MEGA-PROMPT DE IMPLEMENTAÇÃO PARA CLAUDE AI]**
-> **Papel:** Atue como Engenheiro de Software Sênior especialista em React Native (Expo) e integração segura de LLMs.
-> **Diretrizes Arquiteturais Estritas:**
-> 1. **Segurança (BYOK - Bring Your Own Key):** Todas as chaves lidas devem vir localmente do `expo-secure-store`. **Nunca** faça hardcode, logs ou envie chaves para servidores intermediários.
-> 2. **Padrão Strategy (Desacoplamento Texto x Áudio):** O usuário pode usar Claude para raciocínio financeiro (Texto) e ElevenLabs para a voz (Áudio). Construa interfaces genéricas (`ITextProvider`, `IAudioProvider`) para que os conectores sejam instanciados de forma agnóstica.
-> 3. **Resiliência:** Trate limites de cota (HTTP 429), chaves inválidas (HTTP 401) e timeouts de forma amigável na UI.
-> 4. **OCR Determinístico (Vision):** Para leitura de Notas Fiscais e Olerites, use o modelo Vision da IA selecionada. Exija sempre a saída em `JSON format` estrito e valide imediatamente na volta usando a biblioteca `zod`.
+### Diretrizes Arquiteturais
+> 1. **Seguranca (BYOK):** Chaves via `expo-secure-store`. Nunca hardcode/logs/servidores.
+> 2. **Padrao Strategy:** Texto e Audio desacoplados (`ITextProvider`, `IAudioProvider`).
+> 3. **Resiliencia:** HTTP 429/401/timeout tratados na UI com ProviderSwitchModal.
+> 4. **OCR Vision:** Saida JSON estrita validada com `zod`.
 
-- [ ] **Motor Multi-Provedor de IA (Chat & Texto):**
-    - Implementar adapters seguindo as documentações oficiais:
-    - 🔗 **OpenAI (GPT-4o):** [Documentação Chat Completions](https://platform.openai.com/docs/api-reference/chat)
-    - 🔗 **Anthropic (Claude 3.5):** [Documentação Messages API](https://docs.anthropic.com/en/api/messages)
-    - 🔗 **DeepSeek (V3/R1):** [Documentação API](https://api-docs.deepseek.com/)
-    - 🔗 **Qwen (Alibaba DashScope):** [Documentação Text Generation](https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api)
+### Motor Multi-Provedor de IA (Chat & Texto) — CONCLUIDO
+- [x] **OpenAI** — `gpt-5-mini` / `gpt-5.4` (`max_completion_tokens`, sem `temperature` para gpt-5.x)
+- [x] **Gemini** — `gemini-2.5-flash` / `gemini-2.5-pro`
+- [x] **Claude** — `claude-haiku-4-5` / `claude-sonnet-4-6` (`anthropic-version: 2023-06-01`)
+- [x] **DeepSeek** — `deepseek-chat` / `deepseek-reasoner` (OpenAI-compatible)
+- [x] **Qwen** — `qwen-turbo-latest` / `qwen-plus-latest` via DashScope
+- [x] System prompt financeiro brasileiro (estilo William Ribeiro / "Dinheiro Com Voce")
+- [x] Proibicao de tabelas markdown no prompt
+- [x] Links para documentacao oficial e geracao de API key por provider
 
-- [ ] **Motor Multi-Provedor de Áudio (Text-to-Speech / Voz):**
-    - Permitir integração de áudio para leitura e ditado, operando independentemente da IA de texto.
-    - 🔗 **OpenAI (TTS):** [Documentação Audio/Speech](https://platform.openai.com/docs/guides/text-to-speech)
-    - 🔗 **ElevenLabs:** [Documentação Text-to-Speech](https://elevenlabs.io/docs/api-reference/text-to-speech)
-    - 🔗 **Qwen (CosyVoice):** [Documentação Síntese de Áudio](https://help.aliyun.com/zh/model-studio/developer-reference/cosyvoice-quick-start)
-    - ⚠️ *Aviso de Domínio: A Anthropic (Claude) não possui API nativa de Text-to-Speech ativa publicamente. Se o usuário estiver usando Claude para Chat, obrigue-o/permita-o selecionar um fallback de áudio (OpenAI ou ElevenLabs) na tela de configurações.*
+### Motor Multi-Provedor de Audio (TTS) — CONCLUIDO
+- [x] **OpenAI TTS** — `gpt-4o-mini-tts`, 13 vozes
+- [x] **Gemini TTS** — TTS nativo
+- [x] **ElevenLabs** — `eleven_multilingual_v2`, 21 vozes premade, `language_code: "pt"`
+- [x] Claude/DeepSeek/Qwen sem TTS — usuario seleciona audio provider separado
+- [x] Calculo de custo TTS por caracteres (`TokenTracker.recordTTSChars`)
+- [x] Aviso de que ElevenLabs requer plano pago para vozes via API
 
-- [ ] **Interface de Chat Avançada (`react-native-gifted-chat`):**
-    - 🔗 **Documentação Oficial:** Repositório GitHub Gifted Chat
-    - Criar tela protegida por `KeyboardAvoidingView`.
-    - Suportar renderização Markdown via custom message text.
-    - Ligar o estado fluído `isTyping={true}` durante o loading da requisição.
-    - Interceptar respostas da IA: Utilizar a prop `renderCustomView` para desenhar "Cards de Transação" ou "Mini-Gráficos" caso a IA retorne dados financeiros formatados de forma específica.
-    - Inserir botão de "Ouvir Mensagem 🔊" adjacente às bolhas de resposta para disparar o `IAudioProvider` configurado.
+### Motor Multi-Provedor de STT (Speech-to-Text) — CONCLUIDO
+- [x] **OpenAI** — `gpt-4o-mini-transcribe`
+- [x] **Gemini** — audio multimodal direto
+- [x] **ElevenLabs** — Scribe v1 (`/v1/speech-to-text`)
+- [x] Claude/DeepSeek/Qwen — usa STT do audio provider configurado
+- [x] Mic desabilitado quando nao ha STT disponivel
 
-- [ ] **Upgrade Definitivo de OCR via Inteligência Artificial Multimodal (Vision):**
-    - Substituir o processamento falho de strings por visão computacional inteligente. Capturar o olerite/fatura como Base64 e enviar para a IA resolver e mapear em categorias.
-    - 🔗 **OpenAI Vision:** [Guia Vision API](https://platform.openai.com/docs/guides/vision)
-    - 🔗 **Claude Vision:** [Guia de Construção com Imagens (Vision)](https://docs.anthropic.com/en/docs/build-with-claude/vision)
-    - 🔗 **Qwen VL:** [Guia Vision-Language](https://help.aliyun.com/zh/model-studio/developer-reference/qwen-vl-api)
-    - *Instrução para a IA:* O system prompt do OCR deve impor: "Analise esta imagem de folha de pagamento/nota fiscal. Extraia o valor líquido, descontos, CNPJ da empresa, etc., e retorne ESTRITAMENTE em formato JSON sem blocos de markdown. Não inclua conversas ou saudações."
+### Interface de Chat Avancada (react-native-gifted-chat) — CONCLUIDO
+- [x] Markdown rendering (negrito, italico, listas, titulos, codigo)
+- [x] `isTyping` durante loading
+- [x] `renderCustomView` para Cards de Transacao / FinancialCard
+- [x] Botao "Ouvir Mensagem" + long-press copiar + smart links
+- [x] Scroll to bottom + Quick Suggestions + Swipe-to-reply
+- [x] Avatar por provider (icone + cor oficial, mantido no historico)
+- [x] Historico local (AsyncStorage), contexto IA = so sessao atual
+- [x] Replay de audio gravado, auto-play TTS, TTS sequencial por chunks
+- [x] Barra de uso (texto + audio, custo R$), ProviderSwitchModal
+- [x] `useFocusEffect` recarrega settings ao voltar das config
 
-- [ ] **Tooltips Inteligentes:**
-    - Implementar `react-native-smart-tooltip` para dicas contextuais (ex: explicar a regra 50/30/20 na primeira vez que o utilizador vê o gráfico).
-    - Integrar `react-native-sprinkle-toast` (Documentação Oficial) para feedbacks rápidos e visuais ao enviar mensagens, capturar erros ou salvar análises de OCR no banco de dados.
-- [ ] **Upgrade de OCR:**
-    - Finalizar o motor de leitura de Olerite/Holerite para automação total de receitas mensais.
+### OCR via Vision AI — PARCIALMENTE CONCLUIDO
+- [x] VisionOCRService com schemas Zod (Invoice + Payslip)
+- [x] Suporte OpenAI Vision, Claude Vision, Gemini Vision, Qwen VL
+- [ ] Finalizar motor de leitura de Olerite/Holerite para automacao total
+
+### Controle e Configuracoes — CONCLUIDO
+- [x] Toggle master "Ativar IA", "Modo Voz", "Falar direto"
+- [x] Selecao independente de provider texto/audio
+- [x] Budget diario/mensal com billing cycle
+- [x] Dashboard de uso + permissoes granulares de dados
+- [x] CircuitBreaker com reset ao trocar provider
+
+### Pendente (Fase 4)
+- [ ] **Tooltips Inteligentes:** `react-native-smart-tooltip` + `react-native-sprinkle-toast`
+- [ ] **Mini-graficos financeiros** dentro da conversa do chat
+- [ ] **Upgrade de OCR:** Finalizar motor de Olerite/Holerite
 
 ---
 
@@ -164,56 +180,6 @@ yarn add react-native-gifted-chat react-native-circular-action-menu react-native
 | `@rive-app/react-native` | 3 | ✅ | [reactnative.directory](https://reactnative.directory/package/@rive-app/react-native) |
 | `react-native-gifted-chat` | 4 | ✅ | [github.com](https://github.com/FaridSafi/react-native-gifted-chat) |
 | `react-native-circular-action-menu` | 2 | ❓ | [github.com](https://github.com/geremih/react-native-circular-action-menu) |
-
-Termninados
-## 🤖 Fase 4: Inteligência e Consultoria Financeira (Arquitetura Multi-IA)
-*Foco: Transformar a IA em um consultor financeiro multimodal de nível profissional, com arquitetura desacoplada e OCR baseado em Vision AI.*
-
-- [ ] **Interface de Chat com Gifted Chat:**
-    - Bolhas de chat profissionais, suporte a anexos e indicadores de "IA a escrever".
-    - Renderização de mini-gráficos financeiros diretamente dentro da conversa.
-> **🤖 [MEGA-PROMPT DE IMPLEMENTAÇÃO PARA CLAUDE AI]**
-> **Papel:** Atue como Engenheiro de Software Sênior especialista em React Native (Expo) e integração segura de LLMs.
-> **Diretrizes Arquiteturais Estritas:**
-> 1. **Segurança (BYOK - Bring Your Own Key):** Todas as chaves lidas devem vir localmente do `expo-secure-store`. **Nunca** faça hardcode, logs ou envie chaves para servidores intermediários.
-> 2. **Padrão Strategy (Desacoplamento Texto x Áudio):** O usuário pode usar Claude para raciocínio financeiro (Texto) e ElevenLabs para a voz (Áudio). Construa interfaces genéricas (`ITextProvider`, `IAudioProvider`) para que os conectores sejam instanciados de forma agnóstica.
-> 3. **Resiliência:** Trate limites de cota (HTTP 429), chaves inválidas (HTTP 401) e timeouts de forma amigável na UI.
-> 4. **OCR Determinístico (Vision):** Para leitura de Notas Fiscais e Olerites, use o modelo Vision da IA selecionada. Exija sempre a saída em `JSON format` estrito e valide imediatamente na volta usando a biblioteca `zod`.
-
-- [ ] **Motor Multi-Provedor de IA (Chat & Texto):**
-    - Implementar adapters seguindo as documentações oficiais:
-    - 🔗 **OpenAI (GPT-4o):** [Documentação Chat Completions](https://platform.openai.com/docs/api-reference/chat)
-    - 🔗 **Anthropic (Claude 3.5):** [Documentação Messages API](https://docs.anthropic.com/en/api/messages)
-    - 🔗 **DeepSeek (V3/R1):** [Documentação API](https://api-docs.deepseek.com/)
-    - 🔗 **Qwen (Alibaba DashScope):** [Documentação Text Generation](https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api)
-
-- [ ] **Motor Multi-Provedor de Áudio (Text-to-Speech / Voz):**
-    - Permitir integração de áudio para leitura e ditado, operando independentemente da IA de texto.
-    - 🔗 **OpenAI (TTS):** [Documentação Audio/Speech](https://platform.openai.com/docs/guides/text-to-speech)
-    - 🔗 **ElevenLabs:** [Documentação Text-to-Speech](https://elevenlabs.io/docs/api-reference/text-to-speech)
-    - 🔗 **Qwen (CosyVoice):** [Documentação Síntese de Áudio](https://help.aliyun.com/zh/model-studio/developer-reference/cosyvoice-quick-start)
-    - ⚠️ *Aviso de Domínio: A Anthropic (Claude) não possui API nativa de Text-to-Speech ativa publicamente. Se o usuário estiver usando Claude para Chat, obrigue-o/permita-o selecionar um fallback de áudio (OpenAI ou ElevenLabs) na tela de configurações.*
-
-- [ ] **Interface de Chat Avançada (`react-native-gifted-chat`):**
-    - 🔗 **Documentação Oficial:** Repositório GitHub Gifted Chat
-    - Criar tela protegida por `KeyboardAvoidingView`.
-    - Suportar renderização Markdown via custom message text.
-    - Ligar o estado fluído `isTyping={true}` durante o loading da requisição.
-    - Interceptar respostas da IA: Utilizar a prop `renderCustomView` para desenhar "Cards de Transação" ou "Mini-Gráficos" caso a IA retorne dados financeiros formatados de forma específica.
-    - Inserir botão de "Ouvir Mensagem 🔊" adjacente às bolhas de resposta para disparar o `IAudioProvider` configurado.
-
-- [ ] **Upgrade Definitivo de OCR via Inteligência Artificial Multimodal (Vision):**
-    - Substituir o processamento falho de strings por visão computacional inteligente. Capturar o olerite/fatura como Base64 e enviar para a IA resolver e mapear em categorias.
-    - 🔗 **OpenAI Vision:** [Guia Vision API](https://platform.openai.com/docs/guides/vision)
-    - 🔗 **Claude Vision:** [Guia de Construção com Imagens (Vision)](https://docs.anthropic.com/en/docs/build-with-claude/vision)
-    - 🔗 **Qwen VL:** [Guia Vision-Language](https://help.aliyun.com/zh/model-studio/developer-reference/qwen-vl-api)
-    - *Instrução para a IA:* O system prompt do OCR deve impor: "Analise esta imagem de folha de pagamento/nota fiscal. Extraia o valor líquido, descontos, CNPJ da empresa, etc., e retorne ESTRITAMENTE em formato JSON sem blocos de markdown. Não inclua conversas ou saudações."
-
-- [ ] **Tooltips Inteligentes:**
-    - Implementar `react-native-smart-tooltip` para dicas contextuais (ex: explicar a regra 50/30/20 na primeira vez que o utilizador vê o gráfico).
-    - Integrar `react-native-sprinkle-toast` (Documentação Oficial) para feedbacks rápidos e visuais ao enviar mensagens, capturar erros ou salvar análises de OCR no banco de dados.
-- [ ] **Upgrade de OCR:**
-    - Finalizar o motor de leitura de Olerite/Holerite para automação total de receitas mensais.
 
 ### 04 - Corrigir e Melhorar APIs de IA (CONCLUIDA)
 - **Dificuldade:** MEDIO | **Urgencia:** MEDIA | **~2h**

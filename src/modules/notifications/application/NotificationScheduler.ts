@@ -100,7 +100,7 @@ export function computeBillReminders(
     const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     let invoiceTotal = 0;
     for (const tx of Object.values(transactions)) {
-      if (tx.accountId === acc.id && tx.type === "expense" && tx.date.startsWith(monthPrefix)) {
+      if (tx.accountId === acc.id && tx.type === "expense" && tx.date?.startsWith(monthPrefix)) {
         invoiceTotal += tx.amount;
       }
     }
@@ -156,7 +156,7 @@ export function computeBudgetAlerts(
   // Calcula receita total do mês (para determinar limites 50/30/20)
   let totalIncome = 0;
   for (const tx of Object.values(transactions)) {
-    if (tx.type === "income" && tx.date.startsWith(monthPrefix) && tx.status === "confirmed") {
+    if (tx.type === "income" && tx.date?.startsWith(monthPrefix) && tx.status === "confirmed") {
       totalIncome += tx.amount;
     }
   }
@@ -171,7 +171,7 @@ export function computeBudgetAlerts(
   // Agrupa despesas do mês por grupo
   const groupSpending: Record<string, number> = { needs: 0, wants: 0, savings: 0 };
   for (const tx of Object.values(transactions)) {
-    if (tx.type !== "expense" || !tx.date.startsWith(monthPrefix)) continue;
+    if (tx.type !== "expense" || !tx.date?.startsWith(monthPrefix)) continue;
     const cat = categories[tx.categoryId];
     if (!cat) continue;
     groupSpending[cat.group] = (groupSpending[cat.group] || 0) + tx.amount;
@@ -232,7 +232,7 @@ export function computeCreditCardClosingReminders(
     const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     let partialInvoice = 0;
     for (const tx of Object.values(transactions)) {
-      if (tx.accountId === acc.id && tx.type === "expense" && tx.date.startsWith(monthPrefix)) {
+      if (tx.accountId === acc.id && tx.type === "expense" && tx.date?.startsWith(monthPrefix)) {
         partialInvoice += tx.amount;
       }
     }

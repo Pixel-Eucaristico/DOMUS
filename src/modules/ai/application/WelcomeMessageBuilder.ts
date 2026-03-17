@@ -50,7 +50,7 @@ export function buildWelcomeMessage(
   // Recent transaction insight
   if (permissions.transactions && transactions.length > 0) {
     const thisMonth = new Date().toISOString().slice(0, 7);
-    const monthTx = transactions.filter((t) => t.date.startsWith(thisMonth));
+    const monthTx = transactions.filter((t) => t.date?.startsWith(thisMonth));
     const expenses = monthTx
       .filter((t) => t.type === "expense")
       .reduce((s, t) => s + t.amount, 0);

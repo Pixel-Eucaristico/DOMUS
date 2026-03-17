@@ -6,7 +6,7 @@ import type { LiturgicalTrophy } from "./types";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function txs(domain: AppState, mk: string) {
-  return Object.values(domain.transactions).filter(t => t.date.startsWith(mk));
+  return Object.values(domain.transactions).filter(t => t.date?.startsWith(mk));
 }
 function hasDizimo(domain: AppState, mk: string) {
   return txs(domain, mk).some(t => t.categoryId === "dizimo");

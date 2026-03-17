@@ -403,11 +403,11 @@ export const MONTHLY_TROPHIES: MonthlyTrophy[] = [
     icon: "📝",
     check: (domain, _budget, monthKey) => {
       const txList = Object.values(domain.transactions);
-      return txList.filter(tx => tx.date.startsWith(monthKey)).length >= 10;
+      return txList.filter(tx => tx.date?.startsWith(monthKey)).length >= 10;
     },
     progress: (domain, _budget, monthKey) => {
       const txList = Object.values(domain.transactions);
-      const count = txList.filter(tx => tx.date.startsWith(monthKey)).length;
+      const count = txList.filter(tx => tx.date?.startsWith(monthKey)).length;
       return { current: Math.min(count, 10), target: 10, unit: "transações" };
     },
   },
@@ -470,11 +470,11 @@ export const MONTHLY_TROPHIES: MonthlyTrophy[] = [
     icon: "🙏",
     check: (domain, _budget, monthKey) => {
       const txList = Object.values(domain.transactions);
-      return txList.some(tx => tx.categoryId === "dizimo" && tx.date.startsWith(monthKey));
+      return txList.some(tx => tx.categoryId === "dizimo" && tx.date?.startsWith(monthKey));
     },
     progress: (domain, _budget, monthKey) => {
       const txList = Object.values(domain.transactions);
-      const found = txList.some(tx => tx.categoryId === "dizimo" && tx.date.startsWith(monthKey));
+      const found = txList.some(tx => tx.categoryId === "dizimo" && tx.date?.startsWith(monthKey));
       return { current: found ? 1 : 0, target: 1, unit: "registro" };
     },
   },

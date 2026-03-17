@@ -76,7 +76,7 @@ export class FinancialAnalysisEngine {
     month: string,
   ): MonthlySummary {
     const monthTxs = transactions.filter(
-      (t) => t.status !== "pending" && t.date.startsWith(month),
+      (t) => t.status !== "pending" && t.date?.startsWith(month),
     );
 
     const totalIncome = monthTxs

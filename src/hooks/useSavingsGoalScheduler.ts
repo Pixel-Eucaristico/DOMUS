@@ -60,7 +60,7 @@ function alreadyScheduledInPeriod(
       return false;
 
     if (recurrence === "monthly") {
-      return tx.date.startsWith(currentMonthPrefix());
+      return tx.date?.startsWith(currentMonthPrefix());
     }
     if (recurrence === "biweekly") {
       const [start, end] = currentFortnight();

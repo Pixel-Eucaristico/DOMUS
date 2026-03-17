@@ -163,7 +163,7 @@ export default function HomeScreen() {
     const result: Record<string, number> = {};
     for (const acc of savingsGoalAccounts) {
       result[acc.id] = txArr
-        .filter((tx) => tx.accountId === acc.id && tx.type === "income" && tx.status === "confirmed" && tx.date.startsWith(prefix))
+        .filter((tx) => tx.accountId === acc.id && tx.type === "income" && tx.status === "confirmed" && tx.date?.startsWith(prefix))
         .reduce((s, tx) => s + tx.amount, 0);
     }
     return result;
