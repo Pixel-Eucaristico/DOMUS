@@ -99,10 +99,20 @@ export function AIUsageBar({
     const u = await TokenTracker.getToday();
     setUsage(u);
     const costMap: Record<string, number> = {};
+    // Text token costs
     for (const [p, tokens] of Object.entries(u.byProvider)) {
       if ((tokens ?? 0) > 0) {
         const est = await TokenPricingService.estimateCost(p as AIProvider, modelTier, tokens!);
         costMap[p] = est.costBrl;
+      }
+    }
+    // TTS character costs
+    if (u.ttsCharsByProvider) {
+      for (const [p, chars] of Object.entries(u.ttsCharsByProvider)) {
+        if ((chars ?? 0) > 0) {
+          const est = await TokenPricingService.estimateTTSCost(p, chars!);
+          costMap[`tts_${p}`] = est.costBrl;
+        }
       }
     }
     setCosts(costMap);
@@ -143,16 +153,20 @@ export function AIUsageBar({
       unlimited: getUnlimited(provider),
       cost: costs[provider] ?? null,
     });
-    // Audio provider bar
+    // Audio provider bar — use TTS chars for ElevenLabs/dedicated TTS, tokens for shared providers
     if (audioProv) {
-      const audioTokens = usage.byProvider[audioProv as AIProvider] ?? 0;
+      const ttsChars = usage.ttsCharsByProvider?.[audioProv] ?? 0;
+      const isCharBased = audioProv === "elevenlabs";
+      // ElevenLabs: show chars with char-based limits; others: show tokens
+      const audioValue = isCharBased ? ttsChars : (usage.byProvider[audioProv as AIProvider] ?? 0);
+      const audioBudget = isCharBased ? 30_000 : getBudget(audioProv as AIProvider); // 30k chars Starter default
       bars.push({
         id: audioProv,
-        label: `${audioProv} (voz)`,
-        tokens: audioTokens,
-        budget: getBudget(audioProv as AIProvider),
-        unlimited: getUnlimited(audioProv as AIProvider),
-        cost: costs[audioProv] ?? null,
+        label: `${audioProv} (voz${isCharBased ? " · chars" : ""})`,
+        tokens: audioValue,
+        budget: audioBudget,
+        unlimited: isCharBased ? false : getUnlimited(audioProv as AIProvider),
+        cost: costs[`tts_${audioProv}`] ?? costs[audioProv] ?? null,
       });
     }
   }

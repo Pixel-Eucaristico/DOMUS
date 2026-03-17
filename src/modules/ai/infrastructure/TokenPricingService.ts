@@ -111,6 +111,26 @@ export class TokenPricingService {
     return { costUsd, costBrl };
   }
 
+  /** TTS cost per character in USD, by audio provider */
+  private static readonly TTS_COST_PER_CHAR_USD: Record<string, number> = {
+    elevenlabs: 0.000167,  // Starter: $5 / 30k chars
+    openai: 0.000015,      // ~$15 / 1M chars
+    gemini: 0.000004,      // very cheap
+    qwen: 0.000010,        // similar to openai
+  };
+
+  /** Estimates TTS cost for a given number of characters. */
+  static async estimateTTSCost(
+    audioProvider: string,
+    characters: number,
+  ): Promise<CostEstimate> {
+    const costPerChar = TokenPricingService.TTS_COST_PER_CHAR_USD[audioProvider] ?? 0.000015;
+    const exchangeRate = await TokenPricingService.getUsdToBrl();
+    const costUsd = characters * costPerChar;
+    const costBrl = costUsd * exchangeRate;
+    return { costUsd, costBrl };
+  }
+
   /** Returns price per 1M tokens, respecting custom overrides. */
   static async getTokenPrice(
     provider: AIProvider,

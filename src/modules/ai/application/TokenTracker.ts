@@ -46,6 +46,21 @@ export class TokenTracker {
     await TokenTracker.recordMonthly(provider, tokens, billingDay);
   }
 
+  /** Records TTS characters consumed for a specific audio provider. */
+  static async recordTTSChars(audioProvider: string, chars: number): Promise<void> {
+    const current = await TokenTracker.getToday();
+    const ttsChars = current.ttsCharsByProvider ?? {};
+    const updated: DailyTokenUsage = {
+      ...current,
+      ttsCharsByProvider: {
+        ...ttsChars,
+        [audioProvider]: (ttsChars[audioProvider] ?? 0) + chars,
+      },
+    };
+    TokenTracker.cache = updated;
+    await SecureStorageService.set(TOKEN_STORAGE_KEY, JSON.stringify(updated));
+  }
+
   /** Returns today's usage, loading from storage if needed. */
   static async getToday(): Promise<DailyTokenUsage> {
     const today = TokenTracker.todayStr();

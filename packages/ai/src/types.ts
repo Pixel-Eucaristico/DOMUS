@@ -215,6 +215,8 @@ export interface DailyTokenUsage {
   date: string;
   totalTokens: number;
   byProvider: Partial<Record<AIProvider, number>>;
+  /** TTS characters used today, keyed by audio provider name */
+  ttsCharsByProvider?: Record<string, number>;
 }
 
 export interface MonthlyTokenUsage {

@@ -4,6 +4,7 @@ import type { AudioPlayer } from "expo-audio";
 import { File, Paths } from "expo-file-system";
 import type { AudioProvider } from "@packages/ai";
 import { AudioProviderFactory } from "@packages/../packages/ai/src/audio/AudioProviderFactory";
+import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
 
 /** Max chars per TTS chunk to avoid API limits and keep latency low */
 const MAX_CHUNK_CHARS = 500;
@@ -35,10 +36,6 @@ function splitIntoChunks(text: string): string[] {
 }
 
 type TTSListener = (state: { isSpeaking: boolean; isLoading: boolean; error?: string }) => void;
-
-interface PreparedChunk {
-  file: File;
-}
 
 class VoiceOutputService {
   private player: AudioPlayer | null = null;
@@ -82,17 +79,27 @@ class VoiceOutputService {
     try {
       await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
 
-      // Download ALL chunks in parallel for gapless playback
-      const downloadPromises = chunks.map(async (chunk, i): Promise<PreparedChunk | null> => {
-        if (this._cancelled) return null;
-        try {
-          const { base64 } = await adapter.synthesize(chunk, apiKey, voice);
-          if (this._cancelled) return null;
+      // Download and play each chunk sequentially (avoids rate limits on ElevenLabs etc.)
+      for (let i = 0; i < chunks.length; i++) {
+        if (this._cancelled) break;
 
+        try {
+          const { base64 } = await adapter.synthesize(chunks[i]!, apiKey, voice);
+          // Track TTS characters for cost calculation
+          TokenTracker.recordTTSChars(audioProvider, chunks[i]!.length).catch(() => {});
+          if (this._cancelled) break;
+
+          // First chunk: switch from loading to speaking
+          if (i === 0) {
+            this._isLoading = false;
+            this._isSpeaking = true;
+            this.notify();
+          }
+
+          // Write to file
           const isWav = base64.startsWith("UklGR");
           const ext = isWav ? "wav" : "mp3";
           const file = new File(Paths.cache, `domus_tts_${Date.now()}_${i}.${ext}`);
-
           const binaryString = atob(base64);
           const bytes = new Uint8Array(binaryString.length);
           for (let j = 0; j < binaryString.length; j++) {
@@ -100,41 +107,26 @@ class VoiceOutputService {
           }
           file.write(bytes);
 
-          return { file };
+          // Play
+          const player = createAudioPlayer({ uri: file.uri });
+          this.player = player;
+          player.play();
+          await this.waitForPlayer(player);
+
+          // Cleanup
+          try {
+            player.remove();
+            file.delete();
+          } catch { /* ignore */ }
+          if (this.player === player) this.player = null;
         } catch (err) {
           console.warn(`[TTS] Chunk ${i} falhou:`, err);
-          return null;
+          // If first chunk fails, stop loading indicator
+          if (i === 0) {
+            this._isLoading = false;
+            this.notify();
+          }
         }
-      });
-
-      // Wait for all downloads to finish
-      const prepared = await Promise.all(downloadPromises);
-
-      // Play each chunk sequentially without gaps
-      for (let i = 0; i < prepared.length; i++) {
-        if (this._cancelled) break;
-        const chunk = prepared[i];
-        if (!chunk) continue;
-
-        // First chunk: switch from loading to speaking
-        if (i === 0) {
-          this._isLoading = false;
-          this._isSpeaking = true;
-          this.notify();
-        }
-
-        // Create player and play
-        const player = createAudioPlayer({ uri: chunk.file.uri });
-        this.player = player;
-        player.play();
-        await this.waitForPlayer(player);
-
-        // Cleanup
-        try {
-          player.remove();
-          chunk.file.delete();
-        } catch { /* ignore */ }
-        if (this.player === player) this.player = null;
       }
     } catch (err) {
       console.error("[TTS] Erro:", err);
