@@ -76,3 +76,12 @@ export async function assertOk(response: Response, providerName: string): Promis
     );
   }
 }
+
+/** Convert Response arrayBuffer to base64 string */
+export async function responseToBase64(response: Response): Promise<string> {
+  const arrayBuffer = await response.arrayBuffer();
+  const uint8 = new Uint8Array(arrayBuffer);
+  let binary = "";
+  for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]!);
+  return btoa(binary);
+}

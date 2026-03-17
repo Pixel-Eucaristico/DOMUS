@@ -26,6 +26,8 @@ import { detectMissingPermission } from "@/src/modules/ai/application/Permission
 import { PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
 import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
 import { OpenAIAdapter } from "@packages/../packages/ai/src/adapters/OpenAIAdapter";
+import { ElevenLabsAdapter } from "@packages/../packages/ai/src/audio/ElevenLabsAdapter";
+import { createAudioPlayer as createPlayer, setAudioModeAsync as setAudioMode } from "expo-audio";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
 import { MarkdownText } from "@/src/components/ai/ChatBubble";
 import { FinancialCard } from "@/src/components/ai/FinancialCard";
@@ -37,16 +39,6 @@ import type { ChatMessage, ConsultationResult } from "@packages/ai";
 import type { AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-// Provider-specific avatars with official brand colors
-const AI_AVATARS: Record<string, { name: string; avatar: string }> = {
-  openai: { name: "OpenAI", avatar: "https://ui-avatars.com/api/?name=GPT&background=10A37F&color=fff&size=64&bold=true" },
-  gemini: { name: "Gemini", avatar: "https://ui-avatars.com/api/?name=G&background=4285F4&color=fff&size=64&bold=true" },
-  claude: { name: "Claude", avatar: "https://ui-avatars.com/api/?name=C&background=D97706&color=fff&size=64&bold=true" },
-  deepseek: { name: "DeepSeek", avatar: "https://ui-avatars.com/api/?name=DS&background=4D6BFE&color=fff&size=64&bold=true" },
-  qwen: { name: "Qwen", avatar: "https://ui-avatars.com/api/?name=QW&background=FF6A00&color=fff&size=64&bold=true" },
-};
-const DEFAULT_AI_USER = { _id: 2, name: "DOMUS IA", avatar: "https://ui-avatars.com/api/?name=IA&background=4CAF50&color=fff&size=64" };
 
 /** Strip markdown formatting from text before sending to TTS */
 function stripMarkdown(text: string): string {
@@ -66,16 +58,7 @@ function stripMarkdown(text: string): string {
 }
 const HUMAN_USER = { _id: 1, name: "Voce" };
 
-function toGiftedMessage(msg: ChatMessage): IMessage {
-  return {
-    _id: msg.id,
-    text: msg.content,
-    createdAt: new Date(msg.timestamp),
-    user: msg.role === "user" ? HUMAN_USER : DEFAULT_AI_USER,
-    ...(msg.tokensUsed != null && { tokensUsed: msg.tokensUsed }),
-    ...(msg.isLocalFallback && { isLocalFallback: true }),
-  } as IMessage;
-}
+const AI_USER = { _id: 2, name: "DOMUS IA" };
 
 function tryParseConsultation(msg: IMessage): ConsultationResult | null {
   const extra = msg as IMessage & { consultationResult?: ConsultationResult };
@@ -107,9 +90,7 @@ export default function AIChatScreen() {
   const audioUriMap = useRef<Record<string, string>>({});
   // Pending audio URI to associate with next user message
   const pendingAudioUri = useRef<string | null>(null);
-  // Flag: last user message was sent by voice → auto-play AI response
-  const lastWasVoice = useRef(false);
-  // Map message ID → provider for per-message avatar icons
+  // Map message ID → provider (built from messages, cached in ref)
   const msgProviderMap = useRef<Record<string, string>>({});
   const lastAssistantId = useRef<string | null>(null);
   const [inputText, setInputText] = useState("");
@@ -170,7 +151,7 @@ export default function AIChatScreen() {
       _id: msg.id,
       text: msg.content,
       createdAt: new Date(msg.timestamp),
-      user: msg.role === "user" ? HUMAN_USER : DEFAULT_AI_USER,
+      user: msg.role === "user" ? HUMAN_USER : AI_USER,
       ...(msg.tokensUsed != null && { tokensUsed: msg.tokensUsed }),
       ...(msg.isLocalFallback && { isLocalFallback: true }),
     } as IMessage)).reverse();
@@ -330,7 +311,6 @@ export default function AIChatScreen() {
               if (audioProv === "openai" && audioKey) {
                 transcribed = await new OpenAIAdapter().transcribeAudio(result.uri, audioKey);
               } else if (audioProv === "elevenlabs" && audioKey) {
-                const { ElevenLabsAdapter } = require("@packages/../packages/ai/src/audio/ElevenLabsAdapter");
                 transcribed = await new ElevenLabsAdapter().transcribeAudio(result.uri, audioKey);
               } else if (audioProv === "gemini" && audioKey) {
                 // Gemini can process audio — send as multimodal
@@ -402,9 +382,8 @@ export default function AIChatScreen() {
                         const uri = audioUriMap.current[String(msg._id)];
                         if (!uri) return;
                         try {
-                          const { createAudioPlayer, setAudioModeAsync } = require("expo-audio");
-                          await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
-                          const player = createAudioPlayer({ uri });
+                          await setAudioMode({ playsInSilentMode: true, allowsRecording: false });
+                          const player = createPlayer({ uri });
                           player.play();
                         } catch (e) { console.warn("[VoiceReplay]", e); }
                       }}
@@ -525,7 +504,7 @@ export default function AIChatScreen() {
             <Text style={[styles.headerTitle, { color: theme.textColor }]}>DOMUS IA</Text>
             <Text style={[styles.headerSubtitle, { color: theme.secondaryText }]}>Consultor financeiro</Text>
           </View>
-          <TouchableOpacity onPress={() => { soundManager.play("trash"); clearHistory(); }} style={styles.headerBtn}>
+          <TouchableOpacity onPress={() => { soundManager.play("trash"); clearHistory(); audioUriMap.current = {}; msgProviderMap.current = {}; }} style={styles.headerBtn}>
             <Feather name="trash-2" size={18} color={theme.secondaryText} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }} style={styles.headerBtn}>
@@ -694,19 +673,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   bannerText: { flex: 1, fontSize: 13, lineHeight: 18 },
-  disclaimer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginHorizontal: 16,
-    marginTop: 6,
-    marginBottom: 2,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  disclaimerText: { flex: 1, fontSize: 11, lineHeight: 16 },
   messageContent: { paddingHorizontal: 12, paddingVertical: 8 },
   actionRow: {
     flexDirection: "row",
@@ -727,5 +693,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 4,
   },
-  avatarText: { fontSize: 10, fontWeight: "700", color: "#fff" },
 });

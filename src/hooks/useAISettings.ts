@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { SecureStorageService } from "@/src/modules/security/infrastructure/SecureStorageService";
 import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
 import { OpenAIOAuthService } from "@/src/modules/ai/infrastructure/OpenAIOAuthService";
@@ -110,8 +110,13 @@ export function useAISettings(): UseAISettingsResult {
     };
   }, [reloadKey]);
 
+  // Use ref to avoid stale closure in callbacks
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+
   const persist = useCallback(async (next: AISettings) => {
     setSettings(next);
+    settingsRef.current = next;
     await SecureStorageService.set(AI_SETTINGS_STORE_KEY, JSON.stringify(next));
   }, []);
 
@@ -121,8 +126,8 @@ export function useAISettings(): UseAISettingsResult {
         await SecureKeyService.storeKey(provider, key);
         AIClientService.resetBreaker(provider);
         const next: AISettings = {
-          ...settings,
-          apiKeyStatus: { ...settings.apiKeyStatus, [provider]: true },
+          ...settingsRef.current,
+          apiKeyStatus: { ...settingsRef.current.apiKeyStatus, [provider]: true },
           // If saving OpenAI key, switch to apikey method
           ...(provider === "openai" ? { openaiAuthMethod: "apikey" as const } : {}),
           isEnabled: true,
@@ -134,22 +139,22 @@ export function useAISettings(): UseAISettingsResult {
         return false;
       }
     },
-    [settings, persist],
+    [persist],
   );
 
   const deleteApiKey = useCallback(
     async (provider: AIProvider): Promise<void> => {
       await SecureKeyService.deleteKey(provider);
-      const nextStatus = { ...settings.apiKeyStatus, [provider]: false };
-      const isActiveProvider = settings.provider === provider;
+      const nextStatus = { ...settingsRef.current.apiKeyStatus, [provider]: false };
+      const isActiveProvider = settingsRef.current.provider === provider;
       const next: AISettings = {
-        ...settings,
+        ...settingsRef.current,
         apiKeyStatus: nextStatus,
-        isEnabled: isActiveProvider ? false : settings.isEnabled,
+        isEnabled: isActiveProvider ? false : settingsRef.current.isEnabled,
       };
       await persist(next);
     },
-    [settings, persist],
+    [persist],
   );
 
   const loginWithChatGPT = useCallback(
@@ -159,7 +164,7 @@ export function useAISettings(): UseAISettingsResult {
 
       AIClientService.resetBreaker("openai");
       const next: AISettings = {
-        ...settings,
+        ...settingsRef.current,
         provider: "openai",
         openaiAuthMethod: "chatgpt_oauth",
         hasOAuthSession: true,
@@ -169,28 +174,28 @@ export function useAISettings(): UseAISettingsResult {
       await persist(next);
       return true;
     },
-    [settings, persist],
+    [persist],
   );
 
   const logoutChatGPT = useCallback(async (): Promise<void> => {
     await OpenAIOAuthService.logout();
     const wasUsingOAuth =
-      settings.provider === "openai" && settings.openaiAuthMethod === "chatgpt_oauth";
+      settingsRef.current.provider === "openai" && settingsRef.current.openaiAuthMethod === "chatgpt_oauth";
     const next: AISettings = {
       ...settings,
       openaiAuthMethod: "apikey",
       hasOAuthSession: false,
-      isEnabled: wasUsingOAuth ? false : settings.isEnabled,
+      isEnabled: wasUsingOAuth ? false : settingsRef.current.isEnabled,
     };
     await persist(next);
   }, [settings, persist]);
 
   const updateSettings = useCallback(
     async (changes: Partial<Omit<AISettings, "apiKeyStatus">>): Promise<void> => {
-      const next = { ...settings, ...changes };
+      const next = { ...settingsRef.current, ...changes };
       await persist(next);
     },
-    [settings, persist],
+    [persist],
   );
 
   const reload = useCallback(() => {

@@ -44,39 +44,6 @@ export class OpenAIAdapter implements AIProviderAdapter {
     return json.text ?? "";
   }
 
-  /** Sintetiza texto em áudio MP3 via TTS. Retorna URI do arquivo temporário. */
-  async synthesizeSpeech(
-    text: string,
-    apiKey: string,
-    voice: OpenAIVoiceId = "nova",
-    tmpDir: string,
-  ): Promise<string> {
-    const response = await fetchWithTimeout(
-      "https://api.openai.com/v1/audio/speech",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({ model: "gpt-4o-mini-tts", input: text, voice }),
-      },
-      30_000,
-    );
-    await assertOk(response, "OpenAI TTS");
-
-    // Salva o binário MP3 no FileSystem do Expo (injetado pelo caller)
-    const arrayBuffer = await response.arrayBuffer();
-    const uint8 = new Uint8Array(arrayBuffer);
-    let binary = "";
-    for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]!);
-    const base64 = btoa(binary);
-
-    const outPath = `${tmpDir}domus_tts_${Date.now()}.mp3`;
-    // Caller persiste via FileSystem.writeAsStringAsync — retornamos base64 + path
-    return JSON.stringify({ base64, path: outPath });
-  }
-
   async complete(
     messages: AdapterMessage[],
     apiKey: string,

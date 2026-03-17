@@ -1,5 +1,5 @@
 import type { IAudioProvider } from "../types";
-import { fetchWithTimeout, assertOk } from "../adapters/AIProviderAdapter";
+import { fetchWithTimeout, assertOk, responseToBase64 } from "../adapters/AIProviderAdapter";
 
 export class OpenAIAudioAdapter implements IAudioProvider {
   async synthesize(
@@ -25,12 +25,7 @@ export class OpenAIAudioAdapter implements IAudioProvider {
     );
     await assertOk(response, "OpenAI TTS");
 
-    const arrayBuffer = await response.arrayBuffer();
-    const uint8 = new Uint8Array(arrayBuffer);
-    let binary = "";
-    for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]!);
-    const base64 = btoa(binary);
-
+    const base64 = await responseToBase64(response);
     return { base64, format: "mp3" };
   }
 }
