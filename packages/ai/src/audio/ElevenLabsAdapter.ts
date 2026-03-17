@@ -1,36 +1,32 @@
 import type { IAudioProvider } from "../types";
 import { fetchWithTimeout, assertOk } from "../adapters/AIProviderAdapter";
 
-/** Default voice ID for ElevenLabs (Rachel - multilingual) */
-const DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
+/** Default voice ID for ElevenLabs (Sarah - current premade) */
+const DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL";
 
+/** Current premade voices (free tier compatible) */
 export const ELEVENLABS_VOICES: Record<string, string> = {
-  rachel: "21m00Tcm4TlvDq8ikWAM",
-  drew: "29vD33N1CtxCmqQRPOHJ",
-  clyde: "2EiwWnXFnvU5JabPnv8n",
-  paul: "5Q0t7uMcjvnagumLfvZi",
-  domi: "AZnzlk1XvdvUeBnXmlld",
-  dave: "CYw49thpadSPcbBxqMGG",
-  fin: "D38z5RcWu1voky8WS1ja",
   sarah: "EXAVITQu4vr4xnSDxMaL",
-  antoni: "ErXwobaYiN019PkySvjV",
-  thomas: "GBv7mTt0atIp3Br8iCZE",
+  roger: "CwhRBWXzGAHq8TQ4Fs17",
+  laura: "FGY2WhTYpPnrIDTdsKH5",
   charlie: "IKne3meq5aSn9XLyUdCD",
-  emily: "LcfcDJNUP1GQjkzn1xUU",
-  elli: "MF3mGyEYCl7XYWbV9V6O",
+  george: "JBFqnCBsd6RMkjVDRZzb",
   callum: "N2lVS1w4EtoT3dr4eOWO",
-  patrick: "ODq5zmih8GrVes37Dizd",
+  river: "SAz9YHcvj6GT2YYXdXww",
   harry: "SOYHLrjzK2X1ezoPC6cr",
   liam: "TX3LPaxmHKxFdv7VOQHJ",
-  dorothy: "ThT5KcBeYPX3keUQqHPh",
-  josh: "TxGEqnHWrfWFTfGW9XjX",
-  arnold: "VR6AewLTigWG4xSOukaG",
-  charlotte: "XB0fDUnXU5powFXDhCwa",
+  alice: "Xb7hH8MSUJpSbSDYk0k2",
   matilda: "XrExE9yKIg1WjnnlVkGX",
-  james: "ZQe5CZNOzWyzPSCn5a3c",
+  will: "bIHbv24MWmeRgasZH58o",
   jessica: "cgSgspJ2msm6clMCkdW9",
+  eric: "cjVigY5qzO86Huf0OWal",
+  bella: "hpp4J3VqNfWAUOO0d1Us",
+  chris: "iP95p4xoKVk53GoZ742B",
+  brian: "nPczCjzI2devNBz1zQrb",
+  daniel: "onwK4e9ZLuTAKqWW03F9",
   lily: "pFZP5JQG7iQjIQuC4Bku",
-  serena: "pMsXgVXv3BLzUgSXRplE",
+  adam: "pNInz6obpgDQGcFmaJgB",
+  bill: "pqHfZKP75CvOlQylNhV4",
 };
 
 export class ElevenLabsAdapter implements IAudioProvider {
@@ -43,7 +39,7 @@ export class ElevenLabsAdapter implements IAudioProvider {
     const voiceId = ELEVENLABS_VOICES[voice.toLowerCase()] || voice || DEFAULT_VOICE_ID;
 
     const response = await fetchWithTimeout(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
       {
         method: "POST",
         headers: {
@@ -53,14 +49,20 @@ export class ElevenLabsAdapter implements IAudioProvider {
         body: JSON.stringify({
           text,
           model_id: "eleven_multilingual_v2",
+          language_code: "pt",
           voice_settings: {
             stability: 0.5,
             similarity_boost: 0.75,
+            style: 0.0,
+            use_speaker_boost: true,
           },
         }),
       },
       30_000,
     );
+    if (response.status === 402) {
+      throw new Error("ElevenLabs requer plano pago para uso via API. Troque o provedor de audio para OpenAI, Gemini ou Qwen nas configuracoes.");
+    }
     await assertOk(response, "ElevenLabs");
 
     const arrayBuffer = await response.arrayBuffer();

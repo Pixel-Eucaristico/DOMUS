@@ -10,7 +10,7 @@ import {
 import * as Clipboard from "expo-clipboard";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { GiftedChat, Bubble } from "react-native-gifted-chat";
 import type { IMessage, BubbleProps } from "react-native-gifted-chat";
@@ -97,7 +97,7 @@ function tryParseConsultation(msg: IMessage): ConsultationResult | null {
 
 export default function AIChatScreen() {
   const { theme } = useAppState();
-  const { settings, isLoading: settingsLoading, updateSettings } = useAISettings();
+  const { settings, isLoading: settingsLoading, updateSettings, reload: reloadSettings } = useAISettings();
   const { messages, isLoading, sendMessage, generateWelcome, clearHistory } = useAIConsultant(settings);
   const { isRecording, startRecording, stopRecording } = useVoiceRecorder();
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -115,6 +115,9 @@ export default function AIChatScreen() {
   const [inputText, setInputText] = useState("");
   const [ttsState, setTtsState] = useState({ isSpeaking: false, isLoading: false });
   const [switchModal, setSwitchModal] = useState<{ reason: string } | null>(null);
+
+  // Reload settings when screen regains focus (e.g. returning from settings)
+  useFocusEffect(useCallback(() => { reloadSettings(); }, [reloadSettings]));
 
   // Subscribe to TTS state changes for UI feedback
   useEffect(() => {
@@ -272,7 +275,14 @@ export default function AIChatScreen() {
       return;
     }
     const audioProv = settings.audioProvider ?? "openai";
-    const voice = settings.audioVoice ?? settings.openaiVoice ?? "nova";
+    // Default voice per audio provider
+    const defaultVoice: Record<string, string> = {
+      openai: "nova",
+      elevenlabs: "sarah",
+      gemini: "Kore",
+      qwen: "Cherry",
+    };
+    const voice = settings.audioVoice ?? (audioProv === "openai" ? settings.openaiVoice : undefined) ?? defaultVoice[audioProv] ?? "nova";
     try {
       await voiceOutputService.speak(stripMarkdown(text), apiKey, audioProv, voice);
     } catch (err) {
@@ -515,17 +525,11 @@ export default function AIChatScreen() {
           </View>
         )}
 
-        {/* Disclaimer */}
-        <View style={[styles.disclaimer, { backgroundColor: `${theme.border}60`, borderColor: theme.border }]}>
-          <Feather name="alert-circle" size={12} color={theme.secondaryText} />
-          <Text style={[styles.disclaimerText, { color: theme.secondaryText }]}>
-            As analises sao meramente informativas e nao constituem aconselhamento financeiro profissional.
-          </Text>
-        </View>
-
         {/* Usage bar */}
         <AIUsageBar
           provider={settings.provider}
+          audioProvider={settings.audioProvider}
+          voiceEnabled={settings.voiceEnabled}
           modelTier={settings.modelTier}
           customBudgets={settings.customBudgets}
           budgetMode={settings.budgetMode}

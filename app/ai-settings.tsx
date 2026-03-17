@@ -319,6 +319,11 @@ export default function AISettingsScreen() {
                   {/* API Key info per audio provider */}
                   {settings.audioProvider === "elevenlabs" && (
                     <View style={{ gap: 4 }}>
+                      <View style={{ backgroundColor: "rgba(251, 191, 36, 0.1)", borderRadius: 8, padding: 8, marginBottom: 4 }}>
+                        <Text style={{ color: "#F59E0B", fontSize: 11, fontFamily: "DMSans_500Medium" }}>
+                          Requer plano pago (Starter $5/mes). O free tier nao permite uso de vozes via API.
+                        </Text>
+                      </View>
                       <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
                         Chave ElevenLabs (BYOK)
                       </Text>

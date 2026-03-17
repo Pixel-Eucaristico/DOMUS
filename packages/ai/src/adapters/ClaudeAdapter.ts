@@ -67,7 +67,7 @@ export class ClaudeAdapter implements AIProviderAdapter {
 
     const body: AnthropicRequestBody = {
       model: options.model || "claude-haiku-4-5-20251001",
-      max_tokens: options.maxTokens ?? 512,
+      max_tokens: options.maxTokens ?? 4096,
       temperature: options.temperature ?? 0.2,
       messages: anthropicMessages,
     };
@@ -83,7 +83,7 @@ export class ClaudeAdapter implements AIProviderAdapter {
         headers: {
           "Content-Type": "application/json",
           "x-api-key": apiKey,
-          "anthropic-version": "2024-10-22",
+          "anthropic-version": "2023-06-01",
           "anthropic-dangerous-direct-browser-access": "true",
         },
         body: JSON.stringify(body),

@@ -27,11 +27,14 @@ export interface UseAISettingsResult {
   /** Logout from ChatGPT OAuth session. */
   logoutChatGPT: () => Promise<void>;
   updateSettings: (changes: Partial<Omit<AISettings, "apiKeyStatus">>) => Promise<void>;
+  /** Force reload settings from SecureStore (useful when returning from settings screen) */
+  reload: () => void;
 }
 
 export function useAISettings(): UseAISettingsResult {
   const [settings, setSettings] = useState<AISettings>(DEFAULT_AI_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -105,7 +108,7 @@ export function useAISettings(): UseAISettingsResult {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [reloadKey]);
 
   const persist = useCallback(async (next: AISettings) => {
     setSettings(next);
@@ -190,6 +193,11 @@ export function useAISettings(): UseAISettingsResult {
     [settings, persist],
   );
 
+  const reload = useCallback(() => {
+    setIsLoading(true);
+    setReloadKey((k) => k + 1);
+  }, []);
+
   return {
     settings,
     isLoading,
@@ -198,5 +206,6 @@ export function useAISettings(): UseAISettingsResult {
     loginWithChatGPT,
     logoutChatGPT,
     updateSettings,
+    reload,
   };
 }

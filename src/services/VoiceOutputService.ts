@@ -34,11 +34,10 @@ function splitIntoChunks(text: string): string[] {
   return chunks.filter((c) => c.length > 0);
 }
 
-type TTSListener = (state: { isSpeaking: boolean; isLoading: boolean }) => void;
+type TTSListener = (state: { isSpeaking: boolean; isLoading: boolean; error?: string }) => void;
 
 interface PreparedChunk {
   file: File;
-  player: AudioPlayer;
 }
 
 class VoiceOutputService {
@@ -46,6 +45,7 @@ class VoiceOutputService {
   private _isSpeaking = false;
   private _isLoading = false;
   private _cancelled = false;
+  private _error?: string;
   private _listeners: TTSListener[] = [];
 
   get isSpeaking() { return this._isSpeaking; }
@@ -80,6 +80,8 @@ class VoiceOutputService {
     const chunks = splitIntoChunks(text);
 
     try {
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+
       // Download ALL chunks in parallel for gapless playback
       const downloadPromises = chunks.map(async (chunk, i): Promise<PreparedChunk | null> => {
         if (this._cancelled) return null;
@@ -98,51 +100,41 @@ class VoiceOutputService {
           }
           file.write(bytes);
 
-          await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
-          const player = createAudioPlayer({ uri: file.uri });
-          return { file, player };
+          return { file };
         } catch (err) {
           console.warn(`[TTS] Chunk ${i} falhou:`, err);
           return null;
         }
       });
 
-      // Wait for at least the first chunk to be ready, then start playing immediately
-      const prepared: (PreparedChunk | null)[] = [];
-      for (let i = 0; i < downloadPromises.length; i++) {
-        const result = await downloadPromises[i];
-        prepared.push(result);
+      // Wait for all downloads to finish
+      const prepared = await Promise.all(downloadPromises);
 
-        // Start playing as soon as first chunk is ready
-        if (i === 0 && result && !this._cancelled) {
-          this._isLoading = false;
-          this._isSpeaking = true;
-          this.notify();
-
-          this.player = result.player;
-          result.player.play();
-          // Don't await - let downloads continue while first chunk plays
-        }
-      }
-
-      // Now play each chunk in sequence (first already started)
+      // Play each chunk sequentially without gaps
       for (let i = 0; i < prepared.length; i++) {
         if (this._cancelled) break;
         const chunk = prepared[i];
         if (!chunk) continue;
 
+        // First chunk: switch from loading to speaking
         if (i === 0) {
-          // First chunk already playing, just wait for it to finish
-          await this.waitForPlayer(chunk.player);
-          this.cleanupChunk(chunk);
-        } else {
-          // Play next chunk immediately (no gap)
-          if (this._cancelled) break;
-          this.player = chunk.player;
-          chunk.player.play();
-          await this.waitForPlayer(chunk.player);
-          this.cleanupChunk(chunk);
+          this._isLoading = false;
+          this._isSpeaking = true;
+          this.notify();
         }
+
+        // Create player and play
+        const player = createAudioPlayer({ uri: chunk.file.uri });
+        this.player = player;
+        player.play();
+        await this.waitForPlayer(player);
+
+        // Cleanup
+        try {
+          player.remove();
+          chunk.file.delete();
+        } catch { /* ignore */ }
+        if (this.player === player) this.player = null;
       }
     } catch (err) {
       console.error("[TTS] Erro:", err);
@@ -178,13 +170,6 @@ class VoiceOutputService {
     });
   }
 
-  private cleanupChunk(chunk: PreparedChunk) {
-    try {
-      chunk.player.remove();
-      chunk.file.delete();
-    } catch { /* ignore */ }
-    if (this.player === chunk.player) this.player = null;
-  }
 }
 
 export const voiceOutputService = new VoiceOutputService();

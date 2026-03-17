@@ -9,7 +9,12 @@ import type { BudgetMode } from "@/src/modules/ai/domain/AISettings";
 import type { AIProvider, AIModelTier, DailyTokenUsage } from "@packages/ai";
 
 interface AIUsageBarProps {
+  /** Active text provider */
   provider: AIProvider;
+  /** Active audio provider (may be same as text, different, or undefined) */
+  audioProvider?: string;
+  /** Is voice mode enabled? */
+  voiceEnabled?: boolean;
   modelTier?: AIModelTier;
   customBudgets?: Partial<Record<AIProvider, number>>;
   budgetMode?: BudgetMode;
@@ -18,8 +23,66 @@ interface AIUsageBarProps {
   refreshKey?: number;
 }
 
+function BarRow({
+  provider,
+  tokens,
+  label,
+  budget,
+  unlimited,
+  costBrl,
+  theme,
+}: {
+  provider: string;
+  tokens: number;
+  label: string;
+  budget: number;
+  unlimited: boolean;
+  costBrl: number | null;
+  theme: any;
+}) {
+  const pTheme = PROVIDER_THEME[provider as AIProvider] ?? { color: "#888", icon: "robot" };
+  const pct = unlimited ? 0 : Math.min(100, (tokens / budget) * 100);
+  const isOver = !unlimited && tokens >= budget;
+  const barColor = isOver ? theme.danger : pct > 80 ? theme.warning : pTheme.color;
+
+  return (
+    <View style={styles.barRow}>
+      <View style={styles.row}>
+        <View style={styles.labelRow}>
+          <MaterialCommunityIcons
+            name={pTheme.icon as keyof typeof MaterialCommunityIcons.glyphMap}
+            size={11}
+            color={pTheme.color}
+          />
+          <Text style={[styles.providerName, { color: pTheme.color }]}>{label}</Text>
+          <Text style={[styles.label, { color: theme.secondaryText }]}>
+            {tokens.toLocaleString("pt-BR")}{unlimited ? "" : ` / ${budget.toLocaleString("pt-BR")}`}
+          </Text>
+          {costBrl !== null && (
+            <Text style={[styles.costLabel, { color: theme.secondaryText }]}>
+              · R$ {costBrl.toFixed(2)}
+            </Text>
+          )}
+        </View>
+        {!unlimited ? (
+          <Text style={[styles.pct, { color: barColor }]}>{Math.round(pct)}%</Text>
+        ) : (
+          <Text style={[styles.pct, { color: theme.secondaryText }]}>∞</Text>
+        )}
+      </View>
+      {!unlimited && (
+        <View style={[styles.track, { backgroundColor: theme.border }]}>
+          <View style={[styles.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]} />
+        </View>
+      )}
+    </View>
+  );
+}
+
 export function AIUsageBar({
   provider,
+  audioProvider,
+  voiceEnabled,
   modelTier = "fast",
   customBudgets,
   budgetMode,
@@ -28,79 +91,90 @@ export function AIUsageBar({
 }: AIUsageBarProps) {
   const { theme } = useAppState();
   const [usage, setUsage] = useState<DailyTokenUsage | null>(null);
-  const [costBrl, setCostBrl] = useState<number | null>(null);
+  const [costs, setCosts] = useState<Record<string, number>>({});
 
   const refresh = useCallback(async () => {
     const u = await TokenTracker.getToday();
     setUsage(u);
-    const tokens = u.byProvider[provider] ?? 0;
-    if (tokens > 0) {
-      const est = await TokenPricingService.estimateCost(provider, modelTier, tokens);
-      setCostBrl(est.costBrl);
-    } else {
-      setCostBrl(null);
+    const costMap: Record<string, number> = {};
+    for (const [p, tokens] of Object.entries(u.byProvider)) {
+      if ((tokens ?? 0) > 0) {
+        const est = await TokenPricingService.estimateCost(p as AIProvider, modelTier, tokens!);
+        costMap[p] = est.costBrl;
+      }
     }
-  }, [provider, modelTier]);
+    setCosts(costMap);
+  }, [modelTier]);
 
-  useEffect(() => {
-    refresh();
-  }, [refresh, refreshKey]);
+  useEffect(() => { refresh(); }, [refresh, refreshKey]);
 
-  const providerTokens = usage?.byProvider[provider] ?? 0;
+  if (!usage) return null;
+
   const isMonthly = budgetMode === "monthly";
-  const unlimited = isMonthly
-    ? isUnlimitedMonthlyBudget(provider, monthlyBudgets)
-    : isUnlimitedBudget(provider, customBudgets);
-  const budget = isMonthly
-    ? getMonthlyBudget(provider, monthlyBudgets)
-    : getProviderBudget(provider, customBudgets);
-  const pTheme = PROVIDER_THEME[provider];
+  const audioProv = voiceEnabled ? audioProvider : undefined;
+  const sameProvider = !audioProv || audioProv === provider;
 
-  if (!usage || providerTokens === 0) return null;
+  // Build bars to show
+  const bars: Array<{ id: string; label: string; tokens: number; budget: number; unlimited: boolean; cost: number | null }> = [];
 
-  const pct = unlimited ? 0 : Math.min(100, (providerTokens / budget) * 100);
-  const isOver = !unlimited && providerTokens >= budget;
+  const textTokens = usage.byProvider[provider] ?? 0;
+  const getBudget = (p: AIProvider) => isMonthly ? getMonthlyBudget(p, monthlyBudgets) : getProviderBudget(p, customBudgets);
+  const getUnlimited = (p: AIProvider) => isMonthly ? isUnlimitedMonthlyBudget(p, monthlyBudgets) : isUnlimitedBudget(p, customBudgets);
 
-  const barColor = isOver
-    ? theme.danger
-    : pct > 80
-      ? theme.warning
-      : pTheme.color;
+  if (sameProvider) {
+    // Same provider for text + audio → 1 bar with combined usage
+    if (textTokens > 0) {
+      bars.push({
+        id: provider,
+        label: provider,
+        tokens: textTokens,
+        budget: getBudget(provider),
+        unlimited: getUnlimited(provider),
+        cost: costs[provider] ?? null,
+      });
+    }
+  } else {
+    // Different providers → 2 bars
+    if (textTokens > 0) {
+      bars.push({
+        id: provider,
+        label: `${provider} (texto)`,
+        tokens: textTokens,
+        budget: getBudget(provider),
+        unlimited: getUnlimited(provider),
+        cost: costs[provider] ?? null,
+      });
+    }
+    // Audio provider bar (ElevenLabs doesn't use token tracking the same way, but show if has usage)
+    const audioTokens = usage.byProvider[audioProv as AIProvider] ?? 0;
+    if (audioTokens > 0) {
+      bars.push({
+        id: audioProv!,
+        label: `${audioProv} (voz)`,
+        tokens: audioTokens,
+        budget: getBudget(audioProv as AIProvider),
+        unlimited: getUnlimited(audioProv as AIProvider),
+        cost: costs[audioProv!] ?? null,
+      });
+    }
+  }
+
+  if (bars.length === 0) return null;
 
   return (
     <View style={[styles.container, { borderColor: theme.border }]}>
-      <View style={styles.row}>
-        <View style={styles.labelRow}>
-          <MaterialCommunityIcons
-            name={pTheme.icon as keyof typeof MaterialCommunityIcons.glyphMap}
-            size={12}
-            color={pTheme.color}
-          />
-          <Text style={[styles.label, { color: theme.secondaryText }]}>
-            {providerTokens.toLocaleString("pt-BR")}{unlimited ? "" : ` / ${budget.toLocaleString("pt-BR")}`}
-          </Text>
-          {costBrl !== null && (
-            <Text style={[styles.costLabel, { color: theme.secondaryText }]}>
-              · R$ {costBrl.toFixed(2)}
-            </Text>
-          )}
-        </View>
-        {!unlimited && (
-          <Text style={[styles.pct, { color: barColor }]}>
-            {Math.round(pct)}%
-          </Text>
-        )}
-        {unlimited && (
-          <Text style={[styles.pct, { color: theme.secondaryText }]}>∞</Text>
-        )}
-      </View>
-      {!unlimited && (
-        <View style={[styles.track, { backgroundColor: theme.border }]}>
-          <View
-            style={[styles.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]}
-          />
-        </View>
-      )}
+      {bars.map((bar) => (
+        <BarRow
+          key={bar.id}
+          provider={bar.id}
+          tokens={bar.tokens}
+          label={bar.label}
+          budget={bar.budget}
+          unlimited={bar.unlimited}
+          costBrl={bar.cost}
+          theme={theme}
+        />
+      ))}
     </View>
   );
 }
@@ -108,38 +182,17 @@ export function AIUsageBar({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingVertical: 4,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 4,
+    gap: 2,
   },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  labelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  label: {
-    fontSize: 11,
-  },
-  costLabel: {
-    fontSize: 10,
-    fontStyle: "italic",
-  },
-  pct: {
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  track: {
-    height: 3,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  fill: {
-    height: "100%",
-    borderRadius: 2,
-  },
+  barRow: { gap: 2, paddingVertical: 2 },
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  labelRow: { flexDirection: "row", alignItems: "center", gap: 4, flex: 1 },
+  providerName: { fontSize: 10, fontWeight: "600", textTransform: "capitalize" },
+  label: { fontSize: 10 },
+  costLabel: { fontSize: 9, fontStyle: "italic" },
+  pct: { fontSize: 10, fontWeight: "600" },
+  track: { height: 3, borderRadius: 2, overflow: "hidden" },
+  fill: { height: "100%", borderRadius: 2 },
 });

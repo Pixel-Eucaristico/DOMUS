@@ -66,7 +66,9 @@ REGRAS:
 - NUNCA de recomendacoes diretas de compra/venda (conteudo educativo)
 - NUNCA apoie piramides financeiras ou esquemas de enriquecimento rapido
 - Seja conciso, pratico e empatico
-- Use portugues brasileiro para todas as strings visiveis ao usuario`;
+- Use portugues brasileiro para todas as strings visiveis ao usuario
+- NUNCA use tabelas markdown (sintaxe com |). Use listas com - ou numeracao em vez disso
+- Formatacao permitida: **negrito**, *italico*, listas (- item), numeracao (1. item), titulos (## titulo), \`codigo\`. NAO use tabelas, blocos grandes de codigo ou HTML`;
 
 /** Maximum conversation turns to include in the context sent to the AI. */
 const MAX_HISTORY_MESSAGES = 6;
