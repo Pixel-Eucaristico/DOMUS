@@ -88,7 +88,7 @@ export function useEditableItems(
     if (editingIdx === idx) setEditingIdx(null);
   };
 
-  const handleEditField = (idx: number, field: keyof InvoiceItem | "categoryId", value: string) => {
+  const handleEditField = (idx: number, field: keyof InvoiceItem | "categoryId" | "subcategoryId" | "groupOverride", value: string) => {
     setEditableItems((prev) =>
       prev.map((item, i) => {
         if (i !== idx) return item;
@@ -111,6 +111,10 @@ export function useEditableItems(
           updated.ncm = value.replace(/\D/g, "").substring(0, 8) || undefined;
         } else if (field === "categoryId") {
           (updated as EditableItem).categoryId = value;
+        } else if (field === "subcategoryId") {
+          (updated as EditableItem).subcategoryId = value || undefined;
+        } else if (field === "groupOverride") {
+          (updated as EditableItem).groupOverride = value as CategoryGroup;
         }
         return updated;
       }),

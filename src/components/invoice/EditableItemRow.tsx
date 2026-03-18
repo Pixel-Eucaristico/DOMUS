@@ -7,6 +7,15 @@ import { CATEGORY_OPTIONS, GROUP_COLORS } from "@/src/constants/invoiceCategorie
 import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal";
 import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
 import { soundManager } from "@/src/services/SoundManager";
+import * as Haptics from "expo-haptics";
+import type { CategoryGroup } from "@packages/events/src/types";
+
+const GROUP_LABELS: Record<string, { label: string; color: string }> = {
+  needs: { label: "Necessidade", color: "#4CAF50" },
+  wants: { label: "Desejo", color: "#FF9800" },
+  savings: { label: "Poupanca", color: "#2196F3" },
+};
+const GROUP_CYCLE: CategoryGroup[] = ["needs", "wants"];
 
 interface Props {
   item: EditableItem;
@@ -45,6 +54,25 @@ export function EditableItemRow({
   const catColor = getCatColor(item.categoryId);
   const catName = getCatDisplayName(item.categoryId, item.subcategoryId);
 
+  // Group info
+  const currentGroup: CategoryGroup = item.groupOverride
+    ?? CATEGORY_OPTIONS.find((c) => c.id === item.categoryId)?.group
+    ?? "wants";
+  const groupInfo = GROUP_LABELS[currentGroup] ?? GROUP_LABELS.wants!;
+
+  // Check if this item allows group override
+  const sub = item.subcategoryId ? NCM_SUBCATEGORIES.find((s) => s.id === item.subcategoryId) : null;
+  const canToggleGroup = sub?.allowGroupOverride ?? false;
+
+  const toggleGroup = () => {
+    if (!canToggleGroup) return;
+    const idx = GROUP_CYCLE.indexOf(currentGroup);
+    const next = GROUP_CYCLE[(idx + 1) % GROUP_CYCLE.length]!;
+    soundManager.play("tap");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onEditField(index, "groupOverride", next);
+  };
+
   const handlePickerSelect = (categoryId: string, subcategoryId?: string) => {
     onEditField(index, "categoryId", categoryId);
     if (subcategoryId) {
@@ -73,15 +101,27 @@ export function EditableItemRow({
               Cod: {item.productCode}
             </Text>
           ) : null}
-          {/* Category badge — tap to change */}
-          <Pressable
-            onPress={() => setPickerVisible(true)}
-            style={[s.categoryChip, { backgroundColor: catColor + "22" }]}
-          >
-            <View style={[s.categoryDot, { backgroundColor: catColor }]} />
-            <Text style={[s.categoryChipText, { color: catColor }]}>{catName}</Text>
-            <Feather name="chevron-right" size={10} color={catColor} />
-          </Pressable>
+          {/* Category + Group tags */}
+          <View style={s.tagRow}>
+            {/* Subcategory tag — tap to change category */}
+            <Pressable
+              onPress={() => setPickerVisible(true)}
+              style={[s.categoryChip, { backgroundColor: catColor + "22" }]}
+            >
+              <View style={[s.categoryDot, { backgroundColor: catColor }]} />
+              <Text style={[s.categoryChipText, { color: catColor }]}>{catName}</Text>
+              <Feather name="chevron-right" size={10} color={catColor} />
+            </Pressable>
+            {/* Group tag — tap to toggle needs/wants (only if allowed) */}
+            <Pressable
+              onPress={canToggleGroup ? toggleGroup : undefined}
+              disabled={!canToggleGroup}
+              style={[s.groupTag, { backgroundColor: groupInfo.color + "18", borderColor: groupInfo.color + "40" }]}
+            >
+              {canToggleGroup && <Feather name="refresh-cw" size={9} color={groupInfo.color} />}
+              <Text style={[s.groupTagText, { color: groupInfo.color }]}>{groupInfo.label}</Text>
+            </Pressable>
+          </View>
         </View>
         <Text style={[s.itemPrice, { color: theme.textColor }]}>
           R$ {item.totalPrice.toFixed(2)}
@@ -207,18 +247,33 @@ const s = StyleSheet.create({
   itemSub: { fontSize: 13 },
   itemMeta: { fontSize: 11, marginTop: 2 },
   itemPrice: { fontSize: 15, fontWeight: "600", flexShrink: 0 },
+  tagRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 3,
+    flexWrap: "wrap",
+  },
   categoryChip: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-start",
     gap: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
-    marginTop: 3,
   },
   categoryDot: { width: 6, height: 6, borderRadius: 3 },
   categoryChipText: { fontSize: 10, fontWeight: "600" },
+  groupTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  groupTagText: { fontSize: 9, fontWeight: "700" },
   editForm: { padding: 12, borderTopWidth: 1, marginBottom: 4, gap: 8 },
   editRow: { flexDirection: "row", gap: 8 },
   editInput: { borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 14 },

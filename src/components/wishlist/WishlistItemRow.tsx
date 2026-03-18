@@ -168,13 +168,25 @@ export function WishlistItemRow({
             </View>
           ) : null}
 
-          {item.category && (
-            <Text style={[styles.category, { color: theme.secondaryText }]}>
-              {NCM_SUBCATEGORIES.find((s) => s.id === item.category)?.name
-                ?? CATEGORY_OPTIONS.find((c) => c.id === item.category)?.name
-                ?? item.category}
-            </Text>
-          )}
+          {item.category && (() => {
+            const subCat = NCM_SUBCATEGORIES.find((s) => s.id === item.category);
+            const mainCat = CATEGORY_OPTIONS.find((c) => c.id === item.category);
+            const catName = subCat?.name ?? mainCat?.name ?? item.category;
+            const group = subCat?.group ?? mainCat?.group ?? "wants";
+            const groupColor = group === "needs" ? "#4CAF50" : group === "savings" ? "#2196F3" : "#FF9800";
+            const groupLabel = group === "needs" ? "Necessidade" : group === "savings" ? "Poupanca" : "Desejo";
+            return (
+              <View style={styles.categoryRow}>
+                <View style={[styles.categoryChip, { backgroundColor: groupColor + "18" }]}>
+                  <View style={[styles.categoryDot, { backgroundColor: groupColor }]} />
+                  <Text style={[styles.category, { color: groupColor }]}>{catName}</Text>
+                </View>
+                <View style={[styles.groupBadge, { backgroundColor: groupColor + "18" }]}>
+                  <Text style={[styles.groupBadgeText, { color: groupColor }]}>{groupLabel}</Text>
+                </View>
+              </View>
+            );
+          })()}
 
           {(item.affiliateUrl ?? item.originalUrl) && (
             <TouchableOpacity onPress={openUrl} activeOpacity={0.7}>
@@ -415,9 +427,34 @@ const styles = StyleSheet.create({
   priceRefreshing: {
     opacity: 0.5,
   },
+  categoryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 3,
+    flexWrap: "wrap",
+  },
+  categoryChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  categoryDot: { width: 6, height: 6, borderRadius: 3 },
   category: {
-    fontSize: 11,
-    fontFamily: "DMSans_400Regular",
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  groupBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  groupBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
   },
   linkRow: {
     flexDirection: "row",

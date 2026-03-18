@@ -253,15 +253,28 @@ export function ItemsSection({
                   {parseFloat(item.unitPrice.replace(",", ".") || "0").toFixed(2)}
                   {(item.ean || item.ncm) ? `  •  ${[item.ean && `EAN:${item.ean}`, item.ncm && `NCM:${item.ncm}`].filter(Boolean).join("  ")}` : ""}
                 </Text>
-                {/* Category badge — tap to change */}
-                <Pressable
-                  onPress={() => openPickerForEdit(item.id)}
-                  style={[s.badge, { backgroundColor: `${color}22` }]}
-                >
-                  <View style={[s.dot, { backgroundColor: color }]} />
-                  <Text style={[s.badgeText, { color }]}>{displayCatName}</Text>
-                  <Feather name="chevron-right" size={10} color={color} />
-                </Pressable>
+                {/* Category + Group tags */}
+                <View style={s.tagRow}>
+                  <Pressable
+                    onPress={() => openPickerForEdit(item.id)}
+                    style={[s.badge, { backgroundColor: `${color}22` }]}
+                  >
+                    <View style={[s.dot, { backgroundColor: color }]} />
+                    <Text style={[s.badgeText, { color }]}>{displayCatName}</Text>
+                    <Feather name="chevron-right" size={10} color={color} />
+                  </Pressable>
+                  {(() => {
+                    const cat = TRANSACTION_CATEGORIES.find((c) => c.id === item.categoryId);
+                    const group = item.groupOverride ?? cat?.group ?? "wants";
+                    const gc = group === "needs" ? "#4CAF50" : group === "savings" ? "#2196F3" : "#FF9800";
+                    const gl = group === "needs" ? "Necessidade" : group === "savings" ? "Poupanca" : "Desejo";
+                    return (
+                      <View style={[s.groupBadge, { backgroundColor: gc + "18" }]}>
+                        <Text style={[s.groupBadgeText, { color: gc }]}>{gl}</Text>
+                      </View>
+                    );
+                  })()}
+                </View>
               </View>
               <Text style={[s.itemAmt, { color: theme.textColor }]}>R$ {amt.toFixed(2)}</Text>
               <Pressable
@@ -453,15 +466,29 @@ const s = StyleSheet.create({
   },
   itemDesc: { fontFamily: "DMSans_500Medium", fontSize: 14, marginBottom: 2 },
   itemSub: { fontFamily: "DMSans_400Regular", fontSize: 12 },
+  tagRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 3,
+    flexWrap: "wrap",
+  },
   badge: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-start",
     gap: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
-    marginTop: 3,
+  },
+  groupBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  groupBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
   },
   dot: { width: 6, height: 6, borderRadius: 3 },
   badgeText: { fontSize: 10, fontWeight: "600" },
