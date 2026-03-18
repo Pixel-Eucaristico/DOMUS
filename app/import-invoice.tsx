@@ -14,6 +14,7 @@ import { useEditableItems } from "@/src/hooks/useEditableItems";
 import { useInvoiceConfirm } from "@/src/hooks/useInvoiceConfirm";
 import { useAISettings } from "@/src/hooks/useAISettings";
 import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
+import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
 
 import { IdleScreen } from "@/src/components/invoice/IdleScreen";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
@@ -77,6 +78,8 @@ function RealInvoiceImportScreen() {
   const [importedData, setImportedData] = useState<InvoiceImportedPayload | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [aiApiKey, setAiApiKey] = useState<string | undefined>();
+  const [aiToast, setAiToast] = useState<{ tokens: number; provider: string } | null>(null);
+  const aiTokensRef = React.useRef(0);
 
   const { settings: aiSettings } = useAISettings();
   const accounts = Object.values(domain.accounts);
@@ -114,6 +117,15 @@ function RealInvoiceImportScreen() {
     aiEnabled: aiSettings.enabled && !!aiApiKey,
     aiApiKey: aiApiKey,
     aiProvider: aiSettings.provider,
+    onTokensUsed: (provider, tokens) => {
+      aiTokensRef.current += tokens;
+      // Registrar no TokenTracker
+      TokenTracker.record(provider as any, tokens, aiSettings.billingDay);
+      // Mostrar toast com total acumulado
+      setAiToast({ tokens: aiTokensRef.current, provider });
+      // Esconder toast após 3s
+      setTimeout(() => setAiToast(null), 3000);
+    },
   });
 
   const { confirmImport } = useInvoiceConfirm(
@@ -168,6 +180,16 @@ function RealInvoiceImportScreen() {
           </Pressable>
           <Text style={[s.title, { color: theme.textColor }]}>Importar NF</Text>
           <View style={{ width: 24 }} />
+        </View>
+      )}
+
+      {/* AI Usage Toast */}
+      {aiToast && (
+        <View style={[s.aiToast, { top: insets.top + 56, backgroundColor: theme.primaryColor + "E8" }]}>
+          <Feather name="cpu" size={14} color="#FFF" />
+          <Text style={s.aiToastText}>
+            IA categorizou • {aiToast.tokens} tokens ({aiToast.provider})
+          </Text>
         </View>
       )}
 
@@ -291,6 +313,28 @@ const s = StyleSheet.create({
     paddingBottom: 12,
   },
   title: { fontSize: 20, fontWeight: "700" },
+  aiToast: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    zIndex: 999,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  aiToastText: {
+    color: "#FFF",
+    fontSize: 13,
+    fontWeight: "600",
+  },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 40 },
   loadingText: { marginTop: 16, fontSize: 15 },
 });

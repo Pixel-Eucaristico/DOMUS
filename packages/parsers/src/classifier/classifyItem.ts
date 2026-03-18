@@ -487,6 +487,8 @@ export interface ClassifyItemOptions {
   aiEnabled?: boolean;
   aiApiKey?: string;
   aiProvider?: string; // "openai" | "gemini" | "claude" | "deepseek" | "qwen"
+  /** Callback chamado quando tokens são consumidos pela IA */
+  onTokensUsed?: (provider: string, tokens: number) => void;
 }
 
 /**
@@ -515,9 +517,15 @@ export async function classifyItemFull(
 
   // 3. AI classification (if enabled and name available)
   if (options.aiEnabled && options.aiApiKey && item.name) {
-    const aiClassifier = createAIClassifierForProvider(options.aiProvider ?? "gemini", options.aiApiKey);
+    const provider = options.aiProvider ?? "gemini";
+    const aiClassifier = createAIClassifierForProvider(provider, options.aiApiKey);
     const aiResult = await aiClassifier.classify(item.name);
-    if (aiResult.confidence >= 0.7) return aiResult;
+    if (aiResult.confidence >= 0.7) {
+      // Estimar ~220 tokens por classificação (prompt + resposta)
+      options.onTokensUsed?.(provider, 220);
+      const subId = inferSubcategory(aiResult.categoryId, item.name);
+      return { ...aiResult, subcategoryId: subId };
+    }
   }
 
   // 4. Keyword classification by name
