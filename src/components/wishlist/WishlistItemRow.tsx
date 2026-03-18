@@ -12,8 +12,7 @@ import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import type { WishlistItem, UrgencyLevel, BundleItem } from "@packages/wishlist";
 import { soundManager } from "@/src/services/SoundManager";
-import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
-import { CATEGORY_OPTIONS } from "@/src/constants/invoiceCategories";
+import { getCategoryDisplayName, getCategoryGroup, getGroupColor, getGroupLabel } from "@/src/utils/categoryHelpers";
 
 const URGENCY_COLORS: Record<UrgencyLevel, string> = {
   PRIORITY: "#DC2626",
@@ -169,20 +168,17 @@ export function WishlistItemRow({
           ) : null}
 
           {item.category && (() => {
-            const subCat = NCM_SUBCATEGORIES.find((s) => s.id === item.category);
-            const mainCat = CATEGORY_OPTIONS.find((c) => c.id === item.category);
-            const catName = subCat?.name ?? mainCat?.name ?? item.category;
-            const group = subCat?.group ?? mainCat?.group ?? "wants";
-            const groupColor = group === "needs" ? "#4CAF50" : group === "savings" ? "#2196F3" : "#FF9800";
-            const groupLabel = group === "needs" ? "Necessidade" : group === "savings" ? "Poupanca" : "Desejo";
+            const catName = getCategoryDisplayName(item.category);
+            const group = getCategoryGroup(item.category);
+            const gc = getGroupColor(group);
             return (
               <View style={styles.categoryRow}>
-                <View style={[styles.categoryChip, { backgroundColor: groupColor + "18" }]}>
-                  <View style={[styles.categoryDot, { backgroundColor: groupColor }]} />
-                  <Text style={[styles.category, { color: groupColor }]}>{catName}</Text>
+                <View style={[styles.categoryChip, { backgroundColor: `${gc}18` }]}>
+                  <View style={[styles.categoryDot, { backgroundColor: gc }]} />
+                  <Text style={[styles.category, { color: gc }]}>{catName}</Text>
                 </View>
-                <View style={[styles.groupBadge, { backgroundColor: groupColor + "18" }]}>
-                  <Text style={[styles.groupBadgeText, { color: groupColor }]}>{groupLabel}</Text>
+                <View style={[styles.groupBadge, { backgroundColor: `${gc}18` }]}>
+                  <Text style={[styles.groupBadgeText, { color: gc }]}>{getGroupLabel(group)}</Text>
                 </View>
               </View>
             );

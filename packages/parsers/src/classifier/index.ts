@@ -13,6 +13,7 @@ export {
 export type { GeminiConfig, ExtendedClassificationResult, ClassifyItemInput, ClassifyItemOptions } from "./classifyItem";
 export {
   NCM_SUBCATEGORIES,
+  SUBCATEGORY_HINTS,
   findSubcategoryByNcm,
   getSubcategoryById,
   getSubcategoriesForParent,

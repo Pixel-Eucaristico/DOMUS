@@ -2,9 +2,8 @@ import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
-import { CATEGORY_OPTIONS, GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { CategoryPickerModal } from "./CategoryPickerModal";
-import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
+import { getCategoryDisplayName, getCategoryColor } from "@/src/utils/categoryHelpers";
 import { soundManager } from "@/src/services/SoundManager";
 
 // ─── Shared product data shape ───────────────────────────────────────────────
@@ -19,41 +18,18 @@ export interface ProductFormData {
   ncm: string;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function getCatDisplayName(categoryId: string): string {
-  if (!categoryId) return "Selecionar categoria...";
-  const sub = NCM_SUBCATEGORIES.find((s) => s.id === categoryId);
-  if (sub) return sub.name;
-  const cat = CATEGORY_OPTIONS.find((c) => c.id === categoryId);
-  return cat?.name ?? "Selecionar categoria...";
-}
-
-function getCatColor(categoryId: string): string {
-  if (!categoryId) return "#999";
-  const sub = NCM_SUBCATEGORIES.find((s) => s.id === categoryId);
-  if (sub) return GROUP_COLORS[sub.group] ?? GROUP_COLORS.wants;
-  const cat = CATEGORY_OPTIONS.find((c) => c.id === categoryId);
-  return cat ? GROUP_COLORS[cat.group] : GROUP_COLORS.wants;
-}
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 interface ProductFormCardProps {
   data: ProductFormData;
   onChange: (field: keyof ProductFormData, value: string) => void;
   theme: ThemeColors;
-  /** Texto do placeholder do nome */
   namePlaceholder?: string;
-  /** Mostrar botão de confirmar */
   showConfirm?: boolean;
   onConfirm?: () => void;
-  /** Mostrar botão de remover */
   showRemove?: boolean;
   onRemove?: () => void;
-  /** Compacto (menos padding, sem confirm) */
   compact?: boolean;
-  /** Ações extras na linha do nome (ex: botão de busca) */
   extraActions?: React.ReactNode;
 }
 
@@ -70,11 +46,10 @@ export function ProductFormCard({
   extraActions,
 }: ProductFormCardProps) {
   const [pickerVisible, setPickerVisible] = useState(false);
-  const color = getCatColor(data.categoryId);
+  const color = getCategoryColor(data.categoryId);
 
   return (
     <View style={[s.card, compact && s.cardCompact, { borderColor: theme.border }]}>
-      {/* Linha 1: Nome */}
       <View style={s.row}>
         <TextInput
           style={[s.input, s.flex1, { color: theme.textColor, borderColor: theme.border }]}
@@ -91,7 +66,6 @@ export function ProductFormCard({
         )}
       </View>
 
-      {/* Linha 2: Qtd + Unidade + Preço */}
       <View style={s.row}>
         <TextInput
           style={[s.inputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
@@ -119,19 +93,17 @@ export function ProductFormCard({
         />
       </View>
 
-      {/* Linha 3: Categoria */}
       <Pressable
         onPress={() => setPickerVisible(true)}
         style={[s.catBtn, { borderColor: color, backgroundColor: `${color}10` }]}
       >
         <View style={[s.catDot, { backgroundColor: color }]} />
         <Text style={[s.catText, { color: data.categoryId ? theme.textColor : theme.secondaryText }]}>
-          {getCatDisplayName(data.categoryId)}
+          {getCategoryDisplayName(data.categoryId)}
         </Text>
         <Feather name="chevron-right" size={14} color={theme.secondaryText} />
       </Pressable>
 
-      {/* Linha 4: EAN + NCM */}
       <View style={s.row}>
         <TextInput
           style={[s.inputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
@@ -153,7 +125,6 @@ export function ProductFormCard({
         />
       </View>
 
-      {/* Confirmar */}
       {showConfirm && onConfirm && (
         <Pressable
           style={[s.confirmBtn, { backgroundColor: theme.primaryColor }]}
@@ -182,8 +153,6 @@ export function ProductFormCard({
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
 const s = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 8 },
   cardCompact: { padding: 10, gap: 6 },
@@ -191,24 +160,9 @@ const s = StyleSheet.create({
   flex1: { flex: 1 },
   input: { borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 14, fontFamily: "DMSans_400Regular" },
   inputSm: { borderWidth: 1, borderRadius: 8, padding: 8, fontSize: 13, fontFamily: "DMSans_400Regular" },
-  catBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
+  catBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
   catDot: { width: 8, height: 8, borderRadius: 4 },
   catText: { flex: 1, fontFamily: "DMSans_500Medium", fontSize: 13 },
-  confirmBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
+  confirmBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 10 },
   confirmText: { color: "#FFF", fontFamily: "DMSans_600SemiBold", fontSize: 14 },
 });

@@ -1,21 +1,22 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import type { ThemeColors } from "@packages/theme";
-import type { EditableItem } from "@/src/hooks/useEditableItems";
-import { CATEGORY_OPTIONS, GROUP_COLORS } from "@/src/constants/invoiceCategories";
-import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal";
-import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
-import { soundManager } from "@/src/services/SoundManager";
 import * as Haptics from "expo-haptics";
+import type { ThemeColors } from "@packages/theme";
 import type { CategoryGroup } from "@packages/events/src/types";
+import type { EditableItem } from "@/src/hooks/useEditableItems";
+import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
+import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal";
+import { soundManager } from "@/src/services/SoundManager";
+import {
+  getCategoryDisplayName,
+  getCategoryColor,
+  getCategoryGroup,
+  getGroupColor,
+  getGroupLabel,
+} from "@/src/utils/categoryHelpers";
 
-const GROUP_LABELS: Record<string, { label: string; color: string }> = {
-  needs: { label: "Necessidade", color: "#4CAF50" },
-  wants: { label: "Desejo", color: "#FF9800" },
-  savings: { label: "Poupanca", color: "#2196F3" },
-};
-const GROUP_CYCLE: CategoryGroup[] = ["needs", "wants"];
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface Props {
   item: EditableItem;
@@ -23,51 +24,32 @@ interface Props {
   isEditing: boolean;
   theme: ThemeColors;
   onToggleEdit: (idx: number | null) => void;
-  onEditField: (idx: number, field: any, value: string) => void;
+  onEditField: (idx: number, field: string, value: string) => void;
   onRemove: (idx: number) => void;
 }
 
-function getCatDisplayName(categoryId: string, subcategoryId?: string): string {
-  if (subcategoryId) {
-    const sub = NCM_SUBCATEGORIES.find((s) => s.id === subcategoryId);
-    if (sub) return sub.name;
-  }
-  const cat = CATEGORY_OPTIONS.find((c) => c.id === categoryId);
-  return cat?.name ?? "Outros";
-}
+const GROUP_TOGGLE_CYCLE: CategoryGroup[] = ["needs", "wants"];
 
-function getCatColor(categoryId: string): string {
-  const cat = CATEGORY_OPTIONS.find((c) => c.id === categoryId);
-  return cat ? GROUP_COLORS[cat.group] : GROUP_COLORS.wants;
-}
+// ─── Component ───────────────────────────────────────────────────────────────
 
-export function EditableItemRow({
-  item,
-  index,
-  isEditing,
-  theme,
-  onToggleEdit,
-  onEditField,
-  onRemove,
-}: Props) {
+export function EditableItemRow({ item, index, isEditing, theme, onToggleEdit, onEditField, onRemove }: Props) {
   const [pickerVisible, setPickerVisible] = useState(false);
-  const catColor = getCatColor(item.categoryId);
-  const catName = getCatDisplayName(item.categoryId, item.subcategoryId);
 
-  // Group info
-  const currentGroup: CategoryGroup = item.groupOverride
-    ?? CATEGORY_OPTIONS.find((c) => c.id === item.categoryId)?.group
-    ?? "wants";
-  const groupInfo = GROUP_LABELS[currentGroup] ?? GROUP_LABELS.wants!;
+  const catColor = getCategoryColor(item.categoryId);
+  const catName = getCategoryDisplayName(item.categoryId, item.subcategoryId);
+  const currentGroup = (item.groupOverride ?? getCategoryGroup(item.categoryId, item.subcategoryId)) as CategoryGroup;
+  const groupColor = getGroupColor(currentGroup);
+  const groupLabel = getGroupLabel(currentGroup);
 
-  // Check if this item allows group override
-  const sub = item.subcategoryId ? NCM_SUBCATEGORIES.find((s) => s.id === item.subcategoryId) : null;
-  const canToggleGroup = sub?.allowGroupOverride ?? false;
+  // Check if this subcategory allows group override
+  const canToggleGroup = item.subcategoryId
+    ? NCM_SUBCATEGORIES.find((s) => s.id === item.subcategoryId)?.allowGroupOverride ?? false
+    : false;
 
-  const toggleGroup = () => {
+  const handleToggleGroup = () => {
     if (!canToggleGroup) return;
-    const idx = GROUP_CYCLE.indexOf(currentGroup);
-    const next = GROUP_CYCLE[(idx + 1) % GROUP_CYCLE.length]!;
+    const idx = GROUP_TOGGLE_CYCLE.indexOf(currentGroup);
+    const next = GROUP_TOGGLE_CYCLE[(idx + 1) % GROUP_TOGGLE_CYCLE.length]!;
     soundManager.play("tap");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onEditField(index, "groupOverride", next);
@@ -75,13 +57,12 @@ export function EditableItemRow({
 
   const handlePickerSelect = (categoryId: string, subcategoryId?: string) => {
     onEditField(index, "categoryId", categoryId);
-    if (subcategoryId) {
-      onEditField(index, "subcategoryId", subcategoryId);
-    }
+    if (subcategoryId) onEditField(index, "subcategoryId", subcategoryId);
   };
 
   return (
     <View>
+      {/* Item row */}
       <View style={[s.itemRow, { borderBottomColor: theme.border }]}>
         <View style={s.itemInfo}>
           <Text style={[s.itemDescription, { color: theme.textColor }]} numberOfLines={2}>
@@ -90,207 +71,86 @@ export function EditableItemRow({
           <Text style={[s.itemSub, { color: theme.secondaryText }]}>
             {item.quantity} {item.unit || "un"} × R$ {item.unitPrice.toFixed(2)}
           </Text>
-          {item.ean ? (
-            <Text style={[s.itemMeta, { color: theme.secondaryText }]}>EAN: {item.ean}</Text>
-          ) : null}
-          {item.ncm ? (
-            <Text style={[s.itemMeta, { color: theme.secondaryText }]}>NCM: {item.ncm}</Text>
-          ) : null}
-          {item.productCode ? (
-            <Text style={[s.itemMeta, { color: theme.secondaryText }]}>
-              Cod: {item.productCode}
-            </Text>
-          ) : null}
+          {item.ean && <Text style={[s.itemMeta, { color: theme.secondaryText }]}>EAN: {item.ean}</Text>}
+          {item.ncm && <Text style={[s.itemMeta, { color: theme.secondaryText }]}>NCM: {item.ncm}</Text>}
+          {item.productCode && <Text style={[s.itemMeta, { color: theme.secondaryText }]}>Cod: {item.productCode}</Text>}
+
           {/* Category + Group tags */}
           <View style={s.tagRow}>
-            {/* Subcategory tag — tap to change category */}
-            <Pressable
-              onPress={() => setPickerVisible(true)}
-              style={[s.categoryChip, { backgroundColor: catColor + "22" }]}
-            >
-              <View style={[s.categoryDot, { backgroundColor: catColor }]} />
-              <Text style={[s.categoryChipText, { color: catColor }]}>{catName}</Text>
+            <Pressable onPress={() => setPickerVisible(true)} style={[s.tag, { backgroundColor: `${catColor}22` }]}>
+              <View style={[s.dot, { backgroundColor: catColor }]} />
+              <Text style={[s.tagText, { color: catColor }]}>{catName}</Text>
               <Feather name="chevron-right" size={10} color={catColor} />
             </Pressable>
-            {/* Group tag — tap to toggle needs/wants (only if allowed) */}
             <Pressable
-              onPress={canToggleGroup ? toggleGroup : undefined}
+              onPress={canToggleGroup ? handleToggleGroup : undefined}
               disabled={!canToggleGroup}
-              style={[s.groupTag, { backgroundColor: groupInfo.color + "18", borderColor: groupInfo.color + "40" }]}
+              style={[s.tag, { backgroundColor: `${groupColor}18`, borderColor: `${groupColor}40`, borderWidth: 1 }]}
             >
-              {canToggleGroup && <Feather name="refresh-cw" size={9} color={groupInfo.color} />}
-              <Text style={[s.groupTagText, { color: groupInfo.color }]}>{groupInfo.label}</Text>
+              {canToggleGroup && <Feather name="refresh-cw" size={9} color={groupColor} />}
+              <Text style={[s.groupText, { color: groupColor }]}>{groupLabel}</Text>
             </Pressable>
           </View>
         </View>
-        <Text style={[s.itemPrice, { color: theme.textColor }]}>
-          R$ {item.totalPrice.toFixed(2)}
-        </Text>
-        <Pressable
-          onPress={() => onToggleEdit(isEditing ? null : index)}
-          hitSlop={8}
-          style={{ marginLeft: 8 }}
-        >
+
+        <Text style={[s.itemPrice, { color: theme.textColor }]}>R$ {item.totalPrice.toFixed(2)}</Text>
+        <Pressable onPress={() => onToggleEdit(isEditing ? null : index)} hitSlop={8} style={{ marginLeft: 8 }}>
           <Feather name="edit-2" size={16} color={theme.primaryColor} />
         </Pressable>
-        <Pressable
-          onPress={() => { soundManager.play("trash"); onRemove(index); }}
-          hitSlop={8}
-          style={{ marginLeft: 8 }}
-        >
+        <Pressable onPress={() => { soundManager.play("trash"); onRemove(index); }} hitSlop={8} style={{ marginLeft: 8 }}>
           <Feather name="trash-2" size={16} color={theme.danger} />
         </Pressable>
       </View>
 
+      {/* Inline edit form */}
       {isEditing && (
-        <View
-          style={[
-            s.editForm,
-            { borderColor: theme.border, backgroundColor: theme.cardBackground },
-          ]}
-        >
-          <TextInput
-            style={[s.editInput, { color: theme.textColor, borderColor: theme.border }]}
-            value={item.description}
-            onChangeText={(v) => onEditField(index, "description", v)}
-            placeholder="Descricao"
-            placeholderTextColor={theme.secondaryText}
-          />
+        <View style={[s.editForm, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}>
+          <TextInput style={[s.editInput, { color: theme.textColor, borderColor: theme.border }]} value={item.description} onChangeText={(v) => onEditField(index, "description", v)} placeholder="Descricao" placeholderTextColor={theme.secondaryText} />
           <View style={s.editRow}>
-            <TextInput
-              style={[s.editInputSmall, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
-              value={String(item.quantity)}
-              onChangeText={(v) => onEditField(index, "quantity", v)}
-              placeholder="Qtd"
-              placeholderTextColor={theme.secondaryText}
-              keyboardType="decimal-pad"
-            />
-            <TextInput
-              style={[s.editInputSmall, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
-              value={item.unit || ""}
-              onChangeText={(v) => onEditField(index, "unit", v)}
-              placeholder="UN"
-              placeholderTextColor={theme.secondaryText}
-              autoCapitalize="characters"
-            />
-            <TextInput
-              style={[s.editInputSmall, { color: theme.textColor, borderColor: theme.border, flex: 2 }]}
-              value={String(item.unitPrice)}
-              onChangeText={(v) => onEditField(index, "unitPrice", v)}
-              placeholder="Preco unit."
-              placeholderTextColor={theme.secondaryText}
-              keyboardType="decimal-pad"
-            />
+            <TextInput style={[s.editInputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]} value={String(item.quantity)} onChangeText={(v) => onEditField(index, "quantity", v)} placeholder="Qtd" placeholderTextColor={theme.secondaryText} keyboardType="decimal-pad" />
+            <TextInput style={[s.editInputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]} value={item.unit || ""} onChangeText={(v) => onEditField(index, "unit", v)} placeholder="UN" placeholderTextColor={theme.secondaryText} autoCapitalize="characters" />
+            <TextInput style={[s.editInputSm, { color: theme.textColor, borderColor: theme.border, flex: 2 }]} value={String(item.unitPrice)} onChangeText={(v) => onEditField(index, "unitPrice", v)} placeholder="Preco unit." placeholderTextColor={theme.secondaryText} keyboardType="decimal-pad" />
           </View>
-          <TextInput
-            style={[s.editInput, { color: theme.textColor, borderColor: theme.border }]}
-            value={item.ean || ""}
-            onChangeText={(v) => onEditField(index, "ean", v)}
-            placeholder="EAN / codigo de barras (opcional)"
-            placeholderTextColor={theme.secondaryText}
-            keyboardType="number-pad"
-          />
-          <TextInput
-            style={[s.editInput, { color: theme.textColor, borderColor: theme.border }]}
-            value={item.ncm || ""}
-            onChangeText={(v) => onEditField(index, "ncm", v)}
-            placeholder="NCM — 8 digitos (opcional)"
-            placeholderTextColor={theme.secondaryText}
-            keyboardType="number-pad"
-            maxLength={8}
-          />
-
-          {/* Category picker button */}
-          <Text style={[s.editSectionLabel, { color: theme.secondaryText }]}>
-            Categoria do gasto
-          </Text>
-          <Pressable
-            onPress={() => setPickerVisible(true)}
-            style={[s.catPickerBtn, { borderColor: catColor, backgroundColor: `${catColor}10` }]}
-          >
-            <View style={[s.categoryDot, { backgroundColor: catColor }]} />
+          <View style={s.editRow}>
+            <TextInput style={[s.editInputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]} value={item.ean || ""} onChangeText={(v) => onEditField(index, "ean", v)} placeholder="EAN" placeholderTextColor={theme.secondaryText} keyboardType="number-pad" maxLength={14} />
+            <TextInput style={[s.editInputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]} value={item.ncm || ""} onChangeText={(v) => onEditField(index, "ncm", v)} placeholder="NCM" placeholderTextColor={theme.secondaryText} keyboardType="number-pad" maxLength={8} />
+          </View>
+          <Text style={[s.sectionLabel, { color: theme.secondaryText }]}>Categoria do gasto</Text>
+          <Pressable onPress={() => setPickerVisible(true)} style={[s.catPickerBtn, { borderColor: catColor, backgroundColor: `${catColor}10` }]}>
+            <View style={[s.dot, { backgroundColor: catColor }]} />
             <Text style={[s.catPickerText, { color: theme.textColor }]}>{catName}</Text>
             <Feather name="chevron-right" size={14} color={theme.secondaryText} />
           </Pressable>
-
-          <Pressable
-            style={{ alignSelf: "flex-end", marginTop: 6 }}
-            onPress={() => onToggleEdit(null)}
-          >
+          <Pressable style={{ alignSelf: "flex-end", marginTop: 6 }} onPress={() => onToggleEdit(null)}>
             <Text style={{ color: theme.primaryColor, fontWeight: "600" }}>Fechar</Text>
           </Pressable>
         </View>
       )}
 
-      {/* Category Picker Modal */}
-      <CategoryPickerModal
-        visible={pickerVisible}
-        onClose={() => setPickerVisible(false)}
-        onSelect={handlePickerSelect}
-        theme={theme}
-        selectedId={item.categoryId}
-      />
+      <CategoryPickerModal visible={pickerVisible} onClose={() => setPickerVisible(false)} onSelect={handlePickerSelect} theme={theme} selectedId={item.categoryId} />
     </View>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const s = StyleSheet.create({
-  itemRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    gap: 8,
-  },
+  itemRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, gap: 8 },
   itemInfo: { flex: 1, flexShrink: 1 },
   itemDescription: { fontSize: 15, fontWeight: "500", marginBottom: 3 },
   itemSub: { fontSize: 13 },
   itemMeta: { fontSize: 11, marginTop: 2 },
   itemPrice: { fontSize: 15, fontWeight: "600", flexShrink: 0 },
-  tagRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 3,
-    flexWrap: "wrap",
-  },
-  categoryChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  categoryDot: { width: 6, height: 6, borderRadius: 3 },
-  categoryChipText: { fontSize: 10, fontWeight: "600" },
-  groupTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  groupTagText: { fontSize: 9, fontWeight: "700" },
+  tagRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" },
+  tag: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  tagText: { fontSize: 10, fontWeight: "600" },
+  groupText: { fontSize: 9, fontWeight: "700" },
   editForm: { padding: 12, borderTopWidth: 1, marginBottom: 4, gap: 8 },
   editRow: { flexDirection: "row", gap: 8 },
   editInput: { borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 14 },
-  editInputSmall: { borderWidth: 1, borderRadius: 8, padding: 8, fontSize: 13 },
-  editSectionLabel: { fontSize: 11, fontWeight: "500", marginTop: 2 },
-  catPickerBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  catPickerText: {
-    flex: 1,
-    fontFamily: "DMSans_500Medium",
-    fontSize: 13,
-  },
+  editInputSm: { borderWidth: 1, borderRadius: 8, padding: 8, fontSize: 13 },
+  sectionLabel: { fontSize: 11, fontWeight: "500", marginTop: 2 },
+  catPickerBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
+  catPickerText: { flex: 1, fontFamily: "DMSans_500Medium", fontSize: 13 },
 });

@@ -14,6 +14,7 @@ import { EXPENSE_CATEGORIES } from "@/src/constants/transactionCategories";
 import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
 import { GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { soundManager } from "@/src/services/SoundManager";
+import { getGroupLabel } from "@/src/utils/categoryHelpers";
 import * as Haptics from "expo-haptics";
 
 interface PickerItem {
@@ -32,7 +33,7 @@ interface CategoryPickerModalProps {
   selectedId?: string;
 }
 
-const GROUP_LABELS = {
+const GROUP_LABELS: Record<string, string> = {
   needs: "Essencial",
   wants: "Estilo de Vida",
   savings: "Futuro",

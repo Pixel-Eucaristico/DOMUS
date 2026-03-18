@@ -363,6 +363,40 @@ export const NCM_SUBCATEGORIES: NCMSubcategory[] = [
 
 // ─── Lookup helpers ──────────────────────────────────────────────────────────
 
+// ─── Keyword hints for subcategory inference ─────────────────────────────────
+// Used by classifyItem.inferSubcategory() to match item names to subcategories
+
+export const SUBCATEGORY_HINTS: Record<string, string[]> = {
+  carnes_peixes: ["carne", "frango", "peixe", "linguica", "salsicha", "hamburguer", "file", "costela", "alcatra", "picanha", "bacon", "presunto", "mortadela", "pescado", "suino", "bovino", "atum"],
+  laticinios_ovos: ["leite", "queijo", "iogurte", "manteiga", "margarina", "ovo", "ovos", "cream cheese", "requeijao", "nata", "creme de leite"],
+  hortalicas_legumes: ["tomate", "cebola", "alho", "batata", "cenoura", "alface", "pepino", "pimentao", "abobrinha", "legume", "verdura", "hortalica", "brocoli"],
+  frutas: ["banana", "maca", "laranja", "limao", "uva", "morango", "melancia", "manga", "abacaxi", "pera", "fruta", "mamao", "kiwi"],
+  cafe_cha_especiarias: ["cafe", "cha ", "erva", "especiaria", "canela", "cravo", "nescafe", "dolce gusto", "capsula"],
+  cereais_graos: ["arroz", "feijao", "milho", "aveia", "granola", "cereal", "trigo", "lentilha", "grao"],
+  oleos_gorduras: ["oleo", "azeite", "gordura", "banha"],
+  acucar_doces: ["acucar", "chocolate", "bombom", "doce", "bala", "chiclete", "nutella", "geleia", "mel"],
+  massas_panificacao: ["macarrao", "massa", "pao", "biscoito", "bolacha", "bolo", "farinha", "fermento", "miojo", "nissin", "cup noodle", "wafer"],
+  preparacoes_alimentares: ["molho", "ketchup", "maionese", "mostarda", "vinagre", "tempero", "caldo", "sopa"],
+  agua_mineral: ["agua mineral", "agua min"],
+  refrigerantes_sucos: ["refrigerante", "refrig", "suco", "guarana", "coca", "pepsi", "fanta", "sprite", "coca cola", "energ", "monster", "red bull"],
+  bebidas_alcoolicas: ["cerveja", "vinho", "vodka", "whisky", "skol", "brahma", "heineken", "amstel", "budweiser", "chopp", "gin", "rum"],
+  higiene_pessoal: ["shampoo", "condicion", "sabonete", "desodorante", "creme dent", "colgate", "oral", "gillette", "perfum", "cosmetico"],
+  papel_lencos: ["papel hig", "pap hig", "lenco", "guardanapo"],
+  saboes_detergentes: ["detergente", "det liq", "sabao", "ype", "lava louca"],
+  produtos_limpeza: ["desinfetante", "alvejante", "veja", "limp mult", "cera", "lustra"],
+  inseticidas_desinfetantes: ["inseticida", "veneno", "repelente", "raid", "baygon"],
+  medicamentos: ["remedio", "medicamento", "dipirona", "paracetamol", "ibuprofeno", "dorflex"],
+  roupas: ["camisa", "calca", "bermuda", "vestido", "saia", "blusa", "jaqueta", "roupa"],
+  calcados: ["tenis", "sapato", "sandalia", "chinelo", "bota", "calcado"],
+  livros_impressos: ["livro", "revista", "caderno", "apostila"],
+  informatica: ["notebook", "mouse", "teclado", "monitor", "pendrive", "ssd", "hd ", "memoria ram"],
+  celulares_telecom: ["celular", "smartphone", "iphone", "samsung galaxy", "fone", "carregador"],
+  eletrodomesticos: ["geladeira", "fogao", "microondas", "liquidificador", "aspirador", "ventilador", "ar condicionado"],
+  combustiveis: ["gasolina", "etanol", "diesel", "alcool", "gnv"],
+  tabaco: ["cigarro", "tabaco", "fumo"],
+  produtos_pet: ["racao", "pet", "cachorro", "gato", "animal"],
+};
+
 /** Find subcategory by NCM code (longest prefix match) */
 export function findSubcategoryByNcm(ncm: string): NCMSubcategory | null {
   const digits = ncm.replace(/\D/g, "");

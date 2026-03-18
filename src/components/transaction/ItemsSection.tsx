@@ -19,6 +19,7 @@ import { GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal";
 import { soundManager } from "@/src/services/SoundManager";
 import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
+import { getCategoryDisplayName, getCategoryColor, getGroupColor, getGroupLabel, getCategoryGroup } from "@/src/utils/categoryHelpers";
 
 const DEFAULT_CATEGORY_ID = EXPENSE_CATEGORIES[0]!.id;
 
@@ -28,16 +29,6 @@ interface ItemsSectionProps {
   onAddItem: (item: Omit<ManualItem, "id">) => void;
   onRemoveItem: (id: string) => void;
   onEditItemField: (id: string, field: keyof ManualItem, value: string) => void;
-}
-
-/** Get display name for a category + optional subcategory */
-function getCategoryDisplayName(categoryId: string, subcategoryId?: string): string {
-  if (subcategoryId) {
-    const sub = NCM_SUBCATEGORIES.find((s) => s.id === subcategoryId);
-    if (sub) return sub.name;
-  }
-  const cat = TRANSACTION_CATEGORIES.find((c) => c.id === categoryId);
-  return cat?.name ?? "Outros";
 }
 
 export function ItemsSection({
@@ -116,10 +107,7 @@ export function ItemsSection({
     }
   };
 
-  const getColor = (catId: string) => {
-    const cat = TRANSACTION_CATEGORIES.find((c) => c.id === catId);
-    return GROUP_COLORS[cat?.group ?? "wants"] ?? theme.primaryColor;
-  };
+  const getColor = (catId: string) => getCategoryColor(catId);
 
   return (
     <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
@@ -264,13 +252,11 @@ export function ItemsSection({
                     <Feather name="chevron-right" size={10} color={color} />
                   </Pressable>
                   {(() => {
-                    const cat = TRANSACTION_CATEGORIES.find((c) => c.id === item.categoryId);
-                    const group = item.groupOverride ?? cat?.group ?? "wants";
-                    const gc = group === "needs" ? "#4CAF50" : group === "savings" ? "#2196F3" : "#FF9800";
-                    const gl = group === "needs" ? "Necessidade" : group === "savings" ? "Poupanca" : "Desejo";
+                    const group = item.groupOverride ?? getCategoryGroup(item.categoryId, item.subcategoryId);
+                    const gc = getGroupColor(group);
                     return (
-                      <View style={[s.groupBadge, { backgroundColor: gc + "18" }]}>
-                        <Text style={[s.groupBadgeText, { color: gc }]}>{gl}</Text>
+                      <View style={[s.groupBadge, { backgroundColor: `${gc}18` }]}>
+                        <Text style={[s.groupBadgeText, { color: gc }]}>{getGroupLabel(group)}</Text>
                       </View>
                     );
                   })()}
