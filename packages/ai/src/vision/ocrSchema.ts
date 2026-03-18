@@ -7,6 +7,8 @@ export const InvoiceItemSchema = z.object({
   quantity: z.number().optional().default(1),
   unitPrice: z.number().optional(),
   total: z.number(),
+  ean: z.string().optional(),
+  ncm: z.string().optional(),
 });
 
 export const InvoiceOCRSchema = z.object({

@@ -12,8 +12,10 @@ Analise a imagem fornecida e extraia os dados.
 Retorne ESTRITAMENTE em formato JSON sem blocos de markdown, sem conversas, sem saudacoes.
 Nao inclua \`\`\`json ou \`\`\` no retorno.`;
 
-const INVOICE_USER_PROMPT = `Extraia os dados desta nota fiscal/cupom fiscal no formato JSON:
-{"store":"nome da loja","cnpj":"XX.XXX.XXX/XXXX-XX","date":"DD/MM/YYYY","items":[{"description":"nome","quantity":1,"unitPrice":0.00,"total":0.00}],"subtotal":0.00,"discounts":0.00,"total":0.00}`;
+const INVOICE_USER_PROMPT = `Extraia os dados desta nota fiscal/cupom fiscal no formato JSON.
+Para cada item, inclua o codigo EAN/GTIN (codigo de barras) e NCM (8 digitos) se estiverem visiveis na nota.
+{"store":"nome da loja","cnpj":"XX.XXX.XXX/XXXX-XX","date":"DD/MM/YYYY","items":[{"description":"nome","quantity":1,"unitPrice":0.00,"total":0.00,"ean":"0000000000000","ncm":"00000000"}],"subtotal":0.00,"discounts":0.00,"total":0.00}
+Se EAN ou NCM nao estiverem visiveis, omita esses campos do item.`;
 
 const PAYSLIP_USER_PROMPT = `Extraia os dados deste holerite/contracheque no formato JSON:
 {"company":"nome empresa","cnpj":"XX.XXX.XXX/XXXX-XX","employee":"nome","period":"MM/YYYY","grossSalary":0.00,"deductions":[{"name":"INSS","value":0.00}],"netSalary":0.00}`;

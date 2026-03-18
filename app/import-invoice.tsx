@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLocalSearchParams } from "expo-router";
 import { View, ActivityIndicator, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -87,13 +89,31 @@ function RealInvoiceImportScreen() {
   // Carregar API key do provedor ativo para classificação por IA
   useEffect(() => {
     if (aiSettings.enabled && aiSettings.provider) {
-      SecureKeyService.getKey(aiSettings.provider).then((key) => {
+      SecureKeyService.retrieveKey(aiSettings.provider as any).then((key) => {
         setAiApiKey(key ?? undefined);
       });
     } else {
       setAiApiKey(undefined);
     }
   }, [aiSettings.enabled, aiSettings.provider]);
+
+  // Carregar dados do Vision OCR (quando vem do ai-chat)
+  const params = useLocalSearchParams<{ fromVision?: string }>();
+  const visionLoadedRef = useRef(false);
+  useEffect(() => {
+    if (params.fromVision === "1" && !visionLoadedRef.current) {
+      visionLoadedRef.current = true;
+      AsyncStorage.getItem("@domus/vision_ocr_result").then((raw) => {
+        if (!raw) return;
+        AsyncStorage.removeItem("@domus/vision_ocr_result");
+        try {
+          const payload = JSON.parse(raw) as InvoiceImportedPayload;
+          setImportedData(payload);
+          setState("parsed");
+        } catch {}
+      });
+    }
+  }, [params.fromVision]);
 
   useEffect(() => {
     if (accounts.length > 0 && !selectedAccountId) {

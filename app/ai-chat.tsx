@@ -15,7 +15,14 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { GiftedChat, Bubble } from "react-native-gifted-chat";
 import type { IMessage, BubbleProps } from "react-native-gifted-chat";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { Alert } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { soundManager } from "@/src/services/SoundManager";
+import { VisionOCRService } from "@packages/ai/src/vision/VisionOCRService";
+import type { OCRDocumentType } from "@packages/ai/src/vision/ocrSchema";
+import { SelectionModal } from "@/src/components/shared/SelectionModal";
+import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
+import type { InvoiceOCRResult, PayslipOCRResult } from "@packages/ai/src/vision/ocrSchema";
 import { useAIConsultant } from "@/src/hooks/useAIConsultant";
 import { useAISettings } from "@/src/hooks/useAISettings";
 import { useVoiceRecorder } from "@/src/hooks/useVoiceRecorder";
@@ -189,19 +196,119 @@ export default function AIChatScreen() {
     [handleSend, settings.isEnabled],
   );
 
+  const [visionLoading, setVisionLoading] = useState(false);
+  const [visionModal, setVisionModal] = useState<{ visible: boolean; docType: OCRDocumentType }>({ visible: false, docType: "invoice" });
+
+  const openVisionModal = useCallback((docType: OCRDocumentType) => {
+    if (!settings.isEnabled || !VisionOCRService.supportsVision(settings.provider as any)) {
+      Alert.alert("Nao suportado", `${settings.provider} nao suporta Vision OCR. Use OpenAI, Gemini, Claude ou Qwen.`);
+      return;
+    }
+    setVisionModal({ visible: true, docType });
+  }, [settings.isEnabled, settings.provider]);
+
+  const processVisionImage = useCallback(async (source: "camera" | "gallery", docType: OCRDocumentType) => {
+    const provider = settings.provider as any;
+
+    // 1. Verificar budget
+    const overBudget = await TokenTracker.isOverBudget(
+      provider, settings.customBudgets, settings.budgetMode, settings.monthlyBudgets, settings.billingDay,
+    );
+    if (overBudget) {
+      Alert.alert("Limite de IA atingido", "Voce atingiu o limite de uso de IA. Ajuste o orcamento nas configuracoes.");
+      return;
+    }
+
+    // 2. Abrir camera/galeria
+    let result: ImagePicker.ImagePickerResult;
+    if (source === "camera") {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) { Alert.alert("Permissao negada", "Permita acesso a camera."); return; }
+      result = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.8 });
+    } else {
+      result = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.8 });
+    }
+
+    if (result.canceled || !result.assets?.[0]?.base64) return;
+
+    const asset = result.assets[0]!;
+    const mimeType = asset.mimeType ?? (asset.uri.endsWith(".png") ? "image/png" : "image/jpeg");
+
+    setVisionLoading(true);
+    soundManager.play("pop");
+
+    try {
+      const apiKey = await SecureKeyService.retrieveKey(provider);
+      if (!apiKey) { Alert.alert("Sem chave API", "Configure a chave API nas configuracoes de IA."); setVisionLoading(false); return; }
+
+      // 3. Processar com VisionOCR
+      const ocrResult = await VisionOCRService.process(asset.base64, mimeType, provider, apiKey, docType);
+
+      // 4. Registrar tokens (~2000 por Vision request)
+      await TokenTracker.record(provider, 2000, settings.billingDay);
+
+      setVisionLoading(false);
+      soundManager.play("success");
+
+      // 5. Redirecionar para tela de edição com dados pré-preenchidos
+      if (docType === "invoice") {
+        const inv = ocrResult as InvoiceOCRResult;
+        const [d, m, y] = (inv.date || "").split("/");
+        const dateIso = y && m && d ? new Date(Number(y), Number(m) - 1, Number(d)).toISOString() : new Date().toISOString();
+        const payload = {
+          invoiceId: Date.now().toString(36),
+          source: "OCR_FALLBACK" as const,
+          emitter: { name: inv.store || "Desconhecido", cnpj: (inv.cnpj || "").replace(/\D/g, "") },
+          date: dateIso,
+          items: inv.items.map((item: any) => ({
+            description: item.description,
+            quantity: item.quantity ?? 1,
+            unitPrice: item.unitPrice ?? item.total,
+            totalPrice: item.total,
+            ...(item.ean ? { ean: String(item.ean) } : {}),
+            ...(item.ncm ? { ncm: String(item.ncm).replace(/\D/g, "").substring(0, 8) } : {}),
+          })),
+          totalAmount: inv.total,
+        };
+        // Salvar no AsyncStorage temporário para a tela de import ler
+        const AsyncStorage = require("@react-native-async-storage/async-storage").default;
+        await AsyncStorage.setItem("@domus/vision_ocr_result", JSON.stringify(payload));
+        router.push("/import-invoice?fromVision=1");
+      } else {
+        const pay = ocrResult as PayslipOCRResult;
+        // Enviar para chat com resumo + instruir usuário a adicionar manualmente
+        const resumo = `Holerite escaneado com sucesso!\n\n` +
+          `Empresa: ${pay.company}\n` +
+          `Periodo: ${pay.period}\n` +
+          `Salario Bruto: R$ ${pay.grossSalary.toFixed(2)}\n` +
+          `Descontos: ${pay.deductions.map((d) => `${d.name}: R$ ${d.value.toFixed(2)}`).join(", ")}\n` +
+          `Salario Liquido: R$ ${pay.netSalary.toFixed(2)}\n\n` +
+          `Adicione como receita na tela principal com valor R$ ${pay.netSalary.toFixed(2)}.`;
+        await sendMessage(resumo);
+      }
+    } catch (err: any) {
+      setVisionLoading(false);
+      soundManager.play("error");
+      await sendMessage(`Erro ao escanear ${docType === "invoice" ? "nota fiscal" : "holerite"}: ${err.message}. O que posso fazer?`);
+    }
+  }, [settings, sendMessage]);
+
   const handleAction = useCallback(
     (action: ChatAction) => {
-      const prompts: Record<ChatAction, string> = {
-        scan_invoice: "Quero escanear uma nota fiscal para extrair os dados automaticamente",
-        scan_payslip: "Quero escanear meu holerite para registrar minha receita",
+      // Vision actions — open selection modal
+      if (action === "scan_invoice") { openVisionModal("invoice"); return; }
+      if (action === "scan_payslip") { openVisionModal("payslip"); return; }
+
+      // Text actions — send as message
+      const prompts: Record<string, string> = {
         monthly_summary: "Faca um resumo financeiro completo do meu mes atual",
         classify_transactions: "Classifique minhas transacoes recentes nas categorias corretas",
         budget_check: "Como estou em relacao ao meu orcamento este mes?",
         savings_tips: "Identifique onde estou gastando demais e sugira onde posso economizar",
       };
-      handleQuickSuggestion(prompts[action]);
+      if (prompts[action]) handleQuickSuggestion(prompts[action]);
     },
-    [handleQuickSuggestion],
+    [handleQuickSuggestion, openVisionModal],
   );
 
   const handlePermissionAllow = useCallback(async () => {
@@ -472,10 +579,10 @@ export default function AIChatScreen() {
           settings.provider === "openai" || settings.provider === "gemini" ||
           ((settings.provider === "claude" || settings.provider === "deepseek" || settings.provider === "qwen") && !!settings.audioProvider)
         )}
-        visionOCREnabled={settings.visionOCREnabled}
+        visionOCREnabled={settings.visionOCREnabled && VisionOCRService.supportsVision(settings.provider as any)}
         isRecording={isRecording}
         isTranscribing={isTranscribing}
-        isLoading={isLoading}
+        isLoading={isLoading || visionLoading}
         pulseAnim={pulseAnim}
         onVoicePress={handleVoicePress}
         onAction={handleAction}
@@ -521,6 +628,14 @@ export default function AIChatScreen() {
               <Text style={{ fontWeight: "700" }} onPress={() => router.push("/ai-settings")}>Configuracoes</Text>
               {" "}para ativar a IA. Analise local disponivel.
             </Text>
+          </View>
+        )}
+
+        {/* Vision loading banner */}
+        {visionLoading && (
+          <View style={s.visionBanner}>
+            <ActivityIndicator size="small" color="#FFF" />
+            <Text style={s.visionBannerText}>Escaneando com IA Vision...</Text>
           </View>
         )}
 
@@ -639,6 +754,18 @@ export default function AIChatScreen() {
           onAllow={handlePermissionAllow}
           onDeny={handlePermissionDeny}
         />
+
+        <SelectionModal
+          visible={visionModal.visible}
+          title={visionModal.docType === "invoice" ? "Escanear Nota Fiscal" : "Escanear Holerite"}
+          subtitle="Como deseja capturar a imagem?"
+          options={[
+            { label: "Camera", icon: "camera", color: "#4CAF50", onPress: () => processVisionImage("camera", visionModal.docType) },
+            { label: "Galeria de Fotos", icon: "image", color: "#2196F3", onPress: () => processVisionImage("gallery", visionModal.docType) },
+          ]}
+          onCancel={() => setVisionModal((v) => ({ ...v, visible: false }))}
+          theme={theme}
+        />
       </SafeAreaView>
     </TourPageHost>
     </KeyboardProvider>
@@ -647,6 +774,7 @@ export default function AIChatScreen() {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
+const s = { visionBanner: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "center" as const, gap: 8, paddingVertical: 10, backgroundColor: "#007AFF" }, visionBannerText: { color: "#FFF", fontSize: 13, fontWeight: "600" as const } };
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: {
