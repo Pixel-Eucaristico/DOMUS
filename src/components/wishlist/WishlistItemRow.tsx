@@ -12,6 +12,8 @@ import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import type { WishlistItem, UrgencyLevel, BundleItem } from "@packages/wishlist";
 import { soundManager } from "@/src/services/SoundManager";
+import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
+import { CATEGORY_OPTIONS } from "@/src/constants/invoiceCategories";
 
 const URGENCY_COLORS: Record<UrgencyLevel, string> = {
   PRIORITY: "#DC2626",
@@ -168,7 +170,9 @@ export function WishlistItemRow({
 
           {item.category && (
             <Text style={[styles.category, { color: theme.secondaryText }]}>
-              {item.category}
+              {NCM_SUBCATEGORIES.find((s) => s.id === item.category)?.name
+                ?? CATEGORY_OPTIONS.find((c) => c.id === item.category)?.name
+                ?? item.category}
             </Text>
           )}
 

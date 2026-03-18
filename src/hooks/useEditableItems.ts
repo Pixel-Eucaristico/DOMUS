@@ -2,11 +2,9 @@ import { useState, useEffect } from "react";
 import {
   InvoiceItem,
   InvoiceImportedPayload,
-  createKeywordClassifier,
-  classifyByNcm,
-  classifyByNcmWithSiscomex,
   classifyItemFull,
 } from "@packages/parsers";
+import type { ClassifyItemOptions } from "@packages/parsers";
 import type { CategoryGroup } from "@packages/events/src/types";
 
 export type EditableItem = InvoiceItem & {
@@ -44,6 +42,7 @@ export interface UseEditableItemsResult {
 
 export function useEditableItems(
   importedData: InvoiceImportedPayload | null,
+  classifyOptions?: ClassifyItemOptions,
 ): UseEditableItemsResult {
   const [editableItems, setEditableItems] = useState<EditableItem[]>([]);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
@@ -69,6 +68,7 @@ export function useEditableItems(
         // Pipeline completo: NCM → EAN → IA → keyword
         const result = await classifyItemFull(
           { name: item.description, ncm: item.ncm, ean: item.ean },
+          classifyOptions ?? {},
         );
         return {
           ...item,

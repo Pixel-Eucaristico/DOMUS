@@ -12,6 +12,8 @@ import { useInvoiceWebView } from "@/src/hooks/useInvoiceWebView";
 import { useInvoiceScanner } from "@/src/hooks/useInvoiceScanner";
 import { useEditableItems } from "@/src/hooks/useEditableItems";
 import { useInvoiceConfirm } from "@/src/hooks/useInvoiceConfirm";
+import { useAISettings } from "@/src/hooks/useAISettings";
+import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
 
 import { IdleScreen } from "@/src/components/invoice/IdleScreen";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
@@ -74,8 +76,21 @@ function RealInvoiceImportScreen() {
   const [showOcrSettingsLink, setShowOcrSettingsLink] = useState(false);
   const [importedData, setImportedData] = useState<InvoiceImportedPayload | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [aiApiKey, setAiApiKey] = useState<string | undefined>();
 
+  const { settings: aiSettings } = useAISettings();
   const accounts = Object.values(domain.accounts);
+
+  // Carregar API key do provedor ativo para classificação por IA
+  useEffect(() => {
+    if (aiSettings.enabled && aiSettings.provider) {
+      SecureKeyService.getKey(aiSettings.provider).then((key) => {
+        setAiApiKey(key ?? undefined);
+      });
+    } else {
+      setAiApiKey(undefined);
+    }
+  }, [aiSettings.enabled, aiSettings.provider]);
 
   useEffect(() => {
     if (accounts.length > 0 && !selectedAccountId) {
@@ -95,7 +110,11 @@ function RealInvoiceImportScreen() {
     () => setState("fetching"),
   );
 
-  const items = useEditableItems(importedData);
+  const items = useEditableItems(importedData, {
+    aiEnabled: aiSettings.enabled && !!aiApiKey,
+    aiApiKey: aiApiKey,
+    aiProvider: aiSettings.provider,
+  });
 
   const { confirmImport } = useInvoiceConfirm(
     importedData,
