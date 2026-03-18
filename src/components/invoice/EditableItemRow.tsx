@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import type { EditableItem } from "@/src/hooks/useEditableItems";
 import { CATEGORY_OPTIONS, GROUP_COLORS } from "@/src/constants/invoiceCategories";
-import { CategoryChipScroll } from "@/src/components/shared/CategoryChipScroll";
+import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal";
+import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
 import { soundManager } from "@/src/services/SoundManager";
 
 interface Props {
@@ -17,6 +18,20 @@ interface Props {
   onRemove: (idx: number) => void;
 }
 
+function getCatDisplayName(categoryId: string, subcategoryId?: string): string {
+  if (subcategoryId) {
+    const sub = NCM_SUBCATEGORIES.find((s) => s.id === subcategoryId);
+    if (sub) return sub.name;
+  }
+  const cat = CATEGORY_OPTIONS.find((c) => c.id === categoryId);
+  return cat?.name ?? "Outros";
+}
+
+function getCatColor(categoryId: string): string {
+  const cat = CATEGORY_OPTIONS.find((c) => c.id === categoryId);
+  return cat ? GROUP_COLORS[cat.group] : GROUP_COLORS.wants;
+}
+
 export function EditableItemRow({
   item,
   index,
@@ -26,8 +41,16 @@ export function EditableItemRow({
   onEditField,
   onRemove,
 }: Props) {
-  const cat = CATEGORY_OPTIONS.find((c) => c.id === item.categoryId);
-  const catColor = cat ? GROUP_COLORS[cat.group] : undefined;
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const catColor = getCatColor(item.categoryId);
+  const catName = getCatDisplayName(item.categoryId, item.subcategoryId);
+
+  const handlePickerSelect = (categoryId: string, subcategoryId?: string) => {
+    onEditField(index, "categoryId", categoryId);
+    if (subcategoryId) {
+      onEditField(index, "subcategoryId", subcategoryId);
+    }
+  };
 
   return (
     <View>
@@ -50,12 +73,15 @@ export function EditableItemRow({
               Cod: {item.productCode}
             </Text>
           ) : null}
-          {cat && catColor && (
-            <View style={[s.categoryChip, { backgroundColor: catColor + "22" }]}>
-              <View style={[s.categoryDot, { backgroundColor: catColor }]} />
-              <Text style={[s.categoryChipText, { color: catColor }]}>{cat.name}</Text>
-            </View>
-          )}
+          {/* Category badge — tap to change */}
+          <Pressable
+            onPress={() => setPickerVisible(true)}
+            style={[s.categoryChip, { backgroundColor: catColor + "22" }]}
+          >
+            <View style={[s.categoryDot, { backgroundColor: catColor }]} />
+            <Text style={[s.categoryChipText, { color: catColor }]}>{catName}</Text>
+            <Feather name="chevron-right" size={10} color={catColor} />
+          </Pressable>
         </View>
         <Text style={[s.itemPrice, { color: theme.textColor }]}>
           R$ {item.totalPrice.toFixed(2)}
@@ -87,7 +113,7 @@ export function EditableItemRow({
             style={[s.editInput, { color: theme.textColor, borderColor: theme.border }]}
             value={item.description}
             onChangeText={(v) => onEditField(index, "description", v)}
-            placeholder="Descrição"
+            placeholder="Descricao"
             placeholderTextColor={theme.secondaryText}
           />
           <View style={s.editRow}>
@@ -111,7 +137,7 @@ export function EditableItemRow({
               style={[s.editInputSmall, { color: theme.textColor, borderColor: theme.border, flex: 2 }]}
               value={String(item.unitPrice)}
               onChangeText={(v) => onEditField(index, "unitPrice", v)}
-              placeholder="Preço unit."
+              placeholder="Preco unit."
               placeholderTextColor={theme.secondaryText}
               keyboardType="decimal-pad"
             />
@@ -133,15 +159,20 @@ export function EditableItemRow({
             keyboardType="number-pad"
             maxLength={8}
           />
+
+          {/* Category picker button */}
           <Text style={[s.editSectionLabel, { color: theme.secondaryText }]}>
             Categoria do gasto
           </Text>
-          <CategoryChipScroll
-            categories={CATEGORY_OPTIONS}
-            selectedId={item.categoryId ?? ""}
-            theme={theme}
-            onSelect={(id) => onEditField(index, "categoryId", id)}
-          />
+          <Pressable
+            onPress={() => setPickerVisible(true)}
+            style={[s.catPickerBtn, { borderColor: catColor, backgroundColor: `${catColor}10` }]}
+          >
+            <View style={[s.categoryDot, { backgroundColor: catColor }]} />
+            <Text style={[s.catPickerText, { color: theme.textColor }]}>{catName}</Text>
+            <Feather name="chevron-right" size={14} color={theme.secondaryText} />
+          </Pressable>
+
           <Pressable
             style={{ alignSelf: "flex-end", marginTop: 6 }}
             onPress={() => onToggleEdit(null)}
@@ -150,6 +181,15 @@ export function EditableItemRow({
           </Pressable>
         </View>
       )}
+
+      {/* Category Picker Modal */}
+      <CategoryPickerModal
+        visible={pickerVisible}
+        onClose={() => setPickerVisible(false)}
+        onSelect={handlePickerSelect}
+        theme={theme}
+        selectedId={item.categoryId}
+      />
     </View>
   );
 }
@@ -184,4 +224,18 @@ const s = StyleSheet.create({
   editInput: { borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 14 },
   editInputSmall: { borderWidth: 1, borderRadius: 8, padding: 8, fontSize: 13 },
   editSectionLabel: { fontSize: 11, fontWeight: "500", marginTop: 2 },
+  catPickerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  catPickerText: {
+    flex: 1,
+    fontFamily: "DMSans_500Medium",
+    fontSize: 13,
+  },
 });

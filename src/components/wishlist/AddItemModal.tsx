@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,8 @@ import { URGENCY_ORDER } from "@packages/wishlist";
 import type { UrgencyLevel, WishlistItem } from "@packages/wishlist";
 import type { AccountPayload } from "@packages/events";
 import { CATEGORY_OPTIONS, GROUP_COLORS } from "@/src/constants/invoiceCategories";
+import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal";
+import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
 import { WishlistSearchWebView } from "./WishlistSearchWebView";
 import { StoreGridModal } from "./StoreGridModal";
 import { SelectionModal } from "../shared/SelectionModal";
@@ -52,6 +54,8 @@ interface Props {
 export function AddItemModal({ visible, listId, theme, accounts = [], editItem, onConfirm, onCancel }: Props) {
   const insets = useSafeAreaInsets();
   const [storeGridVisible, setStoreGridVisible] = React.useState(false);
+  const [catPickerVisible, setCatPickerVisible] = useState(false);
+  const [bundleCatPickerIdx, setBundleCatPickerIdx] = useState<number | null>(null);
   const {
     form,
     updateField,
@@ -253,24 +257,31 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
 
               {/* Category */}
               <Text style={[s.label, { color: theme.secondaryText }]}>Categoria</Text>
-              <View style={s.categoryGrid}>
-                {CATEGORY_OPTIONS.map((cat) => {
-                  const selected = form.category === cat.id;
-                  const color = GROUP_COLORS[cat.group];
-                  return (
-                    <TouchableOpacity
-                      key={cat.id}
-                      style={[s.categoryChip, { backgroundColor: selected ? color : color + "18", borderColor: color }]}
-                      onPress={() => { soundManager.play("tap"); updateField("category", selected ? "" : cat.id); }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[s.categoryChipText, { color: selected ? "#fff" : color }]}>
-                        {cat.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <TouchableOpacity
+                onPress={() => setCatPickerVisible(true)}
+                style={[s.catPickerBtn, {
+                  borderColor: form.category ? (GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === form.category)?.group ?? "wants")] ?? "#FF9800") : theme.border,
+                  backgroundColor: form.category ? `${GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === form.category)?.group ?? "wants")] ?? "#FF9800"}10` : theme.cardBackground,
+                }]}
+                activeOpacity={0.7}
+              >
+                <View style={[s.catDot, { backgroundColor: form.category ? (GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === form.category)?.group ?? "wants")] ?? "#FF9800") : theme.secondaryText }]} />
+                <Text style={[s.catPickerText, { color: theme.textColor }]}>
+                  {form.category
+                    ? (NCM_SUBCATEGORIES.find((s) => s.id === form.category)?.name
+                      ?? CATEGORY_OPTIONS.find((c) => c.id === form.category)?.name
+                      ?? "Selecionar")
+                    : "Selecionar categoria..."}
+                </Text>
+                <Feather name="chevron-right" size={14} color={theme.secondaryText} />
+              </TouchableOpacity>
+              <CategoryPickerModal
+                visible={catPickerVisible}
+                onClose={() => setCatPickerVisible(false)}
+                onSelect={(catId) => { updateField("category", catId); }}
+                theme={theme}
+                selectedId={form.category}
+              />
 
               {/* Savings goal link */}
               {accounts.filter((a) => a.type === "savings").length > 0 && (
@@ -407,12 +418,46 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                       <TouchableOpacity onPress={() => { soundManager.play("tap"); removeBundleItem(idx); }} activeOpacity={0.7}>
                         <Feather name="x" size={16} color={theme.secondaryText} />
                       </TouchableOpacity>
+                      {/* Category for bundle item */}
+                      <Pressable
+                        onPress={() => setBundleCatPickerIdx(idx)}
+                        style={[s.bundleCatBtn, {
+                          borderColor: bItem.category
+                            ? (GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === bItem.category)?.group ?? "wants")] ?? "#FF9800")
+                            : theme.border,
+                        }]}
+                      >
+                        <View style={[s.catDot, {
+                          backgroundColor: bItem.category
+                            ? (GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === bItem.category)?.group ?? "wants")] ?? "#FF9800")
+                            : theme.secondaryText,
+                        }]} />
+                        <Text style={[s.bundleCatText, { color: bItem.category ? theme.textColor : theme.secondaryText }]} numberOfLines={1}>
+                          {bItem.category
+                            ? (CATEGORY_OPTIONS.find((c) => c.id === bItem.category)?.name ?? "Categoria")
+                            : "Categoria"}
+                        </Text>
+                      </Pressable>
                     </View>
                   ))}
                   <TouchableOpacity style={[s.bundleAddBtn, { borderColor: theme.primaryColor + "50" }]} onPress={() => { soundManager.play("tap"); addBundleItem(); }} activeOpacity={0.7}>
                     <Feather name="plus" size={14} color={theme.primaryColor} />
-                    <Text style={[s.bundleAddText, { color: theme.primaryColor }]}>Adicionar peça</Text>
+                    <Text style={[s.bundleAddText, { color: theme.primaryColor }]}>Adicionar peca</Text>
                   </TouchableOpacity>
+
+                  {/* Bundle item category picker */}
+                  <CategoryPickerModal
+                    visible={bundleCatPickerIdx !== null}
+                    onClose={() => setBundleCatPickerIdx(null)}
+                    onSelect={(catId) => {
+                      if (bundleCatPickerIdx !== null) {
+                        updateBundleItem(bundleCatPickerIdx, { category: catId });
+                      }
+                      setBundleCatPickerIdx(null);
+                    }}
+                    theme={theme}
+                    selectedId={bundleCatPickerIdx !== null ? bundleItems[bundleCatPickerIdx]?.category : undefined}
+                  />
                 </View>
               )}
 
@@ -521,6 +566,11 @@ const s = StyleSheet.create({
   urgencyText: { fontSize: 12, fontFamily: "DMSans_600SemiBold" },
   categoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 2 },
   categoryChip: { borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
+  catPickerBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, marginBottom: 2 },
+  catPickerText: { flex: 1, fontFamily: "DMSans_500Medium", fontSize: 13 },
+  catDot: { width: 8, height: 8, borderRadius: 4 },
+  bundleCatBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, marginTop: 4, alignSelf: "flex-start" },
+  bundleCatText: { fontSize: 10, fontFamily: "DMSans_500Medium", maxWidth: 100 },
   categoryChipText: { fontSize: 12, fontFamily: "DMSans_600SemiBold" },
   advancedToggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 10, marginTop: 4 },
   advancedText: { fontSize: 12, fontFamily: "DMSans_500Medium" },

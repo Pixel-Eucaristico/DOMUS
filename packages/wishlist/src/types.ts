@@ -51,6 +51,8 @@ export interface BundleItem {
   affiliateUrl?: string;
   imageUrl?: string;
   storeId?: string;
+  /** Categoria do gasto */
+  category?: string;
   /** true = esta peça já foi comprada */
   purchased?: boolean;
 }
