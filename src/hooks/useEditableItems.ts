@@ -5,9 +5,16 @@ import {
   createKeywordClassifier,
   classifyByNcm,
   classifyByNcmWithSiscomex,
+  classifyItemFull,
 } from "@packages/parsers";
+import type { CategoryGroup } from "@packages/events/src/types";
 
-export type EditableItem = InvoiceItem & { _id: string; categoryId: string };
+export type EditableItem = InvoiceItem & {
+  _id: string;
+  categoryId: string;
+  subcategoryId?: string;
+  groupOverride?: CategoryGroup;
+};
 
 export interface UseEditableItemsResult {
   editableItems: EditableItem[];
@@ -57,18 +64,19 @@ export function useEditableItems(
     const [y, m, d] = iso.split("-");
     setInvoiceDateDisplay(`${d}/${m}/${y}`);
 
-    const classifier = createKeywordClassifier();
     Promise.all(
       importedData.items.map(async (item, i) => {
-        // Prioridade: NCM via SISCOMEX → NCM estático → keyword
-        const ncmResult = item.ncm
-          ? await classifyByNcmWithSiscomex(item.ncm).catch(() => classifyByNcm(item.ncm ?? "") ?? null)
-          : null;
-        const result =
-          ncmResult && ncmResult.confidence >= 0.8
-            ? ncmResult
-            : await classifier.classify(item.description);
-        return { ...item, _id: String(i), categoryId: result.categoryId };
+        // Pipeline completo: NCM → EAN → IA → keyword
+        const result = await classifyItemFull(
+          { name: item.description, ncm: item.ncm, ean: item.ean },
+        );
+        return {
+          ...item,
+          _id: String(i),
+          categoryId: result.categoryId,
+          subcategoryId: result.subcategoryId,
+          groupOverride: result.allowGroupOverride ? undefined : undefined,
+        };
       }),
     ).then(setEditableItems);
   }, [importedData]);

@@ -126,7 +126,9 @@ export const KEYWORD_MAP: Record<string, { categoryId: string; group: "needs" | 
 
 // NCM classification map — keyed by prefix (2, 4, or 8 digits).
 // Checked longest-first so more specific rules win.
-export const NCM_MAP: Array<{ prefix: string; categoryId: string; group: "needs" | "wants" | "savings" }> = [
+// NOTE: subcategoryId comes from ncmCategories.ts; this map is the legacy
+// fallback used when subcategory lookup is not available.
+export const NCM_MAP: Array<{ prefix: string; categoryId: string; group: "needs" | "wants" | "savings"; subcategoryId?: string }> = [
   // ── Bebidas alcoólicas (2203-2208) → lazer ──────────────────────────
   { prefix: "2203", categoryId: "lazer", group: "wants" },
   { prefix: "2204", categoryId: "lazer", group: "wants" },

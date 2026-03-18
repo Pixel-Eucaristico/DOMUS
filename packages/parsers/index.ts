@@ -33,8 +33,25 @@ export {
   createKeywordClassifier,
   createGeminiClassifier,
   createHybridClassifier,
+  classifyItemFull,
+  getSiscomexCache,
+  restoreSiscomexCache,
+  NCM_SUBCATEGORIES,
+  findSubcategoryByNcm,
+  getSubcategoryById,
+  getSubcategoriesForParent,
+  getParentCategoryIds,
+  lookupByEAN,
+  clearEANCache,
 } from "./src/classifier";
-export type { GeminiConfig } from "./src/classifier";
+export type {
+  GeminiConfig,
+  ExtendedClassificationResult,
+  ClassifyItemInput,
+  ClassifyItemOptions,
+  NCMSubcategory,
+  EANLookupResult,
+} from "./src/classifier";
 
 export { HybridOCRAdapter, createHybridOCRAdapter } from "./src/hybridOcrAdapter";
 export type { CloudVisionConfig, OCRProvider, HybridOCRConfig } from "./src/hybridOcrAdapter";

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Modal,
   View,
@@ -28,7 +28,7 @@ import { DatePickerField } from "@/src/components/shared/DatePickerField";
 import { ItemsSection } from "@/src/components/transaction/ItemsSection";
 import { InstallmentSelector } from "@/src/components/transaction/InstallmentSelector";
 import { TX_TYPES, getCategoriesForType } from "@/src/constants/transactionCategories";
-import type { TransactionStatus, RecurrenceType } from "@packages/events/src/types";
+import type { TransactionStatus, RecurrenceType, CategoryGroup } from "@packages/events/src/types";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import * as Haptics from "expo-haptics";
@@ -74,6 +74,9 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
     soundManager.play("tap");
     onClose();
   };
+
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string | undefined>();
+  const [groupOverride, setGroupOverride] = useState<CategoryGroup | undefined>();
 
   const typeCats = getCategoriesForType(form.txType);
   const selectedCatId = typeCats[form.selectedCategory]?.id ?? typeCats[0]?.id ?? "";
@@ -214,12 +217,17 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
             <CategorySelectorGrid
               categories={typeCats}
               selectedId={selectedCatId}
+              selectedSubcategoryId={selectedSubcategoryId}
               theme={theme}
               type={form.txType}
-              onSelect={(id) => {
+              onSelect={(id, subId) => {
                 const idx = typeCats.findIndex((c) => c.id === id);
                 if (idx !== -1) form.setSelectedCategory(idx);
+                setSelectedSubcategoryId(subId);
+                if (!subId) setGroupOverride(undefined);
               }}
+              onGroupOverride={setGroupOverride}
+              groupOverride={groupOverride}
             />
 
             {/* Tithe calculator — shown when "Dízimo / Oferta" is selected */}

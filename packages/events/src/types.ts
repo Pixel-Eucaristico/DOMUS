@@ -69,6 +69,8 @@ export interface TransactionItem {
   description: string;
   amount: number;
   categoryId: string;
+  subcategoryId?: string;          // subcategoria NCM granular
+  groupOverride?: CategoryGroup;   // override do grupo padrão (needs/wants/savings)
   ean?: string;
   ncm?: string;
 }

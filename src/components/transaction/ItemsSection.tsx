@@ -11,14 +11,16 @@ import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import {
   TRANSACTION_CATEGORIES,
+  EXPENSE_CATEGORIES,
   ManualItem,
   itemTotal,
 } from "@/src/constants/transactionCategories";
 import { GROUP_COLORS } from "@/src/constants/invoiceCategories";
-import { CategoryChipScroll } from "@/src/components/shared/CategoryChipScroll";
+import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal";
 import { soundManager } from "@/src/services/SoundManager";
+import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
 
-const DEFAULT_CATEGORY_ID = TRANSACTION_CATEGORIES[0]!.id;
+const DEFAULT_CATEGORY_ID = EXPENSE_CATEGORIES[0]!.id;
 
 interface ItemsSectionProps {
   items: ManualItem[];
@@ -26,6 +28,16 @@ interface ItemsSectionProps {
   onAddItem: (item: Omit<ManualItem, "id">) => void;
   onRemoveItem: (id: string) => void;
   onEditItemField: (id: string, field: keyof ManualItem, value: string) => void;
+}
+
+/** Get display name for a category + optional subcategory */
+function getCategoryDisplayName(categoryId: string, subcategoryId?: string): string {
+  if (subcategoryId) {
+    const sub = NCM_SUBCATEGORIES.find((s) => s.id === subcategoryId);
+    if (sub) return sub.name;
+  }
+  const cat = TRANSACTION_CATEGORIES.find((c) => c.id === categoryId);
+  return cat?.name ?? "Outros";
 }
 
 export function ItemsSection({
@@ -42,8 +54,13 @@ export function ItemsSection({
   const [newItemUnit, setNewItemUnit] = useState("UN");
   const [newItemUnitPrice, setNewItemUnitPrice] = useState("");
   const [newItemCatId, setNewItemCatId] = useState(DEFAULT_CATEGORY_ID);
+  const [newItemSubCatId, setNewItemSubCatId] = useState<string | undefined>();
   const [newItemEan, setNewItemEan] = useState("");
   const [newItemNcm, setNewItemNcm] = useState("");
+
+  // Category picker modal
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<"add" | string>("add"); // "add" or item.id
 
   const total = items.reduce((s, i) => s + itemTotal(i), 0);
 
@@ -51,7 +68,7 @@ export function ItemsSection({
     const qtyNum = parseFloat(newItemQty.replace(",", "."));
     const priceNum = parseFloat(newItemUnitPrice.replace(",", "."));
     if (!newItemDesc.trim() || isNaN(qtyNum) || qtyNum <= 0 || isNaN(priceNum) || priceNum <= 0) {
-      Alert.alert("Item inválido", "Informe descrição, quantidade e preço unitário.");
+      Alert.alert("Item invalido", "Informe descricao, quantidade e preco unitario.");
       return;
     }
     soundManager.play("success");
@@ -61,6 +78,7 @@ export function ItemsSection({
       unit: newItemUnit || "UN",
       unitPrice: newItemUnitPrice,
       categoryId: newItemCatId,
+      subcategoryId: newItemSubCatId,
       ean: newItemEan.trim() || undefined,
       ncm: newItemNcm.trim() || undefined,
     });
@@ -69,9 +87,38 @@ export function ItemsSection({
     setNewItemUnit("UN");
     setNewItemUnitPrice("");
     setNewItemCatId(DEFAULT_CATEGORY_ID);
+    setNewItemSubCatId(undefined);
     setNewItemEan("");
     setNewItemNcm("");
     setShowAddItem(false);
+  };
+
+  const openPickerForAdd = () => {
+    setPickerTarget("add");
+    setPickerVisible(true);
+  };
+
+  const openPickerForEdit = (itemId: string) => {
+    setPickerTarget(itemId);
+    setPickerVisible(true);
+  };
+
+  const handlePickerSelect = (categoryId: string, subcategoryId?: string) => {
+    if (pickerTarget === "add") {
+      setNewItemCatId(categoryId);
+      setNewItemSubCatId(subcategoryId);
+    } else {
+      // Editing existing item
+      onEditItemField(pickerTarget, "categoryId", categoryId);
+      if (subcategoryId) {
+        onEditItemField(pickerTarget, "subcategoryId" as keyof ManualItem, subcategoryId);
+      }
+    }
+  };
+
+  const getColor = (catId: string) => {
+    const cat = TRANSACTION_CATEGORIES.find((c) => c.id === catId);
+    return GROUP_COLORS[cat?.group ?? "wants"] ?? theme.primaryColor;
   };
 
   return (
@@ -106,7 +153,7 @@ export function ItemsSection({
             style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
             value={newItemDesc}
             onChangeText={setNewItemDesc}
-            placeholder="Descrição do produto"
+            placeholder="Descricao do produto"
             placeholderTextColor={theme.secondaryText}
           />
           <View style={s.fieldRow}>
@@ -130,19 +177,25 @@ export function ItemsSection({
               style={[s.inputSmall, { color: theme.textColor, borderColor: theme.border, flex: 2 }]}
               value={newItemUnitPrice}
               onChangeText={setNewItemUnitPrice}
-              placeholder="Preço unit."
+              placeholder="Preco unit."
               placeholderTextColor={theme.secondaryText}
               keyboardType="decimal-pad"
             />
           </View>
-          <Text style={[s.sectionLabel, { color: theme.secondaryText }]}>Categoria</Text>
-          <CategoryChipScroll
-            categories={TRANSACTION_CATEGORIES}
-            selectedId={newItemCatId}
-            theme={theme}
-            onSelect={setNewItemCatId}
-          />
-          {/* EAN / NCM — always visible, optional */}
+
+          {/* Category picker button */}
+          <Pressable
+            onPress={openPickerForAdd}
+            style={[s.catPickerBtn, { borderColor: getColor(newItemCatId), backgroundColor: `${getColor(newItemCatId)}10` }]}
+          >
+            <View style={[s.dot, { backgroundColor: getColor(newItemCatId) }]} />
+            <Text style={[s.catPickerText, { color: theme.textColor }]}>
+              {getCategoryDisplayName(newItemCatId, newItemSubCatId)}
+            </Text>
+            <Feather name="chevron-right" size={14} color={theme.secondaryText} />
+          </Pressable>
+
+          {/* EAN / NCM */}
           <View style={s.fieldRow}>
             <TextInput
               style={[s.inputSmall, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
@@ -185,11 +238,10 @@ export function ItemsSection({
 
       {/* Item list */}
       {items.map((item) => {
-        const itemCat =
-          TRANSACTION_CATEGORIES.find((c) => c.id === item.categoryId) ?? TRANSACTION_CATEGORIES[0]!;
-        const color = GROUP_COLORS[itemCat.group] ?? theme.primaryColor;
+        const color = getColor(item.categoryId);
         const amt = itemTotal(item);
         const isEditing = editingItemId === item.id;
+        const displayCatName = getCategoryDisplayName(item.categoryId, item.subcategoryId);
 
         return (
           <View key={item.id}>
@@ -201,10 +253,15 @@ export function ItemsSection({
                   {parseFloat(item.unitPrice.replace(",", ".") || "0").toFixed(2)}
                   {(item.ean || item.ncm) ? `  •  ${[item.ean && `EAN:${item.ean}`, item.ncm && `NCM:${item.ncm}`].filter(Boolean).join("  ")}` : ""}
                 </Text>
-                <View style={[s.badge, { backgroundColor: `${color}22` }]}>
+                {/* Category badge — tap to change */}
+                <Pressable
+                  onPress={() => openPickerForEdit(item.id)}
+                  style={[s.badge, { backgroundColor: `${color}22` }]}
+                >
                   <View style={[s.dot, { backgroundColor: color }]} />
-                  <Text style={[s.badgeText, { color }]}>{itemCat.name}</Text>
-                </View>
+                  <Text style={[s.badgeText, { color }]}>{displayCatName}</Text>
+                  <Feather name="chevron-right" size={10} color={color} />
+                </Pressable>
               </View>
               <Text style={[s.itemAmt, { color: theme.textColor }]}>R$ {amt.toFixed(2)}</Text>
               <Pressable
@@ -231,15 +288,12 @@ export function ItemsSection({
                   style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
                   value={item.description}
                   onChangeText={(v) => onEditItemField(item.id, "description", v)}
-                  placeholder="Descrição"
+                  placeholder="Descricao"
                   placeholderTextColor={theme.secondaryText}
                 />
                 <View style={s.fieldRow}>
                   <TextInput
-                    style={[
-                      s.inputSmall,
-                      { color: theme.textColor, borderColor: theme.border, flex: 1 },
-                    ]}
+                    style={[s.inputSmall, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
                     value={item.quantity}
                     onChangeText={(v) => onEditItemField(item.id, "quantity", v)}
                     placeholder="Qtd"
@@ -247,10 +301,7 @@ export function ItemsSection({
                     keyboardType="decimal-pad"
                   />
                   <TextInput
-                    style={[
-                      s.inputSmall,
-                      { color: theme.textColor, borderColor: theme.border, flex: 1 },
-                    ]}
+                    style={[s.inputSmall, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
                     value={item.unit}
                     onChangeText={(v) => onEditItemField(item.id, "unit", v)}
                     placeholder="UN"
@@ -258,24 +309,27 @@ export function ItemsSection({
                     autoCapitalize="characters"
                   />
                   <TextInput
-                    style={[
-                      s.inputSmall,
-                      { color: theme.textColor, borderColor: theme.border, flex: 2 },
-                    ]}
+                    style={[s.inputSmall, { color: theme.textColor, borderColor: theme.border, flex: 2 }]}
                     value={item.unitPrice}
                     onChangeText={(v) => onEditItemField(item.id, "unitPrice", v)}
-                    placeholder="Preço unit."
+                    placeholder="Preco unit."
                     placeholderTextColor={theme.secondaryText}
                     keyboardType="decimal-pad"
                   />
                 </View>
-                <Text style={[s.sectionLabel, { color: theme.secondaryText }]}>Categoria</Text>
-                <CategoryChipScroll
-                  categories={TRANSACTION_CATEGORIES}
-                  selectedId={item.categoryId}
-                  theme={theme}
-                  onSelect={(id) => onEditItemField(item.id, "categoryId", id)}
-                />
+
+                {/* Category picker button */}
+                <Pressable
+                  onPress={() => openPickerForEdit(item.id)}
+                  style={[s.catPickerBtn, { borderColor: color, backgroundColor: `${color}10` }]}
+                >
+                  <View style={[s.dot, { backgroundColor: color }]} />
+                  <Text style={[s.catPickerText, { color: theme.textColor }]}>
+                    {displayCatName}
+                  </Text>
+                  <Feather name="chevron-right" size={14} color={theme.secondaryText} />
+                </Pressable>
+
                 <Text style={[s.sectionLabel, { color: theme.secondaryText, marginTop: 4 }]}>
                   Dados fiscais (opcional)
                 </Text>
@@ -320,6 +374,15 @@ export function ItemsSection({
           </Text>
         </View>
       )}
+
+      {/* Category Picker Modal */}
+      <CategoryPickerModal
+        visible={pickerVisible}
+        onClose={() => setPickerVisible(false)}
+        onSelect={handlePickerSelect}
+        theme={theme}
+        selectedId={pickerTarget === "add" ? newItemCatId : pickerTarget}
+      />
     </View>
   );
 }
@@ -358,6 +421,20 @@ const s = StyleSheet.create({
     borderRadius: 10,
   },
   confirmBtnText: { color: "#FFF", fontFamily: "DMSans_600SemiBold", fontSize: 14 },
+  catPickerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  catPickerText: {
+    flex: 1,
+    fontFamily: "DMSans_500Medium",
+    fontSize: 13,
+  },
   empty: {
     alignItems: "center",
     padding: 20,
