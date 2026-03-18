@@ -53,6 +53,10 @@ export interface BundleItem {
   storeId?: string;
   /** Categoria do gasto */
   category?: string;
+  /** Código EAN/GTIN */
+  ean?: string;
+  /** Nomenclatura Comum do Mercosul (8 dígitos) */
+  ncm?: string;
   /** true = esta peça já foi comprada */
   purchased?: boolean;
 }

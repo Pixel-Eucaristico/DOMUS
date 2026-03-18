@@ -20,6 +20,8 @@ import type { UrgencyLevel, WishlistItem } from "@packages/wishlist";
 import type { AccountPayload } from "@packages/events";
 import { CATEGORY_OPTIONS, GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal";
+import { ProductFormCard } from "@/src/components/shared/ProductFormCard";
+import type { ProductFormData } from "@/src/components/shared/ProductFormCard";
 import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
 import { WishlistSearchWebView } from "./WishlistSearchWebView";
 import { StoreGridModal } from "./StoreGridModal";
@@ -55,7 +57,6 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
   const insets = useSafeAreaInsets();
   const [storeGridVisible, setStoreGridVisible] = React.useState(false);
   const [catPickerVisible, setCatPickerVisible] = useState(false);
-  const [bundleCatPickerIdx, setBundleCatPickerIdx] = useState<number | null>(null);
   const {
     form,
     updateField,
@@ -367,97 +368,59 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
               {isBundleMode && (
                 <View style={s.bundleSection}>
                   {bundleItems.map((bItem, idx) => (
-                    <View key={bItem.id} style={[s.bundleRow, { backgroundColor: theme.cardBackground, borderColor: theme.cardBackground }]}>
-                      <TextInput
-                        style={[s.bundleNameInput, { color: theme.textColor }]}
-                        placeholder={`Peça ${idx + 1}...`}
-                        placeholderTextColor={theme.secondaryText}
-                        value={bItem.name}
-                        onChangeText={(v) => updateBundleItem(idx, { name: v })}
-                      />
-                      {/* Quantidade da peça */}
-                      <TouchableOpacity
-                        onPress={() => { soundManager.play("tap"); updateBundleItem(idx, { quantity: Math.max(1, (bItem.quantity ?? 1) - 1) }); }}
-                        style={[s.stepperBtnSm, { borderColor: theme.border }]}
-                      >
-                        <Feather name="minus" size={12} color={theme.textColor} />
-                      </TouchableOpacity>
-                      <TextInput
-                        style={[s.stepperInputSm, { color: theme.textColor, borderColor: theme.border }]}
-                        value={String(bItem.quantity ?? 1)}
-                        onChangeText={(v) => {
-                          const n = parseInt(v.replace(/[^0-9]/g, ""), 10);
-                          updateBundleItem(idx, { quantity: isNaN(n) || n < 1 ? 1 : n });
+                    <View key={bItem.id}>
+                      <ProductFormCard
+                        data={{
+                          name: bItem.name,
+                          qty: String(bItem.quantity ?? 1),
+                          unit: "UN",
+                          unitPrice: bItem.price !== undefined ? String(bItem.price) : "",
+                          categoryId: bItem.category ?? "",
+                          ean: bItem.ean ?? "",
+                          ncm: bItem.ncm ?? "",
                         }}
-                        keyboardType="number-pad"
-                      />
-                      <TouchableOpacity
-                        onPress={() => { soundManager.play("tap"); updateBundleItem(idx, { quantity: (bItem.quantity ?? 1) + 1 }); }}
-                        style={[s.stepperBtnSm, { borderColor: theme.border }]}
-                      >
-                        <Feather name="plus" size={12} color={theme.textColor} />
-                      </TouchableOpacity>
-
-                      {bItem.price !== undefined && (
-                        <Text style={[s.bundlePrice, { color: theme.secondaryText }]}>
-                          {`R$ ${(bItem.price * (bItem.quantity ?? 1)).toFixed(2).replace(".", ",")}`}
-                        </Text>
-                      )}
-                      <TouchableOpacity
-                        style={[s.bundleSearchBtn, { backgroundColor: theme.primaryColor + "20" }]}
-                        onPress={() => {
-                          soundManager.play("pop");
-                          setSearchModalVisible(true);
-                          // marca qual bundle item vai receber o produto
-                          setWebView((prev) => ({ ...prev, bundleIndex: idx }));
+                        onChange={(field, value) => {
+                          switch (field) {
+                            case "name": updateBundleItem(idx, { name: value }); break;
+                            case "qty": {
+                              const n = parseInt(value.replace(/[^0-9]/g, ""), 10);
+                              updateBundleItem(idx, { quantity: isNaN(n) || n < 1 ? 1 : n });
+                              break;
+                            }
+                            case "unitPrice": {
+                              const p = parseFloat(value.replace(",", "."));
+                              updateBundleItem(idx, { price: isNaN(p) ? undefined : p });
+                              break;
+                            }
+                            case "categoryId": updateBundleItem(idx, { category: value }); break;
+                            case "ean": updateBundleItem(idx, { ean: value }); break;
+                            case "ncm": updateBundleItem(idx, { ncm: value }); break;
+                          }
                         }}
-                        activeOpacity={0.7}
-                      >
-                        <Feather name="search" size={14} color={theme.primaryColor} />
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => { soundManager.play("tap"); removeBundleItem(idx); }} activeOpacity={0.7}>
-                        <Feather name="x" size={16} color={theme.secondaryText} />
-                      </TouchableOpacity>
-                      {/* Category for bundle item */}
-                      <Pressable
-                        onPress={() => setBundleCatPickerIdx(idx)}
-                        style={[s.bundleCatBtn, {
-                          borderColor: bItem.category
-                            ? (GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === bItem.category)?.group ?? "wants")] ?? "#FF9800")
-                            : theme.border,
-                        }]}
-                      >
-                        <View style={[s.catDot, {
-                          backgroundColor: bItem.category
-                            ? (GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === bItem.category)?.group ?? "wants")] ?? "#FF9800")
-                            : theme.secondaryText,
-                        }]} />
-                        <Text style={[s.bundleCatText, { color: bItem.category ? theme.textColor : theme.secondaryText }]} numberOfLines={1}>
-                          {bItem.category
-                            ? (CATEGORY_OPTIONS.find((c) => c.id === bItem.category)?.name ?? "Categoria")
-                            : "Categoria"}
-                        </Text>
-                      </Pressable>
+                        theme={theme}
+                        namePlaceholder={`Peca ${idx + 1}...`}
+                        showRemove
+                        onRemove={() => { soundManager.play("tap"); removeBundleItem(idx); }}
+                        compact
+                        extraActions={
+                          <Pressable
+                            style={[s.bundleSearchBtn, { backgroundColor: theme.primaryColor + "20" }]}
+                            onPress={() => {
+                              soundManager.play("pop");
+                              setSearchModalVisible(true);
+                              setWebView((prev) => ({ ...prev, bundleIndex: idx }));
+                            }}
+                          >
+                            <Feather name="search" size={14} color={theme.primaryColor} />
+                          </Pressable>
+                        }
+                      />
                     </View>
                   ))}
                   <TouchableOpacity style={[s.bundleAddBtn, { borderColor: theme.primaryColor + "50" }]} onPress={() => { soundManager.play("tap"); addBundleItem(); }} activeOpacity={0.7}>
                     <Feather name="plus" size={14} color={theme.primaryColor} />
                     <Text style={[s.bundleAddText, { color: theme.primaryColor }]}>Adicionar peca</Text>
                   </TouchableOpacity>
-
-                  {/* Bundle item category picker */}
-                  <CategoryPickerModal
-                    visible={bundleCatPickerIdx !== null}
-                    onClose={() => setBundleCatPickerIdx(null)}
-                    onSelect={(catId) => {
-                      if (bundleCatPickerIdx !== null) {
-                        updateBundleItem(bundleCatPickerIdx, { category: catId });
-                      }
-                      setBundleCatPickerIdx(null);
-                    }}
-                    theme={theme}
-                    selectedId={bundleCatPickerIdx !== null ? bundleItems[bundleCatPickerIdx]?.category : undefined}
-                  />
                 </View>
               )}
 
@@ -569,8 +532,7 @@ const s = StyleSheet.create({
   catPickerBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, marginBottom: 2 },
   catPickerText: { flex: 1, fontFamily: "DMSans_500Medium", fontSize: 13 },
   catDot: { width: 8, height: 8, borderRadius: 4 },
-  bundleCatBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, marginTop: 4, alignSelf: "flex-start" },
-  bundleCatText: { fontSize: 10, fontFamily: "DMSans_500Medium", maxWidth: 100 },
+  bundleSearchBtn: { width: 30, height: 30, borderRadius: 8, justifyContent: "center", alignItems: "center" },
   categoryChipText: { fontSize: 12, fontFamily: "DMSans_600SemiBold" },
   advancedToggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 10, marginTop: 4 },
   advancedText: { fontSize: 12, fontFamily: "DMSans_500Medium" },
@@ -584,7 +546,8 @@ const s = StyleSheet.create({
   bundleToggleText: { flex: 1, fontSize: 13, fontFamily: "DMSans_500Medium" },
   bundleTotal: { fontSize: 13, fontFamily: "DMSans_700Bold" },
   bundleSection: { marginTop: 8, gap: 6 },
-  bundleRow: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8 },
+  bundleCard: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8, gap: 8 },
+  bundleRowLine: { flexDirection: "row", alignItems: "center", gap: 6 },
   bundleNameInput: { flex: 1, fontSize: 13, fontFamily: "DMSans_400Regular" },
   bundlePrice: { fontSize: 11, fontFamily: "DMSans_600SemiBold" },
   bundleSearchBtn: { width: 30, height: 30, borderRadius: 8, justifyContent: "center", alignItems: "center" },
