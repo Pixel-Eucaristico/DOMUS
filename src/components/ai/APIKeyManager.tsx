@@ -2,11 +2,11 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
+import { TInput } from "@/src/components/tamagui";
 import * as WebBrowser from "expo-web-browser";
 import * as ExpoClipboard from "expo-clipboard";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -219,22 +219,17 @@ export function APIKeyManager({
             </View>
           ) : (
             <View style={styles.inputRow}>
-              <TextInput
+              <TInput
                 value={input}
                 onChangeText={setInput}
                 placeholder="sk-... ou AIza... ou ant..."
-                placeholderTextColor={theme.secondaryText}
                 secureTextEntry={!showKey}
                 autoCapitalize="none"
                 autoCorrect={false}
-                style={[
-                  styles.input,
-                  {
-                    color: theme.textColor,
-                    backgroundColor: theme.cardBackground,
-                    borderColor: error ? theme.danger : theme.border,
-                  },
-                ]}
+                borderColor={error ? theme.danger : theme.border}
+                paddingRight={44}
+                color={theme.textColor}
+                backgroundColor={theme.cardBackground}
               />
               <TouchableOpacity
                 onPress={() => setShowKey((v) => !v)}
@@ -303,15 +298,6 @@ const styles = StyleSheet.create({
   },
   inputRow: {
     position: "relative",
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    paddingRight: 44,
-    fontSize: 14,
-    fontFamily: "monospace",
   },
   eyeBtn: {
     position: "absolute",

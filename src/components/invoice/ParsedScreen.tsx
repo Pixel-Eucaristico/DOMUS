@@ -17,6 +17,7 @@ import { AccountPicker } from "@/src/components/shared/AccountPicker";
 import { AddItemForm } from "./AddItemForm";
 import { EditableItemRow } from "./EditableItemRow";
 import { soundManager } from "@/src/services/SoundManager";
+import { TButton } from "@/src/components/tamagui";
 
 interface Props {
   theme: ThemeColors;
@@ -223,19 +224,25 @@ export function ParsedScreen({
           </Text>
         </View>
         <View style={s.actionRow}>
-          <Pressable style={[s.cancelBtn, { borderColor: theme.border }]} onPress={() => { soundManager.play("tap"); onCancel(); }}>
-            <Text style={[s.cancelBtnText, { color: theme.textColor }]}>Cancelar</Text>
-          </Pressable>
-          <Pressable style={[s.confirmBtn, { backgroundColor: theme.primaryColor, opacity: editableItems.length === 0 ? 0.5 : 1 }]} onPress={() => {
-            if (editableItems.length === 0) {
-              soundManager.play("error");
-              return;
-            }
-            soundManager.play("success");
-            onConfirm();
-          }}>
-            <Text style={s.confirmBtnText}>Confirmar Importação</Text>
-          </Pressable>
+          <TButton variant="outline" borderColor={theme.border} color={theme.textColor} onPress={() => { soundManager.play("tap"); onCancel(); }} flex={1}>
+            Cancelar
+          </TButton>
+          <TButton
+            variant="primary"
+            flex={2}
+            backgroundColor={theme.primaryColor}
+            opacity={editableItems.length === 0 ? 0.5 : 1}
+            onPress={() => {
+              if (editableItems.length === 0) {
+                soundManager.play("error");
+                return;
+              }
+              soundManager.play("success");
+              onConfirm();
+            }}
+          >
+            Confirmar Importação
+          </TButton>
         </View>
       </View>
     </View>
@@ -289,14 +296,4 @@ const s = StyleSheet.create({
   totalLabel: { fontSize: 16, fontWeight: "500" },
   totalAmount: { fontSize: 26, fontWeight: "800" },
   actionRow: { flexDirection: "row", gap: 12 },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-  },
-  cancelBtnText: { fontSize: 15, fontWeight: "600" },
-  confirmBtn: { flex: 2, paddingVertical: 14, borderRadius: 12, alignItems: "center" },
-  confirmBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
 });

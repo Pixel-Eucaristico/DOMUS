@@ -21,6 +21,7 @@ import {
 import { getEncouragementMessage, evaluatePerformance } from "@packages/onboarding/src/adaptiveMissionEngine";
 import { ONBOARDING_EVENTS, ONBOARDING_STEPS } from "@packages/onboarding/src/types";
 import { generateId } from "@packages/events/src/factory";
+import { TButton } from "@/src/components/tamagui";
 
 const STEP_LABELS: Record<string, string> = {
   create_account: "Criar uma conta",
@@ -169,18 +170,16 @@ export default function OnboardingScreen() {
           <Text style={[st.welcomeSubtext, { color: theme.secondaryText }]}>
             Vamos comecar sua jornada financeira em 7 dias. Missoes simples, sem pressao.
           </Text>
-          <Pressable
-            style={[st.startBtn, { backgroundColor: theme.primaryColor }]}
-            onPress={handleStart}
-          >
-            <Feather name="play" size={20} color="#FFF" />
-            <Text style={st.startBtnText}>Comecar</Text>
-          </Pressable>
-          <Pressable onPress={() => router.back()} style={st.skipBtn}>
-            <Text style={[st.skipText, { color: theme.secondaryText }]}>
+          <View style={{ marginTop: 12 }}>
+            <TButton variant="primary" backgroundColor={theme.primaryColor} icon={<Feather name="play" size={20} color="#FFF" />} onPress={handleStart}>
+              Comecar
+            </TButton>
+          </View>
+          <View style={{ marginTop: 8 }}>
+            <TButton variant="ghost" color={theme.primaryColor} onPress={() => router.back()}>
               Pular onboarding
-            </Text>
-          </Pressable>
+            </TButton>
+          </View>
         </View>
       </View>
     );
@@ -199,13 +198,11 @@ export default function OnboardingScreen() {
           <Text style={[st.welcomeSubtext, { color: theme.secondaryText }]}>
             Voce esta pronto para gerenciar suas financas. Continue registrando suas transacoes.
           </Text>
-          <Pressable
-            style={[st.startBtn, { backgroundColor: theme.primaryColor }]}
-            onPress={() => router.back()}
-          >
-            <Feather name="arrow-left" size={20} color="#FFF" />
-            <Text style={st.startBtnText}>Voltar ao inicio</Text>
-          </Pressable>
+          <View style={{ marginTop: 12 }}>
+            <TButton variant="primary" backgroundColor={theme.primaryColor} icon={<Feather name="arrow-left" size={20} color="#FFF" />} onPress={() => router.back()}>
+              Voltar ao inicio
+            </TButton>
+          </View>
         </View>
       </View>
     );
@@ -373,18 +370,6 @@ const st = StyleSheet.create({
     textAlign: "center" as const,
     lineHeight: 22,
   },
-  startBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 16,
-    marginTop: 12,
-  },
-  startBtnText: { fontFamily: "DMSans_700Bold", fontSize: 17, color: "#FFF" },
-  skipBtn: { marginTop: 8 },
-  skipText: { fontFamily: "DMSans_400Regular", fontSize: 14 },
   topRow: {
     flexDirection: "row",
     justifyContent: "space-between",

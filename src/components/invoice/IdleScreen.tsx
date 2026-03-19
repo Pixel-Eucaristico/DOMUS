@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ThemeColors } from "@packages/theme";
 import { soundManager } from "@/src/services/SoundManager";
+import { TButton } from "@/src/components/tamagui";
 import { TourGuideZone } from "rn-tourguide";
 
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=br.com.pixeleucaristico.domus";
@@ -77,14 +78,16 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
         )}
 
         <TourGuideZone zone={2} text="6" isTourGuide borderRadius={16}>
-          <Pressable
-            collapsable={false}
-            style={[s.outlineBtn, { borderColor: theme.border }]}
+          <TButton
+            variant="outline"
+            borderColor={theme.border}
+            color={theme.textColor}
             onPress={() => { soundManager.play("tap"); onManualEntry(); }}
+            icon={<Feather name="edit-3" size={20} color={theme.textColor} />}
+            width="100%"
           >
-            <Feather name="edit-3" size={20} color={theme.textColor} />
-            <Text style={[s.outlineBtnText, { color: theme.textColor }]}>Lançar manualmente</Text>
-          </Pressable>
+            Lançar manualmente
+          </TButton>
         </TourGuideZone>
       </View>
 
@@ -113,11 +116,6 @@ const s = StyleSheet.create({
   btnTextGroup: { flex: 1 },
   mainBtnLabel: { color: "#FFF", fontSize: 17, fontWeight: "700" },
   mainBtnSub: { color: "rgba(255,255,255,0.75)", fontSize: 12, marginTop: 2 },
-  outlineBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    paddingHorizontal: 20, paddingVertical: 16, borderRadius: 16, borderWidth: 1, gap: 10,
-  },
-  outlineBtnText: { fontSize: 15, fontWeight: "600" },
   settingsLink: {
     flexDirection: "row", alignItems: "center", gap: 6, marginTop: 40, paddingVertical: 10,
   },

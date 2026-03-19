@@ -4,6 +4,36 @@
 
 ---
 
+## Fase 3.2 — Temas Dinâmicos Católico/Laico
+
+**Status:** CONCLUÍDA em 19/03/2026
+
+- 12 paletas católicas (6 archetypes × light/dark) em `packages/theme/src/themeEngine.ts`
+- Tons mutados elegantes: ouro envelhecido, marfim, taupe, azul mariano, verde litúrgico, malva
+- `getThemeForArchetype(archetype, isDark, isCatholic)` — 3º parâmetro adicionado
+- `useThemePreferences` passa `isCatholic` automaticamente
+- `CatholicHeaderIcon` component com 5 ícones SVG (cross, heart, dove, chalice, fish)
+- Rotação diária, opacity 0.3, adicionado nos 4 tabs (Home, Wishlist, Contas, Temporada)
+- 6 SVGs católicos copiados para `assets/icons/catholic/`
+- Total: 24 temas (12 laicos + 12 católicos)
+
+---
+
+## Fase 3.3 Etapa A — Tamagui Setup
+
+**Status:** CONCLUÍDA em 19/03/2026
+
+- Instalado `tamagui@2.0.0-rc.26` + `@tamagui/config` + `@tamagui/core`
+- `tamagui.config.ts` com tokens DOMUS (size, space, radius, DM Sans font, light/dark themes)
+- `TamaguiProvider` no `_layout.tsx` coexistindo com sistema ThemeColors existente
+- 4 componentes base em `src/components/tamagui/`:
+  - `TButton` (primary, outline, danger, ghost)
+  - `TCard` (elevated, compact)
+  - `TText` (title, subtitle, body, caption, label + secondary + bold)
+  - `TInput` (default, search)
+
+---
+
 ## Fase 3.1 — FlashList (Listas Ultra-Rápidas)
 
 **Status:** CONCLUÍDA em 19/03/2026

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
+import { TInput } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import type { InstallmentAmountMode } from "@packages/events/src/types";
@@ -128,15 +129,17 @@ export function InstallmentSelector({
 
       {/* Custom input */}
       {showCustom && (
-        <TextInput
-          style={[s.customInput, { color: theme.textColor, borderColor: theme.border }]}
+        <TInput
           value={customText}
           onChangeText={handleCustomChange}
           placeholder="Numero de parcelas"
-          placeholderTextColor={theme.secondaryText}
           keyboardType="number-pad"
           autoFocus
           editable={!disabled}
+          marginTop={12}
+          color={theme.textColor}
+          backgroundColor={theme.cardBackground}
+          borderColor={theme.border}
         />
       )}
 
@@ -269,13 +272,6 @@ const s = StyleSheet.create({
     minWidth: 48,
   },
   chipText: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
-  customInput: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 16,
-    borderBottomWidth: 1,
-    paddingVertical: 8,
-    marginTop: 12,
-  },
   modeRow: { flexDirection: "row", gap: 8, marginTop: 14 },
   modeBtn: {
     flex: 1,

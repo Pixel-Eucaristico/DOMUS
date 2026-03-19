@@ -13,6 +13,7 @@ import type { ThemeColors } from "@packages/theme";
 import type { WishlistItem } from "@packages/wishlist";
 import type { AccountPayload } from "@packages/events";
 import { soundManager } from "@/src/services/SoundManager";
+import { TCard } from "@/src/components/tamagui";
 
 interface Props {
   visible: boolean;
@@ -65,7 +66,7 @@ export function ConvertToExpenseModal({
       <TouchableWithoutFeedback onPress={onCancel}>
         <View style={styles.overlay}>
           <TouchableWithoutFeedback>
-            <View style={[styles.card, { backgroundColor: theme.background }]}>
+            <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} borderRadius={20} padding={24} alignItems="center" gap={12} width="100%" borderWidth={0}>
               <View
                 style={[styles.iconWrap, { backgroundColor: theme.primaryColor + "20" }]}
               >
@@ -180,7 +181,7 @@ export function ConvertToExpenseModal({
                   <Text style={styles.btnTextPrimary}>Confirmar</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </TCard>
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
@@ -195,13 +196,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
-  },
-  card: {
-    width: "100%",
-    borderRadius: 20,
-    padding: 24,
-    alignItems: "center",
-    gap: 12,
   },
   iconWrap: {
     width: 60,

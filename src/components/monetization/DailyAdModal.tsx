@@ -16,6 +16,7 @@ import { ClipboardService } from "@/src/modules/security/application/ClipboardSe
 import { soundManager } from "@/src/services/SoundManager";
 import { ADMOB_IDS } from "./AdMobConfig";
 import { AFFILIATE_URLS, DONATION_PIX_KEY } from "./AffiliateLinks";
+import { TCard } from "@/src/components/tamagui";
 
 const PIX_COPIED_RESET_DELAY_MS = 2500;
 
@@ -117,14 +118,18 @@ function AffiliateFallbackModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal visible animationType="slide" transparent statusBarTranslucent onRequestClose={onClose}>
       <View style={st.overlay}>
-        <View
-          style={[
-            st.sheet,
-            {
-              backgroundColor: theme.cardBackground,
-              paddingBottom: insets.bottom + 16,
-            },
-          ]}
+        <TCard
+          borderTopLeftRadius={24}
+          borderTopRightRadius={24}
+          borderBottomLeftRadius={0}
+          borderBottomRightRadius={0}
+          paddingHorizontal={24}
+          paddingTop={24}
+          paddingBottom={insets.bottom + 16}
+          gap={12}
+          borderWidth={0}
+          backgroundColor={theme.cardBackground}
+          borderColor={theme.border}
         >
           <View style={st.header}>
             <Text style={{ fontSize: 28 }}>☕</Text>
@@ -195,7 +200,7 @@ function AffiliateFallbackModal({ onClose }: { onClose: () => void }) {
           >
             <Text style={[st.closeBtnText, { color: theme.secondaryText }]}>Fechar</Text>
           </TouchableOpacity>
-        </View>
+        </TCard>
       </View>
     </Modal>
   );
@@ -206,13 +211,6 @@ const st = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.5)",
-  },
-  sheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    gap: 12,
   },
   header: {
     flexDirection: "row",

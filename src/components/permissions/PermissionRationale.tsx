@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { TCard } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 
@@ -48,7 +49,7 @@ export function PermissionRationale({
       onRequestClose={onDeny}
     >
       <View style={s.overlay}>
-        <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
+        <TCard variant="elevated" borderRadius={20} padding={24} width="100%" alignItems="center" gap={14} backgroundColor={theme.cardBackground} borderColor={theme.border}>
           {/* Icon */}
           <View
             style={[
@@ -97,7 +98,7 @@ export function PermissionRationale({
               <Text style={s.allowText}>{allowLabel}</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </TCard>
       </View>
     </Modal>
   );
@@ -131,18 +132,6 @@ function styles(theme: any) {
       alignItems: "center",
       justifyContent: "center",
       padding: 24,
-    },
-    card: {
-      width: "100%",
-      borderRadius: 20,
-      padding: 24,
-      alignItems: "center",
-      gap: 14,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.18,
-      shadowRadius: 12,
-      elevation: 8,
     },
     iconContainer: {
       width: 72,

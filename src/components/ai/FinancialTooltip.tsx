@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Pressable } from "react-native";
+import { TCard } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 
@@ -45,9 +46,7 @@ export function FinancialTooltip({ visible, title, content, onClose }: Financial
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
-        <View
-          style={[styles.tooltip, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-        >
+        <TCard padding={20} gap={10} maxWidth={340} width="100%" backgroundColor={theme.cardBackground} borderColor={theme.border}>
           <View style={styles.header}>
             <Feather name="info" size={16} color={theme.primaryColor} />
             <Text style={[styles.title, { color: theme.textColor }]}>{title}</Text>
@@ -56,7 +55,7 @@ export function FinancialTooltip({ visible, title, content, onClose }: Financial
             </TouchableOpacity>
           </View>
           <Text style={[styles.content, { color: theme.secondaryText }]}>{content}</Text>
-        </View>
+        </TCard>
       </Pressable>
     </Modal>
   );
@@ -69,14 +68,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.4)",
     padding: 32,
-  },
-  tooltip: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 20,
-    gap: 10,
-    maxWidth: 340,
-    width: "100%",
   },
   header: {
     flexDirection: "row",

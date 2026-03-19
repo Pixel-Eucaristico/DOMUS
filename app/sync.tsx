@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   Platform,
-  TextInput,
   ActivityIndicator,
   Modal,
   Dimensions,
@@ -22,6 +21,7 @@ import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { QRScannerModal } from "@/src/components/sync/QRScannerModal";
 import { TourGuideZone } from "rn-tourguide";
+import { TButton, TInput } from "@/src/components/tamagui";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
@@ -224,30 +224,40 @@ export default function SyncScreen() {
             </TourGuideZone>
 
             {Platform.OS !== "web" && (
-              <Pressable
-                style={({ pressed }) => [s.qrScanBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }, pressed && { opacity: 0.85 }]}
+              <TButton
+                variant="outline"
+                borderColor={theme.border}
+                color={theme.textColor}
+                icon={<MaterialCommunityIcons name="qrcode-scan" size={22} color={theme.primaryColor} />}
+                iconAfter={<Feather name="chevron-right" size={18} color={theme.secondaryText} />}
                 onPress={() => { haptic(); soundManager.play("tap"); setShowScanner(true); }}
                 disabled={isBusy}
               >
-                <MaterialCommunityIcons name="qrcode-scan" size={22} color={theme.primaryColor} />
-                <Text style={[s.qrScanBtnText, { color: theme.textColor }]}>Escanear QR Code</Text>
-                <Feather name="chevron-right" size={18} color={theme.secondaryText} />
-              </Pressable>
+                Escanear QR Code
+              </TButton>
             )}
 
             {showJoinInput && (
               <View style={[s.joinCard, { backgroundColor: theme.cardBackground }]}>
                 <Text style={[s.joinLabel, { color: theme.textColor }]}>Codigo do grupo</Text>
                 <View style={s.joinInputRow}>
-                  <TextInput
-                    style={[s.joinInput, { color: theme.textColor, borderColor: theme.border, backgroundColor: theme.background }]}
+                  <TInput
+                    flex={1}
                     value={joinCode}
-                    onChangeText={(text) => setJoinCode(text.toUpperCase())}
+                    onChangeText={(text: string) => setJoinCode(text.toUpperCase())}
                     placeholder="EX: ABC123"
-                    placeholderTextColor={theme.secondaryText}
                     autoCapitalize="characters"
                     maxLength={8}
                     autoFocus
+                    fontFamily="$body"
+                    fontWeight="600"
+                    fontSize={18}
+                    letterSpacing={3}
+                    textAlign="center"
+                    height={48}
+                    color={theme.textColor}
+                    backgroundColor={theme.cardBackground}
+                    borderColor={theme.border}
                   />
                   <Pressable
                     style={[s.joinBtn, { backgroundColor: joinCode.trim().length >= 4 ? theme.primaryColor : theme.border }]}
@@ -323,10 +333,11 @@ export default function SyncScreen() {
               </Pressable>
             </View>
 
-            <Pressable style={[s.leaveBtn, { borderColor: theme.danger }]} onPress={handleLeaveGroup}>
-              <Feather name="log-out" size={16} color={theme.danger} />
-              <Text style={[s.leaveBtnText, { color: theme.danger }]}>Sair do grupo</Text>
-            </Pressable>
+            <View style={{ marginTop: 4 }}>
+              <TButton variant="outline" borderColor={theme.border} color={theme.textColor} icon={<Feather name="log-out" size={16} color={theme.danger} />} onPress={handleLeaveGroup}>
+                Sair do grupo
+              </TButton>
+            </View>
 
             <View style={[s.infoCard, { backgroundColor: theme.cardBackground }]}>
               <Feather name="info" size={16} color={theme.secondaryText} />
@@ -378,9 +389,9 @@ export default function SyncScreen() {
                 <Text style={[s.qrCodeLabelText, { color: theme.primaryColor }]}>{groupId}</Text>
               </View>
               <Text style={[s.qrModalHint, { color: theme.secondaryText }]}>Escaneie com o outro celular para parear</Text>
-              <Pressable style={[s.qrModalCloseBtn, { backgroundColor: theme.primaryColor }]} onPress={() => { soundManager.play("tap"); setShowQRModal(false); }}>
-                <Text style={s.qrModalCloseBtnText}>Fechar</Text>
-              </Pressable>
+              <TButton variant="primary" backgroundColor={theme.primaryColor} onPress={() => { soundManager.play("tap"); setShowQRModal(false); }}>
+                Fechar
+              </TButton>
             </Pressable>
           </ScrollView>
         </Pressable>
@@ -418,12 +429,9 @@ const s = StyleSheet.create({
   actionCardIcon: { width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.15)", justifyContent: "center", alignItems: "center", marginBottom: 4 },
   actionCardTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 14, color: "#FFFFFF" },
   actionCardDesc: { fontFamily: "DMSans_400Regular", fontSize: 11, color: "rgba(255,255,255,0.7)" },
-  qrScanBtn: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16, borderRadius: 14, borderWidth: 1 },
-  qrScanBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 14, flex: 1 },
   joinCard: { borderRadius: 16, padding: 18, gap: 12 },
   joinLabel: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
   joinInputRow: { flexDirection: "row", gap: 10, alignItems: "center" },
-  joinInput: { flex: 1, borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontFamily: "DMSans_600SemiBold", fontSize: 18, letterSpacing: 3, textAlign: "center" as const },
   joinBtn: { width: 48, height: 48, borderRadius: 14, justifyContent: "center", alignItems: "center" },
   cancelText: { fontFamily: "DMSans_500Medium", fontSize: 13, textAlign: "center" as const },
   connectedCard: { borderRadius: 16, padding: 18, gap: 10 },
@@ -432,8 +440,6 @@ const s = StyleSheet.create({
   codeBadge: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
   codeText: { fontFamily: "DMSans_700Bold", fontSize: 22, letterSpacing: 4 },
   connectedHint: { fontFamily: "DMSans_400Regular", fontSize: 12 },
-  leaveBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 14, borderWidth: 1, marginTop: 4 },
-  leaveBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
   infoCard: { flexDirection: "row", gap: 10, padding: 14, borderRadius: 12, marginTop: 4 },
   infoText: { fontFamily: "DMSans_400Regular", fontSize: 12, lineHeight: 18, flex: 1 },
   qrModalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)" },
@@ -444,8 +450,6 @@ const s = StyleSheet.create({
   qrCodeLabel: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 10 },
   qrCodeLabelText: { fontFamily: "DMSans_700Bold", fontSize: 20, letterSpacing: 4 },
   qrModalHint: { fontFamily: "DMSans_400Regular", fontSize: 13, textAlign: "center" as const },
-  qrModalCloseBtn: { paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12, marginTop: 4 },
-  qrModalCloseBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 14, color: "#FFFFFF" },
   backupBtn: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 14, padding: 14 },
   backupBtnIcon: { width: 44, height: 44, borderRadius: 14, justifyContent: "center", alignItems: "center" },
   backupBtnText: { flex: 1 },

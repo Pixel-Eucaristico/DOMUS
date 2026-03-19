@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   Pressable,
   Alert,
   StyleSheet,
@@ -19,6 +18,7 @@ import { GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal";
 import { soundManager } from "@/src/services/SoundManager";
 import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
+import { TButton, TInput } from "@/src/components/tamagui";
 import { getCategoryDisplayName, getCategoryColor, getGroupColor, getGroupLabel, getCategoryGroup } from "@/src/utils/categoryHelpers";
 
 const DEFAULT_CATEGORY_ID = EXPENSE_CATEGORIES[0]!.id;
@@ -116,58 +116,72 @@ export function ItemsSection({
         <Text style={[s.label, { color: theme.secondaryText, marginBottom: 0 }]}>
           Produtos ({items.length})
         </Text>
-        <Pressable
+        <TButton
+          variant={showAddItem ? "outline" : "ghost"}
+          size="$sm"
+          borderColor={showAddItem ? theme.border : undefined}
+          color={theme.primaryColor}
+          icon={<Feather name={showAddItem ? "minus" : "plus"} size={14} color={theme.primaryColor} />}
           onPress={() => {
             soundManager.play("pop");
             setShowAddItem((v) => !v);
             setEditingItemId(null);
           }}
-          style={[
-            s.addBtn,
-            { backgroundColor: `${theme.primaryColor}15`, borderColor: theme.primaryColor },
-          ]}
         >
-          <Feather name={showAddItem ? "minus" : "plus"} size={14} color={theme.primaryColor} />
-          <Text style={[s.addBtnText, { color: theme.primaryColor }]}>
-            {showAddItem ? "Cancelar" : "Adicionar"}
-          </Text>
-        </Pressable>
+          {showAddItem ? "Cancelar" : "Adicionar"}
+        </TButton>
       </View>
 
       {/* Add form */}
       {showAddItem && (
         <View style={[s.addForm, { borderColor: theme.border }]}>
-          <TextInput
-            style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+          <TInput
             value={newItemDesc}
             onChangeText={setNewItemDesc}
             placeholder="Descricao do produto"
-            placeholderTextColor={theme.secondaryText}
+            color={theme.textColor}
+            backgroundColor={theme.cardBackground}
+            borderColor={theme.border}
           />
           <View style={s.fieldRow}>
-            <TextInput
-              style={[s.inputSmall, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
+            <TInput
+              flex={1}
               value={newItemQty}
               onChangeText={setNewItemQty}
               placeholder="Qtd"
-              placeholderTextColor={theme.secondaryText}
               keyboardType="decimal-pad"
+              height={38}
+              fontSize={13}
+              paddingHorizontal="$md"
+              color={theme.textColor}
+              backgroundColor={theme.cardBackground}
+              borderColor={theme.border}
             />
-            <TextInput
-              style={[s.inputSmall, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
+            <TInput
+              flex={1}
               value={newItemUnit}
               onChangeText={setNewItemUnit}
               placeholder="UN"
-              placeholderTextColor={theme.secondaryText}
               autoCapitalize="characters"
+              height={38}
+              fontSize={13}
+              paddingHorizontal="$md"
+              color={theme.textColor}
+              backgroundColor={theme.cardBackground}
+              borderColor={theme.border}
             />
-            <TextInput
-              style={[s.inputSmall, { color: theme.textColor, borderColor: theme.border, flex: 2 }]}
+            <TInput
+              flex={2}
               value={newItemUnitPrice}
               onChangeText={setNewItemUnitPrice}
               placeholder="Preco unit."
-              placeholderTextColor={theme.secondaryText}
               keyboardType="decimal-pad"
+              height={38}
+              fontSize={13}
+              paddingHorizontal="$md"
+              color={theme.textColor}
+              backgroundColor={theme.cardBackground}
+              borderColor={theme.border}
             />
           </View>
 
@@ -185,32 +199,43 @@ export function ItemsSection({
 
           {/* EAN / NCM */}
           <View style={s.fieldRow}>
-            <TextInput
-              style={[s.inputSmall, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
+            <TInput
+              flex={1}
               value={newItemEan}
               onChangeText={setNewItemEan}
               placeholder="EAN (opcional)"
-              placeholderTextColor={theme.secondaryText}
               keyboardType="number-pad"
               maxLength={14}
+              height={38}
+              fontSize={13}
+              paddingHorizontal="$md"
+              color={theme.textColor}
+              backgroundColor={theme.cardBackground}
+              borderColor={theme.border}
             />
-            <TextInput
-              style={[s.inputSmall, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
+            <TInput
+              flex={1}
               value={newItemNcm}
               onChangeText={setNewItemNcm}
               placeholder="NCM (opcional)"
-              placeholderTextColor={theme.secondaryText}
               keyboardType="number-pad"
               maxLength={8}
+              height={38}
+              fontSize={13}
+              paddingHorizontal="$md"
+              color={theme.textColor}
+              backgroundColor={theme.cardBackground}
+              borderColor={theme.border}
             />
           </View>
-          <Pressable
-            style={[s.confirmBtn, { backgroundColor: theme.primaryColor }]}
+          <TButton
+            variant="primary"
+            backgroundColor={theme.primaryColor}
+            icon={<Feather name="check" size={16} color="#FFF" />}
             onPress={handleConfirmAdd}
           >
-            <Feather name="check" size={16} color="#FFF" />
-            <Text style={s.confirmBtnText}>Confirmar</Text>
-          </Pressable>
+            Confirmar
+          </TButton>
         </View>
       )}
 
@@ -283,37 +308,53 @@ export function ItemsSection({
                   { borderColor: theme.border, backgroundColor: theme.cardBackground },
                 ]}
               >
-                <TextInput
-                  style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                <TInput
                   value={item.description}
-                  onChangeText={(v) => onEditItemField(item.id, "description", v)}
+                  onChangeText={(v: string) => onEditItemField(item.id, "description", v)}
                   placeholder="Descricao"
-                  placeholderTextColor={theme.secondaryText}
+                  color={theme.textColor}
+                  backgroundColor={theme.cardBackground}
+                  borderColor={theme.border}
                 />
                 <View style={s.fieldRow}>
-                  <TextInput
-                    style={[s.inputSmall, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
+                  <TInput
+                    flex={1}
                     value={item.quantity}
-                    onChangeText={(v) => onEditItemField(item.id, "quantity", v)}
+                    onChangeText={(v: string) => onEditItemField(item.id, "quantity", v)}
                     placeholder="Qtd"
-                    placeholderTextColor={theme.secondaryText}
                     keyboardType="decimal-pad"
+                    height={38}
+                    fontSize={13}
+                    paddingHorizontal="$md"
+                    color={theme.textColor}
+                    backgroundColor={theme.cardBackground}
+                    borderColor={theme.border}
                   />
-                  <TextInput
-                    style={[s.inputSmall, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
+                  <TInput
+                    flex={1}
                     value={item.unit}
-                    onChangeText={(v) => onEditItemField(item.id, "unit", v)}
+                    onChangeText={(v: string) => onEditItemField(item.id, "unit", v)}
                     placeholder="UN"
-                    placeholderTextColor={theme.secondaryText}
                     autoCapitalize="characters"
+                    height={38}
+                    fontSize={13}
+                    paddingHorizontal="$md"
+                    color={theme.textColor}
+                    backgroundColor={theme.cardBackground}
+                    borderColor={theme.border}
                   />
-                  <TextInput
-                    style={[s.inputSmall, { color: theme.textColor, borderColor: theme.border, flex: 2 }]}
+                  <TInput
+                    flex={2}
                     value={item.unitPrice}
-                    onChangeText={(v) => onEditItemField(item.id, "unitPrice", v)}
+                    onChangeText={(v: string) => onEditItemField(item.id, "unitPrice", v)}
                     placeholder="Preco unit."
-                    placeholderTextColor={theme.secondaryText}
                     keyboardType="decimal-pad"
+                    height={38}
+                    fontSize={13}
+                    paddingHorizontal="$md"
+                    color={theme.textColor}
+                    backgroundColor={theme.cardBackground}
+                    borderColor={theme.border}
                   />
                 </View>
 
@@ -333,31 +374,45 @@ export function ItemsSection({
                   Dados fiscais (opcional)
                 </Text>
                 <View style={s.fieldRow}>
-                  <TextInput
-                    style={[s.inputSmall, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
+                  <TInput
+                    flex={1}
                     value={item.ean ?? ""}
-                    onChangeText={(v) => onEditItemField(item.id, "ean", v)}
+                    onChangeText={(v: string) => onEditItemField(item.id, "ean", v)}
                     placeholder="EAN"
-                    placeholderTextColor={theme.secondaryText}
                     keyboardType="number-pad"
                     maxLength={14}
+                    height={38}
+                    fontSize={13}
+                    paddingHorizontal="$md"
+                    color={theme.textColor}
+                    backgroundColor={theme.cardBackground}
+                    borderColor={theme.border}
                   />
-                  <TextInput
-                    style={[s.inputSmall, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
+                  <TInput
+                    flex={1}
                     value={item.ncm ?? ""}
-                    onChangeText={(v) => onEditItemField(item.id, "ncm", v)}
+                    onChangeText={(v: string) => onEditItemField(item.id, "ncm", v)}
                     placeholder="NCM"
-                    placeholderTextColor={theme.secondaryText}
                     keyboardType="number-pad"
                     maxLength={8}
+                    height={38}
+                    fontSize={13}
+                    paddingHorizontal="$md"
+                    color={theme.textColor}
+                    backgroundColor={theme.cardBackground}
+                    borderColor={theme.border}
                   />
                 </View>
-                <Pressable
-                  style={{ alignSelf: "flex-end", marginTop: 6 }}
+                <TButton
+                  variant="ghost"
+                  size="$sm"
+                  color={theme.primaryColor}
+                  alignSelf="flex-end"
+                  marginTop={6}
                   onPress={() => setEditingItemId(null)}
                 >
-                  <Text style={{ color: theme.primaryColor, fontWeight: "600" }}>Fechar</Text>
-                </Pressable>
+                  Fechar
+                </TButton>
               </View>
             )}
           </View>
@@ -395,31 +450,9 @@ const s = StyleSheet.create({
     marginBottom: 12,
   },
   label: { fontFamily: "DMSans_500Medium", fontSize: 13, marginBottom: 10 },
-  addBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  addBtnText: { fontFamily: "DMSans_500Medium", fontSize: 12 },
   addForm: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 12, gap: 8 },
   fieldRow: { flexDirection: "row", gap: 8 },
-  input: { borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 14 },
-  inputSmall: { borderWidth: 1, borderRadius: 8, padding: 8, fontSize: 13 },
   sectionLabel: { fontSize: 11, fontWeight: "500", marginTop: 2 },
-  confirmBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    marginTop: 4,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  confirmBtnText: { color: "#FFF", fontFamily: "DMSans_600SemiBold", fontSize: 14 },
   catPickerBtn: {
     flexDirection: "row",
     alignItems: "center",

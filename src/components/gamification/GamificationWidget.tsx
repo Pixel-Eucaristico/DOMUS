@@ -32,7 +32,7 @@ export function GamificationWidget({
 
   return (
     <AnimatedCard index={1}>
-      <View style={[s.gamificationWidget, { marginHorizontal: 0, width: "100%" }]}>
+      <View style={[s.gamificationWidget, { marginHorizontal: 0, width: "100%", backgroundColor: theme.primaryColor + '08', borderColor: theme.primaryColor + '18' }]}>
         <View style={s.widgetHeader}>
           <View style={s.widgetTitleRow}>
             <MaterialCommunityIcons name="shield-star" size={18} color={theme.primaryColor} />
@@ -45,7 +45,7 @@ export function GamificationWidget({
 
         <View style={s.widgetContent}>
           <Pressable
-            style={[s.trophyPreview, { backgroundColor: theme.primaryColor + '08' }]}
+            style={[s.trophyPreview, { backgroundColor: theme.primaryColor + '08', borderColor: theme.primaryColor + '18' }]}
             onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
           >
             {currentTrophy ? (
@@ -115,9 +115,7 @@ const s = StyleSheet.create({
     borderRadius: 24,
     padding: 16,
     marginHorizontal: 16,
-    backgroundColor: 'rgba(124, 58, 237, 0.03)',
     borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.1)',
   },
   widgetHeader: {
     flexDirection: 'row',
@@ -136,7 +134,6 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.1)',
   },
   trophyLabel: { fontFamily: 'DMSans_700Bold', fontSize: 10, marginTop: -4 },
   levelCircle: {

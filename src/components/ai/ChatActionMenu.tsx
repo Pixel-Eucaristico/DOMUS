@@ -7,6 +7,7 @@ import {
   Modal,
   Pressable,
 } from "react-native";
+import { TCard } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
@@ -105,7 +106,7 @@ export function ChatActionMenu({ onAction, visionOCREnabled }: ChatActionMenuPro
         onRequestClose={() => setVisible(false)}
       >
         <Pressable style={styles.overlay} onPress={() => setVisible(false)}>
-          <View style={[styles.sheet, { backgroundColor: theme.cardBackground }]}>
+          <TCard borderTopLeftRadius={20} borderTopRightRadius={20} borderBottomLeftRadius={0} borderBottomRightRadius={0} padding={20} paddingBottom={36} gap={16} backgroundColor={theme.cardBackground} borderColor={theme.border}>
             {/* Handle bar */}
             <View style={[styles.handleBar, { backgroundColor: theme.border }]} />
 
@@ -137,7 +138,7 @@ export function ChatActionMenu({ onAction, visionOCREnabled }: ChatActionMenuPro
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
+          </TCard>
         </Pressable>
       </Modal>
     </>
@@ -157,13 +158,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.4)",
-  },
-  sheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 36,
-    gap: 16,
   },
   handleBar: {
     width: 40,

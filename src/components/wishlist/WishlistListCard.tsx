@@ -3,10 +3,10 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { soundManager } from "@/src/services/SoundManager";
+import { TCard } from "@/src/components/tamagui";
 import type { ThemeColors } from "@packages/theme";
 import type { WishlistList, WishlistItem, UrgencyLevel } from "@packages/wishlist";
 
@@ -37,13 +37,16 @@ export function WishlistListCard({ list, items, theme, onPress }: Props) {
   items.forEach((i) => { urgencyCounts[i.urgencyLevel]++; });
 
   return (
-    <TouchableOpacity
-      style={[styles.container, { backgroundColor: theme.cardBackground }]}
+    <TCard
+      elevated
+      backgroundColor={theme.cardBackground}
+      borderColor={theme.border}
       onPress={() => {
         soundManager.play("tap");
         onPress(list);
       }}
-      activeOpacity={0.7}
+      pressStyle={{ opacity: 0.7 }}
+      style={{ marginHorizontal: 16, marginVertical: 6, overflow: "hidden", padding: 0 }}
     >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -103,22 +106,11 @@ export function WishlistListCard({ list, items, theme, onPress }: Props) {
           {new Date(list.createdAt).toLocaleDateString("pt-BR")}
         </Text>
       </View>
-    </TouchableOpacity>
+    </TCard>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginVertical: 6,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
   header: {
     flexDirection: "row",
     alignItems: "center",

@@ -28,6 +28,7 @@ import { StoreGridModal } from "./StoreGridModal";
 import { SelectionModal } from "../shared/SelectionModal";
 import { useAddWishlistItem } from "@/src/hooks/useAddWishlistItem";
 import { soundManager } from "@/src/services/SoundManager";
+import { TButton, TInput } from "@/src/components/tamagui";
 
 const URGENCY_LABELS: Record<UrgencyLevel, string> = {
   PRIORITY: "Prioridade",
@@ -130,15 +131,17 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                 <>
                   <Text style={[s.label, { color: theme.secondaryText }]}>Link do produto (opcional)</Text>
                   <View style={s.urlRow}>
-                    <TextInput
-                      style={[s.input, s.inputFlex, { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground }]}
+                    <TInput
+                      flex={1}
                       placeholder="Cole o link ou use a lupa para pesquisar"
-                      placeholderTextColor={theme.secondaryText}
                       value={form.url}
                       onChangeText={(v) => updateField("url", v)}
                       onBlur={handleUrlBlur}
                       autoCapitalize="none"
                       keyboardType="url"
+                      color={theme.textColor}
+                      backgroundColor={theme.cardBackground}
+                      borderColor={theme.border}
                     />
                     {hasUrl && (
                       <TouchableOpacity style={s.clearBtn} onPress={() => { soundManager.play("tap"); clearUrl(); }} activeOpacity={0.7}>
@@ -171,13 +174,14 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
 
               {/* Name */}
               <Text style={[s.label, { color: theme.secondaryText }]}>Nome *</Text>
-              <TextInput
-                style={[s.input, { color: theme.textColor, borderColor: theme.primaryColor, backgroundColor: theme.cardBackground }]}
+              <TInput
                 placeholder="Nome do produto..."
-                placeholderTextColor={theme.secondaryText}
                 value={form.name}
                 onChangeText={(v) => updateField("name", v)}
                 maxLength={100}
+                color={theme.textColor}
+                backgroundColor={theme.cardBackground}
+                borderColor={theme.border}
               />
 
               {/* Urgency */}
@@ -214,13 +218,14 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
               ) : (
                 <>
                   <Text style={[s.label, { color: theme.secondaryText }]}>Preço (R$)</Text>
-                  <TextInput
-                    style={[s.input, { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground }]}
+                  <TInput
                     placeholder="0,00"
-                    placeholderTextColor={theme.secondaryText}
                     value={form.price}
                     onChangeText={(v) => updateField("price", v)}
                     keyboardType="decimal-pad"
+                    color={theme.textColor}
+                    backgroundColor={theme.cardBackground}
+                    borderColor={theme.border}
                   />
                 </>
               )}
@@ -329,21 +334,23 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
               {showAdvanced && (
                 <View>
                   <Text style={[s.label, { color: theme.secondaryText }]}>EAN</Text>
-                  <TextInput
-                    style={[s.input, { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground }]}
+                  <TInput
                     placeholder="Código de barras"
-                    placeholderTextColor={theme.secondaryText}
                     value={form.ean}
                     onChangeText={(v) => updateField("ean", v)}
                     keyboardType="numeric"
+                    color={theme.textColor}
+                    backgroundColor={theme.cardBackground}
+                    borderColor={theme.border}
                   />
                   <Text style={[s.label, { color: theme.secondaryText }]}>NCM</Text>
-                  <TextInput
-                    style={[s.input, { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground }]}
+                  <TInput
                     placeholder="Ex: 8517.12.31"
-                    placeholderTextColor={theme.secondaryText}
                     value={form.ncm}
                     onChangeText={(v) => updateField("ncm", v)}
+                    color={theme.textColor}
+                    backgroundColor={theme.cardBackground}
+                    borderColor={theme.border}
                   />
                 </View>
               )}
@@ -426,18 +433,25 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
 
               {/* Actions */}
               <View style={s.actions}>
-                <TouchableOpacity style={[s.btn, { borderColor: theme.border ?? "#E5E7EB" }]} onPress={() => { soundManager.play("tap"); handleCancel(); }} activeOpacity={0.7}>
-                  <Text style={[s.btnText, { color: theme.secondaryText }]}>Cancelar</Text>
-                </TouchableOpacity>
+                <TButton
+                  variant="outline"
+                  flex={1}
+                  borderColor={theme.border}
+                  color={theme.textColor}
+                  onPress={() => { soundManager.play("tap"); handleCancel(); }}
+                >
+                  Cancelar
+                </TButton>
                 {isValid && (
-                  <TouchableOpacity
-                    style={[s.btn, s.btnPrimary, { backgroundColor: theme.primaryColor }]}
+                  <TButton
+                    variant="primary"
+                    flex={1}
+                    backgroundColor={theme.primaryColor}
+                    icon={<Feather name={editItem ? "check" : "plus"} size={16} color="#fff" />}
                     onPress={() => { soundManager.play("success"); handleConfirm(); }}
-                    activeOpacity={0.7}
                   >
-                    <Feather name={editItem ? "check" : "plus"} size={16} color="#fff" />
-                    <Text style={s.btnTextPrimary}>{editItem ? "Salvar alterações" : "Adicionar à lista"}</Text>
-                  </TouchableOpacity>
+                    {editItem ? "Salvar alterações" : "Adicionar à lista"}
+                  </TButton>
                 )}
               </View>
             </ScrollView>
@@ -510,8 +524,6 @@ const s = StyleSheet.create({
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
   title: { fontSize: 18, fontFamily: "DMSans_700Bold" },
   label: { fontSize: 11, fontFamily: "DMSans_500Medium", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, marginTop: 10 },
-  input: { height: 44, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, fontFamily: "DMSans_400Regular", marginBottom: 2 },
-  inputFlex: { flex: 1 },
   urlRow: { flexDirection: "row", gap: 6, alignItems: "center" },
   clearBtn: { width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center" },
   scrapeBtn: { width: 44, height: 44, borderRadius: 10, justifyContent: "center", alignItems: "center" },
@@ -554,8 +566,4 @@ const s = StyleSheet.create({
   bundleAddBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1.5, borderRadius: 10, borderStyle: "dashed", paddingVertical: 10 },
   bundleAddText: { fontSize: 13, fontFamily: "DMSans_600SemiBold" },
   actions: { flexDirection: "row", gap: 10, marginTop: 16, marginBottom: 8 },
-  btn: { flex: 1, height: 48, borderRadius: 12, borderWidth: 1.5, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
-  btnPrimary: { borderWidth: 0 },
-  btnText: { fontSize: 14, fontFamily: "DMSans_600SemiBold" },
-  btnTextPrimary: { fontSize: 14, fontFamily: "DMSans_600SemiBold", color: "#fff" },
 });

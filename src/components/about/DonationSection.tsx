@@ -2,7 +2,6 @@ import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
   Pressable,
   Linking,
   Alert,
@@ -15,6 +14,7 @@ import * as Haptics from "expo-haptics";
 import { ClipboardService } from "@/src/modules/security/application/ClipboardService";
 import { buildPixPayload } from "@packages/domain/src/pixPayload";
 import { soundManager } from "@/src/services/SoundManager";
+import { TButton } from "@/src/components/tamagui";
 
 const PIX_KEY = "55.075.291/0001-79";
 const PIX_PAYLOAD = buildPixPayload(PIX_KEY);
@@ -67,19 +67,14 @@ export function DonationSection({ theme }: DonationSectionProps) {
               {PIX_KEY}
             </Text>
           </View>
-          <TouchableOpacity
-            style={[
-              s.copyBtn,
-              { backgroundColor: pixCopied ? theme.success : theme.primaryColor },
-            ]}
+          <TButton
+            variant="primary"
+            backgroundColor={theme.primaryColor}
             onPress={handleCopyPix}
-            activeOpacity={0.8}
+            icon={<Feather name={pixCopied ? "check" : "copy"} size={15} color="#fff" />}
           >
-            <Feather name={pixCopied ? "check" : "copy"} size={15} color="#fff" />
-            <Text style={s.copyBtnText}>
-              {pixCopied ? "Copiado!" : "Copiar"}
-            </Text>
-          </TouchableOpacity>
+            {pixCopied ? "Copiado!" : "Copiar"}
+          </TButton>
         </View>
         <View style={s.qrContainer}>
           <QRCode
@@ -210,15 +205,6 @@ const s = StyleSheet.create({
   pixInfo: { flex: 1 },
   pixLabel: { fontFamily: "DMSans_400Regular", fontSize: 11, marginBottom: 2 },
   pixKey: { fontFamily: "DMSans_700Bold", fontSize: 15, letterSpacing: 0.4 },
-  copyBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 9,
-  },
-  copyBtnText: { fontFamily: "DMSans_700Bold", fontSize: 12, color: "#fff" },
   qrContainer: { alignItems: "center", gap: 8, paddingVertical: 2 },
   qrHint: { fontFamily: "DMSans_400Regular", fontSize: 12 },
   divider: { height: StyleSheet.hairlineWidth },

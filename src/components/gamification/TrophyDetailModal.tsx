@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable, TouchableOpacity, Modal } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { TCard } from "@/src/components/tamagui";
 import { AnimatedSeasonalTrophy } from "./AnimatedSeasonalTrophy";
 import { getSeasonalXp } from "@packages/gamification/src/seasonalTrophies";
 import { soundManager } from "@/src/services/SoundManager";
@@ -22,7 +23,7 @@ export function TrophyDetailModal({ selection, onClose, theme }: TrophyDetailMod
   return (
     <Modal visible={!!selection} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.modalOverlay} onPress={onClose}>
-        <Pressable style={[s.trophyDetailModal, { backgroundColor: theme.cardBackground }]} onPress={() => {}}>
+        <TCard borderRadius={28} padding={24} gap={16} width="100%" maxWidth={360} borderWidth={0} backgroundColor={theme.cardBackground} borderColor={theme.border} onPress={() => {}}>
           <LinearGradient
             colors={[tierColor + "20", "transparent"]}
             style={[StyleSheet.absoluteFill, { borderRadius: 28 }]}
@@ -82,7 +83,7 @@ export function TrophyDetailModal({ selection, onClose, theme }: TrophyDetailMod
               )}
             </View>
           </View>
-        </Pressable>
+        </TCard>
       </Pressable>
     </Modal>
   );
@@ -95,13 +96,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-  },
-  trophyDetailModal: {
-    width: "100%",
-    maxWidth: 360,
-    borderRadius: 28,
-    padding: 24,
-    gap: 16,
   },
   modalHeader: {
     flexDirection: "row",

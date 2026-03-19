@@ -58,22 +58,25 @@ export default function WishlistDetailScreen() {
   const rawItems = getItemsByList(listId ?? "");
   const accounts = Object.values(domain.accounts ?? {});
 
-  // Affordability computation from domain budget
-  const monthlyIncome = budget.totalIncome ?? 0;
-  const totalExpenses = Object.values(domain.transactions)
-    .filter((t) => {
-      const now = new Date();
-      const d = new Date(t.date);
-      return (
-        t.type === "expense" &&
-        d.getMonth() === now.getMonth() &&
-        d.getFullYear() === now.getFullYear() &&
-        (!t.status || t.status === "confirmed") &&
-        // Transferências de aporte de poupança não são gastos reais
-        !t.description?.startsWith("Transferência: Aporte poupança:")
-      );
-    })
-    .reduce((sum, t) => sum + t.amount, 0);
+  // Affordability: renda - gastos (só efetivados, excluindo contas poupança)
+  const savingsAccountIds = useMemo(
+    () => new Set(Object.values(domain.accounts).filter((a) => a.type === "savings").map((a) => a.id)),
+    [domain.accounts],
+  );
+  const { monthlyIncome, totalExpenses } = useMemo(() => {
+    const now = new Date();
+    const prefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    let income = 0;
+    let expenses = 0;
+    for (const tx of Object.values(domain.transactions)) {
+      if (tx.status !== "confirmed") continue;          // só efetivados
+      if (!tx.date?.startsWith(prefix)) continue;       // só mês atual
+      if (savingsAccountIds.has(tx.accountId)) continue; // ignora poupança
+      if (tx.type === "income") income += tx.amount;
+      else if (tx.type === "expense") expenses += tx.amount;
+    }
+    return { monthlyIncome: income, totalExpenses: expenses };
+  }, [domain.transactions, savingsAccountIds]);
 
   const affordabilityInput = useMemo(
     () => ({

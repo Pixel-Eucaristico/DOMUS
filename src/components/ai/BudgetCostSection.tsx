@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   Switch,
   Alert,
 } from "react-native";
+import { TInput } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
@@ -294,16 +294,17 @@ export function BudgetCostSection({
             {/* Tokens input */}
             <View style={styles.fieldRow}>
               <Text style={[styles.fieldLabel, { color: theme.secondaryText }]}>Tokens</Text>
-              <TextInput
+              <TInput
+                flex={1}
                 value={tokensInput}
                 onChangeText={handleTokensChange}
                 keyboardType="numeric"
                 onBlur={handleSave}
                 onSubmitEditing={handleSave}
-                style={[
-                  styles.fieldInput,
-                  { color: theme.textColor, backgroundColor: theme.background, borderColor: theme.border },
-                ]}
+                height={38}
+                color={theme.textColor}
+                backgroundColor={theme.cardBackground}
+                borderColor={theme.border}
               />
               {activeBudget !== activeDefault && (
                 <TouchableOpacity onPress={handleReset}>
@@ -315,36 +316,36 @@ export function BudgetCostSection({
             {/* BRL input */}
             <View style={styles.fieldRow}>
               <Text style={[styles.fieldLabel, { color: theme.secondaryText }]}>R$</Text>
-              <TextInput
+              <TInput
+                flex={1}
                 value={brlInput}
                 onChangeText={handleBrlChange}
                 keyboardType="decimal-pad"
                 placeholder="0,00"
-                placeholderTextColor={theme.secondaryText}
                 onBlur={handleSave}
                 onSubmitEditing={handleSave}
-                style={[
-                  styles.fieldInput,
-                  { color: theme.textColor, backgroundColor: theme.background, borderColor: theme.border },
-                ]}
+                height={38}
+                color={theme.textColor}
+                backgroundColor={theme.cardBackground}
+                borderColor={theme.border}
               />
             </View>
 
             {/* USD input */}
             <View style={styles.fieldRow}>
               <Text style={[styles.fieldLabel, { color: theme.secondaryText }]}>US$</Text>
-              <TextInput
+              <TInput
+                flex={1}
                 value={usdInput}
                 onChangeText={handleUsdChange}
                 keyboardType="decimal-pad"
                 placeholder="0.00"
-                placeholderTextColor={theme.secondaryText}
                 onBlur={handleSave}
                 onSubmitEditing={handleSave}
-                style={[
-                  styles.fieldInput,
-                  { color: theme.textColor, backgroundColor: theme.background, borderColor: theme.border },
-                ]}
+                height={38}
+                color={theme.textColor}
+                backgroundColor={theme.cardBackground}
+                borderColor={theme.border}
               />
             </View>
           </>
@@ -499,15 +500,6 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 13,
     width: 52,
-  },
-  fieldInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
-    fontFamily: "monospace",
   },
   effectiveCard: {
     borderRadius: 10,

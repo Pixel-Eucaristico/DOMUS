@@ -3,9 +3,6 @@ import {
   StyleSheet,
   Modal,
   View,
-  TouchableOpacity,
-  TextInput,
-  TouchableWithoutFeedback,
   Animated,
   Text,
   Pressable,
@@ -15,6 +12,7 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
 import { soundManager } from "@/src/services/SoundManager";
+import { TButton, TInput } from "@/src/components/tamagui";
 
 interface Props {
   visible: boolean;
@@ -102,51 +100,38 @@ export function CreateListModal({ visible, theme, onConfirm, onCancel }: Props) 
             <Text style={[styles.label, { color: theme.secondaryText }]}>
               Nome da lista
             </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  color: theme.textColor,
-                  borderColor: theme.primaryColor,
-                  backgroundColor: theme.cardBackground,
-                },
-              ]}
+            <TInput
               placeholder="Ex: Eletrônicos, Casa Nova..."
-              placeholderTextColor={theme.secondaryText}
               value={name}
               onChangeText={setName}
               autoFocus
               returnKeyType="done"
               onSubmitEditing={handleConfirm}
               maxLength={50}
+              color={theme.textColor}
+              backgroundColor={theme.cardBackground}
+              borderColor={theme.border}
             />
             <View style={styles.actions}>
-              <TouchableOpacity
-                style={[styles.btn, { borderColor: theme.border ?? "#E5E7EB" }]}
+              <TButton
+                variant="outline"
+                flex={1}
+                borderColor={theme.border}
+                color={theme.textColor}
                 onPress={handleCancel}
-                activeOpacity={0.7}
               >
-                <Text style={[styles.btnText, { color: theme.secondaryText }]}>
-                  Cancelar
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.btn,
-                  styles.btnPrimary,
-                  {
-                    backgroundColor: isValid
-                      ? theme.primaryColor
-                      : theme.primaryColor + "50",
-                  },
-                ]}
+                Cancelar
+              </TButton>
+              <TButton
+                variant="primary"
+                flex={1}
+                backgroundColor={theme.primaryColor}
+                icon={<Feather name="plus" size={16} color="#fff" />}
                 onPress={handleConfirm}
                 disabled={!isValid}
-                activeOpacity={0.7}
               >
-                <Feather name="plus" size={16} color="#fff" />
-                <Text style={styles.btnTextPrimary}>Criar Lista</Text>
-              </TouchableOpacity>
+                Criar Lista
+              </TButton>
             </View>
           </Animated.View>
         </KeyboardSafeView>
@@ -190,37 +175,9 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  input: {
-    height: 48,
-    borderWidth: 1.5,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    fontFamily: "DMSans_400Regular",
-  },
   actions: {
     flexDirection: "row",
     gap: 10,
     marginTop: 4,
-  },
-  btn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  btnPrimary: { borderWidth: 0 },
-  btnText: {
-    fontSize: 14,
-    fontFamily: "DMSans_600SemiBold",
-  },
-  btnTextPrimary: {
-    fontSize: 14,
-    fontFamily: "DMSans_600SemiBold",
-    color: "#fff",
   },
 });

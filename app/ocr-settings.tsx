@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  TextInput,
   ScrollView,
   Alert,
   ActivityIndicator,
@@ -15,6 +14,7 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
+import { TButton, TInput } from "@/src/components/tamagui";
 import { OCRConfigService } from "@/src/services/ocrConfigService";
 import type { OCRProvider } from "@packages/parsers";
 
@@ -248,15 +248,19 @@ export default function OCRSettingsScreen() {
 
           <View style={[s.inputContainer, { backgroundColor: theme.cardBackground }]}>
             <Feather name="key" size={18} color={theme.secondaryText} />
-            <TextInput
-              style={[s.input, { color: theme.textColor }]}
+            <TInput
+              flex={1}
               placeholder="Cole sua API key aqui"
-              placeholderTextColor={theme.secondaryText}
               value={apiKey}
               onChangeText={setApiKey}
               autoCapitalize="none"
               autoCorrect={false}
               secureTextEntry
+              borderWidth={0}
+              background="transparent"
+              height="auto"
+              paddingHorizontal={0}
+              color={theme.textColor}
             />
             {apiKey ? (
               <Pressable onPress={() => { soundManager.play("tap"); setApiKey(""); }}>
@@ -290,20 +294,17 @@ export default function OCRSettingsScreen() {
 
       {/* Botão Salvar */}
       <View style={[s.footer, { paddingBottom: insets.bottom + 20, backgroundColor: theme.cardBackground }]}>
-        <Pressable
-          style={[s.saveButton, { backgroundColor: theme.primaryColor }, saving && { opacity: 0.6 }]}
+        <TButton
+          variant="primary"
+          backgroundColor={theme.primaryColor}
           onPress={() => { soundManager.play("pop"); handleSave(); }}
           disabled={saving}
+          opacity={saving ? 0.6 : 1}
+          icon={saving ? <ActivityIndicator color="#FFF" /> : <Feather name="check" size={20} color="#FFF" />}
+          width="100%"
         >
-          {saving ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <>
-              <Feather name="check" size={20} color="#FFF" />
-              <Text style={s.saveButtonText}>Salvar Configurações</Text>
-            </>
-          )}
-        </Pressable>
+          {saving ? "" : "Salvar Configurações"}
+        </TButton>
       </View>
     </View>
   );
@@ -383,11 +384,6 @@ const s = StyleSheet.create({
     borderRadius: 12,
     gap: 10,
   },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: "DMSans_400Regular",
-  },
   helpLink: {
     flexDirection: "row",
     alignItems: "center",
@@ -407,18 +403,5 @@ const s = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 8,
-  },
-  saveButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
-  },
-  saveButtonText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontFamily: "DMSans_700Bold",
   },
 });

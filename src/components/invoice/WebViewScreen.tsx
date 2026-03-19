@@ -7,6 +7,7 @@ import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
 import { BROWSER_UA } from "@/src/hooks/useInvoiceWebView";
 import { soundManager } from "@/src/services/SoundManager";
+import { TButton } from "@/src/components/tamagui";
 
 // Require WebView fora do render para evitar crash durante mount em Samsung
 const NativeWebView = Platform.OS !== "web"
@@ -66,9 +67,11 @@ export function WebViewScreen({
       <View style={[s.container, { justifyContent: "center", alignItems: "center" }]}>
         <Feather name="alert-triangle" size={40} color={theme.primaryColor} />
         <Text style={[s.loadingText, { color: theme.textColor }]}>WebView indisponivel</Text>
-        <Pressable onPress={onClose} style={{ marginTop: 20 }}>
-          <Text style={{ color: theme.primaryColor, fontSize: 16 }}>Voltar</Text>
-        </Pressable>
+        <View style={{ marginTop: 20 }}>
+          <TButton variant="ghost" color={theme.primaryColor} onPress={onClose}>
+            Voltar
+          </TButton>
+        </View>
       </View>
     );
   }
@@ -135,13 +138,16 @@ export function WebViewScreen({
           <Text style={s.captureBtnText}>Buscando EAN/NCM...</Text>
         </View>
       ) : !isWaitingUserClick ? (
-        <Pressable
-          style={[s.captureBtn, { backgroundColor: theme.primaryColor, bottom: insets.bottom + 16 }]}
-          onPress={() => { soundManager.play("tap"); onCapture(); }}
-        >
-          <Feather name="download-cloud" size={20} color="#FFF" />
-          <Text style={s.captureBtnText}>Capturar Dados da Nota</Text>
-        </Pressable>
+        <View style={[s.captureBtnWrap, { bottom: insets.bottom + 16 }]}>
+          <TButton
+            variant="primary"
+            backgroundColor={theme.primaryColor}
+            onPress={() => { soundManager.play("tap"); onCapture(); }}
+            icon={<Feather name="download-cloud" size={20} color="#FFF" />}
+          >
+            Capturar Dados da Nota
+          </TButton>
+        </View>
       ) : null}
     </View>
   );
@@ -185,13 +191,16 @@ function WebViewScreenWeb({
           A consulta SEFAZ não pode ser exibida dentro do app na versão web.
           Clique no botão abaixo para abrir em uma nova aba.
         </Text>
-        <Pressable
-          style={[s.webFallbackBtn, { backgroundColor: theme.primaryColor }]}
-          onPress={handleOpen}
-        >
-          <Feather name="external-link" size={18} color="#FFF" />
-          <Text style={s.webFallbackBtnText}>Abrir SEFAZ em nova aba</Text>
-        </Pressable>
+        <View style={{ marginTop: 8 }}>
+          <TButton
+            variant="primary"
+            backgroundColor={theme.primaryColor}
+            onPress={handleOpen}
+            icon={<Feather name="external-link" size={18} color="#FFF" />}
+          >
+            Abrir SEFAZ em nova aba
+          </TButton>
+        </View>
       </View>
     </View>
   );
@@ -216,10 +225,12 @@ const s = StyleSheet.create({
     position: "absolute", left: 20, right: 20,
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     paddingVertical: 16, borderRadius: 14, gap: 10,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
   captureBtnText: { color: "#FFF", fontSize: 16, fontWeight: "700" },
+  captureBtnWrap: {
+    position: "absolute", left: 20, right: 20,
+    elevation: 6,
+  },
   // Web fallback
   webFallback: {
     flex: 1,
@@ -237,19 +248,5 @@ const s = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     maxWidth: 400,
-  },
-  webFallbackBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  webFallbackBtnText: {
-    color: "#FFF",
-    fontSize: 15,
-    fontWeight: "600",
   },
 });

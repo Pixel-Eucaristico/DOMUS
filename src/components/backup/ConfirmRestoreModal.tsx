@@ -7,6 +7,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { TCard } from "@/src/components/tamagui";
 import type { ThemeColors } from "@packages/theme";
 import type { BackupPreview } from "@/src/modules/backup/domain/BackupMetadata";
 import { soundManager } from "@/src/services/SoundManager";
@@ -50,7 +51,7 @@ export function ConfirmRestoreModal({
       onRequestClose={onCancel}
     >
       <View style={styles.overlay}>
-        <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
+        <TCard borderRadius={20} padding={24} gap={14} width="100%" borderWidth={0} backgroundColor={theme.cardBackground} borderColor={theme.border}>
           {/* Icon */}
           <View style={styles.iconRow}>
             <View style={styles.iconBg}>
@@ -112,7 +113,7 @@ export function ConfirmRestoreModal({
               <Text style={styles.btnDangerText}>Restaurar</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </TCard>
       </View>
     </Modal>
   );
@@ -146,12 +147,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 24,
-  },
-  card: {
-    borderRadius: 20,
-    padding: 24,
-    width: "100%",
-    gap: 14,
   },
   iconRow: { alignItems: "center" },
   iconBg: {

@@ -6,6 +6,7 @@ import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
 import { soundManager } from "@/src/services/SoundManager";
+import { TButton } from "@/src/components/tamagui";
 
 type ScanMode = "qr" | "barcode";
 
@@ -53,9 +54,9 @@ export function QrScanScreen({
         <View style={[StyleSheet.absoluteFill, s.noCamera]}>
           <Feather name="camera-off" size={48} color="rgba(255,255,255,0.5)" />
           <Text style={s.noPermText}>Câmera sem permissão</Text>
-          <Pressable style={s.permBtn} onPress={onRequestPermission}>
-            <Text style={s.permBtnText}>Permitir Câmera</Text>
-          </Pressable>
+          <TButton variant="outline" borderColor={theme.border} color={theme.textColor} onPress={onRequestPermission}>
+            Permitir Câmera
+          </TButton>
         </View>
       )}
 
@@ -119,19 +120,24 @@ export function QrScanScreen({
             />
             <Text style={s.keyCounter}>{digitCount}/44 dígitos</Text>
             <View style={s.keyActions}>
-              <Pressable
-                style={[s.keyActionBtn, s.keyActionBtnOutline]}
+              <TButton
+                variant="outline"
+                flex={1}
+                borderColor={theme.border}
+                color={theme.textColor}
                 onPress={() => { soundManager.play("tap"); setShowKeyInput(false); }}
               >
-                <Text style={s.keyActionBtnOutlineText}>Cancelar</Text>
-              </Pressable>
-              <Pressable
-                style={[s.keyActionBtn, s.keyActionBtnFill]}
+                Cancelar
+              </TButton>
+              <TButton
+                variant="primary"
+                flex={1}
+                backgroundColor={theme.primaryColor}
                 onPress={() => { soundManager.play("tap"); onManualChaveSubmit(); }}
+                icon={<Feather name="search" size={16} color="#FFF" />}
               >
-                <Feather name="search" size={16} color="#FFF" />
-                <Text style={s.keyActionBtnFillText}>Consultar SEFAZ</Text>
-              </Pressable>
+                Consultar SEFAZ
+              </TButton>
             </View>
           </View>
         ) : (
@@ -159,11 +165,6 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
   noCamera: { alignItems: "center", justifyContent: "center", gap: 16 },
   noPermText: { color: "rgba(255,255,255,0.7)", fontSize: 16, marginTop: 8 },
-  permBtn: {
-    backgroundColor: "rgba(255,255,255,0.15)",
-    paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10,
-  },
-  permBtnText: { color: "#FFF", fontWeight: "600" },
   fade: { flex: 1, backgroundColor: "rgba(0,0,0,0.65)" },
   middle: { flexDirection: "row", height: 260 },
   focused: { flex: 6, borderWidth: 2, borderRadius: 16 },
@@ -214,12 +215,4 @@ const s = StyleSheet.create({
   },
   keyCounter: { color: "rgba(255,255,255,0.5)", fontSize: 12, textAlign: "right", marginTop: -4 },
   keyActions: { flexDirection: "row", gap: 10, marginTop: 4 },
-  keyActionBtn: {
-    flex: 1, flexDirection: "row", alignItems: "center",
-    justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: 10,
-  },
-  keyActionBtnOutline: { borderWidth: 1, borderColor: "rgba(255,255,255,0.3)" },
-  keyActionBtnOutlineText: { color: "rgba(255,255,255,0.7)", fontWeight: "600", fontSize: 14 },
-  keyActionBtnFill: { backgroundColor: "rgba(255,255,255,0.2)" },
-  keyActionBtnFillText: { color: "#FFF", fontWeight: "700", fontSize: 14 },
 });

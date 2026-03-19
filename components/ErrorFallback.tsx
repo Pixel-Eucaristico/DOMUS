@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import { TButton } from "@/src/components/tamagui";
 
 export type ErrorFallbackProps = {
   error: Error;
@@ -86,21 +87,15 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
           Please reload the app to continue.
         </Text>
 
-        <Pressable
-          onPress={handleRestart}
-          style={({ pressed }) => [
-            styles.button,
-            {
-              backgroundColor: theme.link,
-              opacity: pressed ? 0.9 : 1,
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-            },
-          ]}
-        >
-          <Text style={[styles.buttonText, { color: theme.buttonText }]}>
+        <View style={{ minWidth: 200 }}>
+          <TButton
+            variant="primary"
+            backgroundColor={theme.link}
+            onPress={handleRestart}
+          >
             Try Again
-          </Text>
-        </Pressable>
+          </TButton>
+        </View>
       </View>
 
       {__DEV__ ? (
@@ -216,25 +211,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     zIndex: 10,
-  },
-  button: {
-    paddingVertical: 16,
-    borderRadius: 8,
-    paddingHorizontal: 24,
-    minWidth: 200,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  buttonText: {
-    fontWeight: "600",
-    textAlign: "center",
-    fontSize: 16,
   },
   modalOverlay: {
     flex: 1,

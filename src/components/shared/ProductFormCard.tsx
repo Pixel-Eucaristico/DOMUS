@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
+import { TInput } from "@/src/components/tamagui";
 import { CategoryPickerModal } from "./CategoryPickerModal";
 import { getCategoryDisplayName, getCategoryColor } from "@/src/utils/categoryHelpers";
 import { soundManager } from "@/src/services/SoundManager";
@@ -51,12 +52,14 @@ export function ProductFormCard({
   return (
     <View style={[s.card, compact && s.cardCompact, { borderColor: theme.border }]}>
       <View style={s.row}>
-        <TextInput
-          style={[s.input, s.flex1, { color: theme.textColor, borderColor: theme.border }]}
+        <TInput
+          flex={1}
           value={data.name}
           onChangeText={(v) => onChange("name", v)}
           placeholder={namePlaceholder}
-          placeholderTextColor={theme.secondaryText}
+          color={theme.textColor}
+          backgroundColor={theme.cardBackground}
+          borderColor={theme.border}
         />
         {extraActions}
         {showRemove && (
@@ -67,29 +70,44 @@ export function ProductFormCard({
       </View>
 
       <View style={s.row}>
-        <TextInput
-          style={[s.inputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
+        <TInput
+          flex={1}
+          height={36}
+          fontSize={13}
+          paddingHorizontal="$md"
           value={data.qty}
           onChangeText={(v) => onChange("qty", v)}
           placeholder="Qtd"
-          placeholderTextColor={theme.secondaryText}
           keyboardType="decimal-pad"
+          color={theme.textColor}
+          backgroundColor={theme.cardBackground}
+          borderColor={theme.border}
         />
-        <TextInput
-          style={[s.inputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
+        <TInput
+          flex={1}
+          height={36}
+          fontSize={13}
+          paddingHorizontal="$md"
           value={data.unit}
           onChangeText={(v) => onChange("unit", v)}
           placeholder="UN"
-          placeholderTextColor={theme.secondaryText}
           autoCapitalize="characters"
+          color={theme.textColor}
+          backgroundColor={theme.cardBackground}
+          borderColor={theme.border}
         />
-        <TextInput
-          style={[s.inputSm, { color: theme.textColor, borderColor: theme.border, flex: 2 }]}
+        <TInput
+          flex={2}
+          height={36}
+          fontSize={13}
+          paddingHorizontal="$md"
           value={data.unitPrice}
           onChangeText={(v) => onChange("unitPrice", v)}
           placeholder="Preco unit."
-          placeholderTextColor={theme.secondaryText}
           keyboardType="decimal-pad"
+          color={theme.textColor}
+          backgroundColor={theme.cardBackground}
+          borderColor={theme.border}
         />
       </View>
 
@@ -105,23 +123,33 @@ export function ProductFormCard({
       </Pressable>
 
       <View style={s.row}>
-        <TextInput
-          style={[s.inputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
+        <TInput
+          flex={1}
+          height={36}
+          fontSize={13}
+          paddingHorizontal="$md"
           value={data.ean}
           onChangeText={(v) => onChange("ean", v)}
           placeholder="EAN (opcional)"
-          placeholderTextColor={theme.secondaryText}
           keyboardType="number-pad"
           maxLength={14}
+          color={theme.textColor}
+          backgroundColor={theme.cardBackground}
+          borderColor={theme.border}
         />
-        <TextInput
-          style={[s.inputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]}
+        <TInput
+          flex={1}
+          height={36}
+          fontSize={13}
+          paddingHorizontal="$md"
           value={data.ncm}
           onChangeText={(v) => onChange("ncm", v)}
           placeholder="NCM (opcional)"
-          placeholderTextColor={theme.secondaryText}
           keyboardType="number-pad"
           maxLength={8}
+          color={theme.textColor}
+          backgroundColor={theme.cardBackground}
+          borderColor={theme.border}
         />
       </View>
 
@@ -157,9 +185,6 @@ const s = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 8 },
   cardCompact: { padding: 10, gap: 6 },
   row: { flexDirection: "row", gap: 8, alignItems: "center" },
-  flex1: { flex: 1 },
-  input: { borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 14, fontFamily: "DMSans_400Regular" },
-  inputSm: { borderWidth: 1, borderRadius: 8, padding: 8, fontSize: 13, fontFamily: "DMSans_400Regular" },
   catBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
   catDot: { width: 8, height: 8, borderRadius: 4 },
   catText: { flex: 1, fontFamily: "DMSans_500Medium", fontSize: 13 },

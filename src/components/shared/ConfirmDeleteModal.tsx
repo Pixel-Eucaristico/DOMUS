@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Modal,
-  Pressable,
   StyleSheet,
   Animated,
   Dimensions,
@@ -13,6 +12,7 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
 import { soundManager } from "@/src/services/SoundManager";
+import { TButton } from "@/src/components/tamagui";
 
 const { height } = Dimensions.get("window");
 
@@ -99,20 +99,25 @@ export function ConfirmDeleteModal({
 
           {/* Buttons */}
           <View style={s.buttons}>
-            <Pressable
-              style={[s.btn, s.cancelBtn, { borderColor: theme.border }]}
+            <TButton
+              variant="outline"
+              flex={1}
+              borderColor={theme.border}
+              color={theme.textColor}
               onPress={() => { soundManager.play("tap"); onCancel(); }}
             >
-              <Text style={[s.cancelText, { color: theme.textColor }]}>Cancelar</Text>
-            </Pressable>
+              Cancelar
+            </TButton>
 
-            <Pressable
-              style={[s.btn, s.deleteBtn, { backgroundColor: theme.danger ?? "#DC2626" }]}
+            <TButton
+              variant="danger"
+              flex={1}
+              backgroundColor={theme.danger ?? "#DC2626"}
+              icon={<Feather name="trash-2" size={16} color="#FFF" />}
               onPress={() => { soundManager.play("trash"); onConfirm(); }}
             >
-              <Feather name="trash-2" size={16} color="#FFF" />
-              <Text style={s.deleteText}>{confirmLabel}</Text>
-            </Pressable>
+              {confirmLabel}
+            </TButton>
           </View>
         </Animated.View>
       </View>
@@ -165,27 +170,5 @@ const s = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     width: "100%",
-  },
-  btn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
-  },
-  cancelBtn: {
-    borderWidth: 1,
-  },
-  cancelText: {
-    fontSize: 15,
-    fontFamily: "DMSans_600SemiBold",
-  },
-  deleteBtn: {},
-  deleteText: {
-    fontSize: 15,
-    fontFamily: "DMSans_600SemiBold",
-    color: "#FFF",
   },
 });

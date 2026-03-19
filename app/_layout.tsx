@@ -15,6 +15,8 @@ import {
   DMSans_700Bold,
 } from "@expo-google-fonts/dm-sans";
 import { useShareIntent } from "expo-share-intent";
+import { TamaguiProvider } from "tamagui";
+import tamaguiConfig from "@/tamagui.config";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { AppStateProvider } from "@/src/context/AppStateProvider";
@@ -281,16 +283,20 @@ function DesktopLayout({ children }: { children: React.ReactNode }) {
 }
 
 function AppContainer({ children }: { children: React.ReactNode }) {
-  const { theme } = useAppState();
+  const { theme, themeMode } = useAppState();
+  const systemScheme = require("react-native").useColorScheme?.() ?? "light";
+  const isDark = themeMode === "dark" || (themeMode === "system" && systemScheme === "dark");
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
-      <SafeAreaProvider>
-        <ResponsiveLayoutProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
-        </ResponsiveLayoutProvider>
-      </SafeAreaProvider>
+      <TamaguiProvider config={tamaguiConfig} defaultTheme={isDark ? "dark" : "light"}>
+        <SafeAreaProvider>
+          <ResponsiveLayoutProvider>
+            <ToastProvider>
+              {children}
+            </ToastProvider>
+          </ResponsiveLayoutProvider>
+        </SafeAreaProvider>
+      </TamaguiProvider>
     </GestureHandlerRootView>
   );
 }

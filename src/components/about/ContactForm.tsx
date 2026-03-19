@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
+import { TInput } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
 import { EmailService } from "@/src/modules/security/application/EmailService";
 import type { ContactFormData } from "@/src/modules/security/application/EmailService";
@@ -176,30 +177,46 @@ const FormField = React.forwardRef<TextInput, FormFieldProps>(
         <Text style={[formStyles.label, { color: theme.secondaryText }]}>
           {label}
         </Text>
-        <TextInput
-          ref={ref}
-          style={[
-            formStyles.input,
-            {
-              backgroundColor: theme.background,
-              color: theme.textColor,
-              borderColor: error ? theme.danger : theme.border,
-              textAlignVertical: multiline ? "top" : "center",
-              height: multiline ? 96 : 46,
-            },
-          ]}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={theme.secondaryText + "70"}
-          multiline={multiline}
-          numberOfLines={numberOfLines}
-          keyboardType={keyboardType}
-          autoCapitalize={autoCapitalize ?? "words"}
-          returnKeyType={returnKeyType}
-          onSubmitEditing={onSubmitEditing}
-          blurOnSubmit={!multiline}
-        />
+        {multiline ? (
+          <TextInput
+            ref={ref}
+            style={[
+              formStyles.input,
+              {
+                backgroundColor: theme.background,
+                color: theme.textColor,
+                borderColor: error ? theme.danger : theme.border,
+                textAlignVertical: "top",
+                height: 96,
+              },
+            ]}
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor={theme.secondaryText + "70"}
+            multiline
+            numberOfLines={numberOfLines}
+            keyboardType={keyboardType}
+            autoCapitalize={autoCapitalize ?? "words"}
+            returnKeyType={returnKeyType}
+            onSubmitEditing={onSubmitEditing}
+            blurOnSubmit={false}
+          />
+        ) : (
+          <TInput
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor={theme.secondaryText + "70"}
+            keyboardType={keyboardType}
+            autoCapitalize={autoCapitalize ?? "words"}
+            returnKeyType={returnKeyType}
+            onSubmitEditing={onSubmitEditing}
+            borderColor={error ? theme.danger : theme.border}
+            background={theme.background}
+            color={theme.textColor}
+          />
+        )}
         {error != null && (
           <Text style={[formStyles.error, { color: theme.danger }]}>
             {error}

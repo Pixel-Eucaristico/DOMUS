@@ -8,6 +8,7 @@ import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
 import { soundManager } from "@/src/services/SoundManager";
+import { TButton } from "@/src/components/tamagui";
 
 interface Props {
   theme: ThemeColors;
@@ -77,9 +78,9 @@ export function OcrScanScreen({
         <View style={[StyleSheet.absoluteFill, s.noCamera]}>
           <Feather name="camera-off" size={48} color="rgba(255,255,255,0.5)" />
           <Text style={s.noPermText}>Câmera sem permissão</Text>
-          <Pressable style={s.permBtn} onPress={onRequestPermission}>
-            <Text style={s.permBtnText}>Permitir Câmera</Text>
-          </Pressable>
+          <TButton variant="outline" borderColor={theme.border} color={theme.textColor} onPress={onRequestPermission}>
+            Permitir Câmera
+          </TButton>
         </View>
       )}
 
@@ -116,13 +117,15 @@ export function OcrScanScreen({
             <Pressable style={s.bannerClear} onPress={() => { soundManager.play("trash"); setCapturedUris([]); }}>
               <Feather name="trash-2" size={16} color="rgba(255,255,255,0.7)" />
             </Pressable>
-            <Pressable
-              style={[s.processBtn, { backgroundColor: theme.primaryColor }]}
+            <TButton
+              variant="primary"
+              backgroundColor={theme.primaryColor}
               onPress={handleProcess}
+              icon={<MaterialCommunityIcons name="robot-happy" size={16} color="#FFF" />}
+              size="$3"
             >
-              <MaterialCommunityIcons name="robot-happy" size={16} color="#FFF" />
-              <Text style={s.processBtnText}>Processar ({photoCount})</Text>
-            </Pressable>
+              Processar ({photoCount})
+            </TButton>
           </View>
         </View>
       )}
@@ -168,11 +171,6 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
   noCamera: { alignItems: "center", justifyContent: "center", gap: 16 },
   noPermText: { color: "rgba(255,255,255,0.7)", fontSize: 16, marginTop: 8 },
-  permBtn: {
-    backgroundColor: "rgba(255,255,255,0.15)",
-    paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10,
-  },
-  permBtnText: { color: "#FFF", fontWeight: "600" },
   topBar: {
     position: "absolute", top: 0, left: 0, right: 0,
     flexDirection: "row", alignItems: "center",
@@ -207,11 +205,6 @@ const s = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.12)",
   },
-  processBtn: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
-  },
-  processBtnText: { color: "#FFF", fontSize: 14, fontWeight: "700" },
   bottomBar: {
     position: "absolute", bottom: 0, left: 0, right: 0,
     paddingHorizontal: 32, paddingTop: 24,

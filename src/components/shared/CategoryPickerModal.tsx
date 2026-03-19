@@ -7,6 +7,7 @@ import {
   Pressable,
   StyleSheet,
 } from "react-native";
+import { TCard } from "@/src/components/tamagui";
 import { FlashList } from "@shopify/flash-list";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
@@ -138,7 +139,7 @@ export function CategoryPickerModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={[s.overlay]}>
-        <View style={[s.container, { backgroundColor: theme.cardBackground }]}>
+        <TCard borderTopLeftRadius={20} borderTopRightRadius={20} borderBottomLeftRadius={0} borderBottomRightRadius={0} paddingTop={16} paddingBottom={30} paddingHorizontal={0} maxHeight="80%" backgroundColor={theme.cardBackground} borderColor={theme.border}>
           {/* Header */}
           <View style={s.header}>
             <Text style={[s.title, { color: theme.textColor }]}>Selecionar Categoria</Text>
@@ -178,7 +179,7 @@ export function CategoryPickerModal({
               </Text>
             }
           />
-        </View>
+        </TCard>
       </View>
     </Modal>
   );
@@ -189,13 +190,6 @@ const s = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.4)",
-  },
-  container: {
-    maxHeight: "80%",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 16,
-    paddingBottom: 30,
   },
   header: {
     flexDirection: "row",

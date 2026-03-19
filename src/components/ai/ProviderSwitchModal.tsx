@@ -1,8 +1,10 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable } from "react-native";
+import { View, Text, StyleSheet, Modal, Pressable } from "react-native";
+import { TCard } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
+import { TButton } from "@/src/components/tamagui";
 import { PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
 import type { AIProvider } from "@packages/ai";
 
@@ -39,7 +41,7 @@ export function ProviderSwitchModal({
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onDismiss}>
       <Pressable style={styles.overlay} onPress={onDismiss}>
-        <View style={[styles.modal, { backgroundColor: theme.cardBackground }]}>
+        <TCard borderRadius={20} padding={24} gap={14} width="100%" maxWidth={360} backgroundColor={theme.cardBackground} borderColor={theme.border}>
           <View style={styles.header}>
             <Feather name="alert-triangle" size={20} color={theme.warning} />
             <Text style={[styles.title, { color: theme.textColor }]}>
@@ -59,7 +61,7 @@ export function ProviderSwitchModal({
             {alternatives.map((p) => {
               const pt = PROVIDER_THEME[p];
               return (
-                <TouchableOpacity
+                <Pressable
                   key={p}
                   style={[styles.providerBtn, { borderColor: pt.color, backgroundColor: `${pt.color}10` }]}
                   onPress={() => { soundManager.play("pop"); onSwitch(p); }}
@@ -68,15 +70,15 @@ export function ProviderSwitchModal({
                   <Text style={[styles.providerLabel, { color: pt.color }]}>
                     {PROVIDER_LABELS[p]}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </View>
 
-          <TouchableOpacity onPress={onDismiss} style={styles.dismiss}>
-            <Text style={{ color: theme.secondaryText, fontSize: 14 }}>Agora nao</Text>
-          </TouchableOpacity>
-        </View>
+          <TButton variant="ghost" color={theme.primaryColor} onPress={onDismiss}>
+            Agora nao
+          </TButton>
+        </TCard>
       </Pressable>
     </Modal>
   );
@@ -107,13 +109,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.5)",
     padding: 24,
-  },
-  modal: {
-    borderRadius: 20,
-    padding: 24,
-    gap: 14,
-    width: "100%",
-    maxWidth: 360,
   },
   header: {
     flexDirection: "row",
@@ -154,9 +149,5 @@ const styles = StyleSheet.create({
   providerLabel: {
     fontSize: 14,
     fontWeight: "600",
-  },
-  dismiss: {
-    alignSelf: "center",
-    paddingVertical: 8,
   },
 });

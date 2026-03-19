@@ -22,6 +22,7 @@ import { AchievementGrid } from "@/src/components/gamification/AchievementGrid";
 import { soundManager } from "@/src/services/SoundManager";
 import { useSeasonData, MONTHS } from "@/src/hooks/useSeasonData";
 import { TourGuideZone } from "rn-tourguide";
+import { TButton, TCard } from "@/src/components/tamagui";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
 import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
 
@@ -113,10 +114,9 @@ export default function SeasonScreen() {
                 <View collapsable={false} style={[st.card, { backgroundColor: theme.cardBackground }]}>
                   <Feather name="calendar" size={32} color={theme.secondaryText} />
                   <Text style={[st.cardText, { color: theme.textColor }]}>Nenhuma temporada ativa</Text>
-                  <Pressable style={[st.actionBtn, { backgroundColor: theme.primaryColor }]} onPress={sd.handleStartSeason}>
-                    <Feather name="play" size={18} color="#FFF" />
-                    <Text style={st.actionBtnText}>Iniciar temporada</Text>
-                  </Pressable>
+                  <TButton variant="primary" backgroundColor={theme.primaryColor} icon={<Feather name="play" size={18} color="#FFF" />} onPress={sd.handleStartSeason}>
+                    Iniciar temporada
+                  </TButton>
                 </View>
                 </TourGuideZone>
               </>
@@ -163,13 +163,11 @@ export default function SeasonScreen() {
                 </View>
 
                 {sd.dayOfMonth >= sd.daysInMonth - 2 && (
-                  <Pressable
-                    style={[st.actionBtn, { backgroundColor: theme.accentColor, marginTop: 12, width: "100%" }]}
-                    onPress={sd.handleEvaluate}
-                  >
-                    <Feather name="check-circle" size={18} color="#FFF" />
-                    <Text style={st.actionBtnText}>Encerrar temporada</Text>
-                  </Pressable>
+                  <View style={{ marginTop: 12, width: "100%" }}>
+                    <TButton variant="primary" backgroundColor={theme.primaryColor} icon={<Feather name="check-circle" size={18} color="#FFF" />} onPress={sd.handleEvaluate}>
+                      Encerrar temporada
+                    </TButton>
+                  </View>
                 )}
               </View>
               </TourGuideZone>
@@ -332,10 +330,17 @@ function TrophyDetailModal({
   return (
     <Modal visible={!!selectedAch} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={st.modalOverlay} onPress={onClose}>
-        <Pressable
+        <TCard
           ref={trophyModalRef}
           collapsable={false}
-          style={[st.trophyModal, { backgroundColor: theme.cardBackground }]}
+          borderRadius={24}
+          padding={24}
+          width="100%"
+          maxWidth={400}
+          gap={16}
+          borderWidth={0}
+          backgroundColor={theme.cardBackground}
+          borderColor={theme.border}
           onPress={() => {}}
         >
           <View style={st.trophyModalHeader}>
@@ -421,12 +426,11 @@ function TrophyDetailModal({
           )}
 
           {unlocked && (
-            <TouchableOpacity style={[st.shareBtn, { borderColor: rarityColor }]} onPress={onShare} activeOpacity={0.8}>
-              <Feather name="share-2" size={15} color={rarityColor} />
-              <Text style={[st.shareBtnText, { color: rarityColor }]}>Compartilhar conquista</Text>
-            </TouchableOpacity>
+            <TButton variant="outline" borderColor={theme.border} color={theme.textColor} icon={<Feather name="share-2" size={15} color={rarityColor} />} onPress={onShare}>
+              Compartilhar conquista
+            </TButton>
           )}
-        </Pressable>
+        </TCard>
       </Pressable>
     </Modal>
   );
@@ -450,8 +454,6 @@ const st = StyleSheet.create({
   subtitle: { fontFamily: "DMSans_500Medium", fontSize: 13, marginTop: 0, opacity: 0.6 },
   card: { borderRadius: 20, padding: 16, alignItems: "center" as const, gap: 12, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)" },
   cardText: { fontFamily: "DMSans_700Bold", fontSize: 16 },
-  actionBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 },
-  actionBtnText: { fontFamily: "DMSans_700Bold", fontSize: 15, color: "#FFF" },
   progressHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%" },
   progressTitle: { fontFamily: "DMSans_700Bold", fontSize: 13, opacity: 0.6, textTransform: "uppercase", letterSpacing: 0.5 },
   progressPercent: { fontFamily: "DMSans_800ExtraBold", fontSize: 18 },
@@ -468,7 +470,6 @@ const st = StyleSheet.create({
   highlightName: { fontFamily: "DMSans_700Bold", fontSize: 11 },
   // Trophy detail modal
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "center", alignItems: "center", padding: 24 },
-  trophyModal: { borderRadius: 24, padding: 24, width: "100%", maxWidth: 400, gap: 16 },
   trophyModalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   rarityBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10 },
   rarityBadgeText: { fontFamily: "DMSans_700Bold", fontSize: 12, textTransform: "uppercase" },
@@ -491,6 +492,4 @@ const st = StyleSheet.create({
   seriesStatValue: { fontFamily: "DMSans_700Bold", fontSize: 16 },
   seriesStatLabel: { fontFamily: "DMSans_700Bold", fontSize: 9, textTransform: "uppercase", opacity: 0.5 },
   xpStatDivider: { width: 1, height: 20, opacity: 0.1 },
-  shareBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderRadius: 16, paddingVertical: 14, marginTop: 8 },
-  shareBtnText: { fontFamily: "DMSans_700Bold", fontSize: 15 },
 });
