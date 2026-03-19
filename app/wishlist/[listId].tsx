@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Alert,
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -46,6 +45,7 @@ export default function WishlistDetailScreen() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [removingItem, setRemovingItem] = useState<WishlistItem | null>(null);
 
   // Auto-open add modal when navigated with ?addItem=1
   useEffect(() => {
@@ -68,7 +68,9 @@ export default function WishlistDetailScreen() {
         t.type === "expense" &&
         d.getMonth() === now.getMonth() &&
         d.getFullYear() === now.getFullYear() &&
-        (!t.status || t.status === "confirmed")
+        (!t.status || t.status === "confirmed") &&
+        // Transferências de aporte de poupança não são gastos reais
+        !t.description?.startsWith("Transferência: Aporte poupança:")
       );
     })
     .reduce((sum, t) => sum + t.amount, 0);
@@ -138,23 +140,11 @@ export default function WishlistDetailScreen() {
 
   const handleRemove = useCallback(
     (item: WishlistItem) => {
-      soundManager.play("trash");
       if (Platform.OS === "web") {
         const ok = window.confirm(`Remover "${item.name}" da lista?`);
         if (ok) removeItem(item.id, item.listId);
       } else {
-        Alert.alert(
-          "Remover item",
-          `Remover "${item.name}" da lista?`,
-          [
-            { text: "Cancelar", style: "cancel" },
-            {
-              text: "Remover",
-              style: "destructive",
-              onPress: () => removeItem(item.id, item.listId),
-            },
-          ],
-        );
+        setRemovingItem(item);
       }
     },
     [removeItem],
@@ -321,6 +311,15 @@ export default function WishlistDetailScreen() {
         description={`Tem certeza que deseja excluir "${list.name}" e todos os seus itens? Esta ação não pode ser desfeita.`}
         onConfirm={() => { setShowDeleteConfirm(false); deleteList(list.id); router.back(); }}
         onCancel={() => setShowDeleteConfirm(false)}
+        theme={theme}
+      />
+      <ConfirmDeleteModal
+        visible={!!removingItem}
+        title="Remover item"
+        description={`Remover "${removingItem?.name ?? ""}" da lista?`}
+        confirmLabel="Remover"
+        onConfirm={() => { if (removingItem) removeItem(removingItem.id, removingItem.listId); setRemovingItem(null); }}
+        onCancel={() => setRemovingItem(null)}
         theme={theme}
       />
     </SafeAreaView>

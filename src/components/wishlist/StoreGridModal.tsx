@@ -6,10 +6,10 @@ import {
   Modal,
   TouchableOpacity,
   TextInput,
-  FlatList,
   Image,
   Dimensions,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 
 const NUM_COLS = 5;
 const SCREEN_W = Dimensions.get("window").width;
@@ -134,11 +134,12 @@ export function StoreGridModal({ visible, theme, searchQuery = "", onSelectStore
           </View>
 
           {/* Grid de lojas */}
-          <FlatList
+          <FlashList
             data={filtered}
             keyExtractor={(s) => s.id}
             renderItem={renderItem}
             numColumns={5}
+            estimatedItemSize={80}
             contentContainerStyle={styles.grid}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={

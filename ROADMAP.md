@@ -9,14 +9,132 @@
 
 *Foco: Transformar a identidade visual e a performance da interface.*
 
-- [ ] **Migração para Tamagui:**
-    - Implementar Temas Dinâmicos (Católico/Laico) com suporte nativo a Dark Mode.
-    - Substituir `StyleSheet` tradicional por componentes atómicos do Tamagui para renderização ultra-rápida.
-- [ ] **Animações Interativas (Troféus):**
-    - Integrar `@rive-app/react-native`.
-    - Converter os 167 troféus em vetores animados que reagem ao toque e brilham ao ganhar XP.
-- [ ] **Listas Ultra-Rápidas (FlashList):**
-    - Substituir `FlatList` pelo **FlashList (Shopify)** para garantir scroll de 120Hz constante em ecrãs modernos.
+**Estado atual:**
+- 6 archetypes de tema (explorer, organizer, planner, strategist, investor, independent) × light/dark = 12 variantes
+- Engine em `packages/theme/src/themeEngine.ts`, hook `useThemePreferences`
+- 135 arquivos usam `StyleSheet.create()`, tema aplicado via inline styles
+- 6 arquivos usam `FlatList` efetivamente
+- 33 arquivos de troféus com `react-native-reanimated` + `react-native-svg`
+- Flag `isCatholic` já implementado (AsyncStorage + modal de preferência)
+
+---
+
+### 3.1 — Listas Ultra-Rápidas (FlashList) — CONCLUÍDA
+- **Dificuldade:** FÁCIL | **Urgência:** MÉDIA | **~2-3h**
+- **Impacto:** Scroll 120Hz em listas longas (wishlist, categorias, lojas, troféus debug)
+- **Dependência:** `@shopify/flash-list@2.0.2` (instalado via expo)
+- **Arquivos migrados** (5 arquivos — FlatList → FlashList):
+    - [x] `app/(tabs)/wishlist.tsx` — estimatedItemSize: 100
+    - [x] `app/wishlist/index.tsx` — estimatedItemSize: 100
+    - [x] `src/components/shared/CategoryPickerModal.tsx` — estimatedItemSize: 48
+    - [x] `src/components/wishlist/StoreGridModal.tsx` — estimatedItemSize: 80 (grid 5 cols)
+    - [x] `src/components/debug/DebugTools.tsx` — estimatedItemSize: 72
+- **Nota:** Zero FlatList restante no código-fonte
+
+### 3.2 — Temas Dinâmicos Católico/Laico
+- **Dificuldade:** MÉDIO | **Urgência:** MÉDIA | **~4-6h**
+- **Já existe:** `isCatholic` flag + `ReligiousPreferenceModal` + 6 archetypes com dark mode
+- **Falta implementar:**
+    - [x] Criar paleta católica em `themeEngine.ts`: 6 archetypes × light/dark = 12 variantes católicas (dourado/vinho/marfim/bordô)
+    - [x] Criar paleta laica: paleta original mantida (já funciona)
+    - [x] Modificar `getThemeForArchetype(archetype, isDark, isCatholic)` — 3º parâmetro adicionado + hook atualizado
+    - [x] Adicionar ícones litúrgicos sutis nos headers quando `isCatholic=true`
+        - `CatholicHeaderIcon` component com 5 ícones SVG inline (cross, heart, dove, chalice, fish)
+        - Rotação diária automática, opacity 0.3, tamanho 16px
+        - Adicionado nos 4 tabs: Home, Wishlist, Contas, Temporada
+        - 6 SVGs copiados para `assets/icons/catholic/` (celtic-cross, sacred-heart, rosary, divine-light, holy-candle, church-window)
+    - [x] Testar 12 variantes existentes + 12 católicas = 24 temas total
+
+### 3.3 — Migração Gradual para Tamagui
+- **Dificuldade:** COMPLEXO | **Urgência:** BAIXA | **~40-60h (longo prazo)**
+- **Estratégia:** Migração incremental, NÃO big-bang (135 arquivos com StyleSheet)
+- **Dependência:** `yarn add tamagui @tamagui/config`
+
+#### Etapa A — Setup (~4h)
+- [ ] Instalar Tamagui + criar `tamagui.config.ts` com tokens mapeados dos 6 archetypes
+- [ ] Configurar `TamaguiProvider` no `_layout.tsx` (coexistir com sistema atual)
+- [ ] Criar componentes base: `TButton`, `TCard`, `TText`, `TInput`
+
+#### Etapa B — Componentes Atómicos (~15h)
+- [ ] Migrar botões (`Pressable` + styles → `TButton`)
+- [ ] Migrar cards de conta, transação, troféu
+- [ ] Migrar inputs de formulário
+- [ ] Migrar modais (containers com `View` → `TCard`)
+
+#### Etapa C — Telas Completas (~20-30h)
+- [ ] Migrar telas uma a uma, priorizando as mais usadas
+- [ ] Remover `StyleSheet.create` dos arquivos migrados
+- [ ] Garantir paridade visual light/dark em todas as telas
+
+### 3.4 — Animações Rive para Troféus (167 troféus individuais)
+- **Dificuldade:** COMPLEXO | **Urgência:** BAIXA | **~15-25h**
+- **Dependência:** `yarn add @rive-app/react-native`
+- **Referência:** [rive_animated_icons](https://github.com/nikkieke/rive_animated_icons) — exemplos de ícones animados com Rive em apps mobile
+- **Assets locais:** `C:\Users\WillianQuintino\Pictures\Animated-Catholic-Icons\`
+    - 45 Lottie JSONs animados (prontos para uso com `lottie-react-native`)
+    - 75 SVGs titulados + PNG, PDF, Figma, After Effects (.aep), GIF, MP4
+    - **Ícones animados disponíveis (75):**
+      Advent Wreath, Altar, Angel Wings, Angel, Baptism, Begena, Belgium Church, Bible Book, Bible, Candleholder, Catholic Church, Catholic Nun, Catholic Priest, Celtic Cross, Cemetery Gate, Christ Blessing, Christian Banner, Christian Grave, Christian Locket, Christian Necklace, Church Donation, Church Lamp, Church Organ, Church Window, Church, Coffin, Communion Food, Coptic Cross, Crown, Divine Light, Easter Cross, Easter Egg, Eggs Basket, Eucharist, Gothic Cross, Holding Candle, Holy Bell, Holy Candle, Holy Communion, Holy Lamb, Holy Scripture, Holy Water, Jesus Hands, Jesus Sculpture, Jesus Statue, Mother Mary, Nativity Scene, Oath, Oil Lamp, Papal Tiara, Peace Sign, Pope Hat, Prayer Mat, Praying Nun, Presbyterian Cross, Rabbit, Reading Bible, Rosary, Sacred Heart, Saint Patrick, Seraph Cherub, Seraphim, Sparkle Firework, St Cathedral, Vigil Lamp, Wedding Rings
+- **Componentes atuais:** `AnimatedTrophy.tsx` + `AnimatedSeasonalTrophy.tsx` (SVG + Reanimated)
+
+#### Estilo Visual por Categoria
+
+**Troféus Litúrgicos (73) — Flat/Ilustração de Santos:**
+- Silhuetas estilizadas flat design dos santos católicos
+- Ex: São Francisco → silhueta com pássaros, Nossa Senhora Aparecida → manto azul estilizado
+- Carlo Acutis → silhueta jovem com laptop/hóstia
+- Fontes: SVGs flat de repositórios abertos (Wikimedia, OpenClipart, Flaticon)
+- Animação: aureola brilhando, elementos flutuando suavemente
+
+**Troféus Sazonais (48) — SVG Temático do Evento Real:**
+- Cada troféu tem um SVG representativo do tema concreto:
+  - Dia do Consumidor → carrinho de compras animado
+  - Dia dos Namorados → casal se abraçando / corações
+  - Black Friday → sacolas de compra com etiquetas
+  - Natal → árvore de Natal com estrela brilhando
+  - Páscoa → coelho com ovos coloridos
+  - Dia das Mães → flores / abraço mãe-filho
+  - Dia dos Pais → gravata / ferramentas
+  - Carnaval → máscara com confetes
+  - Ano Novo → fogos de artifício / relógio
+  - Dia do Trabalho → capacete / engrenagens
+- Fontes: SVGRepo, Undraw, OpenClipart, Storyset (free)
+
+**Troféus de Conquista (40) — Ícones Temáticos + Medalha:**
+- Ícone SVG do tema no centro (cofre, gráfico subindo, moeda, estrela, foguete)
+- Borda de medalha animada conforme raridade (bronze/prata/ouro/diamante)
+- Ex: "Primeira Economia" → cofrinho com moeda caindo + borda bronze
+- Ex: "Mestre do Orçamento" → gráfico com check + borda ouro
+
+**Troféus Mensais (6) — Calendário Animado:**
+- Ícone de calendário com número do mês + elemento sazonal
+- Borda que pulsa conforme streak (meses consecutivos)
+
+#### Implementação Técnica
+- [ ] Buscar/criar SVGs flat para os 73 santos litúrgicos (silhuetas estilizadas)
+- [ ] Buscar/criar SVGs temáticos para os 48 eventos sazonais
+- [ ] Criar SVGs de conquista (40 ícones + 4 bordas de raridade)
+- [ ] Converter SVGs → arquivos `.riv` no editor Rive (community, gratuito)
+- [ ] Adicionar State Machines: idle (flutuando), tap (celebração), unlock (brilho + partículas)
+- [ ] Criar `trophyAnimationConfigs.ts` mapeando cada troféu ao `.riv` + parâmetros
+- [ ] Refatorar `AnimatedTrophy` para: se `.riv` existe → Rive, senão → fallback SVG atual
+- [ ] Armazenar `.riv` em `assets/rive/trophies/` organizado por categoria
+
+---
+
+### Ordem de Execução da Fase 3
+
+```
+RÁPIDO (fazer primeiro):
+  3.1 - FlashList .................. [FÁCIL]     ~2-3h
+
+MÉDIO (após FlashList):
+  3.2 - Temas Católico/Laico ....... [MÉDIO]     ~4-6h
+
+LONGO PRAZO (quando houver tempo):
+  3.3 - Migração Tamagui ........... [COMPLEXO]  ~40-60h
+  3.4 - Animações Rive ............. [COMPLEXO]  ~15-25h (depende de assets)
+```
 
 ---
 
@@ -57,10 +175,17 @@
 ## Ordem de Execução Recomendada
 
 ```
-URGÊNCIA BAIXA (quando houver tempo):
-  Fase 3 - Design System Premium ....... [COMPLEXO]         ~40-60h
-  08 - Animação Troféus ................ [COMPLEXO]         ~15-25h
+PRÓXIMO (rápido, alto impacto):
+  3.1 - FlashList ...................... [FÁCIL]            ~2-3h
+  3.2 - Temas Católico/Laico .......... [MÉDIO]            ~4-6h
+
+MÉDIO PRAZO:
   09 - Olerite OCR (parte restante) .... [COMPLEXO]         ~4-6h
+  08 - Animação Troféus (configs) ...... [COMPLEXO]         ~15-25h
+
+LONGO PRAZO:
+  3.3 - Migração Tamagui .............. [COMPLEXO]         ~40-60h
+  3.4 - Animações Rive ................ [COMPLEXO]         ~15-25h
 ```
 
 ---
@@ -69,7 +194,8 @@ URGÊNCIA BAIXA (quando houver tempo):
 
 ```bash
 # UI & Performance
-yarn add tamagui @rive-app/react-native @shopify/flash-list @bsky.app/expo-scroll-edge-effect
+yarn add tamagui @rive-app/react-native @bsky.app/expo-scroll-edge-effect
+# @shopify/flash-list — já instalado (v2.0.2)
 
 # UX
 yarn add react-native-smart-tooltip

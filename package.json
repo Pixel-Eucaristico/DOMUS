@@ -30,6 +30,7 @@
     "@react-native-firebase/crashlytics": "^23.8.6",
     "@react-native-firebase/perf": "^23.8.6",
     "@react-native-google-signin/google-signin": "^16.1.2",
+    "@shopify/flash-list": "2.0.2",
     "@stardazed/streams-text-encoding": "^1.0.2",
     "@tanstack/react-query": "^5.83.0",
     "@types/pg": "^8.16.0",

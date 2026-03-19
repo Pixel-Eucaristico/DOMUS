@@ -187,8 +187,15 @@ export function calculate503020(
     if (m !== month || y !== year) continue;
 
     if (tx.type === "income") {
-      totalIncome += tx.amount;
+      // Aportes de poupança são transferências internas, não renda real
+      // Incluí-los inflaria o totalIncome e distorceria as porcentagens 50/30/20
+      if (!tx.description?.startsWith("Aporte poupança:")) {
+        totalIncome += tx.amount;
+      }
     } else if (tx.type === "expense") {
+      // Transferências de aporte de poupança não são gastos reais
+      if (tx.description?.startsWith("Transferência: Aporte poupança:")) continue;
+
       if (tx.items && tx.items.length > 0) {
         for (const item of tx.items) {
           const cat = categories[item.categoryId];

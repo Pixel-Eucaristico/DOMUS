@@ -5,9 +5,9 @@ import {
   Text,
   TextInput,
   Pressable,
-  FlatList,
   StyleSheet,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import { EXPENSE_CATEGORIES } from "@/src/constants/transactionCategories";
@@ -166,11 +166,11 @@ export function CategoryPickerModal({
           </View>
 
           {/* List */}
-          <FlatList
+          <FlashList
             data={filtered}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
-            style={s.list}
+            estimatedItemSize={48}
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
               <Text style={[s.empty, { color: theme.secondaryText }]}>

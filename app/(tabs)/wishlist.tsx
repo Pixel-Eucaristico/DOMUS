@@ -3,9 +3,9 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -17,10 +17,11 @@ import { WishlistListCard } from "@/src/components/wishlist/WishlistListCard";
 import { CreateListModal } from "@/src/components/wishlist/CreateListModal";
 import { TourGuideZone } from "rn-tourguide";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
+import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
 
 
 export default function WishlistTab() {
-  const { theme } = useAppState();
+  const { theme, isCatholic } = useAppState();
   const router = useRouter();
   const { lists, getItemsByList, createList } = useWishlist();
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -44,9 +45,12 @@ export default function WishlistTab() {
     >
       <TourGuideZone zone={1} text="8" isTourGuide borderRadius={8}>
       <View collapsable={false}>
-        <Text style={[styles.title, { color: theme.textColor }]}>
-          Lista de Desejos
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Text style={[styles.title, { color: theme.textColor }]}>
+            Lista de Desejos
+          </Text>
+          {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
+        </View>
       </View>
       </TourGuideZone>
 
@@ -80,10 +84,11 @@ export default function WishlistTab() {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={sortedLists}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          estimatedItemSize={100}
           renderItem={({ item }) => (
             <WishlistListCard
               list={item}

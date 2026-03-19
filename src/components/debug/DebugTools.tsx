@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  FlatList,
   Modal,
   TextInput,
   Platform,
@@ -17,6 +16,7 @@ import { ALL_SEASONAL_TROPHIES, getTierColor } from "@packages/gamification/src/
 import { ALL_LITURGICAL_TROPHIES } from "@packages/gamification/src/liturgicalTrophies";
 import { ALL_ACHIEVEMENTS, MONTHLY_TROPHIES } from "@packages/gamification/src/achievements";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { FlashList } from "@shopify/flash-list";
 import type { ArchetypeType } from "@packages/personality/src/types";
 import { getArchetypeDescription } from "@packages/personality/src/archetypeEngine";
 import { AnimatedTrophy } from "@/src/components/gamification/AnimatedTrophy";
@@ -195,15 +195,11 @@ export function DebugTools() {
                 <Text style={{ fontSize: 11, color: theme.secondaryText, marginBottom: 8 }}>
                   {filteredTrophies.length} troféus encontrados
                 </Text>
-                <FlatList
+                <FlashList
                   data={filteredTrophies}
                   keyExtractor={(item, idx) => `${item.id}-${item._debugType}-${idx}`}
-                  initialNumToRender={15}
-                  maxToRenderPerBatch={10}
-                  windowSize={5}
-                  getItemLayout={(_data, index) => ({ length: 72, offset: 72 * index, index })}
+                  estimatedItemSize={72}
                   renderItem={renderTrophyRow}
-                  style={{ flex: 1 }}
                   keyboardShouldPersistTaps="handled"
                 />
               </View>

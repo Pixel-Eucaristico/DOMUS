@@ -3,9 +3,9 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -83,10 +83,11 @@ export default function WishlistIndexScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={sortedLists}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          estimatedItemSize={100}
           renderItem={({ item }) => (
             <WishlistListCard
               list={item}

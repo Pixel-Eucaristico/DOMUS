@@ -4,6 +4,21 @@
 
 ---
 
+## Fase 3.1 — FlashList (Listas Ultra-Rápidas)
+
+**Status:** CONCLUÍDA em 19/03/2026
+
+- Instalado `@shopify/flash-list@2.0.2` via `npx expo install`
+- Migrados 5 arquivos de `FlatList` → `FlashList`:
+  - `app/(tabs)/wishlist.tsx` (estimatedItemSize: 100)
+  - `app/wishlist/index.tsx` (estimatedItemSize: 100)
+  - `src/components/shared/CategoryPickerModal.tsx` (estimatedItemSize: 48)
+  - `src/components/wishlist/StoreGridModal.tsx` (estimatedItemSize: 80, grid 5 cols)
+  - `src/components/debug/DebugTools.tsx` (estimatedItemSize: 72)
+- Zero FlatList restante no código-fonte
+
+---
+
 ## Fase 2: Eficiência e Entrada de Dados
 
 **Status:** CONCLUÍDA em 15/03/2026 (release v1.4.0)

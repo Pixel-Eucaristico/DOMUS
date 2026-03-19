@@ -44,13 +44,14 @@ import { TourGuideZone } from "rn-tourguide";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
 import { useTourPage } from "@/src/tour/useTourPage";
 import { HomeFab } from "@/src/components/shared/HomeFab";
+import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
 
 
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { domain, gamification, levelInfo, totalBalance, archetype, theme, loading, dispatchDomainEvent, deviceId, season } =
+  const { domain, gamification, levelInfo, totalBalance, archetype, theme, loading, dispatchDomainEvent, deviceId, season, isCatholic } =
     useAppState();
   const { syncStatus } = useSync();
   const { isMobile, columns } = useResponsive();
@@ -286,6 +287,7 @@ export default function HomeScreen() {
           <View style={[s.header]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <DomusLogo size={36} theme={theme} />
+              {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
               <View>
                 <Text style={[s.greeting, { color: theme.textColor }]}>DOMUS</Text>
                 <Text style={[s.subtitle, { color: theme.secondaryText }]}>

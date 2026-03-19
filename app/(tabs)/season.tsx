@@ -23,6 +23,7 @@ import { soundManager } from "@/src/services/SoundManager";
 import { useSeasonData, MONTHS } from "@/src/hooks/useSeasonData";
 import { TourGuideZone } from "rn-tourguide";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
+import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
 
 
 export default function SeasonScreen() {
@@ -57,7 +58,10 @@ export default function SeasonScreen() {
       <View style={[st.header, { paddingTop: insets.top + webTopInset + 16, backgroundColor: theme.background }]}>
         <View style={st.headerTop} ref={sd.levelCardRef} collapsable={false}>
           <View style={{ flex: 1 }}>
-            <Text style={[st.title, { color: theme.textColor }]}>Temporada</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={[st.title, { color: theme.textColor }]}>Temporada</Text>
+              {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
+            </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 }}>
               <Text style={[st.subtitle, { color: theme.secondaryText }]}>{MONTHS[sd.currentMonth - 1]}</Text>
               <View style={[st.archetypeBadge, { backgroundColor: theme.primaryColor + "22" }]}>

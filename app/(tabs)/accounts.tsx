@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
 import { soundManager } from "@/src/services/SoundManager";
 import type { AccountPayload } from "@packages/events/src/types";
 import { URGENCY_ORDER } from "@packages/wishlist";
@@ -19,7 +20,7 @@ import { TourPageHost } from "@/src/components/tour/TourPageHost";
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { domain, theme, wishlist, dispatchDomainEvent } = useAppState();
+  const { domain, theme, wishlist, dispatchDomainEvent, isCatholic } = useAppState();
   const webTopInset = 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
@@ -82,7 +83,10 @@ export default function AccountsScreen() {
        <ResponsiveContainer>
         <View style={Platform.OS === "web" ? { position: "relative" } : {}}>
           <View style={s.header}>
-            <Text style={[s.title, { color: theme.textColor }]}>Contas</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={[s.title, { color: theme.textColor }]}>Contas</Text>
+              {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
+            </View>
             <TourGuideZone zone={1} text="3" isTourGuide borderRadius={12}>
             <Pressable
               collapsable={false}
