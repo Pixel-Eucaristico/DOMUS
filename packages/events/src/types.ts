@@ -63,6 +63,8 @@ export interface AccountPayload {
   savingsContributionAmount?: number;
   /** Periodicidade do aporte: "monthly" (padrão) | "biweekly" | "weekly" */
   contributionRecurrence?: "monthly" | "biweekly" | "weekly";
+  /** Dia do mês para gerar o aporte mensal (1-28). Padrão: 1 */
+  contributionDay?: number;
 }
 
 export interface TransactionItem {

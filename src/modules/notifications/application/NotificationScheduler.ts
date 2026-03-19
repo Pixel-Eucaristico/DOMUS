@@ -294,8 +294,13 @@ export function computePendingTransactionReminders(
   if (!settings.pendingTransactions) return [];
 
   const today = todayStr();
+  // Exclui aportes de poupança — eles têm lembrete próprio na data certa,
+  // não devem gerar notificação diária repetitiva
   const pending = Object.values(transactions).filter(
-    (tx) => tx.status === "pending" && tx.date <= today,
+    (tx) =>
+      tx.status === "pending" &&
+      tx.date <= today &&
+      !tx.description?.startsWith("Aporte poupança:"),
   );
 
   if (pending.length === 0) return [];
@@ -338,6 +343,45 @@ export function computePendingTransactionReminders(
     trigger: triggerDaily(notifyHour, 0),
     data: { type: "pending-transactions-group", count: pending.length },
   }];
+}
+
+/** Lembrete de aporte de poupança — apenas no dia configurado (ou dia seguinte) */
+export function computeSavingsContributionReminders(
+  transactions: Record<string, TransactionPayload>,
+  accounts: Record<string, AccountPayload>,
+  settings: NotificationSettings,
+): ScheduledNotification[] {
+  if (!settings.pendingTransactions) return [];
+  const results: ScheduledNotification[] = [];
+
+  const today = todayStr();
+  const pendingSavings = Object.values(transactions).filter(
+    (tx) =>
+      tx.status === "pending" &&
+      tx.date <= today &&
+      tx.description?.startsWith("Aporte poupança:"),
+  );
+
+  if (pendingSavings.length === 0) return results;
+
+  let notifyHour = 9;
+  if (isInQuietHours(new Date(new Date().setHours(9, 0, 0, 0)), settings.quietHours)) {
+    notifyHour = settings.quietHours.endHour;
+  }
+
+  for (const tx of pendingSavings) {
+    const acc = accounts[tx.accountId];
+    const accName = acc?.name || "Poupança";
+    results.push({
+      channelId: CHANNELS.PENDING_TRANSACTIONS,
+      title: `Aporte pendente: ${accName}`,
+      body: `Confirme o aporte de ${formatCurrency(tx.amount)} para ${accName}`,
+      trigger: triggerAtDate(new Date(new Date().setHours(notifyHour, 0, 0, 0))),
+      data: { type: "savings-contribution", transactionId: tx.id },
+    });
+  }
+
+  return results;
 }
 
 /** Resumo semanal — domingo 18h */

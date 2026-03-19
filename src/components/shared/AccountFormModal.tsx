@@ -55,6 +55,7 @@ export function AccountFormModal({
   const [savingsGoalEnabled, setSavingsGoalEnabled] = useState(false);
   const [savingsContribution, setSavingsContribution] = useState("");
   const [savingsRecurrence, setSavingsRecurrence] = useState<"monthly" | "biweekly" | "weekly">("monthly");
+  const [contributionDay, setContributionDay] = useState("1");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [transferAccountId, setTransferAccountId] = useState<string | null>(null);
 
@@ -73,6 +74,7 @@ export function AccountFormModal({
         setSavingsGoalEnabled(editingAccount.savingsGoalEnabled ?? false);
         setSavingsContribution(editingAccount.savingsContributionAmount?.toString() ?? "");
         setSavingsRecurrence(editingAccount.contributionRecurrence ?? "monthly");
+        setContributionDay(editingAccount.contributionDay?.toString() ?? "1");
       } else {
         setName("");
         setBalance("");
@@ -83,6 +85,7 @@ export function AccountFormModal({
         setSavingsGoalEnabled(false);
         setSavingsContribution("");
         setSavingsRecurrence("monthly");
+        setContributionDay("1");
       }
       Animated.parallel([
         Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
@@ -133,6 +136,10 @@ export function AccountFormModal({
       accType === "savings" && savingsGoalEnabled
         ? parseFloat(savingsContribution.replace(",", ".")) || undefined
         : undefined;
+    const contributionDayNum =
+      accType === "savings" && savingsGoalEnabled && savingsRecurrence === "monthly"
+        ? Math.min(Math.max(parseInt(contributionDay, 10) || 1, 1), 28)
+        : undefined;
 
     if (editingAccount) {
       const event = updateAccountEvent(editingAccount.id, {
@@ -145,6 +152,7 @@ export function AccountFormModal({
         savingsGoalEnabled: accType === "savings" ? savingsGoalEnabled : undefined,
         savingsContributionAmount: contributionNum,
         contributionRecurrence: accType === "savings" && savingsGoalEnabled ? savingsRecurrence : undefined,
+        contributionDay: contributionDayNum,
       });
       dispatchDomainEvent(event);
     } else {
@@ -158,6 +166,7 @@ export function AccountFormModal({
         savingsGoalEnabled: accType === "savings" ? savingsGoalEnabled : undefined,
         savingsContributionAmount: contributionNum,
         contributionRecurrence: accType === "savings" && savingsGoalEnabled ? savingsRecurrence : undefined,
+        contributionDay: contributionDayNum,
       });
       dispatchDomainEvent(event);
     }
@@ -343,6 +352,8 @@ export function AccountFormModal({
                   onRecurrenceChange={setSavingsRecurrence}
                   savingsContribution={savingsContribution}
                   onContributionChange={setSavingsContribution}
+                  contributionDay={contributionDay}
+                  onContributionDayChange={setContributionDay}
                   editingAccountId={editingAccount?.id ?? null}
                   linkedWishlistItems={linkedWishlistItems}
                   editingAccountBalance={editingAccount?.balance ?? 0}
@@ -473,6 +484,8 @@ function SavingsGoalSection({
   onRecurrenceChange,
   savingsContribution,
   onContributionChange,
+  contributionDay,
+  onContributionDayChange,
   editingAccountId,
   linkedWishlistItems,
   editingAccountBalance,
@@ -484,6 +497,8 @@ function SavingsGoalSection({
   onRecurrenceChange: (r: "monthly" | "biweekly" | "weekly") => void;
   savingsContribution: string;
   onContributionChange: (v: string) => void;
+  contributionDay: string;
+  onContributionDayChange: (v: string) => void;
   editingAccountId: string | null;
   linkedWishlistItems: any[];
   editingAccountBalance: number;
@@ -557,12 +572,31 @@ function SavingsGoalSection({
             placeholderTextColor={theme.secondaryText}
             keyboardType="decimal-pad"
           />
+          {savingsRecurrence === "monthly" && (
+            <>
+              <Text style={[s.fieldLabel, { color: theme.secondaryText, marginTop: 10 }]}>
+                Dia do aporte (1-28)
+              </Text>
+              <TextInput
+                style={[s.input, { color: theme.textColor, borderColor: theme.border, width: 80 }]}
+                value={contributionDay}
+                onChangeText={(v) => {
+                  const num = v.replace(/[^0-9]/g, "");
+                  onContributionDayChange(num);
+                }}
+                placeholder="1"
+                placeholderTextColor={theme.secondaryText}
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+            </>
+          )}
           <Text style={[s.goalNote, { color: theme.secondaryText }]}>
             {savingsRecurrence === "weekly"
               ? "Um aporte pendente será gerado toda semana e efetivado quando você transferir o valor."
               : savingsRecurrence === "biweekly"
                 ? "Um aporte pendente será gerado a cada quinzena e efetivado quando você transferir o valor."
-                : "Um aporte pendente será gerado todo mês e efetivado quando você transferir o valor."}
+                : `Um aporte pendente será gerado no dia ${contributionDay || "1"} de cada mês e efetivado quando você transferir o valor.`}
           </Text>
 
           {editingAccountId && linkedWishlistItems.length > 0 && (
