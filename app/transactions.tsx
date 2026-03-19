@@ -15,6 +15,7 @@ import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { InstallmentBadge } from "@/src/components/transaction/InstallmentBadge";
 import { updateTransactionEvent } from "@packages/domain/src/transactions";
+import { TCard, TText } from "@/src/components/tamagui";
 
 function formatCurrency(v: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -139,21 +140,21 @@ export default function TransactionsScreen() {
             <Feather name="arrow-left" size={24} color={theme.textColor} />
           </Pressable>
           <View style={s.headerTitleContainer}>
-            <Text style={[s.title, { color: theme.textColor }]}>
+            <TText variant="title" color={theme.textColor} fontSize={24}>
               {pendingOnly
                 ? "Cobranças pendentes"
                 : targetAccount
                   ? targetAccount.name
                   : "Historico Total"}
-            </Text>
+            </TText>
             {pendingOnly ? (
-              <Text style={[s.subtitle, { color: theme.secondaryText }]}>
+              <TText variant="caption" secondary marginTop={2}>
                 {allMonthTransactions.length} pendente{allMonthTransactions.length !== 1 ? "s" : ""} · mais próxima primeiro
-              </Text>
+              </TText>
             ) : targetAccount ? (
-              <Text style={[s.subtitle, { color: theme.secondaryText }]}>
+              <TText variant="caption" secondary marginTop={2}>
                 {targetAccount.type === "credit_card" ? "Cartão de Crédito" : "Conta Bancária"}
-              </Text>
+              </TText>
             ) : null}
           </View>
         </View>
@@ -164,9 +165,9 @@ export default function TransactionsScreen() {
               <Feather name="chevron-left" size={20} color={theme.primaryColor} />
             </Pressable>
             <View style={s.monthLabelContainer}>
-              <Text style={[s.monthLabel, { color: theme.textColor }]}>
+              <TText variant="subtitle" bold color={theme.textColor}>
                 {MONTHS[vMonth]} {vYear}
-              </Text>
+              </TText>
             </View>
             <Pressable style={[s.monthBtn, { backgroundColor: theme.cardBackground }]} onPress={handleNextMonth}>
               <Feather name="chevron-right" size={20} color={theme.primaryColor} />
@@ -177,24 +178,28 @@ export default function TransactionsScreen() {
         {!pendingOnly && (
           <>
             <View style={s.summaryRow}>
-              <View style={[s.summaryBox, { backgroundColor: theme.cardBackground }]}>
+              <TCard elevated compact backgroundColor={theme.cardBackground} borderColor={theme.border} flexDirection="row" alignItems="center" flex={1} gap={10} borderWidth={0} padding={12} borderRadius={18}>
                 <View style={[s.summaryCircle, { backgroundColor: `${theme.success}15` }]}>
                   <Feather name="arrow-up" size={18} color={theme.success} />
                 </View>
                 <View style={s.summaryTextContainer}>
-                  <Text style={[s.summaryLabel, { color: theme.secondaryText }]}>Entradas</Text>
-                  <Text style={[s.summaryValue, { color: theme.textColor }]}>{formatCurrency(monthIncome)}</Text>
+                  <TText variant="caption" secondary fontSize={11}>Entradas</TText>
+                  <TText variant="body" bold color={theme.textColor} fontSize={15} marginTop={1}>
+                    {formatCurrency(monthIncome)}
+                  </TText>
                 </View>
-              </View>
-              <View style={[s.summaryBox, { backgroundColor: theme.cardBackground }]}>
+              </TCard>
+              <TCard elevated compact backgroundColor={theme.cardBackground} borderColor={theme.border} flexDirection="row" alignItems="center" flex={1} gap={10} borderWidth={0} padding={12} borderRadius={18}>
                 <View style={[s.summaryCircle, { backgroundColor: `${theme.danger}15` }]}>
                   <Feather name="arrow-down" size={18} color={theme.danger} />
                 </View>
                 <View style={s.summaryTextContainer}>
-                  <Text style={[s.summaryLabel, { color: theme.secondaryText }]}>Saídas</Text>
-                  <Text style={[s.summaryValue, { color: theme.textColor }]}>{formatCurrency(monthExpense)}</Text>
+                  <TText variant="caption" secondary fontSize={11}>Saídas</TText>
+                  <TText variant="body" bold color={theme.textColor} fontSize={15} marginTop={1}>
+                    {formatCurrency(monthExpense)}
+                  </TText>
                 </View>
-              </View>
+              </TCard>
             </View>
 
             {/* Status filter tabs */}
@@ -214,9 +219,9 @@ export default function TransactionsScreen() {
                         ]}
                         onPress={() => handleSetStatusFilter(f)}
                         >
-                    <Text style={[s.filterChipText, { color: active ? "#FFF" : theme.secondaryText }]}>
+                    <TText variant="caption" color={active ? "#FFF" : theme.secondaryText} fontWeight="500">
                       {labels[f]}
-                    </Text>
+                    </TText>
                   </Pressable>
                 );
               })}
@@ -237,11 +242,11 @@ export default function TransactionsScreen() {
         {filteredTransactions.length === 0 ? (
           <View style={s.emptyHistory}>
             <Feather name="check-circle" size={48} color={theme.success} style={{ marginBottom: 16 }} />
-            <Text style={[s.emptyHistoryText, { color: theme.secondaryText }]}>
+            <TText variant="body" secondary textAlign="center" maxWidth={250} lineHeight={22}>
               {pendingOnly
                 ? "Nenhuma cobrança pendente. Tudo em dia!"
                 : "Nenhuma transação encontrada para este período."}
-            </Text>
+            </TText>
           </View>
         ) : (
           <View style={s.txList}>
@@ -251,7 +256,7 @@ export default function TransactionsScreen() {
               const isIncome = tx.type === "income" || (tx.type === "transfer" && tx.targetAccountId === accountId);
               const acc = domain.accounts[tx.accountId];
               const targetAcc = tx.targetAccountId ? domain.accounts[tx.targetAccountId] : null;
-              
+
               let typeIcon = isExpense ? "arrow-down-left" : "arrow-up-right";
               let typeColor = isExpense ? theme.danger : theme.success;
               if (tx.type === "transfer") {
@@ -260,10 +265,10 @@ export default function TransactionsScreen() {
               }
 
               return (
-                <Pressable 
-                  key={tx.id} 
+                <Pressable
+                  key={tx.id}
                   style={({ pressed }) => [
-                    s.txRow, 
+                    s.txRow,
                     { borderBottomColor: theme.border, opacity: pressed ? 0.7 : 1 }
                   ]}
                   onPress={() => {
@@ -272,13 +277,13 @@ export default function TransactionsScreen() {
                   }}
                 >
                   <View style={[s.txIcon, { backgroundColor: `${typeColor}12` }]}>
-                    <Feather name={typeIcon as any} size={18} color={typeColor} />
+                    <Feather name={typeIcon as "arrow-down-left" | "arrow-up-right" | "repeat"} size={18} color={typeColor} />
                   </View>
                   <View style={s.txMain}>
                     <View style={s.txDescRow}>
-                      <Text style={[s.txDesc, { color: theme.textColor }]} numberOfLines={1}>
+                      <TText variant="body" bold color={theme.textColor} fontSize={15} numberOfLines={1}>
                         {tx.description || cat?.name || tx.type}
-                      </Text>
+                      </TText>
                       {tx.installmentInfo ? (
                         <InstallmentBadge
                           current={tx.installmentInfo.current}
@@ -293,21 +298,23 @@ export default function TransactionsScreen() {
                       ) : null}
                     </View>
                     <View style={s.txSub}>
-                      {!accountId && <Text style={[s.txAcc, { color: theme.secondaryText }]}>{acc?.name || "Conta"} • </Text>}
-                      {tx.type === "transfer" && (
-                        <Text style={[s.txAcc, { color: theme.secondaryText }]}>
-                          {acc?.name} → {targetAcc?.name} •
-                        </Text>
+                      {!accountId && (
+                        <TText variant="caption" secondary>{acc?.name || "Conta"} • </TText>
                       )}
-                      <Text style={[s.txDate, { color: theme.secondaryText }]}>
+                      {tx.type === "transfer" && (
+                        <TText variant="caption" secondary>
+                          {acc?.name} → {targetAcc?.name} •
+                        </TText>
+                      )}
+                      <TText variant="caption" secondary>
                         {tx.date.split("-").reverse().join("/")}
-                      </Text>
+                      </TText>
                     </View>
                   </View>
                   <View style={s.txRight}>
-                    <Text style={[s.txValue, { color: typeColor }]}>
+                    <TText variant="body" bold color={typeColor} fontSize={16}>
                       {isExpense ? "-" : isIncome ? "+" : ""} {formatCurrency(tx.amount)}
-                    </Text>
+                    </TText>
                     {tx.status === "pending" && (
                       <Pressable
                         style={[s.efetivarBtn, { borderColor: theme.success }]}
@@ -315,7 +322,9 @@ export default function TransactionsScreen() {
                         hitSlop={6}
                       >
                         <Feather name="check" size={11} color={theme.success} />
-                        <Text style={[s.efetivarText, { color: theme.success }]}>Efetivar</Text>
+                        <TText variant="caption" color={theme.success} fontWeight="600" fontSize={11}>
+                          Efetivar
+                        </TText>
                       </Pressable>
                     )}
                   </View>
@@ -352,22 +361,20 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   headerTitleContainer: { flex: 1 },
-  title: { fontFamily: "DMSans_700Bold", fontSize: 24 },
-  subtitle: { fontFamily: "DMSans_400Regular", fontSize: 13, marginTop: 2 },
   content: { padding: 20 },
-  monthSwitcher: { 
-    flexDirection: "row", 
-    alignItems: "center", 
+  monthSwitcher: {
+    flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: "rgba(0,0,0,0.03)",
     borderRadius: 16,
     padding: 6,
   },
-  monthBtn: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 12, 
-    justifyContent: "center", 
+  monthBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -376,21 +383,7 @@ const s = StyleSheet.create({
     elevation: 1,
   },
   monthLabelContainer: { flex: 1, alignItems: "center" },
-  monthLabel: { fontFamily: "DMSans_700Bold", fontSize: 16 },
   summaryRow: { flexDirection: "row", gap: 12 },
-  summaryBox: { 
-    flex: 1, 
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12, 
-    borderRadius: 18, 
-    gap: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
-  },
   summaryCircle: {
     width: 36,
     height: 36,
@@ -399,44 +392,31 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   summaryTextContainer: { flex: 1 },
-  summaryLabel: { fontFamily: "DMSans_500Medium", fontSize: 11 },
-  summaryValue: { fontFamily: "DMSans_700Bold", fontSize: 15, marginTop: 1 },
-  emptyHistory: { 
-    paddingVertical: 60, 
-    alignItems: "center", 
+  emptyHistory: {
+    paddingVertical: 60,
+    alignItems: "center",
     justifyContent: "center",
     opacity: 0.6,
   },
-  emptyHistoryText: { 
-    fontFamily: "DMSans_400Regular", 
-    fontSize: 16, 
-    textAlign: "center" as const,
-    maxWidth: 250,
-    lineHeight: 22,
-  },
   txList: { gap: 4 },
-  txRow: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    paddingVertical: 16, 
-    borderBottomWidth: 1, 
-    gap: 14 
+  txRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    gap: 14
   },
-  txIcon: { 
-    width: 42, 
-    height: 42, 
-    borderRadius: 14, 
-    justifyContent: "center", 
-    alignItems: "center" 
+  txIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center"
   },
   txMain: { flex: 1 },
   txDescRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
-  txDesc: { fontFamily: "DMSans_600SemiBold", fontSize: 15 },
   txSub: { flexDirection: "row", alignItems: "center", marginTop: 4 },
-  txAcc: { fontFamily: "DMSans_400Regular", fontSize: 12 },
-  txDate: { fontFamily: "DMSans_400Regular", fontSize: 12 },
   txRight: { alignItems: "flex-end", gap: 4 },
-  txValue: { fontFamily: "DMSans_700Bold", fontSize: 16 },
   pendingBadge: {
     backgroundColor: "#FEF3C7",
     borderRadius: 6,
@@ -453,7 +433,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
-  efetivarText: { fontFamily: "DMSans_600SemiBold", fontSize: 11 },
   filterRow: { flexDirection: "row", gap: 8 },
   filterChip: {
     paddingHorizontal: 14,
@@ -461,5 +440,4 @@ const s = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
-  filterChipText: { fontFamily: "DMSans_500Medium", fontSize: 12 },
 });

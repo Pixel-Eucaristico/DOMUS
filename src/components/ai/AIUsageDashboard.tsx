@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
@@ -15,6 +15,7 @@ import {
 } from "@/src/modules/ai/domain/AISettings";
 import type { BudgetMode } from "@/src/modules/ai/domain/AISettings";
 import type { AIProvider, AIModelTier, DailyTokenUsage, MonthlyTokenUsage } from "@packages/ai";
+import { TCard, TText } from "@/src/components/tamagui";
 
 interface AIUsageDashboardProps {
   modelTier?: AIModelTier;
@@ -56,7 +57,6 @@ export function AIUsageDashboard({
         setMonthlyUsage(mu);
       }
 
-      // Fetch exchange rate + compute costs
       const rate = await TokenPricingService.getUsdToBrl();
       if (!mounted) return;
       setExchangeRate(rate);
@@ -100,17 +100,18 @@ export function AIUsageDashboard({
   });
 
   return (
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: theme.cardBackground, borderColor: theme.border },
-      ]}
+    <TCard
+      elevated
+      backgroundColor={theme.cardBackground}
+      borderColor={theme.border}
+      borderWidth={1.5}
+      gap={12}
     >
-      <View style={styles.header}>
+      <View style={s.header}>
         <MaterialCommunityIcons name="robot-happy" size={14} color={theme.secondaryText} />
-        <Text style={[styles.title, { color: theme.secondaryText }]}>
+        <TText bold color={theme.secondaryText} letterSpacing={0.3}>
           {isMonthly ? "Uso de tokens (mensal)" : "Uso diario de tokens"}
-        </Text>
+        </TText>
       </View>
 
       {providers.map(([provider, tokens]) => {
@@ -133,39 +134,39 @@ export function AIUsageDashboard({
             : pTheme.color;
 
         return (
-          <View key={provider} style={styles.providerSection}>
-            <View style={styles.providerHeader}>
+          <View key={provider} style={s.providerSection}>
+            <View style={s.providerHeader}>
               <MaterialCommunityIcons
                 name={pTheme.icon as keyof typeof MaterialCommunityIcons.glyphMap}
                 size={12}
                 color={pTheme.color}
               />
-              <Text style={[styles.providerName, { color: theme.textColor }]}>
+              <TText variant="label" bold flex={1} textTransform="capitalize" color={theme.textColor}>
                 {provider}
-              </Text>
-              <Text style={[styles.providerValue, { color: isOver ? theme.danger : theme.secondaryText }]}>
+              </TText>
+              <TText variant="caption" color={isOver ? theme.danger : theme.secondaryText}>
                 {tokens.toLocaleString("pt-BR")}{unlimited ? "" : ` / ${budget.toLocaleString("pt-BR")}`}
                 {isMonthly && !unlimited ? " hoje" : ""}
-              </Text>
+              </TText>
               {unlimited ? (
-                <Text style={[styles.providerPct, { color: pTheme.color }]}>∞</Text>
+                <TText variant="caption" bold color={pTheme.color} minWidth={35} textAlign="right">∞</TText>
               ) : (
-                <Text style={[styles.providerPct, { color: barColor }]}>
+                <TText variant="caption" bold color={barColor} minWidth={35} textAlign="right">
                   {Math.round(pct)}%
-                </Text>
+                </TText>
               )}
             </View>
             {!unlimited && (
-              <View style={[styles.track, { backgroundColor: theme.border }]}>
+              <View style={[s.track, { backgroundColor: theme.border }]}>
                 <View
-                  style={[styles.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]}
+                  style={[s.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]}
                 />
               </View>
             )}
             {cost && (
-              <Text style={[styles.costText, { color: theme.secondaryText }]}>
+              <TText fontSize={11} fontStyle="italic" color={theme.secondaryText} opacity={0.8} marginTop={2}>
                 Custo est.: R$ {cost.costBrl.toFixed(2)}{unlimited ? "" : ` / R$ ${cost.budgetCostBrl.toFixed(2)} max`}
-              </Text>
+              </TText>
             )}
           </View>
         );
@@ -180,17 +181,17 @@ export function AIUsageDashboard({
         const { end } = getBillingCycle(billingDay);
         const daysLeft = Math.max(1, Math.ceil((end.getTime() - Date.now()) / 86_400_000));
         return (
-          <View key={`${provider}-monthly`} style={styles.monthlyInfo}>
-            <Text style={[styles.monthlyLabel, { color: theme.secondaryText }]}>
+          <View key={`${provider}-monthly`} style={s.monthlyInfo}>
+            <TText fontSize={11} color={theme.secondaryText}>
               Ciclo mensal: {mUsed.toLocaleString("pt-BR")}{mUnlimited ? "" : ` / ${mBudget.toLocaleString("pt-BR")}`} tokens
               {mUnlimited ? " ∞" : ` (${Math.round(mPct)}%)`}
               {` · ${daysLeft}d restantes`}
-            </Text>
+            </TText>
             {!mUnlimited && (
-              <View style={[styles.track, { backgroundColor: theme.border }]}>
+              <View style={[s.track, { backgroundColor: theme.border }]}>
                 <View
                   style={[
-                    styles.fill,
+                    s.fill,
                     {
                       width: `${mPct}%` as `${number}%`,
                       backgroundColor: mPct > 90 ? theme.danger : mPct > 70 ? theme.warning : pTheme.color,
@@ -204,45 +205,44 @@ export function AIUsageDashboard({
       })}
 
       {anyOver && (
-        <Text style={[styles.overBudget, { color: theme.danger }]}>
+        <TText
+          variant="caption"
+          bold
+          color={theme.danger}
+          textAlign="center"
+          marginTop={4}
+          padding={8}
+          borderRadius={8}
+          backgroundColor="rgba(239, 68, 68, 0.08)"
+        >
           {isMonthly
             ? "Limite diario (mensal rateado) atingido em um ou mais provedores."
             : "Limite diario atingido em um ou mais provedores."}
-        </Text>
+        </TText>
       )}
 
       {exchangeRate && (
-        <Text style={[styles.disclaimer, { color: theme.secondaryText }]}>
+        <TText
+          fontSize={10}
+          fontStyle="italic"
+          color={theme.secondaryText}
+          textAlign="center"
+          marginTop={4}
+          opacity={0.7}
+        >
           Cotacao USD/BRL: {exchangeRate.toFixed(2)} · Valores estimados, nao representam custo real exato
-        </Text>
+        </TText>
       )}
-    </View>
+    </TCard>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    borderRadius: 16,
-    borderWidth: 1.5,
-    padding: 16,
-    gap: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
-  },
+const s = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     marginBottom: 2,
-  },
-  title: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: "DMSans_700Bold",
-    letterSpacing: 0.3,
   },
   providerSection: {
     gap: 6,
@@ -253,22 +253,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  providerName: {
-    flex: 1,
-    fontSize: 13,
-    fontFamily: "DMSans_600SemiBold",
-    textTransform: "capitalize",
-  },
-  providerValue: {
-    fontSize: 12,
-    fontFamily: "DMSans_500Medium",
-  },
-  providerPct: {
-    fontSize: 12,
-    fontFamily: "DMSans_700Bold",
-    minWidth: 35,
-    textAlign: "right",
-  },
   track: {
     height: 8,
     borderRadius: 4,
@@ -278,36 +262,10 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 4,
   },
-  costText: {
-    fontSize: 11,
-    fontFamily: "DMSans_400Regular_Italic",
-    opacity: 0.8,
-    marginTop: 2,
-  },
-  overBudget: {
-    fontSize: 12,
-    fontFamily: "DMSans_700Bold",
-    textAlign: "center",
-    marginTop: 4,
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: "rgba(239, 68, 68, 0.08)",
-  },
-  disclaimer: {
-    fontSize: 10,
-    fontFamily: "DMSans_400Regular_Italic",
-    textAlign: "center",
-    marginTop: 4,
-    opacity: 0.7,
-  },
   monthlyInfo: {
     gap: 4,
     paddingTop: 4,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "rgba(128,128,128,0.2)",
-  },
-  monthlyLabel: {
-    fontSize: 11,
-    fontFamily: "DMSans_500Medium",
   },
 });

@@ -1,8 +1,9 @@
 import React from "react";
-import { View, TouchableOpacity, StyleSheet, Text } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
+import { TText } from "@/src/components/tamagui";
 
 interface MarkdownToolbarProps {
   onInsert: (wrapper: string) => void;
@@ -28,29 +29,29 @@ export function MarkdownToolbar({ onInsert, onClose }: MarkdownToolbarProps) {
   const { theme } = useAppState();
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-      <View style={styles.options}>
+    <View style={[s.container, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+      <View style={s.options}>
         {OPTIONS.map((opt) => (
           <TouchableOpacity
             key={opt.label}
             onPress={() => { soundManager.play("tap"); onInsert(opt.wrapper); }}
-            style={[styles.option, { backgroundColor: `${theme.primaryColor}10` }]}
+            style={[s.option, { backgroundColor: `${theme.primaryColor}10` }]}
             activeOpacity={0.6}
           >
             <Feather name={opt.icon} size={15} color={theme.primaryColor} />
-            <Text style={[styles.optLabel, { color: theme.textColor }]}>{opt.label}</Text>
-            <Text style={[styles.optPreview, { color: theme.secondaryText }]}>{opt.preview}</Text>
+            <TText bold variant="caption" color={theme.textColor}>{opt.label}</TText>
+            <TText fontSize={10} fontFamily="monospace" color={theme.secondaryText}>{opt.preview}</TText>
           </TouchableOpacity>
         ))}
       </View>
-      <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+      <TouchableOpacity onPress={onClose} style={s.closeBtn}>
         <Feather name="x" size={16} color={theme.secondaryText} />
       </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -71,14 +72,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-  },
-  optLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  optPreview: {
-    fontSize: 10,
-    fontFamily: "monospace",
   },
   closeBtn: {
     padding: 6,

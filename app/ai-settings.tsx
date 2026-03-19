@@ -26,6 +26,7 @@ import { APIKeyManager } from "@/src/components/ai/APIKeyManager";
 import { ProviderSelector } from "@/src/components/ai/ProviderSelector";
 import { AIUsageDashboard } from "@/src/components/ai/AIUsageDashboard";
 import { BudgetCostSection } from "@/src/components/ai/BudgetCostSection";
+import { TCard, TText } from "@/src/components/tamagui";
 import type { AIProvider, AudioProvider } from "@packages/ai";
 import { ELEVENLABS_VOICES } from "@packages/../packages/ai/src/audio/ElevenLabsAdapter";
 import { GEMINI_TTS_VOICES } from "@packages/../packages/ai/src/audio/GeminiAudioAdapter";
@@ -35,23 +36,24 @@ import { GEMINI_TTS_VOICES } from "@packages/../packages/ai/src/audio/GeminiAudi
 function SectionHeader({ title, theme }: { title: string; theme: any }) {
   return (
     <View style={styles.sectionHeader}>
-      <Text style={[styles.sectionTitle, { color: theme.secondaryText }]}>
+      <TText
+        variant="caption"
+        bold
+        color={theme.secondaryText}
+        textTransform="uppercase"
+        letterSpacing={0.5}
+      >
         {title}
-      </Text>
+      </TText>
     </View>
   );
 }
 
 function Card({ theme, children }: { theme: any; children: React.ReactNode }) {
   return (
-    <View
-      style={[
-        styles.card,
-        { backgroundColor: theme.cardBackground, borderColor: theme.border },
-      ]}
-    >
+    <TCard backgroundColor={theme.cardBackground} borderColor={theme.border}>
       {children}
-    </View>
+    </TCard>
   );
 }
 
@@ -73,12 +75,12 @@ function ToggleRow({
   return (
     <View style={styles.toggleRow}>
       <View style={styles.toggleInfo}>
-        <Text style={[styles.cardTitle, { color: disabled ? theme.secondaryText : theme.textColor }]}>
+        <TText variant="subtitle" color={disabled ? theme.secondaryText : theme.textColor} fontSize={15}>
           {title}
-        </Text>
-        <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+        </TText>
+        <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
           {subtitle}
-        </Text>
+        </TText>
       </View>
       <Switch
         value={value}
@@ -178,9 +180,9 @@ export default function AISettingsScreen() {
         <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }}>
           <Feather name="arrow-left" size={22} color={theme.textColor} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.textColor }]}>
+        <TText variant="subtitle" bold color={theme.textColor} fontSize={18}>
           IA Financeira
-        </Text>
+        </TText>
       </View>
 
       <KeyboardAwareScrollView
@@ -208,9 +210,9 @@ export default function AISettingsScreen() {
 
         {/* Provider + Model — always visible so user can configure before enabling */}
         <Card theme={theme}>
-          <Text style={[styles.cardTitle, { color: theme.textColor }]}>
+          <TText variant="subtitle" color={theme.textColor} fontSize={15}>
             Provedor e modelo
-          </Text>
+          </TText>
           <View style={styles.cardBody}>
             <ProviderSelector
               selectedProvider={settings.provider}
@@ -231,13 +233,13 @@ export default function AISettingsScreen() {
 
         {/* API Key — always visible */}
         <Card theme={theme}>
-          <Text style={[styles.cardTitle, { color: theme.textColor }]}>
+          <TText variant="subtitle" color={theme.textColor} fontSize={15}>
             Chave de API
-          </Text>
-          <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+          </TText>
+          <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
             Criptografada com AES-256 e armazenada localmente.
             Nunca enviada para servidores do DOMUS.
-          </Text>
+          </TText>
           <View style={styles.cardBody}>
             <APIKeyManager
               provider={settings.provider}
@@ -264,11 +266,11 @@ export default function AISettingsScreen() {
               style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 8 }}
             >
               <Feather name="external-link" size={12} color={theme.primaryColor} />
-              <Text style={{ color: theme.primaryColor, fontSize: 12 }}>
+              <TText variant="caption" color={theme.primaryColor}>
                 Gerar chave de API — {
                   { openai: "OpenAI Platform", gemini: "Google AI Studio", claude: "Anthropic Console", deepseek: "DeepSeek Platform", qwen: "Alibaba DashScope" }[settings.provider] ?? settings.provider
                 }
-              </Text>
+              </TText>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
@@ -284,9 +286,9 @@ export default function AISettingsScreen() {
               style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}
             >
               <Feather name="book-open" size={12} color={theme.secondaryText} />
-              <Text style={{ color: theme.secondaryText, fontSize: 11 }}>
+              <TText variant="caption" color={theme.secondaryText} fontSize={11}>
                 Documentacao oficial
-              </Text>
+              </TText>
             </TouchableOpacity>
           </View>
         </Card>
@@ -325,12 +327,12 @@ export default function AISettingsScreen() {
             {/* Audio provider config — only when voice is enabled */}
             {(settings.voiceEnabled ?? false) && (
               <Card theme={theme}>
-                <Text style={[styles.cardTitle, { color: theme.textColor }]}>
+                <TText variant="subtitle" color={theme.textColor} fontSize={15}>
                   Provedor de Audio (TTS)
-                </Text>
-                <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                </TText>
+                <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
                   Independente do provedor de texto. Cada um tem custos proprios.
-                </Text>
+                </TText>
 
                 {/* Claude warning — no native TTS */}
                 {settings.provider === "claude" && (
@@ -362,9 +364,9 @@ export default function AISettingsScreen() {
                           Requer plano pago (Starter $5/mes). O free tier nao permite uso de vozes via API.
                         </Text>
                       </View>
-                      <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                      <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
                         Chave ElevenLabs (BYOK)
-                      </Text>
+                      </TText>
                       <APIKeyManager
                         provider={"elevenlabs" as AIProvider}
                         hasKey={settings.elevenLabsKeyStatus === true}
@@ -395,9 +397,9 @@ export default function AISettingsScreen() {
                   {/* For OpenAI/Gemini TTS: show API key manager */}
                   {(settings.audioProvider === "openai" || settings.audioProvider === "gemini") && (
                     <View style={{ gap: 4 }}>
-                      <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                      <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
                         Chave {(settings.audioProvider ?? "openai").toUpperCase()} (mesma do provedor de texto)
-                      </Text>
+                      </TText>
                       <APIKeyManager
                         provider={(settings.audioProvider ?? "openai") as AIProvider}
                         hasKey={settings.apiKeyStatus[settings.audioProvider ?? "openai"] === true}
@@ -414,9 +416,9 @@ export default function AISettingsScreen() {
                   {/* Gemini TTS model selector (flash = fast, pro = quality) */}
                   {settings.audioProvider === "gemini" && (
                     <View style={{ gap: 4 }}>
-                      <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                      <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
                         Modelo TTS
-                      </Text>
+                      </TText>
                       <ChipSelector
                         options={[
                           { id: "gemini-2.5-flash-preview-tts", label: "Flash (rapido)" },
@@ -430,9 +432,9 @@ export default function AISettingsScreen() {
                   )}
 
                   {/* Voice selector */}
-                  <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                  <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
                     Voz
-                  </Text>
+                  </TText>
                   <ChipSelector
                     options={audioVoices.map((v) => ({ id: v, label: v }))}
                     selected={currentAudioVoice}
@@ -481,10 +483,10 @@ export default function AISettingsScreen() {
             <SectionHeader title="Acesso aos dados" theme={theme} />
 
             <Card theme={theme}>
-              <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+              <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
                 Escolha quais dados a IA pode acessar para respostas mais
                 detalhadas. Nenhum dado pessoal (CPF, nome, conta) e enviado.
-              </Text>
+              </TText>
               <View style={styles.cardBody}>
                 {(Object.keys(AI_DATA_PERMISSION_LABELS) as Array<keyof AIDataPermissions>).map(
                   (key) => {
@@ -529,12 +531,12 @@ export default function AISettingsScreen() {
                     return (
                       <View key={key} style={styles.permissionRow}>
                         <View style={styles.permissionInfo}>
-                          <Text style={[styles.permissionLabel, { color: theme.textColor }]}>
+                          <TText variant="label" bold color={theme.textColor}>
                             {label.title}
-                          </Text>
-                          <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+                          </TText>
+                          <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
                             {label.description}
-                          </Text>
+                          </TText>
                         </View>
                         <Switch
                           value={enabled}
@@ -596,27 +598,23 @@ export default function AISettingsScreen() {
         <SectionHeader title="Privacidade e dados" theme={theme} />
 
         {/* Privacy notice */}
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: `${theme.accentColor}15`,
-              borderColor: `${theme.accentColor}40`,
-            },
-          ]}
+        <TCard
+          backgroundColor={`${theme.accentColor}15`}
+          borderColor={`${theme.accentColor}40`}
+          gap={8}
         >
           <View style={styles.privacyHeader}>
             <Feather name="shield" size={16} color={theme.accentColor} />
-            <Text style={[styles.privacyTitle, { color: theme.accentColor }]}>
+            <TText variant="label" bold color={theme.accentColor}>
               Privacidade
-            </Text>
+            </TText>
           </View>
-          <Text style={[styles.privacyText, { color: theme.secondaryText }]}>
+          <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
             Os dados sao enviados diretamente ao provedor de IA escolhido.
             Nunca passam por servidores do DOMUS. CPF, nome, numero de
             conta, cartao ou IDs internos nunca sao incluidos.
-          </Text>
-        </View>
+          </TText>
+        </TCard>
 
         {/* Actions */}
         <Card theme={theme}>
@@ -647,12 +645,12 @@ export default function AISettingsScreen() {
           >
             <Feather name="trash-2" size={18} color={theme.warning} />
             <View style={styles.actionInfo}>
-              <Text style={[styles.actionLabel, { color: theme.textColor }]}>
+              <TText variant="subtitle" color={theme.textColor} fontSize={15}>
                 Limpar historico da IA
-              </Text>
-              <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+              </TText>
+              <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
                 Remove todas as mensagens da conversa atual
-              </Text>
+              </TText>
             </View>
             <Feather name="chevron-right" size={16} color={theme.secondaryText} />
           </TouchableOpacity>
@@ -667,12 +665,12 @@ export default function AISettingsScreen() {
           >
             <Feather name="shield" size={18} color={theme.primaryColor} />
             <View style={styles.actionInfo}>
-              <Text style={[styles.actionLabel, { color: theme.textColor }]}>
+              <TText variant="subtitle" color={theme.textColor} fontSize={15}>
                 Politica de Privacidade
-              </Text>
-              <Text style={[styles.cardSubtitle, { color: theme.secondaryText }]}>
+              </TText>
+              <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
                 Como seus dados e chaves de IA sao protegidos
-              </Text>
+              </TText>
             </View>
             <Feather name="chevron-right" size={16} color={theme.secondaryText} />
           </TouchableOpacity>
@@ -698,27 +696,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
   content: {
     padding: 16,
     gap: 12,
-  },
-  card: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 16,
-    gap: 8,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  cardSubtitle: {
-    fontSize: 13,
-    lineHeight: 18,
   },
   cardBody: {
     marginTop: 4,
@@ -748,23 +728,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  privacyTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  privacyText: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
   sectionHeader: {
     paddingHorizontal: 4,
     marginTop: 6,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
   spacer: {
     height: 24,
@@ -779,10 +745,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  actionLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
   rowDivider: {
     height: StyleSheet.hairlineWidth,
     marginHorizontal: 14,
@@ -796,9 +758,5 @@ const styles = StyleSheet.create({
   permissionInfo: {
     flex: 1,
     gap: 2,
-  },
-  permissionLabel: {
-    fontSize: 14,
-    fontWeight: "600",
   },
 });

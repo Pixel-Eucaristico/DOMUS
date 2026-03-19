@@ -36,6 +36,7 @@ import { OpenAIAdapter } from "@packages/../packages/ai/src/adapters/OpenAIAdapt
 import { ElevenLabsAdapter } from "@packages/../packages/ai/src/audio/ElevenLabsAdapter";
 import { createAudioPlayer as createPlayer, setAudioModeAsync as setAudioMode } from "expo-audio";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
+import { TText } from "@/src/components/tamagui";
 import { MarkdownText } from "@/src/components/ai/ChatBubble";
 import { FinancialCard } from "@/src/components/ai/FinancialCard";
 import { QuickSuggestions } from "@/src/components/ai/QuickSuggestions";
@@ -608,8 +609,8 @@ export default function AIChatScreen() {
             <Feather name="arrow-left" size={22} color={theme.textColor} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
-            <Text style={[styles.headerTitle, { color: theme.textColor }]}>DOMUS IA</Text>
-            <Text style={[styles.headerSubtitle, { color: theme.secondaryText }]}>Consultor financeiro</Text>
+            <TText variant="subtitle" bold color={theme.textColor} fontSize={17}>DOMUS IA</TText>
+            <TText variant="caption" color={theme.secondaryText}>Consultor financeiro</TText>
           </View>
           <TouchableOpacity onPress={() => { soundManager.play("trash"); clearHistory(); audioUriMap.current = {}; msgProviderMap.current = {}; }} style={styles.headerBtn}>
             <Feather name="trash-2" size={18} color={theme.secondaryText} />
@@ -623,11 +624,11 @@ export default function AIChatScreen() {
         {!settings.isEnabled && (
           <View style={[styles.banner, { backgroundColor: `${theme.warning}20`, borderColor: theme.warning }]}>
             <Feather name="info" size={14} color={theme.warning} />
-            <Text style={[styles.bannerText, { color: theme.warning }]}>
+            <TText variant="caption" color={theme.warning} lineHeight={18} flex={1}>
               Configure sua chave de API em{" "}
-              <Text style={{ fontWeight: "700" }} onPress={() => router.push("/ai-settings")}>Configuracoes</Text>
+              <TText variant="caption" bold color={theme.warning} onPress={() => router.push("/ai-settings")}>Configuracoes</TText>
               {" "}para ativar a IA. Analise local disponivel.
-            </Text>
+            </TText>
           </View>
         )}
 
@@ -787,8 +788,6 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4 },
   headerCenter: { flex: 1 },
-  headerTitle: { fontSize: 17, fontWeight: "700" },
-  headerSubtitle: { fontSize: 12 },
   headerBtn: { padding: 6 },
   banner: {
     flexDirection: "row",
@@ -800,7 +799,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
-  bannerText: { flex: 1, fontSize: 13, lineHeight: 18 },
   messageContent: { paddingHorizontal: 12, paddingVertical: 8 },
   actionRow: {
     flexDirection: "row",

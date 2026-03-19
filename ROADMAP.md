@@ -95,10 +95,35 @@
       - Batch 2: TrophyDetailModal, ConfirmRestoreModal, ConvertToExpenseModal, DailyAdModal, PendingTransactionsList, season.tsx
       - Mantidos como View: SelectionModal e ShareToWishlistModal (Animated.View), QRScannerModal (fullscreen)
 
-#### Etapa C — Telas Completas (~20-30h)
-- [ ] Migrar telas uma a uma, priorizando as mais usadas
-- [ ] Remover `StyleSheet.create` dos arquivos migrados (135 arquivos atualmente)
-- [ ] Garantir paridade visual light/dark em todas as telas
+#### Etapa C — Telas Completas (~20-30h) — EM PROGRESSO
+- [x] **Batch 1 — Home + About:**
+      - `index.tsx` — cards budget/season → TCard, 11 Text → TText, 10 styles removidos
+      - `about.tsx` — 8 Text → TText, 7 styles removidos
+- [x] **Batch 2 — Transações + Wishlist:**
+      - `transactions.tsx` — summary boxes → TCard, Text → TText, 11 styles removidos
+      - `transaction-detail/[transactionId].tsx` — cards → TCard, Text → TText, 8 styles removidos
+      - `AffordabilityBanner.tsx` — container → TCard, Text → TText
+      - `WishlistListCard.tsx` — Text → TText
+- [x] **Pixel Eucarístico** aplicado:
+      - Fonte Press Start 2P carregada globalmente
+      - PixelText "DOMUS" no header + splash
+      - Badge "PE" nos títulos das 4 tabs
+      - Scanlines CRT sutis (2.5% opacity) em todo o app
+      - Componentes: PixelText, Scanlines, PixelGrid, PixelBorder
+- [x] **Batch 3 — Settings/Config (10 telas):**
+      - ai-settings, ai-chat, backup, sync, onboarding, notification-settings
+      - analytics-settings, security-settings, privacy-policy, ocr-settings
+- [x] **Batch 4 — Gamification + AI (12 componentes):**
+      - AchievementGrid, MonthlyTrophiesList, TrophyAlbumView, AchievementToast
+      - AIUsageBar, AIUsageDashboard, ChatBubble, ChatInputBar
+      - ProviderSelector, APIKeyManager, QuickSuggestions, MarkdownToolbar
+- [x] **Batch 5 — Shared + Invoice + Wishlist (16 componentes):**
+      - BudgetBar, AccountsStrip, CategorySelectorGrid, CategoryChipScroll
+      - GroupOverrideChip, HomeFab, EditableItemRow, ScanningScreen
+      - DraggableWishlistList, WishlistItemRow, SavingsGoalSection
+      - AffiliateInfoBanner, WishlistSearchWebView, RecentTransactionsList
+      - BalanceCard, BudgetChart
+- **Nota:** 127 arquivos mantêm StyleSheet.create para layouts/posicionamento — isso é correto (Tamagui substitui cards/textos/inputs, não flexbox/position)
 
 ### 3.4 — Animações Rive para Troféus (167 troféus individuais)
 - **Dificuldade:** COMPLEXO | **Urgência:** BAIXA | **~15-25h**

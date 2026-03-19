@@ -15,6 +15,7 @@ import { ResponsiveContainer } from "@/src/ui/components/ResponsiveContainer";
 import { ResponsiveGrid } from "@/src/ui/components/ResponsiveGrid";
 import { TourGuideZone } from "rn-tourguide";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
+import { PixelText } from "@/src/components/pixel";
 
 
 export default function AccountsScreen() {
@@ -85,6 +86,7 @@ export default function AccountsScreen() {
           <View style={s.header}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <Text style={[s.title, { color: theme.textColor }]}>Contas</Text>
+              <PixelText size={7} color={theme.primaryColor} style={{ opacity: 0.5 }}>PE</PixelText>
               {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
             </View>
             <TourGuideZone zone={1} text="3" isTourGuide borderRadius={12}>

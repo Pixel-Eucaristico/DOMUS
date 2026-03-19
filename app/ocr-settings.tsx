@@ -14,7 +14,7 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
-import { TButton, TInput } from "@/src/components/tamagui";
+import { TButton, TCard, TInput, TText } from "@/src/components/tamagui";
 import { OCRConfigService } from "@/src/services/ocrConfigService";
 import type { OCRProvider } from "@packages/parsers";
 
@@ -93,29 +93,29 @@ export default function OCRSettingsScreen() {
         <Pressable onPress={() => { soundManager.play("tap"); router.back(); }} hitSlop={12}>
           <Feather name="arrow-left" size={24} color={theme.textColor} />
         </Pressable>
-        <Text style={[s.title, { color: theme.textColor }]}>Configurar OCR</Text>
+        <TText variant="subtitle" color={theme.textColor} fontSize={20}>Configurar OCR</TText>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={s.scrollView} contentContainerStyle={s.scrollContent}>
         {/* Descrição */}
-        <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
+        <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} flexDirection="row" gap={12} padding={16} marginBottom={24}>
           <Feather name="info" size={20} color={theme.primaryColor} />
-          <Text style={[s.description, { color: theme.secondaryText }]}>
+          <TText variant="body" color={theme.secondaryText} lineHeight={20} flex={1}>
             {Platform.OS === "web"
               ? "No navegador, o Tesseract.js funciona gratuitamente sem configuração extra. " +
                 "Para maior precisão, configure a Cloud Vision API."
               : "Em dispositivos móveis, o OCR On-device (ML Kit) funciona gratuitamente e offline. " +
                 "Suporta Português e outros idiomas. A Cloud Vision API é a alternativa paga com maior precisão."
             }
-          </Text>
-        </View>
+          </TText>
+        </TCard>
 
         {/* Provedor Preferido */}
         <View style={s.section}>
-          <Text style={[s.sectionTitle, { color: theme.textColor }]}>
+          <TText variant="subtitle" color={theme.textColor} fontSize={16}>
             Provedor Preferido
-          </Text>
+          </TText>
 
           {/* On-device — ML Kit OCR */}
           <Pressable
@@ -237,14 +237,14 @@ export default function OCRSettingsScreen() {
 
         {/* API Key Cloud Vision */}
         <View style={s.section}>
-          <Text style={[s.sectionTitle, { color: theme.textColor }]}>
+          <TText variant="subtitle" color={theme.textColor} fontSize={16}>
             API Key do Cloud Vision
-          </Text>
-          <Text style={[s.sectionSubtitle, { color: theme.secondaryText }]}>
+          </TText>
+          <TText variant="caption" color={theme.secondaryText} marginBottom={16}>
             {provider === "cloudvision"
               ? "Obrigatório para usar Cloud Vision como provedor principal"
               : "Opcional — usada como fallback se o OCR on-device falhar"}
-          </Text>
+          </TText>
 
           <View style={[s.inputContainer, { backgroundColor: theme.cardBackground }]}>
             <Feather name="key" size={18} color={theme.secondaryText} />
@@ -320,33 +320,9 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 15,
   },
-  title: { fontSize: 20, fontFamily: "DMSans_600SemiBold" },
   scrollView: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 100 },
-  card: {
-    flexDirection: "row",
-    padding: 16,
-    borderRadius: 12,
-    gap: 12,
-    marginBottom: 24,
-  },
-  description: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: "DMSans_400Regular",
-    lineHeight: 20,
-  },
   section: { marginBottom: 32 },
-  sectionTitle: {
-    fontSize: 16,
-    fontFamily: "DMSans_600SemiBold",
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    fontFamily: "DMSans_400Regular",
-    marginBottom: 16,
-  },
   providerCard: {
     padding: 16,
     borderRadius: 12,

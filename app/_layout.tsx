@@ -14,6 +14,7 @@ import {
   DMSans_600SemiBold,
   DMSans_700Bold,
 } from "@expo-google-fonts/dm-sans";
+import { PressStart2P_400Regular } from "@expo-google-fonts/press-start-2p";
 import { useShareIntent } from "expo-share-intent";
 import { TamaguiProvider } from "tamagui";
 import tamaguiConfig from "@/tamagui.config";
@@ -23,6 +24,7 @@ import { AppStateProvider } from "@/src/context/AppStateProvider";
 import { SyncProvider } from "@/src/context/SyncProvider";
 import { DemoModeProvider, useDemoMode } from "@/src/context/DemoModeProvider";
 import { TourOverlay } from "@/src/components/shared/TourOverlay";
+import { Scanlines } from "@/src/components/pixel";
 import { WelcomeCarousel } from "@/src/components/tour/WelcomeCarousel";
 import { AchievementToast } from "@/src/components/gamification/AchievementToast";
 import { ShareToWishlistModal } from "@/src/components/wishlist/ShareToWishlistModal";
@@ -293,6 +295,7 @@ function AppContainer({ children }: { children: React.ReactNode }) {
           <ResponsiveLayoutProvider>
             <ToastProvider>
               {children}
+              <Scanlines opacity={0.025} spacing={3} color={isDark ? "#FFF" : "#000"} />
             </ToastProvider>
           </ResponsiveLayoutProvider>
         </SafeAreaProvider>
@@ -307,6 +310,7 @@ export default function RootLayout() {
     DMSans_500Medium,
     DMSans_600SemiBold,
     DMSans_700Bold,
+    PressStart2P_400Regular,
   });
 
   const [splashFinished, setSplashFinished] = useState(false);

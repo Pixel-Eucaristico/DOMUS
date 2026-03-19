@@ -25,6 +25,7 @@ import { TourGuideZone } from "rn-tourguide";
 import { TButton, TCard } from "@/src/components/tamagui";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
 import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
+import { PixelText } from "@/src/components/pixel";
 
 
 export default function SeasonScreen() {
@@ -61,6 +62,7 @@ export default function SeasonScreen() {
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <Text style={[st.title, { color: theme.textColor }]}>Temporada</Text>
+              <PixelText size={7} color={theme.primaryColor} style={{ opacity: 0.5 }}>PE</PixelText>
               {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
             </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 }}>

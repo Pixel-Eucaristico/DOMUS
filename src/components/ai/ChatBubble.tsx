@@ -3,15 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "rea
 import type { TextStyle } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { TText } from "@/src/components/tamagui";
 import type { ChatMessage } from "@packages/ai";
 
 interface ChatBubbleProps {
   message: ChatMessage;
-  /** Callback to speak the message text via TTS */
   onSpeak?: (text: string) => Promise<void>;
-  /** Whether TTS is currently playing */
   isSpeaking?: boolean;
-  /** Callback to stop TTS */
   onStopSpeaking?: () => void;
 }
 
@@ -54,28 +52,23 @@ function parseMarkdown(raw: string): MdLine[] {
 
 function parseInline(text: string): MdSegment[] {
   const segments: MdSegment[] = [];
-  // Match **bold**, *italic*, _italic_, __bold__
   const regex = /(\*\*|__)(.*?)\1|(\*|_)(.*?)\3/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(text)) !== null) {
-    // Text before match
     if (match.index > lastIndex) {
       segments.push({ text: text.slice(lastIndex, match.index) });
     }
 
     if (match[1]) {
-      // **bold** or __bold__
       segments.push({ text: match[2]!, bold: true });
     } else if (match[3]) {
-      // *italic* or _italic_
       segments.push({ text: match[4]!, italic: true });
     }
     lastIndex = match.index + match[0].length;
   }
 
-  // Remaining text
   if (lastIndex < text.length) {
     segments.push({ text: text.slice(lastIndex) });
   }
@@ -119,7 +112,6 @@ export function MarkdownText({
           );
         }
 
-        // Empty line = spacer
         if (line.segments.length === 1 && line.segments[0]!.text.trim() === "") {
           return <View key={i} style={mdStyles.spacer} />;
         }
@@ -213,20 +205,19 @@ export function ChatBubble({ message, onSpeak, isSpeaking, onStopSpeaking }: Cha
         )}
 
         {message.isLocalFallback && !isUser && (
-          <Text style={[styles.badge, { color: theme.secondaryText }]}>
+          <TText fontSize={10} fontStyle="italic" color={theme.secondaryText} marginTop={4}>
             analise local
-          </Text>
+          </TText>
         )}
 
         {/* Footer row: tokens + listen button */}
         <View style={styles.bubbleFooter}>
           {message.tokensUsed != null && message.tokensUsed > 0 && (
-            <Text style={[styles.tokens, { color: theme.secondaryText }]}>
+            <TText fontSize={10} color={theme.secondaryText} textAlign="right">
               {message.tokensUsed} tokens
-            </Text>
+            </TText>
           )}
 
-          {/* Listen button for assistant messages */}
           {!isUser && onSpeak && (
             <TouchableOpacity
               onPress={handleSpeak}
@@ -247,12 +238,12 @@ export function ChatBubble({ message, onSpeak, isSpeaking, onStopSpeaking }: Cha
         </View>
       </View>
 
-      <Text style={[styles.time, { color: theme.secondaryText }]}>
+      <TText fontSize={11} color={theme.secondaryText} marginTop={3} marginHorizontal={4}>
         {new Date(message.timestamp).toLocaleTimeString("pt-BR", {
           hour: "2-digit",
           minute: "2-digit",
         })}
-      </Text>
+      </TText>
     </View>
   );
 }
@@ -279,15 +270,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
-  badge: {
-    fontSize: 10,
-    marginTop: 4,
-    fontStyle: "italic",
-  },
-  tokens: {
-    fontSize: 10,
-    textAlign: "right",
-  },
   bubbleFooter: {
     flexDirection: "row",
     alignItems: "center",
@@ -299,10 +281,5 @@ const styles = StyleSheet.create({
     padding: 4,
     borderRadius: 12,
     borderWidth: 1,
-  },
-  time: {
-    fontSize: 11,
-    marginTop: 3,
-    marginHorizontal: 4,
   },
 });

@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Platform } from "react-native";
+import { View, StyleSheet, Platform } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -11,6 +11,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 import { soundManager } from "@/src/services/SoundManager";
 import { AnimatedTrophy } from "./AnimatedTrophy";
+import { TText } from "@/src/components/tamagui";
 import type { AchievementUnlockedPayload } from "@packages/gamification/src/types";
 
 const RARITY_COLORS = {
@@ -42,13 +43,11 @@ export function AchievementToast({ toast, onDismiss, offsetTop = 56 }: Props) {
       return;
     }
 
-    // Som e haptic ao aparecer
     soundManager.play("success");
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     }
 
-    // Animação: entra → espera → sai
     opacity.value = withSequence(
       withTiming(1, { duration: 300 }),
       withDelay(3200, withTiming(0, { duration: 400 })),
@@ -58,7 +57,6 @@ export function AchievementToast({ toast, onDismiss, offsetTop = 56 }: Props) {
       withDelay(3200, withTiming(-20, { duration: 400 })),
     );
 
-    // Dismiss após 4s total
     const timer = setTimeout(() => {
       runOnJS(onDismiss)();
     }, 3900);
@@ -76,25 +74,36 @@ export function AchievementToast({ toast, onDismiss, offsetTop = 56 }: Props) {
   const rarityColor = RARITY_COLORS[toast.rarity];
 
   return (
-    <Animated.View style={[styles.container, { top: offsetTop }, animStyle]} pointerEvents="none">
-      <View style={[styles.card, { borderColor: rarityColor }]}>
+    <Animated.View style={[s.container, { top: offsetTop }, animStyle]} pointerEvents="none">
+      <View style={[s.card, { borderColor: rarityColor }]}>
         <AnimatedTrophy rarity={toast.rarity} size={48} spinning />
-        <View style={styles.textArea}>
-          <View style={styles.row}>
-            <Text style={[styles.rarityBadge, { backgroundColor: rarityColor + "22", color: rarityColor }]}>
+        <View style={s.textArea}>
+          <View style={s.row}>
+            <TText
+              bold
+              fontSize={10}
+              paddingHorizontal={7}
+              paddingVertical={2}
+              borderRadius={5}
+              overflow="hidden"
+              backgroundColor={rarityColor + "22"}
+              color={rarityColor}
+            >
               {RARITY_LABEL[toast.rarity]}
-            </Text>
-            <Text style={styles.xp}>+{toast.xpReward} XP</Text>
+            </TText>
+            <TText bold fontSize={11} color="#A78BFA">+{toast.xpReward} XP</TText>
           </View>
-          <Text style={styles.name}>{toast.name}</Text>
-          <Text style={styles.desc} numberOfLines={2}>{toast.description}</Text>
+          <TText bold fontSize={14} color="#FFFFFF">{toast.name}</TText>
+          <TText variant="caption" color="#AAAAAA" lineHeight={16} numberOfLines={2}>
+            {toast.description}
+          </TText>
         </View>
       </View>
     </Animated.View>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: {
     position: "absolute",
     top: 56,
@@ -125,29 +134,5 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-  },
-  rarityBadge: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 5,
-    overflow: "hidden",
-  },
-  xp: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 11,
-    color: "#A78BFA",
-  },
-  name: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 14,
-    color: "#FFFFFF",
-  },
-  desc: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 12,
-    color: "#AAAAAA",
-    lineHeight: 16,
   },
 });

@@ -21,7 +21,7 @@ import {
 import { getEncouragementMessage, evaluatePerformance } from "@packages/onboarding/src/adaptiveMissionEngine";
 import { ONBOARDING_EVENTS, ONBOARDING_STEPS } from "@packages/onboarding/src/types";
 import { generateId } from "@packages/events/src/factory";
-import { TButton } from "@/src/components/tamagui";
+import { TButton, TCard, TText } from "@/src/components/tamagui";
 
 const STEP_LABELS: Record<string, string> = {
   create_account: "Criar uma conta",
@@ -164,12 +164,12 @@ export default function OnboardingScreen() {
           <View style={[st.welcomeIcon, { backgroundColor: `${theme.primaryColor}15` }]}>
             <Feather name="compass" size={48} color={theme.primaryColor} />
           </View>
-          <Text style={[st.welcomeTitle, { color: theme.textColor }]}>
+          <TText variant="title" color={theme.textColor} textAlign="center">
             Bem-vindo ao DOMUS
-          </Text>
-          <Text style={[st.welcomeSubtext, { color: theme.secondaryText }]}>
+          </TText>
+          <TText variant="body" color={theme.secondaryText} textAlign="center" lineHeight={22}>
             Vamos comecar sua jornada financeira em 7 dias. Missoes simples, sem pressao.
-          </Text>
+          </TText>
           <View style={{ marginTop: 12 }}>
             <TButton variant="primary" backgroundColor={theme.primaryColor} icon={<Feather name="play" size={20} color="#FFF" />} onPress={handleStart}>
               Comecar
@@ -192,12 +192,12 @@ export default function OnboardingScreen() {
           <View style={[st.welcomeIcon, { backgroundColor: `${theme.success}15` }]}>
             <Feather name="check-circle" size={48} color={theme.success} />
           </View>
-          <Text style={[st.welcomeTitle, { color: theme.textColor }]}>
+          <TText variant="title" color={theme.textColor} textAlign="center">
             Onboarding completo!
-          </Text>
-          <Text style={[st.welcomeSubtext, { color: theme.secondaryText }]}>
+          </TText>
+          <TText variant="body" color={theme.secondaryText} textAlign="center" lineHeight={22}>
             Voce esta pronto para gerenciar suas financas. Continue registrando suas transacoes.
-          </Text>
+          </TText>
           <View style={{ marginTop: 12 }}>
             <TButton variant="primary" backgroundColor={theme.primaryColor} icon={<Feather name="arrow-left" size={20} color="#FFF" />} onPress={() => router.back()}>
               Voltar ao inicio
@@ -224,9 +224,9 @@ export default function OnboardingScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Feather name="arrow-left" size={22} color={theme.textColor} />
           </Pressable>
-          <Text style={[st.pageTitle, { color: theme.textColor }]}>
+          <TText variant="subtitle" color={theme.textColor} fontSize={18}>
             Dia {viewDay} de 7
-          </Text>
+          </TText>
           <View style={{ width: 22 }} />
         </View>
 
@@ -279,13 +279,13 @@ export default function OnboardingScreen() {
         </View>
 
         {mission && (
-          <View style={[st.missionCard, { backgroundColor: theme.cardBackground }]}>
-            <Text style={[st.missionTitle, { color: theme.textColor }]}>
+          <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} elevated padding={20} gap={12}>
+            <TText variant="subtitle" color={theme.textColor}>
               {mission.description}
-            </Text>
-            <Text style={[st.missionProgress, { color: theme.secondaryText }]}>
+            </TText>
+            <TText variant="caption" color={theme.secondaryText}>
               {dayProg.completed}/{dayProg.total} tarefas ({dayProg.percent}%)
-            </Text>
+            </TText>
 
             <View style={st.stepList}>
               {mission.steps.map((step, i) => {
@@ -338,21 +338,21 @@ export default function OnboardingScreen() {
                 );
               })}
             </View>
-          </View>
+          </TCard>
         )}
 
-        <View style={[st.diffCard, { backgroundColor: theme.cardBackground }]}>
-          <Text style={[st.diffLabel, { color: theme.secondaryText }]}>
+        <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} flexDirection="row" justifyContent="space-between" alignItems="center" padding={16}>
+          <TText variant="caption" color={theme.secondaryText}>
             Dificuldade atual
-          </Text>
-          <Text style={[st.diffValue, { color: theme.textColor }]}>
+          </TText>
+          <TText variant="label" bold color={theme.textColor}>
             {onboarding.difficulty === "easy"
               ? "Facil"
               : onboarding.difficulty === "normal"
                 ? "Normal"
                 : "Desafiante"}
-          </Text>
-        </View>
+          </TText>
+        </TCard>
       </ScrollView>
     </View>
   );
@@ -363,20 +363,12 @@ const st = StyleSheet.create({
   content: { gap: 16, paddingHorizontal: 16 },
   welcomeContainer: { flex: 1, alignItems: "center", paddingHorizontal: 32, gap: 16 },
   welcomeIcon: { width: 100, height: 100, borderRadius: 50, justifyContent: "center", alignItems: "center" },
-  welcomeTitle: { fontFamily: "DMSans_700Bold", fontSize: 26, textAlign: "center" as const },
-  welcomeSubtext: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 15,
-    textAlign: "center" as const,
-    lineHeight: 22,
-  },
   topRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 4,
   },
-  pageTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 18 },
   progressBar: { height: 6, borderRadius: 3 },
   progressFill: { height: 6, borderRadius: 3, minWidth: 4 },
   daySelector: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 8 },
@@ -396,18 +388,6 @@ const st = StyleSheet.create({
     gap: 10,
   },
   encourageText: { fontFamily: "DMSans_400Regular", fontSize: 13, flex: 1 },
-  missionCard: {
-    borderRadius: 20,
-    padding: 20,
-    gap: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  missionTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 16 },
-  missionProgress: { fontFamily: "DMSans_400Regular", fontSize: 13 },
   stepList: { gap: 8 },
   stepRow: {
     flexDirection: "row",
@@ -426,7 +406,4 @@ const st = StyleSheet.create({
     alignItems: "center",
   },
   stepLabel: { fontFamily: "DMSans_500Medium", fontSize: 14, flex: 1 },
-  diffCard: { borderRadius: 16, padding: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  diffLabel: { fontFamily: "DMSans_400Regular", fontSize: 13 },
-  diffValue: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
 });

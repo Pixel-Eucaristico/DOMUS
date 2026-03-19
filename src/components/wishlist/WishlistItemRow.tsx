@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Linking,
@@ -13,6 +12,7 @@ import type { ThemeColors } from "@packages/theme";
 import type { WishlistItem, UrgencyLevel, BundleItem } from "@packages/wishlist";
 import { soundManager } from "@/src/services/SoundManager";
 import { getCategoryDisplayName, getCategoryGroup, getGroupColor, getGroupLabel } from "@/src/utils/categoryHelpers";
+import { TText } from "@/src/components/tamagui";
 
 const URGENCY_COLORS: Record<UrgencyLevel, string> = {
   PRIORITY: "#DC2626",
@@ -33,7 +33,6 @@ interface Props {
   theme: ThemeColors;
   isDragging?: boolean;
   isRefreshing?: boolean;
-  /** Saldo atual da conta vinculada ao objetivo de poupança */
   linkedAccountBalance?: number;
   dragHandleProps?: object;
   onPress?: (item: WishlistItem) => void;
@@ -41,7 +40,6 @@ interface Props {
   onRemove?: (item: WishlistItem) => void;
   onConvert?: (item: WishlistItem) => void;
   onChangePriority?: (item: WishlistItem, newUrgency: UrgencyLevel) => void;
-  /** Chamado quando uma peça do bundle tem purchased alterado */
   onBundleItemToggle?: (item: WishlistItem, bundleItemId: string, purchased: boolean) => void;
 }
 
@@ -69,10 +67,10 @@ export function WishlistItemRow({
   };
 
   return (
-    <View style={styles.wrapper}>
+    <View style={s.wrapper}>
     <View
       style={[
-        styles.container,
+        s.container,
         {
           backgroundColor: isDragging ? theme.primaryColor + "15" : theme.cardBackground,
           borderColor: isDragging ? theme.primaryColor : "transparent",
@@ -81,7 +79,7 @@ export function WishlistItemRow({
       ]}
     >
       {/* Drag handle */}
-      <View style={styles.dragHandle} {...(dragHandleProps ?? {})}>
+      <View style={s.dragHandle} {...(dragHandleProps ?? {})}>
         <Feather name="menu" size={18} color={theme.secondaryText} />
       </View>
 
@@ -89,16 +87,16 @@ export function WishlistItemRow({
       {item.imageUrl ? (
         <Image
           source={{ uri: item.imageUrl }}
-          style={styles.thumbnail}
+          style={s.thumbnail}
           resizeMode="cover"
         />
       ) : (
-        <View style={[styles.urgencyBar, { backgroundColor: urgencyColor }]} />
+        <View style={[s.urgencyBar, { backgroundColor: urgencyColor }]} />
       )}
 
-      {/* Content — toque abre o link afiliado (ou original) se existir */}
+      {/* Content */}
       <TouchableOpacity
-        style={styles.content}
+        style={s.content}
         onPress={() => {
           const url = item.affiliateUrl ?? item.originalUrl;
           if (url) Linking.openURL(url);
@@ -106,63 +104,69 @@ export function WishlistItemRow({
         }}
         activeOpacity={0.7}
       >
-        <View style={styles.topRow}>
-          <Text
-            style={[styles.name, { color: theme.textColor }]}
+        <View style={s.topRow}>
+          <TText
+            variant="body"
+            fontWeight="600"
+            color={theme.textColor}
+            flex={1}
+            lineHeight={19}
             numberOfLines={2}
           >
             {item.name}
-          </Text>
+          </TText>
           {item.canBuyThisMonth && (
             <View
               style={[
-                styles.affordableBadge,
+                s.affordableBadge,
                 { backgroundColor: "#16A34A20" },
               ]}
             >
               <Feather name="check-circle" size={10} color="#16A34A" />
-              <Text style={styles.affordableText}>Possível</Text>
+              <TText variant="caption" fontWeight="600" color="#16A34A" fontSize={10}>
+                Possivel
+              </TText>
             </View>
           )}
         </View>
 
-        <View style={styles.metaRow}>
+        <View style={s.metaRow}>
           <View
             style={[
-              styles.urgencyChip,
+              s.urgencyChip,
               { backgroundColor: urgencyColor + "20" },
             ]}
           >
-            <Text style={[styles.urgencyText, { color: urgencyColor }]}>
+            <TText variant="caption" fontWeight="600" color={urgencyColor} fontSize={10}>
               {URGENCY_LABELS[item.urgencyLevel]}
-            </Text>
+            </TText>
           </View>
 
           {isRefreshing ? (
-            <View style={styles.refreshingRow}>
-              <ActivityIndicator size="small" color={theme.primaryColor} style={styles.refreshSpinner} />
+            <View style={s.refreshingRow}>
+              <ActivityIndicator size="small" color={theme.primaryColor} style={s.refreshSpinner} />
               {item.price !== undefined && (
-                <Text style={[styles.price, styles.priceRefreshing, { color: theme.primaryColor }]}>
+                <TText variant="label" bold color={theme.primaryColor} opacity={0.5}>
                   R${" "}
                   {item.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </Text>
+                </TText>
               )}
             </View>
           ) : item.price !== undefined ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
               {(item.quantity ?? 1) > 1 && (
-                <Text style={[styles.price, { color: theme.secondaryText, fontSize: 11 }]}>
+                <TText variant="label" bold color={theme.secondaryText} fontSize={11}>
                   {`×${item.quantity}`}
-                </Text>
+                </TText>
               )}
-              <Text style={[styles.price, { color: theme.primaryColor }]}>
+              <TText variant="label" bold color={theme.primaryColor}>
                 R${" "}
                 {((item.price) * (item.quantity ?? 1)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-              </Text>
+              </TText>
               {(item.quantity ?? 1) > 1 && (
-                <Text style={[styles.price, { color: theme.secondaryText, fontSize: 10 }]}>
+                <TText variant="caption" bold color={theme.secondaryText} fontSize={10}>
                   {`(un. R$ ${item.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })})`}
-                </Text>
+                </TText>
               )}
             </View>
           ) : null}
@@ -172,13 +176,13 @@ export function WishlistItemRow({
             const group = getCategoryGroup(item.category);
             const gc = getGroupColor(group);
             return (
-              <View style={styles.categoryRow}>
-                <View style={[styles.categoryChip, { backgroundColor: `${gc}18` }]}>
-                  <View style={[styles.categoryDot, { backgroundColor: gc }]} />
-                  <Text style={[styles.category, { color: gc }]}>{catName}</Text>
+              <View style={s.categoryRow}>
+                <View style={[s.categoryChip, { backgroundColor: `${gc}18` }]}>
+                  <View style={[s.categoryDot, { backgroundColor: gc }]} />
+                  <TText variant="caption" fontWeight="600" color={gc} fontSize={10}>{catName}</TText>
                 </View>
-                <View style={[styles.groupBadge, { backgroundColor: `${gc}18` }]}>
-                  <Text style={[styles.groupBadgeText, { color: gc }]}>{getGroupLabel(group)}</Text>
+                <View style={[s.groupBadge, { backgroundColor: `${gc}18` }]}>
+                  <TText variant="caption" bold color={gc} fontSize={9}>{getGroupLabel(group)}</TText>
                 </View>
               </View>
             );
@@ -186,14 +190,16 @@ export function WishlistItemRow({
 
           {(item.affiliateUrl ?? item.originalUrl) && (
             <TouchableOpacity onPress={openUrl} activeOpacity={0.7}>
-              <View style={styles.linkRow}>
+              <View style={s.linkRow}>
                 <Feather
                   name="external-link"
                   size={11}
                   color={item.affiliateUrl ? "#22C55E" : theme.secondaryText}
                 />
                 {item.affiliateUrl && (
-                  <Text style={styles.affiliateLabel}>Patrocinado</Text>
+                  <TText variant="caption" fontWeight="600" color="#22C55E" fontSize={10}>
+                    Patrocinado
+                  </TText>
                 )}
               </View>
             </TouchableOpacity>
@@ -209,20 +215,20 @@ export function WishlistItemRow({
             const reached = balance >= price;
             const remaining = Math.max(price - balance, 0);
             return (
-              <View style={styles.savingsContainer}>
-                <View style={[styles.savingsTrack, { backgroundColor: theme.cardBackground }]}>
+              <View style={s.savingsContainer}>
+                <View style={[s.savingsTrack, { backgroundColor: theme.cardBackground }]}>
                   <View
                     style={[
-                      styles.savingsFill,
-                      { width: `${Math.round(progress * 100)}%` as any, backgroundColor: reached ? "#16A34A" : "#3B82F6" },
+                      s.savingsFill,
+                      { width: `${Math.round(progress * 100)}%`, backgroundColor: reached ? "#16A34A" : "#3B82F6" },
                     ]}
                   />
                 </View>
-                <Text style={[styles.savingsText, { color: reached ? "#16A34A" : theme.secondaryText }]}>
+                <TText variant="caption" color={reached ? "#16A34A" : theme.secondaryText} fontSize={10}>
                   {reached
                     ? `Objetivo atingido! (${balance.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})`
                     : `R$ ${balance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} de R$ ${price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} · Falta R$ ${remaining.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                </Text>
+                </TText>
               </View>
             );
           })()
@@ -232,23 +238,23 @@ export function WishlistItemRow({
       {/* Badge + toggle de bundle */}
       {hasBundle && (
         <TouchableOpacity
-          style={styles.bundleToggleBtn}
+          style={s.bundleToggleBtn}
           onPress={() => { soundManager.play("tap"); setBundleOpen((v) => !v); }}
           activeOpacity={0.7}
         >
           <Feather name="layers" size={13} color={theme.primaryColor} />
-          <Text style={[styles.bundleBadgeText, { color: theme.primaryColor }]}>
-            {`Kit · ${item.bundleItems!.length} peças`}
-          </Text>
+          <TText variant="caption" fontWeight="600" color={theme.primaryColor} fontSize={10}>
+            {`Kit · ${item.bundleItems!.length} pecas`}
+          </TText>
           <Feather name={bundleOpen ? "chevron-up" : "chevron-down"} size={13} color={theme.primaryColor} />
         </TouchableOpacity>
       )}
 
       {/* Actions */}
-      <View style={styles.actions}>
+      <View style={s.actions}>
         {onEdit && (
           <TouchableOpacity
-            style={styles.actionBtn}
+            style={s.actionBtn}
             onPress={() => { soundManager.play("tap"); onEdit(item); }}
             activeOpacity={0.7}
           >
@@ -257,7 +263,7 @@ export function WishlistItemRow({
         )}
         {onConvert && (
           <TouchableOpacity
-            style={styles.actionBtn}
+            style={s.actionBtn}
             onPress={() => { soundManager.play("tap"); onConvert(item); }}
             activeOpacity={0.7}
           >
@@ -266,7 +272,7 @@ export function WishlistItemRow({
         )}
         {onRemove && (
           <TouchableOpacity
-            style={styles.actionBtn}
+            style={s.actionBtn}
             onPress={() => { soundManager.play("trash"); onRemove(item); }}
             activeOpacity={0.7}
           >
@@ -276,28 +282,35 @@ export function WishlistItemRow({
       </View>
     </View>
 
-    {/* Accordion de peças do kit */}
+    {/* Accordion de pecas do kit */}
     {hasBundle && bundleOpen && (
-      <View style={[styles.bundleAccordion, { backgroundColor: theme.cardBackground + "80", borderColor: theme.primaryColor + "30" }]}>
+      <View style={[s.bundleAccordion, { backgroundColor: theme.cardBackground + "80", borderColor: theme.primaryColor + "30" }]}>
         {item.bundleItems!.map((bItem: BundleItem) => {
           const purchased = bItem.purchased ?? false;
           return (
             <TouchableOpacity
               key={bItem.id}
-              style={[styles.bundlePieceRow, { borderBottomColor: theme.primaryColor + "15" }]}
+              style={[s.bundlePieceRow, { borderBottomColor: theme.primaryColor + "15" }]}
               onPress={() => onBundleItemToggle?.(item, bItem.id, !purchased)}
               activeOpacity={0.7}
             >
-              <View style={[styles.bundleCheck, { borderColor: purchased ? "#16A34A" : theme.secondaryText, backgroundColor: purchased ? "#16A34A" : "transparent" }]}>
+              <View style={[s.bundleCheck, { borderColor: purchased ? "#16A34A" : theme.secondaryText, backgroundColor: purchased ? "#16A34A" : "transparent" }]}>
                 {purchased && <Feather name="check" size={10} color="#fff" />}
               </View>
-              <Text style={[styles.bundlePieceName, { color: purchased ? theme.secondaryText : theme.textColor, textDecorationLine: purchased ? "line-through" : "none" }]} numberOfLines={1}>
+              <TText
+                variant="caption"
+                fontWeight="500"
+                color={purchased ? theme.secondaryText : theme.textColor}
+                textDecorationLine={purchased ? "line-through" : "none"}
+                flex={1}
+                numberOfLines={1}
+              >
                 {(bItem.quantity ?? 1) > 1 ? `×${bItem.quantity} ${bItem.name || "Sem nome"}` : (bItem.name || "Sem nome")}
-              </Text>
+              </TText>
               {bItem.price !== undefined && (
-                <Text style={[styles.bundlePiecePrice, { color: purchased ? theme.secondaryText : theme.primaryColor }]}>
+                <TText variant="caption" bold color={purchased ? theme.secondaryText : theme.primaryColor} fontSize={11}>
                   {`R$ ${(bItem.price * (bItem.quantity ?? 1)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                </Text>
+                </TText>
               )}
               {(bItem.affiliateUrl ?? bItem.originalUrl) && (
                 <TouchableOpacity onPress={() => Linking.openURL(bItem.affiliateUrl ?? bItem.originalUrl!)} activeOpacity={0.7}>
@@ -307,23 +320,23 @@ export function WishlistItemRow({
             </TouchableOpacity>
           );
         })}
-        {/* Botões comprar tudo / desmarcar tudo */}
-        <View style={styles.bundleActions}>
+        {/* Botoes comprar tudo / desmarcar tudo */}
+        <View style={s.bundleActions}>
           <TouchableOpacity
-            style={[styles.bundleActionBtn, { backgroundColor: "#16A34A20" }]}
+            style={[s.bundleActionBtn, { backgroundColor: "#16A34A20" }]}
             onPress={() => item.bundleItems!.forEach((b) => onBundleItemToggle?.(item, b.id, true))}
             activeOpacity={0.7}
           >
             <Feather name="check-square" size={13} color="#16A34A" />
-            <Text style={[styles.bundleActionText, { color: "#16A34A" }]}>Comprar tudo</Text>
+            <TText variant="caption" fontWeight="600" color="#16A34A" fontSize={11}>Comprar tudo</TText>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.bundleActionBtn, { backgroundColor: theme.primaryColor + "15" }]}
+            style={[s.bundleActionBtn, { backgroundColor: theme.primaryColor + "15" }]}
             onPress={() => item.bundleItems!.forEach((b) => onBundleItemToggle?.(item, b.id, false))}
             activeOpacity={0.7}
           >
             <Feather name="square" size={13} color={theme.primaryColor} />
-            <Text style={[styles.bundleActionText, { color: theme.primaryColor }]}>Desmarcar</Text>
+            <TText variant="caption" fontWeight="600" color={theme.primaryColor} fontSize={11}>Desmarcar</TText>
           </TouchableOpacity>
         </View>
       </View>
@@ -332,7 +345,7 @@ export function WishlistItemRow({
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   wrapper: { marginHorizontal: 16, marginVertical: 4 },
   container: {
     flexDirection: "row",
@@ -374,12 +387,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 6,
   },
-  name: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: "DMSans_600SemiBold",
-    lineHeight: 19,
-  },
   affordableBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -387,11 +394,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 7,
     paddingVertical: 3,
-  },
-  affordableText: {
-    fontSize: 10,
-    fontFamily: "DMSans_600SemiBold",
-    color: "#16A34A",
   },
   metaRow: {
     flexDirection: "row",
@@ -404,14 +406,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
-  urgencyText: {
-    fontSize: 10,
-    fontFamily: "DMSans_600SemiBold",
-  },
-  price: {
-    fontSize: 13,
-    fontFamily: "DMSans_700Bold",
-  },
   refreshingRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -419,9 +413,6 @@ const styles = StyleSheet.create({
   },
   refreshSpinner: {
     transform: [{ scale: 0.7 }],
-  },
-  priceRefreshing: {
-    opacity: 0.5,
   },
   categoryRow: {
     flexDirection: "row",
@@ -439,28 +430,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   categoryDot: { width: 6, height: 6, borderRadius: 3 },
-  category: {
-    fontSize: 10,
-    fontWeight: "600",
-  },
   groupBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
   },
-  groupBadgeText: {
-    fontSize: 9,
-    fontWeight: "700",
-  },
   linkRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-  },
-  affiliateLabel: {
-    fontSize: 10,
-    fontFamily: "DMSans_600SemiBold",
-    color: "#22C55E",
   },
   savingsContainer: {
     marginTop: 6,
@@ -475,10 +453,6 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 3,
   },
-  savingsText: {
-    fontSize: 10,
-    fontFamily: "DMSans_400Regular",
-  },
   bundleToggleBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -489,7 +463,6 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
     borderLeftColor: "transparent",
   },
-  bundleBadgeText: { fontSize: 10, fontFamily: "DMSans_600SemiBold" },
   bundleAccordion: {
     borderWidth: 1,
     borderTopWidth: 0,
@@ -513,8 +486,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  bundlePieceName: { flex: 1, fontSize: 12, fontFamily: "DMSans_500Medium" },
-  bundlePiecePrice: { fontSize: 11, fontFamily: "DMSans_700Bold" },
   bundleActions: {
     flexDirection: "row",
     gap: 8,
@@ -529,7 +500,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 7,
   },
-  bundleActionText: { fontSize: 11, fontFamily: "DMSans_600SemiBold" },
   actions: {
     flexDirection: "column",
     paddingRight: 8,

@@ -1,10 +1,11 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { soundManager } from "@/src/services/SoundManager";
 import type { ThemeColors } from "@packages/theme";
 import type { CategoryGroup } from "@packages/events/src/types";
+import { TText } from "@/src/components/tamagui";
 
 const GROUP_OPTIONS: Array<{ value: CategoryGroup; label: string; color: string }> = [
   { value: "needs", label: "Necessidade", color: "#10B981" },
@@ -48,9 +49,9 @@ export function GroupOverrideChip({
         color={current.color}
         style={s.icon}
       />
-      <Text style={[s.label, { color: current.color }]}>
+      <TText variant="caption" fontWeight="500" color={current.color} fontSize={11}>
         {current.label}
-      </Text>
+      </TText>
     </Pressable>
   );
 }
@@ -65,8 +66,4 @@ const s = StyleSheet.create({
     borderWidth: 1,
   },
   icon: { marginRight: 4 },
-  label: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 11,
-  },
 });

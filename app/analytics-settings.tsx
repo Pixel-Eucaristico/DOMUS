@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
+import { TCard, TText } from "@/src/components/tamagui";
 import {
   loadAnalyticsSettings,
   saveAnalyticsSettings,
@@ -63,9 +64,9 @@ export default function AnalyticsSettingsScreen() {
         >
           <Feather name="arrow-left" size={22} color={theme.textColor} />
         </TouchableOpacity>
-        <Text style={[s.headerTitle, { color: theme.textColor }]}>
+        <TText variant="subtitle" bold color={theme.textColor} fontSize={19} flex={1}>
           Analytics & Performance
-        </Text>
+        </TText>
       </View>
 
       <ScrollView
@@ -94,14 +95,14 @@ export default function AnalyticsSettingsScreen() {
         </View>
 
         {/* Toggles */}
-        <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+        <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} padding={0}>
           <View style={s.sectionHeader}>
             <View style={[s.sectionIconBg, { backgroundColor: "#6366F118" }]}>
               <Feather name="sliders" size={16} color="#6366F1" />
             </View>
-            <Text style={[s.sectionTitle, { color: theme.textColor }]}>
+            <TText variant="subtitle" bold color={theme.textColor} fontSize={15} flex={1}>
               O que Compartilhar
-            </Text>
+            </TText>
           </View>
           <View style={[s.divider, { backgroundColor: theme.border }]} />
           <View style={s.cardBody}>
@@ -133,17 +134,17 @@ export default function AnalyticsSettingsScreen() {
               onValueChange={(v) => update({ crashlyticsEnabled: v })}
             />
           </View>
-        </View>
+        </TCard>
 
         {/* O que coletamos */}
-        <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+        <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} padding={0}>
           <View style={s.sectionHeader}>
             <View style={[s.sectionIconBg, { backgroundColor: "#10B98118" }]}>
               <Feather name="eye" size={16} color="#10B981" />
             </View>
-            <Text style={[s.sectionTitle, { color: theme.textColor }]}>
+            <TText variant="subtitle" bold color={theme.textColor} fontSize={15} flex={1}>
               O que Coletamos
-            </Text>
+            </TText>
           </View>
           <View style={[s.divider, { backgroundColor: theme.border }]} />
           <View style={s.cardBody}>
@@ -152,17 +153,17 @@ export default function AnalyticsSettingsScreen() {
             <InfoItem icon="check" color="#10B981" label="Crashes e logs de erro" theme={theme} />
             <InfoItem icon="check" color="#10B981" label="Versão do app e do sistema" theme={theme} />
           </View>
-        </View>
+        </TCard>
 
         {/* O que NÃO coletamos */}
-        <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+        <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} padding={0}>
           <View style={s.sectionHeader}>
             <View style={[s.sectionIconBg, { backgroundColor: "#EF444418" }]}>
               <Feather name="shield" size={16} color="#EF4444" />
             </View>
-            <Text style={[s.sectionTitle, { color: theme.textColor }]}>
+            <TText variant="subtitle" bold color={theme.textColor} fontSize={15} flex={1}>
               O que NUNCA Coletamos
-            </Text>
+            </TText>
           </View>
           <View style={[s.divider, { backgroundColor: theme.border }]} />
           <View style={s.cardBody}>
@@ -172,7 +173,7 @@ export default function AnalyticsSettingsScreen() {
             <InfoItem icon="x" color="#EF4444" label="Chaves de API ou senhas" theme={theme} />
             <InfoItem icon="x" color="#EF4444" label="Conteúdo de conversas com IA" theme={theme} />
           </View>
-        </View>
+        </TCard>
 
         {/* Desativar tudo */}
         {anyEnabled && (
@@ -295,7 +296,6 @@ function styles(theme: any) {
       gap: 10,
     },
     backBtn: { padding: 4 },
-    headerTitle: { fontFamily: "DMSans_700Bold", fontSize: 19, flex: 1 },
     content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
     statusCard: {
       borderRadius: 16,
@@ -314,7 +314,6 @@ function styles(theme: any) {
     },
     statusTitle: { fontFamily: "DMSans_700Bold", fontSize: 14 },
     statusDesc: { fontFamily: "DMSans_400Regular", fontSize: 12, marginTop: 2, lineHeight: 17 },
-    card: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
     cardBody: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 14, gap: 10 },
     sectionHeader: {
       flexDirection: "row",
@@ -330,7 +329,6 @@ function styles(theme: any) {
       justifyContent: "center",
       alignItems: "center",
     },
-    sectionTitle: { fontFamily: "DMSans_700Bold", fontSize: 15, flex: 1 },
     divider: { height: StyleSheet.hairlineWidth, marginHorizontal: 14 },
     disableBtn: {
       borderWidth: 1,

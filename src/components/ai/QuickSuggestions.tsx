@@ -1,8 +1,9 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { View, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
+import { TText } from "@/src/components/tamagui";
 
 interface QuickSuggestionsProps {
   onSelect: (text: string) => void;
@@ -76,28 +77,28 @@ export function QuickSuggestions({ onSelect, hasMessages }: QuickSuggestionsProp
   const suggestions = hasMessages ? QUICK_ACTIONS : INITIAL_SUGGESTIONS;
 
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
       {!hasMessages && (
-        <Text style={[styles.title, { color: theme.secondaryText }]}>
+        <TText bold variant="label" color={theme.secondaryText} paddingHorizontal={16}>
           Como posso ajudar?
-        </Text>
+        </TText>
       )}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={s.scrollContent}
       >
-        {suggestions.map((s, idx) => (
+        {suggestions.map((sg, idx) => (
           <TouchableOpacity
             key={idx}
-            style={[styles.chip, { backgroundColor: `${s.color}15`, borderColor: `${s.color}40` }]}
-            onPress={() => { soundManager.play("pop"); onSelect(s.prompt); }}
+            style={[s.chip, { backgroundColor: `${sg.color}15`, borderColor: `${sg.color}40` }]}
+            onPress={() => { soundManager.play("pop"); onSelect(sg.prompt); }}
             activeOpacity={0.7}
           >
-            <Feather name={s.icon} size={14} color={s.color} />
-            <Text style={[styles.chipText, { color: s.color }]} numberOfLines={1}>
-              {s.label}
-            </Text>
+            <Feather name={sg.icon} size={14} color={sg.color} />
+            <TText variant="label" color={sg.color} numberOfLines={1}>
+              {sg.label}
+            </TText>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -105,15 +106,10 @@ export function QuickSuggestions({ onSelect, hasMessages }: QuickSuggestionsProp
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: {
     paddingVertical: 8,
     gap: 6,
-  },
-  title: {
-    fontSize: 13,
-    fontWeight: "600",
-    paddingHorizontal: 16,
   },
   scrollContent: {
     paddingHorizontal: 12,
@@ -127,9 +123,5 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: "500",
   },
 });

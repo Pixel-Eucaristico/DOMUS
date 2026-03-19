@@ -1,7 +1,8 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { colors, spacing } from "@/src/theme";
+import { TText } from "@/src/components/tamagui";
 
 interface BudgetSegment {
   label: string;
@@ -25,10 +26,12 @@ export function BudgetChart() {
   let cumulativeOffset = 0;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Divisao 50/30/20</Text>
-      <View style={styles.content}>
-        <View style={styles.chartWrapper}>
+    <View style={s.container}>
+      <TText variant="subtitle" color={colors.text.primary} marginBottom={spacing.md}>
+        Divisao 50/30/20
+      </TText>
+      <View style={s.content}>
+        <View style={s.chartWrapper}>
           <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
             <Circle
               cx={SIZE / 2}
@@ -60,25 +63,27 @@ export function BudgetChart() {
               );
             })}
           </Svg>
-          <View style={styles.chartCenter}>
-            <Text style={styles.chartCenterValue}>R$ 5.000</Text>
-            <Text style={styles.chartCenterLabel}>Total</Text>
+          <View style={s.chartCenter}>
+            <TText variant="body" bold color={colors.text.primary}>R$ 5.000</TText>
+            <TText variant="caption" color={colors.text.tertiary} fontSize={11}>Total</TText>
           </View>
         </View>
-        <View style={styles.legend}>
+        <View style={s.legend}>
           {MOCK_BUDGET.map((segment, index) => (
-            <View key={index} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: segment.color }]} />
-              <View style={styles.legendTextGroup}>
-                <Text style={styles.legendLabel}>{segment.label}</Text>
-                <Text style={styles.legendPercentage}>{segment.percentage}%</Text>
+            <View key={index} style={s.legendItem}>
+              <View style={[s.legendDot, { backgroundColor: segment.color }]} />
+              <View style={s.legendTextGroup}>
+                <TText variant="label" color={colors.text.primary}>{segment.label}</TText>
+                <TText variant="caption" color={colors.text.tertiary} fontSize={11}>
+                  {segment.percentage}%
+                </TText>
               </View>
-              <Text style={styles.legendAmount}>
+              <TText variant="label" fontWeight="600" color={colors.text.primary}>
                 {new Intl.NumberFormat("pt-BR", {
                   style: "currency",
                   currency: "BRL",
                 }).format(segment.amount)}
-              </Text>
+              </TText>
             </View>
           ))}
         </View>
@@ -87,7 +92,7 @@ export function BudgetChart() {
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
     borderRadius: 20,
@@ -98,12 +103,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 8,
     elevation: 2,
-  },
-  title: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 16,
-    color: colors.text.primary,
-    marginBottom: spacing.md,
   },
   content: {
     flexDirection: "row",
@@ -119,16 +118,6 @@ const styles = StyleSheet.create({
   chartCenter: {
     position: "absolute",
     alignItems: "center",
-  },
-  chartCenterValue: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 14,
-    color: colors.text.primary,
-  },
-  chartCenterLabel: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 11,
-    color: colors.text.tertiary,
   },
   legend: {
     flex: 1,
@@ -146,20 +135,5 @@ const styles = StyleSheet.create({
   },
   legendTextGroup: {
     flex: 1,
-  },
-  legendLabel: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 13,
-    color: colors.text.primary,
-  },
-  legendPercentage: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 11,
-    color: colors.text.tertiary,
-  },
-  legendAmount: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 13,
-    color: colors.text.primary,
   },
 });

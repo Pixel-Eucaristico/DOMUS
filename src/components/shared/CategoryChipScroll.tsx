@@ -1,8 +1,9 @@
 import React from "react";
-import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
+import { View, Pressable, ScrollView, StyleSheet } from "react-native";
 import type { ThemeColors } from "@packages/theme";
 import { GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { soundManager } from "@/src/services/SoundManager";
+import { TText } from "@/src/components/tamagui";
 
 interface CategoryOption {
   id: string;
@@ -44,17 +45,13 @@ export function CategoryChipScroll({
               accessibilityState={{ checked: selected }}
               accessibilityLabel={`${cat.name}${selected ? ", selecionada" : ""}`}
             >
-              <Text
-                style={[
-                  s.chipText,
-                  {
-                    color: selected ? color : theme.secondaryText,
-                    fontWeight: selected ? "700" : "400",
-                  },
-                ]}
+              <TText
+                variant="caption"
+                color={selected ? color : theme.secondaryText}
+                fontWeight={selected ? "700" : "400"}
               >
                 {cat.name}
-              </Text>
+              </TText>
             </Pressable>
           );
         })}
@@ -67,5 +64,4 @@ const s = StyleSheet.create({
   scroll: { marginBottom: 4 },
   row: { flexDirection: "row", gap: 6 },
   chip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
-  chipText: { fontSize: 12 },
 });

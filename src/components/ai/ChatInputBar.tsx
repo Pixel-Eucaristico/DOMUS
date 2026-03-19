@@ -25,17 +25,14 @@ interface ChatInputBarProps {
   text: string;
   onChangeText: (text: string) => void;
   onSend: () => void;
-  // Feature flags
   isEnabled: boolean;
   voiceEnabled: boolean;
   visionOCREnabled?: boolean;
-  // Voice state
   isRecording: boolean;
   isTranscribing: boolean;
   isLoading: boolean;
   pulseAnim: Animated.Value;
   onVoicePress: () => void;
-  // Actions
   onAction: (action: ChatAction) => void;
 }
 
@@ -104,14 +101,14 @@ export function ChatInputBar({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
+    <View style={[s.container, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
       {/* ── MD formatting bar ── */}
-      <View style={[styles.mdBar, { borderBottomColor: theme.border }]}>
+      <View style={[s.mdBar, { borderBottomColor: theme.border }]}>
         {MD_BUTTONS.map((btn) => (
           <TouchableOpacity
             key={btn.label}
             onPress={() => handleFormat(btn.wrap)}
-            style={[styles.mdBtn, { backgroundColor: `${theme.primaryColor}08` }]}
+            style={[s.mdBtn, { backgroundColor: `${theme.primaryColor}08` }]}
             accessibilityLabel={btn.label}
           >
             <Feather name={btn.icon} size={14} color={theme.primaryColor} />
@@ -120,15 +117,13 @@ export function ChatInputBar({
       </View>
 
       {/* ── Input row: [+] [input] [mic] [send] ── */}
-      <View style={styles.inputRow}>
-        {/* + button */}
+      <View style={s.inputRow}>
         {isEnabled && (
           <ChatActionMenu onAction={onAction} visionOCREnabled={visionOCREnabled} />
         )}
 
-        {/* Text input */}
         <TextInput
-          style={[styles.input, {
+          style={[s.input, {
             color: theme.textColor,
             backgroundColor: theme.cardBackground,
             borderColor: theme.border,
@@ -142,13 +137,12 @@ export function ChatInputBar({
           maxLength={2000}
         />
 
-        {/* Mic button */}
         {voiceEnabled && (
           <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
             <TouchableOpacity
               onPress={() => { soundManager.play("tap"); onVoicePress(); }}
               disabled={isLoading || isTranscribing}
-              style={[styles.circleBtn, {
+              style={[s.circleBtn, {
                 backgroundColor: isRecording ? "#e53935" : isTranscribing ? theme.border : theme.cardBackground,
                 borderColor: isRecording ? "#e53935" : theme.border,
               }]}
@@ -166,11 +160,10 @@ export function ChatInputBar({
           </Animated.View>
         )}
 
-        {/* Send button */}
         <TouchableOpacity
           onPress={handleSend}
           disabled={!text.trim() || isLoading}
-          style={[styles.circleBtn, {
+          style={[s.circleBtn, {
             backgroundColor: text.trim() ? theme.primaryColor : theme.border,
             borderColor: text.trim() ? theme.primaryColor : theme.border,
           }]}
@@ -184,7 +177,7 @@ export function ChatInputBar({
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: {
     borderTopWidth: StyleSheet.hairlineWidth,
   },

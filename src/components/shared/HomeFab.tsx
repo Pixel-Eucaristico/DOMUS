@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { Pressable, StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import { Pressable, StyleSheet, View, TouchableOpacity } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Animated, {
   useSharedValue,
@@ -8,6 +8,7 @@ import Animated, {
   interpolate,
 } from "react-native-reanimated";
 import { TourGuideZone } from "rn-tourguide";
+import { TText } from "@/src/components/tamagui";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -38,13 +39,12 @@ const PAGE_SIZE = 3;
 const ARC_START = 180;
 const ARC_END = 270;
 
-// Pre-calculate positions for arc items
-const ITEM_ANGLE_GAP = 30; // fixed degrees between each item
+const ITEM_ANGLE_GAP = 30;
 
 function getArcPositions(count: number) {
   const positions: { x: number; y: number }[] = [];
   const totalSpan = (count - 1) * ITEM_ANGLE_GAP;
-  const midAngle = (ARC_START + ARC_END) / 2; // 225° = center of quarter
+  const midAngle = (ARC_START + ARC_END) / 2;
   const startDeg = midAngle - totalSpan / 2;
 
   for (let i = 0; i < count; i++) {
@@ -100,18 +100,15 @@ export function HomeFab({
     transform: [{ rotate: `${interpolate(progress.value, [0, 1], [0, 45])}deg` }],
   }));
 
-  // Calculate arc positions
   const arcSlotCount = hasPages ? pageActions.length + 1 : pageActions.length;
   const positions = getArcPositions(arcSlotCount);
 
   return (
     <>
-      {/* Backdrop - blocks touches to background content */}
       {menuOpen && (
         <Pressable style={[s.backdrop, { bottom: 0 }]} onPress={toggle} />
       )}
 
-      {/* Arc menu items - rendered as normal Views at calculated positions */}
       {menuOpen && (
         <View style={[s.arcContainer, { bottom: bottom + 7, right: 31 }]} pointerEvents="box-none">
           {pageActions.map((action, i) => {
@@ -129,12 +126,23 @@ export function HomeFab({
                 <View style={[s.arcButton, { backgroundColor: action.color }]}>
                   <Feather name={action.icon} size={20} color="#FFF" />
                 </View>
-                <Text style={s.arcLabel}>{action.label}</Text>
+                <TText
+                  variant="caption"
+                  fontWeight="600"
+                  color="#FFF"
+                  fontSize={9}
+                  textAlign="center"
+                  marginTop={3}
+                  textShadowColor="rgba(0,0,0,0.9)"
+                  textShadowOffset={{ width: 0, height: 1 }}
+                  textShadowRadius={4}
+                >
+                  {action.label}
+                </TText>
               </TouchableOpacity>
             );
           })}
 
-          {/* Rotate page button */}
           {hasPages && (() => {
             const pos = positions[pageActions.length]!;
             return (
@@ -150,14 +158,25 @@ export function HomeFab({
                 <View style={s.rotateButton}>
                   <Feather name="chevrons-right" size={16} color="#FFF" />
                 </View>
-                <Text style={s.arcLabel}>{page + 1}/{totalPages}</Text>
+                <TText
+                  variant="caption"
+                  fontWeight="600"
+                  color="#FFF"
+                  fontSize={9}
+                  textAlign="center"
+                  marginTop={3}
+                  textShadowColor="rgba(0,0,0,0.9)"
+                  textShadowOffset={{ width: 0, height: 1 }}
+                  textShadowRadius={4}
+                >
+                  {page + 1}/{totalPages}
+                </TText>
               </TouchableOpacity>
             );
           })()}
         </View>
       )}
 
-      {/* Main FAB */}
       <View style={[s.fabContainer, { bottom }]}>
         <TourGuideZone zone={3} text="4" isTourGuide borderRadius={40} maskOffset={0} tooltipBottomOffset={80}>
           <Pressable
@@ -218,16 +237,6 @@ const s = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 6,
-  },
-  arcLabel: {
-    color: "#FFF",
-    fontSize: 9,
-    fontFamily: "DMSans_600SemiBold",
-    textAlign: "center",
-    marginTop: 3,
-    textShadowColor: "rgba(0,0,0,0.9)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
   fabContainer: {
     position: "absolute",

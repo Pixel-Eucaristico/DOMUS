@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, TextInput, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import type { ThemeColors } from "@packages/theme";
@@ -15,6 +15,7 @@ import {
   getGroupColor,
   getGroupLabel,
 } from "@/src/utils/categoryHelpers";
+import { TText } from "@/src/components/tamagui";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -41,7 +42,6 @@ export function EditableItemRow({ item, index, isEditing, theme, onToggleEdit, o
   const groupColor = getGroupColor(currentGroup);
   const groupLabel = getGroupLabel(currentGroup);
 
-  // Check if this subcategory allows group override
   const canToggleGroup = item.subcategoryId
     ? NCM_SUBCATEGORIES.find((s) => s.id === item.subcategoryId)?.allowGroupOverride ?? false
     : false;
@@ -65,21 +65,21 @@ export function EditableItemRow({ item, index, isEditing, theme, onToggleEdit, o
       {/* Item row */}
       <View style={[s.itemRow, { borderBottomColor: theme.border }]}>
         <View style={s.itemInfo}>
-          <Text style={[s.itemDescription, { color: theme.textColor }]} numberOfLines={2}>
+          <TText variant="body" fontWeight="500" color={theme.textColor} fontSize={15} numberOfLines={2}>
             {item.description}
-          </Text>
-          <Text style={[s.itemSub, { color: theme.secondaryText }]}>
+          </TText>
+          <TText variant="label" color={theme.secondaryText}>
             {item.quantity} {item.unit || "un"} × R$ {item.unitPrice.toFixed(2)}
-          </Text>
-          {item.ean && <Text style={[s.itemMeta, { color: theme.secondaryText }]}>EAN: {item.ean}</Text>}
-          {item.ncm && <Text style={[s.itemMeta, { color: theme.secondaryText }]}>NCM: {item.ncm}</Text>}
-          {item.productCode && <Text style={[s.itemMeta, { color: theme.secondaryText }]}>Cod: {item.productCode}</Text>}
+          </TText>
+          {item.ean && <TText variant="caption" color={theme.secondaryText} fontSize={11} marginTop={2}>EAN: {item.ean}</TText>}
+          {item.ncm && <TText variant="caption" color={theme.secondaryText} fontSize={11} marginTop={2}>NCM: {item.ncm}</TText>}
+          {item.productCode && <TText variant="caption" color={theme.secondaryText} fontSize={11} marginTop={2}>Cod: {item.productCode}</TText>}
 
           {/* Category + Group tags */}
           <View style={s.tagRow}>
             <Pressable onPress={() => setPickerVisible(true)} style={[s.tag, { backgroundColor: `${catColor}22` }]}>
               <View style={[s.dot, { backgroundColor: catColor }]} />
-              <Text style={[s.tagText, { color: catColor }]}>{catName}</Text>
+              <TText variant="caption" fontWeight="600" color={catColor} fontSize={10}>{catName}</TText>
               <Feather name="chevron-right" size={10} color={catColor} />
             </Pressable>
             <Pressable
@@ -88,12 +88,14 @@ export function EditableItemRow({ item, index, isEditing, theme, onToggleEdit, o
               style={[s.tag, { backgroundColor: `${groupColor}18`, borderColor: `${groupColor}40`, borderWidth: 1 }]}
             >
               {canToggleGroup && <Feather name="refresh-cw" size={9} color={groupColor} />}
-              <Text style={[s.groupText, { color: groupColor }]}>{groupLabel}</Text>
+              <TText variant="caption" bold color={groupColor} fontSize={9}>{groupLabel}</TText>
             </Pressable>
           </View>
         </View>
 
-        <Text style={[s.itemPrice, { color: theme.textColor }]}>R$ {item.totalPrice.toFixed(2)}</Text>
+        <TText variant="body" fontWeight="600" color={theme.textColor} fontSize={15} flexShrink={0}>
+          R$ {item.totalPrice.toFixed(2)}
+        </TText>
         <Pressable onPress={() => onToggleEdit(isEditing ? null : index)} hitSlop={8} style={{ marginLeft: 8 }}>
           <Feather name="edit-2" size={16} color={theme.primaryColor} />
         </Pressable>
@@ -115,14 +117,16 @@ export function EditableItemRow({ item, index, isEditing, theme, onToggleEdit, o
             <TextInput style={[s.editInputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]} value={item.ean || ""} onChangeText={(v) => onEditField(index, "ean", v)} placeholder="EAN" placeholderTextColor={theme.secondaryText} keyboardType="number-pad" maxLength={14} />
             <TextInput style={[s.editInputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]} value={item.ncm || ""} onChangeText={(v) => onEditField(index, "ncm", v)} placeholder="NCM" placeholderTextColor={theme.secondaryText} keyboardType="number-pad" maxLength={8} />
           </View>
-          <Text style={[s.sectionLabel, { color: theme.secondaryText }]}>Categoria do gasto</Text>
+          <TText variant="caption" fontWeight="500" color={theme.secondaryText} fontSize={11} marginTop={2}>
+            Categoria do gasto
+          </TText>
           <Pressable onPress={() => setPickerVisible(true)} style={[s.catPickerBtn, { borderColor: catColor, backgroundColor: `${catColor}10` }]}>
             <View style={[s.dot, { backgroundColor: catColor }]} />
-            <Text style={[s.catPickerText, { color: theme.textColor }]}>{catName}</Text>
+            <TText variant="label" color={theme.textColor} flex={1}>{catName}</TText>
             <Feather name="chevron-right" size={14} color={theme.secondaryText} />
           </Pressable>
           <Pressable style={{ alignSelf: "flex-end", marginTop: 6 }} onPress={() => onToggleEdit(null)}>
-            <Text style={{ color: theme.primaryColor, fontWeight: "600" }}>Fechar</Text>
+            <TText variant="body" fontWeight="600" color={theme.primaryColor}>Fechar</TText>
           </Pressable>
         </View>
       )}
@@ -137,20 +141,12 @@ export function EditableItemRow({ item, index, isEditing, theme, onToggleEdit, o
 const s = StyleSheet.create({
   itemRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, gap: 8 },
   itemInfo: { flex: 1, flexShrink: 1 },
-  itemDescription: { fontSize: 15, fontWeight: "500", marginBottom: 3 },
-  itemSub: { fontSize: 13 },
-  itemMeta: { fontSize: 11, marginTop: 2 },
-  itemPrice: { fontSize: 15, fontWeight: "600", flexShrink: 0 },
   tagRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" },
   tag: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   dot: { width: 6, height: 6, borderRadius: 3 },
-  tagText: { fontSize: 10, fontWeight: "600" },
-  groupText: { fontSize: 9, fontWeight: "700" },
   editForm: { padding: 12, borderTopWidth: 1, marginBottom: 4, gap: 8 },
   editRow: { flexDirection: "row", gap: 8 },
   editInput: { borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 14 },
   editInputSm: { borderWidth: 1, borderRadius: 8, padding: 8, fontSize: 13 },
-  sectionLabel: { fontSize: 11, fontWeight: "500", marginTop: 2 },
   catPickerBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
-  catPickerText: { flex: 1, fontFamily: "DMSans_500Medium", fontSize: 13 },
 });

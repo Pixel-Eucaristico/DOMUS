@@ -12,6 +12,7 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import type { ThemeColors } from "@packages/theme";
+import { PixelText } from "@/src/components/pixel";
 
 const { width } = Dimensions.get("window");
 
@@ -119,7 +120,7 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onAnimationFinis
           />
         </Svg>
         <Animated.View style={[s.textContainer, textStyle]}>
-          <Text style={[s.brandText, { color: theme.primaryColor }]}>DOMUS</Text>
+          <PixelText size={28} color={theme.primaryColor} style={{ letterSpacing: 4 }}>DOMUS</PixelText>
           <Text style={[s.sloganText, { color: theme.textColor }]}>Gestão Financeira Inteligente</Text>
         </Animated.View>
       </View>

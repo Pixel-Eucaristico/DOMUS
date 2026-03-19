@@ -21,7 +21,7 @@ import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { QRScannerModal } from "@/src/components/sync/QRScannerModal";
 import { TourGuideZone } from "rn-tourguide";
-import { TButton, TInput } from "@/src/components/tamagui";
+import { TButton, TCard, TInput, TText } from "@/src/components/tamagui";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
@@ -136,13 +136,13 @@ export default function SyncScreen() {
         <Pressable testID="sync-back-button" onPress={() => { haptic(); soundManager.play("tap"); router.canGoBack() ? router.back() : router.replace("/"); }} hitSlop={12}>
           <Feather name="arrow-left" size={24} color={theme.textColor} />
         </Pressable>
-        <Text style={[s.topBarTitle, { color: theme.textColor }]}>Sincronizar</Text>
+        <TText variant="subtitle" color={theme.textColor} fontSize={18}>Sincronizar</TText>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView ref={scrollRef} contentContainerStyle={[s.content, { paddingBottom: insets.bottom + webBottomInset + 24 }]} showsVerticalScrollIndicator={false}>
         {/* Status card */}
-        <View style={[s.statusCard, { backgroundColor: theme.cardBackground }]}>
+        <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} elevated padding={18} gap={16}>
           <View style={s.statusRow}>
             <View style={[s.iconCircle, { backgroundColor: `${theme.primaryColor}15` }]}>
               {isAutoSyncEnabled
@@ -173,7 +173,7 @@ export default function SyncScreen() {
               <Text style={[s.statLabel, { color: theme.secondaryText }]}>ultimo sync</Text>
             </View>
           </View>
-        </View>
+        </TCard>
 
         {errorMessage && (
           <View style={[s.banner, { backgroundColor: `${theme.danger}12` }]}>
@@ -188,7 +188,7 @@ export default function SyncScreen() {
         {!isAutoSyncEnabled ? (
           <>
             <View style={s.sectionHeader}>
-              <Text style={[s.sectionTitle, { color: theme.textColor }]}>Conectar dispositivos</Text>
+              <TText variant="subtitle" color={theme.textColor} fontSize={15}>Conectar dispositivos</TText>
               <Text style={[s.sectionDesc, { color: theme.secondaryText }]}>
                 Crie um grupo ou entre em um existente para sincronizar automaticamente
               </Text>
@@ -302,7 +302,7 @@ export default function SyncScreen() {
             </View>
 
             <View style={s.sectionHeader}>
-              <Text style={[s.sectionTitle, { color: theme.textColor }]}>Sync automatico</Text>
+              <TText variant="subtitle" color={theme.textColor} fontSize={15}>Sync automatico</TText>
               <Text style={[s.sectionDesc, { color: theme.secondaryText }]}>
                 Seus dados sincronizam via relays Nostr a cada 8 segundos e ao criar eventos
               </Text>
@@ -350,7 +350,7 @@ export default function SyncScreen() {
 
         {/* Backup link */}
         <View style={s.sectionHeader}>
-          <Text style={[s.sectionTitle, { color: theme.textColor }]}>Backup local</Text>
+          <TText variant="subtitle" color={theme.textColor} fontSize={15}>Backup local</TText>
           <Text style={[s.sectionDesc, { color: theme.secondaryText }]}>
             Exporta todos os dados criptografados para um arquivo que você guarda onde quiser
           </Text>
@@ -404,9 +404,7 @@ export default function SyncScreen() {
 const s = StyleSheet.create({
   root: { flex: 1 },
   topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 14 },
-  topBarTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 18 },
   content: { paddingHorizontal: 16, gap: 12, paddingTop: 8 },
-  statusCard: { borderRadius: 16, padding: 18, gap: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 14 },
   iconCircle: { width: 48, height: 48, borderRadius: 24, justifyContent: "center", alignItems: "center" },
   statusInfo: { flex: 1, gap: 4 },
@@ -422,7 +420,6 @@ const s = StyleSheet.create({
   banner: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14, borderRadius: 12 },
   bannerText: { fontFamily: "DMSans_500Medium", fontSize: 13, flex: 1 },
   sectionHeader: { gap: 2, marginTop: 8 },
-  sectionTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 15 },
   sectionDesc: { fontFamily: "DMSans_400Regular", fontSize: 12 },
   actionsRow: { flexDirection: "row", gap: 10 },
   actionCard: { flex: 1, borderRadius: 16, padding: 18, alignItems: "center", justifyContent: "center", gap: 8, minHeight: 120, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },

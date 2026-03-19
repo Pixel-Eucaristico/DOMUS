@@ -18,6 +18,8 @@ import { CreateListModal } from "@/src/components/wishlist/CreateListModal";
 import { TourGuideZone } from "rn-tourguide";
 import { TourPageHost } from "@/src/components/tour/TourPageHost";
 import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
+import { PixelText } from "@/src/components/pixel";
+import { TButton } from "@/src/components/tamagui";
 
 
 export default function WishlistTab() {
@@ -49,6 +51,7 @@ export default function WishlistTab() {
           <Text style={[styles.title, { color: theme.textColor }]}>
             Lista de Desejos
           </Text>
+          <PixelText size={7} color={theme.primaryColor} style={{ opacity: 0.5 }}>PE</PixelText>
           {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
         </View>
       </View>
@@ -71,17 +74,17 @@ export default function WishlistTab() {
             Crie listas para organizar seus desejos por urgência, acompanhe
             preços e avalie o que cabe no seu orçamento.
           </Text>
-          <TouchableOpacity
-            style={[styles.emptyBtn, { backgroundColor: theme.primaryColor }]}
+          <TButton
+            variant="primary"
+            backgroundColor={theme.primaryColor}
+            icon={<Feather name="plus" size={16} color="#fff" />}
             onPress={() => {
               soundManager.play("pop");
               setShowCreateModal(true);
             }}
-            activeOpacity={0.7}
           >
-            <Feather name="plus" size={16} color="#fff" />
-            <Text style={styles.emptyBtnText}>Criar primeira lista</Text>
-          </TouchableOpacity>
+            Criar primeira lista
+          </TButton>
         </View>
       ) : (
         <FlashList

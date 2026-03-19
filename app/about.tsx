@@ -36,6 +36,8 @@ import { useTourPage } from "@/src/tour/useTourPage";
 import { ContactForm } from "@/src/components/about/ContactForm";
 import { DonationSection } from "@/src/components/about/DonationSection";
 import { LinkRow } from "@/src/components/about/DonationSection";
+import { PixelText } from "@/src/components/pixel";
+import { TText, TButton } from "@/src/components/tamagui";
 
 export default function AboutScreen() {
   const router = useRouter();
@@ -80,9 +82,9 @@ export default function AboutScreen() {
           >
             <Feather name="arrow-left" size={22} color={theme.textColor} />
           </TouchableOpacity>
-          <Text style={[s.headerTitle, { color: theme.textColor }]}>
+          <TText variant="subtitle" bold color={theme.textColor} flex={1}>
             Sobre o DOMUS
-          </Text>
+          </TText>
         </View>
 
         <KeyboardAwareScrollView
@@ -101,15 +103,16 @@ export default function AboutScreen() {
             title="Pixel Eucarístico"
             accentColor={theme.primaryColor}
           >
-            <Text style={[s.bodyText, { color: theme.secondaryText }]}>
+            <PixelText size={9} color={theme.primaryColor} style={{ marginBottom: 8 }}>Pixel Eucarístico</PixelText>
+            <TText variant="label" secondary lineHeight={20}>
               Tecnologia com propósito. A Pixel Eucarístico desenvolve
               soluções digitais que respeitam a privacidade do usuário e
               promovem autonomia financeira e crescimento pessoal.
-            </Text>
-            <Text style={[s.bodyText, { color: theme.secondaryText }]}>
+            </TText>
+            <TText variant="label" secondary lineHeight={20}>
               Criadora do DOMUS — seus dados ficam no seu dispositivo,
               nunca em servidores de terceiros.
-            </Text>
+            </TText>
           </SectionCard>
 
           {/* ── PROJECT ─────────────────────────────────────────────────── */}
@@ -166,27 +169,28 @@ export default function AboutScreen() {
           <View style={[s.dangerSection, { borderColor: "#DC2626", backgroundColor: "#DC262608" }]}>
             <View style={s.dangerHeader}>
               <Feather name="alert-triangle" size={15} color="#DC2626" />
-              <Text style={[s.dangerTitle, { color: "#DC2626" }]}>Zona de Perigo</Text>
+              <TText variant="body" bold color="#DC2626">Zona de Perigo</TText>
             </View>
-            <Text style={[s.dangerDesc, { color: theme.secondaryText }]}>
+            <TText variant="label" color={theme.secondaryText} lineHeight={19}>
               Apaga todos os dados e retorna o aplicativo ao estado inicial, como se fosse recém-instalado.
-            </Text>
-            <TouchableOpacity
-              style={s.dangerBtn}
+            </TText>
+            <TButton
+              variant="danger"
+              backgroundColor={theme.danger ?? "#DC2626"}
+              icon={<Feather name="trash-2" size={15} color="#FFF" />}
               onPress={() => { soundManager.play("trash"); setResetPhrase(""); setShowResetModal(true); }}
-              activeOpacity={0.8}
             >
-              <Feather name="trash-2" size={15} color="#FFF" />
-              <Text style={s.dangerBtnText}>Resetar aplicativo</Text>
-            </TouchableOpacity>
+              Resetar aplicativo
+            </TButton>
           </View>
 
           {/* ── FOOTER ──────────────────────────────────────────────────── */}
           <View style={s.footer}>
             <Feather name="lock" size={11} color={theme.secondaryText} />
-            <Text style={[s.footerText, { color: theme.secondaryText }]}>
-              DOMUS · Pixel Eucarístico · Privacidade em primeiro lugar
-            </Text>
+            <PixelText size={6} color={theme.secondaryText}>DOMUS</PixelText>
+            <TText variant="caption" color={theme.secondaryText} textAlign="center">
+              · Pixel Eucarístico · Privacidade em primeiro lugar
+            </TText>
           </View>
         </KeyboardAwareScrollView>
 
@@ -226,24 +230,25 @@ export default function AboutScreen() {
               autoCorrect={false}
             />
             <View style={s.resetButtons}>
-              <TouchableOpacity
-                style={[s.resetCancelBtn, { borderColor: theme.border }]}
+              <TButton
+                variant="outline"
+                flex={1}
+                borderColor={theme.border}
+                color={theme.textColor}
                 onPress={() => { soundManager.play("tap"); setShowResetModal(false); setResetPhrase(""); }}
               >
-                <Text style={{ color: theme.textColor, fontFamily: "DMSans_500Medium", fontSize: 14 }}>
-                  Cancelar
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.resetConfirmBtn, resetPhrase !== "APAGAR TUDO" && { opacity: 0.35 }]}
-                onPress={() => { soundManager.play("trash"); handleReset(); }}
+                Cancelar
+              </TButton>
+              <TButton
+                variant="danger"
+                flex={1}
+                backgroundColor={theme.danger ?? "#DC2626"}
+                opacity={resetPhrase !== "APAGAR TUDO" ? 0.35 : 1}
                 disabled={resetPhrase !== "APAGAR TUDO" || resetting}
-                activeOpacity={0.8}
+                onPress={() => { soundManager.play("trash"); handleReset(); }}
               >
-                {resetting
-                  ? <ActivityIndicator size="small" color="#FFF" />
-                  : <Text style={{ color: "#FFF", fontFamily: "DMSans_700Bold", fontSize: 14 }}>Resetar</Text>}
-              </TouchableOpacity>
+                {resetting ? "Resetando..." : "Resetar"}
+              </TButton>
             </View>
           </View>
         </View>
@@ -327,7 +332,7 @@ function SectionCard({
         <View style={[s.cardIconBg, { backgroundColor: accentColor + "18" }]}>
           <Feather name={icon as any} size={18} color={accentColor} />
         </View>
-        <Text style={[s.cardTitle, { color: theme.textColor }]}>{title}</Text>
+        <TText variant="subtitle" bold color={theme.textColor} flex={1}>{title}</TText>
         {collapsible && (
           <Animated.View style={chevronStyle}>
             <Feather name="chevron-down" size={18} color={theme.secondaryText} />
@@ -353,8 +358,8 @@ function FeatureRow({ icon, color, label, description, theme }: {
         <Feather name={icon as any} size={15} color={color} />
       </View>
       <View style={featureRowStyles.texts}>
-        <Text style={[featureRowStyles.label, { color: theme.textColor }]}>{label}</Text>
-        <Text style={[featureRowStyles.description, { color: theme.secondaryText }]}>{description}</Text>
+        <TText variant="label" color={theme.textColor} marginBottom={1}>{label}</TText>
+        <TText variant="caption" color={theme.secondaryText} lineHeight={17}>{description}</TText>
       </View>
     </View>
   );
@@ -364,8 +369,6 @@ const featureRowStyles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   iconBg: { width: 32, height: 32, borderRadius: 9, justifyContent: "center", alignItems: "center", marginTop: 1 },
   texts: { flex: 1 },
-  label: { fontFamily: "DMSans_600SemiBold", fontSize: 13, marginBottom: 1 },
-  description: { fontFamily: "DMSans_400Regular", fontSize: 12, lineHeight: 17 },
 });
 
 function SwitchRow({ icon, label, description, color, theme, value, onValueChange }: {
@@ -405,19 +408,14 @@ function styles(theme: any) {
     safe: { flex: 1 },
     header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
     backBtn: { padding: 4 },
-    headerTitle: { fontFamily: "DMSans_700Bold", fontSize: 19, flex: 1 },
     content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
     card: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
     cardHeader: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
     cardIconBg: { width: 36, height: 36, borderRadius: 11, justifyContent: "center", alignItems: "center" },
-    cardTitle: { fontFamily: "DMSans_700Bold", fontSize: 15, flex: 1 },
     cardDivider: { height: StyleSheet.hairlineWidth, marginHorizontal: 14 },
     cardBody: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 14, gap: 10 },
-    bodyText: { fontFamily: "DMSans_400Regular", fontSize: 13, lineHeight: 20 },
     dangerSection: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 10 },
     dangerHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-    dangerTitle: { fontFamily: "DMSans_700Bold", fontSize: 14 },
-    dangerDesc: { fontFamily: "DMSans_400Regular", fontSize: 13, lineHeight: 19 },
     dangerBtn: {
       flexDirection: "row", alignItems: "center", gap: 8,
       backgroundColor: "#DC2626", borderRadius: 10,
@@ -434,6 +432,5 @@ function styles(theme: any) {
     resetCancelBtn: { flex: 1, borderWidth: 1, borderRadius: 11, paddingVertical: 13, alignItems: "center" },
     resetConfirmBtn: { flex: 1, backgroundColor: "#DC2626", borderRadius: 11, paddingVertical: 13, alignItems: "center" },
     footer: { flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center", paddingVertical: 4 },
-    footerText: { fontFamily: "DMSans_400Regular", fontSize: 11, textAlign: "center" },
   });
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
@@ -7,13 +7,11 @@ import { TokenPricingService } from "@/src/modules/ai/infrastructure/TokenPricin
 import { getProviderBudget, isUnlimitedBudget, getMonthlyBudget, isUnlimitedMonthlyBudget, PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
 import type { BudgetMode } from "@/src/modules/ai/domain/AISettings";
 import type { AIProvider, AIModelTier, DailyTokenUsage } from "@packages/ai";
+import { TText } from "@/src/components/tamagui";
 
 interface AIUsageBarProps {
-  /** Active text provider */
   provider: AIProvider;
-  /** Active audio provider (may be same as text, different, or undefined) */
   audioProvider?: string;
-  /** Is voice mode enabled? */
   voiceEnabled?: boolean;
   modelTier?: AIModelTier;
   customBudgets?: Partial<Record<AIProvider, number>>;
@@ -48,33 +46,35 @@ function BarRow({
   const barColor = isOver ? theme.danger : pct > 80 ? theme.warning : pTheme.color;
 
   return (
-    <View style={styles.barRow}>
-      <View style={styles.row}>
-        <View style={styles.labelRow}>
+    <View style={s.barRow}>
+      <View style={s.row}>
+        <View style={s.labelRow}>
           <MaterialCommunityIcons
             name={pTheme.icon as keyof typeof MaterialCommunityIcons.glyphMap}
             size={11}
             color={pTheme.color}
           />
-          <Text style={[styles.providerName, { color: pTheme.color }]}>{label}</Text>
-          <Text style={[styles.label, { color: theme.secondaryText }]}>
+          <TText bold fontSize={10} textTransform="capitalize" color={pTheme.color}>
+            {label}
+          </TText>
+          <TText fontSize={10} color={theme.secondaryText}>
             {safeTokens.toLocaleString("pt-BR")}{unlimited ? "" : ` / ${safeBudget.toLocaleString("pt-BR")}`}
-          </Text>
+          </TText>
           {costBrl !== null && (
-            <Text style={[styles.costLabel, { color: theme.secondaryText }]}>
+            <TText fontSize={9} fontStyle="italic" color={theme.secondaryText}>
               · R$ {costBrl.toFixed(2)}
-            </Text>
+            </TText>
           )}
         </View>
         {!unlimited ? (
-          <Text style={[styles.pct, { color: barColor }]}>{Math.round(pct)}%</Text>
+          <TText bold fontSize={10} color={barColor}>{Math.round(pct)}%</TText>
         ) : (
-          <Text style={[styles.pct, { color: theme.secondaryText }]}>∞</Text>
+          <TText bold fontSize={10} color={theme.secondaryText}>∞</TText>
         )}
       </View>
       {!unlimited && (
-        <View style={[styles.track, { backgroundColor: theme.border }]}>
-          <View style={[styles.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]} />
+        <View style={[s.track, { backgroundColor: theme.border }]}>
+          <View style={[s.fill, { width: `${pct}%` as `${number}%`, backgroundColor: barColor }]} />
         </View>
       )}
     </View>
@@ -99,14 +99,12 @@ export function AIUsageBar({
     const u = await TokenTracker.getToday();
     setUsage(u);
     const costMap: Record<string, number> = {};
-    // Text token costs
     for (const [p, tokens] of Object.entries(u.byProvider)) {
       if ((tokens ?? 0) > 0) {
         const est = await TokenPricingService.estimateCost(p as AIProvider, modelTier, tokens!);
         costMap[p] = est.costBrl;
       }
     }
-    // TTS character costs
     if (u.ttsCharsByProvider) {
       for (const [p, chars] of Object.entries(u.ttsCharsByProvider)) {
         if ((chars ?? 0) > 0) {
@@ -126,7 +124,6 @@ export function AIUsageBar({
   const audioProv = voiceEnabled ? audioProvider : undefined;
   const sameProvider = !audioProv || audioProv === provider;
 
-  // Build bars to show
   const bars: Array<{ id: string; label: string; tokens: number; budget: number; unlimited: boolean; cost: number | null }> = [];
 
   const textTokens = usage.byProvider[provider] ?? 0;
@@ -134,7 +131,6 @@ export function AIUsageBar({
   const getUnlimited = (p: AIProvider) => isMonthly ? isUnlimitedMonthlyBudget(p, monthlyBudgets) : isUnlimitedBudget(p, customBudgets);
 
   if (sameProvider) {
-    // Same provider for text + audio → 1 bar
     bars.push({
       id: provider,
       label: provider,
@@ -144,7 +140,6 @@ export function AIUsageBar({
       cost: costs[provider] ?? null,
     });
   } else {
-    // Different providers → 2 bars
     bars.push({
       id: provider,
       label: `${provider} (texto)`,
@@ -153,13 +148,11 @@ export function AIUsageBar({
       unlimited: getUnlimited(provider),
       cost: costs[provider] ?? null,
     });
-    // Audio provider bar — use TTS chars for ElevenLabs/dedicated TTS, tokens for shared providers
     if (audioProv) {
       const ttsChars = usage.ttsCharsByProvider?.[audioProv] ?? 0;
       const isCharBased = audioProv === "elevenlabs";
-      // ElevenLabs: show chars with char-based limits; others: show tokens
       const audioValue = isCharBased ? ttsChars : (usage.byProvider[audioProv as AIProvider] ?? 0);
-      const audioBudget = isCharBased ? 30_000 : getBudget(audioProv as AIProvider); // 30k chars Starter default
+      const audioBudget = isCharBased ? 30_000 : getBudget(audioProv as AIProvider);
       bars.push({
         id: audioProv,
         label: `${audioProv} (voz${isCharBased ? " · chars" : ""})`,
@@ -172,7 +165,7 @@ export function AIUsageBar({
   }
 
   return (
-    <View style={[styles.container, { borderColor: theme.border }]}>
+    <View style={[s.container, { borderColor: theme.border }]}>
       {bars.map((bar) => (
         <BarRow
           key={bar.id}
@@ -189,7 +182,7 @@ export function AIUsageBar({
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
     paddingVertical: 4,
@@ -199,10 +192,6 @@ const styles = StyleSheet.create({
   barRow: { gap: 2, paddingVertical: 2 },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   labelRow: { flexDirection: "row", alignItems: "center", gap: 4, flex: 1 },
-  providerName: { fontSize: 10, fontWeight: "600", textTransform: "capitalize" },
-  label: { fontSize: 10 },
-  costLabel: { fontSize: 9, fontStyle: "italic" },
-  pct: { fontSize: 10, fontWeight: "600" },
   track: { height: 3, borderRadius: 2, overflow: "hidden" },
   fill: { height: "100%", borderRadius: 2 },
 });

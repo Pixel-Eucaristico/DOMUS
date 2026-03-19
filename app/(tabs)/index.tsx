@@ -45,6 +45,9 @@ import { TourPageHost } from "@/src/components/tour/TourPageHost";
 import { useTourPage } from "@/src/tour/useTourPage";
 import { HomeFab } from "@/src/components/shared/HomeFab";
 import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
+import { PixelText } from "@/src/components/pixel";
+import { TCard } from "@/src/components/tamagui";
+import { TText } from "@/src/components/tamagui";
 
 
 
@@ -255,9 +258,9 @@ export default function HomeScreen() {
     return (
       <View style={[s.root, { backgroundColor: theme.background }]}>
         <View style={s.loadingContainer}>
-          <Text style={[s.loadingText, { color: theme.secondaryText }]}>
+          <TText variant="subtitle" color={theme.secondaryText}>
             Carregando...
-          </Text>
+          </TText>
         </View>
       </View>
     );
@@ -289,11 +292,11 @@ export default function HomeScreen() {
               <DomusLogo size={36} theme={theme} />
               {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
               <View>
-                <Text style={[s.greeting, { color: theme.textColor }]}>DOMUS</Text>
-                <Text style={[s.subtitle, { color: theme.secondaryText }]}>
+                <PixelText size={16} color={theme.textColor}>DOMUS</PixelText>
+                <TText variant="caption" color={theme.secondaryText}>
                   {archetype.charAt(0).toUpperCase() + archetype.slice(1)} / Nível{" "}
                   {levelInfo.level}
-                </Text>
+                </TText>
               </View>
             </View>
             <View style={s.headerActions}>
@@ -425,9 +428,9 @@ export default function HomeScreen() {
             <View style={[s.invoiceBannerIcon, { backgroundColor: "#FEF3C7" }]}>
               <Feather name="file-text" size={15} color="#D97706" />
             </View>
-            <Text style={[s.invoiceBannerText, { color: theme.textColor }]}>
+            <TText variant="label" color={theme.textColor} flex={1}>
               {unconfirmedInvoices.length} nota{unconfirmedInvoices.length !== 1 ? "s fiscais" : " fiscal"} aguardando confirmação
-            </Text>
+            </TText>
             <Feather name="chevron-right" size={16} color={theme.secondaryText} />
           </Pressable>
         )}
@@ -448,21 +451,21 @@ export default function HomeScreen() {
           <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
             <TourGuideZone zone={2} text="2" isTourGuide borderRadius={20}>
             <AnimatedCard index={3}>
-              <View collapsable={false} style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }]}>
+              <TCard elevated backgroundColor={theme.cardBackground} borderColor={theme.border} marginHorizontal={0} width="100%">
                 <View style={s.monthFilterContainer}>
-                  <Text style={[s.cardTitle, { color: theme.textColor }]}>
+                  <TText variant="subtitle" color={theme.textColor}>
                     Orçamento 50/30/20
-                  </Text>
+                  </TText>
                   <View style={s.monthFilter}>
                     <Pressable onPress={() => { soundManager.play("tap"); handlePreviousMonth(); }} style={s.monthArrow}>
                       <Feather name="chevron-left" size={20} color={theme.textColor} />
                     </Pressable>
-                    <Text style={[s.monthLabel, { color: theme.textColor }]}>
+                    <TText variant="label" color={theme.textColor} textTransform="capitalize" minWidth={80} textAlign="center">
                       {new Date(selectedYear, selectedMonth).toLocaleDateString("pt-BR", {
                         month: "short",
                         year: "numeric"
                       })}
-                    </Text>
+                    </TText>
                     <Pressable onPress={() => { soundManager.play("tap"); handleNextMonth(); }} style={s.monthArrow}>
                       <Feather name="chevron-right" size={20} color={theme.textColor} />
                     </Pressable>
@@ -477,12 +480,12 @@ export default function HomeScreen() {
                 ) : (
                   <View style={s.emptyState}>
                     <Feather name="pie-chart" size={28} color={theme.secondaryText} />
-                    <Text style={[s.emptyText, { color: theme.secondaryText }]}>
+                    <TText variant="body" color={theme.secondaryText} textAlign="center">
                       Registre transações para ver seu orçamento
-                    </Text>
+                    </TText>
                   </View>
                 )}
-              </View>
+              </TCard>
             </AnimatedCard>
             </TourGuideZone>
           </ResponsiveColumn>
@@ -495,18 +498,18 @@ export default function HomeScreen() {
               <AnimatedCard index={4}>
                 <View collapsable={false} style={{ width: "100%" }}>
                   <Pressable
-                    style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }]}
                     onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
                   >
+                    <TCard elevated backgroundColor={theme.cardBackground} borderColor={theme.border} marginHorizontal={0} width="100%">
                     <View style={s.seasonHeader}>
                       <View style={s.seasonTitleRow}>
                         <MaterialCommunityIcons name="trophy-outline" size={16} color={theme.accentColor} />
-                        <Text style={[s.seasonTitle, { color: theme.textColor }]}>Temporada</Text>
+                        <TText variant="subtitle" color={theme.textColor}>Temporada</TText>
                       </View>
                       <View style={[s.seasonArchetypeBadge, { backgroundColor: `${theme.accentColor}20` }]}>
-                        <Text style={[s.seasonArchetypeText, { color: theme.accentColor }]}>
+                        <TText variant="caption" fontWeight="600" color={theme.accentColor}>
                           {archetype.charAt(0).toUpperCase() + archetype.slice(1)}
-                        </Text>
+                        </TText>
                       </View>
                     </View>
                     <View style={[s.xpBarBg, { backgroundColor: theme.border, marginBottom: 10 }]}>
@@ -514,20 +517,21 @@ export default function HomeScreen() {
                     </View>
                     <View style={s.seasonStatsRow}>
                       <View style={s.seasonStat}>
-                        <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{gamification.seasonXp}</Text>
-                        <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>XP temporada</Text>
+                        <TText variant="body" bold color={theme.textColor} fontSize={18}>{gamification.seasonXp}</TText>
+                        <TText variant="caption" color={theme.secondaryText} textAlign="center" marginTop={2}>XP temporada</TText>
                       </View>
                       <View style={[s.seasonStatDivider, { backgroundColor: theme.border }]} />
                       <View style={s.seasonStat}>
-                        <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{gamification.currentStreak}</Text>
-                        <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>dias seguidos</Text>
+                        <TText variant="body" bold color={theme.textColor} fontSize={18}>{gamification.currentStreak}</TText>
+                        <TText variant="caption" color={theme.secondaryText} textAlign="center" marginTop={2}>dias seguidos</TText>
                       </View>
                       <View style={[s.seasonStatDivider, { backgroundColor: theme.border }]} />
                       <View style={s.seasonStat}>
-                        <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{daysLeft}</Text>
-                        <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>dias restantes</Text>
+                        <TText variant="body" bold color={theme.textColor} fontSize={18}>{daysLeft}</TText>
+                        <TText variant="caption" color={theme.secondaryText} textAlign="center" marginTop={2}>dias restantes</TText>
                       </View>
                     </View>
+                    </TCard>
                   </Pressable>
                 </View>
               </AnimatedCard>
@@ -599,7 +603,6 @@ const s = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: { gap: 16 },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loadingText: { fontFamily: "DMSans_500Medium", fontSize: 16 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -609,7 +612,6 @@ const s = StyleSheet.create({
   },
   headerActions: { flexDirection: "row", gap: 8 },
   greeting: { fontFamily: "DMSans_700Bold", fontSize: 22, letterSpacing: 1 },
-  subtitle: { fontFamily: "DMSans_400Regular", fontSize: 12, marginTop: 0 },
   settingsBtn: {
     width: 44,
     height: 44,
@@ -652,17 +654,6 @@ const s = StyleSheet.create({
   balanceLabel: { fontFamily: "DMSans_500Medium", fontSize: 14, color: "rgba(255,255,255,0.7)" },
   balanceCount: { fontFamily: "DMSans_400Regular", fontSize: 12, color: "rgba(255,255,255,0.5)" },
   balanceValue: { fontFamily: "DMSans_700Bold", fontSize: 32, color: "#FFFFFF" },
-  card: {
-    borderRadius: 20,
-    padding: 20,
-    marginHorizontal: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 16, marginBottom: 12 },
   monthFilterContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -671,16 +662,8 @@ const s = StyleSheet.create({
   },
   monthFilter: { flexDirection: "row", alignItems: "center", gap: 8 },
   monthArrow: { padding: 4 },
-  monthLabel: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 13,
-    textTransform: "capitalize" as const,
-    minWidth: 80,
-    textAlign: "center" as const,
-  },
   budgetContent: { gap: 14 },
   emptyState: { alignItems: "center", paddingVertical: 24, gap: 8 },
-  emptyText: { fontFamily: "DMSans_400Regular", fontSize: 14, textAlign: "center" as const },
   invoiceBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -697,7 +680,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  invoiceBannerText: { flex: 1, fontFamily: "DMSans_500Medium", fontSize: 13 },
   seasonHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -705,14 +687,10 @@ const s = StyleSheet.create({
     marginBottom: 10,
   },
   seasonTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  seasonTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 15 },
   seasonArchetypeBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3 },
-  seasonArchetypeText: { fontFamily: "DMSans_600SemiBold", fontSize: 12 },
   xpBarBg: { height: 8, borderRadius: 4 },
   xpBarFill: { height: 8, borderRadius: 4, minWidth: 4 },
   seasonStatsRow: { flexDirection: "row", justifyContent: "space-around", alignItems: "center" },
   seasonStat: { alignItems: "center", flex: 1 },
   seasonStatDivider: { width: 1, height: 28 },
-  seasonStatValue: { fontFamily: "DMSans_700Bold", fontSize: 18 },
-  seasonStatLabel: { fontFamily: "DMSans_400Regular", fontSize: 11, marginTop: 2, textAlign: "center" },
 });

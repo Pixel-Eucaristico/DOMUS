@@ -1,6 +1,7 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import type { ThemeColors } from "@packages/theme";
+import { TCard, TText } from "@/src/components/tamagui";
 
 interface Props {
   availableAmount: number;
@@ -16,69 +17,51 @@ export function AffordabilityBanner({
   const isPositive = availableAmount >= 0;
 
   return (
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: isPositive ? theme.cardBackground : "#FEF2F2" },
-      ]}
+    <TCard
+      compact
+      marginHorizontal={16}
+      marginVertical={8}
+      borderRadius={12}
+      borderWidth={0}
+      backgroundColor={isPositive ? theme.cardBackground : "#FEF2F2"}
     >
       <View style={styles.row}>
         <View style={styles.left}>
-          <Text style={[styles.label, { color: theme.secondaryText }]}>
+          <TText variant="caption" secondary marginBottom={2}>
             Disponível este mês
-          </Text>
-          <Text
-            style={[
-              styles.amount,
-              { color: isPositive ? theme.success ?? "#16A34A" : "#DC2626" },
-            ]}
+          </TText>
+          <TText
+            variant="title"
+            fontSize={20}
+            color={isPositive ? theme.success ?? "#16A34A" : "#DC2626"}
           >
             {isPositive ? "" : "-"}R${" "}
             {Math.abs(availableAmount).toLocaleString("pt-BR", {
               minimumFractionDigits: 2,
             })}
-          </Text>
+          </TText>
         </View>
         <View style={[styles.badge, { backgroundColor: theme.primaryColor + "20" }]}>
-          <Text style={[styles.badgeText, { color: theme.primaryColor }]}>
+          <TText variant="caption" color={theme.primaryColor} fontWeight="600">
             {affordableCount} {affordableCount === 1 ? "item" : "itens"}{" "}
             possíveis
-          </Text>
+          </TText>
         </View>
       </View>
-    </View>
+    </TCard>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 12,
-    padding: 14,
-  },
   row: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   left: { flex: 1 },
-  label: {
-    fontSize: 12,
-    fontFamily: "DMSans_400Regular",
-    marginBottom: 2,
-  },
-  amount: {
-    fontSize: 20,
-    fontFamily: "DMSans_700Bold",
-  },
   badge: {
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontFamily: "DMSans_600SemiBold",
   },
 });

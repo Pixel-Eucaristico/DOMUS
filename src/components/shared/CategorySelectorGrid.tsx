@@ -1,11 +1,9 @@
 import React, { useState, useMemo, useCallback } from "react";
 import {
   View,
-  Text,
   Pressable,
   StyleSheet,
   TextInput,
-  ScrollView,
 } from "react-native";
 import Animated, {
   FadeIn,
@@ -24,6 +22,7 @@ import { useCategoryIntelligence } from "@/src/hooks/useCategoryIntelligence";
 import type { TransactionType, CategoryGroup } from "@packages/events/src/types";
 import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
 import { GroupOverrideChip } from "./GroupOverrideChip";
+import { TText } from "@/src/components/tamagui";
 
 interface CategoryOption {
   id: string;
@@ -70,7 +69,6 @@ export function CategorySelectorGrid({
   const [expandedParent, setExpandedParent] = useState<string | null>(null);
   const { suggestedCategories } = useCategoryIntelligence(type);
 
-  // Build subcategories mapped by parent
   const subcategoriesByParent = useMemo(() => {
     const map = new Map<string, CategoryOption[]>();
     for (const sub of NCM_SUBCATEGORIES) {
@@ -87,7 +85,6 @@ export function CategorySelectorGrid({
     return map;
   }, []);
 
-  // Search: find matching subcategories by name
   const searchMatchesSubcategory = useMemo(() => {
     if (!search.trim()) return new Map<string, CategoryOption[]>();
     const term = search.toLowerCase();
@@ -99,7 +96,6 @@ export function CategorySelectorGrid({
     return matches;
   }, [search, subcategoriesByParent]);
 
-  // When searching, include parent categories that match OR that have matching subcategories
   const filteredCategories = useMemo(() => {
     if (!search.trim()) return categories;
     const term = search.toLowerCase();
@@ -126,7 +122,6 @@ export function CategorySelectorGrid({
     } else if (hasSubs && expandedParent === catId) {
       setExpandedParent(null);
     }
-    // Always select the parent category (clears subcategory)
     onSelect(catId, undefined);
   }, [expandedParent, subcategoriesByParent, onSelect]);
 
@@ -134,12 +129,10 @@ export function CategorySelectorGrid({
     onSelect(parentId, subId);
   }, [onSelect]);
 
-  // Determine if group override should show
   const selectedCategory = useMemo(() => {
     return categories.find((c) => c.id === selectedId);
   }, [categories, selectedId]);
 
-  // Also check if the selected subcategory allows override
   const selectedSub = useMemo(() => {
     if (!selectedSubcategoryId) return null;
     return NCM_SUBCATEGORIES.find((s) => s.id === selectedSubcategoryId) ?? null;
@@ -161,7 +154,6 @@ export function CategorySelectorGrid({
           value={search}
           onChangeText={(t) => {
             setSearch(t);
-            // Auto-expand parents with matching subcategories
             if (t.trim()) setExpandedParent(null);
           }}
         />
@@ -181,9 +173,9 @@ export function CategorySelectorGrid({
         <Animated.View entering={FadeIn} exiting={FadeOut} style={s.selectionRow}>
           {selectedSubcategoryId && selectedSub && (
             <View style={[s.selectedSubBadge, { backgroundColor: `${GROUP_COLORS[selectedSub.group]}15`, borderColor: `${GROUP_COLORS[selectedSub.group]}40` }]}>
-              <Text style={[s.selectedSubText, { color: GROUP_COLORS[selectedSub.group] }]}>
+              <TText variant="caption" color={GROUP_COLORS[selectedSub.group]} fontWeight="500">
                 {selectedSub.name}
-              </Text>
+              </TText>
               <Pressable onPress={() => onSelect(selectedId, undefined)}>
                 <Feather name="x" size={12} color={GROUP_COLORS[selectedSub.group]} />
               </Pressable>
@@ -201,10 +193,22 @@ export function CategorySelectorGrid({
         </Animated.View>
       )}
 
-      {/* Sugestões Inteligentes */}
+      {/* Sugestoes Inteligentes */}
       {!search && suggestedCategories.length > 0 && (
         <Animated.View entering={FadeIn} exiting={FadeOut} style={s.groupSection}>
-          <Text style={[s.groupTitle, { color: theme.primaryColor }]}>Sugeridas p/ voce</Text>
+          <TText
+            variant="caption"
+            bold
+            color={theme.primaryColor}
+            fontSize={11}
+            textTransform="uppercase"
+            letterSpacing={0.8}
+            marginBottom={10}
+            marginLeft={4}
+            opacity={0.8}
+          >
+            Sugeridas p/ voce
+          </TText>
           <View style={s.grid}>
             {suggestedCategories.map((cat) => (
               <CategoryItem
@@ -234,7 +238,19 @@ export function CategorySelectorGrid({
             entering={FadeIn.delay(groupIdx * 100)}
             style={s.groupSection}
           >
-            <Text style={[s.groupTitle, { color }]}>{GROUP_LABELS[group as keyof typeof GROUP_LABELS]}</Text>
+            <TText
+              variant="caption"
+              bold
+              color={color}
+              fontSize={11}
+              textTransform="uppercase"
+              letterSpacing={0.8}
+              marginBottom={10}
+              marginLeft={4}
+              opacity={0.8}
+            >
+              {GROUP_LABELS[group as keyof typeof GROUP_LABELS]}
+            </TText>
             <View style={s.grid}>
               {items.map((cat) => (
                 <React.Fragment key={cat.id}>
@@ -269,9 +285,9 @@ export function CategorySelectorGrid({
                   exiting={FadeOut}
                   style={s.subcategorySection}
                 >
-                  <Text style={[s.subcategoryTitle, { color: theme.secondaryText }]}>
+                  <TText variant="caption" fontWeight="500" color={theme.secondaryText} fontSize={11} marginBottom={6}>
                     {cat.name} — Subcategorias
-                  </Text>
+                  </TText>
                   <View style={s.subGrid}>
                     {subs.map((sub) => (
                       <SubcategoryChip
@@ -333,18 +349,14 @@ function CategoryItem({ cat, selected, color, theme, onSelect, hasChildren, isEx
           },
         ]}
       >
-        <Text
+        <TText
+          variant="label"
           numberOfLines={1}
-          style={[
-            s.chipText,
-            {
-              color: selected ? color : theme.textColor,
-              fontFamily: selected ? "DMSans_700Bold" : "DMSans_400Regular",
-            },
-          ]}
+          color={selected ? color : theme.textColor}
+          fontWeight={selected ? "700" : "400"}
         >
           {cat.name}
-        </Text>
+        </TText>
         {hasChildren && (
           <Feather
             name={isExpanded ? "chevron-up" : "chevron-down"}
@@ -382,18 +394,14 @@ function SubcategoryChip({ sub, selected, parentColor, theme, onPress }: {
         },
       ]}
     >
-      <Text
+      <TText
+        variant="caption"
         numberOfLines={1}
-        style={[
-          s.subChipText,
-          {
-            color: selected ? parentColor : theme.textColor,
-            fontFamily: selected ? "DMSans_700Bold" : "DMSans_400Regular",
-          },
-        ]}
+        color={selected ? parentColor : theme.textColor}
+        fontWeight={selected ? "700" : "400"}
       >
         {sub.name}
-      </Text>
+      </TText>
       {sub.allowGroupOverride && (
         <View style={[s.overrideDot, { backgroundColor: "#F59E0B" }]} />
       )}
@@ -436,24 +444,11 @@ const s = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
   },
-  selectedSubText: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 12,
-  },
   overrideRow: {
     flexDirection: "row",
     alignItems: "center",
   },
   groupSection: { marginBottom: 8 },
-  groupTitle: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 10,
-    marginLeft: 4,
-    opacity: 0.8,
-  },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -469,17 +464,11 @@ const s = StyleSheet.create({
     justifyContent: "center",
     flexDirection: "row",
   },
-  chipText: { fontSize: 13 },
   chevron: { marginLeft: 4 },
   subcategorySection: {
     marginTop: 8,
     marginLeft: 8,
     marginBottom: 4,
-  },
-  subcategoryTitle: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 11,
-    marginBottom: 6,
   },
   subGrid: {
     flexDirection: "row",
@@ -493,10 +482,6 @@ const s = StyleSheet.create({
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
-  },
-  subChipText: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 12,
   },
   overrideDot: {
     width: 6,

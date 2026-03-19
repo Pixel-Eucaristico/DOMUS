@@ -1,10 +1,11 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
 import { CameraView } from "expo-camera";
 import { Feather } from "@expo/vector-icons";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
 import { soundManager } from "@/src/services/SoundManager";
+import { TText } from "@/src/components/tamagui";
 
 interface Props {
   theme: ThemeColors;
@@ -34,7 +35,9 @@ export function ScanningScreen({ theme, insets, onBarcodeScanned, onClose }: Pro
         <Pressable onPress={() => { soundManager.play("tap"); onClose(); }} hitSlop={12} style={s.closeBtn}>
           <Feather name="x" size={26} color="#FFF" />
         </Pressable>
-        <Text style={s.title}>Aponte para o QR Code da NF-e</Text>
+        <TText variant="body" fontWeight="600" color="#FFF" fontSize={15} flex={1}>
+          Aponte para o QR Code da NF-e
+        </TText>
       </View>
     </View>
   );
@@ -54,5 +57,4 @@ const s = StyleSheet.create({
     width: 40, height: 40, alignItems: "center", justifyContent: "center",
     backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 20,
   },
-  title: { color: "#FFF", fontSize: 15, fontWeight: "600", flex: 1 },
 });

@@ -1,8 +1,9 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { MONTHLY_TROPHIES } from "@packages/gamification/src/achievements";
 import { soundManager } from "@/src/services/SoundManager";
+import { TCard, TText } from "@/src/components/tamagui";
 
 interface MonthlyTrophiesListProps {
   theme: any;
@@ -33,31 +34,33 @@ export function MonthlyTrophiesList({
   );
 
   return (
-    <View
+    <TCard
       ref={challengesCardRef}
       collapsable={false}
-      style={[s.monthlyCard, { backgroundColor: theme.cardBackground, borderColor: theme.primaryColor + "33" }]}
+      backgroundColor={theme.cardBackground}
+      borderColor={theme.primaryColor + "33"}
+      gap={12}
     >
       <View style={s.monthlyHeader}>
         <View style={s.monthlyTitleRow}>
-          <Text style={s.monthlyEmoji}>🏅</Text>
+          <TText fontSize={22}>🏅</TText>
           <View>
-            <Text style={[s.monthlyTitle, { color: theme.textColor }]}>Desafios</Text>
+            <TText variant="subtitle" bold color={theme.textColor}>Desafios</TText>
             <TouchableOpacity
               onPress={() => { soundManager.play("share"); onShareChallenges(completedThisMonth.size, MONTHLY_TROPHIES.length); }}
               style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}
             >
               <Feather name="share-2" size={12} color={theme.primaryColor} />
-              <Text style={{ fontSize: 11, color: theme.primaryColor, fontFamily: "DMSans_700Bold" }}>
+              <TText bold fontSize={11} color={theme.primaryColor}>
                 Compartilhar Grupo
-              </Text>
+              </TText>
             </TouchableOpacity>
           </View>
         </View>
         <View style={[s.monthlyBadge, { backgroundColor: theme.primaryColor + "22" }]}>
-          <Text style={[s.monthlyBadgeText, { color: theme.primaryColor }]}>
+          <TText variant="caption" bold color={theme.primaryColor}>
             {completedThisMonth.size}/{MONTHLY_TROPHIES.length}
-          </Text>
+          </TText>
         </View>
       </View>
 
@@ -79,12 +82,12 @@ export function MonthlyTrophiesList({
               ]}
             >
               <View style={s.monthlyItemHeader}>
-                <Text style={s.monthlyItemIcon}>{trophy.icon}</Text>
+                <TText fontSize={22}>{trophy.icon}</TText>
                 <View style={s.monthlyItemInfo}>
-                  <Text style={[s.monthlyItemName, { color: theme.textColor }]}>{trophy.name}</Text>
-                  <Text style={[s.monthlyItemDesc, { color: theme.secondaryText }]} numberOfLines={1}>
+                  <TText variant="label" bold color={theme.textColor}>{trophy.name}</TText>
+                  <TText variant="caption" color={theme.secondaryText} numberOfLines={1} lineHeight={14}>
                     {trophy.description}
-                  </Text>
+                  </TText>
                 </View>
                 {done ? (
                   <View style={[s.monthlyDoneBadge, { backgroundColor: theme.success + "22" }]}>
@@ -92,7 +95,7 @@ export function MonthlyTrophiesList({
                   </View>
                 ) : (
                   <View style={[s.monthlyXpBadge, { backgroundColor: theme.border + "44" }]}>
-                    <Text style={[s.monthlyXpText, { color: theme.primaryColor }]}>+{trophy.xpReward} XP</Text>
+                    <TText bold fontSize={10} color={theme.primaryColor}>+{trophy.xpReward} XP</TText>
                   </View>
                 )}
               </View>
@@ -114,18 +117,11 @@ export function MonthlyTrophiesList({
           );
         })}
       </View>
-    </View>
+    </TCard>
   );
 }
 
 const s = StyleSheet.create({
-  monthlyCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 16,
-    gap: 12,
-    backgroundColor: "rgba(30, 16, 64, 0.8)",
-  },
   monthlyHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -136,20 +132,10 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  monthlyEmoji: { fontSize: 22 },
-  monthlyTitle: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 16,
-    color: "#E9D5FF",
-  },
   monthlyBadge: {
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 8,
-  },
-  monthlyBadgeText: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 12,
   },
   monthlyList: { gap: 10 },
   monthlyItem: {
@@ -163,19 +149,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-  monthlyItemIcon: { fontSize: 22 },
   monthlyItemInfo: { flex: 1, gap: 1 },
-  monthlyItemName: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 13,
-    color: "#E9D5FF",
-  },
-  monthlyItemDesc: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 11,
-    color: "rgba(233, 213, 255, 0.7)",
-    lineHeight: 14,
-  },
   monthlyDoneBadge: {
     width: 24,
     height: 24,
@@ -188,11 +162,6 @@ const s = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
     justifyContent: "center",
-  },
-  monthlyXpText: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 10,
-    color: "#A78BFA",
   },
   monthlyProgressRow: {
     height: 3,
