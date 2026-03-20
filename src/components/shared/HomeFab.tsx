@@ -9,6 +9,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { TourGuideZone } from "rn-tourguide";
 import { TText } from "@/src/components/tamagui";
+import { soundManager } from "@/src/services/SoundManager";
+import * as Haptics from "expo-haptics";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -77,6 +79,8 @@ export function HomeFab({
 
   const toggle = useCallback(() => {
     const next = !menuOpen;
+    soundManager.play(next ? "pop" : "tap");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setMenuOpen(next);
     progress.value = withSpring(next ? 1 : 0, SPRING);
     if (!next) setPage(0);
@@ -84,6 +88,8 @@ export function HomeFab({
 
   const handleAction = useCallback(
     (action: FabAction) => {
+      soundManager.play("tap");
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setMenuOpen(false);
       progress.value = withSpring(0, SPRING);
       setPage(0);
@@ -93,6 +99,8 @@ export function HomeFab({
   );
 
   const handleRotate = useCallback(() => {
+    soundManager.play("tap");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPage((p) => (p + 1) % totalPages);
   }, [totalPages]);
 

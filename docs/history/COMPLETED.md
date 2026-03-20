@@ -4,6 +4,38 @@
 
 ---
 
+## Fase 3.3 — Migração Tamagui (Completa)
+
+**Status:** CONCLUÍDA em 19/03/2026
+
+### Etapa A — Setup
+- `tamagui@2.0.0-rc.26` + `@tamagui/config` + `@tamagui/core`
+- `tamagui.config.ts` com tokens DOMUS (size, space, radius, DM Sans, light/dark)
+- `TamaguiProvider` no `_layout.tsx`
+- 4 componentes base: TButton, TCard, TText, TInput
+
+### Etapa B — Componentes Atómicos (~50+ arquivos)
+- **TButton:** 21+ arquivos migrados (ConfirmDeleteModal, AccountFormModal, CreateListModal, AddItemModal, ErrorFallback, TransactionBottomSheet, PendingTransactionsList, ItemsSection, season, add-transaction, sync, onboarding, ErrorScreen, ParsedScreen, WebViewScreen, OcrScanScreen, QrScanScreen, IdleScreen, ProviderSwitchModal, DonationSection, ocr-settings, wishlist, about)
+- **TCard:** 4 cards (AccountCard, SavingsGoalCard, WishlistListCard, SurpriseTrophyCard) + 15 modais
+- **TInput:** 15 arquivos, ~50 inputs migrados
+- **HomeFab:** sons (pop/tap) + haptics adicionados no botão +, ações e paginação
+- Cores dinâmicas do tema passadas em todos TCard/TInput/TButton
+
+### Etapa C — Telas Completas (~50+ arquivos)
+- Home, About, Transactions, Transaction Detail, AffordabilityBanner, WishlistListCard
+- 10 telas settings: ai-settings, ai-chat, backup, sync, onboarding, notification/analytics/security-settings, privacy-policy, ocr-settings
+- 12 componentes AI/Gamification: AchievementGrid, MonthlyTrophiesList, TrophyAlbumView, AchievementToast, AIUsageBar, AIUsageDashboard, ChatBubble, ChatInputBar, ProviderSelector, APIKeyManager, QuickSuggestions, MarkdownToolbar
+- 16 componentes Shared/Invoice/Wishlist: BudgetBar, AccountsStrip, CategorySelectorGrid, CategoryChipScroll, GroupOverrideChip, HomeFab, EditableItemRow, ScanningScreen, DraggableWishlistList, WishlistItemRow, SavingsGoalSection, AffiliateInfoBanner, WishlistSearchWebView, RecentTransactionsList, BalanceCard, BudgetChart
+
+### Pixel Eucarístico
+- Fonte Press Start 2P carregada globalmente
+- PixelText "DOMUS" no header + splash
+- Badge "PE" nos títulos das 4 tabs
+- Scanlines CRT sutis (2.5% opacity) em todo o app
+- Componentes criados: PixelText, Scanlines, PixelGrid, PixelBorder
+
+---
+
 ## Fase 3.2 — Temas Dinâmicos Católico/Laico
 
 **Status:** CONCLUÍDA em 19/03/2026
