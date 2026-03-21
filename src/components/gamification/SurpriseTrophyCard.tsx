@@ -284,6 +284,7 @@ export const SurpriseTrophyCard: React.FC<SurpriseTrophyCardProps> = ({
         selection={selectedAlbumTrophy}
         onClose={() => setSelectedAlbumTrophy(null)}
         theme={theme}
+        completionCount={gamification.completionCounts?.[selectedAlbumTrophy?.trophy?.id ?? ""] ?? 0}
       />
     </TCard>
   );

@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, TouchableOpacity, StyleSheet } from "react
 import { Feather } from "@expo/vector-icons";
 import { ALL_ACHIEVEMENTS } from "@packages/gamification/src/achievements";
 import type { Achievement } from "@packages/gamification/src/achievements";
-import { AnimatedTrophy } from "@/src/components/gamification/AnimatedTrophy";
+import { LottieTrophy } from "@/src/components/gamification/LottieTrophy";
 import { soundManager } from "@/src/services/SoundManager";
 import { capitalize } from "@/src/hooks/useSeasonData";
 import { TCard, TText } from "@/src/components/tamagui";
@@ -25,6 +25,7 @@ export function AchievementGrid({
   onSelectAchievement,
   onShareCollection,
 }: AchievementGridProps) {
+  const completionCounts: Record<string, number> = gamification.completionCounts ?? {};
   const unlockedIds = new Set(
     (gamification.unlockedAchievements ?? []).map((a: any) => a.id),
   );
@@ -100,7 +101,16 @@ export function AchievementGrid({
                 }}
               >
                 {unlocked ? (
-                  <AnimatedTrophy rarity={ach.rarity} size={52} spinning={false} />
+                  <View>
+                    <LottieTrophy trophyId={ach.id} type="achievement" rarity={ach.rarity} size={58} isStatic />
+                    {(completionCounts[ach.id] ?? 0) > 1 && (
+                      <View style={[s.countBadge, { backgroundColor: theme.primaryColor }]}>
+                        <TText fontSize={9} bold color="#FFF">
+                          ×{completionCounts[ach.id]}
+                        </TText>
+                      </View>
+                    )}
+                  </View>
                 ) : (
                   <View style={[s.lockedTrophy, { backgroundColor: theme.border }]}>
                     <Feather name="lock" size={22} color={theme.secondaryText} />
@@ -196,6 +206,17 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     paddingVertical: 10,
+  },
+  countBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
   },
   lockedTrophy: {
     width: 48,

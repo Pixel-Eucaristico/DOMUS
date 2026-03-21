@@ -10,7 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { soundManager } from "@/src/services/SoundManager";
-import { AnimatedTrophy } from "./AnimatedTrophy";
+import { LottieTrophy } from "./LottieTrophy";
 import { TText } from "@/src/components/tamagui";
 import type { AchievementUnlockedPayload } from "@packages/gamification/src/types";
 
@@ -76,7 +76,7 @@ export function AchievementToast({ toast, onDismiss, offsetTop = 56 }: Props) {
   return (
     <Animated.View style={[s.container, { top: offsetTop }, animStyle]} pointerEvents="none">
       <View style={[s.card, { borderColor: rarityColor }]}>
-        <AnimatedTrophy rarity={toast.rarity} size={48} spinning />
+        <LottieTrophy trophyId={toast.achievementId} type="achievement" rarity={toast.rarity} size={48} />
         <View style={s.textArea}>
           <View style={s.row}>
             <TText

@@ -14,6 +14,7 @@ export function createInitialGamificationState(): GamificationState {
     completedMonthlyTrophies: [],
     selectedSeasonalTrophies: [],
     completedSeasonalTrophies: [],
+    completionCounts: {},
   };
 }
 
@@ -61,6 +62,10 @@ export function gamificationReducer(
           ...state.unlockedAchievements,
           { id: achievementId, unlockedAt: event.timestamp, rarity },
         ],
+        completionCounts: {
+          ...state.completionCounts,
+          [achievementId]: (state.completionCounts[achievementId] ?? 0) + 1,
+        },
       };
     }
 
@@ -78,6 +83,10 @@ export function gamificationReducer(
           ...existing,
           { id: trophyId, monthKey, completedAt: event.timestamp },
         ],
+        completionCounts: {
+          ...state.completionCounts,
+          [trophyId]: (state.completionCounts[trophyId] ?? 0) + 1,
+        },
       };
     }
 
@@ -107,6 +116,10 @@ export function gamificationReducer(
           ...existing,
           { trophyId, monthKey, tier, completedAt: event.timestamp },
         ],
+        completionCounts: {
+          ...state.completionCounts,
+          [trophyId]: (state.completionCounts[trophyId] ?? 0) + 1,
+        },
       };
     }
 

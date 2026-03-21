@@ -13,9 +13,10 @@ interface TrophyDetailModalProps {
   selection: AlbumTrophySelection | null;
   onClose: () => void;
   theme: any;
+  completionCount?: number;
 }
 
-export function TrophyDetailModal({ selection, onClose, theme }: TrophyDetailModalProps) {
+export function TrophyDetailModal({ selection, onClose, theme, completionCount }: TrophyDetailModalProps) {
   if (!selection) return null;
 
   const { trophy, tier, tierColor, tierLabel, isCompleted, isLiturgical } = selection;
@@ -51,7 +52,16 @@ export function TrophyDetailModal({ selection, onClose, theme }: TrophyDetailMod
           </View>
 
           <View style={s.modalContent}>
-            <Text style={[s.modalTrophyName, { color: theme.textColor }]}>{trophy?.name}</Text>
+            <View style={s.trophyNameRow}>
+              <Text style={[s.modalTrophyName, { color: theme.textColor }]}>{trophy?.name}</Text>
+              {(completionCount ?? 0) > 1 && (
+                <View style={[s.completionCountBadge, { backgroundColor: theme.primaryColor + "20" }]}>
+                  <Text style={[s.completionCountText, { color: theme.primaryColor }]}>
+                    ×{completionCount}
+                  </Text>
+                </View>
+              )}
+            </View>
             <Text style={[s.modalEventSummary, { color: theme.secondaryText }]}>
               {trophy?.eventSummary}
             </Text>
@@ -128,6 +138,21 @@ const s = StyleSheet.create({
   },
   modalContent: {
     gap: 12,
+  },
+  trophyNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  completionCountBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  completionCountText: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 14,
   },
   modalTrophyName: {
     fontFamily: "DMSans_700Bold",

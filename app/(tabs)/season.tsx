@@ -16,7 +16,7 @@ import { getArchetypeDescription } from "@packages/personality/src/archetypeEngi
 import { ALL_ACHIEVEMENTS } from "@packages/gamification/src/achievements";
 import type { Achievement } from "@packages/gamification/src/achievements";
 import { SurpriseTrophyCard } from "@/src/components/gamification/SurpriseTrophyCard";
-import { AnimatedTrophy } from "@/src/components/gamification/AnimatedTrophy";
+import { LottieTrophy } from "@/src/components/gamification/LottieTrophy";
 import { MonthlyTrophiesList } from "@/src/components/gamification/MonthlyTrophiesList";
 import { AchievementGrid } from "@/src/components/gamification/AchievementGrid";
 import { soundManager } from "@/src/services/SoundManager";
@@ -279,7 +279,7 @@ function RecentHighlights({
                 if (fullAch) onSelectAchievement(fullAch);
               }}
             >
-              <AnimatedTrophy rarity={ach.rarity} size={24} spinning={false} />
+              <LottieTrophy trophyId={ach.id} type="achievement" rarity={ach.rarity} size={24} isStatic />
               <View style={{ flex: 1 }}>
                 <Text style={[st.highlightName, { color: theme.textColor }]} numberOfLines={1}>
                   {fullAch?.name || "---"}
@@ -362,7 +362,7 @@ function TrophyDetailModal({
 
           <View style={st.trophyModalIcon}>
             {unlocked ? (
-              <AnimatedTrophy rarity={selectedAch.rarity} size={80} spinning={false} />
+              <LottieTrophy trophyId={selectedAch.id} type="achievement" rarity={selectedAch.rarity} size={80} />
             ) : (
               <View style={[st.trophyModalLocked, { backgroundColor: theme.border }]}>
                 <Feather name="lock" size={36} color={theme.secondaryText} />
@@ -370,7 +370,16 @@ function TrophyDetailModal({
             )}
           </View>
 
-          <Text style={[st.trophyModalName, { color: theme.textColor }]}>{selectedAch.name}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <Text style={[st.trophyModalName, { color: theme.textColor }]}>{selectedAch.name}</Text>
+            {(gamification.completionCounts?.[selectedAch.id] ?? 0) > 1 && (
+              <View style={{ backgroundColor: "#A78BFA20", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                <Text style={{ fontFamily: "DMSans_700Bold", fontSize: 14, color: "#A78BFA" }}>
+                  ×{gamification.completionCounts[selectedAch.id]}
+                </Text>
+              </View>
+            )}
+          </View>
           <Text style={[st.trophyModalDesc, { color: theme.secondaryText }]}>{selectedAch.description}</Text>
 
           <View style={[st.xpRewardRow, { backgroundColor: "#A78BFA18" }]}>

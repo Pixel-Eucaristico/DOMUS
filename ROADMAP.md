@@ -49,7 +49,7 @@
 - **Status:** Etapas A, B e C completas em 19/03/2026
 - **Detalhes:** Movidos para [docs/history/COMPLETED.md](docs/history/COMPLETED.md)
 
-### 3.4 — Animações Rive para Troféus (167 troféus individuais)
+### 3.4 — Animações Lottie para Troféus (167 troféus individuais)
 - **Dificuldade:** COMPLEXO | **Urgência:** BAIXA | **~15-25h**
 - **Dependência:** `yarn add @rive-app/react-native`
 - **Referência:** [rive_animated_icons](https://github.com/nikkieke/rive_animated_icons) — exemplos de ícones animados com Rive em apps mobile
@@ -93,15 +93,52 @@
 - Ícone de calendário com número do mês + elemento sazonal
 - Borda que pulsa conforme streak (meses consecutivos)
 
-#### Implementação Técnica
-- [ ] Buscar/criar SVGs flat para os 73 santos litúrgicos (silhuetas estilizadas)
-- [ ] Buscar/criar SVGs temáticos para os 48 eventos sazonais
-- [ ] Criar SVGs de conquista (40 ícones + 4 bordas de raridade)
-- [ ] Converter SVGs → arquivos `.riv` no editor Rive (community, gratuito)
-- [ ] Adicionar State Machines: idle (flutuando), tap (celebração), unlock (brilho + partículas)
-- [ ] Criar `trophyAnimationConfigs.ts` mapeando cada troféu ao `.riv` + parâmetros
-- [ ] Refatorar `AnimatedTrophy` para: se `.riv` existe → Rive, senão → fallback SVG atual
-- [ ] Armazenar `.riv` em `assets/rive/trophies/` organizado por categoria
+#### Setup — CONCLUÍDO
+- [x] `@rive-app/react-native@0.3.0` instalado
+- [x] `LottieTrophy.tsx` criado (fallback SVG automático quando .json não existe, suporte a tiers por rarity)
+- [x] `assets/rive/trophies/` diretório criado
+- [x] Projeto preview web: `C:\Code\ReactNative\DOMUS-Rive-Preview\` (React + Vite + @rive-app/react-canvas)
+- [x] `completionCounts: Record<string, number>` no GamificationState + reducer + badges ×N
+
+#### Produção — EM PROGRESSO (troféu a troféu)
+
+**Ferramentas:**
+- Rive Desktop (Windows): baixar de [rive.app/downloads](https://rive.app/downloads)
+- Rive MCP Server: `@rive-mcp/server-core` (configurado no Gemini CLI)
+- Gemini CLI: gera animações via MCP quando Rive Desktop está aberto
+- Preview web: `C:\Code\ReactNative\DOMUS-Rive-Preview\` (`npm run dev`)
+
+**Fluxo por troféu:**
+1. Abrir Rive Desktop → Gemini CLI envia comandos via MCP
+2. Gemini cria a animação com 4 tiers (Bronze/Prata/Ouro/Diamante)
+3. Exportar .riv → colocar em `assets/rive/trophies/{id}.riv`
+4. Aprovar no preview web → adicionar ID no `APPROVED_RIV` em `RiveTrophy.tsx`
+
+**Prompt base para Gemini CLI (copiar e adaptar):**
+```
+Usando o Rive MCP, crie animação para o troféu "{NOME}" (ID: {ID}).
+Conceito: {DESCRIÇÃO VISUAL}
+4 tiers via State Machine Number Input 'tier':
+- tier=1 Bronze: cores #CD7F32/#8B5A2B
+- tier=2 Prata: cores #C0C0C0/#808080
+- tier=3 Ouro: cores #FFD700/#DAA520
+- tier=4 Diamante: cores #4FC3F7/#0288D1
+Estados: idle (flutuando), unlock (trigger: animação principal), tap (trigger: wiggle+flash)
+200x200px, fundo transparente.
+Salve: C:/Code/ReactNative/DOMUS/assets/rive/trophies/{ID}.riv
+```
+
+**Progresso: 7/210 troféus aprovados**
+- [x] `first_transaction` — Primeiros Passos (moeda dourada + broto + sparkles, 4 tiers) ✓ APROVADO
+- [x] `ten_transactions` — Organizador (prancheta + checkmarks sequenciais + selo stamp, 4 tiers) ✓ APROVADO
+- [x] `first_dizimo` — Dizimista Fiel (mãos SVG + coração vermelho + cruz branca + raios + confetti, 4 tiers) ✓ APROVADO
+- [x] `streak_7` — Semana de Ouro (chama realista com brasas + faíscas + número 7, 4 tiers) ✓ APROVADO
+- [x] `streak_30` — Mês Perfeito (calendário colorido + checkmark verde + coroa de louros, 4 tiers) ✓ APROVADO
+- [x] `budget_ok` — Guardião do Orçamento (escudo SVG + cifrão $ + check verde + confetti, 4 tiers) ✓ APROVADO
+
+- [x] `level_5` — Planejador (gráfico barras SVG + lápis com balanço de escrita + estrela + número 5, 4 tiers) ✓ APROVADO
+
+**Próximo:** `level_10` — Mestre Financeiro
 
 ---
 
@@ -116,7 +153,7 @@ MÉDIO (após FlashList):
 
 LONGO PRAZO (quando houver tempo):
   3.3 - Migração Tamagui ........... [COMPLEXO]  ~40-60h
-  3.4 - Animações Rive ............. [COMPLEXO]  ~15-25h (depende de assets)
+  3.4 - Animações Lottie ............. [COMPLEXO]  ~15-25h (depende de assets)
 ```
 
 ---
@@ -168,7 +205,7 @@ MÉDIO PRAZO:
 
 LONGO PRAZO:
   3.3 - Migração Tamagui .............. [COMPLEXO]         ~40-60h
-  3.4 - Animações Rive ................ [COMPLEXO]         ~15-25h
+  3.4 - Animações Lottie ................ [COMPLEXO]         ~15-25h
 ```
 
 ---

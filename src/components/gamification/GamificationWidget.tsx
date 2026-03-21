@@ -2,8 +2,7 @@ import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { AnimatedTrophy } from "@/src/components/gamification/AnimatedTrophy";
-import { AnimatedSeasonalTrophy } from "@/src/components/gamification/AnimatedSeasonalTrophy";
+import { LottieTrophy } from "@/src/components/gamification/LottieTrophy";
 import { AnimatedCard } from "@/src/components/shared/AnimatedCard";
 import type { AchievementRarity } from "@packages/gamification/src/achievements";
 import { soundManager } from "@/src/services/SoundManager";
@@ -50,12 +49,13 @@ export function GamificationWidget({
           >
             {currentTrophy ? (
               <>
-                <AnimatedSeasonalTrophy
+                <LottieTrophy
+                  trophyId={currentTrophy.id}
+                  type="seasonal"
                   icon={currentTrophy.icon}
-                  id={currentTrophy.id}
                   size={60}
                   color={theme.primaryColor}
-                  isStatic={true}
+                  isStatic
                 />
                 <Text style={[s.trophyLabel, { color: theme.secondaryText }]}>Troféu do Mês</Text>
               </>
@@ -81,7 +81,7 @@ export function GamificationWidget({
                         entering={FadeIn.delay(idx * 150)}
                         style={[s.miniTrophy, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
                       >
-                        <AnimatedTrophy rarity={ach.rarity} size={22} spinning={false} />
+                        <LottieTrophy trophyId={ach.id} type="achievement" rarity={ach.rarity} size={22} isStatic />
                       </Animated.View>
                       <Text style={{ fontSize: 8, color: theme.secondaryText, width: 42, textAlign: 'center' }} numberOfLines={1}>
                         {fullAch?.name || '---'}

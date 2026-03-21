@@ -19,7 +19,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import type { ArchetypeType } from "@packages/personality/src/types";
 import { getArchetypeDescription } from "@packages/personality/src/archetypeEngine";
-import { AnimatedTrophy } from "@/src/components/gamification/AnimatedTrophy";
+import { LottieTrophy } from "@/src/components/gamification/LottieTrophy";
 import { AnimatedSeasonalTrophy } from "@/src/components/gamification/AnimatedSeasonalTrophy";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -123,7 +123,7 @@ export function DebugTools() {
         />
       );
     }
-    return <AnimatedTrophy rarity={t.rarity || "gold"} size={size * 0.9} spinning={!isStatic} />;
+    return <LottieTrophy trophyId={t.id} type="achievement" rarity={t.rarity || "gold"} size={size * 0.9} isStatic={isStatic} />;
   };
 
   return (
