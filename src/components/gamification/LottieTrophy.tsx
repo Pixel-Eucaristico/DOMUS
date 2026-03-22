@@ -210,6 +210,20 @@ const APPROVED_LOTTIE: Record<string, {
     t3: require("@/assets/lottie/trophies/first_income_t3.json"),
     t4: require("@/assets/lottie/trophies/first_income_t4.json"),
   },
+  "positive_balance": {
+    base: require("@/assets/lottie/trophies/positive_balance.json"),
+    t1: require("@/assets/lottie/trophies/positive_balance_t1.json"),
+    t2: require("@/assets/lottie/trophies/positive_balance_t2.json"),
+    t3: require("@/assets/lottie/trophies/positive_balance_t3.json"),
+    t4: require("@/assets/lottie/trophies/positive_balance_t4.json"),
+  },
+  "dizimo_3mo": {
+    base: require("@/assets/lottie/trophies/dizimo_3mo.json"),
+    t1: require("@/assets/lottie/trophies/dizimo_3mo_t1.json"),
+    t2: require("@/assets/lottie/trophies/dizimo_3mo_t2.json"),
+    t3: require("@/assets/lottie/trophies/dizimo_3mo_t3.json"),
+    t4: require("@/assets/lottie/trophies/dizimo_3mo_t4.json"),
+  },
 };
 
 const RARITY_TO_TIER: Record<string, number> = {
