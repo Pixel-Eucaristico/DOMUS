@@ -224,6 +224,186 @@ const APPROVED_LOTTIE: Record<string, {
     t3: require("@/assets/lottie/trophies/dizimo_3mo_t3.json"),
     t4: require("@/assets/lottie/trophies/dizimo_3mo_t4.json"),
   },
+  // --- Monthly (sem tiers) ---
+  "monthly_registros": {
+    base: require("@/assets/lottie/trophies/monthly_registros.json"),
+  },
+  "monthly_equilibrado": {
+    base: require("@/assets/lottie/trophies/monthly_equilibrado.json"),
+  },
+  "monthly_poupanca": {
+    base: require("@/assets/lottie/trophies/monthly_poupanca.json"),
+  },
+  "monthly_controle": {
+    base: require("@/assets/lottie/trophies/monthly_controle.json"),
+  },
+  "monthly_dizimo": {
+    base: require("@/assets/lottie/trophies/monthly_dizimo.json"),
+  },
+  "monthly_saldo_positivo": {
+    base: require("@/assets/lottie/trophies/monthly_saldo_positivo.json"),
+  },
+  // --- Seasonal (sem tiers) ---
+  "seasonal_ano_novo": {
+    base: require("@/assets/lottie/trophies/seasonal_ano_novo.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_ano_novo_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_ano_novo_t3.json"),
+  },
+  "seasonal_planejamento_anual": {
+    base: require("@/assets/lottie/trophies/seasonal_planejamento_anual.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_planejamento_anual_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_planejamento_anual_t3.json"),
+  },
+  "seasonal_dia_de_reis": {
+    base: require("@/assets/lottie/trophies/seasonal_dia_de_reis.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_dia_de_reis_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_dia_de_reis_t3.json"),
+  },
+  "seasonal_queima_velhos": {
+    base: require("@/assets/lottie/trophies/seasonal_queima_velhos.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_queima_velhos_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_queima_velhos_t3.json"),
+  },
+  "seasonal_carnaval": {
+    base: require("@/assets/lottie/trophies/seasonal_carnaval.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_carnaval_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_carnaval_t3.json"),
+  },
+  "seasonal_valentine": {
+    base: require("@/assets/lottie/trophies/seasonal_valentine.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_valentine_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_valentine_t3.json"),
+  },
+  "seasonal_quaresma": {
+    base: require("@/assets/lottie/trophies/seasonal_quaresma.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_quaresma_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_quaresma_t3.json"),
+  },
+  "seasonal_mes_coracao": {
+    base: require("@/assets/lottie/trophies/seasonal_mes_coracao.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_mes_coracao_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_mes_coracao_t3.json"),
+  },
+  "seasonal_dia_mulher": {
+    base: require("@/assets/lottie/trophies/seasonal_dia_mulher.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_dia_mulher_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_dia_mulher_t3.json"),
+  },
+  "seasonal_dia_consumidor": {
+    base: require("@/assets/lottie/trophies/seasonal_dia_consumidor.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_dia_consumidor_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_dia_consumidor_t3.json"),
+  },
+  "seasonal_inicio_outono": {
+    base: require("@/assets/lottie/trophies/seasonal_inicio_outono.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_inicio_outono_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_inicio_outono_t3.json"),
+  },
+  "seasonal_prep_pascoa": {
+    base: require("@/assets/lottie/trophies/seasonal_prep_pascoa.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_prep_pascoa_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_prep_pascoa_t3.json"),
+  },
+  "seasonal_pascoa": {
+    base: require("@/assets/lottie/trophies/seasonal_pascoa.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_pascoa_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_pascoa_t3.json"),
+  },
+  "seasonal_tiradentes": {
+    base: require("@/assets/lottie/trophies/seasonal_tiradentes.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_tiradentes_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_tiradentes_t3.json"),
+  },
+  "seasonal_descobrimento": {
+    base: require("@/assets/lottie/trophies/seasonal_descobrimento.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_descobrimento_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_descobrimento_t3.json"),
+  },
+  "seasonal_mes_boleto": {
+    base: require("@/assets/lottie/trophies/seasonal_mes_boleto.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_mes_boleto_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_mes_boleto_t3.json"),
+  },
+  "seasonal_dia_trabalho": {
+    base: require("@/assets/lottie/trophies/seasonal_dia_trabalho.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_dia_trabalho_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_dia_trabalho_t3.json"),
+  },
+  "seasonal_dia_maes": {
+    base: require("@/assets/lottie/trophies/seasonal_dia_maes.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_dia_maes_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_dia_maes_t3.json"),
+  },
+  "seasonal_combate_fumo": {
+    base: require("@/assets/lottie/trophies/seasonal_combate_fumo.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_combate_fumo_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_combate_fumo_t3.json"),
+  },
+  "seasonal_abolicao": {
+    base: require("@/assets/lottie/trophies/seasonal_abolicao.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_abolicao_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_abolicao_t3.json"),
+  },
+  "seasonal_dia_namorados": {
+    base: require("@/assets/lottie/trophies/seasonal_dia_namorados.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_dia_namorados_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_dia_namorados_t3.json"),
+  },
+  "seasonal_festa_junina": {
+    base: require("@/assets/lottie/trophies/seasonal_festa_junina.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_festa_junina_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_festa_junina_t3.json"),
+  },
+  "seasonal_meio_ambiente": {
+    base: require("@/assets/lottie/trophies/seasonal_meio_ambiente.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_meio_ambiente_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_meio_ambiente_t3.json"),
+  },
+  "seasonal_corpus_christi": {
+    base: require("@/assets/lottie/trophies/seasonal_corpus_christi.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_corpus_christi_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_corpus_christi_t3.json"),
+  },
+  "seasonal_ferias_julho": {
+    base: require("@/assets/lottie/trophies/seasonal_ferias_julho.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_ferias_julho_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_ferias_julho_t3.json"),
+  },
+  "seasonal_dia_avos": {
+    base: require("@/assets/lottie/trophies/seasonal_dia_avos.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_dia_avos_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_dia_avos_t3.json"),
+  },
+  "seasonal_nossa_sra_carmo": {
+    base: require("@/assets/lottie/trophies/seasonal_nossa_sra_carmo.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_nossa_sra_carmo_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_nossa_sra_carmo_t3.json"),
+  },
+  "seasonal_inverno": {
+    base: require("@/assets/lottie/trophies/seasonal_inverno.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_inverno_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_inverno_t3.json"),
+  },
+  "seasonal_dia_pais": {
+    base: require("@/assets/lottie/trophies/seasonal_dia_pais.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_dia_pais_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_dia_pais_t3.json"),
+  },
+  "seasonal_dia_estudante": {
+    base: require("@/assets/lottie/trophies/seasonal_dia_estudante.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_dia_estudante_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_dia_estudante_t3.json"),
+  },
+  "seasonal_volta_aulas": {
+    base: require("@/assets/lottie/trophies/seasonal_volta_aulas.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_volta_aulas_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_volta_aulas_t3.json"),
+  },
+  "seasonal_liquidacao_inverno": {
+    base: require("@/assets/lottie/trophies/seasonal_liquidacao_inverno.json"),
+    t2: require("@/assets/lottie/trophies/seasonal_liquidacao_inverno_t2.json"),
+    t3: require("@/assets/lottie/trophies/seasonal_liquidacao_inverno_t3.json"),
+  },
 };
 
 const RARITY_TO_TIER: Record<string, number> = {

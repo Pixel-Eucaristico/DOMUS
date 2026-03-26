@@ -128,17 +128,80 @@ Estados: idle (flutuando), unlock (trigger: animação principal), tap (trigger:
 Salve: C:/Code/ReactNative/DOMUS/assets/rive/trophies/{ID}.riv
 ```
 
-**Progresso: 7/210 troféus aprovados**
-- [x] `first_transaction` — Primeiros Passos (moeda dourada + broto + sparkles, 4 tiers) ✓ APROVADO
-- [x] `ten_transactions` — Organizador (prancheta + checkmarks sequenciais + selo stamp, 4 tiers) ✓ APROVADO
-- [x] `first_dizimo` — Dizimista Fiel (mãos SVG + coração vermelho + cruz branca + raios + confetti, 4 tiers) ✓ APROVADO
-- [x] `streak_7` — Semana de Ouro (chama realista com brasas + faíscas + número 7, 4 tiers) ✓ APROVADO
-- [x] `streak_30` — Mês Perfeito (calendário colorido + checkmark verde + coroa de louros, 4 tiers) ✓ APROVADO
-- [x] `budget_ok` — Guardião do Orçamento (escudo SVG + cifrão $ + check verde + confetti, 4 tiers) ✓ APROVADO
+**Progresso: 67/213 troféus aprovados (29 achievements + 6 mensais + 32 sazonais)**
+- [x] 29 achievements com Lottie APROVADOS (4 tiers cada)
+- [x] `monthly_registros` — Registrador do Mês (calendário + check verde + estrela, sem tiers) ✓ APROVADO
+- [x] `monthly_equilibrado` — Mês Equilibrado (balança azul + check verde, sem tiers) ✓ APROVADO
+- [x] `monthly_poupanca` — Poupança do Mês (porquinho cofrinho SVG + moeda caindo, sem tiers) ✓ APROVADO
+- [x] `monthly_controle` — Controle Total (escudo Bootstrap SVG + checkmark branco + pulso, sem tiers) ✓ APROVADO
+- [x] `monthly_dizimo` — Oferta Mensal (mãos em oração SVG + coração + cruz + raios, sem tiers) ✓ APROVADO
+- [x] `monthly_saldo_positivo` — No Azul (gráfico tendência + dots + seta verde + badge +, sem tiers) ✓ APROVADO
 
-- [x] `level_5` — Planejador (gráfico barras SVG + lápis com balanço de escrita + estrela + número 5, 4 tiers) ✓ APROVADO
+- [x] `seasonal_ano_novo` — Recomeço de Ouro (fogos de artifício + estrela dourada + ribbon, sem tiers) ✓ APROVADO
 
-**Próximo:** `level_10` — Mestre Financeiro
+- [x] `seasonal_planejamento_anual` — Arquiteto do Ano (clipboard + checklist + estrela, sem tiers) ✓ APROVADO
+
+- [x] `seasonal_dia_de_reis` — Encerramento Sábio (coroa Tabler SVG + 3 gemas + estrela, sem tiers) ✓ APROVADO
+
+- [x] `seasonal_queima_velhos` — Renovação Financeira (fogo Bootstrap SVG + broto verde + brasas, sem tiers) ✓ APROVADO
+
+- [x] `seasonal_carnaval` — Folião Consciente (máscaras teatro FA SVG + confetes, sem tiers) ✓ APROVADO
+
+- [x] `seasonal_valentine` — Amor com Planejamento (coração FA SVG + moeda + mini corações + heartbeat, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_quaresma` — Jejum de Gastos (cruz FA SVG + moeda com slash + raios, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_mes_coracao` — Coração no Azul (coração azul FA SVG + ECG + heartbeat, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_dia_mulher` — Diversidade Financeira (Venus FA SVG + flores + pulse, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_dia_consumidor` — Consumidor Inteligente (carrinho FA SVG + moedas + badge, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_inicio_outono` — Guarda-Roupa Consciente (folha FA SVG + cabide + folhas caindo, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_prep_pascoa` — Páscoa Planejada (ovo BS SVG + pintinho + mini ovos, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_pascoa` — Páscoa sem Dívidas (coelho UXWing SVG + check + mini ovos, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_tiradentes` — Resistência Financeira (espadas cruzadas SVG + escudo BS + triângulo Inconfidência, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_descobrimento` — Descobridor do Orçamento (bússola BS SVG + agulha giratória + N/S/E/W + bandeira BR, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_mes_boleto` — Mestre dos Boletos (receipt BS SVG + barcode + check stamp, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_dia_trabalho` — Valorize seu Trabalho (martelo Game-icons SVG + engrenagem + moeda, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_dia_maes` — Presente com Carinho (flor 6 pétalas + coração + heartbeat, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_combate_fumo` — Hábito Saudável (cigarro + proibido + coração verde, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_abolicao` — Liberdade Financeira (corrente quebrando Game-icons SVG + pomba FA SVG + raios, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_dia_namorados` — Amor Equilibrado (casal homem+mulher vestido + coração + heartbeat, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_festa_junina` — Arraial Controlado (fogueira Game-icons SVG + bandeirinhas + balões São João, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_meio_ambiente` — Consumo Consciente (árvore BS SVG + tronco + reciclagem BS SVG + gotas, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_corpus_christi` — Feriado Planejado (ostensório geométrico + sunburst + hóstia + gemas, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_ferias_julho` — Férias Inteligentes (guarda-sol praia + areia + mar + sol + moeda, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_dia_avos` — Raízes Sólidas (árvore com raízes Game-icons SVG + coração + óculos, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_nossa_sra_carmo` — Oferta do Coração (escapulário + cruz Jesus + M/estrelas Maria + coração, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_inverno` — Aquecimento Econômico (xícara quente + vapor + moeda, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_dia_pais` — Presente sem Parcelas (gravata Game-icons SVG + presente + moeda, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_dia_estudante` — Educação Financeira (livro aberto + moedas flutuando + estrelas, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_volta_aulas` — Volta às Aulas Planejada (mochila UXWing SVG real + moeda + sparkles, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_liquidacao_inverno` — Liquidação com Cabeça (etiqueta Bootstrap tag-fill SVG + moeda + %, 3 tiers) ✓ APROVADO
+
+**Próximo:** Troféus sazonais (16 restantes)
 
 ---
 
