@@ -128,7 +128,7 @@ Estados: idle (flutuando), unlock (trigger: animação principal), tap (trigger:
 Salve: C:/Code/ReactNative/DOMUS/assets/rive/trophies/{ID}.riv
 ```
 
-**Progresso: 67/213 troféus aprovados (29 achievements + 6 mensais + 32 sazonais)**
+**Progresso: 80/213 troféus aprovados (29 achievements + 6 mensais + 45 sazonais)**
 - [x] 29 achievements com Lottie APROVADOS (4 tiers cada)
 - [x] `monthly_registros` — Registrador do Mês (calendário + check verde + estrela, sem tiers) ✓ APROVADO
 - [x] `monthly_equilibrado` — Mês Equilibrado (balança azul + check verde, sem tiers) ✓ APROVADO
@@ -166,6 +166,12 @@ Salve: C:/Code/ReactNative/DOMUS/assets/rive/trophies/{ID}.riv
 - [x] `seasonal_tiradentes` — Resistência Financeira (espadas cruzadas SVG + escudo BS + triângulo Inconfidência, 3 tiers) ✓ APROVADO
 
 - [x] `seasonal_descobrimento` — Descobridor do Orçamento (bússola BS SVG + agulha giratória + N/S/E/W + bandeira BR, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_independencia` — Independência Financeira (troféu verde com losango BR + círculo azul + fogos de artifício nas cores do Brasil, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_prep_crianca` — Reserve para as Crianças (caixa de presente com laço + moedas + estrelas, 3 tiers) ✓ APROVADO
+
+- [x] `seasonal_primavera` — Florescimento Financeiro (flor daisy bezier real + caule + folhas + moedas, 3 tiers) ✓ APROVADO
 
 - [x] `seasonal_mes_boleto` — Mestre dos Boletos (receipt BS SVG + barcode + check stamp, 3 tiers) ✓ APROVADO
 
@@ -246,6 +252,50 @@ LONGO PRAZO (quando houver tempo):
 - [ ] Testes unitários
 - **Detalhes:** [docs/roadmap/09-olerite-ocr.md](docs/roadmap/09-olerite-ocr.md)
 
+### 10 — Bug: Tour Sumindo / Saindo Fora da Tela
+- **Dificuldade:** MÉDIO | **Urgência:** ALTA
+- **Problema:** O tour guiado está com comportamento bugado — elementos saem fora dos limites da tela e o overlay desaparece inesperadamente durante a navegação
+- **Investigar:**
+  - [ ] Verificar cálculo de posição do highlight (scroll offset não considerado?)
+  - [ ] Checar se `measure()` / `measureInWindow()` retorna coordenadas corretas em todos os tamanhos de tela
+  - [ ] Garantir que o tour respeita `SafeAreaInsets` (notch, barra de status)
+  - [ ] Testar em dispositivos com telas menores e com teclado aberto
+
+### 11 — Bug: Barra de Progresso da Poupança não Contabiliza nos Objetivos Vinculados
+- **Dificuldade:** MÉDIO | **Urgência:** ALTA
+- **Problema:** A barra que calcula o progresso na poupança (com flag de objetivo) não reflete corretamente nos objetivos vinculados exibidos no menu sanfona (accordion)
+- **Investigar:**
+  - [ ] Verificar se o valor acumulado na poupança está sendo propagado para o `goalId` vinculado
+  - [ ] Checar se a query/selector de objetivos relê o saldo após transações de poupança
+  - [ ] Garantir que o cálculo de `currentAmount` do objetivo considera depósitos categorizados como poupança
+  - [ ] Testar criação de objetivo → vincular à poupança → adicionar transação → verificar barra no accordion
+
+### 12 — Bug/Feature: IA não Responde ao "Olá" + Mensagem Diária de Boas-Vindas
+- **Dificuldade:** MÉDIO | **Urgência:** MÉDIA
+- **Problemas:**
+  1. Ao enviar "Olá" para a IA ela não responde (só funciona ao clicar nas sugestões)
+  2. Claude funciona nas sugestões mas não no input livre
+  3. Seria ideal: a IA enviar automaticamente uma mensagem de boas-vindas diária ao abrir o chat
+- **Investigar:**
+  - [ ] Checar se o handler de envio de mensagem livre está conectado corretamente ao provider ativo
+  - [ ] Verificar se há algum filtro ou validação bloqueando mensagens curtas/saudações
+  - [ ] Implementar mensagem de boas-vindas diária: ao abrir o chat, se for o primeiro acesso do dia, a IA envia automaticamente uma mensagem de boas-vindas personalizada (nome do usuário, dica financeira do dia, humor/motivação)
+  - [ ] Armazenar `lastGreetingDate` em AsyncStorage para não repetir no mesmo dia
+
+### 13 — Bug/Melhoria: TTS Sobrepondo Partes + Juntar Áudios em Arquivo Único
+- **Dificuldade:** MÉDIO | **Urgência:** MÉDIA
+- **Problemas:**
+  1. O TTS está sobrepondo a reprodução da parte anterior ao iniciar a segunda parte (race condition)
+  2. Experiência fragmentada: pausas entre partes, sobreposição de fala
+- **Solução desejada:** Baixar todas as partes, concatenar em um único arquivo de áudio e reproduzir o arquivo final unificado
+- **Investigar/Implementar:**
+  - [ ] Pesquisar melhor abordagem para concatenar áudio no React Native (ex: `react-native-audio-toolkit`, `ffmpeg-kit-react-native`, ou API nativa)
+  - [ ] Baixar todas as partes em paralelo antes de iniciar reprodução
+  - [ ] Concatenar os buffers/arquivos de áudio em um único arquivo temporário
+  - [ ] Reproduzir apenas o arquivo final concatenado (sem fragmentação)
+  - [ ] Fallback: se concatenação falhar, reproduzir partes em sequência com await correto (sem sobreposição)
+  - [ ] Limpar arquivo temporário após reprodução
+
 ### Pendências da Fase 4
 - [ ] **Tooltips Inteligentes:** `react-native-smart-tooltip` (não instalado ainda)
     - `react-native-sprinkle-toast` já está instalado e em uso
@@ -293,4 +343,5 @@ yarn add react-native-smart-tooltip
 | `@rive-app/react-native` | 3 | ✅ | [reactnative.directory](https://reactnative.directory/package/@rive-app/react-native) |
 
 *Nota: Antes de cada tarefa, será realizada uma análise técnica detalhada com planejamento via Task Master.*
+ 
  
