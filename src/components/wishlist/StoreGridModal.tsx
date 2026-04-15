@@ -6,15 +6,15 @@ import {
   Modal,
   TouchableOpacity,
   TextInput,
-  FlatList,
   Image,
   Dimensions,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 
 const NUM_COLS = 5;
 const SCREEN_W = Dimensions.get("window").width;
-const H_PAD = 16 * 2;
-const CARD_MARGIN = 4 * 2;
+const H_PAD = 16 * 2; // paddingHorizontal do sheet
+const CARD_MARGIN = 4 * 2; // margin de cada lado
 const CARD_SIZE = Math.floor((SCREEN_W - H_PAD - CARD_MARGIN * NUM_COLS) / NUM_COLS);
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,11 +23,13 @@ import { ScraperRegistry } from "@packages/wishlist/src/scrapers/ScraperRegistry
 import type { IScraperStrategy } from "@packages/wishlist/src/scrapers/IScraperStrategy";
 import { soundManager } from "@/src/services/SoundManager";
 
+// Ícones das lojas via Google Favicon Service (128px, confiável e sempre atualizado)
 function getStoreIconUrl(storeId: string, baseUrls: string[]): string {
   const domain = baseUrls[0] ?? storeId;
   return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
 }
 
+// Cores de fundo para cada loja (estilo card Android)
 const STORE_BG: Record<string, string> = {
   amazon: "#FF9900",
   mercadolivre: "#FFE600",
@@ -57,6 +59,7 @@ export function StoreGridModal({ visible, theme, searchQuery = "", onSelectStore
   function handleSelect(store: IScraperStrategy) {
     soundManager.play("pop");
     setQuery("");
+    // Usa o nome do produto para montar URL de busca direta na loja
     onSelectStore(store.buildSearchUrl(searchQuery));
   }
 
@@ -131,11 +134,12 @@ export function StoreGridModal({ visible, theme, searchQuery = "", onSelectStore
           </View>
 
           {/* Grid de lojas */}
-          <FlatList
+          <FlashList
             data={filtered}
             keyExtractor={(s) => s.id}
             renderItem={renderItem}
             numColumns={5}
+            estimatedItemSize={80}
             contentContainerStyle={styles.grid}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={

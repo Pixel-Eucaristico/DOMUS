@@ -40,7 +40,6 @@ interface Props {
   onRemove?: (item: WishlistItem) => void;
   onConvert?: (item: WishlistItem) => void;
   onChangePriority?: (item: WishlistItem, newUrgency: UrgencyLevel) => void;
-  /** Chamado quando uma peça do bundle tem purchased alterado */
   onBundleItemToggle?: (item: WishlistItem, bundleItemId: string, purchased: boolean) => void;
 }
 
@@ -55,7 +54,7 @@ export function WishlistItemRow({
   onEdit,
   onRemove,
   onConvert,
-  onChangePriority: _onChangePriority,
+  onChangePriority,
   onBundleItemToggle,
 }: Props) {
   const urgencyColor = URGENCY_COLORS[item.urgencyLevel];
@@ -245,7 +244,7 @@ export function WishlistItemRow({
         >
           <Feather name="layers" size={13} color={theme.primaryColor} />
           <TText variant="caption" fontWeight="600" color={theme.primaryColor} fontSize={10}>
-            {`Kit · ${item.bundleItems!.length} peças`}
+            {`Kit · ${item.bundleItems!.length} pecas`}
           </TText>
           <Feather name={bundleOpen ? "chevron-up" : "chevron-down"} size={13} color={theme.primaryColor} />
         </TouchableOpacity>
@@ -283,7 +282,7 @@ export function WishlistItemRow({
       </View>
     </View>
 
-    {/* Accordion de peças do kit */}
+    {/* Accordion de pecas do kit */}
     {hasBundle && bundleOpen && (
       <View style={[s.bundleAccordion, { backgroundColor: theme.cardBackground + "80", borderColor: theme.primaryColor + "30" }]}>
         {item.bundleItems!.map((bItem: BundleItem) => {
@@ -321,7 +320,7 @@ export function WishlistItemRow({
             </TouchableOpacity>
           );
         })}
-        {/* Botões comprar tudo / desmarcar tudo */}
+        {/* Botoes comprar tudo / desmarcar tudo */}
         <View style={s.bundleActions}>
           <TouchableOpacity
             style={[s.bundleActionBtn, { backgroundColor: "#16A34A20" }]}

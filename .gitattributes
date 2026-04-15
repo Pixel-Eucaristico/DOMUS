@@ -1,2 +1,0 @@
-# Force LF for patch files (CI Linux requires LF for patch-package to parse correctly)
-patches/*.patch text eol=lf

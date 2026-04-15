@@ -93,7 +93,6 @@ export function DraggableWishlistList({
   const scrollYRef = useRef(0);
   const containerHeightRef = useRef(0);
 
-  // Refs estáveis para callbacks — evitam recriar PanResponders quando callbacks mudam
   const onVisibleItemIdsRef = useRef(onVisibleItemIds);
   const onReorderRef = useRef(onReorder);
   const onPriorityChangeRef = useRef(onPriorityChange);
@@ -146,15 +145,10 @@ export function DraggableWishlistList({
     return () => clearTimeout(timer);
   }, [items, computeVisibleIds]);
 
-  /**
-   * Calcula o drop target com base em `contentY` — posição em coordenadas
-   * do conteúdo do ScrollView (section.y + item.y, sem tela absoluta).
-   */
   const findDropTarget = useCallback(
     (contentY: number): { urgency: UrgencyLevel; index: number } | null => {
       let targetUrgency: UrgencyLevel | null = null;
 
-      // Prioridade 1: contentY está dentro dos limites da seção
       for (const urgency of URGENCY_ORDER) {
         const section = sectionLayouts.current.get(urgency);
         if (!section) continue;
@@ -164,7 +158,6 @@ export function DraggableWishlistList({
         }
       }
 
-      // Fallback: seção com centro mais próximo (quando entre seções ou fora de todas)
       if (!targetUrgency) {
         let closestDist = Infinity;
         for (const urgency of URGENCY_ORDER) {
@@ -190,7 +183,6 @@ export function DraggableWishlistList({
       for (let i = 0; i < sectionItems.length; i++) {
         const layout = itemLayouts.current.get(sectionItems[i].id);
         if (!layout) continue;
-        // itemLayouts.y é relativo à seção — converte para conteúdo do ScrollView
         const itemMid = sectionOffsetY + layout.y + layout.height / 2;
         if (contentY < itemMid) {
           targetIndex = i;
@@ -203,14 +195,11 @@ export function DraggableWishlistList({
     [getItemsByUrgency],
   );
 
-  // Ref estável para findDropTarget — usada dentro dos PanResponders memoizados
   const findDropTargetRef = useRef(findDropTarget);
   useEffect(() => { findDropTargetRef.current = findDropTarget; }, [findDropTarget]);
 
-  // Mapa de PanResponders memoizados por item.id — evita recriar durante gestos ativos
   const panResponderMap = useRef<Map<string, ReturnType<typeof PanResponder.create>>>(new Map());
 
-  // Limpa PanResponders de itens que foram removidos
   useEffect(() => {
     const currentIds = new Set(items.map((i) => i.id));
     panResponderMap.current.forEach((_, id) => {
@@ -228,7 +217,6 @@ export function DraggableWishlistList({
           onPanResponderGrant: () => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             const floatY = new Animated.Value(0);
-            // Lê estado atual do item via ref — não usa closure stale
             const currentItem = itemsRef.current.find((i) => i.id === item.id) ?? item;
             const itemLayout = itemLayouts.current.get(item.id);
             const sectionLayout = sectionLayouts.current.get(currentItem.urgencyLevel);

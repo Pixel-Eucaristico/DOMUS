@@ -214,7 +214,7 @@ export function useAddWishlistItem({
 
     // Se bundle e sem preço manual, calcula soma das peças
     if (isBundleMode && isNaN(priceVal) && bundleItems.length > 0) {
-      const sum = bundleItems.reduce((acc, b) => acc + (b.price ?? 0), 0);
+      const sum = bundleItems.reduce((acc, b) => acc + (b.price ?? 0) * (b.quantity ?? 1), 0);
       if (sum > 0) priceVal = sum;
     }
 
