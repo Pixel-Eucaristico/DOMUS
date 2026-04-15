@@ -1,5 +1,6 @@
 import React from "react";
-import { StyleSheet, View, Text, TextInput, Pressable } from "react-native";
+import { StyleSheet, View, Text, Pressable } from "react-native";
+import { TInput } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
 import { soundManager } from "@/src/services/SoundManager";
 import type { ThemeColors } from "@packages/theme";
@@ -46,14 +47,15 @@ export function TitheCalculatorSection({
       <Text style={[s.label, { color: theme.secondaryText, marginTop: 10 }]}>
         Percentual (%)
       </Text>
-      <TextInput
-        style={[s.titheInput, { color: theme.textColor, borderColor: theme.border }]}
+      <TInput
         defaultValue={percentage}
         onChangeText={setPercentage}
-        onEndEditing={(e) => setPercentage(e.nativeEvent.text)}
+        onEndEditing={(e: any) => setPercentage(e.nativeEvent.text)}
         placeholder="10"
-        placeholderTextColor={theme.secondaryText}
         keyboardType="decimal-pad"
+        color={theme.textColor}
+        backgroundColor={theme.cardBackground}
+        borderColor={theme.border}
       />
 
       <Text style={[s.label, { color: theme.secondaryText, marginTop: 10 }]}>
@@ -122,14 +124,15 @@ export function TitheCalculatorSection({
           <Text style={[s.label, { color: theme.secondaryText, marginTop: 10, fontSize: 12 }]}>
             Ultimos quantos dias?
           </Text>
-          <TextInput
-            style={[s.titheInput, { color: theme.textColor, borderColor: theme.border }]}
+          <TInput
             defaultValue={customDays}
             onChangeText={setCustomDays}
-            onEndEditing={(e) => setCustomDays(e.nativeEvent.text)}
+            onEndEditing={(e: any) => setCustomDays(e.nativeEvent.text)}
             placeholder="30"
-            placeholderTextColor={theme.secondaryText}
             keyboardType="number-pad"
+            color={theme.textColor}
+            backgroundColor={theme.cardBackground}
+            borderColor={theme.border}
           />
         </>
       )}
@@ -156,13 +159,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: 7,
     marginBottom: 2,
-  },
-  titheInput: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 16,
-    borderBottomWidth: 1,
-    paddingVertical: 8,
-    marginBottom: 4,
   },
   titheChipRow: {
     flexDirection: "row",

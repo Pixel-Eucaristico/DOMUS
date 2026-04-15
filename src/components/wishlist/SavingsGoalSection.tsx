@@ -1,7 +1,6 @@
 import React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Switch,
@@ -12,6 +11,7 @@ import type { ThemeColors } from "@packages/theme";
 import type { SavingsGoalConfig } from "@packages/wishlist";
 import type { AccountPayload } from "@packages/events";
 import { soundManager } from "@/src/services/SoundManager";
+import { TText } from "@/src/components/tamagui";
 
 const ACCOUNT_TYPE_ICONS: Record<string, string> = {
   checking: "credit-card",
@@ -33,24 +33,24 @@ export function SavingsGoalSection({ savingsGoal, accounts, theme, onChange }: P
     onChange({ ...savingsGoal, ...partial });
 
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
       {/* Toggle header */}
       <TouchableOpacity
-        style={styles.toggleRow}
+        style={s.toggleRow}
         onPress={() => { soundManager.play("tap"); update({ enabled: !savingsGoal.enabled }); }}
         activeOpacity={0.7}
       >
-        <View style={styles.toggleLeft}>
-          <View style={[styles.goalIcon, { backgroundColor: "#16A34A20" }]}>
+        <View style={s.toggleLeft}>
+          <View style={[s.goalIcon, { backgroundColor: "#16A34A20" }]}>
             <Feather name="target" size={15} color="#16A34A" />
           </View>
           <View>
-            <Text style={[styles.toggleTitle, { color: theme.textColor }]}>
-              Objetivo de Poupança
-            </Text>
-            <Text style={[styles.toggleSub, { color: theme.secondaryText }]}>
+            <TText variant="body" fontWeight="600" color={theme.textColor}>
+              Objetivo de Poupanca
+            </TText>
+            <TText variant="caption" color={theme.secondaryText} fontSize={11} marginTop={1}>
               Vincule uma conta e acompanhe o progresso
-            </Text>
+            </TText>
           </View>
         </View>
         <Switch
@@ -62,21 +62,30 @@ export function SavingsGoalSection({ savingsGoal, accounts, theme, onChange }: P
       </TouchableOpacity>
 
       {savingsGoal.enabled && (
-        <View style={[styles.content, { backgroundColor: theme.cardBackground }]}>
+        <View style={[s.content, { backgroundColor: theme.cardBackground }]}>
           {/* Conta vinculada */}
-          <Text style={[styles.label, { color: theme.secondaryText }]}>
+          <TText
+            variant="caption"
+            fontWeight="500"
+            color={theme.secondaryText}
+            textTransform="uppercase"
+            letterSpacing={0.5}
+            marginTop={10}
+            marginBottom={4}
+            fontSize={11}
+          >
             Conta vinculada
-          </Text>
+          </TText>
           {savingsAccounts.length === 0 ? (
-            <Text style={[styles.emptyText, { color: theme.secondaryText }]}>
-              Nenhuma conta disponível. Crie uma conta poupança no app.
-            </Text>
+            <TText variant="caption" color={theme.secondaryText} marginBottom={4}>
+              Nenhuma conta disponivel. Crie uma conta poupanca no app.
+            </TText>
           ) : (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              style={styles.accountScroll}
-              contentContainerStyle={styles.accountRow}
+              style={s.accountScroll}
+              contentContainerStyle={s.accountRow}
             >
               {savingsAccounts.map((acc) => {
                 const selected = savingsGoal.linkedAccountId === acc.id;
@@ -84,7 +93,7 @@ export function SavingsGoalSection({ savingsGoal, accounts, theme, onChange }: P
                   <TouchableOpacity
                     key={acc.id}
                     style={[
-                      styles.accountChip,
+                      s.accountChip,
                       {
                         backgroundColor: selected
                           ? (acc.color ?? theme.primaryColor) + "25"
@@ -102,25 +111,20 @@ export function SavingsGoalSection({ savingsGoal, accounts, theme, onChange }: P
                       size={12}
                       color={selected ? (acc.color ?? theme.primaryColor) : theme.secondaryText}
                     />
-                    <Text
-                      style={[
-                        styles.accountChipText,
-                        {
-                          color: selected
-                            ? (acc.color ?? theme.primaryColor)
-                            : theme.textColor,
-                          fontFamily: selected ? "DMSans_700Bold" : "DMSans_400Regular",
-                        },
-                      ]}
+                    <TText
+                      variant="caption"
+                      color={selected ? (acc.color ?? theme.primaryColor) : theme.textColor}
+                      fontWeight={selected ? "700" : "400"}
                       numberOfLines={1}
+                      maxWidth={110}
                     >
                       {acc.name}
-                    </Text>
+                    </TText>
                     {selected && (
-                      <Text style={[styles.accountBalance, { color: acc.color ?? theme.primaryColor }]}>
+                      <TText variant="caption" bold color={acc.color ?? theme.primaryColor} fontSize={11}>
                         R${" "}
                         {acc.balance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </Text>
+                      </TText>
                     )}
                   </TouchableOpacity>
                 );
@@ -134,7 +138,7 @@ export function SavingsGoalSection({ savingsGoal, accounts, theme, onChange }: P
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: { marginTop: 10 },
   toggleRow: {
     flexDirection: "row",
@@ -150,23 +154,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  toggleTitle: { fontSize: 14, fontFamily: "DMSans_600SemiBold" },
-  toggleSub: { fontSize: 11, fontFamily: "DMSans_400Regular", marginTop: 1 },
   content: {
     borderRadius: 12,
     padding: 12,
     gap: 2,
     marginTop: 4,
   },
-  label: {
-    fontSize: 11,
-    fontFamily: "DMSans_500Medium",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  emptyText: { fontSize: 12, fontFamily: "DMSans_400Regular", marginBottom: 4 },
   accountScroll: { marginBottom: 4 },
   accountRow: { gap: 6, paddingBottom: 2 },
   accountChip: {
@@ -178,6 +171,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  accountChipText: { fontSize: 12, maxWidth: 110 },
-  accountBalance: { fontSize: 11, fontFamily: "DMSans_700Bold" },
 });

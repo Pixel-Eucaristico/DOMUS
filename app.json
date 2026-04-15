@@ -2,7 +2,7 @@
   "expo": {
     "name": "DOMUS",
     "slug": "domus",
-    "version": "1.1.0",
+    "version": "1.7.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "orcafacil",
@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "br.com.pixeleucaristico.domus",
-      "versionCode": 2,
+      "versionCode": 9,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#F5F7FA",
@@ -122,7 +122,15 @@
         }
       ],
       "@react-native-firebase/perf",
-      "@react-native-firebase/crashlytics"
+      "@react-native-firebase/crashlytics",
+      "./plugins/withGwpAsan",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-8693115758199908~8641009249",
+          "iosAppId": "ca-app-pub-8693115758199908~8641009249"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

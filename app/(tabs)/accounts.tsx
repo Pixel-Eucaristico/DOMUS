@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
 import { soundManager } from "@/src/services/SoundManager";
 import type { AccountPayload } from "@packages/events/src/types";
 import { URGENCY_ORDER } from "@packages/wishlist";
@@ -12,13 +13,15 @@ import { AccountCard } from "@/src/components/shared/AccountCard";
 import { AccountFormModal } from "@/src/components/shared/AccountFormModal";
 import { ResponsiveContainer } from "@/src/ui/components/ResponsiveContainer";
 import { ResponsiveGrid } from "@/src/ui/components/ResponsiveGrid";
-import { useTourTarget } from "@/src/tour/useTourTarget";
+import { TourGuideZone } from "rn-tourguide";
+import { TourPageHost } from "@/src/components/tour/TourPageHost";
+import { PixelText } from "@/src/components/pixel";
 
 
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { domain, theme, wishlist, dispatchDomainEvent } = useAppState();
+  const { domain, theme, wishlist, dispatchDomainEvent, isCatholic } = useAppState();
   const webTopInset = 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
@@ -26,7 +29,6 @@ export default function AccountsScreen() {
   const [editingAccount, setEditingAccount] = useState<AccountPayload | null>(null);
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const scrollRef = useRef<ScrollView>(null);
-  const { targetRef: accountsAddRef, TourCard: AccountsAddTourCard, activeStyle: accountsAddActive } = useTourTarget("accounts-add", scrollRef);
 
   const accounts = Object.values(domain.accounts);
 
@@ -68,6 +70,8 @@ export default function AccountsScreen() {
   };
 
   return (
+    <TourPageHost groupId={1}>
+    <TourPageHost groupId={9}>
     <View style={[s.root, { backgroundColor: theme.background }]}>
       <ScrollView
         ref={scrollRef}
@@ -78,13 +82,17 @@ export default function AccountsScreen() {
         showsVerticalScrollIndicator={false}
       >
        <ResponsiveContainer>
-        <View style={Platform.OS === "web" ? { zIndex: accountsAddActive ? 9999 : 1, position: "relative" } : {}}>
-          <View style={[s.header, Platform.OS === "web" && accountsAddActive ? { zIndex: 9998, position: "relative" } : {}]}>
-            <Text style={[s.title, { color: theme.textColor }]}>Contas</Text>
+        <View style={Platform.OS === "web" ? { position: "relative" } : {}}>
+          <View style={s.header}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={[s.title, { color: theme.textColor }]}>Contas</Text>
+              <PixelText size={7} color={theme.primaryColor} style={{ opacity: 0.5 }}>PE</PixelText>
+              {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
+            </View>
+            <TourGuideZone zone={1} text="3" isTourGuide borderRadius={12}>
             <Pressable
-              ref={accountsAddRef as any}
               collapsable={false}
-              style={[s.addBtn, { backgroundColor: theme.primaryColor }, accountsAddActive]}
+              style={[s.addBtn, { backgroundColor: theme.primaryColor }]}
               onPress={() => {
                 soundManager.play("pop");
                 openCreateModal();
@@ -92,8 +100,8 @@ export default function AccountsScreen() {
             >
               <Feather name="plus" size={20} color="#FFF" />
             </Pressable>
+            </TourGuideZone>
           </View>
-          <AccountsAddTourCard />
         </View>
 
         {accounts.length === 0 ? (
@@ -140,6 +148,8 @@ export default function AccountsScreen() {
         }}
       />
     </View>
+    </TourPageHost>
+    </TourPageHost>
   );
 }
 

@@ -101,8 +101,8 @@ export function useThemePreferences(input: ThemePreferencesInput): ThemePreferen
   }, [input.debugArchetype, input.transactionCount, input.currentStreak, input.budgetAdherenceScore, input.wishlistItemCount, input.monthsPlanned]);
 
   const theme = useMemo(() => {
-    return getThemeForArchetype(archetype, isDarkState);
-  }, [archetype, isDarkState]);
+    return getThemeForArchetype(archetype, isDarkState, isCatholic === true);
+  }, [archetype, isDarkState, isCatholic]);
 
   return {
     themeMode,

@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { TInput } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 
@@ -42,8 +42,8 @@ export function PasswordInputComponent({
           },
         ]}
       >
-        <TextInput
-          style={[styles.input, { color: theme.textColor }]}
+        <TInput
+          flex={1}
           value={value}
           onChangeText={onChange}
           placeholder={placeholder}
@@ -52,6 +52,12 @@ export function PasswordInputComponent({
           autoCapitalize="none"
           autoCorrect={false}
           editable={editable}
+          borderWidth={0}
+          backgroundColor="transparent"
+          height={36}
+          paddingHorizontal={4}
+          fontSize={15}
+          color={theme.textColor}
         />
         <TouchableOpacity onPress={() => setSecure((v) => !v)} hitSlop={12}>
           <Feather
@@ -82,11 +88,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 10,
-  },
-  input: {
-    flex: 1,
-    fontFamily: "DMSans_400Regular",
-    fontSize: 15,
   },
   errorText: {
     fontFamily: "DMSans_400Regular",

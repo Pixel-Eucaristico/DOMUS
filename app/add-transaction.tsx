@@ -3,12 +3,11 @@ import {
   StyleSheet,
   View,
   Text,
-  TextInput,
   Pressable,
   ScrollView,
   Platform,
-  KeyboardAvoidingView,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
@@ -33,6 +32,7 @@ import {
 import { GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import type { TransactionStatus, RecurrenceType } from "@packages/events/src/types";
 import { createTransactionEvent } from "@packages/domain/src/transactions";
+import { TButton, TInput } from "@/src/components/tamagui";
 
 const STATUS_OPTIONS: { key: TransactionStatus; label: string; icon: string }[] = [
   { key: "confirmed", label: "Confirmado", icon: "check-circle" },
@@ -103,19 +103,17 @@ export default function AddTransactionScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
+    <>
+    <KeyboardAwareScrollView
       style={[s.root, { backgroundColor: theme.background }]}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={90}
+      contentContainerStyle={[
+        s.content,
+        { paddingTop: insets.top + webTopInset + 16, paddingBottom: insets.bottom + 32 },
+      ]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      bottomOffset={50}
     >
-      <ScrollView
-        contentContainerStyle={[
-          s.content,
-          { paddingTop: insets.top + webTopInset + 16, paddingBottom: insets.bottom + 32 },
-        ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
         <ResponsiveContainer>
         {/* Header */}
         <View style={s.topRow}>
@@ -173,14 +171,22 @@ export default function AddTransactionScreen() {
               {form.itemsTotal.toFixed(2).replace(".", ",")}
             </Text>
           ) : (
-            <TextInput
-              style={[s.amountInput, { color: theme.textColor }]}
+            <TInput
               value={form.amount}
               onChangeText={form.setAmount}
               placeholder="0,00"
-              placeholderTextColor={theme.secondaryText}
               keyboardType="decimal-pad"
               autoFocus
+              fontFamily="$body"
+              fontWeight="700"
+              fontSize={40}
+              textAlign="center"
+              width="100%"
+              height="auto"
+              borderWidth={0}
+              background="transparent"
+              paddingHorizontal={0}
+              color={theme.textColor}
             />
           )}
         </View>
@@ -201,12 +207,13 @@ export default function AddTransactionScreen() {
             {/* Description */}
             <View style={[s.card, { backgroundColor: theme.cardBackground, marginBottom: 16 }]}>
               <Text style={[s.label, { color: theme.secondaryText }]}>Descricao</Text>
-              <TextInput
-                style={[s.textInput, { color: theme.textColor, borderColor: theme.border }]}
+              <TInput
                 value={form.description}
                 onChangeText={form.setDescription}
                 placeholder="Ex: Supermercado"
-                placeholderTextColor={theme.secondaryText}
+                color={theme.textColor}
+                backgroundColor={theme.cardBackground}
+                borderColor={theme.border}
               />
             </View>
 
@@ -412,13 +419,14 @@ export default function AddTransactionScreen() {
             {form.recurrence === "custom" && (
               <View style={[s.card, { backgroundColor: theme.cardBackground, marginBottom: 16 }]}>
                 <Text style={[s.label, { color: theme.secondaryText }]}>Repetir a cada (dias)</Text>
-                <TextInput
-                  style={[s.textInput, { color: theme.textColor, borderColor: theme.border }]}
+                <TInput
                   value={form.recurrenceDays}
                   onChangeText={form.setRecurrenceDays}
                   placeholder="Ex: 15"
-                  placeholderTextColor={theme.secondaryText}
                   keyboardType="number-pad"
+                  color={theme.textColor}
+                  backgroundColor={theme.cardBackground}
+                  borderColor={theme.border}
                 />
               </View>
             )}
@@ -427,30 +435,28 @@ export default function AddTransactionScreen() {
 
         {/* Criar proxima */}
         {txId && form.editingTx?.recurrence && form.editingTx.recurrence !== "once" && (
-          <Pressable
-            style={[s.nextBtn, { borderColor: theme.primaryColor }]}
-            onPress={handleCreateNext}
-          >
-            <Feather name="repeat" size={16} color={theme.primaryColor} />
-            <Text style={[s.nextBtnText, { color: theme.primaryColor }]}>Criar proxima</Text>
-          </Pressable>
+          <TButton variant="outline" borderColor={theme.border} color={theme.textColor} icon={<Feather name="repeat" size={16} color={theme.primaryColor} />} onPress={handleCreateNext}>
+            Criar proxima
+          </TButton>
         )}
 
         {/* Save button */}
-        <Pressable style={[s.saveBtn, { backgroundColor: theme.primaryColor }]} onPress={form.handleSave}>
-          <Feather name="check" size={20} color="#FFF" />
-          <Text style={s.saveBtnText}>{txId ? "Atualizar transacao" : "Salvar transacao"}</Text>
-        </Pressable>
+        <View style={{ marginTop: 8 }}>
+          <TButton variant="primary" backgroundColor={theme.primaryColor} icon={<Feather name="check" size={20} color="#FFF" />} onPress={form.handleSave}>
+            {txId ? "Atualizar transacao" : "Salvar transacao"}
+          </TButton>
+        </View>
 
         {/* Delete button */}
         {txId && (
-          <Pressable style={[s.deleteBtn, { borderColor: theme.danger }]} onPress={form.handleDelete}>
-            <Feather name="trash-2" size={18} color={theme.danger} />
-            <Text style={[s.deleteBtnText, { color: theme.danger }]}>Excluir transacao</Text>
-          </Pressable>
+          <View style={{ marginTop: 8 }}>
+            <TButton variant="danger" backgroundColor={theme.danger ?? "#DC2626"} icon={<Feather name="trash-2" size={18} color="#FFF" />} onPress={form.handleDelete}>
+              Excluir transacao
+            </TButton>
+          </View>
         )}
         </ResponsiveContainer>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* Installment group save modal */}
       <SelectionModal
@@ -479,7 +485,7 @@ export default function AddTransactionScreen() {
         onCancel={() => form.setInstallmentModal(null)}
         theme={theme}
       />
-    </KeyboardAvoidingView>
+    </>
   );
 }
 
@@ -509,20 +515,8 @@ const s = StyleSheet.create({
   amountCard: { borderRadius: 20, padding: 20, alignItems: "center" },
   amountLabel: { fontFamily: "DMSans_400Regular", fontSize: 14, marginBottom: 8 },
   amountValue: { fontFamily: "DMSans_700Bold", fontSize: 40, textAlign: "center" },
-  amountInput: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 40,
-    textAlign: "center" as const,
-    width: "100%",
-  },
   card: { borderRadius: 20, padding: 20 },
   label: { fontFamily: "DMSans_500Medium", fontSize: 13, marginBottom: 10 },
-  textInput: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 16,
-    borderBottomWidth: 1,
-    paddingVertical: 8,
-  },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
   chipText: { fontFamily: "DMSans_500Medium", fontSize: 13 },
@@ -537,35 +531,4 @@ const s = StyleSheet.create({
     borderWidth: 1,
   },
   catChipText: { fontFamily: "DMSans_500Medium", fontSize: 12 },
-  saveBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 16,
-    borderRadius: 16,
-    marginTop: 8,
-  },
-  saveBtnText: { fontFamily: "DMSans_700Bold", fontSize: 16, color: "#FFF" },
-  deleteBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginTop: 8,
-  },
-  deleteBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
-  nextBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  nextBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
 });

@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLocalSearchParams } from "expo-router";
 import { View, ActivityIndicator, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -12,8 +14,12 @@ import { useInvoiceWebView } from "@/src/hooks/useInvoiceWebView";
 import { useInvoiceScanner } from "@/src/hooks/useInvoiceScanner";
 import { useEditableItems } from "@/src/hooks/useEditableItems";
 import { useInvoiceConfirm } from "@/src/hooks/useInvoiceConfirm";
+import { useAISettings } from "@/src/hooks/useAISettings";
+import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
+import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
 
 import { IdleScreen } from "@/src/components/invoice/IdleScreen";
+import { TourPageHost } from "@/src/components/tour/TourPageHost";
 import { QrScanScreen } from "@/src/components/invoice/QrScanScreen";
 import { OcrScanScreen } from "@/src/components/invoice/OcrScanScreen";
 import { WebViewScreen } from "@/src/components/invoice/WebViewScreen";
@@ -34,6 +40,7 @@ function DemoImportScreen() {
   const { theme } = useAppState();
 
   return (
+    <TourPageHost groupId={2}>
     <View style={[s.container, { backgroundColor: theme.background }]}>
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
         <Pressable onPress={() => { soundManager.play("tap"); router.back(); }} hitSlop={12}>
@@ -49,12 +56,20 @@ function DemoImportScreen() {
         onManualEntry={() => {}}
       />
     </View>
+    </TourPageHost>
   );
 }
 
+// FIX: Wrapper que decide qual componente renderizar sem violar regras de hooks.
+// O early return condicional estava APÓS outros hooks, causando crash ao sair do tour
+// ("Rendered more hooks than during the previous render"). Ver docs/tour-crash-fixes.md
 export default function InvoiceImportScreen() {
-  // Samsung crash agora protegido pelo Looper wrapper em MainApplication.kt
-  // (docs/tour-crash-fixes.md #6) — camera hooks podem rodar durante o tour.
+  const { isDemoActive } = useDemoMode();
+  if (isDemoActive) return <DemoImportScreen />;
+  return <RealInvoiceImportScreen />;
+}
+
+function RealInvoiceImportScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { domain, theme } = useAppState();
@@ -64,8 +79,41 @@ export default function InvoiceImportScreen() {
   const [showOcrSettingsLink, setShowOcrSettingsLink] = useState(false);
   const [importedData, setImportedData] = useState<InvoiceImportedPayload | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [aiApiKey, setAiApiKey] = useState<string | undefined>();
+  const [aiToast, setAiToast] = useState<{ tokens: number; provider: string } | null>(null);
+  const aiTokensRef = React.useRef(0);
 
+  const { settings: aiSettings } = useAISettings();
   const accounts = Object.values(domain.accounts);
+
+  // Carregar API key do provedor ativo para classificação por IA
+  useEffect(() => {
+    if (aiSettings?.enabled && aiSettings.provider) {
+      SecureKeyService.retrieveKey(aiSettings.provider as any).then((key) => {
+        setAiApiKey(key ?? undefined);
+      });
+    } else {
+      setAiApiKey(undefined);
+    }
+  }, [aiSettings?.enabled, aiSettings?.provider]);
+
+  // Carregar dados do Vision OCR (quando vem do ai-chat)
+  const params = useLocalSearchParams<{ fromVision?: string }>();
+  const visionLoadedRef = useRef(false);
+  useEffect(() => {
+    if (params.fromVision === "1" && !visionLoadedRef.current) {
+      visionLoadedRef.current = true;
+      AsyncStorage.getItem("@domus/vision_ocr_result").then((raw) => {
+        if (!raw) return;
+        AsyncStorage.removeItem("@domus/vision_ocr_result");
+        try {
+          const payload = JSON.parse(raw) as InvoiceImportedPayload;
+          setImportedData(payload);
+          setState("parsed");
+        } catch {}
+      });
+    }
+  }, [params.fromVision]);
 
   useEffect(() => {
     if (accounts.length > 0 && !selectedAccountId) {
@@ -85,7 +133,20 @@ export default function InvoiceImportScreen() {
     () => setState("fetching"),
   );
 
-  const items = useEditableItems(importedData);
+  const items = useEditableItems(importedData, {
+    aiEnabled: aiSettings?.enabled && !!aiApiKey,
+    aiApiKey: aiApiKey,
+    aiProvider: aiSettings.provider,
+    onTokensUsed: (provider, tokens) => {
+      aiTokensRef.current += tokens;
+      // Registrar no TokenTracker
+      TokenTracker.record(provider as any, tokens, aiSettings.billingDay);
+      // Mostrar toast com total acumulado
+      setAiToast({ tokens: aiTokensRef.current, provider });
+      // Esconder toast após 3s
+      setTimeout(() => setAiToast(null), 3000);
+    },
+  });
 
   const { confirmImport } = useInvoiceConfirm(
     importedData,
@@ -139,6 +200,16 @@ export default function InvoiceImportScreen() {
           </Pressable>
           <Text style={[s.title, { color: theme.textColor }]}>Importar NF</Text>
           <View style={{ width: 24 }} />
+        </View>
+      )}
+
+      {/* AI Usage Toast */}
+      {aiToast && (
+        <View style={[s.aiToast, { top: insets.top + 56, backgroundColor: theme.primaryColor + "E8" }]}>
+          <Feather name="cpu" size={14} color="#FFF" />
+          <Text style={s.aiToastText}>
+            IA categorizou • {aiToast.tokens} tokens ({aiToast.provider})
+          </Text>
         </View>
       )}
 
@@ -262,6 +333,28 @@ const s = StyleSheet.create({
     paddingBottom: 12,
   },
   title: { fontSize: 20, fontWeight: "700" },
+  aiToast: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    zIndex: 999,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  aiToastText: {
+    color: "#FFF",
+    fontSize: 13,
+    fontWeight: "600",
+  },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 40 },
   loadingText: { marginTop: 16, fontSize: 15 },
 });

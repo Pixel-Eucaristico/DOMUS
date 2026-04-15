@@ -2,9 +2,13 @@ import type { AdapterMessage, AdapterOptions, AdapterResult } from "../types";
 import type { AIProviderAdapter } from "./AIProviderAdapter";
 import { fetchWithTimeout, assertOk } from "./AIProviderAdapter";
 
+type AnthropicContentPart =
+  | { type: "text"; text: string }
+  | { type: "image"; source: { type: "base64"; media_type: string; data: string } };
+
 interface AnthropicMessage {
   role: "user" | "assistant";
-  content: string;
+  content: string | AnthropicContentPart[];
 }
 
 interface AnthropicRequestBody {
@@ -34,15 +38,27 @@ export class ClaudeAdapter implements AIProviderAdapter {
     const systemMessages = messages.filter((m) => m.role === "system");
     const otherMessages = messages.filter((m) => m.role !== "system");
 
+    // Build Anthropic messages, supporting vision (image) content
+    const rawMessages: AnthropicMessage[] = otherMessages.map((m) => {
+      if (m.imageBase64) {
+        const parts: AnthropicContentPart[] = [
+          { type: "text", text: m.content },
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: m.imageMimeType || "image/jpeg",
+              data: m.imageBase64,
+            },
+          },
+        ];
+        return { role: m.role as "user" | "assistant", content: parts };
+      }
+      return { role: m.role as "user" | "assistant", content: m.content };
+    });
+
     // Anthropic requires strict alternating user/assistant turns.
-    // Merge consecutive same-role messages.
-    const anthropicMessages: AnthropicMessage[] =
-      ClaudeAdapter.mergeConsecutive(
-        otherMessages.map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
-      );
+    const anthropicMessages = ClaudeAdapter.mergeConsecutive(rawMessages);
 
     // Ensure first message is always "user"
     if (anthropicMessages.length > 0 && anthropicMessages[0]!.role !== "user") {
@@ -50,8 +66,8 @@ export class ClaudeAdapter implements AIProviderAdapter {
     }
 
     const body: AnthropicRequestBody = {
-      model: options.model || "claude-3-haiku-20240307",
-      max_tokens: options.maxTokens ?? 512,
+      model: options.model || "claude-haiku-4-5-20251001",
+      max_tokens: options.maxTokens ?? 4096,
       temperature: options.temperature ?? 0.2,
       messages: anthropicMessages,
     };
@@ -93,7 +109,13 @@ export class ClaudeAdapter implements AIProviderAdapter {
     for (const msg of messages) {
       const last = result[result.length - 1];
       if (last && last.role === msg.role) {
-        last.content += `\n\n${msg.content}`;
+        // Merge: if both are strings, concatenate; otherwise keep latest
+        if (typeof last.content === "string" && typeof msg.content === "string") {
+          last.content += `\n\n${msg.content}`;
+        } else {
+          // Replace with latest multimodal content
+          last.content = msg.content;
+        }
       } else {
         result.push({ ...msg });
       }

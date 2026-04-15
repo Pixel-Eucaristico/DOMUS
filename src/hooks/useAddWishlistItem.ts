@@ -7,6 +7,7 @@ export interface WishlistFormState {
   name: string;
   urgencyLevel: UrgencyLevel;
   price: string;
+  quantity: number;
   url: string;
   category: string;
   ean: string;
@@ -19,6 +20,7 @@ const INITIAL_FORM: WishlistFormState = {
   name: "",
   urgencyLevel: "PLANNED",
   price: "",
+  quantity: 1,
   url: "",
   category: "",
   ean: "",
@@ -114,6 +116,7 @@ export function useAddWishlistItem({
         name: editItem.name,
         urgencyLevel: editItem.urgencyLevel,
         price: editItem.price !== undefined ? editItem.price.toFixed(2).replace(".", ",") : "",
+        quantity: editItem.quantity ?? 1,
         url: editItem.originalUrl ?? "",
         category: editItem.category ?? "",
         ean: editItem.ean ?? "",
@@ -221,6 +224,7 @@ export function useAddWishlistItem({
       urgencyLevel: form.urgencyLevel,
       orderIndex: -1,
       price: isNaN(priceVal) ? undefined : priceVal,
+      quantity: form.quantity > 1 ? form.quantity : undefined,
       originalUrl: form.url.trim() || undefined,
       affiliateUrl: form.affiliateUrl.trim() || undefined,
       category: form.category.trim() || undefined,
@@ -233,7 +237,7 @@ export function useAddWishlistItem({
     };
     animateClose(() => {
       onConfirm(item);
-      setForm(INITIAL_FORM);
+      setForm({ ...INITIAL_FORM });
       setSavingsGoal({ enabled: false });
       setShowAdvanced(false);
       setBundleItems([]);

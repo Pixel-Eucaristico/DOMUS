@@ -1,6 +1,14 @@
 import React, { Component, ComponentType, PropsWithChildren } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ErrorFallback, ErrorFallbackProps } from "@/components/ErrorFallback";
 import { reportCrashToFirebase } from "@/src/modules/analytics/infrastructure/AnalyticsService";
+
+// Clear persisted tour state so a crash doesn't cause an infinite reload loop
+// (DemoModeProvider resumes the tour from AsyncStorage on every app start)
+function clearTourStateOnCrash() {
+  AsyncStorage.removeItem("domus_tour_step_v1").catch(() => {});
+  AsyncStorage.removeItem("domus_tour_minimized_v1").catch(() => {});
+}
 
 export type ErrorBoundaryProps = PropsWithChildren<{
   FallbackComponent?: ComponentType<ErrorFallbackProps>;
@@ -33,6 +41,9 @@ export class ErrorBoundary extends Component<
   componentDidCatch(error: Error, info: { componentStack: string }): void {
     // Reporta ao Crashlytics (respeitando consentimento do usuario)
     reportCrashToFirebase(error, info.componentStack);
+
+    // Limpa o estado do tour para evitar loop de crash ao recarregar o app
+    clearTourStateOnCrash();
 
     if (typeof this.props.onError === "function") {
       this.props.onError(error, info.componentStack);

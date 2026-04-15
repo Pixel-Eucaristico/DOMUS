@@ -20,6 +20,11 @@ export type {
   CacheEntry,
   DailyTokenUsage,
   MonthlyTokenUsage,
+  AudioProvider,
+  IAudioProvider,
+  TextContentPart,
+  ImageUrlContentPart,
+  MultimodalContent,
 } from "./src/types";
 export { AI_MODELS, CHATGPT_OAUTH_MODELS } from "./src/types";
 
@@ -53,3 +58,14 @@ export { DeepSeekAdapter } from "./src/adapters/DeepSeekAdapter";
 export { QwenAdapter } from "./src/adapters/QwenAdapter";
 export { ChatGPTOAuthAdapter } from "./src/adapters/ChatGPTOAuthAdapter";
 
+// ─── Audio Adapters ──────────────────────────────────────────────────────────
+export { OpenAIAudioAdapter } from "./src/audio/OpenAIAudioAdapter";
+export { ElevenLabsAdapter, ELEVENLABS_VOICES } from "./src/audio/ElevenLabsAdapter";
+export { QwenAudioAdapter, QWEN_TTS_VOICES } from "./src/audio/QwenAudioAdapter";
+export { GeminiAudioAdapter, GEMINI_TTS_VOICES } from "./src/audio/GeminiAudioAdapter";
+export { AudioProviderFactory } from "./src/audio/AudioProviderFactory";
+
+// ─── Vision OCR ──────────────────────────────────────────────────────────────
+export { VisionOCRService } from "./src/vision/VisionOCRService";
+export { InvoiceOCRSchema, PayslipOCRSchema, getOCRSchema } from "./src/vision/ocrSchema";
+export type { InvoiceOCRResult, PayslipOCRResult, OCRDocumentType } from "./src/vision/ocrSchema";

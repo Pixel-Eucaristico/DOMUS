@@ -1,12 +1,11 @@
 import React from "react";
 import {
   View,
-  Text,
   StyleSheet,
-  TouchableOpacity,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { soundManager } from "@/src/services/SoundManager";
+import { TCard, TText } from "@/src/components/tamagui";
 import type { ThemeColors } from "@packages/theme";
 import type { WishlistList, WishlistItem, UrgencyLevel } from "@packages/wishlist";
 
@@ -37,20 +36,23 @@ export function WishlistListCard({ list, items, theme, onPress }: Props) {
   items.forEach((i) => { urgencyCounts[i.urgencyLevel]++; });
 
   return (
-    <TouchableOpacity
-      style={[styles.container, { backgroundColor: theme.cardBackground }]}
+    <TCard
+      elevated
+      backgroundColor={theme.cardBackground}
+      borderColor={theme.border}
       onPress={() => {
         soundManager.play("tap");
         onPress(list);
       }}
-      activeOpacity={0.7}
+      pressStyle={{ opacity: 0.7 }}
+      style={{ marginHorizontal: 16, marginVertical: 6, overflow: "hidden", padding: 0 }}
     >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={[styles.name, { color: theme.textColor }]}>{list.name}</Text>
-          <Text style={[styles.itemCount, { color: theme.secondaryText }]}>
+          <TText variant="subtitle" color={theme.textColor}>{list.name}</TText>
+          <TText variant="caption" secondary>
             {items.length} {items.length === 1 ? "item" : "itens"}
-          </Text>
+          </TText>
         </View>
         <Feather name="chevron-right" size={20} color={theme.secondaryText} />
       </View>
@@ -83,42 +85,31 @@ export function WishlistListCard({ list, items, theme, onPress }: Props) {
         {totalPrice > 0 && (
           <View style={styles.stat}>
             <Feather name="tag" size={12} color={theme.secondaryText} />
-            <Text style={[styles.statText, { color: theme.secondaryText }]}>
+            <TText variant="caption" secondary fontWeight="500">
               R${" "}
               {totalPrice.toLocaleString("pt-BR", {
                 minimumFractionDigits: 2,
               })}
-            </Text>
+            </TText>
           </View>
         )}
         {affordableCount > 0 && (
           <View style={styles.stat}>
             <Feather name="check-circle" size={12} color="#16A34A" />
-            <Text style={[styles.statText, { color: "#16A34A" }]}>
+            <TText variant="caption" color="#16A34A" fontWeight="500">
               {affordableCount} possíveis
-            </Text>
+            </TText>
           </View>
         )}
-        <Text style={[styles.date, { color: theme.secondaryText }]}>
+        <TText variant="caption" secondary fontSize={11} marginLeft="auto">
           {new Date(list.createdAt).toLocaleDateString("pt-BR")}
-        </Text>
+        </TText>
       </View>
-    </TouchableOpacity>
+    </TCard>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginVertical: 6,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -127,14 +118,6 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   headerLeft: { flex: 1, gap: 2 },
-  name: {
-    fontSize: 16,
-    fontFamily: "DMSans_700Bold",
-  },
-  itemCount: {
-    fontSize: 12,
-    fontFamily: "DMSans_400Regular",
-  },
   urgencyBar: {
     flexDirection: "row",
     height: 4,
@@ -158,14 +141,5 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-  },
-  statText: {
-    fontSize: 12,
-    fontFamily: "DMSans_500Medium",
-  },
-  date: {
-    fontSize: 11,
-    fontFamily: "DMSans_400Regular",
-    marginLeft: "auto",
   },
 });

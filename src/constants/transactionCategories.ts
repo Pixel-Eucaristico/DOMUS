@@ -5,20 +5,27 @@ export interface TransactionCategory {
   name: string;
   group: CategoryGroup;
   icon: string;
+  /** Quando true, o usuário pode alternar needs/wants para esta categoria */
+  allowGroupOverride?: boolean;
+  /** Id da categoria pai (para subcategorias) */
+  parentId?: string;
 }
 
 // ──────────────────────────────────────────────────────────────────
 // Expense categories (despesas)
 // ──────────────────────────────────────────────────────────────────
 export const EXPENSE_CATEGORIES: TransactionCategory[] = [
-  { id: "alimentacao",   name: "Alimentacao",   group: "needs",   icon: "shopping-cart"   },
+  { id: "alimentacao",   name: "Alimentacao",    group: "needs",   icon: "shopping-cart", allowGroupOverride: true },
+  { id: "higiene",       name: "Higiene",        group: "needs",   icon: "smile"           },
+  { id: "limpeza",       name: "Limpeza",        group: "needs",   icon: "wind"            },
   { id: "moradia",       name: "Moradia",        group: "needs",   icon: "home"            },
   { id: "transporte",    name: "Transporte",     group: "needs",   icon: "truck"           },
   { id: "saude",         name: "Saude",          group: "needs",   icon: "heart"           },
   { id: "educacao",      name: "Educacao",       group: "needs",   icon: "book"            },
+  { id: "vestuario",     name: "Vestuario",      group: "wants",   icon: "shopping-bag", allowGroupOverride: true },
   { id: "lazer",         name: "Lazer",          group: "wants",   icon: "music"           },
   { id: "compras",       name: "Compras",        group: "wants",   icon: "shopping-bag"    },
-  { id: "restaurantes",  name: "Restaurantes",   group: "wants",   icon: "coffee"          },
+  { id: "restaurantes",  name: "Restaurantes",   group: "wants",   icon: "coffee",       allowGroupOverride: true },
   { id: "assinaturas",   name: "Assinaturas",    group: "wants",   icon: "repeat"          },
   { id: "dizimo",        name: "Dizimo / Oferta", group: "wants",  icon: "gift"            },
   { id: "outros_desp",   name: "Outros",         group: "wants",   icon: "more-horizontal" },
@@ -61,9 +68,11 @@ export type ManualItem = {
   quantity: string;
   unit: string;
   unitPrice: string;
-  categoryId: string;   // id from TRANSACTION_CATEGORIES
-  ean?: string;         // código de barras — para uso futuro (matching de produtos)
-  ncm?: string;         // NCM fiscal — para uso futuro (classificação fiscal)
+  categoryId: string;        // id from TRANSACTION_CATEGORIES
+  subcategoryId?: string;    // subcategoria NCM granular
+  groupOverride?: "needs" | "wants" | "savings";
+  ean?: string;              // código de barras EAN/GTIN
+  ncm?: string;              // NCM fiscal (8 dígitos)
 };
 
 export function itemTotal(item: ManualItem): number {

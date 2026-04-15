@@ -1,16 +1,16 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import type { AIProvider, AIModelTier } from "@packages/ai";
 import { AI_MODELS, CHATGPT_OAUTH_MODELS } from "@packages/ai";
 import type { OpenAIAuthMethod } from "@/src/modules/ai/domain/AISettings";
+import { TText } from "@/src/components/tamagui";
 
 interface ProviderSelectorProps {
   selectedProvider: AIProvider;
   selectedTier: AIModelTier;
   apiKeyStatus?: Partial<Record<AIProvider, boolean>>;
-  /** When true, OpenAI shows ChatGPT OAuth models instead of API models */
   usingChatGPTOAuth?: boolean;
   onProviderChange: (provider: AIProvider) => void;
   onTierChange: (tier: AIModelTier) => void;
@@ -40,12 +40,18 @@ export function ProviderSelector({
   const { theme } = useAppState();
 
   return (
-    <View style={styles.container}>
-      <Text style={[styles.label, { color: theme.secondaryText }]}>
+    <View style={s.container}>
+      <TText
+        bold
+        variant="caption"
+        color={theme.secondaryText}
+        textTransform="uppercase"
+        letterSpacing={0.5}
+      >
         Provedor
-      </Text>
+      </TText>
 
-      <View style={styles.chipRow}>
+      <View style={s.chipRow}>
         {PROVIDERS.map((p) => {
           const active = p.id === selectedProvider;
           const hasKey = apiKeyStatus?.[p.id] === true;
@@ -54,27 +60,25 @@ export function ProviderSelector({
               key={p.id}
               onPress={() => { soundManager.play("tap"); onProviderChange(p.id); }}
               style={[
-                styles.chip,
+                s.chip,
                 {
                   backgroundColor: active ? theme.primaryColor : theme.cardBackground,
                   borderColor: active ? theme.primaryColor : theme.border,
                 },
               ]}
             >
-              <View style={styles.chipContent}>
-                <Text
-                  style={{
-                    color: active ? "#fff" : theme.textColor,
-                    fontSize: 13,
-                    fontWeight: active ? "600" : "400",
-                  }}
+              <View style={s.chipContent}>
+                <TText
+                  variant="label"
+                  fontWeight={active ? "600" : "400"}
+                  color={active ? "#fff" : theme.textColor}
                 >
                   {p.label}
-                </Text>
+                </TText>
                 {hasKey && (
                   <View
                     style={[
-                      styles.keyDot,
+                      s.keyDot,
                       { backgroundColor: active ? "#fff" : theme.success },
                     ]}
                   />
@@ -85,11 +89,18 @@ export function ProviderSelector({
         })}
       </View>
 
-      <Text style={[styles.label, { color: theme.secondaryText, marginTop: 12 }]}>
+      <TText
+        bold
+        variant="caption"
+        color={theme.secondaryText}
+        textTransform="uppercase"
+        letterSpacing={0.5}
+        marginTop={12}
+      >
         Modelo
-      </Text>
+      </TText>
 
-      <View style={styles.chipRow}>
+      <View style={s.chipRow}>
         {TIERS.map((t) => {
           const active = t.id === selectedTier;
           const modelName =
@@ -101,31 +112,27 @@ export function ProviderSelector({
               key={t.id}
               onPress={() => { soundManager.play("tap"); onTierChange(t.id); }}
               style={[
-                styles.chip,
+                s.chip,
                 {
                   backgroundColor: active ? theme.accentColor : theme.cardBackground,
                   borderColor: active ? theme.accentColor : theme.border,
                 },
               ]}
             >
-              <Text
-                style={{
-                  color: active ? "#fff" : theme.textColor,
-                  fontSize: 13,
-                  fontWeight: active ? "600" : "400",
-                }}
+              <TText
+                variant="label"
+                fontWeight={active ? "600" : "400"}
+                color={active ? "#fff" : theme.textColor}
               >
                 {t.label}
-              </Text>
-              <Text
-                style={{
-                  color: active ? "rgba(255,255,255,0.8)" : theme.secondaryText,
-                  fontSize: 11,
-                  marginTop: 2,
-                }}
+              </TText>
+              <TText
+                fontSize={11}
+                marginTop={2}
+                color={active ? "rgba(255,255,255,0.8)" : theme.secondaryText}
               >
                 {modelName}
-              </Text>
+              </TText>
             </TouchableOpacity>
           );
         })}
@@ -134,15 +141,9 @@ export function ProviderSelector({
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: {
     gap: 8,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
   chipRow: {
     flexDirection: "row",

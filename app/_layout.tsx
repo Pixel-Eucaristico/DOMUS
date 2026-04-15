@@ -5,7 +5,8 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState, useCallback } from "react";
 import { View, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { AvoidSoftInput } from "react-native-avoid-softinput";
 import {
   useFonts,
   DMSans_400Regular,
@@ -13,24 +14,24 @@ import {
   DMSans_600SemiBold,
   DMSans_700Bold,
 } from "@expo-google-fonts/dm-sans";
+import { PressStart2P_400Regular } from "@expo-google-fonts/press-start-2p";
 import { useShareIntent } from "expo-share-intent";
+import { TamaguiProvider } from "tamagui";
+import tamaguiConfig from "@/tamagui.config";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { AppStateProvider } from "@/src/context/AppStateProvider";
 import { SyncProvider } from "@/src/context/SyncProvider";
 import { DemoModeProvider, useDemoMode } from "@/src/context/DemoModeProvider";
 import { TourOverlay } from "@/src/components/shared/TourOverlay";
+import { Scanlines } from "@/src/components/pixel";
+import { WelcomeCarousel } from "@/src/components/tour/WelcomeCarousel";
 import { AchievementToast } from "@/src/components/gamification/AchievementToast";
-import { ReligiousPreferenceModal } from "@/src/components/shared/ReligiousPreferenceModal";
 import { ShareToWishlistModal } from "@/src/components/wishlist/ShareToWishlistModal";
 import { useSavingsGoalScheduler } from "@/src/hooks/useSavingsGoalScheduler";
 import { useAutoBackup } from "@/src/hooks/useAutoBackup";
 import { useNotificationScheduler } from "@/src/hooks/useNotificationScheduler";
-import { NotificationSetupModal } from "@/src/components/notifications/NotificationSetupModal";
-import { loadNotificationSettings } from "@/src/modules/notifications/application/NotificationSettingsStore";
 import { useAnalyticsInit } from "@/src/hooks/useAnalyticsInit";
-import { AnalyticsConsentModal } from "@/src/components/analytics/AnalyticsConsentModal";
-import { loadAnalyticsSettings } from "@/src/modules/analytics/application/AnalyticsSettingsStore";
 import { createEvent } from "@packages/events/src/factory";
 import { EVENT_TYPES } from "@packages/events/src/types";
 import type { TransactionUpdatedEvent } from "@packages/events/src/types";
@@ -42,6 +43,13 @@ import { DebugTools } from "@/src/components/debug/DebugTools";
 import { ResponsiveLayoutProvider } from "@/src/ui/layout/ResponsiveLayoutProvider";
 import { useResponsive } from "@/src/ui/layout/useResponsive";
 import { AdaptiveTabBar } from "@/src/ui/navigation/AdaptiveTabBar";
+import { SupportBanner } from "@/src/components/monetization/SupportBanner";
+import { DailyAdModal } from "@/src/components/monetization/DailyAdModal";
+import { NativeAdBanner } from "@/src/components/monetization/NativeAdBanner";
+import { AppOpenAdHost } from "@/src/components/monetization/AppOpenAdHost";
+import { loadSupportModes, loadLastDailyAdDate, saveLastDailyAdDate } from "@/src/modules/monetization/MonetizationSettingsStore";
+import type { SupportMode } from "@/src/modules/monetization/MonetizationSettingsStore";
+import { ToastProvider } from "react-native-sprinkle-toast";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -76,6 +84,12 @@ function NotificationSchedulerRunner() {
 /** Executa na inicialização: inicializa Firebase Analytics/Performance conforme consentimento. */
 function AnalyticsInitRunner() {
   useAnalyticsInit();
+  return null;
+}
+
+/** Processa respostas dos botões de ação das notificações (efetivar/editar). */
+function NotificationResponseRunner() {
+  useNotificationResponseHandler();
   return null;
 }
 
@@ -271,12 +285,21 @@ function DesktopLayout({ children }: { children: React.ReactNode }) {
 }
 
 function AppContainer({ children }: { children: React.ReactNode }) {
-  const { theme } = useAppState();
+  const { theme, themeMode } = useAppState();
+  const systemScheme = require("react-native").useColorScheme?.() ?? "light";
+  const isDark = themeMode === "dark" || (themeMode === "system" && systemScheme === "dark");
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
-      <ResponsiveLayoutProvider>
-        {children}
-      </ResponsiveLayoutProvider>
+      <TamaguiProvider config={tamaguiConfig} defaultTheme={isDark ? "dark" : "light"}>
+        <SafeAreaProvider>
+          <ResponsiveLayoutProvider>
+            <ToastProvider>
+              {children}
+              <Scanlines opacity={0.025} spacing={3} color={isDark ? "#FFF" : "#000"} />
+            </ToastProvider>
+          </ResponsiveLayoutProvider>
+        </SafeAreaProvider>
+      </TamaguiProvider>
     </GestureHandlerRootView>
   );
 }
@@ -287,6 +310,7 @@ export default function RootLayout() {
     DMSans_500Medium,
     DMSans_600SemiBold,
     DMSans_700Bold,
+    PressStart2P_400Regular,
   });
 
   const [splashFinished, setSplashFinished] = useState(false);
@@ -296,6 +320,18 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
+
+  // Enable native keyboard avoidance globally (react-native-avoid-softinput)
+  useEffect(() => {
+    AvoidSoftInput.setEnabled(true);
+    AvoidSoftInput.setAvoidOffset(8);
+    AvoidSoftInput.setEasing("easeIn");
+    AvoidSoftInput.setHideAnimationDuration(100);
+    AvoidSoftInput.setShowAnimationDuration(100);
+    return () => {
+      AvoidSoftInput.setEnabled(false);
+    };
+  }, []);
 
   if (!fontsLoaded && !fontError) {
     return null;
@@ -307,15 +343,16 @@ export default function RootLayout() {
         <DemoModeProvider>
           <AppStateProvider>
             <AppContainer>
-              <KeyboardProvider>
-                {!splashFinished && (
+              <>
+                {!splashFinished ? (
                   <SplashWrapper onFinish={() => setSplashFinished(true)} />
-                )}
+                ) : null}
                 <SyncProvider>
                   <SavingsGoalScheduler />
                   <AutoBackupScheduler />
                   <NotificationSchedulerRunner />
                   <AnalyticsInitRunner />
+                  <NotificationResponseRunner />
                   <TourContent>
                     <SecurityGuard>
                       <DesktopLayout>
@@ -323,21 +360,23 @@ export default function RootLayout() {
                       </DesktopLayout>
                     </SecurityGuard>
 
-                    {/* Modais e Overlays globais só aparecem após o término da animação de Splash para evitar sobreposição visual */}
-                    {splashFinished && (
+                    {/* Todos os overlays/modais pós-splash num único slot condicional para
+                        evitar múltiplas entradas/saídas simultâneas de filhos no
+                        EdgeToEdgeReactViewGroup, que causa crash "null child at index N"
+                        no Android 16 quando o rendering pipeline encontra inconsistência. */}
+                    {splashFinished ? (
                       <>
+                        <MonetizationHosts />
                         <ShareIntentHandler />
                         <AchievementToastHost />
                         <SeasonalToastHost />
-                        <ReligiousPreferenceHost />
-                        <NotificationSetupHost />
-                        <AnalyticsConsentHost />
-                        {__DEV__ && <DebugTools />}
+                        <WelcomeCarouselHost />
+                        {__DEV__ ? <DebugTools /> : null}
                       </>
-                    )}
+                    ) : null}
                   </TourContent>
                 </SyncProvider>
-              </KeyboardProvider>
+              </>
             </AppContainer>
           </AppStateProvider>
         </DemoModeProvider>
@@ -354,18 +393,6 @@ function TourContent({ children }: { children: React.ReactNode }) {
 function AchievementToastHost() {
   const { pendingToast, clearPendingToast } = useAppState();
   return <AchievementToast toast={pendingToast} onDismiss={clearPendingToast} />;
-}
-
-function ReligiousPreferenceHost() {
-  const { isCatholic, loading, setIsCatholic } = useAppState();
-  const { isDemoActive } = useDemoMode();
-  if (loading || isCatholic !== null || isDemoActive) return null;
-  return (
-    <ReligiousPreferenceModal
-      visible
-      onSelect={setIsCatholic}
-    />
-  );
 }
 
 function SeasonalToastHost() {
@@ -386,46 +413,69 @@ function SeasonalToastHost() {
   );
 }
 
-function NotificationSetupHost() {
-  const { loading } = useAppState();
-  const { isDemoActive } = useDemoMode();
-  const [showModal, setShowModal] = useState(false);
+function WelcomeCarouselHost() {
+  const { showWelcomeCarousel, completeWelcomeCarousel, startDemo } = useDemoMode();
+  // Keep modal visible state separate from mount state so the Modal can close
+  // gracefully before the component unmounts (avoids EdgeToEdge null-child crash
+  // on Android 16 when Modal is destroyed mid-animation).
+  const [modalVisible, setModalVisible] = React.useState(true);
 
-  useNotificationResponseHandler();
+  if (!showWelcomeCarousel) return null;
 
-  useEffect(() => {
-    if (loading || isDemoActive || Platform.OS === "web") return;
-    loadNotificationSettings().then((s) => {
-      if (!s.hasCompletedSetup) setShowModal(true);
-    });
-  }, [loading, isDemoActive]);
-
-  if (!showModal) return null;
   return (
-    <NotificationSetupModal
-      visible
-      onDone={() => setShowModal(false)}
+    <WelcomeCarousel
+      visible={modalVisible}
+      onComplete={() => {
+        // 1. Hide the Modal (starts its closing animation ~300ms)
+        setModalVisible(false);
+        // 2. After animation, mark carousel done → unmounts this component
+        setTimeout(() => {
+          completeWelcomeCarousel();
+        }, 400);
+        // 3. Start demo tour after modal is fully gone
+        setTimeout(() => startDemo(), 1000);
+      }}
     />
   );
 }
 
-function AnalyticsConsentHost() {
+function MonetizationHosts() {
+  const [modes, setModes] = useState<SupportMode[]>([]);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [nativeDismissed, setNativeDismissed] = useState(false);
+  const [showDailyModal, setShowDailyModal] = useState(false);
   const { loading } = useAppState();
   const { isDemoActive } = useDemoMode();
-  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     if (loading || isDemoActive || Platform.OS === "web") return;
-    loadAnalyticsSettings().then((s) => {
-      if (!s.hasCompletedConsent) setShowModal(true);
+    loadSupportModes().then(async (ms) => {
+      setModes(ms);
+      if (ms.includes("daily_ad")) {
+        const last = await loadLastDailyAdDate();
+        const today = new Date().toISOString().slice(0, 10);
+        if (last !== today) {
+          await saveLastDailyAdDate(today);
+          setShowDailyModal(true);
+        }
+      }
     });
   }, [loading, isDemoActive]);
 
-  if (!showModal) return null;
+  if (isDemoActive || modes.length === 0) return null;
+
   return (
-    <AnalyticsConsentModal
-      visible
-      onDone={() => setShowModal(false)}
-    />
+    <>
+      {modes.includes("banners") && !bannerDismissed && (
+        <SupportBanner onDismiss={() => setBannerDismissed(true)} />
+      )}
+      {modes.includes("native_ad") && !nativeDismissed && (
+        <NativeAdBanner onDismiss={() => setNativeDismissed(true)} />
+      )}
+      {modes.includes("daily_ad") && showDailyModal && (
+        <DailyAdModal onClose={() => setShowDailyModal(false)} />
+      )}
+      <AppOpenAdHost enabled={modes.includes("app_open")} />
+    </>
   );
 }

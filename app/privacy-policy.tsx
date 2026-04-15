@@ -13,6 +13,7 @@ import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
+import { TCard, TText } from "@/src/components/tamagui";
 
 const LAST_UPDATED = "Março de 2026";
 const EXTERNAL_POLICY_URL =
@@ -55,9 +56,9 @@ export default function PrivacyPolicyScreen() {
         >
           <Feather name="arrow-left" size={22} color={theme.textColor} />
         </TouchableOpacity>
-        <Text style={[s.headerTitle, { color: theme.textColor }]}>
+        <TText variant="subtitle" bold color={theme.textColor} fontSize={18} flex={1}>
           Política de Privacidade
-        </Text>
+        </TText>
       </View>
 
       <ScrollView
@@ -78,11 +79,11 @@ export default function PrivacyPolicyScreen() {
         </View>
 
         {/* Intro */}
-        <Text style={[s.intro, { color: theme.secondaryText }]}>
+        <TText variant="body" color={theme.secondaryText} lineHeight={22}>
           O DOMUS foi desenvolvido com privacidade como princípio central. Todos os
           seus dados financeiros permanecem exclusivamente no seu dispositivo. Não
           temos servidores que armazenem suas informações pessoais.
-        </Text>
+        </TText>
 
         {/* Section 1 */}
         <PolicySection
@@ -284,9 +285,9 @@ export default function PrivacyPolicyScreen() {
           </Text>
         </TouchableOpacity>
 
-        <Text style={[s.footer, { color: theme.secondaryText }]}>
+        <TText variant="caption" secondary textAlign="center" marginTop={4}>
           DOMUS · Pixel Eucarístico · {LAST_UPDATED}
-        </Text>
+        </TText>
       </ScrollView>
     </SafeAreaView>
   );
@@ -307,11 +308,10 @@ function PolicySection({
 }) {
   const s = styles(theme);
   return (
-    <View
-      style={[
-        s.section,
-        { backgroundColor: theme.cardBackground, borderColor: theme.border },
-      ]}
+    <TCard
+      backgroundColor={theme.cardBackground}
+      borderColor={theme.border}
+      padding={0}
     >
       <View style={s.sectionHeader}>
         <View
@@ -322,13 +322,13 @@ function PolicySection({
         >
           <Feather name={icon as any} size={16} color={theme.primaryColor} />
         </View>
-        <Text style={[s.sectionTitle, { color: theme.textColor }]}>{title}</Text>
+        <TText variant="subtitle" bold color={theme.textColor} fontSize={15}>{title}</TText>
       </View>
       <View
         style={[s.sectionDivider, { backgroundColor: theme.border }]}
       />
       <View style={s.sectionBody}>{children}</View>
-    </View>
+    </TCard>
   );
 }
 
@@ -372,11 +372,6 @@ function styles(theme: any) {
       borderBottomWidth: StyleSheet.hairlineWidth,
     },
     backBtn: { padding: 4 },
-    headerTitle: {
-      fontSize: 18,
-      fontFamily: "DMSans_700Bold",
-      flex: 1,
-    },
     content: {
       padding: 16,
       gap: 14,
@@ -396,16 +391,6 @@ function styles(theme: any) {
       fontSize: 12,
       fontFamily: "DMSans_500Medium",
     },
-    intro: {
-      fontSize: 14,
-      fontFamily: "DMSans_400Regular",
-      lineHeight: 22,
-    },
-    section: {
-      borderRadius: 14,
-      borderWidth: 1,
-      overflow: "hidden",
-    },
     sectionHeader: {
       flexDirection: "row",
       alignItems: "center",
@@ -419,10 +404,6 @@ function styles(theme: any) {
       borderRadius: 8,
       alignItems: "center",
       justifyContent: "center",
-    },
-    sectionTitle: {
-      fontSize: 15,
-      fontFamily: "DMSans_700Bold",
     },
     sectionDivider: {
       height: StyleSheet.hairlineWidth,
@@ -449,12 +430,6 @@ function styles(theme: any) {
     externalLinkText: {
       fontSize: 14,
       fontFamily: "DMSans_600SemiBold",
-    },
-    footer: {
-      fontSize: 11,
-      fontFamily: "DMSans_400Regular",
-      textAlign: "center",
-      marginTop: 4,
     },
   });
 }

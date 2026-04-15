@@ -50,8 +50,38 @@ export async function assertOk(response: Response, providerName: string): Promis
     } catch {
       // ignore
     }
+
+    if (response.status === 401) {
+      throw new Error(
+        `Chave de API do ${providerName} invalida ou expirada. Verifique sua chave nas configuracoes de IA.`,
+      );
+    }
+
+    if (response.status === 429) {
+      const retryAfter = response.headers.get("retry-after");
+      const waitMsg = retryAfter ? ` Tente novamente em ${retryAfter}s.` : " Aguarde um momento e tente novamente.";
+      throw new Error(
+        `Limite de requisicoes do ${providerName} excedido.${waitMsg}`,
+      );
+    }
+
+    if (response.status === 403) {
+      throw new Error(
+        `Acesso negado pelo ${providerName}. Verifique se sua chave tem permissao para este modelo.`,
+      );
+    }
+
     throw new Error(
       `${providerName} HTTP ${response.status}: ${body.slice(0, 300)}`,
     );
   }
+}
+
+/** Convert Response arrayBuffer to base64 string */
+export async function responseToBase64(response: Response): Promise<string> {
+  const arrayBuffer = await response.arrayBuffer();
+  const uint8 = new Uint8Array(arrayBuffer);
+  let binary = "";
+  for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]!);
+  return btoa(binary);
 }

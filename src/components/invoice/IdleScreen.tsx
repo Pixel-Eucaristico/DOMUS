@@ -5,7 +5,8 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ThemeColors } from "@packages/theme";
 import { soundManager } from "@/src/services/SoundManager";
-import { useTourTarget } from "@/src/tour/useTourTarget";
+import { TButton } from "@/src/components/tamagui";
+import { TourGuideZone } from "rn-tourguide";
 
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=br.com.pixeleucaristico.domus";
 
@@ -19,8 +20,6 @@ interface Props {
 export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Props) {
   const isWeb = Platform.OS === "web";
   const router = useRouter();
-  const { targetRef: qrRef, TourCard: QrTourCard, activeStyle: qrActive } = useTourTarget("import-qr");
-  const { targetRef: manualRef, TourCard: ManualTourCard, activeStyle: manualActive } = useTourTarget("import-manual");
 
   return (
     <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
@@ -28,12 +27,11 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
       <Text style={[s.title, { color: theme.textColor }]}>Importar Nota Fiscal</Text>
       <Text style={[s.subtitle, { color: theme.secondaryText }]}>Escolha como deseja importar</Text>
 
-      <View style={[s.actions, Platform.OS === "web" ? { zIndex: qrActive || manualActive ? 9999 : 1, position: "relative" } : {}]}>
-        <View style={qrActive ? { zIndex: 9998, position: "relative" } : {}}>
+      <View style={s.actions}>
+        <TourGuideZone zone={1} text="5" isTourGuide borderRadius={16}>
           <Pressable
-            ref={qrRef as any}
             collapsable={false}
-            style={[s.mainBtn, { backgroundColor: theme.primaryColor, opacity: isWeb ? 0.5 : 1 }, qrActive ? { backgroundColor: theme.primaryColor, zIndex: 9998, position: "relative" } : {}]}
+            style={[s.mainBtn, { backgroundColor: theme.primaryColor, opacity: isWeb ? 0.5 : 1 }]}
             onPress={() => { if (isWeb) return; soundManager.play("tap"); onQRPress(); }}
             disabled={isWeb}
           >
@@ -44,8 +42,7 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
             </View>
             <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.6)" />
           </Pressable>
-          <QrTourCard />
-        </View>
+        </TourGuideZone>
 
         {__DEV__ && (
           <Pressable
@@ -80,18 +77,18 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
           </Pressable>
         )}
 
-        <View style={Platform.OS === "web" && manualActive ? { zIndex: 9998, position: "relative" } : {}}>
-          <Pressable
-            ref={manualRef as any}
-            collapsable={false}
-            style={[s.outlineBtn, { borderColor: theme.border }, manualActive ? { backgroundColor: theme.cardBackground, zIndex: 9998, position: "relative" } : {}]}
+        <TourGuideZone zone={2} text="6" isTourGuide borderRadius={16}>
+          <TButton
+            variant="outline"
+            borderColor={theme.border}
+            color={theme.textColor}
             onPress={() => { soundManager.play("tap"); onManualEntry(); }}
+            icon={<Feather name="edit-3" size={20} color={theme.textColor} />}
+            width="100%"
           >
-            <Feather name="edit-3" size={20} color={theme.textColor} />
-            <Text style={[s.outlineBtnText, { color: theme.textColor }]}>Lançar manualmente</Text>
-          </Pressable>
-          <ManualTourCard />
-        </View>
+            Lançar manualmente
+          </TButton>
+        </TourGuideZone>
       </View>
 
       {__DEV__ && !isWeb && (
@@ -119,11 +116,6 @@ const s = StyleSheet.create({
   btnTextGroup: { flex: 1 },
   mainBtnLabel: { color: "#FFF", fontSize: 17, fontWeight: "700" },
   mainBtnSub: { color: "rgba(255,255,255,0.75)", fontSize: 12, marginTop: 2 },
-  outlineBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    paddingHorizontal: 20, paddingVertical: 16, borderRadius: 16, borderWidth: 1, gap: 10,
-  },
-  outlineBtnText: { fontSize: 15, fontWeight: "600" },
   settingsLink: {
     flexDirection: "row", alignItems: "center", gap: 6, marginTop: 40, paddingVertical: 10,
   },

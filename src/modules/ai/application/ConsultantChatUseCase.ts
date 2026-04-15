@@ -18,6 +18,7 @@ import { buildFinancialContext } from "./AIContextBuilder";
 import type { ContextData } from "./AIContextBuilder";
 import type { AISettings } from "../domain/AISettings";
 import { hasActiveKey } from "../domain/AISettings";
+import type { GeminiAudioAttachment } from "@packages/../packages/ai/src/adapters/GeminiAdapter";
 
 // ─── System Prompt ────────────────────────────────────────────────────────────
 
@@ -65,7 +66,9 @@ REGRAS:
 - NUNCA de recomendacoes diretas de compra/venda (conteudo educativo)
 - NUNCA apoie piramides financeiras ou esquemas de enriquecimento rapido
 - Seja conciso, pratico e empatico
-- Use portugues brasileiro para todas as strings visiveis ao usuario`;
+- Use portugues brasileiro para todas as strings visiveis ao usuario
+- NUNCA use tabelas markdown (sintaxe com |). Use listas com - ou numeracao em vez disso
+- Formatacao permitida: **negrito**, *italico*, listas (- item), numeracao (1. item), titulos (## titulo), \`codigo\`. NAO use tabelas, blocos grandes de codigo ou HTML`;
 
 /** Maximum conversation turns to include in the context sent to the AI. */
 const MAX_HISTORY_MESSAGES = 6;
@@ -83,6 +86,7 @@ export class ConsultantChatUseCase {
     contextData: ContextData,
     wishlistItemPrice: number | null,
     settings: AISettings,
+    audioAttachment?: GeminiAudioAttachment,
   ): Promise<ChatMessage> {
     const { transactions, accounts, categories } = contextData;
     const intent: AIIntent = IntentClassifier.classify(userMessage);
@@ -163,6 +167,7 @@ export class ConsultantChatUseCase {
         budgetMode: settings.budgetMode,
         monthlyBudgets: settings.monthlyBudgets,
         billingDay: settings.billingDay,
+        audioAttachment,
       });
 
       let textContent: string;

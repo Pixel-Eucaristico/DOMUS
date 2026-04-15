@@ -7,6 +7,7 @@ import { updateTransactionEvent, createTransactionEvent } from "@packages/domain
 import { soundManager } from "@/src/services/SoundManager";
 import { formatCurrency } from "@/src/utils/formatCurrency";
 import type { DomainEvent } from "@packages/events/src/types";
+import { TButton, TCard } from "@/src/components/tamagui";
 
 function pendingDateLabel(dateStr: string): { label: string; overdue: boolean } {
   const today = new Date();
@@ -183,7 +184,7 @@ export function PendingTransactionsList({
         onRequestClose={() => setConfirmingTx(null)}
       >
         <Pressable style={s.modalOverlay} onPress={() => setConfirmingTx(null)}>
-          <Pressable style={[s.transferModal, { backgroundColor: theme.cardBackground }]} onPress={() => {}}>
+          <TCard borderTopLeftRadius={20} borderTopRightRadius={20} borderBottomLeftRadius={0} borderBottomRightRadius={0} padding={20} paddingBottom={32} gap={8} borderWidth={0} backgroundColor={theme.cardBackground} borderColor={theme.border} onPress={() => {}}>
             <View style={s.transferModalHeader}>
               <Feather name="arrow-right-circle" size={20} color="#10B981" />
               <Text style={[s.transferModalTitle, { color: theme.textColor }]}>
@@ -236,21 +237,29 @@ export function PendingTransactionsList({
             )}
 
             <View style={s.transferModalActions}>
-              <Pressable
-                style={[s.transferCancelBtn, { borderColor: theme.border }]}
+              <TButton
+                variant="outline"
+                flex={1}
+                borderColor={theme.border}
+                color={theme.textColor}
                 onPress={() => {
                   soundManager.play("tap");
                   setConfirmingTx(null);
                 }}
               >
-                <Text style={[s.transferCancelText, { color: theme.secondaryText }]}>Cancelar</Text>
-              </Pressable>
-              <Pressable style={s.transferConfirmBtn} onPress={handleConfirmTransfer}>
-                <Feather name="check" size={16} color="#FFF" />
-                <Text style={s.transferConfirmText}>Efetivar</Text>
-              </Pressable>
+                Cancelar
+              </TButton>
+              <TButton
+                variant="primary"
+                flex={2}
+                backgroundColor="#10B981"
+                icon={<Feather name="check" size={16} color="#FFF" />}
+                onPress={handleConfirmTransfer}
+              >
+                Efetivar
+              </TButton>
             </View>
-          </Pressable>
+          </TCard>
         </Pressable>
       </Modal>
     </>
@@ -316,13 +325,6 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.55)",
     justifyContent: "flex-end",
   },
-  transferModal: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 32,
-    gap: 8,
-  },
   transferModalHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -372,32 +374,5 @@ const s = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     marginTop: 12,
-  },
-  transferCancelBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  transferCancelText: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 14,
-  },
-  transferConfirmBtn: {
-    flex: 2,
-    flexDirection: "row",
-    backgroundColor: "#10B981",
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  transferConfirmText: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 14,
-    color: "#FFF",
   },
 });

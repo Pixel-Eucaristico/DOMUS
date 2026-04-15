@@ -1,0 +1,53 @@
+'useState' is declared but its value is never read.
+(typescript)
+Ln 1, Col 17
+'ProductFormCard' is declared but its value is never read.
+(typescript)
+Ln 23, Col 1
+'ProductFormData' is declared but its value is never read.
+(typescript)
+Ln 24, Col 1
+Property 'input' does not exist on type '{ kav: { flex: number; justifyContent: "flex-end"; }; flex: { flex: number; }; backdrop: { backgroundColor: string; position: "absolute"; left: 0; right: 0; top: 0; bottom: 0; }; card: { borderTopLeftRadius: number; borderTopRightRadius: number; padding: number; maxHeight: "92%"; width: "100%"; }; ... 42 more ...; a...'.
+(typescript)
+Ln 134, Col 33
+Property 'inputFlex' does not exist on type '{ kav: { flex: number; justifyContent: "flex-end"; }; flex: { flex: number; }; backdrop: { backgroundColor: string; position: "absolute"; left: 0; right: 0; top: 0; bottom: 0; }; card: { borderTopLeftRadius: number; borderTopRightRadius: number; padding: number; maxHeight: "92%"; width: "100%"; }; ... 42 more ...; a...'.
+(typescript)
+Ln 134, Col 42
+Type 'string' is not assignable to type 'OpaqueColorValue | GetThemeValueForKey<"color"> | undefined'.
+(typescript)
+Ln 179, Col 17
+Type 'string' is not assignable to type 'OpaqueColorValue | GetThemeValueForKey<"borderColor"> | undefined'.
+(typescript)
+Ln 181, Col 17
+Property 'input' does not exist on type '{ kav: { flex: number; justifyContent: "flex-end"; }; flex: { flex: number; }; backdrop: { backgroundColor: string; position: "absolute"; left: 0; right: 0; top: 0; bottom: 0; }; card: { borderTopLeftRadius: number; borderTopRightRadius: number; padding: number; maxHeight: "92%"; width: "100%"; }; ... 42 more ...; a...'.
+(typescript)
+Ln 219, Col 31
+Cannot find name 'setCatPickerVisible'.
+(typescript)
+Ln 232, Col 32
+Cannot find name 'catPickerVisible'.
+(typescript)
+Ln 250, Col 26
+Cannot find name 'setCatPickerVisible'.
+(typescript)
+Ln 251, Col 32
+Type 'string' is not assignable to type 'OpaqueColorValue | GetThemeValueForKey<"color"> | undefined'.
+(typescript)
+Ln 307, Col 21
+Type 'string' is not assignable to type 'OpaqueColorValue | GetThemeValueForKey<"borderColor"> | undefined'.
+(typescript)
+Ln 309, Col 21
+Type 'string' is not assignable to type 'OpaqueColorValue | GetThemeValueForKey<"color"> | undefined'.
+(typescript)
+Ln 316, Col 21
+Type 'string' is not assignable to type 'OpaqueColorValue | GetThemeValueForKey<"borderColor"> | undefined'.
+(typescript)
+Ln 318, Col 21
+Type 'string' is not assignable to type 'OpaqueColorValue | GetThemeValueForKey<"borderColor"> | undefined'.
+(typescript)
+Ln 385, Col 19
+Type '{ children: string; variant: "primary"; flex: number; backgroundColor: string; icon: Element; onPress: () => void; }' is not assignable to type 'IntrinsicAttributes & Omit<StackNonStyleProps & ButtonExtraProps, "circular" | "elevation" | "disabled" | ... 4 more ... | "chromeless"> & ... 5 more ... & RefAttributes<...>'. Property 'backgroundColor' does not exist on type 'IntrinsicAttributes & Omit<StackNonStyleProps & ButtonExtraProps, "circular" | "elevation" | "disabled" | ... 4 more ... | "chromeless"> & ... 5 more ... & RefAttributes<...>'. Did you mean 'backgroundClip'?
+(typescript)
+Ln 395, Col 21
+An object literal cannot have multiple properties with the same name.
+(typescript)

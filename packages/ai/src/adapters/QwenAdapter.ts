@@ -32,12 +32,26 @@ export class QwenAdapter implements AIProviderAdapter {
         },
         body: JSON.stringify({
           model: options.model,
-          messages: messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          messages: messages.map((m) => {
+            // Vision: Qwen VL supports OpenAI-compatible multimodal format
+            if (m.imageBase64) {
+              return {
+                role: m.role,
+                content: [
+                  { type: "text" as const, text: m.content },
+                  {
+                    type: "image_url" as const,
+                    image_url: {
+                      url: `data:${m.imageMimeType || "image/jpeg"};base64,${m.imageBase64}`,
+                    },
+                  },
+                ],
+              };
+            }
+            return { role: m.role, content: m.content };
+          }),
           temperature: options.temperature ?? 0.2,
-          max_tokens: options.maxTokens ?? 512,
+          max_tokens: options.maxTokens ?? 4096,
         }),
       },
     );
@@ -50,4 +64,5 @@ export class QwenAdapter implements AIProviderAdapter {
 
     return { content, tokensUsed };
   }
+
 }

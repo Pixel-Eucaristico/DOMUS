@@ -190,7 +190,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (!eventStore.loading && eventStore.allEvents.length > 0 && eventStore.deviceId) {
       const txCount = Object.keys(domain.transactions).length;
       const currentXp = gamification.totalXp;
-      const hasRecovery = eventStore.allEvents.some(e => e.id.startsWith("xp-recovery-"));
+      const hasRecovery = eventStore.allEvents.some(e => e.id?.startsWith("xp-recovery-"));
 
       if (txCount > 0 && currentXp <= 5 && !hasRecovery) {
         const recoveryAmount = Math.max(30, txCount * 15);

@@ -1,11 +1,16 @@
-import React, { useMemo } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useMemo, useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import type { TextStyle } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { TText } from "@/src/components/tamagui";
 import type { ChatMessage } from "@packages/ai";
 
 interface ChatBubbleProps {
   message: ChatMessage;
+  onSpeak?: (text: string) => Promise<void>;
+  isSpeaking?: boolean;
+  onStopSpeaking?: () => void;
 }
 
 // ─── Lightweight Markdown Renderer ───────────────────────────────────────────
@@ -47,28 +52,23 @@ function parseMarkdown(raw: string): MdLine[] {
 
 function parseInline(text: string): MdSegment[] {
   const segments: MdSegment[] = [];
-  // Match **bold**, *italic*, _italic_, __bold__
   const regex = /(\*\*|__)(.*?)\1|(\*|_)(.*?)\3/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(text)) !== null) {
-    // Text before match
     if (match.index > lastIndex) {
       segments.push({ text: text.slice(lastIndex, match.index) });
     }
 
     if (match[1]) {
-      // **bold** or __bold__
       segments.push({ text: match[2]!, bold: true });
     } else if (match[3]) {
-      // *italic* or _italic_
       segments.push({ text: match[4]!, italic: true });
     }
     lastIndex = match.index + match[0].length;
   }
 
-  // Remaining text
   if (lastIndex < text.length) {
     segments.push({ text: text.slice(lastIndex) });
   }
@@ -80,7 +80,7 @@ function parseInline(text: string): MdSegment[] {
   return segments;
 }
 
-function MarkdownText({
+export function MarkdownText({
   content,
   baseColor,
   isUser,
@@ -112,7 +112,6 @@ function MarkdownText({
           );
         }
 
-        // Empty line = spacer
         if (line.segments.length === 1 && line.segments[0]!.text.trim() === "") {
           return <View key={i} style={mdStyles.spacer} />;
         }
@@ -158,10 +157,25 @@ const mdStyles = StyleSheet.create({
 
 // ─── ChatBubble ──────────────────────────────────────────────────────────────
 
-export function ChatBubble({ message }: ChatBubbleProps) {
+export function ChatBubble({ message, onSpeak, isSpeaking, onStopSpeaking }: ChatBubbleProps) {
   const { theme } = useAppState();
   const isUser = message.role === "user";
   const textColor = isUser ? "#fff" : theme.textColor;
+  const [isSynthesizing, setIsSynthesizing] = useState(false);
+
+  const handleSpeak = async () => {
+    if (isSpeaking) {
+      onStopSpeaking?.();
+      return;
+    }
+    if (!onSpeak) return;
+    setIsSynthesizing(true);
+    try {
+      await onSpeak(message.content);
+    } finally {
+      setIsSynthesizing(false);
+    }
+  };
 
   return (
     <View
@@ -191,24 +205,45 @@ export function ChatBubble({ message }: ChatBubbleProps) {
         )}
 
         {message.isLocalFallback && !isUser && (
-          <Text style={[styles.badge, { color: theme.secondaryText }]}>
+          <TText fontSize={10} fontStyle="italic" color={theme.secondaryText} marginTop={4}>
             analise local
-          </Text>
+          </TText>
         )}
 
-        {message.tokensUsed != null && message.tokensUsed > 0 && (
-          <Text style={[styles.tokens, { color: theme.secondaryText }]}>
-            {message.tokensUsed} tokens
-          </Text>
-        )}
+        {/* Footer row: tokens + listen button */}
+        <View style={styles.bubbleFooter}>
+          {message.tokensUsed != null && message.tokensUsed > 0 && (
+            <TText fontSize={10} color={theme.secondaryText} textAlign="right">
+              {message.tokensUsed} tokens
+            </TText>
+          )}
+
+          {!isUser && onSpeak && (
+            <TouchableOpacity
+              onPress={handleSpeak}
+              style={[styles.listenBtn, { borderColor: theme.border }]}
+              accessibilityLabel={isSpeaking ? "Parar audio" : "Ouvir mensagem"}
+            >
+              {isSynthesizing ? (
+                <ActivityIndicator size={12} color={theme.primaryColor} />
+              ) : (
+                <Feather
+                  name={isSpeaking ? "volume-x" : "volume-2"}
+                  size={13}
+                  color={theme.primaryColor}
+                />
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      <Text style={[styles.time, { color: theme.secondaryText }]}>
+      <TText fontSize={11} color={theme.secondaryText} marginTop={3} marginHorizontal={4}>
         {new Date(message.timestamp).toLocaleTimeString("pt-BR", {
           hour: "2-digit",
           minute: "2-digit",
         })}
-      </Text>
+      </TText>
     </View>
   );
 }
@@ -235,19 +270,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
-  badge: {
-    fontSize: 10,
+  bubbleFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 8,
     marginTop: 4,
-    fontStyle: "italic",
   },
-  tokens: {
-    fontSize: 10,
-    marginTop: 2,
-    textAlign: "right",
-  },
-  time: {
-    fontSize: 11,
-    marginTop: 3,
-    marginHorizontal: 4,
+  listenBtn: {
+    padding: 4,
+    borderRadius: 12,
+    borderWidth: 1,
   },
 });

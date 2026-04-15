@@ -100,7 +100,7 @@ export function computeBillReminders(
     const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     let invoiceTotal = 0;
     for (const tx of Object.values(transactions)) {
-      if (tx.accountId === acc.id && tx.type === "expense" && tx.date.startsWith(monthPrefix)) {
+      if (tx.accountId === acc.id && tx.type === "expense" && tx.date?.startsWith(monthPrefix)) {
         invoiceTotal += tx.amount;
       }
     }
@@ -156,7 +156,7 @@ export function computeBudgetAlerts(
   // Calcula receita total do mês (para determinar limites 50/30/20)
   let totalIncome = 0;
   for (const tx of Object.values(transactions)) {
-    if (tx.type === "income" && tx.date.startsWith(monthPrefix) && tx.status === "confirmed") {
+    if (tx.type === "income" && tx.date?.startsWith(monthPrefix) && tx.status === "confirmed") {
       totalIncome += tx.amount;
     }
   }
@@ -171,7 +171,7 @@ export function computeBudgetAlerts(
   // Agrupa despesas do mês por grupo
   const groupSpending: Record<string, number> = { needs: 0, wants: 0, savings: 0 };
   for (const tx of Object.values(transactions)) {
-    if (tx.type !== "expense" || !tx.date.startsWith(monthPrefix)) continue;
+    if (tx.type !== "expense" || !tx.date?.startsWith(monthPrefix)) continue;
     const cat = categories[tx.categoryId];
     if (!cat) continue;
     groupSpending[cat.group] = (groupSpending[cat.group] || 0) + tx.amount;
@@ -232,7 +232,7 @@ export function computeCreditCardClosingReminders(
     const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     let partialInvoice = 0;
     for (const tx of Object.values(transactions)) {
-      if (tx.accountId === acc.id && tx.type === "expense" && tx.date.startsWith(monthPrefix)) {
+      if (tx.accountId === acc.id && tx.type === "expense" && tx.date?.startsWith(monthPrefix)) {
         partialInvoice += tx.amount;
       }
     }
@@ -294,8 +294,13 @@ export function computePendingTransactionReminders(
   if (!settings.pendingTransactions) return [];
 
   const today = todayStr();
+  // Exclui aportes de poupança — eles têm lembrete próprio na data certa,
+  // não devem gerar notificação diária repetitiva
   const pending = Object.values(transactions).filter(
-    (tx) => tx.status === "pending" && tx.date <= today,
+    (tx) =>
+      tx.status === "pending" &&
+      tx.date <= today &&
+      !tx.description?.startsWith("Aporte poupança:"),
   );
 
   if (pending.length === 0) return [];
@@ -338,6 +343,45 @@ export function computePendingTransactionReminders(
     trigger: triggerDaily(notifyHour, 0),
     data: { type: "pending-transactions-group", count: pending.length },
   }];
+}
+
+/** Lembrete de aporte de poupança — apenas no dia configurado (ou dia seguinte) */
+export function computeSavingsContributionReminders(
+  transactions: Record<string, TransactionPayload>,
+  accounts: Record<string, AccountPayload>,
+  settings: NotificationSettings,
+): ScheduledNotification[] {
+  if (!settings.pendingTransactions) return [];
+  const results: ScheduledNotification[] = [];
+
+  const today = todayStr();
+  const pendingSavings = Object.values(transactions).filter(
+    (tx) =>
+      tx.status === "pending" &&
+      tx.date <= today &&
+      tx.description?.startsWith("Aporte poupança:"),
+  );
+
+  if (pendingSavings.length === 0) return results;
+
+  let notifyHour = 9;
+  if (isInQuietHours(new Date(new Date().setHours(9, 0, 0, 0)), settings.quietHours)) {
+    notifyHour = settings.quietHours.endHour;
+  }
+
+  for (const tx of pendingSavings) {
+    const acc = accounts[tx.accountId];
+    const accName = acc?.name || "Poupança";
+    results.push({
+      channelId: CHANNELS.PENDING_TRANSACTIONS,
+      title: `Aporte pendente: ${accName}`,
+      body: `Confirme o aporte de ${formatCurrency(tx.amount)} para ${accName}`,
+      trigger: triggerAtDate(new Date(new Date().setHours(notifyHour, 0, 0, 0))),
+      data: { type: "savings-contribution", transactionId: tx.id },
+    });
+  }
+
+  return results;
 }
 
 /** Resumo semanal — domingo 18h */

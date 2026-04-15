@@ -10,6 +10,7 @@ import {
   Share,
   Switch,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -20,6 +21,8 @@ import { ConfirmRestoreModal } from "@/src/components/backup/ConfirmRestoreModal
 import { useGoogleDriveBackup } from "@/src/hooks/useGoogleDriveBackup";
 import { useBackupRestore, STATUS_LABELS, isLoading } from "@/src/hooks/useBackupRestore";
 import { autoBackupFilePath } from "@/src/hooks/useAutoBackup";
+import { TCard, TText } from "@/src/components/tamagui";
+import { TourPageHost } from "@/src/components/tour/TourPageHost";
 
 type TabId = "export" | "restore" | "drive";
 
@@ -39,12 +42,13 @@ export default function BackupScreen() {
   const eventCount = getAllEvents().length;
 
   return (
+    <TourPageHost groupId={8}>
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }} style={s.backBtn} activeOpacity={0.7}>
           <Feather name="arrow-left" size={22} color={theme.textColor} />
         </TouchableOpacity>
-        <Text style={[s.headerTitle, { color: theme.textColor }]}>Backup & Restauração</Text>
+        <TText variant="subtitle" bold color={theme.textColor} fontSize={19} flex={1}>Backup & Restauração</TText>
       </View>
 
       <View style={[s.tabBar, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
@@ -66,18 +70,18 @@ export default function BackupScreen() {
         })}
       </View>
 
-      <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bottomOffset={50}>
         {/* EXPORT TAB */}
         {activeTab === "export" && (
           <>
-            <View style={[s.infoBanner, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+            <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} flexDirection="row" alignItems="flex-start" gap={10} padding={12}>
               <Feather name="shield" size={15} color={theme.primaryColor} />
-              <Text style={[s.infoText, { color: theme.secondaryText }]}>
+              <TText variant="caption" color={theme.secondaryText} lineHeight={18} flex={1}>
                 Exporte com AES-256-GCM (recomendado) ou sem criptografia para local seguro.
-              </Text>
-            </View>
+              </TText>
+            </TCard>
 
-            <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+            <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} padding={0}>
               <View style={[s.cardBody, { gap: 12 }]}>
                 <View style={[s.statRow, { borderColor: theme.border }]}>
                   <Feather name="database" size={15} color={theme.primaryColor} />
@@ -157,19 +161,19 @@ export default function BackupScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </TCard>
           </>
         )}
 
         {/* RESTORE TAB */}
         {activeTab === "restore" && (
           <>
-            <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+            <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} padding={0}>
               <View style={s.sectionHeader}>
                 <View style={[s.sectionIconBg, { backgroundColor: "#F59E0B18" }]}>
                   <Feather name="file-text" size={16} color="#F59E0B" />
                 </View>
-                <Text style={[s.sectionTitle, { color: theme.textColor }]}>De arquivo</Text>
+                <TText variant="subtitle" bold color={theme.textColor} fontSize={14}>De arquivo</TText>
               </View>
               <View style={[s.divider, { backgroundColor: theme.border }]} />
               <View style={[s.cardBody, { gap: 12 }]}>
@@ -221,17 +225,17 @@ export default function BackupScreen() {
                 )}
                 {!bk.selectedFileUri && <StatusRow status={bk.importStatus} theme={theme} />}
               </View>
-            </View>
+            </TCard>
 
             {/* Auto-backup local */}
             {Platform.OS !== "web" && (
-              <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+              <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} padding={0}>
                 <View style={s.sectionHeader}>
                   <View style={[s.sectionIconBg, { backgroundColor: "#8B5CF618" }]}>
                     <Feather name="refresh-cw" size={16} color="#8B5CF6" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[s.sectionTitle, { color: theme.textColor }]}>Auto-backup local</Text>
+                    <TText variant="subtitle" bold color={theme.textColor} fontSize={14}>Auto-backup local</TText>
                     <Text style={[s.sectionSubtitle, { color: theme.secondaryText }]}>
                       {bk.autoTs
                         ? `Último: ${new Date(bk.autoTs).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`
@@ -271,20 +275,20 @@ export default function BackupScreen() {
                     </Text>
                   </TouchableOpacity>
                 </View>
-              </View>
+              </TCard>
             )}
           </>
         )}
 
         {/* DRIVE TAB */}
         {activeTab === "drive" && (
-          <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+          <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} padding={0}>
             <View style={s.sectionHeader}>
               <View style={[s.sectionIconBg, { backgroundColor: "#4285F418" }]}>
                 <Feather name="cloud" size={16} color="#4285F4" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[s.sectionTitle, { color: theme.textColor }]}>Google Drive</Text>
+                <TText variant="subtitle" bold color={theme.textColor} fontSize={14}>Google Drive</TText>
                 <Text style={[s.sectionSubtitle, { color: theme.secondaryText }]}>
                   {drive.isConnected
                     ? drive.lastSyncAt
@@ -359,7 +363,7 @@ export default function BackupScreen() {
                 </>
               )}
             </View>
-          </View>
+          </TCard>
         )}
 
 
@@ -369,7 +373,7 @@ export default function BackupScreen() {
             PBKDF2-SHA256 · 100 000 iter · AES-256-GCM · salt e IV aleatórios
           </Text>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <ConfirmRestoreModal
         visible={bk.showConfirmModal}
@@ -379,6 +383,7 @@ export default function BackupScreen() {
         onCancel={() => { soundManager.play("tap"); bk.setShowConfirmModal(false); bk.setPendingPayload(null); }}
       />
     </SafeAreaView>
+    </TourPageHost>
   );
 }
 
@@ -403,21 +408,17 @@ function StatusRow({ status, theme }: { status: any; theme: { secondaryText: str
 
 const s = StyleSheet.create({
   safe: { flex: 1 },
+  flex: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
   backBtn: { padding: 4 },
-  headerTitle: { fontFamily: "DMSans_700Bold", fontSize: 19, flex: 1 },
   tabBar: { flexDirection: "row", marginHorizontal: 16, borderRadius: 12, borderWidth: 1, padding: 4, marginBottom: 4, gap: 2 },
   tabItem: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, borderRadius: 9 },
   tabItemActive: { shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
   tabLabel: { fontFamily: "DMSans_500Medium", fontSize: 13 },
   tabLabelActive: { fontFamily: "DMSans_700Bold" },
   content: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40, gap: 12 },
-  infoBanner: { flexDirection: "row", alignItems: "flex-start", gap: 10, padding: 12, borderRadius: 12, borderWidth: 1 },
-  infoText: { flex: 1, fontFamily: "DMSans_400Regular", fontSize: 12, lineHeight: 18 },
-  card: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
   sectionIconBg: { width: 34, height: 34, borderRadius: 10, justifyContent: "center", alignItems: "center" },
-  sectionTitle: { fontFamily: "DMSans_700Bold", fontSize: 14 },
   sectionSubtitle: { fontFamily: "DMSans_400Regular", fontSize: 11, marginTop: 1 },
   divider: { height: StyleSheet.hairlineWidth, marginHorizontal: 14 },
   cardBody: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 14 },

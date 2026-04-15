@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
+import { TCard, TText } from "@/src/components/tamagui";
 import { PinPad } from "@/src/components/security/PinPad";
 import { PinAuthService } from "@/src/modules/security/application/PinAuthService";
 import { PIN_LENGTH } from "@/src/modules/security/domain/UserSecuritySettings";
@@ -93,7 +94,7 @@ export default function SecuritySettingsScreen() {
           <TouchableOpacity onPress={() => { soundManager.play("tap"); dispatch({ type: "RESET" }); }} style={s.backBtn} activeOpacity={0.7}>
             <Feather name="x" size={22} color={theme.textColor} />
           </TouchableOpacity>
-          <Text style={[s.headerTitle, { color: theme.textColor }]}>Segurança</Text>
+          <TText variant="subtitle" bold color={theme.textColor} fontSize={20} flex={1}>Segurança</TText>
         </View>
         <View style={s.pinContainer}>
           {local.saving ? (
@@ -122,7 +123,7 @@ export default function SecuritySettingsScreen() {
           <TouchableOpacity onPress={() => { soundManager.play("tap"); dispatch({ type: "RESET" }); }} style={s.backBtn} activeOpacity={0.7}>
             <Feather name="x" size={22} color={theme.textColor} />
           </TouchableOpacity>
-          <Text style={[s.headerTitle, { color: theme.textColor }]}>Método de bloqueio</Text>
+          <TText variant="subtitle" bold color={theme.textColor} fontSize={20} flex={1}>Método de bloqueio</TText>
         </View>
         <View style={s.methodContainer}>
           <Text style={[s.methodTitle, { color: theme.textColor }]}>
@@ -155,22 +156,22 @@ export default function SecuritySettingsScreen() {
         <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }} style={s.backBtn} activeOpacity={0.7}>
           <Feather name="arrow-left" size={22} color={theme.textColor} />
         </TouchableOpacity>
-        <Text style={[s.headerTitle, { color: theme.textColor }]}>Segurança</Text>
+        <TText variant="subtitle" bold color={theme.textColor} fontSize={20} flex={1}>Segurança</TText>
       </View>
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         {/* Info banner */}
-        <View style={[s.infoBanner, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+        <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} flexDirection="row" alignItems="flex-start" gap={10} padding={14}>
           <Feather name="lock" size={16} color={theme.primaryColor} />
-          <Text style={[s.infoText, { color: theme.secondaryText }]}>
+          <TText variant="caption" color={theme.secondaryText} lineHeight={18} flex={1}>
             O bloqueio do aplicativo protege seus dados financeiros de
             acessos não autorizados. O PIN é armazenado apenas como hash
             SHA-256 com salt — nunca em texto simples.
-          </Text>
-        </View>
+          </TText>
+        </TCard>
 
         {/* Lock toggle */}
-        <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+        <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} padding={0}>
           <SettingsRow
             icon="lock"
             title="Bloqueio do aplicativo"
@@ -230,7 +231,7 @@ export default function SecuritySettingsScreen() {
               )}
             </>
           )}
-        </View>
+        </TCard>
 
         {/* Security note */}
         <View style={s.securityNote}>
@@ -307,11 +308,7 @@ function dynamicStyles(theme: any) {
     header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
     pinHeader: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
     backBtn: { padding: 4 },
-    headerTitle: { fontFamily: "DMSans_700Bold", fontSize: 20, flex: 1 },
     content: { paddingHorizontal: 16, paddingBottom: 48, gap: 16 },
-    infoBanner: { flexDirection: "row", alignItems: "flex-start", gap: 10, padding: 14, borderRadius: 12, borderWidth: 1 },
-    infoText: { flex: 1, fontFamily: "DMSans_400Regular", fontSize: 12, lineHeight: 18 },
-    card: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
     divider: { height: StyleSheet.hairlineWidth, marginHorizontal: 16 },
     changeBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
     changeBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 13 },

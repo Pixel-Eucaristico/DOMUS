@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   PanResponder,
@@ -14,6 +13,7 @@ import { URGENCY_ORDER } from "@packages/wishlist";
 import type { WishlistItem, UrgencyLevel } from "@packages/wishlist";
 import type { AccountPayload } from "@packages/events";
 import { WishlistItemRow } from "./WishlistItemRow";
+import { TText } from "@/src/components/tamagui";
 
 const URGENCY_LABELS: Record<UrgencyLevel, string> = {
   PRIORITY: "Prioridade",
@@ -121,7 +121,6 @@ export function DraggableWishlistList({
     [],
   );
 
-  /** Calcula os IDs visíveis com base no scroll e nos layouts dos itens */
   const computeVisibleIds = useCallback(() => {
     const cb = onVisibleItemIdsRef.current;
     if (!cb) return;
@@ -347,32 +346,35 @@ export function DraggableWishlistList({
                 size={15}
                 color={urgencyColor}
               />
-              <Text style={[styles.sectionTitle, { color: urgencyColor }]}>
+              <TText
+                variant="label"
+                bold
+                color={urgencyColor}
+                fontSize={13}
+                textTransform="uppercase"
+                letterSpacing={0.6}
+                flex={1}
+              >
                 {URGENCY_LABELS[urgency]}
-              </Text>
+              </TText>
               <View
                 style={[
                   styles.countBadge,
                   { backgroundColor: urgencyColor + "20" },
                 ]}
               >
-                <Text style={[styles.countText, { color: urgencyColor }]}>
+                <TText variant="caption" bold color={urgencyColor} fontSize={11}>
                   {sectionItems.length}
-                </Text>
+                </TText>
               </View>
             </View>
 
             {/* Items */}
             {sectionItems.length === 0 ? (
               <View style={styles.emptySection}>
-                <Text
-                  style={[
-                    styles.emptySectionText,
-                    { color: theme.secondaryText },
-                  ]}
-                >
+                <TText variant="caption" color={theme.secondaryText}>
                   Nenhum item. Arraste aqui ou adicione.
-                </Text>
+                </TText>
               </View>
             ) : (
               sectionItems.map((item, idx) => {
@@ -459,21 +461,10 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderRadius: 4,
   },
-  sectionTitle: {
-    fontSize: 13,
-    fontFamily: "DMSans_700Bold",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    flex: 1,
-  },
   countBadge: {
     borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 2,
-  },
-  countText: {
-    fontSize: 11,
-    fontFamily: "DMSans_700Bold",
   },
   emptySection: {
     marginHorizontal: 16,
@@ -484,10 +475,6 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
     borderColor: "#E5E7EB",
     alignItems: "center",
-  },
-  emptySectionText: {
-    fontSize: 12,
-    fontFamily: "DMSans_400Regular",
   },
   dropIndicator: {
     height: 2,

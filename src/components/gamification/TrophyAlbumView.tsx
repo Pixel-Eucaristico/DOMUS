@@ -10,6 +10,7 @@ import {
 } from "@packages/gamification/src/seasonalTrophies";
 import { ALL_LITURGICAL_TROPHIES } from "@packages/gamification/src/liturgicalTrophies";
 import { soundManager } from "@/src/services/SoundManager";
+import { TText } from "@/src/components/tamagui";
 
 const ABBR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -52,7 +53,16 @@ export function TrophyAlbumView({
   return (
     <View style={s.albumSection}>
       <View style={s.albumHeader}>
-        <Text style={[s.albumTitle, { color: theme.secondaryText }]}>Álbum {viewingYear}</Text>
+        <TText
+          bold
+          fontSize={10}
+          letterSpacing={1}
+          textTransform="uppercase"
+          color={theme.secondaryText}
+          opacity={0.6}
+        >
+          Álbum {viewingYear}
+        </TText>
 
         {availableYears.length > 1 && (
           <View style={[s.yearSelector, { backgroundColor: theme.primaryColor + "12" }]}>
@@ -69,14 +79,13 @@ export function TrophyAlbumView({
                   viewingYear === year && { backgroundColor: theme.primaryColor + "22" },
                 ]}
               >
-                <Text
-                  style={[
-                    s.yearButtonText,
-                    { color: viewingYear === year ? theme.primaryColor : theme.secondaryText },
-                  ]}
+                <TText
+                  bold
+                  fontSize={10}
+                  color={viewingYear === year ? theme.primaryColor : theme.secondaryText}
                 >
                   {year}
-                </Text>
+                </TText>
               </TouchableOpacity>
             ))}
           </View>
@@ -142,7 +151,7 @@ export function TrophyAlbumView({
                 },
               ]}
             >
-              <View style={[s.albumTrophyWrapper, !isComp && ({ opacity: 0.35 } as any)]}>
+              <View style={[s.albumTrophyWrapper, !isComp && { opacity: 0.35 }]}>
                 {sel && t ? (
                   <AnimatedSeasonalTrophy
                     icon={t.icon}
@@ -158,20 +167,19 @@ export function TrophyAlbumView({
                   </Text>
                 )}
               </View>
-              <Text
-                style={[
-                  s.albumMonthLabel,
-                  {
-                    color: isComp
-                      ? (tc ?? theme.secondaryText)
-                      : isCurrent
-                        ? theme.textColor
-                        : theme.secondaryText,
-                  },
-                ]}
+              <TText
+                bold
+                fontSize={9}
+                color={
+                  isComp
+                    ? (tc ?? theme.secondaryText)
+                    : isCurrent
+                      ? theme.textColor
+                      : theme.secondaryText
+                }
               >
                 {abbr}
-              </Text>
+              </TText>
               {isComp && tc && <View style={[s.albumTierDot, { backgroundColor: tc }]} />}
               {!isComp && sel && (
                 <View style={s.lockedBadge}>
@@ -194,13 +202,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 4,
   },
-  albumTitle: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 10,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    opacity: 0.6,
-  },
   yearSelector: {
     flexDirection: "row",
     gap: 4,
@@ -211,10 +212,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-  },
-  yearButtonText: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 10,
   },
   albumGrid: {
     flexDirection: "row",
@@ -237,10 +234,6 @@ const s = StyleSheet.create({
     height: 40,
     justifyContent: "center",
     alignItems: "center",
-  },
-  albumMonthLabel: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 9,
   },
   albumTierDot: {
     position: "absolute",

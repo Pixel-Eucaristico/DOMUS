@@ -2,6 +2,8 @@ import type { AdapterMessage, AdapterOptions, AdapterResult } from "../types";
 import type { AIProviderAdapter } from "./AIProviderAdapter";
 import { fetchWithTimeout, assertOk } from "./AIProviderAdapter";
 
+export type OpenAIVoiceId = "alloy" | "ash" | "ballad" | "coral" | "echo" | "fable" | "nova" | "onyx" | "sage" | "shimmer" | "verse" | "marin" | "cedar";
+
 interface OpenAIResponse {
   choices: Array<{
     message: { content: string };
@@ -16,6 +18,31 @@ interface OpenAIResponse {
 
 export class OpenAIAdapter implements AIProviderAdapter {
   readonly provider = "openai";
+
+  /** Transcreve áudio via Whisper. audioUri = caminho local do arquivo .m4a */
+  async transcribeAudio(audioUri: string, apiKey: string): Promise<string> {
+    const formData = new FormData();
+    formData.append("file", {
+      uri: audioUri,
+      type: "audio/m4a",
+      name: "recording.m4a",
+    } as unknown as Blob);
+    formData.append("model", "gpt-4o-mini-transcribe");
+    formData.append("language", "pt");
+
+    const response = await fetchWithTimeout(
+      "https://api.openai.com/v1/audio/transcriptions",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: formData,
+      },
+      30_000,
+    );
+    await assertOk(response, "OpenAI Whisper");
+    const json = (await response.json()) as { text: string };
+    return json.text ?? "";
+  }
 
   async complete(
     messages: AdapterMessage[],
@@ -32,12 +59,27 @@ export class OpenAIAdapter implements AIProviderAdapter {
         },
         body: JSON.stringify({
           model: options.model,
-          messages: messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          temperature: options.temperature ?? 0.2,
-          max_tokens: options.maxTokens ?? 512,
+          messages: messages.map((m) => {
+            // Vision: if message has imageBase64, build multimodal content array
+            if (m.imageBase64) {
+              return {
+                role: m.role,
+                content: [
+                  { type: "text" as const, text: m.content },
+                  {
+                    type: "image_url" as const,
+                    image_url: {
+                      url: `data:${m.imageMimeType || "image/jpeg"};base64,${m.imageBase64}`,
+                    },
+                  },
+                ],
+              };
+            }
+            return { role: m.role, content: m.content };
+          }),
+          // o-series and reasoning models don't support temperature; gpt-5.x may also reject it
+          ...(/^(o[0-9]|gpt-5)/.test(options.model ?? "") ? {} : { temperature: Number(options.temperature ?? 0.2) }),
+          max_completion_tokens: options.maxTokens ?? 4096,
         }),
       },
     );

@@ -84,12 +84,14 @@ export function QRScannerModal({ visible, onClose, onScanned, theme }: QRScanner
           </View>
         ) : (
           <View style={s.scannerCameraWrap}>
+            {visible && (
             <CameraView
               style={StyleSheet.absoluteFillObject}
               facing="back"
               barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
               onBarcodeScanned={handleBarCodeScanned}
             />
+            )}
             <View style={s.scannerOverlay}>
               <View style={s.scannerFrameOuter}>
                 <View style={s.scannerFrame}>

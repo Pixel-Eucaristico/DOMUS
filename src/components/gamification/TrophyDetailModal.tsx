@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable, TouchableOpacity, Modal } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { TCard } from "@/src/components/tamagui";
 import { AnimatedSeasonalTrophy } from "./AnimatedSeasonalTrophy";
 import { getSeasonalXp } from "@packages/gamification/src/seasonalTrophies";
 import { soundManager } from "@/src/services/SoundManager";
@@ -12,9 +13,10 @@ interface TrophyDetailModalProps {
   selection: AlbumTrophySelection | null;
   onClose: () => void;
   theme: any;
+  completionCount?: number;
 }
 
-export function TrophyDetailModal({ selection, onClose, theme }: TrophyDetailModalProps) {
+export function TrophyDetailModal({ selection, onClose, theme, completionCount }: TrophyDetailModalProps) {
   if (!selection) return null;
 
   const { trophy, tier, tierColor, tierLabel, isCompleted, isLiturgical } = selection;
@@ -22,7 +24,7 @@ export function TrophyDetailModal({ selection, onClose, theme }: TrophyDetailMod
   return (
     <Modal visible={!!selection} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.modalOverlay} onPress={onClose}>
-        <Pressable style={[s.trophyDetailModal, { backgroundColor: theme.cardBackground }]} onPress={() => {}}>
+        <TCard borderRadius={28} padding={24} gap={16} width="100%" maxWidth={360} borderWidth={0} backgroundColor={theme.cardBackground} borderColor={theme.border} onPress={() => {}}>
           <LinearGradient
             colors={[tierColor + "20", "transparent"]}
             style={[StyleSheet.absoluteFill, { borderRadius: 28 }]}
@@ -50,7 +52,16 @@ export function TrophyDetailModal({ selection, onClose, theme }: TrophyDetailMod
           </View>
 
           <View style={s.modalContent}>
-            <Text style={[s.modalTrophyName, { color: theme.textColor }]}>{trophy?.name}</Text>
+            <View style={s.trophyNameRow}>
+              <Text style={[s.modalTrophyName, { color: theme.textColor }]}>{trophy?.name}</Text>
+              {(completionCount ?? 0) > 1 && (
+                <View style={[s.completionCountBadge, { backgroundColor: theme.primaryColor + "20" }]}>
+                  <Text style={[s.completionCountText, { color: theme.primaryColor }]}>
+                    ×{completionCount}
+                  </Text>
+                </View>
+              )}
+            </View>
             <Text style={[s.modalEventSummary, { color: theme.secondaryText }]}>
               {trophy?.eventSummary}
             </Text>
@@ -82,7 +93,7 @@ export function TrophyDetailModal({ selection, onClose, theme }: TrophyDetailMod
               )}
             </View>
           </View>
-        </Pressable>
+        </TCard>
       </Pressable>
     </Modal>
   );
@@ -95,13 +106,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-  },
-  trophyDetailModal: {
-    width: "100%",
-    maxWidth: 360,
-    borderRadius: 28,
-    padding: 24,
-    gap: 16,
   },
   modalHeader: {
     flexDirection: "row",
@@ -134,6 +138,21 @@ const s = StyleSheet.create({
   },
   modalContent: {
     gap: 12,
+  },
+  trophyNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  completionCountBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  completionCountText: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 14,
   },
   modalTrophyName: {
     fontFamily: "DMSans_700Bold",

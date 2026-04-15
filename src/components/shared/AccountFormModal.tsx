@@ -3,7 +3,6 @@ import {
   StyleSheet,
   View,
   Text,
-  TextInput,
   Pressable,
   ScrollView,
   Switch,
@@ -11,8 +10,8 @@ import {
   Alert,
   Modal,
   Animated,
-  KeyboardAvoidingView,
 } from "react-native";
+import { KeyboardSafeView } from "@/src/components/shared/KeyboardSafeView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -21,6 +20,7 @@ import { createEvent } from "@packages/events/src/factory";
 import { EVENT_TYPES } from "@packages/events/src/types";
 import type { TransactionUpdatedEvent } from "@packages/events/src/types";
 import { soundManager } from "@/src/services/SoundManager";
+import { TButton, TInput } from "@/src/components/tamagui";
 import { formatCurrency } from "@/src/utils/formatCurrency";
 import type { AccountPayload, AccountType } from "@packages/events/src/types";
 import { ACCOUNT_TYPES } from "@/src/components/shared/AccountCard";
@@ -55,6 +55,7 @@ export function AccountFormModal({
   const [savingsGoalEnabled, setSavingsGoalEnabled] = useState(false);
   const [savingsContribution, setSavingsContribution] = useState("");
   const [savingsRecurrence, setSavingsRecurrence] = useState<"monthly" | "biweekly" | "weekly">("monthly");
+  const [contributionDay, setContributionDay] = useState("1");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [transferAccountId, setTransferAccountId] = useState<string | null>(null);
 
@@ -73,6 +74,7 @@ export function AccountFormModal({
         setSavingsGoalEnabled(editingAccount.savingsGoalEnabled ?? false);
         setSavingsContribution(editingAccount.savingsContributionAmount?.toString() ?? "");
         setSavingsRecurrence(editingAccount.contributionRecurrence ?? "monthly");
+        setContributionDay(editingAccount.contributionDay?.toString() ?? "1");
       } else {
         setName("");
         setBalance("");
@@ -83,6 +85,7 @@ export function AccountFormModal({
         setSavingsGoalEnabled(false);
         setSavingsContribution("");
         setSavingsRecurrence("monthly");
+        setContributionDay("1");
       }
       Animated.parallel([
         Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
@@ -133,6 +136,10 @@ export function AccountFormModal({
       accType === "savings" && savingsGoalEnabled
         ? parseFloat(savingsContribution.replace(",", ".")) || undefined
         : undefined;
+    const contributionDayNum =
+      accType === "savings" && savingsGoalEnabled && savingsRecurrence === "monthly"
+        ? Math.min(Math.max(parseInt(contributionDay, 10) || 1, 1), 28)
+        : undefined;
 
     if (editingAccount) {
       const event = updateAccountEvent(editingAccount.id, {
@@ -145,6 +152,7 @@ export function AccountFormModal({
         savingsGoalEnabled: accType === "savings" ? savingsGoalEnabled : undefined,
         savingsContributionAmount: contributionNum,
         contributionRecurrence: accType === "savings" && savingsGoalEnabled ? savingsRecurrence : undefined,
+        contributionDay: contributionDayNum,
       });
       dispatchDomainEvent(event);
     } else {
@@ -158,6 +166,7 @@ export function AccountFormModal({
         savingsGoalEnabled: accType === "savings" ? savingsGoalEnabled : undefined,
         savingsContributionAmount: contributionNum,
         contributionRecurrence: accType === "savings" && savingsGoalEnabled ? savingsRecurrence : undefined,
+        contributionDay: contributionDayNum,
       });
       dispatchDomainEvent(event);
     }
@@ -224,10 +233,8 @@ export function AccountFormModal({
           />
         </Animated.View>
 
-        <KeyboardAvoidingView
+        <KeyboardSafeView
           style={s.modalRoot}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          pointerEvents="box-none"
         >
           <View style={s.flex} pointerEvents="none" />
           <Animated.View
@@ -259,12 +266,13 @@ export function AccountFormModal({
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Nome</Text>
-              <TextInput
-                style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+              <TInput
                 value={name}
                 onChangeText={setName}
                 placeholder="Ex: Nubank"
-                placeholderTextColor={theme.secondaryText}
+                color={theme.textColor}
+                backgroundColor={theme.cardBackground}
+                borderColor={theme.border}
               />
 
               <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Tipo</Text>
@@ -295,43 +303,47 @@ export function AccountFormModal({
               {accType !== "credit_card" ? (
                 <>
                   <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Saldo inicial (R$)</Text>
-                  <TextInput
-                    style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                  <TInput
                     value={balance}
                     onChangeText={setBalance}
                     placeholder="0,00"
-                    placeholderTextColor={theme.secondaryText}
                     keyboardType="decimal-pad"
+                    color={theme.textColor}
+                    backgroundColor={theme.cardBackground}
+                    borderColor={theme.border}
                   />
                 </>
               ) : (
                 <>
                   <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Limite do cartão (R$)</Text>
-                  <TextInput
-                    style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                  <TInput
                     value={creditLimit}
                     onChangeText={setCreditLimit}
                     placeholder="5000,00"
-                    placeholderTextColor={theme.secondaryText}
                     keyboardType="decimal-pad"
+                    color={theme.textColor}
+                    backgroundColor={theme.cardBackground}
+                    borderColor={theme.border}
                   />
                   <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Dia de fechamento (ex: 10)</Text>
-                  <TextInput
-                    style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                  <TInput
                     value={closingDay}
                     onChangeText={setClosingDay}
                     placeholder="10"
-                    placeholderTextColor={theme.secondaryText}
                     keyboardType="number-pad"
+                    color={theme.textColor}
+                    backgroundColor={theme.cardBackground}
+                    borderColor={theme.border}
                   />
                   <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Dia de vencimento (ex: 15)</Text>
-                  <TextInput
-                    style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                  <TInput
                     value={dueDay}
                     onChangeText={setDueDay}
                     placeholder="15"
-                    placeholderTextColor={theme.secondaryText}
                     keyboardType="number-pad"
+                    color={theme.textColor}
+                    backgroundColor={theme.cardBackground}
+                    borderColor={theme.border}
                   />
                 </>
               )}
@@ -345,29 +357,40 @@ export function AccountFormModal({
                   onRecurrenceChange={setSavingsRecurrence}
                   savingsContribution={savingsContribution}
                   onContributionChange={setSavingsContribution}
+                  contributionDay={contributionDay}
+                  onContributionDayChange={setContributionDay}
                   editingAccountId={editingAccount?.id ?? null}
                   linkedWishlistItems={linkedWishlistItems}
                   editingAccountBalance={editingAccount?.balance ?? 0}
                 />
               )}
 
-              <Pressable style={[s.createBtn, { backgroundColor: theme.primaryColor }]} onPress={handleSaveAccount}>
-                <Feather name="check" size={18} color="#FFF" />
-                <Text style={s.createBtnText}>{editingAccount ? "Salvar" : "Criar conta"}</Text>
-              </Pressable>
+              <View style={{ marginTop: 16, marginBottom: 8 }}>
+                <TButton
+                  variant="primary"
+                  backgroundColor={theme.primaryColor}
+                  icon={<Feather name="check" size={18} color="#FFF" />}
+                  onPress={handleSaveAccount}
+                >
+                  {editingAccount ? "Salvar" : "Criar conta"}
+                </TButton>
+              </View>
 
               {editingAccount && (
-                <Pressable
-                  style={s.deleteBtn}
-                  onPress={() => {
-                    soundManager.play("tap");
-                    setTransferAccountId(null);
-                    setShowDeleteConfirm(true);
-                  }}
-                >
-                  <Feather name="trash-2" size={15} color="#DC2626" />
-                  <Text style={s.deleteBtnText}>Excluir conta</Text>
-                </Pressable>
+                <View style={{ marginBottom: 8 }}>
+                  <TButton
+                    variant="danger"
+                    backgroundColor={theme.danger ?? "#DC2626"}
+                    icon={<Feather name="trash-2" size={15} color="#FFF" />}
+                    onPress={() => {
+                      soundManager.play("tap");
+                      setTransferAccountId(null);
+                      setShowDeleteConfirm(true);
+                    }}
+                  >
+                    Excluir conta
+                  </TButton>
+                </View>
               )}
             </ScrollView>
 
@@ -437,29 +460,30 @@ export function AccountFormModal({
                   )}
 
                   <View style={s.deleteActions}>
-                    <Pressable
-                      style={[s.deleteCancelBtn, { borderColor: theme.border }]}
+                    <TButton
+                      variant="outline"
+                      flex={1}
+                      borderColor={theme.border}
+                      color={theme.textColor}
                       onPress={() => { soundManager.play("tap"); setShowDeleteConfirm(false); }}
                     >
-                      <Text style={{ color: theme.textColor, fontFamily: "DMSans_600SemiBold", fontSize: 14 }}>
-                        Cancelar
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      style={s.deleteConfirmBtn}
+                      Cancelar
+                    </TButton>
+                    <TButton
+                      variant="danger"
+                      flex={1}
+                      backgroundColor={theme.danger ?? "#DC2626"}
+                      icon={<Feather name="trash-2" size={14} color="#FFF" />}
                       onPress={handleDeleteAccount}
                     >
-                      <Feather name="trash-2" size={14} color="#FFF" />
-                      <Text style={{ color: "#FFF", fontFamily: "DMSans_700Bold", fontSize: 14 }}>
-                        {transferAccountId ? "Transferir e excluir" : "Excluir"}
-                      </Text>
-                    </Pressable>
+                      {transferAccountId ? "Transferir e excluir" : "Excluir"}
+                    </TButton>
                   </View>
                 </View>
               </View>
             </Modal>
           </Animated.View>
-        </KeyboardAvoidingView>
+        </KeyboardSafeView>
       </View>
     </Modal>
   );
@@ -475,6 +499,8 @@ function SavingsGoalSection({
   onRecurrenceChange,
   savingsContribution,
   onContributionChange,
+  contributionDay,
+  onContributionDayChange,
   editingAccountId,
   linkedWishlistItems,
   editingAccountBalance,
@@ -486,6 +512,8 @@ function SavingsGoalSection({
   onRecurrenceChange: (r: "monthly" | "biweekly" | "weekly") => void;
   savingsContribution: string;
   onContributionChange: (v: string) => void;
+  contributionDay: string;
+  onContributionDayChange: (v: string) => void;
   editingAccountId: string | null;
   linkedWishlistItems: any[];
   editingAccountBalance: number;
@@ -551,20 +579,42 @@ function SavingsGoalSection({
                 ? "Aporte quinzenal (R$)"
                 : "Aporte mensal (R$)"}
           </Text>
-          <TextInput
-            style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+          <TInput
             value={savingsContribution}
             onChangeText={onContributionChange}
             placeholder="0,00"
-            placeholderTextColor={theme.secondaryText}
             keyboardType="decimal-pad"
+            color={theme.textColor}
+            backgroundColor={theme.cardBackground}
+            borderColor={theme.border}
           />
+          {savingsRecurrence === "monthly" && (
+            <>
+              <Text style={[s.fieldLabel, { color: theme.secondaryText, marginTop: 10 }]}>
+                Dia do aporte (1-28)
+              </Text>
+              <TInput
+                width={80}
+                value={contributionDay}
+                onChangeText={(v) => {
+                  const num = v.replace(/[^0-9]/g, "");
+                  onContributionDayChange(num);
+                }}
+                placeholder="1"
+                keyboardType="number-pad"
+                maxLength={2}
+                color={theme.textColor}
+                backgroundColor={theme.cardBackground}
+                borderColor={theme.border}
+              />
+            </>
+          )}
           <Text style={[s.goalNote, { color: theme.secondaryText }]}>
             {savingsRecurrence === "weekly"
               ? "Um aporte pendente será gerado toda semana e efetivado quando você transferir o valor."
               : savingsRecurrence === "biweekly"
                 ? "Um aporte pendente será gerado a cada quinzena e efetivado quando você transferir o valor."
-                : "Um aporte pendente será gerado todo mês e efetivado quando você transferir o valor."}
+                : `Um aporte pendente será gerado no dia ${contributionDay || "1"} de cada mês e efetivado quando você transferir o valor.`}
           </Text>
 
           {editingAccountId && linkedWishlistItems.length > 0 && (
@@ -636,7 +686,6 @@ const s = StyleSheet.create({
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   modalTitle: { fontFamily: "DMSans_700Bold", fontSize: 20 },
   fieldLabel: { fontFamily: "DMSans_500Medium", fontSize: 13, marginTop: 8, marginBottom: 2 },
-  input: { fontFamily: "DMSans_400Regular", fontSize: 16, borderBottomWidth: 1, paddingVertical: 10, marginBottom: 4 },
   typePicker: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4, marginTop: 4 },
   typeChip: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1.5 },
   typeChipText: { fontFamily: "DMSans_600SemiBold", fontSize: 13 },
@@ -658,10 +707,6 @@ const s = StyleSheet.create({
   progressTrack: { height: 6, borderRadius: 3, overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 3 },
   linkedDetail: { fontFamily: "DMSans_400Regular", fontSize: 10 },
-  createBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 14, marginTop: 16, marginBottom: 8 },
-  createBtnText: { fontFamily: "DMSans_700Bold", fontSize: 16, color: "#FFF" },
-  deleteBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: "#DC262640", backgroundColor: "#DC262608", marginBottom: 8 },
-  deleteBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 14, color: "#DC2626" },
   deleteOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center", padding: 20 },
   deleteCard: { borderRadius: 20, padding: 24, width: "100%", maxWidth: 420, gap: 12 },
   deleteTitle: { fontFamily: "DMSans_700Bold", fontSize: 18, textAlign: "center" },
@@ -670,6 +715,4 @@ const s = StyleSheet.create({
   deleteAccountScroll: { marginBottom: 4 },
   deleteAccountChip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 20, borderWidth: 1.5, paddingHorizontal: 10, paddingVertical: 7, marginRight: 6 },
   deleteActions: { flexDirection: "row", gap: 10, marginTop: 4 },
-  deleteCancelBtn: { flex: 1, borderWidth: 1.5, borderRadius: 12, paddingVertical: 13, alignItems: "center" },
-  deleteConfirmBtn: { flex: 1, backgroundColor: "#DC2626", borderRadius: 12, paddingVertical: 13, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 },
 });

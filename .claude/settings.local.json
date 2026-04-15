@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git clone:*)"
+      "Bash(git clone:*)",
+      "Bash(node -e \"const d=require\\(''./app.json''\\); const a=d.expo; console.log\\(''icon:'', a.icon\\); console.log\\(''android.icon:'', a.android?.icon\\); console.log\\(''android.adaptiveIcon:'', JSON.stringify\\(a.android?.adaptiveIcon,null,2\\)\\);\")"
     ]
+  },
+  "remote": {
+    "defaultEnvironmentId": "env_011cmnFNUUqhJ9fxGrHiUbEf"
   }
 }

@@ -44,6 +44,10 @@ function currentWeek(): [string, string] {
   return [fmt(monday), fmt(sunday)];
 }
 
+/**
+ * Verifica se já existe aporte (pendente OU confirmado) no período atual.
+ * Antes só verificava "pending" — ao confirmar, o app gerava duplicata.
+ */
 function alreadyScheduledInPeriod(
   transactions: ReturnType<typeof Object.values>,
   accountId: string,
@@ -54,13 +58,15 @@ function alreadyScheduledInPeriod(
     if (
       tx.accountId !== accountId ||
       tx.type !== "income" ||
-      tx.status !== "pending" ||
       !tx.description?.startsWith(descPrefix)
     )
       return false;
 
+    // Aceita tanto pending quanto confirmed (fix: evita duplicata após confirmar)
+    if (tx.status !== "pending" && tx.status !== "confirmed") return false;
+
     if (recurrence === "monthly") {
-      return tx.date.startsWith(currentMonthPrefix());
+      return tx.date?.startsWith(currentMonthPrefix());
     }
     if (recurrence === "biweekly") {
       const [start, end] = currentFortnight();
@@ -72,6 +78,25 @@ function alreadyScheduledInPeriod(
   });
 }
 
+/** Formata data como "YYYY-MM-DD". */
+function fmtDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Para recorrência mensal, calcula a data do aporte no mês atual
+ * usando o contributionDay configurado (padrão: dia 1).
+ * Se o dia é maior que o último dia do mês (ex: 31 em fev), usa o último dia.
+ */
+function monthlyContributionDate(contributionDay: number): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
+  const lastDay = new Date(y, m, 0).getDate();
+  const day = Math.min(contributionDay, lastDay);
+  return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -80,9 +105,11 @@ function alreadyScheduledInPeriod(
  * cria uma transação de receita pendente caso ainda não exista no período atual.
  *
  * Respeita a `contributionRecurrence` da conta:
- *   - "monthly"  (padrão): 1 por mês
+ *   - "monthly"  (padrão): 1 por mês, no dia configurado (contributionDay)
  *   - "biweekly": 1 por quinzena
  *   - "weekly":   1 por semana
+ *
+ * Para mensal: só gera se hoje >= contributionDay do mês.
  */
 export function useSavingsGoalScheduler() {
   const { domain, dispatchDomainEvent, deviceId, loading } = useAppState();
@@ -95,7 +122,7 @@ export function useSavingsGoalScheduler() {
 
     const did = deviceId ?? "local";
     const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const todayStr = fmtDate(today);
 
     const txList = Object.values(domain.transactions);
 
@@ -109,10 +136,22 @@ export function useSavingsGoalScheduler() {
       const recurrence = acc.contributionRecurrence ?? "monthly";
       const descPrefix = "Aporte poupança:";
 
+      // Para mensal: só gerar se hoje >= dia configurado do aporte
+      if (recurrence === "monthly") {
+        const contribDay = acc.contributionDay ?? 1;
+        if (today.getDate() < contribDay) continue;
+      }
+
       if (alreadyScheduledInPeriod(txList, acc.id, recurrence, descPrefix)) continue;
 
       const recurrenceLabel =
         recurrence === "weekly" ? "semanal" : recurrence === "biweekly" ? "quinzenal" : "mensal";
+
+      // Para mensal, usa o dia configurado como data da transação
+      let txDate = todayStr;
+      if (recurrence === "monthly") {
+        txDate = monthlyContributionDate(acc.contributionDay ?? 1);
+      }
 
       const txEvent = createEvent<TransactionCreatedEvent>(
         EVENT_TYPES.TRANSACTION_CREATED,
@@ -122,7 +161,7 @@ export function useSavingsGoalScheduler() {
           type: "income",
           amount,
           categoryId: "outros",
-          date: todayStr,
+          date: txDate,
           description: `Aporte poupança: ${acc.name} (${recurrenceLabel})`,
           status: "pending",
         },

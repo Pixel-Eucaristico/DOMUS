@@ -2,12 +2,17 @@ import { useState, useEffect } from "react";
 import {
   InvoiceItem,
   InvoiceImportedPayload,
-  createKeywordClassifier,
-  classifyByNcm,
-  classifyByNcmWithSiscomex,
+  classifyItemFull,
 } from "@packages/parsers";
+import type { ClassifyItemOptions } from "@packages/parsers";
+import type { CategoryGroup } from "@packages/events/src/types";
 
-export type EditableItem = InvoiceItem & { _id: string; categoryId: string };
+export type EditableItem = InvoiceItem & {
+  _id: string;
+  categoryId: string;
+  subcategoryId?: string;
+  groupOverride?: CategoryGroup;
+};
 
 export interface UseEditableItemsResult {
   editableItems: EditableItem[];
@@ -37,6 +42,7 @@ export interface UseEditableItemsResult {
 
 export function useEditableItems(
   importedData: InvoiceImportedPayload | null,
+  classifyOptions?: ClassifyItemOptions,
 ): UseEditableItemsResult {
   const [editableItems, setEditableItems] = useState<EditableItem[]>([]);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
@@ -57,18 +63,20 @@ export function useEditableItems(
     const [y, m, d] = iso.split("-");
     setInvoiceDateDisplay(`${d}/${m}/${y}`);
 
-    const classifier = createKeywordClassifier();
     Promise.all(
       importedData.items.map(async (item, i) => {
-        // Prioridade: NCM via SISCOMEX → NCM estático → keyword
-        const ncmResult = item.ncm
-          ? await classifyByNcmWithSiscomex(item.ncm).catch(() => classifyByNcm(item.ncm ?? "") ?? null)
-          : null;
-        const result =
-          ncmResult && ncmResult.confidence >= 0.8
-            ? ncmResult
-            : await classifier.classify(item.description);
-        return { ...item, _id: String(i), categoryId: result.categoryId };
+        // Pipeline completo: NCM → EAN → IA → keyword
+        const result = await classifyItemFull(
+          { name: item.description, ncm: item.ncm, ean: item.ean },
+          classifyOptions ?? {},
+        );
+        return {
+          ...item,
+          _id: String(i),
+          categoryId: result.categoryId,
+          subcategoryId: result.subcategoryId,
+          groupOverride: result.allowGroupOverride ? undefined : undefined,
+        };
       }),
     ).then(setEditableItems);
   }, [importedData]);
@@ -80,7 +88,7 @@ export function useEditableItems(
     if (editingIdx === idx) setEditingIdx(null);
   };
 
-  const handleEditField = (idx: number, field: keyof InvoiceItem | "categoryId", value: string) => {
+  const handleEditField = (idx: number, field: keyof InvoiceItem | "categoryId" | "subcategoryId" | "groupOverride", value: string) => {
     setEditableItems((prev) =>
       prev.map((item, i) => {
         if (i !== idx) return item;
@@ -103,6 +111,10 @@ export function useEditableItems(
           updated.ncm = value.replace(/\D/g, "").substring(0, 8) || undefined;
         } else if (field === "categoryId") {
           (updated as EditableItem).categoryId = value;
+        } else if (field === "subcategoryId") {
+          (updated as EditableItem).subcategoryId = value || undefined;
+        } else if (field === "groupOverride") {
+          (updated as EditableItem).groupOverride = value as CategoryGroup;
         }
         return updated;
       }),

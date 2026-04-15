@@ -2,8 +2,7 @@ import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { AnimatedTrophy } from "@/src/components/gamification/AnimatedTrophy";
-import { AnimatedSeasonalTrophy } from "@/src/components/gamification/AnimatedSeasonalTrophy";
+import { LottieTrophy } from "@/src/components/gamification/LottieTrophy";
 import { AnimatedCard } from "@/src/components/shared/AnimatedCard";
 import type { AchievementRarity } from "@packages/gamification/src/achievements";
 import { soundManager } from "@/src/services/SoundManager";
@@ -32,7 +31,7 @@ export function GamificationWidget({
 
   return (
     <AnimatedCard index={1}>
-      <View style={[s.gamificationWidget, { marginHorizontal: 0, width: "100%" }]}>
+      <View style={[s.gamificationWidget, { marginHorizontal: 0, width: "100%", backgroundColor: theme.primaryColor + '08', borderColor: theme.primaryColor + '18' }]}>
         <View style={s.widgetHeader}>
           <View style={s.widgetTitleRow}>
             <MaterialCommunityIcons name="shield-star" size={18} color={theme.primaryColor} />
@@ -45,17 +44,18 @@ export function GamificationWidget({
 
         <View style={s.widgetContent}>
           <Pressable
-            style={[s.trophyPreview, { backgroundColor: theme.primaryColor + '08' }]}
+            style={[s.trophyPreview, { backgroundColor: theme.primaryColor + '08', borderColor: theme.primaryColor + '18' }]}
             onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
           >
             {currentTrophy ? (
               <>
-                <AnimatedSeasonalTrophy
+                <LottieTrophy
+                  trophyId={currentTrophy.id}
+                  type="seasonal"
                   icon={currentTrophy.icon}
-                  id={currentTrophy.id}
                   size={60}
                   color={theme.primaryColor}
-                  isStatic={true}
+                  isStatic
                 />
                 <Text style={[s.trophyLabel, { color: theme.secondaryText }]}>Troféu do Mês</Text>
               </>
@@ -81,7 +81,7 @@ export function GamificationWidget({
                         entering={FadeIn.delay(idx * 150)}
                         style={[s.miniTrophy, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
                       >
-                        <AnimatedTrophy rarity={ach.rarity} size={22} spinning={false} />
+                        <LottieTrophy trophyId={ach.id} type="achievement" rarity={ach.rarity} size={22} isStatic />
                       </Animated.View>
                       <Text style={{ fontSize: 8, color: theme.secondaryText, width: 42, textAlign: 'center' }} numberOfLines={1}>
                         {fullAch?.name || '---'}
@@ -115,9 +115,7 @@ const s = StyleSheet.create({
     borderRadius: 24,
     padding: 16,
     marginHorizontal: 16,
-    backgroundColor: 'rgba(124, 58, 237, 0.03)',
     borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.1)',
   },
   widgetHeader: {
     flexDirection: 'row',
@@ -136,7 +134,6 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.1)',
   },
   trophyLabel: { fontFamily: 'DMSans_700Bold', fontSize: 10, marginTop: -4 },
   levelCircle: {

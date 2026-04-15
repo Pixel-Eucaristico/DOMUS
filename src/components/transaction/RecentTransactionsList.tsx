@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { soundManager } from "@/src/services/SoundManager";
@@ -9,6 +9,8 @@ import Animated, { SlideInRight, Layout } from "react-native-reanimated";
 import { useResponsive } from "@/src/ui/layout/useResponsive";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { Platform } from "react-native";
+import { TText } from "@/src/components/tamagui";
+import { TCard } from "@/src/components/tamagui";
 
 interface RecentTransactionsListProps {
   recentTxs: any[];
@@ -24,134 +26,125 @@ export function RecentTransactionsList({ recentTxs, txCount, categories, theme }
 
   return (
     <Pressable
-      style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }]}
       onPress={() => {
         soundManager.play("tap");
         router.push("/transactions");
       }}
     >
-      <View style={s.cardHeader}>
-        <Text style={[s.cardTitle, { color: theme.textColor }]}>
-          Últimas transações
-        </Text>
-        <Text style={[s.txCount, { color: theme.secondaryText }]}>
-          {txCount} total
-        </Text>
-      </View>
-      {recentTxs.length > 0 ? (
-        <View style={s.txList}>
-          {recentTxs.map((tx, idx) => {
-            const cat = categories[tx.categoryId];
-            const isExpense = tx.type === "expense";
-            
-            // Reanimated Spring/Slide causes transform matrix on web, trapping the Z-Index below the tour Fume.
-            // On web Tour mode, we degrade to normal React Native View cleanly matching the structure.
-            const Wrapper = Platform.OS === "web" && isDemoActive ? View : Animated.View;
-            const animatedProps = Platform.OS === "web" && isDemoActive 
-              ? {} 
-              : { 
-                  entering: SlideInRight.delay(idx * 50).springify().damping(20),
-                  layout: Layout.springify()
-                };
+      <TCard
+        elevated
+        backgroundColor={theme.cardBackground}
+        marginHorizontal={0}
+        width="100%"
+        borderRadius={20}
+        padding={20}
+      >
+        <View style={s.cardHeader}>
+          <TText variant="subtitle" color={theme.textColor} marginBottom={12}>
+            Ultimas transacoes
+          </TText>
+          <TText variant="caption" color={theme.secondaryText}>
+            {txCount} total
+          </TText>
+        </View>
+        {recentTxs.length > 0 ? (
+          <View style={s.txList}>
+            {recentTxs.map((tx, idx) => {
+              const cat = categories[tx.categoryId];
+              const isExpense = tx.type === "expense";
 
-            return (
-              <Wrapper
-                key={tx.id}
-                {...animatedProps}
-              >
-                <Pressable
-                  style={({ pressed }) => [
-                    s.txRow,
-                    { borderBottomColor: theme.border, opacity: pressed ? 0.7 : 1 }
-                  ]}
-                  onPress={() => {
-                    soundManager.play("tap");
-                    router.push({ pathname: "/add-transaction", params: { txId: tx.id } });
-                  }}
+              const Wrapper = Platform.OS === "web" && isDemoActive ? View : Animated.View;
+              const animatedProps = Platform.OS === "web" && isDemoActive
+                ? {}
+                : {
+                    entering: SlideInRight.delay(idx * 50).springify().damping(20),
+                    layout: Layout.springify()
+                  };
+
+              return (
+                <Wrapper
+                  key={tx.id}
+                  {...animatedProps}
                 >
-                  <View
-                    style={[
-                      s.txIcon,
-                      {
-                        backgroundColor: isExpense
-                          ? `${theme.danger}15`
-                          : `${theme.success}15`,
-                      },
+                  <Pressable
+                    style={({ pressed }) => [
+                      s.txRow,
+                      { borderBottomColor: theme.border, opacity: pressed ? 0.7 : 1 }
                     ]}
+                    onPress={() => {
+                      soundManager.play("tap");
+                      router.push({ pathname: "/add-transaction", params: { txId: tx.id } });
+                    }}
                   >
-                    <Feather
-                      name={isExpense ? "arrow-down-left" : "arrow-up-right"}
-                      size={16}
-                      color={isExpense ? theme.danger : theme.success}
-                    />
-                  </View>
-                  <View style={s.txInfo}>
-                    <View style={s.txDescRow}>
-                      <Text style={[s.txDesc, { color: theme.textColor }]}>
-                        {tx.description || cat?.name || tx.type}
-                      </Text>
-                      {tx.installmentInfo && (
-                        <InstallmentBadge
-                          current={tx.installmentInfo.current}
-                          total={tx.installmentInfo.total}
-                          theme={theme}
-                        />
-                      )}
-                      {tx.status === "pending" && (
-                        <View style={s.pendingBadge}>
-                          <Text style={s.pendingBadgeText}>Pendente</Text>
-                        </View>
-                      )}
+                    <View
+                      style={[
+                        s.txIcon,
+                        {
+                          backgroundColor: isExpense
+                            ? `${theme.danger}15`
+                            : `${theme.success}15`,
+                        },
+                      ]}
+                    >
+                      <Feather
+                        name={isExpense ? "arrow-down-left" : "arrow-up-right"}
+                        size={16}
+                        color={isExpense ? theme.danger : theme.success}
+                      />
                     </View>
-                    <Text style={[s.txDate, { color: theme.secondaryText }]}>
-                      {tx.date}
-                    </Text>
-                  </View>
-                  <Text
-                    style={[
-                      s.txAmount,
-                      { color: isExpense ? theme.danger : theme.success },
-                    ]}
-                  >
-                    {isExpense ? "-" : "+"}
-                    {formatCurrency(tx.amount)}
-                  </Text>
-                </Pressable>
-              </Wrapper>
-            );
-          })}
-        </View>
-      ) : (
-        <View style={s.emptyState}>
-          <Feather name="inbox" size={28} color={theme.secondaryText} />
-          <Text style={[s.emptyText, { color: theme.secondaryText }]}>
-            Nenhuma transação ainda
-          </Text>
-        </View>
-      )}
+                    <View style={s.txInfo}>
+                      <View style={s.txDescRow}>
+                        <TText variant="body" fontWeight="500" color={theme.textColor}>
+                          {tx.description || cat?.name || tx.type}
+                        </TText>
+                        {tx.installmentInfo && (
+                          <InstallmentBadge
+                            current={tx.installmentInfo.current}
+                            total={tx.installmentInfo.total}
+                            theme={theme}
+                          />
+                        )}
+                        {tx.status === "pending" && (
+                          <View style={s.pendingBadge}>
+                            <TText variant="caption" fontWeight="500" color="#D97706" fontSize={10}>
+                              Pendente
+                            </TText>
+                          </View>
+                        )}
+                      </View>
+                      <TText variant="caption" color={theme.secondaryText} marginTop={2}>
+                        {tx.date}
+                      </TText>
+                    </View>
+                    <TText variant="body" fontWeight="600" color={isExpense ? theme.danger : theme.success}>
+                      {isExpense ? "-" : "+"}
+                      {formatCurrency(tx.amount)}
+                    </TText>
+                  </Pressable>
+                </Wrapper>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={s.emptyState}>
+            <Feather name="inbox" size={28} color={theme.secondaryText} />
+            <TText variant="body" color={theme.secondaryText} textAlign="center">
+              Nenhuma transacao ainda
+            </TText>
+          </View>
+        )}
+      </TCard>
     </Pressable>
   );
 }
 
 const s = StyleSheet.create({
-  card: {
-    borderRadius: 20,
-    padding: 20,
-    marginHorizontal: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 12,
   },
-  cardTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 16, marginBottom: 12 },
-  txCount: { fontFamily: "DMSans_400Regular", fontSize: 12 },
   txList: { gap: 0 },
   txRow: {
     flexDirection: "row",
@@ -169,16 +162,11 @@ const s = StyleSheet.create({
   },
   txInfo: { flex: 1 },
   txDescRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  txDesc: { fontFamily: "DMSans_500Medium", fontSize: 14 },
-  txDate: { fontFamily: "DMSans_400Regular", fontSize: 12, marginTop: 2 },
-  txAmount: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
   pendingBadge: {
     backgroundColor: "#FEF3C7",
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  pendingBadgeText: { fontFamily: "DMSans_500Medium", fontSize: 10, color: "#D97706" },
   emptyState: { alignItems: "center", paddingVertical: 24, gap: 8 },
-  emptyText: { fontFamily: "DMSans_400Regular", fontSize: 14, textAlign: "center" as const },
 });

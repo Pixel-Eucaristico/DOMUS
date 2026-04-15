@@ -63,12 +63,16 @@ export interface AccountPayload {
   savingsContributionAmount?: number;
   /** Periodicidade do aporte: "monthly" (padrão) | "biweekly" | "weekly" */
   contributionRecurrence?: "monthly" | "biweekly" | "weekly";
+  /** Dia do mês para gerar o aporte mensal (1-28). Padrão: 1 */
+  contributionDay?: number;
 }
 
 export interface TransactionItem {
   description: string;
   amount: number;
   categoryId: string;
+  subcategoryId?: string;          // subcategoria NCM granular
+  groupOverride?: CategoryGroup;   // override do grupo padrão (needs/wants/savings)
   ean?: string;
   ncm?: string;
 }

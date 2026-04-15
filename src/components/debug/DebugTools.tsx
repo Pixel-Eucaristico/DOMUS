@@ -5,20 +5,21 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  FlatList,
   Modal,
   TextInput,
   Platform,
   Pressable,
 } from "react-native";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { ALL_SEASONAL_TROPHIES, getTierColor } from "@packages/gamification/src/seasonalTrophies";
 import { ALL_LITURGICAL_TROPHIES } from "@packages/gamification/src/liturgicalTrophies";
 import { ALL_ACHIEVEMENTS, MONTHLY_TROPHIES } from "@packages/gamification/src/achievements";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { FlashList } from "@shopify/flash-list";
 import type { ArchetypeType } from "@packages/personality/src/types";
 import { getArchetypeDescription } from "@packages/personality/src/archetypeEngine";
-import { AnimatedTrophy } from "@/src/components/gamification/AnimatedTrophy";
+import { LottieTrophy } from "@/src/components/gamification/LottieTrophy";
 import { AnimatedSeasonalTrophy } from "@/src/components/gamification/AnimatedSeasonalTrophy";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -40,9 +41,11 @@ export function DebugTools() {
   const [debugTier, setDebugTier] = useState<number>(1);
   const [selectedTrophy, setSelectedTrophy] = useState<any>(null);
   
-  const { 
-    theme, 
-    debugArchetype, 
+  const { restartWithCarousel, startDemo } = useDemoMode();
+
+  const {
+    theme,
+    debugArchetype,
     setDebugArchetype, 
     setIsCatholic,
     setPendingToast,
@@ -120,7 +123,7 @@ export function DebugTools() {
         />
       );
     }
-    return <AnimatedTrophy rarity={t.rarity || "gold"} size={size * 0.9} spinning={!isStatic} />;
+    return <LottieTrophy trophyId={t.id} type="achievement" rarity={t.rarity || "gold"} size={size * 0.9} isStatic={isStatic} />;
   };
 
   return (
@@ -192,15 +195,11 @@ export function DebugTools() {
                 <Text style={{ fontSize: 11, color: theme.secondaryText, marginBottom: 8 }}>
                   {filteredTrophies.length} troféus encontrados
                 </Text>
-                <FlatList
+                <FlashList
                   data={filteredTrophies}
                   keyExtractor={(item, idx) => `${item.id}-${item._debugType}-${idx}`}
-                  initialNumToRender={15}
-                  maxToRenderPerBatch={10}
-                  windowSize={5}
-                  getItemLayout={(_data, index) => ({ length: 72, offset: 72 * index, index })}
+                  estimatedItemSize={72}
                   renderItem={renderTrophyRow}
-                  style={{ flex: 1 }}
                   keyboardShouldPersistTaps="handled"
                 />
               </View>
@@ -293,8 +292,24 @@ export function DebugTools() {
               {activeTab === "triggers" && (
                 <View style={st.section}>
                   <Text style={[st.sectionTitle, { color: theme.textColor }]}>UI Triggers</Text>
-                  
-                  <TouchableOpacity 
+
+                  <TouchableOpacity
+                    style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                    onPress={() => { startDemo(); setVisible(false); }}
+                  >
+                    <Text style={{ color: theme.textColor, fontWeight: '500' }}>Iniciar Tour (sem carrossel)</Text>
+                    <Feather name="play" size={20} color={theme.primaryColor} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                    onPress={() => { restartWithCarousel(); setVisible(false); }}
+                  >
+                    <Text style={{ color: theme.textColor, fontWeight: '500' }}>Iniciar Tour com Carrossel</Text>
+                    <Feather name="play-circle" size={20} color={theme.primaryColor} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
                     style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
                     onPress={() => setIsCatholic(null as any)}
                   >

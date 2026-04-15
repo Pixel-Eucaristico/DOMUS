@@ -31,7 +31,7 @@ export interface SeasonalTrophy {
 // ─── Domain Helpers (used by trophy data check/progress functions) ────────────
 
 export function txsInMonth(domain: AppState, monthKey: string) {
-  return Object.values(domain.transactions).filter(tx => tx.date.startsWith(monthKey));
+  return Object.values(domain.transactions).filter(tx => tx.date?.startsWith(monthKey));
 }
 
 export function incomeInMonth(domain: AppState, monthKey: string) {

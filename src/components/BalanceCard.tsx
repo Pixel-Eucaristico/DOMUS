@@ -1,8 +1,9 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { colors, spacing } from "@/src/theme";
+import { TText } from "@/src/components/tamagui";
 
 interface BalanceCardProps {
   balance: number;
@@ -19,27 +20,33 @@ export function BalanceCard({ balance }: BalanceCardProps) {
       colors={[colors.primary, colors.primaryLight]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={styles.container}
+      style={s.container}
     >
-      <View style={styles.header}>
-        <View style={styles.labelRow}>
+      <View style={s.header}>
+        <View style={s.labelRow}>
           <Feather name="dollar-sign" size={16} color="rgba(255,255,255,0.7)" />
-          <Text style={styles.label}>Saldo total</Text>
+          <TText variant="body" fontWeight="500" color="rgba(255,255,255,0.7)">
+            Saldo total
+          </TText>
         </View>
         <Feather name="eye" size={18} color="rgba(255,255,255,0.6)" />
       </View>
-      <Text style={styles.balance}>{formatted}</Text>
-      <View style={styles.footer}>
-        <View style={styles.changeRow}>
+      <TText fontWeight="700" fontSize={36} color="#FFFFFF" marginBottom={spacing.md}>
+        {formatted}
+      </TText>
+      <View style={s.footer}>
+        <View style={s.changeRow}>
           <Feather name="trending-up" size={14} color={colors.secondaryLight} />
-          <Text style={styles.changeText}>+2,4% este mes</Text>
+          <TText variant="caption" fontWeight="500" color={colors.secondaryLight}>
+            +2,4% este mes
+          </TText>
         </View>
       </View>
     </LinearGradient>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: {
     borderRadius: 20,
     padding: spacing.lg,
@@ -61,17 +68,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  label: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 14,
-    color: "rgba(255,255,255,0.7)",
-  },
-  balance: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 36,
-    color: "#FFFFFF",
-    marginBottom: spacing.md,
-  },
   footer: {
     flexDirection: "row",
     alignItems: "center",
@@ -84,10 +80,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-  },
-  changeText: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 12,
-    color: colors.secondaryLight,
   },
 });

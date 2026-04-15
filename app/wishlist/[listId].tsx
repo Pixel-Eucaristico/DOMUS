@@ -1,11 +1,10 @@
-import React, { useState, useMemo, useCallback, useRef } from "react";
+import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Alert,
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -13,6 +12,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
+import { ConfirmDeleteModal } from "@/src/components/shared/ConfirmDeleteModal";
 import { useWishlist } from "@/src/hooks/useWishlist";
 import { usePriceRefresh } from "@/src/hooks/usePriceRefresh";
 import { createEvent, generateId } from "@packages/events/src/factory";
@@ -26,7 +26,7 @@ import { ConvertToExpenseModal } from "@/src/components/wishlist/ConvertToExpens
 import type { WishlistItem, UrgencyLevel } from "@packages/wishlist";
 
 export default function WishlistDetailScreen() {
-  const { listId } = useLocalSearchParams<{ listId: string }>();
+  const { listId, addItem: addItemParam } = useLocalSearchParams<{ listId: string; addItem?: string }>();
   const router = useRouter();
   const { theme, domain, budget, dispatchDomainEvent, deviceId } = useAppState();
   const did = deviceId ?? "local";
@@ -40,9 +40,17 @@ export default function WishlistDetailScreen() {
     changePriority,
     convertToExpense,
     computeAffordability,
+    deleteList,
   } = useWishlist();
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [removingItem, setRemovingItem] = useState<WishlistItem | null>(null);
+
+  // Auto-open add modal when navigated with ?addItem=1
+  useEffect(() => {
+    if (addItemParam === "1") setShowAddModal(true);
+  }, [addItemParam]);
   const [editItem, setEditItem] = useState<WishlistItem | null>(null);
   const [convertItem, setConvertItem] = useState<WishlistItem | null>(null);
 
@@ -50,20 +58,25 @@ export default function WishlistDetailScreen() {
   const rawItems = getItemsByList(listId ?? "");
   const accounts = Object.values(domain.accounts ?? {});
 
-  // Affordability computation from domain budget
-  const monthlyIncome = budget.totalIncome ?? 0;
-  const totalExpenses = Object.values(domain.transactions)
-    .filter((t) => {
-      const now = new Date();
-      const d = new Date(t.date);
-      return (
-        t.type === "expense" &&
-        d.getMonth() === now.getMonth() &&
-        d.getFullYear() === now.getFullYear() &&
-        (!t.status || t.status === "confirmed")
-      );
-    })
-    .reduce((sum, t) => sum + t.amount, 0);
+  // Affordability: renda - gastos (só efetivados, excluindo contas poupança)
+  const savingsAccountIds = useMemo(
+    () => new Set(Object.values(domain.accounts).filter((a) => a.type === "savings").map((a) => a.id)),
+    [domain.accounts],
+  );
+  const { monthlyIncome, totalExpenses } = useMemo(() => {
+    const now = new Date();
+    const prefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    let income = 0;
+    let expenses = 0;
+    for (const tx of Object.values(domain.transactions)) {
+      if (tx.status !== "confirmed") continue;          // só efetivados
+      if (!tx.date?.startsWith(prefix)) continue;       // só mês atual
+      if (savingsAccountIds.has(tx.accountId)) continue; // ignora poupança
+      if (tx.type === "income") income += tx.amount;
+      else if (tx.type === "expense") expenses += tx.amount;
+    }
+    return { monthlyIncome: income, totalExpenses: expenses };
+  }, [domain.transactions, savingsAccountIds]);
 
   const affordabilityInput = useMemo(
     () => ({
@@ -130,23 +143,11 @@ export default function WishlistDetailScreen() {
 
   const handleRemove = useCallback(
     (item: WishlistItem) => {
-      soundManager.play("trash");
       if (Platform.OS === "web") {
         const ok = window.confirm(`Remover "${item.name}" da lista?`);
         if (ok) removeItem(item.id, item.listId);
       } else {
-        Alert.alert(
-          "Remover item",
-          `Remover "${item.name}" da lista?`,
-          [
-            { text: "Cancelar", style: "cancel" },
-            {
-              text: "Remover",
-              style: "destructive",
-              onPress: () => removeItem(item.id, item.listId),
-            },
-          ],
-        );
+        setRemovingItem(item);
       }
     },
     [removeItem],
@@ -247,6 +248,13 @@ export default function WishlistDetailScreen() {
           {list.name}
         </Text>
         <TouchableOpacity
+          onPress={() => setShowDeleteConfirm(true)}
+          style={styles.deleteBtn}
+          activeOpacity={0.7}
+        >
+          <Feather name="trash-2" size={18} color={theme.danger ?? "#DC2626"} />
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.addBtn, { backgroundColor: theme.primaryColor }]}
           onPress={() => { soundManager.play("pop"); setShowAddModal(true); }}
           activeOpacity={0.7}
@@ -300,6 +308,23 @@ export default function WishlistDetailScreen() {
         onConfirm={handleConvertConfirm}
         onCancel={() => setConvertItem(null)}
       />
+      <ConfirmDeleteModal
+        visible={showDeleteConfirm}
+        title="Excluir lista"
+        description={`Tem certeza que deseja excluir "${list.name}" e todos os seus itens? Esta ação não pode ser desfeita.`}
+        onConfirm={() => { setShowDeleteConfirm(false); deleteList(list.id); router.back(); }}
+        onCancel={() => setShowDeleteConfirm(false)}
+        theme={theme}
+      />
+      <ConfirmDeleteModal
+        visible={!!removingItem}
+        title="Remover item"
+        description={`Remover "${removingItem?.name ?? ""}" da lista?`}
+        confirmLabel="Remover"
+        onConfirm={() => { if (removingItem) removeItem(removingItem.id, removingItem.listId); setRemovingItem(null); }}
+        onCancel={() => setRemovingItem(null)}
+        theme={theme}
+      />
     </SafeAreaView>
   );
 }
@@ -318,6 +343,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 20,
     fontFamily: "DMSans_700Bold",
+  },
+  deleteBtn: {
+    padding: 8,
   },
   addBtn: {
     width: 38,

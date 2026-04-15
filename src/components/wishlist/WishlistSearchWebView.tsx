@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   Modal,
   TouchableOpacity,
@@ -13,8 +12,9 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
 import { AFFILIATE_CONFIG } from "@packages/wishlist";
+import { TText } from "@/src/components/tamagui";
 
-/** Detecta se a URL é uma página de produto (Amazon ou Mercado Livre). */
+/** Detecta se a URL e uma pagina de produto (Amazon ou Mercado Livre). */
 function isProductUrl(url: string): boolean {
   if (!url) return false;
   if (url.includes("amazon.com.br") || url.includes("amazon.com")) {
@@ -36,7 +36,7 @@ function withAmazonAffiliate(url: string): string {
       return parsed.toString();
     }
   } catch {
-    // URL inválida
+    // URL invalida
   }
   return url;
 }
@@ -61,10 +61,8 @@ export function WishlistSearchWebView({
   const [isProduct, setIsProduct] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // No web, não renderizar nada — a busca abre em nova aba
   if (Platform.OS === "web") return null;
 
-  // Lazy require para evitar crash no web
   const WebView = require("react-native-webview").default;
 
   const handleNavigationStateChange = useCallback((state: any) => {
@@ -92,22 +90,22 @@ export function WishlistSearchWebView({
       onRequestClose={onAbort}
       onShow={handleModalShow}
     >
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <SafeAreaView style={[s.container, { backgroundColor: theme.background }]}>
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: theme.border ?? "#E5E7EB" }]}>
-          <TouchableOpacity onPress={onAbort} style={styles.closeBtn} activeOpacity={0.7}>
+        <View style={[s.header, { borderBottomColor: theme.border ?? "#E5E7EB" }]}>
+          <TouchableOpacity onPress={onAbort} style={s.closeBtn} activeOpacity={0.7}>
             <Feather name="arrow-left" size={22} color={theme.textColor} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.secondaryText }]} numberOfLines={1}>
+          <TText variant="label" color={theme.secondaryText} textAlign="center" flex={1} numberOfLines={1}>
             {isProduct ? "Produto encontrado — toque abaixo para adicionar" : "Pesquisar produto"}
-          </Text>
-          <TouchableOpacity onPress={onAbort} style={styles.abortBtn} activeOpacity={0.7}>
-            <Text style={[styles.abortText, { color: theme.primaryColor }]}>Cancelar</Text>
+          </TText>
+          <TouchableOpacity onPress={onAbort} style={s.abortBtn} activeOpacity={0.7}>
+            <TText variant="body" fontWeight="600" color={theme.primaryColor}>Cancelar</TText>
           </TouchableOpacity>
         </View>
 
         {/* WebView */}
-        <View style={styles.webviewContainer}>
+        <View style={s.webviewContainer}>
           <WebView
             source={{ uri: initialUrl }}
             onNavigationStateChange={handleNavigationStateChange}
@@ -119,28 +117,30 @@ export function WishlistSearchWebView({
             }}
             originWhitelist={["*"]}
             setSupportMultipleWindows={false}
-            style={styles.webview}
+            style={s.webview}
             javaScriptEnabled
             domStorageEnabled
           />
 
           {loading && (
-            <View style={[styles.loadingOverlay, { backgroundColor: theme.background + "99" }]}>
+            <View style={[s.loadingOverlay, { backgroundColor: theme.background + "99" }]}>
               <ActivityIndicator size="large" color={theme.primaryColor} />
             </View>
           )}
         </View>
 
-        {/* Barra flutuante — aparece apenas quando está em página de produto */}
+        {/* Barra flutuante */}
         {isProduct && (
-          <View style={[styles.floatingBar, { paddingBottom: insets.bottom + 8, backgroundColor: theme.background, borderTopColor: theme.border }]}>
+          <View style={[s.floatingBar, { paddingBottom: insets.bottom + 8, backgroundColor: theme.background, borderTopColor: theme.border }]}>
             <TouchableOpacity
-              style={[styles.addProductBtn, { backgroundColor: theme.primaryColor }]}
+              style={[s.addProductBtn, { backgroundColor: theme.primaryColor }]}
               onPress={handleAddProduct}
               activeOpacity={0.8}
             >
               <Feather name="plus-circle" size={18} color="#fff" />
-              <Text style={styles.addProductBtnText}>Adicionar à lista de desejos</Text>
+              <TText variant="body" fontWeight="600" color="#fff" fontSize={15}>
+                Adicionar a lista de desejos
+              </TText>
             </TouchableOpacity>
           </View>
         )}
@@ -149,16 +149,14 @@ export function WishlistSearchWebView({
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: { flex: 1 },
   header: {
     flexDirection: "row", alignItems: "center",
     paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, gap: 8,
   },
   closeBtn: { padding: 4 },
-  headerTitle: { flex: 1, fontSize: 13, fontFamily: "DMSans_500Medium", textAlign: "center" },
   abortBtn: { padding: 4 },
-  abortText: { fontSize: 14, fontFamily: "DMSans_600SemiBold" },
   webviewContainer: { flex: 1 },
   webview: { flex: 1 },
   loadingOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: "center", alignItems: "center" },
@@ -167,5 +165,4 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     gap: 8, height: 52, borderRadius: 14,
   },
-  addProductBtnText: { fontSize: 15, fontFamily: "DMSans_600SemiBold", color: "#fff" },
 });

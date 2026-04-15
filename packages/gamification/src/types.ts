@@ -159,4 +159,5 @@ export interface GamificationState {
   completedMonthlyTrophies: CompletedMonthlyTrophy[];
   selectedSeasonalTrophies: SelectedSeasonalTrophy[];
   completedSeasonalTrophies: CompletedSeasonalTrophy[];
+  completionCounts: Record<string, number>;
 }

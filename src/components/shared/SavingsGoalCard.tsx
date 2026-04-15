@@ -1,10 +1,11 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { soundManager } from "@/src/services/SoundManager";
 import { formatCurrency } from "@/src/utils/formatCurrency";
 import { useResponsive } from "@/src/ui/layout/useResponsive";
+import { TCard } from "@/src/components/tamagui";
 
 interface SavingsGoalCardProps {
   savingsGoalAccounts: any[];
@@ -19,12 +20,16 @@ export function SavingsGoalCard({ savingsGoalAccounts, savingsContributed, theme
   if (savingsGoalAccounts.length === 0) return null;
 
   return (
-    <Pressable
-      style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }]}
+    <TCard
+      elevated
+      backgroundColor={theme.cardBackground}
+      borderColor={theme.border}
       onPress={() => {
         soundManager.play("tap");
         router.push("/(tabs)/accounts");
       }}
+      pressStyle={{ opacity: 0.8 }}
+      style={{ borderRadius: 20, padding: 20, marginHorizontal: 0, width: "100%" }}
     >
       <View style={s.cardHeader}>
         <View style={s.titleRow}>
@@ -58,21 +63,11 @@ export function SavingsGoalCard({ savingsGoalAccounts, savingsContributed, theme
           </View>
         );
       })}
-    </Pressable>
+    </TCard>
   );
 }
 
 const s = StyleSheet.create({
-  card: {
-    borderRadius: 20,
-    padding: 20,
-    marginHorizontal: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",

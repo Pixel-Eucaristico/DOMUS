@@ -1,0 +1,19 @@
+{
+  "ignore_dirs": [
+    ".cache/typescript",
+    ".git",
+    "node_modules/react-native/ReactAndroid",
+    "node_modules/react-native/ReactCommon",
+    "node_modules/firebase",
+    "node_modules/@firebase",
+    "node_modules/react-native-vision-camera/android",
+    "node_modules/react-native-vision-camera/ios",
+    "node_modules/rn-mlkit-ocr/android",
+    "node_modules/rn-mlkit-ocr/ios",
+    "node_modules/@react-native-google-signin/google-signin/android",
+    "node_modules/@react-native-google-signin/google-signin/ios",
+    "node_modules/@react-native-firebase",
+    "node_modules/react-native-google-mobile-ads/android",
+    "node_modules/react-native-google-mobile-ads/ios"
+  ]
+}

@@ -1,12 +1,15 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { CloudVisionConfig, OCRProvider } from "@packages/parsers";
+import type { AIProvider } from "@packages/ai";
 
 const OCR_CONFIG_KEY = "@domus:ocr_config";
 
 export interface OCRConfig {
-  preferredProvider: OCRProvider;
+  preferredProvider: OCRProvider | "vision_ai";
   cloudVisionApiKey?: string;
   cloudVisionEndpoint?: string;
+  /** When using vision_ai, which AI provider to use for OCR */
+  visionAIProvider?: AIProvider;
 }
 
 const DEFAULT_CONFIG: OCRConfig = {

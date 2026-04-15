@@ -166,6 +166,18 @@ export function wishlistReducer(
       };
     }
 
+    case WISHLIST_EVENTS.WISHLIST_LIST_DELETED: {
+      const { listId } = event.payload;
+      if (!state.lists[listId]) return state;
+      const { [listId]: _removedList, ...remainingLists } = state.lists;
+      // Remove all items belonging to this list
+      const remainingItems: typeof state.items = {};
+      for (const [id, item] of Object.entries(state.items)) {
+        if (item.listId !== listId) remainingItems[id] = item;
+      }
+      return { lists: remainingLists, items: remainingItems };
+    }
+
     default:
       return state;
   }

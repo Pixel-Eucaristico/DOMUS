@@ -1,20 +1,53 @@
 import type { ClassificationResult, ClassifierAdapter } from "../types";
 import { KEYWORD_MAP, NCM_MAP, normalizeText } from "./keywordMap";
+import { findSubcategoryByNcm, NCM_SUBCATEGORIES, SUBCATEGORY_HINTS } from "./ncmCategories";
+import { lookupByEAN } from "./eanLookup";
+
+// ─── Validation constants (shared across classifiers) ────────────────────────
+
+const VALID_GROUPS = ["needs", "wants", "savings"] as const;
+const VALID_CATEGORIES = [
+  "alimentacao", "higiene", "limpeza", "saude", "moradia", "transporte",
+  "vestuario", "lazer", "compras", "restaurantes", "educacao", "outros",
+] as const;
+
+// ─── Extended result with subcategory ────────────────────────────────────────
+
+export interface ExtendedClassificationResult extends ClassificationResult {
+  subcategoryId?: string;
+  allowGroupOverride?: boolean;
+}
+
+// ─── Classify by NCM code ────────────────────────────────────────────────────
 
 /**
  * Classify by NCM code (Nomenclatura Comum do Mercosul — 8 digits).
- * Returns null if the NCM is not recognised.
+ * Now also returns subcategoryId when a match is found in ncmCategories.
  */
-export function classifyByNcm(ncm: string): ClassificationResult | null {
+export function classifyByNcm(ncm: string): ExtendedClassificationResult | null {
   const digits = ncm.replace(/\D/g, "");
   if (!digits) return null;
 
-  // Check from most-specific (8 digits) down to 2 digits
+  // Try subcategory lookup first (more granular)
+  const sub = findSubcategoryByNcm(digits);
+  if (sub) {
+    return {
+      categoryId: sub.parentId,
+      categoryGroup: sub.group,
+      subcategoryId: sub.id,
+      allowGroupOverride: sub.allowGroupOverride,
+      confidence: 0.9,
+      method: "keyword",
+    };
+  }
+
+  // Fallback to legacy NCM_MAP
   for (const entry of NCM_MAP) {
     if (digits.startsWith(entry.prefix)) {
       return {
         categoryId: entry.categoryId,
         categoryGroup: entry.group,
+        subcategoryId: entry.subcategoryId,
         confidence: 0.85,
         method: "keyword",
       };
@@ -23,16 +56,42 @@ export function classifyByNcm(ncm: string): ClassificationResult | null {
   return null;
 }
 
-export function classifyByKeyword(itemName: string): ClassificationResult {
+// ─── Classify by keyword ─────────────────────────────────────────────────────
+
+/**
+ * Infer a subcategory from category + item name by matching against NCM_SUBCATEGORIES keywords.
+ */
+function inferSubcategory(categoryId: string, itemName: string): string | undefined {
+  const lower = normalizeText(itemName);
+  const subs = NCM_SUBCATEGORIES.filter((s) => s.parentId === categoryId);
+  if (subs.length === 0) return undefined;
+
+  for (const sub of subs) {
+    const hints = SUBCATEGORY_HINTS[sub.id];
+    if (!hints) continue;
+    for (const hint of hints) {
+      if (lower.includes(normalizeText(hint))) {
+        return sub.id;
+      }
+    }
+  }
+
+  // Default: return first subcategory of the parent
+  return subs[0]?.id;
+}
+
+export function classifyByKeyword(itemName: string): ExtendedClassificationResult {
   const lower = itemName.toLowerCase().trim();
   const normalized = normalizeText(itemName);
 
   for (const [keyword, category] of Object.entries(KEYWORD_MAP)) {
     const normalizedKeyword = normalizeText(keyword);
     if (lower.includes(keyword) || normalized.includes(normalizedKeyword)) {
+      const subId = inferSubcategory(category.categoryId, itemName);
       return {
         categoryId: category.categoryId,
         categoryGroup: category.group,
+        subcategoryId: subId,
         confidence: 0.7,
         method: "keyword",
       };
@@ -90,11 +149,10 @@ function getSiscomexDescription(ncm8: string, data: SiscomexEntry[]): string {
   const descs: string[] = [];
   for (const entry of data) {
     const code = entry.Codigo.replace(/\D/g, ""); // "33.07" → "3307"
-    // Include chapter (2 digits), heading (4 digits), subheading (6 digits), item (8 digits)
     if (code.length <= 8 && ncm8.startsWith(code)) {
       const clean = entry.Descricao
         .replace(/<[^>]+>/g, "")   // strip HTML tags
-        .replace(/^[-–\s]+/, "")   // strip leading dashes (SISCOMEX hierarchy markers)
+        .replace(/^[-–\s]+/, "")   // strip leading dashes
         .trim();
       if (clean) descs.push(clean);
     }
@@ -104,16 +162,16 @@ function getSiscomexDescription(ncm8: string, data: SiscomexEntry[]): string {
 
 /**
  * Classify an invoice NCM code using:
- * 1. Static prefix map (instant, no network)
+ * 1. Subcategory map + static prefix map (instant, no network)
  * 2. SISCOMEX description + keyword map (network, cached per session)
  */
-export async function classifyByNcmWithSiscomex(ncm: string): Promise<ClassificationResult> {
+export async function classifyByNcmWithSiscomex(ncm: string): Promise<ExtendedClassificationResult> {
   const digits = ncm.replace(/\D/g, "").substring(0, 8);
   if (!digits) {
     return { categoryId: "outros", categoryGroup: "wants", confidence: 0.3, method: "keyword" };
   }
 
-  // Fast path — static prefix map
+  // Fast path — subcategory + static prefix map
   const staticResult = classifyByNcm(digits);
   if (staticResult) return staticResult;
 
@@ -132,7 +190,36 @@ export async function classifyByNcmWithSiscomex(ncm: string): Promise<Classifica
   return { categoryId: "outros", categoryGroup: "wants", confidence: 0.3, method: "keyword" };
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
+// ─── EAN-based classification ────────────────────────────────────────────────
+
+/**
+ * Classify by EAN/GTIN barcode:
+ * 1. Lookup product info via external APIs (Open Food Facts, Cosmos)
+ * 2. If NCM is returned, classify by NCM
+ * 3. Otherwise classify by product name via keyword
+ */
+async function classifyByEan(ean: string): Promise<ExtendedClassificationResult | null> {
+  const result = await lookupByEAN(ean);
+  if (!result) return null;
+
+  // If the API returned an NCM, use NCM classification
+  if (result.ncm) {
+    const ncmResult = await classifyByNcmWithSiscomex(result.ncm);
+    if (ncmResult.confidence >= 0.7) return ncmResult;
+  }
+
+  // Otherwise try classifying by product name
+  if (result.name) {
+    const keyResult = classifyByKeyword(result.name);
+    if (keyResult.confidence >= 0.7) {
+      return { ...keyResult, confidence: 0.75 };
+    }
+  }
+
+  return null;
+}
+
+// ─── Gemini AI classifier ────────────────────────────────────────────────────
 
 export interface GeminiConfig {
   apiKey: string;
@@ -150,10 +237,18 @@ export function createGeminiClassifier(config: GeminiConfig): ClassifierAdapter 
 - higiene (grupo: needs) - produtos de higiene pessoal
 - limpeza (grupo: needs) - produtos de limpeza
 - saude (grupo: needs) - remedios e saude
+- moradia (grupo: needs) - material de construcao, moveis
+- transporte (grupo: needs) - combustiveis, pecas automotivas
+- vestuario (grupo: wants) - roupas, calcados, acessorios
 - lazer (grupo: wants) - bebidas, doces, snacks, entretenimento
-- vestuario (grupo: wants) - roupas e acessorios
+- compras (grupo: wants) - eletronicos, informatica, produtos gerais
+- restaurantes (grupo: wants) - refeicoes fora de casa
 - educacao (grupo: savings) - livros, cursos
 - outros (grupo: wants) - nao classificado
+
+Se o item for um alimento que pode ser considerado tanto necessidade quanto desejo
+(ex: chocolate, refrigerante, sorvete), classifique como "lazer" (wants).
+Alimentos basicos (arroz, feijao, carne) classifique como "alimentacao" (needs).
 
 Item: "${itemName}"
 
@@ -196,17 +291,11 @@ Responda APENAS no formato JSON:
           categoryGroup?: string;
         };
 
-        const validGroups = ["needs", "wants", "savings"];
-        const validCategories = [
-          "alimentacao", "higiene", "limpeza", "saude",
-          "lazer", "vestuario", "educacao", "outros",
-        ];
-
         if (
           parsed.categoryId &&
-          validCategories.includes(parsed.categoryId) &&
+          (VALID_CATEGORIES as readonly string[]).includes(parsed.categoryId) &&
           parsed.categoryGroup &&
-          validGroups.includes(parsed.categoryGroup)
+          (VALID_GROUPS as readonly string[]).includes(parsed.categoryGroup)
         ) {
           return {
             categoryId: parsed.categoryId,
@@ -223,6 +312,8 @@ Responda APENAS no formato JSON:
     },
   };
 }
+
+// ─── Hybrid classifier (keyword + AI) ───────────────────────────────────────
 
 export function createHybridClassifier(geminiApiKey?: string): ClassifierAdapter {
   const keywordClassifier = createKeywordClassifier();
@@ -245,4 +336,192 @@ export function createHybridClassifier(geminiApiKey?: string): ClassifierAdapter
       return keywordResult;
     },
   };
+}
+
+// ─── Multi-provider AI classifier factory ────────────────────────────────────
+
+const CLASSIFY_PROMPT = `Classifique este item de nota fiscal brasileira em uma das categorias:
+- alimentacao (grupo: needs) - alimentos basicos e essenciais
+- higiene (grupo: needs) - produtos de higiene pessoal
+- limpeza (grupo: needs) - produtos de limpeza
+- saude (grupo: needs) - remedios e saude
+- moradia (grupo: needs) - material de construcao, moveis
+- transporte (grupo: needs) - combustiveis, pecas automotivas
+- vestuario (grupo: wants) - roupas, calcados, acessorios
+- lazer (grupo: wants) - bebidas, doces, snacks, entretenimento, energeticos
+- compras (grupo: wants) - eletronicos, informatica, produtos gerais
+- restaurantes (grupo: wants) - refeicoes fora de casa
+- educacao (grupo: savings) - livros, cursos
+- outros (grupo: wants) - nao classificado
+
+Item: "ITEM_NAME"
+
+Responda APENAS no formato JSON: {"categoryId": "...", "categoryGroup": "needs|wants|savings"}`;
+
+const PROVIDER_ENDPOINTS: Record<string, string> = {
+  gemini: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+  openai: "https://api.openai.com/v1/chat/completions",
+  claude: "https://api.anthropic.com/v1/messages",
+  deepseek: "https://api.deepseek.com/chat/completions",
+  qwen: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+};
+
+function createAIClassifierForProvider(provider: string, apiKey: string): ClassifierAdapter {
+  if (provider === "gemini") {
+    return createGeminiClassifier({ apiKey });
+  }
+
+  // OpenAI-compatible providers (openai, deepseek, qwen)
+  const endpoint = PROVIDER_ENDPOINTS[provider] ?? PROVIDER_ENDPOINTS.openai!;
+  const isAnthropic = provider === "claude";
+
+  return {
+    async classify(itemName: string): Promise<ClassificationResult> {
+      try {
+        const prompt = CLASSIFY_PROMPT.replace("ITEM_NAME", itemName);
+        let response: Response;
+
+        if (isAnthropic) {
+          response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": apiKey,
+              "anthropic-version": "2023-06-01",
+            },
+            body: JSON.stringify({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 100,
+              messages: [{ role: "user", content: prompt }],
+            }),
+          });
+        } else {
+          response = await fetch(endpoint + (provider === "gemini" ? `?key=${apiKey}` : ""), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: provider === "deepseek" ? "deepseek-chat" : provider === "qwen" ? "qwen-turbo" : "gpt-4o-mini",
+              messages: [{ role: "user", content: prompt }],
+              temperature: 0.1,
+              max_tokens: 100,
+            }),
+          });
+        }
+
+        if (!response.ok) return classifyByKeyword(itemName);
+
+        const data = await response.json() as any;
+        const text = isAnthropic
+          ? data.content?.[0]?.text ?? ""
+          : data.choices?.[0]?.message?.content ?? "";
+
+        const jsonMatch = text.match(/\{[^}]+\}/);
+        if (!jsonMatch) return classifyByKeyword(itemName);
+
+        const parsed = JSON.parse(jsonMatch[0]) as { categoryId?: string; categoryGroup?: string };
+        const validGroups = ["needs", "wants", "savings"];
+        const validCategories = [
+          "alimentacao", "higiene", "limpeza", "saude", "moradia", "transporte",
+          "vestuario", "lazer", "compras", "restaurantes", "educacao", "outros",
+        ];
+
+        if (parsed.categoryId && validCategories.includes(parsed.categoryId) &&
+            parsed.categoryGroup && validGroups.includes(parsed.categoryGroup)) {
+          return {
+            categoryId: parsed.categoryId,
+            categoryGroup: parsed.categoryGroup as "needs" | "wants" | "savings",
+            confidence: 0.9,
+            method: "ai",
+          };
+        }
+        return classifyByKeyword(itemName);
+      } catch {
+        return classifyByKeyword(itemName);
+      }
+    },
+  };
+}
+
+// ─── Full classification pipeline ────────────────────────────────────────────
+
+export interface ClassifyItemInput {
+  name?: string;
+  ncm?: string;
+  ean?: string;
+}
+
+export interface ClassifyItemOptions {
+  aiEnabled?: boolean;
+  aiApiKey?: string;
+  aiProvider?: string; // "openai" | "gemini" | "claude" | "deepseek" | "qwen"
+  /** Callback chamado quando tokens são consumidos pela IA */
+  onTokensUsed?: (provider: string, tokens: number) => void;
+}
+
+/**
+ * Full classification pipeline with priority:
+ * 1. NCM (if available) — subcategory + static map + SISCOMEX
+ * 2. EAN (if available) — external API lookup → NCM or name
+ * 3. AI (if enabled) — Gemini classification
+ * 4. Keyword/name — keyword map fallback
+ * 5. Fallback — "outros" (wants)
+ */
+export async function classifyItemFull(
+  item: ClassifyItemInput,
+  options: ClassifyItemOptions = {},
+): Promise<ExtendedClassificationResult> {
+  // 1. NCM-based classification
+  if (item.ncm) {
+    const ncmResult = await classifyByNcmWithSiscomex(item.ncm);
+    if (ncmResult.confidence >= 0.7) return ncmResult;
+  }
+
+  // 2. EAN-based classification
+  if (item.ean) {
+    const eanResult = await classifyByEan(item.ean);
+    if (eanResult && eanResult.confidence >= 0.7) return eanResult;
+  }
+
+  // 3. AI classification (if enabled and name available)
+  if (options.aiEnabled && options.aiApiKey && item.name) {
+    const provider = options.aiProvider ?? "gemini";
+    const aiClassifier = createAIClassifierForProvider(provider, options.aiApiKey);
+    const aiResult = await aiClassifier.classify(item.name);
+    if (aiResult.confidence >= 0.7) {
+      // Estimar ~220 tokens por classificação (prompt + resposta)
+      options.onTokensUsed?.(provider, 220);
+      const subId = inferSubcategory(aiResult.categoryId, item.name);
+      return { ...aiResult, subcategoryId: subId };
+    }
+  }
+
+  // 4. Keyword classification by name
+  if (item.name) {
+    const keyResult = classifyByKeyword(item.name);
+    return keyResult;
+  }
+
+  // 5. Fallback
+  return {
+    categoryId: "outros",
+    categoryGroup: "wants",
+    confidence: 0.1,
+    method: "keyword",
+  };
+}
+
+// ─── SISCOMEX cache management (for external persistence) ────────────────────
+
+/** Get the current in-memory SISCOMEX cache (for persisting to AsyncStorage) */
+export function getSiscomexCache(): SiscomexEntry[] | null {
+  return _siscomexCache;
+}
+
+/** Restore SISCOMEX cache from persisted storage */
+export function restoreSiscomexCache(data: SiscomexEntry[]): void {
+  _siscomexCache = data;
+  _siscomexPending = null;
 }

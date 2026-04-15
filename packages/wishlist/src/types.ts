@@ -8,6 +8,7 @@ export const WISHLIST_EVENTS = {
   WISHLIST_PRICE_UPDATED: "WISHLIST_PRICE_UPDATED",
   WISHLIST_ITEM_CONVERTED_TO_EXPENSE: "WISHLIST_ITEM_CONVERTED_TO_EXPENSE",
   WISHLIST_SAVINGS_GOAL_SET: "WISHLIST_SAVINGS_GOAL_SET",
+  WISHLIST_LIST_DELETED: "WISHLIST_LIST_DELETED",
 } as const;
 
 export type WishlistEventType =
@@ -44,10 +45,18 @@ export interface BundleItem {
   id: string;
   name: string;
   price?: number;
+  /** Quantidade desta peça no kit (padrão 1) */
+  quantity?: number;
   originalUrl?: string;
   affiliateUrl?: string;
   imageUrl?: string;
   storeId?: string;
+  /** Categoria do gasto */
+  category?: string;
+  /** Código EAN/GTIN */
+  ean?: string;
+  /** Nomenclatura Comum do Mercosul (8 dígitos) */
+  ncm?: string;
   /** true = esta peça já foi comprada */
   purchased?: boolean;
 }
@@ -67,6 +76,8 @@ export interface WishlistItem {
   affiliateUrl?: string;
   imageUrl?: string;
   price?: number;
+  /** Quantidade do item (padrão 1) — o preço exibido é price × quantity */
+  quantity?: number;
   canBuyThisMonth?: boolean;
   savingsGoal?: SavingsGoalConfig;
   /** Peças/componentes do kit — quando presente, o item é tratado como bundle */
@@ -163,6 +174,11 @@ export interface WishlistSavingsGoalSetPayload {
   metadata: WishlistEventMetadata;
 }
 
+export interface WishlistListDeletedPayload {
+  listId: string;
+  metadata: WishlistEventMetadata;
+}
+
 // ─── Events ───────────────────────────────────────────────────────────────────
 
 interface WishlistBaseEvent {
@@ -218,6 +234,11 @@ export interface WishlistSavingsGoalSetEvent extends WishlistBaseEvent {
   payload: WishlistSavingsGoalSetPayload;
 }
 
+export interface WishlistListDeletedEvent extends WishlistBaseEvent {
+  type: typeof WISHLIST_EVENTS.WISHLIST_LIST_DELETED;
+  payload: WishlistListDeletedPayload;
+}
+
 export type WishlistEvent =
   | WishlistListCreatedEvent
   | WishlistItemAddedEvent
@@ -227,7 +248,8 @@ export type WishlistEvent =
   | WishlistItemRemovedEvent
   | WishlistPriceUpdatedEvent
   | WishlistItemConvertedToExpenseEvent
-  | WishlistSavingsGoalSetEvent;
+  | WishlistSavingsGoalSetEvent
+  | WishlistListDeletedEvent;
 
 // ─── Affordability ────────────────────────────────────────────────────────────
 

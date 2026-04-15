@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   Platform,
-  TextInput,
   ActivityIndicator,
   Modal,
   Dimensions,
@@ -21,7 +20,9 @@ import { useSync } from "@/src/context/SyncProvider";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { QRScannerModal } from "@/src/components/sync/QRScannerModal";
-import { useTourTarget } from "@/src/tour/useTourTarget";
+import { TourGuideZone } from "rn-tourguide";
+import { TButton, TCard, TInput, TText } from "@/src/components/tamagui";
+import { TourPageHost } from "@/src/components/tour/TourPageHost";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const QR_SIZE = Math.min(SCREEN_W * 0.5, SCREEN_H * 0.3, 220);
@@ -71,9 +72,6 @@ export default function SyncScreen() {
   const [showScanner, setShowScanner] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-  const { targetRef: syncActionsRef, TourCard: SyncActionsTourCard, activeStyle: syncActionsActive } = useTourTarget("sync-actions", scrollRef);
-  const { targetRef: syncBackupRef, TourCard: SyncBackupTourCard, activeStyle: syncBackupActive } = useTourTarget("sync-backup-link", scrollRef);
-
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
@@ -132,18 +130,19 @@ export default function SyncScreen() {
   const qrValue = groupId ? `domus://${groupId}` : "";
 
   return (
+    <TourPageHost groupId={7}>
     <View style={[s.root, { backgroundColor: theme.background }]}>
       <View style={[s.topBar, { paddingTop: insets.top + webTopInset + 12 }]}>
         <Pressable testID="sync-back-button" onPress={() => { haptic(); soundManager.play("tap"); router.canGoBack() ? router.back() : router.replace("/"); }} hitSlop={12}>
           <Feather name="arrow-left" size={24} color={theme.textColor} />
         </Pressable>
-        <Text style={[s.topBarTitle, { color: theme.textColor }]}>Sincronizar</Text>
+        <TText variant="subtitle" color={theme.textColor} fontSize={18}>Sincronizar</TText>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView ref={scrollRef} contentContainerStyle={[s.content, { paddingBottom: insets.bottom + webBottomInset + 24 }]} showsVerticalScrollIndicator={false}>
         {/* Status card */}
-        <View style={[s.statusCard, { backgroundColor: theme.cardBackground }]}>
+        <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} elevated padding={18} gap={16}>
           <View style={s.statusRow}>
             <View style={[s.iconCircle, { backgroundColor: `${theme.primaryColor}15` }]}>
               {isAutoSyncEnabled
@@ -155,7 +154,7 @@ export default function SyncScreen() {
                 <StatusDot status={syncStatus} />
                 <Text style={[s.statusLabelText, { color: theme.textColor }]}>{statusLabel(syncStatus)}</Text>
               </View>
-              {groupId && <Text style={[s.groupIdText, { color: theme.secondaryText }]}>Grupo: {groupId}</Text>}
+              {groupId ? <Text style={[s.groupIdText, { color: theme.secondaryText }]}>Grupo: {groupId}</Text> : null}
             </View>
           </View>
           <View style={s.statsRow}>
@@ -174,7 +173,7 @@ export default function SyncScreen() {
               <Text style={[s.statLabel, { color: theme.secondaryText }]}>ultimo sync</Text>
             </View>
           </View>
-        </View>
+        </TCard>
 
         {errorMessage && (
           <View style={[s.banner, { backgroundColor: `${theme.danger}12` }]}>
@@ -189,16 +188,17 @@ export default function SyncScreen() {
         {!isAutoSyncEnabled ? (
           <>
             <View style={s.sectionHeader}>
-              <Text style={[s.sectionTitle, { color: theme.textColor }]}>Conectar dispositivos</Text>
+              <TText variant="subtitle" color={theme.textColor} fontSize={15}>Conectar dispositivos</TText>
               <Text style={[s.sectionDesc, { color: theme.secondaryText }]}>
                 Crie um grupo ou entre em um existente para sincronizar automaticamente
               </Text>
             </View>
 
-            <View ref={syncActionsRef as any} collapsable={false} style={[s.actionsRow, syncActionsActive]}>
+            <TourGuideZone zone={1} text="17" isTourGuide borderRadius={12}>
+            <View collapsable={false} style={s.actionsRow}>
               <Pressable
-                style={({ pressed }) => [s.actionCard, { backgroundColor: theme.primaryColor }, pressed && !syncActionsActive && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
-                onPress={() => { if (syncActionsActive) return; handleCreateGroup(); }}
+                style={({ pressed }) => [s.actionCard, { backgroundColor: theme.primaryColor }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                onPress={() => { handleCreateGroup(); }}
                 disabled={isBusy}
               >
                 {isBusy ? <ActivityIndicator size="small" color="#FFFFFF" /> : (
@@ -221,33 +221,43 @@ export default function SyncScreen() {
                 <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Com codigo</Text>
               </Pressable>
             </View>
-            <SyncActionsTourCard />
+            </TourGuideZone>
 
             {Platform.OS !== "web" && (
-              <Pressable
-                style={({ pressed }) => [s.qrScanBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }, pressed && { opacity: 0.85 }]}
+              <TButton
+                variant="outline"
+                borderColor={theme.border}
+                color={theme.textColor}
+                icon={<MaterialCommunityIcons name="qrcode-scan" size={22} color={theme.primaryColor} />}
+                iconAfter={<Feather name="chevron-right" size={18} color={theme.secondaryText} />}
                 onPress={() => { haptic(); soundManager.play("tap"); setShowScanner(true); }}
                 disabled={isBusy}
               >
-                <MaterialCommunityIcons name="qrcode-scan" size={22} color={theme.primaryColor} />
-                <Text style={[s.qrScanBtnText, { color: theme.textColor }]}>Escanear QR Code</Text>
-                <Feather name="chevron-right" size={18} color={theme.secondaryText} />
-              </Pressable>
+                Escanear QR Code
+              </TButton>
             )}
 
             {showJoinInput && (
               <View style={[s.joinCard, { backgroundColor: theme.cardBackground }]}>
                 <Text style={[s.joinLabel, { color: theme.textColor }]}>Codigo do grupo</Text>
                 <View style={s.joinInputRow}>
-                  <TextInput
-                    style={[s.joinInput, { color: theme.textColor, borderColor: theme.border, backgroundColor: theme.background }]}
+                  <TInput
+                    flex={1}
                     value={joinCode}
-                    onChangeText={(text) => setJoinCode(text.toUpperCase())}
+                    onChangeText={(text: string) => setJoinCode(text.toUpperCase())}
                     placeholder="EX: ABC123"
-                    placeholderTextColor={theme.secondaryText}
                     autoCapitalize="characters"
                     maxLength={8}
                     autoFocus
+                    fontFamily="$body"
+                    fontWeight="600"
+                    fontSize={18}
+                    letterSpacing={3}
+                    textAlign="center"
+                    height={48}
+                    color={theme.textColor}
+                    backgroundColor={theme.cardBackground}
+                    borderColor={theme.border}
                   />
                   <Pressable
                     style={[s.joinBtn, { backgroundColor: joinCode.trim().length >= 4 ? theme.primaryColor : theme.border }]}
@@ -292,7 +302,7 @@ export default function SyncScreen() {
             </View>
 
             <View style={s.sectionHeader}>
-              <Text style={[s.sectionTitle, { color: theme.textColor }]}>Sync automatico</Text>
+              <TText variant="subtitle" color={theme.textColor} fontSize={15}>Sync automatico</TText>
               <Text style={[s.sectionDesc, { color: theme.secondaryText }]}>
                 Seus dados sincronizam via relays Nostr a cada 8 segundos e ao criar eventos
               </Text>
@@ -323,10 +333,11 @@ export default function SyncScreen() {
               </Pressable>
             </View>
 
-            <Pressable style={[s.leaveBtn, { borderColor: theme.danger }]} onPress={handleLeaveGroup}>
-              <Feather name="log-out" size={16} color={theme.danger} />
-              <Text style={[s.leaveBtnText, { color: theme.danger }]}>Sair do grupo</Text>
-            </Pressable>
+            <View style={{ marginTop: 4 }}>
+              <TButton variant="outline" borderColor={theme.border} color={theme.textColor} icon={<Feather name="log-out" size={16} color={theme.danger} />} onPress={handleLeaveGroup}>
+                Sair do grupo
+              </TButton>
+            </View>
 
             <View style={[s.infoCard, { backgroundColor: theme.cardBackground }]}>
               <Feather name="info" size={16} color={theme.secondaryText} />
@@ -339,15 +350,16 @@ export default function SyncScreen() {
 
         {/* Backup link */}
         <View style={s.sectionHeader}>
-          <Text style={[s.sectionTitle, { color: theme.textColor }]}>Backup local</Text>
+          <TText variant="subtitle" color={theme.textColor} fontSize={15}>Backup local</TText>
           <Text style={[s.sectionDesc, { color: theme.secondaryText }]}>
             Exporta todos os dados criptografados para um arquivo que você guarda onde quiser
           </Text>
         </View>
-        <View ref={syncBackupRef as any} collapsable={false} style={syncBackupActive}>
+        <TourGuideZone zone={2} text="18" isTourGuide borderRadius={12}>
+        <View collapsable={false}>
           <Pressable
-            style={({ pressed }) => [s.backupBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }, pressed && !syncBackupActive && { opacity: 0.8 }]}
-            onPress={() => { if (syncBackupActive) return; haptic(); soundManager.play("tap"); router.push("/backup"); }}
+            style={({ pressed }) => [s.backupBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }, pressed && { opacity: 0.8 }]}
+            onPress={() => { haptic(); soundManager.play("tap"); router.push("/backup"); }}
           >
             <View style={[s.backupBtnIcon, { backgroundColor: "#6366F118" }]}>
               <Feather name="archive" size={20} color="#6366F1" />
@@ -359,7 +371,7 @@ export default function SyncScreen() {
             <Feather name="chevron-right" size={18} color={theme.secondaryText} />
           </Pressable>
         </View>
-        <SyncBackupTourCard />
+        </TourGuideZone>
       </ScrollView>
 
       <QRScannerModal visible={showScanner} onClose={() => setShowScanner(false)} onScanned={handleScanResult} theme={theme} />
@@ -377,23 +389,22 @@ export default function SyncScreen() {
                 <Text style={[s.qrCodeLabelText, { color: theme.primaryColor }]}>{groupId}</Text>
               </View>
               <Text style={[s.qrModalHint, { color: theme.secondaryText }]}>Escaneie com o outro celular para parear</Text>
-              <Pressable style={[s.qrModalCloseBtn, { backgroundColor: theme.primaryColor }]} onPress={() => { soundManager.play("tap"); setShowQRModal(false); }}>
-                <Text style={s.qrModalCloseBtnText}>Fechar</Text>
-              </Pressable>
+              <TButton variant="primary" backgroundColor={theme.primaryColor} onPress={() => { soundManager.play("tap"); setShowQRModal(false); }}>
+                Fechar
+              </TButton>
             </Pressable>
           </ScrollView>
         </Pressable>
       </Modal>
     </View>
+    </TourPageHost>
   );
 }
 
 const s = StyleSheet.create({
   root: { flex: 1 },
   topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 14 },
-  topBarTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 18 },
   content: { paddingHorizontal: 16, gap: 12, paddingTop: 8 },
-  statusCard: { borderRadius: 16, padding: 18, gap: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 14 },
   iconCircle: { width: 48, height: 48, borderRadius: 24, justifyContent: "center", alignItems: "center" },
   statusInfo: { flex: 1, gap: 4 },
@@ -409,19 +420,15 @@ const s = StyleSheet.create({
   banner: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14, borderRadius: 12 },
   bannerText: { fontFamily: "DMSans_500Medium", fontSize: 13, flex: 1 },
   sectionHeader: { gap: 2, marginTop: 8 },
-  sectionTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 15 },
   sectionDesc: { fontFamily: "DMSans_400Regular", fontSize: 12 },
   actionsRow: { flexDirection: "row", gap: 10 },
   actionCard: { flex: 1, borderRadius: 16, padding: 18, alignItems: "center", justifyContent: "center", gap: 8, minHeight: 120, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
   actionCardIcon: { width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.15)", justifyContent: "center", alignItems: "center", marginBottom: 4 },
   actionCardTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 14, color: "#FFFFFF" },
   actionCardDesc: { fontFamily: "DMSans_400Regular", fontSize: 11, color: "rgba(255,255,255,0.7)" },
-  qrScanBtn: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16, borderRadius: 14, borderWidth: 1 },
-  qrScanBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 14, flex: 1 },
   joinCard: { borderRadius: 16, padding: 18, gap: 12 },
   joinLabel: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
   joinInputRow: { flexDirection: "row", gap: 10, alignItems: "center" },
-  joinInput: { flex: 1, borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontFamily: "DMSans_600SemiBold", fontSize: 18, letterSpacing: 3, textAlign: "center" as const },
   joinBtn: { width: 48, height: 48, borderRadius: 14, justifyContent: "center", alignItems: "center" },
   cancelText: { fontFamily: "DMSans_500Medium", fontSize: 13, textAlign: "center" as const },
   connectedCard: { borderRadius: 16, padding: 18, gap: 10 },
@@ -430,8 +437,6 @@ const s = StyleSheet.create({
   codeBadge: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
   codeText: { fontFamily: "DMSans_700Bold", fontSize: 22, letterSpacing: 4 },
   connectedHint: { fontFamily: "DMSans_400Regular", fontSize: 12 },
-  leaveBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 14, borderWidth: 1, marginTop: 4 },
-  leaveBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
   infoCard: { flexDirection: "row", gap: 10, padding: 14, borderRadius: 12, marginTop: 4 },
   infoText: { fontFamily: "DMSans_400Regular", fontSize: 12, lineHeight: 18, flex: 1 },
   qrModalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)" },
@@ -442,8 +447,6 @@ const s = StyleSheet.create({
   qrCodeLabel: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 10 },
   qrCodeLabelText: { fontFamily: "DMSans_700Bold", fontSize: 20, letterSpacing: 4 },
   qrModalHint: { fontFamily: "DMSans_400Regular", fontSize: 13, textAlign: "center" as const },
-  qrModalCloseBtn: { paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12, marginTop: 4 },
-  qrModalCloseBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 14, color: "#FFFFFF" },
   backupBtn: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 14, padding: 14 },
   backupBtnIcon: { width: 44, height: 44, borderRadius: 14, justifyContent: "center", alignItems: "center" },
   backupBtnText: { flex: 1 },

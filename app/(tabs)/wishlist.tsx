@@ -3,9 +3,9 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -15,16 +15,18 @@ import { soundManager } from "@/src/services/SoundManager";
 import { useWishlist } from "@/src/hooks/useWishlist";
 import { WishlistListCard } from "@/src/components/wishlist/WishlistListCard";
 import { CreateListModal } from "@/src/components/wishlist/CreateListModal";
-import { useTourTarget } from "@/src/tour/useTourTarget";
+import { TourGuideZone } from "rn-tourguide";
+import { TourPageHost } from "@/src/components/tour/TourPageHost";
+import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
+import { PixelText } from "@/src/components/pixel";
+import { TButton } from "@/src/components/tamagui";
 
 
 export default function WishlistTab() {
-  const { theme } = useAppState();
+  const { theme, isCatholic } = useAppState();
   const router = useRouter();
   const { lists, getItemsByList, createList } = useWishlist();
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const { targetRef: wishlistHeaderRef, TourCard: WishlistTourCard, activeStyle: wishlistActive } = useTourTarget("wishlist-header");
-  const { targetRef: wishlistAddRef, TourCard: WishlistAddTourCard, activeStyle: wishlistAddActive } = useTourTarget("wishlist-add");
   const insets = useSafeAreaInsets();
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
@@ -39,15 +41,21 @@ export default function WishlistTab() {
   };
 
   return (
+    <TourPageHost groupId={3}>
     <SafeAreaView
       style={[styles.safe, { backgroundColor: theme.background }]}
     >
-      <View ref={wishlistHeaderRef} collapsable={false} style={[styles.header, wishlistActive]}>
-        <Text style={[styles.title, { color: theme.textColor }]}>
-          Lista de Desejos
-        </Text>
+      <TourGuideZone zone={1} text="8" isTourGuide borderRadius={8}>
+      <View collapsable={false}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Text style={[styles.title, { color: theme.textColor }]}>
+            Lista de Desejos
+          </Text>
+          <PixelText size={7} color={theme.primaryColor} style={{ opacity: 0.5 }}>PE</PixelText>
+          {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
+        </View>
       </View>
-      <WishlistTourCard />
+      </TourGuideZone>
 
       {sortedLists.length === 0 ? (
         <View style={styles.emptyState}>
@@ -66,23 +74,24 @@ export default function WishlistTab() {
             Crie listas para organizar seus desejos por urgência, acompanhe
             preços e avalie o que cabe no seu orçamento.
           </Text>
-          <TouchableOpacity
-            style={[styles.emptyBtn, { backgroundColor: theme.primaryColor }]}
+          <TButton
+            variant="primary"
+            backgroundColor={theme.primaryColor}
+            icon={<Feather name="plus" size={16} color="#fff" />}
             onPress={() => {
               soundManager.play("pop");
               setShowCreateModal(true);
             }}
-            activeOpacity={0.7}
           >
-            <Feather name="plus" size={16} color="#fff" />
-            <Text style={styles.emptyBtnText}>Criar primeira lista</Text>
-          </TouchableOpacity>
+            Criar primeira lista
+          </TButton>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={sortedLists}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          estimatedItemSize={100}
           renderItem={({ item }) => (
             <WishlistListCard
               list={item}
@@ -118,18 +127,16 @@ export default function WishlistTab() {
             bottom: insets.bottom + webBottomInset + 80,
             alignItems: "flex-end",
           },
-          Platform.OS === "web" && wishlistAddActive ? { zIndex: 9999 } : { zIndex: 1 },
+          { zIndex: 1 },
         ]}
       >
-        <WishlistAddTourCard />
+        <TourGuideZone zone={2} text="9" isTourGuide borderRadius={40}>
         <Pressable
-          ref={wishlistAddRef as any}
           collapsable={false}
           style={({ pressed }) => [
             styles.fab,
             { backgroundColor: theme.primaryColor },
             pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] },
-            wishlistAddActive,
           ]}
           onPress={() => {
             soundManager.play("pop");
@@ -138,6 +145,7 @@ export default function WishlistTab() {
         >
           <Feather name="plus" size={28} color="#FFFFFF" />
         </Pressable>
+        </TourGuideZone>
       </View>
 
       <CreateListModal
@@ -147,6 +155,7 @@ export default function WishlistTab() {
         onCancel={() => setShowCreateModal(false)}
       />
     </SafeAreaView>
+    </TourPageHost>
   );
 }
 
@@ -162,6 +171,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontFamily: "DMSans_700Bold",
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 8,
   },
   fab: {
     width: 60,

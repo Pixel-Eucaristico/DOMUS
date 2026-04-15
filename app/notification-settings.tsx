@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
+import { TCard, TText } from "@/src/components/tamagui";
 import {
   loadNotificationSettings,
   saveNotificationSettings,
@@ -87,9 +88,9 @@ export default function NotificationSettingsScreen() {
         >
           <Feather name="arrow-left" size={22} color={theme.textColor} />
         </TouchableOpacity>
-        <Text style={[s.headerTitle, { color: theme.textColor }]}>
+        <TText variant="subtitle" bold color={theme.textColor} fontSize={19} flex={1}>
           Notificações
-        </Text>
+        </TText>
       </View>
 
       <ScrollView
@@ -97,7 +98,7 @@ export default function NotificationSettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Master Toggle */}
-        <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+        <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} padding={0}>
           <View style={s.cardBody}>
             <SwitchRow
               icon="bell"
@@ -109,15 +110,15 @@ export default function NotificationSettingsScreen() {
               onValueChange={handleMasterToggle}
             />
           </View>
-        </View>
+        </TCard>
 
         {/* Categorias */}
-        <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }, !settings.enabled && s.disabled]}>
+        <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} padding={0} opacity={!settings.enabled ? 0.5 : 1}>
           <View style={s.sectionHeader}>
             <View style={[s.sectionIconBg, { backgroundColor: "#6366F118" }]}>
               <Feather name="layers" size={16} color="#6366F1" />
             </View>
-            <Text style={[s.sectionTitle, { color: theme.textColor }]}>Categorias</Text>
+            <TText variant="subtitle" bold color={theme.textColor} fontSize={15} flex={1}>Categorias</TText>
           </View>
           <View style={[s.divider, { backgroundColor: theme.border }]} />
           <View style={s.cardBody}>
@@ -182,15 +183,15 @@ export default function NotificationSettingsScreen() {
               disabled={!settings.enabled}
             />
           </View>
-        </View>
+        </TCard>
 
         {/* Antecedência */}
-        <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }, !settings.enabled && s.disabled]}>
+        <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} padding={0} opacity={!settings.enabled ? 0.5 : 1}>
           <View style={s.sectionHeader}>
             <View style={[s.sectionIconBg, { backgroundColor: "#F59E0B18" }]}>
               <Feather name="clock" size={16} color="#F59E0B" />
             </View>
-            <Text style={[s.sectionTitle, { color: theme.textColor }]}>Antecedência</Text>
+            <TText variant="subtitle" bold color={theme.textColor} fontSize={15} flex={1}>Antecedência</TText>
           </View>
           <View style={[s.divider, { backgroundColor: theme.border }]} />
           <View style={s.cardBody}>
@@ -211,15 +212,15 @@ export default function NotificationSettingsScreen() {
               disabled={!settings.enabled}
             />
           </View>
-        </View>
+        </TCard>
 
         {/* Horário Silencioso */}
-        <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }, !settings.enabled && s.disabled]}>
+        <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} padding={0} opacity={!settings.enabled ? 0.5 : 1}>
           <View style={s.sectionHeader}>
             <View style={[s.sectionIconBg, { backgroundColor: "#8B5CF618" }]}>
               <Feather name="moon" size={16} color="#8B5CF6" />
             </View>
-            <Text style={[s.sectionTitle, { color: theme.textColor }]}>Horário Silencioso</Text>
+            <TText variant="subtitle" bold color={theme.textColor} fontSize={15} flex={1}>Horário Silencioso</TText>
           </View>
           <View style={[s.divider, { backgroundColor: theme.border }]} />
           <View style={s.cardBody}>
@@ -260,7 +261,7 @@ export default function NotificationSettingsScreen() {
               </View>
             )}
           </View>
-        </View>
+        </TCard>
 
         {/* Info */}
         <View style={[s.infoBox, { backgroundColor: `${theme.primaryColor}10` }]}>
@@ -466,9 +467,7 @@ function styles(theme: any) {
       gap: 10,
     },
     backBtn: { padding: 4 },
-    headerTitle: { fontFamily: "DMSans_700Bold", fontSize: 19, flex: 1 },
     content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
-    card: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
     cardBody: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 14, gap: 10 },
     sectionHeader: {
       flexDirection: "row",
@@ -484,9 +483,7 @@ function styles(theme: any) {
       justifyContent: "center",
       alignItems: "center",
     },
-    sectionTitle: { fontFamily: "DMSans_700Bold", fontSize: 15, flex: 1 },
     divider: { height: StyleSheet.hairlineWidth, marginHorizontal: 14 },
-    disabled: { opacity: 0.5 },
     hourRow: { flexDirection: "row", gap: 16, paddingTop: 8 },
     infoBox: {
       flexDirection: "row",

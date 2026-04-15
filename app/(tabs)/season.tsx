@@ -16,12 +16,16 @@ import { getArchetypeDescription } from "@packages/personality/src/archetypeEngi
 import { ALL_ACHIEVEMENTS } from "@packages/gamification/src/achievements";
 import type { Achievement } from "@packages/gamification/src/achievements";
 import { SurpriseTrophyCard } from "@/src/components/gamification/SurpriseTrophyCard";
-import { AnimatedTrophy } from "@/src/components/gamification/AnimatedTrophy";
+import { LottieTrophy } from "@/src/components/gamification/LottieTrophy";
 import { MonthlyTrophiesList } from "@/src/components/gamification/MonthlyTrophiesList";
 import { AchievementGrid } from "@/src/components/gamification/AchievementGrid";
 import { soundManager } from "@/src/services/SoundManager";
 import { useSeasonData, MONTHS } from "@/src/hooks/useSeasonData";
-import { useTourTarget } from "@/src/tour/useTourTarget";
+import { TourGuideZone } from "rn-tourguide";
+import { TButton, TCard } from "@/src/components/tamagui";
+import { TourPageHost } from "@/src/components/tour/TourPageHost";
+import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
+import { PixelText } from "@/src/components/pixel";
 
 
 export default function SeasonScreen() {
@@ -31,8 +35,6 @@ export default function SeasonScreen() {
   const [selectedAch, setSelectedAch] = useState<Achievement | null>(null);
   const [activeTab, setActiveTab] = useState<"current" | "collection">("current");
   const seasonScrollRef = useRef<ScrollView>(null);
-  const { targetRef: xpRef, TourCard: XpTourCard, activeStyle: xpActive } = useTourTarget("xp-section", seasonScrollRef);
-  const { targetRef: trophyRef, TourCard: TrophyTourCard, activeStyle: trophyActive } = useTourTarget("trophy-section", seasonScrollRef);
 
   const webTopInset = 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
@@ -52,12 +54,17 @@ export default function SeasonScreen() {
   };
 
   return (
+    <TourPageHost groupId={4} scrollRef={seasonScrollRef}>
     <View style={[st.root, { backgroundColor: theme.background }]}>
       {/* Header */}
       <View style={[st.header, { paddingTop: insets.top + webTopInset + 16, backgroundColor: theme.background }]}>
         <View style={st.headerTop} ref={sd.levelCardRef} collapsable={false}>
           <View style={{ flex: 1 }}>
-            <Text style={[st.title, { color: theme.textColor }]}>Temporada</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={[st.title, { color: theme.textColor }]}>Temporada</Text>
+              <PixelText size={7} color={theme.primaryColor} style={{ opacity: 0.5 }}>PE</PixelText>
+              {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
+            </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 }}>
               <Text style={[st.subtitle, { color: theme.secondaryText }]}>{MONTHS[sd.currentMonth - 1]}</Text>
               <View style={[st.archetypeBadge, { backgroundColor: theme.primaryColor + "22" }]}>
@@ -105,25 +112,23 @@ export default function SeasonScreen() {
             {/* Season progress / start */}
             {!sd.hasSeason ? (
               <>
-                <View ref={xpRef} collapsable={false} style={[st.card, { backgroundColor: theme.cardBackground }, xpActive]}>
+                <TourGuideZone zone={1} text="10" isTourGuide borderRadius={16}>
+                <View collapsable={false} style={[st.card, { backgroundColor: theme.cardBackground }]}>
                   <Feather name="calendar" size={32} color={theme.secondaryText} />
                   <Text style={[st.cardText, { color: theme.textColor }]}>Nenhuma temporada ativa</Text>
-                  <Pressable style={[st.actionBtn, { backgroundColor: theme.primaryColor }]} onPress={sd.handleStartSeason}>
-                    <Feather name="play" size={18} color="#FFF" />
-                    <Text style={st.actionBtnText}>Iniciar temporada</Text>
-                  </Pressable>
+                  <TButton variant="primary" backgroundColor={theme.primaryColor} icon={<Feather name="play" size={18} color="#FFF" />} onPress={sd.handleStartSeason}>
+                    Iniciar temporada
+                  </TButton>
                 </View>
-                <XpTourCard />
+                </TourGuideZone>
               </>
             ) : (
               <>
+              <TourGuideZone zone={1} text="10" isTourGuide borderRadius={16}>
               <View
-                ref={(node) => {
-                  (sd.progressCardRef as React.MutableRefObject<any>).current = node;
-                  (xpRef as React.MutableRefObject<any>).current = node;
-                }}
+                ref={(node) => { (sd.progressCardRef as React.MutableRefObject<any>).current = node; }}
                 collapsable={false}
-                style={[st.card, { backgroundColor: theme.cardBackground, paddingVertical: 16 }, xpActive]}
+                style={[st.card, { backgroundColor: theme.cardBackground, paddingVertical: 16 }]}
               >
                 <View style={[st.progressHeader, { marginBottom: 8 }]}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -160,16 +165,14 @@ export default function SeasonScreen() {
                 </View>
 
                 {sd.dayOfMonth >= sd.daysInMonth - 2 && (
-                  <Pressable
-                    style={[st.actionBtn, { backgroundColor: theme.accentColor, marginTop: 12, width: "100%" }]}
-                    onPress={sd.handleEvaluate}
-                  >
-                    <Feather name="check-circle" size={18} color="#FFF" />
-                    <Text style={st.actionBtnText}>Encerrar temporada</Text>
-                  </Pressable>
+                  <View style={{ marginTop: 12, width: "100%" }}>
+                    <TButton variant="primary" backgroundColor={theme.primaryColor} icon={<Feather name="check-circle" size={18} color="#FFF" />} onPress={sd.handleEvaluate}>
+                      Encerrar temporada
+                    </TButton>
+                  </View>
                 )}
               </View>
-              <XpTourCard />
+              </TourGuideZone>
               </>
             )}
 
@@ -181,7 +184,8 @@ export default function SeasonScreen() {
               onViewAll={() => setActiveTab("collection")}
             />
 
-            <View ref={trophyRef} collapsable={false} style={trophyActive}>
+            <TourGuideZone zone={2} text="11" isTourGuide borderRadius={16}>
+            <View collapsable={false}>
               <SurpriseTrophyCard
                 currentYear={sd.currentYear}
                 currentMonth={sd.currentMonth}
@@ -193,7 +197,7 @@ export default function SeasonScreen() {
                 setIsCatholic={setIsCatholic}
               />
             </View>
-            <TrophyTourCard />
+            </TourGuideZone>
 
             <MonthlyTrophiesList
               theme={theme}
@@ -229,6 +233,7 @@ export default function SeasonScreen() {
         onShare={() => sd.handleShareTrophy(selectedAch)}
       />
     </View>
+    </TourPageHost>
   );
 }
 
@@ -274,7 +279,7 @@ function RecentHighlights({
                 if (fullAch) onSelectAchievement(fullAch);
               }}
             >
-              <AnimatedTrophy rarity={ach.rarity} size={24} spinning={false} />
+              <LottieTrophy trophyId={ach.id} type="achievement" rarity={ach.rarity} size={24} isStatic />
               <View style={{ flex: 1 }}>
                 <Text style={[st.highlightName, { color: theme.textColor }]} numberOfLines={1}>
                   {fullAch?.name || "---"}
@@ -327,10 +332,17 @@ function TrophyDetailModal({
   return (
     <Modal visible={!!selectedAch} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={st.modalOverlay} onPress={onClose}>
-        <Pressable
+        <TCard
           ref={trophyModalRef}
           collapsable={false}
-          style={[st.trophyModal, { backgroundColor: theme.cardBackground }]}
+          borderRadius={24}
+          padding={24}
+          width="100%"
+          maxWidth={400}
+          gap={16}
+          borderWidth={0}
+          backgroundColor={theme.cardBackground}
+          borderColor={theme.border}
           onPress={() => {}}
         >
           <View style={st.trophyModalHeader}>
@@ -350,7 +362,7 @@ function TrophyDetailModal({
 
           <View style={st.trophyModalIcon}>
             {unlocked ? (
-              <AnimatedTrophy rarity={selectedAch.rarity} size={80} spinning={false} />
+              <LottieTrophy trophyId={selectedAch.id} type="achievement" rarity={selectedAch.rarity} size={80} />
             ) : (
               <View style={[st.trophyModalLocked, { backgroundColor: theme.border }]}>
                 <Feather name="lock" size={36} color={theme.secondaryText} />
@@ -358,7 +370,16 @@ function TrophyDetailModal({
             )}
           </View>
 
-          <Text style={[st.trophyModalName, { color: theme.textColor }]}>{selectedAch.name}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <Text style={[st.trophyModalName, { color: theme.textColor }]}>{selectedAch.name}</Text>
+            {(gamification.completionCounts?.[selectedAch.id] ?? 0) > 1 && (
+              <View style={{ backgroundColor: "#A78BFA20", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                <Text style={{ fontFamily: "DMSans_700Bold", fontSize: 14, color: "#A78BFA" }}>
+                  ×{gamification.completionCounts[selectedAch.id]}
+                </Text>
+              </View>
+            )}
+          </View>
           <Text style={[st.trophyModalDesc, { color: theme.secondaryText }]}>{selectedAch.description}</Text>
 
           <View style={[st.xpRewardRow, { backgroundColor: "#A78BFA18" }]}>
@@ -416,12 +437,11 @@ function TrophyDetailModal({
           )}
 
           {unlocked && (
-            <TouchableOpacity style={[st.shareBtn, { borderColor: rarityColor }]} onPress={onShare} activeOpacity={0.8}>
-              <Feather name="share-2" size={15} color={rarityColor} />
-              <Text style={[st.shareBtnText, { color: rarityColor }]}>Compartilhar conquista</Text>
-            </TouchableOpacity>
+            <TButton variant="outline" borderColor={theme.border} color={theme.textColor} icon={<Feather name="share-2" size={15} color={rarityColor} />} onPress={onShare}>
+              Compartilhar conquista
+            </TButton>
           )}
-        </Pressable>
+        </TCard>
       </Pressable>
     </Modal>
   );
@@ -445,8 +465,6 @@ const st = StyleSheet.create({
   subtitle: { fontFamily: "DMSans_500Medium", fontSize: 13, marginTop: 0, opacity: 0.6 },
   card: { borderRadius: 20, padding: 16, alignItems: "center" as const, gap: 12, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)" },
   cardText: { fontFamily: "DMSans_700Bold", fontSize: 16 },
-  actionBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 },
-  actionBtnText: { fontFamily: "DMSans_700Bold", fontSize: 15, color: "#FFF" },
   progressHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%" },
   progressTitle: { fontFamily: "DMSans_700Bold", fontSize: 13, opacity: 0.6, textTransform: "uppercase", letterSpacing: 0.5 },
   progressPercent: { fontFamily: "DMSans_800ExtraBold", fontSize: 18 },
@@ -463,7 +481,6 @@ const st = StyleSheet.create({
   highlightName: { fontFamily: "DMSans_700Bold", fontSize: 11 },
   // Trophy detail modal
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "center", alignItems: "center", padding: 24 },
-  trophyModal: { borderRadius: 24, padding: 24, width: "100%", maxWidth: 400, gap: 16 },
   trophyModalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   rarityBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10 },
   rarityBadgeText: { fontFamily: "DMSans_700Bold", fontSize: 12, textTransform: "uppercase" },
@@ -486,6 +503,4 @@ const st = StyleSheet.create({
   seriesStatValue: { fontFamily: "DMSans_700Bold", fontSize: 16 },
   seriesStatLabel: { fontFamily: "DMSans_700Bold", fontSize: 9, textTransform: "uppercase", opacity: 0.5 },
   xpStatDivider: { width: 1, height: 20, opacity: 0.1 },
-  shareBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderRadius: 16, paddingVertical: 14, marginTop: 8 },
-  shareBtnText: { fontFamily: "DMSans_700Bold", fontSize: 15 },
 });

@@ -68,14 +68,14 @@ export class ProfileCalculator {
     const prevMonth = ProfileCalculator.monthKey(prevDate);
 
     const currentTxs = transactions.filter(
-      (t) => t.type === "expense" && t.status !== "pending" && t.date.startsWith(currentMonth),
+      (t) => t.type === "expense" && t.status !== "pending" && t.date?.startsWith(currentMonth),
     );
     const prevTxs = transactions.filter(
-      (t) => t.type === "expense" && t.status !== "pending" && t.date.startsWith(prevMonth),
+      (t) => t.type === "expense" && t.status !== "pending" && t.date?.startsWith(prevMonth),
     );
 
     const incomeTxs = transactions.filter(
-      (t) => t.type === "income" && t.status !== "pending" && t.date.startsWith(currentMonth),
+      (t) => t.type === "income" && t.status !== "pending" && t.date?.startsWith(currentMonth),
     );
 
     const monthlyIncome = incomeTxs.reduce((s, t) => s + t.amount, 0);
@@ -137,7 +137,7 @@ export class ProfileCalculator {
           (t) =>
             t.type === "income" &&
             t.status !== "pending" &&
-            t.date.startsWith(key),
+            t.date?.startsWith(key),
         )
         .reduce((s, t) => s + t.amount, 0);
 
@@ -146,7 +146,7 @@ export class ProfileCalculator {
           (t) =>
             t.type === "expense" &&
             t.status !== "pending" &&
-            t.date.startsWith(key),
+            t.date?.startsWith(key),
         )
         .reduce((s, t) => s + t.amount, 0);
 
@@ -217,7 +217,7 @@ export class ProfileCalculator {
         (t) =>
           t.type === "income" &&
           t.status !== "pending" &&
-          t.date.startsWith(key),
+          t.date?.startsWith(key),
       );
       if (hasIncome) hit++;
     }

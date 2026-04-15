@@ -6,13 +6,12 @@ import {
   Modal,
   TouchableOpacity,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   ActivityIndicator,
   Animated,
   Pressable,
 } from "react-native";
+import { KeyboardSafeView } from "@/src/components/shared/KeyboardSafeView";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
@@ -20,11 +19,14 @@ import { URGENCY_ORDER } from "@packages/wishlist";
 import type { UrgencyLevel, WishlistItem } from "@packages/wishlist";
 import type { AccountPayload } from "@packages/events";
 import { CATEGORY_OPTIONS, GROUP_COLORS } from "@/src/constants/invoiceCategories";
+import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal";
+import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
 import { WishlistSearchWebView } from "./WishlistSearchWebView";
 import { StoreGridModal } from "./StoreGridModal";
 import { SelectionModal } from "../shared/SelectionModal";
 import { useAddWishlistItem } from "@/src/hooks/useAddWishlistItem";
 import { soundManager } from "@/src/services/SoundManager";
+import { TButton, TInput } from "@/src/components/tamagui";
 
 const URGENCY_LABELS: Record<UrgencyLevel, string> = {
   PRIORITY: "Prioridade",
@@ -53,6 +55,7 @@ interface Props {
 export function AddItemModal({ visible, listId, theme, accounts = [], editItem, onConfirm, onCancel }: Props) {
   const insets = useSafeAreaInsets();
   const [storeGridVisible, setStoreGridVisible] = React.useState(false);
+  const [catPickerVisible, setCatPickerVisible] = React.useState(false);
   const {
     form,
     updateField,
@@ -99,11 +102,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
           <Pressable style={s.flex} onPress={handleCancel} />
         </Animated.View>
 
-        <KeyboardAvoidingView
-          style={s.kav}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          pointerEvents="box-none"
-        >
+        <KeyboardSafeView style={s.kav}>
           <View style={s.flex} pointerEvents="none" />
           <Animated.View
             style={[
@@ -131,7 +130,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                   <Text style={[s.label, { color: theme.secondaryText }]}>Link do produto (opcional)</Text>
                   <View style={s.urlRow}>
                     <TextInput
-                      style={[s.input, s.inputFlex, { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground }]}
+                      style={[s.input, s.inputFlex, { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground } as any]}
                       placeholder="Cole o link ou use a lupa para pesquisar"
                       placeholderTextColor={theme.secondaryText}
                       value={form.url}
@@ -171,13 +170,14 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
 
               {/* Name */}
               <Text style={[s.label, { color: theme.secondaryText }]}>Nome *</Text>
-              <TextInput
-                style={[s.input, { color: theme.textColor, borderColor: theme.primaryColor, backgroundColor: theme.cardBackground }]}
+              <TInput
                 placeholder="Nome do produto..."
-                placeholderTextColor={theme.secondaryText}
                 value={form.name}
                 onChangeText={(v) => updateField("name", v)}
                 maxLength={100}
+                color={theme.textColor as any}
+                backgroundColor={theme.cardBackground as any}
+                borderColor={theme.border as any}
               />
 
               {/* Urgency */}
@@ -215,7 +215,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                 <>
                   <Text style={[s.label, { color: theme.secondaryText }]}>Preço (R$)</Text>
                   <TextInput
-                    style={[s.input, { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground }]}
+                    style={[s.input, { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground } as any]}
                     placeholder="0,00"
                     placeholderTextColor={theme.secondaryText}
                     value={form.price}
@@ -227,24 +227,31 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
 
               {/* Category */}
               <Text style={[s.label, { color: theme.secondaryText }]}>Categoria</Text>
-              <View style={s.categoryGrid}>
-                {CATEGORY_OPTIONS.map((cat) => {
-                  const selected = form.category === cat.id;
-                  const color = GROUP_COLORS[cat.group];
-                  return (
-                    <TouchableOpacity
-                      key={cat.id}
-                      style={[s.categoryChip, { backgroundColor: selected ? color : color + "18", borderColor: color }]}
-                      onPress={() => { soundManager.play("tap"); updateField("category", selected ? "" : cat.id); }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[s.categoryChipText, { color: selected ? "#fff" : color }]}>
-                        {cat.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <TouchableOpacity
+                onPress={() => setCatPickerVisible(true)}
+                style={[s.catPickerBtn, {
+                  borderColor: form.category ? (GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === form.category)?.group ?? "wants")] ?? "#FF9800") : theme.border,
+                  backgroundColor: form.category ? `${GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === form.category)?.group ?? "wants")] ?? "#FF9800"}10` : theme.cardBackground,
+                }]}
+                activeOpacity={0.7}
+              >
+                <View style={[s.catDot, { backgroundColor: form.category ? (GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === form.category)?.group ?? "wants")] ?? "#FF9800") : theme.secondaryText }]} />
+                <Text style={[s.catPickerText, { color: theme.textColor }]}>
+                  {form.category
+                    ? (NCM_SUBCATEGORIES.find((s) => s.id === form.category)?.name
+                      ?? CATEGORY_OPTIONS.find((c) => c.id === form.category)?.name
+                      ?? "Selecionar")
+                    : "Selecionar categoria..."}
+                </Text>
+                <Feather name="chevron-right" size={14} color={theme.secondaryText} />
+              </TouchableOpacity>
+              <CategoryPickerModal
+                visible={catPickerVisible}
+                onClose={() => setCatPickerVisible(false)}
+                onSelect={(catId) => { updateField("category", catId); }}
+                theme={theme}
+                selectedId={form.category}
+              />
 
               {/* Savings goal link */}
               {accounts.filter((a) => a.type === "savings").length > 0 && (
@@ -291,21 +298,23 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
               {showAdvanced && (
                 <View>
                   <Text style={[s.label, { color: theme.secondaryText }]}>EAN</Text>
-                  <TextInput
-                    style={[s.input, { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground }]}
+                  <TInput
                     placeholder="Código de barras"
-                    placeholderTextColor={theme.secondaryText}
                     value={form.ean}
                     onChangeText={(v) => updateField("ean", v)}
                     keyboardType="numeric"
+                    color={theme.textColor as any}
+                    backgroundColor={theme.cardBackground as any}
+                    borderColor={theme.border as any}
                   />
                   <Text style={[s.label, { color: theme.secondaryText }]}>NCM</Text>
-                  <TextInput
-                    style={[s.input, { color: theme.textColor, borderColor: theme.cardBackground, backgroundColor: theme.cardBackground }]}
+                  <TInput
                     placeholder="Ex: 8517.12.31"
-                    placeholderTextColor={theme.secondaryText}
                     value={form.ncm}
                     onChangeText={(v) => updateField("ncm", v)}
+                    color={theme.textColor as any}
+                    backgroundColor={theme.cardBackground as any}
+                    borderColor={theme.border as any}
                   />
                 </View>
               )}
@@ -369,23 +378,29 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
 
               {/* Actions */}
               <View style={s.actions}>
-                <TouchableOpacity style={[s.btn, { borderColor: theme.border ?? "#E5E7EB" }]} onPress={() => { soundManager.play("tap"); handleCancel(); }} activeOpacity={0.7}>
-                  <Text style={[s.btnText, { color: theme.secondaryText }]}>Cancelar</Text>
-                </TouchableOpacity>
+                <TButton
+                  variant="outline"
+                  flex={1}
+                  borderColor={theme.border as any}
+                  color={theme.textColor as any}
+                  onPress={() => { soundManager.play("tap"); handleCancel(); }}
+                >
+                  Cancelar
+                </TButton>
                 {isValid && (
-                  <TouchableOpacity
-                    style={[s.btn, s.btnPrimary, { backgroundColor: theme.primaryColor }]}
+                  <TButton
+                    variant="primary"
+                    flex={1}
+                    icon={<Feather name={editItem ? "check" : "plus"} size={16} color="#fff" />}
                     onPress={() => { soundManager.play("success"); handleConfirm(); }}
-                    activeOpacity={0.7}
                   >
-                    <Feather name={editItem ? "check" : "plus"} size={16} color="#fff" />
-                    <Text style={s.btnTextPrimary}>{editItem ? "Salvar alterações" : "Adicionar à lista"}</Text>
-                  </TouchableOpacity>
+                    {editItem ? "Salvar alterações" : "Adicionar à lista"}
+                  </TButton>
                 )}
               </View>
             </ScrollView>
           </Animated.View>
-        </KeyboardAvoidingView>
+        </KeyboardSafeView>
 
         <WishlistSearchWebView
           visible={webView.visible}
@@ -453,18 +468,28 @@ const s = StyleSheet.create({
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
   title: { fontSize: 18, fontFamily: "DMSans_700Bold" },
   label: { fontSize: 11, fontFamily: "DMSans_500Medium", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, marginTop: 10 },
-  input: { height: 44, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, fontFamily: "DMSans_400Regular", marginBottom: 2 },
-  inputFlex: { flex: 1 },
   urlRow: { flexDirection: "row", gap: 6, alignItems: "center" },
   clearBtn: { width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center" },
   scrapeBtn: { width: 44, height: 44, borderRadius: 10, justifyContent: "center", alignItems: "center" },
   affiliateNote: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 6, marginBottom: 2 },
   affiliateNoteText: { fontSize: 11, fontFamily: "DMSans_400Regular", flex: 1 },
+  stepperRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 2 },
+  stepperBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, justifyContent: "center", alignItems: "center" },
+  stepperBtnSm: { width: 24, height: 24, borderRadius: 6, borderWidth: 1, justifyContent: "center", alignItems: "center" },
+  stepperInputSm: { width: 36, height: 28, borderRadius: 6, borderWidth: 1, textAlign: "center", fontSize: 13, fontFamily: "DMSans_700Bold" },
+  stepperValue: { fontSize: 18, fontFamily: "DMSans_700Bold", minWidth: 28, textAlign: "center" },
+  stepperInput: { width: 52, height: 40, borderRadius: 10, borderWidth: 1, textAlign: "center", fontSize: 16, fontFamily: "DMSans_700Bold" },
+  stepperTotal: { fontSize: 13, fontFamily: "DMSans_600SemiBold" },
   urgencyRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 2 },
   urgencyChip: { borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
   urgencyText: { fontSize: 12, fontFamily: "DMSans_600SemiBold" },
   categoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 2 },
   categoryChip: { borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
+  catPickerBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, marginBottom: 2 },
+  catPickerText: { flex: 1, fontFamily: "DMSans_500Medium", fontSize: 13 },
+  catDot: { width: 8, height: 8, borderRadius: 4 },
+  input: { height: 44, borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, fontSize: 14, fontFamily: "DMSans_400Regular" },
+  inputFlex: { flex: 1 },
   categoryChipText: { fontSize: 12, fontFamily: "DMSans_600SemiBold" },
   advancedToggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 10, marginTop: 4 },
   advancedText: { fontSize: 12, fontFamily: "DMSans_500Medium" },
@@ -485,8 +510,4 @@ const s = StyleSheet.create({
   bundleAddBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1.5, borderRadius: 10, borderStyle: "dashed", paddingVertical: 10 },
   bundleAddText: { fontSize: 13, fontFamily: "DMSans_600SemiBold" },
   actions: { flexDirection: "row", gap: 10, marginTop: 16, marginBottom: 8 },
-  btn: { flex: 1, height: 48, borderRadius: 12, borderWidth: 1.5, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
-  btnPrimary: { borderWidth: 0 },
-  btnText: { fontSize: 14, fontFamily: "DMSans_600SemiBold" },
-  btnTextPrimary: { fontSize: 14, fontFamily: "DMSans_600SemiBold", color: "#fff" },
 });

@@ -6,6 +6,7 @@ import {
   Modal,
   StyleSheet,
 } from "react-native";
+import { TCard } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { AI_DATA_PERMISSION_LABELS } from "@/src/modules/ai/domain/AISettings";
@@ -38,12 +39,7 @@ export function DataPermissionModal({
       onRequestClose={onDeny}
     >
       <View style={styles.overlay}>
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: theme.cardBackground, borderColor: theme.border },
-          ]}
-        >
+        <TCard borderRadius={20} padding={24} width="100%" maxWidth={360} gap={16} backgroundColor={theme.cardBackground} borderColor={theme.border}>
           <View style={styles.iconRow}>
             <View style={[styles.iconCircle, { backgroundColor: `${theme.primaryColor}20` }]}>
               <Feather name="database" size={24} color={theme.primaryColor} />
@@ -83,7 +79,7 @@ export function DataPermissionModal({
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </TCard>
       </View>
     </Modal>
   );
@@ -96,14 +92,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
-  },
-  card: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 24,
-    width: "100%",
-    maxWidth: 360,
-    gap: 16,
   },
   iconRow: {
     alignItems: "center",

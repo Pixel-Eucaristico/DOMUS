@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Platform,
 } from "react-native";
+import { TCard } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
 import { soundManager } from "@/src/services/SoundManager";
 import { useAppState } from "@/src/context/AppStateProvider";
@@ -68,15 +69,20 @@ export function AnalyticsConsentModal({ visible, onDone }: Props) {
       statusBarTranslucent
     >
       <View style={st.overlay}>
-        <View
-          style={[
-            st.card,
-            {
-              backgroundColor: theme.cardBackground,
-              borderColor: theme.border,
-              shadowColor: theme.primaryColor,
-            },
-          ]}
+        <TCard
+          variant="elevated"
+          borderRadius={24}
+          padding={28}
+          width="100%"
+          maxWidth={380}
+          alignItems="center"
+          gap={14}
+          backgroundColor={theme.cardBackground}
+          borderColor={theme.border}
+          shadowColor={theme.primaryColor as any}
+          shadowOpacity={0.4}
+          shadowRadius={24}
+          elevation={12}
         >
           <View style={[st.iconCircle, { backgroundColor: "#6366F118" }]}>
             <Feather name="bar-chart" size={32} color="#6366F1" />
@@ -148,7 +154,7 @@ export function AnalyticsConsentModal({ visible, onDone }: Props) {
           <Text style={[st.footer, { color: theme.secondaryText }]}>
             Você pode alterar isso a qualquer momento em Configurações → Analytics.
           </Text>
-        </View>
+        </TCard>
       </View>
     </Modal>
   );
@@ -183,19 +189,6 @@ const st = StyleSheet.create({
     alignItems: "center",
     padding: 24,
     paddingTop: Platform.OS === "ios" ? 60 : 24,
-  },
-  card: {
-    borderRadius: 24,
-    padding: 28,
-    width: "100%",
-    maxWidth: 380,
-    alignItems: "center",
-    gap: 14,
-    borderWidth: 1,
-    shadowOpacity: 0.4,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 12,
   },
   iconCircle: {
     width: 64,

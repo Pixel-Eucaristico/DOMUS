@@ -1,15 +1,14 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Modal,
   View,
   Text,
-  TextInput,
   Pressable,
   ScrollView,
   StyleSheet,
-  KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { KeyboardSafeView } from "@/src/components/shared/KeyboardSafeView";
 import Animated, { 
   FadeIn, 
   FadeOut, 
@@ -28,15 +27,17 @@ import { DatePickerField } from "@/src/components/shared/DatePickerField";
 import { ItemsSection } from "@/src/components/transaction/ItemsSection";
 import { InstallmentSelector } from "@/src/components/transaction/InstallmentSelector";
 import { TX_TYPES, getCategoriesForType } from "@/src/constants/transactionCategories";
-import type { TransactionStatus, RecurrenceType } from "@packages/events/src/types";
+import type { TransactionStatus, RecurrenceType, CategoryGroup } from "@packages/events/src/types";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import * as Haptics from "expo-haptics";
+import { TButton, TInput } from "@/src/components/tamagui";
 
 interface TransactionBottomSheetProps {
   visible: boolean;
   onClose: () => void;
   theme: ThemeColors;
+  initialType?: "income" | "expense" | "transfer";
 }
 
 const STATUS_OPTIONS: { key: TransactionStatus; label: string; icon: string }[] = [
@@ -54,7 +55,7 @@ const RECURRENCE_OPTIONS: { key: RecurrenceType; label: string }[] = [
 
 const SHEET_TRANSLATE = 700;
 
-export function TransactionBottomSheet({ visible, onClose, theme }: TransactionBottomSheetProps) {
+export function TransactionBottomSheet({ visible, onClose, theme, initialType }: TransactionBottomSheetProps) {
   const { domain } = useAppState();
   const insets = useSafeAreaInsets();
   const form = useTransactionForm(undefined, onClose);
@@ -65,13 +66,17 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
     if (visible) {
       soundManager.play("pop");
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      if (initialType) form.setTxType(initialType);
     }
-  }, [visible]);
+  }, [visible, initialType]);
 
   const handleClose = () => {
     soundManager.play("tap");
     onClose();
   };
+
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string | undefined>();
+  const [groupOverride, setGroupOverride] = useState<CategoryGroup | undefined>();
 
   const typeCats = getCategoriesForType(form.txType);
   const selectedCatId = typeCats[form.selectedCategory]?.id ?? typeCats[0]?.id ?? "";
@@ -102,10 +107,8 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
         >
           <Pressable style={s.flex} onPress={handleClose} />
         </Animated.View>
-        <KeyboardAvoidingView
+        <KeyboardSafeView
           style={s.flex}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          pointerEvents="box-none"
         >
           <View style={s.spacer} pointerEvents="none" />
           <Animated.View
@@ -170,13 +173,14 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
                 {form.itemsTotal.toFixed(2).replace(".", ",")}
               </Text>
             ) : (
-              <TextInput
-                style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+              <TInput
                 value={form.amount}
                 onChangeText={form.setAmount}
                 placeholder="0,00"
-                placeholderTextColor={theme.secondaryText}
                 keyboardType="decimal-pad"
+                color={theme.textColor}
+                backgroundColor={theme.cardBackground}
+                borderColor={theme.border}
               />
             )}
 
@@ -193,12 +197,13 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
 
             {/* Description */}
             <Text style={[s.label, { color: theme.secondaryText }]}>Descricao (opcional)</Text>
-            <TextInput
-              style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+            <TInput
               value={form.description}
               onChangeText={form.setDescription}
               placeholder="Ex: Mercado, Salario..."
-              placeholderTextColor={theme.secondaryText}
+              color={theme.textColor}
+              backgroundColor={theme.cardBackground}
+              borderColor={theme.border}
             />
 
             {/* Date */}
@@ -214,12 +219,17 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
             <CategorySelectorGrid
               categories={typeCats}
               selectedId={selectedCatId}
+              selectedSubcategoryId={selectedSubcategoryId}
               theme={theme}
               type={form.txType}
-              onSelect={(id) => {
+              onSelect={(id, subId) => {
                 const idx = typeCats.findIndex((c) => c.id === id);
                 if (idx !== -1) form.setSelectedCategory(idx);
+                setSelectedSubcategoryId(subId);
+                if (!subId) setGroupOverride(undefined);
               }}
+              onGroupOverride={setGroupOverride}
+              groupOverride={groupOverride}
             />
 
             {/* Tithe calculator — shown when "Dízimo / Oferta" is selected */}
@@ -235,14 +245,15 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
                 <Text style={[s.label, { color: theme.secondaryText, marginTop: 8, fontSize: 12 }]}>
                   Percentual (%)
                 </Text>
-                <TextInput
-                  style={[s.titheInput, { color: theme.textColor, borderColor: theme.border }]}
+                <TInput
                   defaultValue={tithe.percentage}
                   onChangeText={tithe.setPercentage}
-                  onEndEditing={(e) => tithe.setPercentage(e.nativeEvent.text)}
+                  onEndEditing={(e: any) => tithe.setPercentage(e.nativeEvent.text)}
                   placeholder="10"
-                  placeholderTextColor={theme.secondaryText}
                   keyboardType="decimal-pad"
+                  color={theme.textColor}
+                  backgroundColor={theme.cardBackground}
+                  borderColor={theme.border}
                 />
 
                 <Text style={[s.label, { color: theme.secondaryText, marginTop: 8, fontSize: 12 }]}>
@@ -311,14 +322,15 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
                     <Text style={[s.label, { color: theme.secondaryText, marginTop: 8, fontSize: 12 }]}>
                       Ultimos quantos dias?
                     </Text>
-                    <TextInput
-                      style={[s.titheInput, { color: theme.textColor, borderColor: theme.border }]}
+                    <TInput
                       defaultValue={tithe.customDays}
                       onChangeText={tithe.setCustomDays}
-                      onEndEditing={(e) => tithe.setCustomDays(e.nativeEvent.text)}
+                      onEndEditing={(e: any) => tithe.setCustomDays(e.nativeEvent.text)}
                       placeholder="30"
-                      placeholderTextColor={theme.secondaryText}
                       keyboardType="number-pad"
+                      color={theme.textColor}
+                      backgroundColor={theme.cardBackground}
+                      borderColor={theme.border}
                     />
                   </>
                 )}
@@ -441,28 +453,31 @@ export function TransactionBottomSheet({ visible, onClose, theme }: TransactionB
             {form.recurrence === "custom" && (
               <>
                 <Text style={[s.label, { color: theme.secondaryText }]}>Repetir a cada (dias)</Text>
-                <TextInput
-                  style={[s.input, { color: theme.textColor, borderColor: theme.border }]}
+                <TInput
                   value={form.recurrenceDays}
                   onChangeText={form.setRecurrenceDays}
                   placeholder="Ex: 15"
-                  placeholderTextColor={theme.secondaryText}
                   keyboardType="number-pad"
+                  color={theme.textColor}
+                  backgroundColor={theme.cardBackground}
+                  borderColor={theme.border}
                 />
               </>
             )}
 
             {/* Save button */}
-            <Pressable
-              style={[s.saveBtn, { backgroundColor: theme.primaryColor }]}
+            <TButton
+              variant="primary"
+              backgroundColor={theme.primaryColor}
+              icon={<Feather name="check" size={18} color="#FFF" />}
               onPress={form.handleSave}
+              marginTop={12}
             >
-              <Feather name="check" size={18} color="#FFF" />
-              <Text style={s.saveBtnText}>Salvar</Text>
-            </Pressable>
+              Salvar
+            </TButton>
           </ScrollView>
         </Animated.View>
-      </KeyboardAvoidingView>
+      </KeyboardSafeView>
     </View>
     </Modal>
   );
@@ -498,12 +513,6 @@ const s = StyleSheet.create({
   title: { fontFamily: "DMSans_700Bold", fontSize: 20 },
   body: { gap: 8, paddingBottom: 32 },
   label: { fontFamily: "DMSans_500Medium", fontSize: 13, marginTop: 4 },
-  input: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 16,
-    borderBottomWidth: 1,
-    paddingVertical: 10,
-  },
   row: { flexDirection: "row", gap: 8 },
   chip: {
     flexDirection: "row",
@@ -516,16 +525,6 @@ const s = StyleSheet.create({
   },
   chipText: { fontFamily: "DMSans_500Medium", fontSize: 13 },
   computedAmount: { fontFamily: "DMSans_700Bold", fontSize: 32, textAlign: "center" as const, paddingVertical: 8 },
-  saveBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
-    marginTop: 12,
-  },
-  saveBtnText: { fontFamily: "DMSans_700Bold", fontSize: 16, color: "#FFF" },
   // Tithe calculator
   titheCard: {
     borderRadius: 14,
@@ -537,13 +536,6 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginBottom: 2,
-  },
-  titheInput: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 15,
-    borderBottomWidth: 1,
-    paddingVertical: 6,
     marginBottom: 2,
   },
   titheChipRow: {

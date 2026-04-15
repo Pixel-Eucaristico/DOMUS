@@ -3,8 +3,9 @@ import {
   invoiceReducer,
   createInitialInvoiceState,
 } from "../src/invoiceReducer";
-import { EVENT_TYPES } from "../src/types";
-import type { InvoiceImportedPayload, AIClassificationCorrectedPayload } from "../src/types";
+
+import { EVENT_TYPES, type InvoiceItem } from "../src/types";
+import type { InvoiceImportedPayload } from "../src/types";
 
 describe("invoiceReducer", () => {
   describe("INVOICE_IMPORTED", () => {
@@ -12,13 +13,14 @@ describe("invoiceReducer", () => {
       const state = createInitialInvoiceState();
       const payload: InvoiceImportedPayload = {
         invoiceId: "inv-001",
+        emitter: { name: "Test Store", cnpj: "00.000.000/0001-00" },
         items: [
-          { name: "ARROZ 5KG", quantity: 1, price: 22.9, categoryId: "alimentacao" },
-          { name: "FEIJAO 1KG", quantity: 2, price: 8.5, categoryId: "alimentacao" },
+          { description: "ARROZ 5KG", quantity: 1, unitPrice: 22.9, totalPrice: 22.9 },
+          { description: "FEIJAO 1KG", quantity: 2, unitPrice: 8.5, totalPrice: 17.0 },
         ],
-        total: 39.9,
+        totalAmount: 39.9,
         date: "2026-02-14T15:00:00.000Z",
-        source: "qrcode",
+        source: "SEFAZ_QR",
       };
 
       const newState = invoiceReducer(state, {
@@ -31,8 +33,8 @@ describe("invoiceReducer", () => {
       const invoice = newState.invoices.get("inv-001");
       expect(invoice).toBeDefined();
       expect(invoice!.items).toHaveLength(2);
-      expect(invoice!.total).toBe(39.9);
-      expect(invoice!.source).toBe("qrcode");
+      expect(invoice!.totalAmount).toBe(39.9);
+      expect(invoice!.source).toBe("SEFAZ_QR");
     });
 
     it("handles multiple invoices", () => {
@@ -42,11 +44,12 @@ describe("invoiceReducer", () => {
         type: EVENT_TYPES.INVOICE_IMPORTED,
         payload: {
           invoiceId: "inv-001",
-          items: [{ name: "A", quantity: 1, price: 10 }],
-          total: 10,
+          emitter: { name: "A", cnpj: "" },
+          items: [{ description: "A", quantity: 1, unitPrice: 10, totalPrice: 10 }],
+          totalAmount: 10,
           date: "2026-02-14T10:00:00.000Z",
-          source: "qrcode",
-        } as InvoiceImportedPayload,
+          source: "SEFAZ_QR",
+        },
         timestamp: 1000,
       });
 
@@ -54,11 +57,12 @@ describe("invoiceReducer", () => {
         type: EVENT_TYPES.INVOICE_IMPORTED,
         payload: {
           invoiceId: "inv-002",
-          items: [{ name: "B", quantity: 1, price: 20 }],
-          total: 20,
+          emitter: { name: "B", cnpj: "" },
+          items: [{ description: "B", quantity: 1, unitPrice: 20, totalPrice: 20 }],
+          totalAmount: 20,
           date: "2026-02-14T12:00:00.000Z",
-          source: "ocr",
-        } as InvoiceImportedPayload,
+          source: "OCR_FALLBACK",
+        },
         timestamp: 2000,
       });
 
@@ -69,10 +73,11 @@ describe("invoiceReducer", () => {
       const state = createInitialInvoiceState();
       const payload: InvoiceImportedPayload = {
         invoiceId: "inv-001",
-        items: [{ name: "X", quantity: 1, price: 5 }],
-        total: 5,
+        emitter: { name: "X", cnpj: "" },
+        items: [{ description: "X", quantity: 1, unitPrice: 5, totalPrice: 5 }],
+        totalAmount: 5,
         date: "2026-02-14T10:00:00.000Z",
-        source: "manual",
+        source: "SEFAZ_QR",
       };
 
       const newState = invoiceReducer(state, {
@@ -83,93 +88,6 @@ describe("invoiceReducer", () => {
 
       expect(state.invoices.size).toBe(0);
       expect(newState.invoices.size).toBe(1);
-    });
-  });
-
-  describe("AI_CLASSIFICATION_CORRECTED", () => {
-    it("updates item category", () => {
-      let state = createInitialInvoiceState();
-      state = invoiceReducer(state, {
-        type: EVENT_TYPES.INVOICE_IMPORTED,
-        payload: {
-          invoiceId: "inv-001",
-          items: [
-            { name: "ITEM A", quantity: 1, price: 10, categoryId: "outros" },
-            { name: "ITEM B", quantity: 1, price: 20, categoryId: "lazer" },
-          ],
-          total: 30,
-          date: "2026-02-14T10:00:00.000Z",
-          source: "qrcode",
-        } as InvoiceImportedPayload,
-        timestamp: 1000,
-      });
-
-      const correction: AIClassificationCorrectedPayload = {
-        invoiceId: "inv-001",
-        itemIndex: 0,
-        oldCategoryId: "outros",
-        newCategoryId: "alimentacao",
-      };
-
-      state = invoiceReducer(state, {
-        type: EVENT_TYPES.AI_CLASSIFICATION_CORRECTED,
-        payload: correction,
-        timestamp: 2000,
-      });
-
-      const invoice = state.invoices.get("inv-001");
-      expect(invoice!.items[0]!.categoryId).toBe("alimentacao");
-      expect(invoice!.items[0]!.categoryConfidence).toBe(1.0);
-      expect(invoice!.items[1]!.categoryId).toBe("lazer");
-    });
-
-    it("ignores correction for non-existent invoice", () => {
-      const state = createInitialInvoiceState();
-      const correction: AIClassificationCorrectedPayload = {
-        invoiceId: "nonexistent",
-        itemIndex: 0,
-        oldCategoryId: "outros",
-        newCategoryId: "alimentacao",
-      };
-
-      const newState = invoiceReducer(state, {
-        type: EVENT_TYPES.AI_CLASSIFICATION_CORRECTED,
-        payload: correction,
-        timestamp: Date.now(),
-      });
-
-      expect(newState).toBe(state);
-    });
-
-    it("ignores correction for out-of-bounds index", () => {
-      let state = createInitialInvoiceState();
-      state = invoiceReducer(state, {
-        type: EVENT_TYPES.INVOICE_IMPORTED,
-        payload: {
-          invoiceId: "inv-001",
-          items: [{ name: "A", quantity: 1, price: 10, categoryId: "outros" }],
-          total: 10,
-          date: "2026-02-14T10:00:00.000Z",
-          source: "qrcode",
-        } as InvoiceImportedPayload,
-        timestamp: 1000,
-      });
-
-      const correction: AIClassificationCorrectedPayload = {
-        invoiceId: "inv-001",
-        itemIndex: 99,
-        oldCategoryId: "outros",
-        newCategoryId: "alimentacao",
-      };
-
-      const newState = invoiceReducer(state, {
-        type: EVENT_TYPES.AI_CLASSIFICATION_CORRECTED,
-        payload: correction,
-        timestamp: 2000,
-      });
-
-      const invoice = newState.invoices.get("inv-001");
-      expect(invoice!.items[0]!.categoryId).toBe("outros");
     });
   });
 

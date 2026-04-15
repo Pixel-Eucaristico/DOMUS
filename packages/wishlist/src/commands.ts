@@ -10,6 +10,7 @@ import type {
   WishlistPriceUpdatedEvent,
   WishlistItemConvertedToExpenseEvent,
   WishlistSavingsGoalSetEvent,
+  WishlistListDeletedEvent,
   WishlistItem,
   UrgencyLevel,
   WishlistEventMetadata,
@@ -220,6 +221,20 @@ export function setSavingsGoalEvent(
       itemId,
       listId,
       savingsGoal,
+      metadata: makeMetadata(deviceId),
+    },
+  };
+}
+
+export function deleteWishlistListEvent(
+  listId: string,
+  deviceId: string,
+): WishlistListDeletedEvent {
+  return {
+    ...baseEvent(deviceId),
+    type: WISHLIST_EVENTS.WISHLIST_LIST_DELETED,
+    payload: {
+      listId,
       metadata: makeMetadata(deviceId),
     },
   };

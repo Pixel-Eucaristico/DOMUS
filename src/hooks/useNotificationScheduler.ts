@@ -13,6 +13,7 @@ import {
   computeBudgetAlerts,
   computeCreditCardClosingReminders,
   computeSavingsGoalAlerts,
+  computeSavingsContributionReminders,
   computePendingTransactionReminders,
   computeWeeklySummary,
 } from "@/src/modules/notifications/application/NotificationScheduler";
@@ -45,6 +46,7 @@ export function useNotificationScheduler() {
           ...computeBudgetAlerts(domain.transactions, domain.categories, domain.accounts, settings),
           ...computeCreditCardClosingReminders(domain.accounts, domain.transactions, settings),
           ...computeSavingsGoalAlerts(domain.accounts, settings),
+          ...computeSavingsContributionReminders(domain.transactions, domain.accounts, settings),
           ...computePendingTransactionReminders(domain.transactions, domain.accounts, domain.categories, settings),
           ...computeWeeklySummary(domain.transactions, settings),
         ];

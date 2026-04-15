@@ -23,7 +23,7 @@ export type CircuitState = "closed" | "open" | "half_open";
 export const AI_MODELS: Record<AIProvider, Record<AIModelTier, string>> = {
   openai: {
     fast: "gpt-5-mini",
-    smart: "gpt-4.1",
+    smart: "gpt-5.4",
   },
   gemini: {
     fast: "gemini-2.5-flash",
@@ -38,9 +38,15 @@ export const AI_MODELS: Record<AIProvider, Record<AIModelTier, string>> = {
     smart: "deepseek-reasoner",
   },
   qwen: {
-    fast: "qwen3.5-flash",
-    smart: "qwen3.5-plus",
+    fast: "qwen-turbo-latest",
+    smart: "qwen-plus-latest",
   },
+} as const;
+
+/** Gemini TTS model options */
+export const GEMINI_TTS_MODELS = {
+  fast: "gemini-2.5-flash-preview-tts",
+  quality: "gemini-2.5-pro-preview-tts",
 } as const;
 
 /**
@@ -105,6 +111,8 @@ export interface ChatMessage {
   timestamp: number;
   tokensUsed?: number;
   isLocalFallback?: boolean;
+  /** Provider that generated this message (for showing correct icon in history) */
+  provider?: AIProvider;
 }
 
 export interface TransactionClassification {
@@ -130,9 +138,43 @@ export interface MonthlySummary {
 
 // ─── Adapter Contract ─────────────────────────────────────────────────────────
 
+// ─── Multimodal Content ──────────────────────────────────────────────────────
+
+export interface TextContentPart {
+  type: "text";
+  text: string;
+}
+
+export interface ImageUrlContentPart {
+  type: "image_url";
+  image_url: { url: string };
+}
+
+export type MultimodalContent = Array<TextContentPart | ImageUrlContentPart>;
+
+// ─── Audio Provider ──────────────────────────────────────────────────────────
+
+export type AudioProvider = "openai" | "elevenlabs" | "gemini";
+
+export interface IAudioProvider {
+  /** Synthesize text to audio, returns base64-encoded audio */
+  synthesize(
+    text: string,
+    apiKey: string,
+    voice: string,
+  ): Promise<{ base64: string; format: "mp3" }>;
+}
+
+// ─── Adapter Contract ────────────────────────────────────────────────────────
+
 export interface AdapterMessage {
   role: "user" | "assistant" | "system";
   content: string;
+  /** Multimodal content for vision requests (overrides string content when present) */
+  multimodal?: MultimodalContent;
+  /** Base64 image for vision OCR (provider-agnostic, adapters convert to their format) */
+  imageBase64?: string;
+  imageMimeType?: string;
 }
 
 export interface AdapterOptions {
@@ -173,6 +215,8 @@ export interface DailyTokenUsage {
   date: string;
   totalTokens: number;
   byProvider: Partial<Record<AIProvider, number>>;
+  /** TTS characters used today, keyed by audio provider name */
+  ttsCharsByProvider?: Record<string, number>;
 }
 
 export interface MonthlyTokenUsage {

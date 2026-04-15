@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Share } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { TCard } from "@/src/components/tamagui";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { captureRef } from "react-native-view-shot";
@@ -111,10 +112,24 @@ export const SurpriseTrophyCard: React.FC<SurpriseTrophyCardProps> = ({
   const isLiturgical = !!ALL_LITURGICAL_TROPHIES.find((lt: any) => lt.id === trophy?.id);
 
   return (
-    <View
+    <TCard
       ref={cardRef}
       collapsable={false}
-      style={[s.surpriseCard, { borderColor: tierColor + "55", backgroundColor: theme.cardBackground }]}
+      elevated
+      backgroundColor={theme.cardBackground}
+      borderColor={theme.border}
+      style={{
+        borderWidth: 1.5,
+        borderColor: tierColor + "55",
+        borderRadius: 20,
+        padding: 20,
+        gap: 16,
+        overflow: "hidden",
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 10 },
+        elevation: 10,
+      }}
     >
       <LinearGradient
         colors={[tierColor + "15", "transparent", theme.background]}
@@ -269,24 +284,13 @@ export const SurpriseTrophyCard: React.FC<SurpriseTrophyCardProps> = ({
         selection={selectedAlbumTrophy}
         onClose={() => setSelectedAlbumTrophy(null)}
         theme={theme}
+        completionCount={gamification.completionCounts?.[selectedAlbumTrophy?.trophy?.id ?? ""] ?? 0}
       />
-    </View>
+    </TCard>
   );
 };
 
 const s = StyleSheet.create({
-  surpriseCard: {
-    borderRadius: 20,
-    borderWidth: 1.5,
-    padding: 20,
-    gap: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-    overflow: "hidden",
-  },
   surpriseHeader: {
     flexDirection: "row",
     alignItems: "flex-start",

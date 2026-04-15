@@ -19,6 +19,9 @@ import { DomusLogo } from "@/src/components/shared/DomusLogo";
 import { AnimatedCard } from "@/src/components/shared/AnimatedCard";
 import { AnimatedIconButton } from "@/src/components/shared/AnimatedIconButton";
 import { soundManager } from "@/src/services/SoundManager";
+import { useAISettings } from "@/src/hooks/useAISettings";
+import { useWishlist } from "@/src/hooks/useWishlist";
+import { SelectionModal } from "@/src/components/shared/SelectionModal";
 import { formatCurrency } from "@/src/utils/formatCurrency";
 import {
   ALL_SEASONAL_TROPHIES,
@@ -37,14 +40,21 @@ import { ResponsiveContainer } from "@/src/ui/components/ResponsiveContainer";
 import { ResponsiveRow } from "@/src/ui/components/ResponsiveRow";
 import { ResponsiveColumn } from "@/src/ui/components/ResponsiveColumn";
 import { useResponsive } from "@/src/ui/layout/useResponsive";
-import { useTourTarget } from "@/src/tour/useTourTarget";
+import { TourGuideZone } from "rn-tourguide";
+import { TourPageHost } from "@/src/components/tour/TourPageHost";
+import { useTourPage } from "@/src/tour/useTourPage";
+import { HomeFab } from "@/src/components/shared/HomeFab";
+import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
+import { PixelText } from "@/src/components/pixel";
+import { TCard } from "@/src/components/tamagui";
+import { TText } from "@/src/components/tamagui";
 
 
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { domain, gamification, levelInfo, totalBalance, archetype, theme, loading, dispatchDomainEvent, deviceId, season } =
+  const { domain, gamification, levelInfo, totalBalance, archetype, theme, loading, dispatchDomainEvent, deviceId, season, isCatholic } =
     useAppState();
   const { syncStatus } = useSync();
   const { isMobile, columns } = useResponsive();
@@ -52,16 +62,14 @@ export default function HomeScreen() {
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
   const [showAddSheet, setShowAddSheet] = useState(false);
+  const [addSheetType, setAddSheetType] = useState<"income" | "expense" | "transfer" | undefined>(undefined);
+  const { settings: aiSettings } = useAISettings();
+  const { lists: wishlistLists } = useWishlist();
+  const [showListPicker, setShowListPicker] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef<number>(0);
+  const { isGuideActive: tourActive } = useTourPage(0);
 
-  const { targetRef: balanceRef, TourCard: BalanceTourCard, activeStyle: balanceActive } = useTourTarget("dashboard-balance", scrollRef);
-  const { targetRef: budgetRef, TourCard: BudgetTourCard, activeStyle: budgetActive } = useTourTarget("budget-section", scrollRef);
-  const { targetRef: xpRef, TourCard: XpTourCard, activeStyle: xpActive } = useTourTarget("xp-section", scrollRef);
-  const { targetRef: trophyRef, TourCard: TrophyTourCard, activeStyle: trophyActive } = useTourTarget("trophy-section", scrollRef);
-  const { targetRef: fabRef, TourCard: FabTourCard, activeStyle: fabActive } = useTourTarget("fab-add");
-  const { targetRef: aiChatRef, TourCard: AiChatTourCard, activeStyle: aiChatActive } = useTourTarget("ai-chat-btn");
-  const { targetRef: settingsRef, TourCard: SettingsTourCard, activeStyle: settingsActive } = useTourTarget("dashboard-settings");
-  const { targetRef: syncBtnRef, TourCard: SyncBtnTourCard, activeStyle: syncBtnActive } = useTourTarget("sync-btn");
 
   // Month/Year filter state
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -159,19 +167,70 @@ export default function HomeScreen() {
     const result: Record<string, number> = {};
     for (const acc of savingsGoalAccounts) {
       result[acc.id] = txArr
-        .filter((tx) => tx.accountId === acc.id && tx.type === "income" && tx.status === "confirmed" && tx.date.startsWith(prefix))
+        .filter((tx) => tx.accountId === acc.id && tx.type === "income" && tx.status === "confirmed" && tx.date?.startsWith(prefix))
         .reduce((s, tx) => s + tx.amount, 0);
     }
     return result;
   }, [txArr, savingsGoalAccounts]);
 
-  const handleAddPress = () => {
-    soundManager.play("pop");
+  const playTap = () => {
+    soundManager.play("tap");
     if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    setShowAddSheet(true);
   };
+
+  const fabActions = useMemo(() => {
+    const all = [
+      // ── Página 1: principais ──
+      {
+        id: "manual",
+        icon: "edit-3" as const,
+        label: "Cadastro",
+        color: theme.primaryColor,
+        onPress: () => { soundManager.play("pop"); setAddSheetType(undefined); setShowAddSheet(true); },
+      },
+      ...(wishlistLists.length > 0 ? [{
+        id: "wishlist",
+        icon: "heart" as const,
+        label: "Wishlist",
+        color: "#EC4899",
+        onPress: () => { soundManager.play("tap"); setShowListPicker(true); },
+      }] : []),
+      {
+        id: "ocr",
+        icon: "camera" as const,
+        label: "NF",
+        color: "#F59E0B",
+        onPress: () => { soundManager.play("tap"); router.push("/import-invoice"); },
+      },
+      // ── Página 2: secundárias ──
+      ...(aiSettings.isEnabled ? [
+        {
+          id: "ai",
+          icon: "cpu" as const,
+          label: "Chat IA",
+          color: "#8B5CF6",
+          onPress: () => { soundManager.play("tap"); router.push("/ai-chat"); },
+        },
+        {
+          id: "voice",
+          icon: "mic" as const,
+          label: "Voz",
+          color: "#EF4444",
+          onPress: () => { soundManager.play("tap"); router.push({ pathname: "/ai-chat", params: { voice: "1" } }); },
+        },
+      ] : []),
+      {
+        id: "transfer",
+        icon: "repeat" as const,
+        label: "Transferir",
+        color: "#06B6D4",
+        onPress: () => { soundManager.play("pop"); setAddSheetType("transfer"); setShowAddSheet(true); },
+      },
+    ];
+    return all;
+  }, [theme.primaryColor, router, aiSettings.isEnabled, wishlistLists.length]);
 
   const handleBudgetPress = (group: string) => {
     router.push(`/category-detail/${group}?month=${selectedMonth}&year=${selectedYear}`);
@@ -199,15 +258,16 @@ export default function HomeScreen() {
     return (
       <View style={[s.root, { backgroundColor: theme.background }]}>
         <View style={s.loadingContainer}>
-          <Text style={[s.loadingText, { color: theme.secondaryText }]}>
+          <TText variant="subtitle" color={theme.secondaryText}>
             Carregando...
-          </Text>
+          </TText>
         </View>
       </View>
     );
   }
 
   return (
+    <TourPageHost groupId={0} scrollRef={scrollRef} scrollYRef={scrollYRef}>
     <View style={[s.root, { backgroundColor: theme.background }]}>
       <ScrollView
         ref={scrollRef}
@@ -220,23 +280,27 @@ export default function HomeScreen() {
           },
         ]}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={!tourActive}
+        onScroll={e => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+        scrollEventThrottle={16}
       >
        <ResponsiveContainer style={{ gap: 16 }}>
         {/* ── HEADER ─────────────────────────────────────────────────────── */}
-        <View style={Platform.OS === "web" ? { zIndex: (aiChatActive || settingsActive) ? 9999 : 1, position: "relative" } : {}}>
-          <View style={[s.header, aiChatActive || settingsActive, Platform.OS === "web" && (aiChatActive || settingsActive) ? { zIndex: 9998, position: "relative" } : {}]}>
+        <View style={Platform.OS === "web" ? { zIndex: 1, position: "relative" } : {}}>
+          <View style={[s.header]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <DomusLogo size={36} theme={theme} />
+              {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
               <View>
-                <Text style={[s.greeting, { color: theme.textColor }]}>DOMUS</Text>
-                <Text style={[s.subtitle, { color: theme.secondaryText }]}>
+                <PixelText size={16} color={theme.textColor}>DOMUS</PixelText>
+                <TText variant="caption" color={theme.secondaryText}>
                   {archetype.charAt(0).toUpperCase() + archetype.slice(1)} / Nível{" "}
                   {levelInfo.level}
-                </Text>
+                </TText>
               </View>
             </View>
             <View style={s.headerActions}>
-              <View ref={syncBtnRef as any} collapsable={false} style={syncBtnActive}>
+              <TourGuideZone zone={6} text="16" isTourGuide borderRadius={20}>
                 <AnimatedIconButton
                   name="refresh-cw"
                   size={20}
@@ -245,7 +309,7 @@ export default function HomeScreen() {
                   style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
                   onPress={() => router.push("/sync")}
                 />
-              </View>
+              </TourGuideZone>
               <AnimatedIconButton
                 name="maximize"
                 size={20}
@@ -253,7 +317,7 @@ export default function HomeScreen() {
                 style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
                 onPress={() => router.push("/import-invoice")}
               />
-              <View ref={aiChatRef as any} collapsable={false}>
+              <TourGuideZone zone={4} text="12" isTourGuide borderRadius={20}>
                 <AnimatedIconButton
                   name="robot-happy"
                   iconSet="MaterialCommunityIcons"
@@ -262,8 +326,8 @@ export default function HomeScreen() {
                   style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
                   onPress={() => router.push("/ai-chat")}
                 />
-              </View>
-              <View ref={settingsRef as any} collapsable={false}>
+              </TourGuideZone>
+              <TourGuideZone zone={5} text="13" isTourGuide borderRadius={20}>
                 <AnimatedIconButton
                   name="settings"
                   size={20}
@@ -271,12 +335,9 @@ export default function HomeScreen() {
                   style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
                   onPress={() => router.push("/about")}
                 />
-              </View>
+              </TourGuideZone>
             </View>
           </View>
-          <SyncBtnTourCard />
-          <AiChatTourCard />
-          <SettingsTourCard />
         </View>
 
         {/* ── STATS ROW ──────────────────────────────────────────────────── */}
@@ -314,10 +375,10 @@ export default function HomeScreen() {
         </ResponsiveRow>
 
         {/* ── GAMIFICATION WIDGET ────────────────────────────────────────── */}
-        <ResponsiveRow style={Platform.OS === "web" ? { zIndex: xpActive ? 9999 : 1, position: "relative" } : {}}>
+        <ResponsiveRow style={Platform.OS === "web" ? { position: "relative" } : {}}>
           <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
-            <AnimatedCard index={1} style={[xpActive, Platform.OS === "web" && xpActive ? { zIndex: 9998, position: "relative" } : {}]}>
-              <View ref={xpRef} collapsable={false} style={[{ width: "100%" }, xpActive]}>
+            <AnimatedCard index={1} >
+              <View collapsable={false} style={{ width: "100%" }}>
                 <GamificationWidget
                   theme={theme}
                   currentTrophy={currentTrophy}
@@ -328,16 +389,16 @@ export default function HomeScreen() {
                 />
               </View>
             </AnimatedCard>
-            <XpTourCard />
           </ResponsiveColumn>
         </ResponsiveRow>
 
         {/* ── BALANCE + ACCOUNTS ─────────────────────────────────────────── */}
         {/* ── BALANCE + ACCOUNTS ─────────────────────────────────────────── */}
-        <ResponsiveRow gap={16} style={Platform.OS === "web" ? { zIndex: balanceActive ? 9999 : 1 } : {}}>
-          <ResponsiveColumn span={accountCount === 0 ? columns : 1} style={Object.assign({ paddingHorizontal: isMobile ? 16 : 0 }, balanceActive || {})}>
+        <ResponsiveRow gap={16}>
+          <ResponsiveColumn span={accountCount === 0 ? columns : 1} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
+            <TourGuideZone zone={1} text="1" isTourGuide borderRadius={20}>
             <AnimatedCard index={2}>
-              <View ref={balanceRef} collapsable={false} style={[s.balanceCard, { backgroundColor: theme.primaryColor, marginHorizontal: 0, width: "100%" }, balanceActive]}>
+              <View collapsable={false} style={[s.balanceCard, { backgroundColor: theme.primaryColor, marginHorizontal: 0, width: "100%" }]}>
                 <View style={s.balanceHeader}>
                   <View style={s.balanceLabelRow}>
                     <Feather name="dollar-sign" size={16} color="rgba(255,255,255,0.7)" />
@@ -348,7 +409,7 @@ export default function HomeScreen() {
                 <Text style={s.balanceValue}>{formatCurrency(totalBalance)}</Text>
               </View>
             </AnimatedCard>
-            <BalanceTourCard />
+            </TourGuideZone>
           </ResponsiveColumn>
 
           {accountCount > 0 && (
@@ -367,9 +428,9 @@ export default function HomeScreen() {
             <View style={[s.invoiceBannerIcon, { backgroundColor: "#FEF3C7" }]}>
               <Feather name="file-text" size={15} color="#D97706" />
             </View>
-            <Text style={[s.invoiceBannerText, { color: theme.textColor }]}>
+            <TText variant="label" color={theme.textColor} flex={1}>
               {unconfirmedInvoices.length} nota{unconfirmedInvoices.length !== 1 ? "s fiscais" : " fiscal"} aguardando confirmação
-            </Text>
+            </TText>
             <Feather name="chevron-right" size={16} color={theme.secondaryText} />
           </Pressable>
         )}
@@ -386,24 +447,25 @@ export default function HomeScreen() {
         />
 
         {/* ── BUDGET 50/30/20 ────────────────────────────────────────────── */}
-        <ResponsiveRow style={Platform.OS === "web" ? { zIndex: budgetActive ? 9999 : 1, position: "relative" } : {}}>
-          <ResponsiveColumn span={columns} style={Object.assign({ paddingHorizontal: isMobile ? 16 : 0 }, budgetActive || {})}>
-            <AnimatedCard index={3} style={[budgetActive, Platform.OS === "web" && budgetActive ? { zIndex: 9998, position: "relative" } : {}]}>
-              <View ref={budgetRef} collapsable={false} style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }, budgetActive]}>
+        <ResponsiveRow>
+          <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
+            <TourGuideZone zone={2} text="2" isTourGuide borderRadius={20}>
+            <AnimatedCard index={3}>
+              <TCard elevated backgroundColor={theme.cardBackground} borderColor={theme.border} marginHorizontal={0} width="100%">
                 <View style={s.monthFilterContainer}>
-                  <Text style={[s.cardTitle, { color: theme.textColor }]}>
+                  <TText variant="subtitle" color={theme.textColor}>
                     Orçamento 50/30/20
-                  </Text>
+                  </TText>
                   <View style={s.monthFilter}>
                     <Pressable onPress={() => { soundManager.play("tap"); handlePreviousMonth(); }} style={s.monthArrow}>
                       <Feather name="chevron-left" size={20} color={theme.textColor} />
                     </Pressable>
-                    <Text style={[s.monthLabel, { color: theme.textColor }]}>
+                    <TText variant="label" color={theme.textColor} textTransform="capitalize" minWidth={80} textAlign="center">
                       {new Date(selectedYear, selectedMonth).toLocaleDateString("pt-BR", {
                         month: "short",
                         year: "numeric"
                       })}
-                    </Text>
+                    </TText>
                     <Pressable onPress={() => { soundManager.play("tap"); handleNextMonth(); }} style={s.monthArrow}>
                       <Feather name="chevron-right" size={20} color={theme.textColor} />
                     </Pressable>
@@ -418,36 +480,36 @@ export default function HomeScreen() {
                 ) : (
                   <View style={s.emptyState}>
                     <Feather name="pie-chart" size={28} color={theme.secondaryText} />
-                    <Text style={[s.emptyText, { color: theme.secondaryText }]}>
+                    <TText variant="body" color={theme.secondaryText} textAlign="center">
                       Registre transações para ver seu orçamento
-                    </Text>
+                    </TText>
                   </View>
                 )}
-              </View>
+              </TCard>
             </AnimatedCard>
-            <BudgetTourCard />
+            </TourGuideZone>
           </ResponsiveColumn>
         </ResponsiveRow>
 
         {/* ── SEASON CARD ────────────────────────────────────────────────── */}
         {season.currentSeason?.active && (
-          <ResponsiveRow style={Platform.OS === "web" ? { zIndex: trophyActive ? 9999 : 1, position: "relative" } : {}}>
+          <ResponsiveRow style={Platform.OS === "web" ? { position: "relative" } : {}}>
             <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
-              <AnimatedCard index={4} style={[trophyActive, Platform.OS === "web" && trophyActive ? { zIndex: 9998, position: "relative" } : {}]}>
-                <View ref={trophyRef} collapsable={false} style={[{ width: "100%" }, trophyActive]}>
+              <AnimatedCard index={4}>
+                <View collapsable={false} style={{ width: "100%" }}>
                   <Pressable
-                    style={[s.card, { backgroundColor: theme.cardBackground, marginHorizontal: 0, width: "100%" }]}
                     onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
                   >
+                    <TCard elevated backgroundColor={theme.cardBackground} borderColor={theme.border} marginHorizontal={0} width="100%">
                     <View style={s.seasonHeader}>
                       <View style={s.seasonTitleRow}>
                         <MaterialCommunityIcons name="trophy-outline" size={16} color={theme.accentColor} />
-                        <Text style={[s.seasonTitle, { color: theme.textColor }]}>Temporada</Text>
+                        <TText variant="subtitle" color={theme.textColor}>Temporada</TText>
                       </View>
                       <View style={[s.seasonArchetypeBadge, { backgroundColor: `${theme.accentColor}20` }]}>
-                        <Text style={[s.seasonArchetypeText, { color: theme.accentColor }]}>
+                        <TText variant="caption" fontWeight="600" color={theme.accentColor}>
                           {archetype.charAt(0).toUpperCase() + archetype.slice(1)}
-                        </Text>
+                        </TText>
                       </View>
                     </View>
                     <View style={[s.xpBarBg, { backgroundColor: theme.border, marginBottom: 10 }]}>
@@ -455,24 +517,24 @@ export default function HomeScreen() {
                     </View>
                     <View style={s.seasonStatsRow}>
                       <View style={s.seasonStat}>
-                        <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{gamification.seasonXp}</Text>
-                        <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>XP temporada</Text>
+                        <TText variant="body" bold color={theme.textColor} fontSize={18}>{gamification.seasonXp}</TText>
+                        <TText variant="caption" color={theme.secondaryText} textAlign="center" marginTop={2}>XP temporada</TText>
                       </View>
                       <View style={[s.seasonStatDivider, { backgroundColor: theme.border }]} />
                       <View style={s.seasonStat}>
-                        <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{gamification.currentStreak}</Text>
-                        <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>dias seguidos</Text>
+                        <TText variant="body" bold color={theme.textColor} fontSize={18}>{gamification.currentStreak}</TText>
+                        <TText variant="caption" color={theme.secondaryText} textAlign="center" marginTop={2}>dias seguidos</TText>
                       </View>
                       <View style={[s.seasonStatDivider, { backgroundColor: theme.border }]} />
                       <View style={s.seasonStat}>
-                        <Text style={[s.seasonStatValue, { color: theme.textColor }]}>{daysLeft}</Text>
-                        <Text style={[s.seasonStatLabel, { color: theme.secondaryText }]}>dias restantes</Text>
+                        <TText variant="body" bold color={theme.textColor} fontSize={18}>{daysLeft}</TText>
+                        <TText variant="caption" color={theme.secondaryText} textAlign="center" marginTop={2}>dias restantes</TText>
                       </View>
                     </View>
+                    </TCard>
                   </Pressable>
                 </View>
               </AnimatedCard>
-              <TrophyTourCard />
             </ResponsiveColumn>
           </ResponsiveRow>
         )}
@@ -502,45 +564,37 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* ── FAB ──────────────────────────────────────────────────────────── */}
-      <View
-        style={[
-          {
-            position: "absolute",
-            right: 24,
-            bottom: insets.bottom + webBottomInset + 80,
-            alignItems: "flex-end",
-          },
-          Platform.OS === "web" && fabActive ? { zIndex: 9999 } : { zIndex: 1 },
-        ]}
-      >
-        <FabTourCard />
-        <Pressable
-          ref={fabRef}
-          collapsable={false}
-          style={({ pressed }) => [
-            s.fab,
-            {
-              position: "relative",
-              right: 0,
-              bottom: 0,
-              backgroundColor: theme.primaryColor,
-              marginTop: 12,
-            },
-            pressed && s.fabPressed,
-            fabActive,
-          ]}
-          onPress={handleAddPress}
-        >
-          <Feather name="plus" size={28} color="#FFFFFF" />
-        </Pressable>
-      </View>
+      <HomeFab
+        bottom={insets.bottom + webBottomInset + 80}
+        primaryColor={theme.primaryColor}
+        disabled={tourActive}
+        actions={fabActions}
+      />
 
       <TransactionBottomSheet
         visible={showAddSheet}
-        onClose={() => setShowAddSheet(false)}
+        onClose={() => { setShowAddSheet(false); setAddSheetType(undefined); }}
+        theme={theme}
+        initialType={addSheetType}
+      />
+
+      {/* Wishlist list picker */}
+      <SelectionModal
+        visible={showListPicker}
+        title="Adicionar a qual lista?"
+        options={wishlistLists.map((list) => ({
+          label: list.name,
+          icon: "heart",
+          onPress: () => {
+            setShowListPicker(false);
+            router.push({ pathname: "/wishlist/[listId]", params: { listId: list.id, addItem: "1" } });
+          },
+        }))}
+        onCancel={() => setShowListPicker(false)}
         theme={theme}
       />
     </View>
+    </TourPageHost>
   );
 }
 
@@ -549,7 +603,6 @@ const s = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: { gap: 16 },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loadingText: { fontFamily: "DMSans_500Medium", fontSize: 16 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -559,7 +612,6 @@ const s = StyleSheet.create({
   },
   headerActions: { flexDirection: "row", gap: 8 },
   greeting: { fontFamily: "DMSans_700Bold", fontSize: 22, letterSpacing: 1 },
-  subtitle: { fontFamily: "DMSans_400Regular", fontSize: 12, marginTop: 0 },
   settingsBtn: {
     width: 44,
     height: 44,
@@ -602,17 +654,6 @@ const s = StyleSheet.create({
   balanceLabel: { fontFamily: "DMSans_500Medium", fontSize: 14, color: "rgba(255,255,255,0.7)" },
   balanceCount: { fontFamily: "DMSans_400Regular", fontSize: 12, color: "rgba(255,255,255,0.5)" },
   balanceValue: { fontFamily: "DMSans_700Bold", fontSize: 32, color: "#FFFFFF" },
-  card: {
-    borderRadius: 20,
-    padding: 20,
-    marginHorizontal: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 16, marginBottom: 12 },
   monthFilterContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -621,16 +662,8 @@ const s = StyleSheet.create({
   },
   monthFilter: { flexDirection: "row", alignItems: "center", gap: 8 },
   monthArrow: { padding: 4 },
-  monthLabel: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 13,
-    textTransform: "capitalize" as const,
-    minWidth: 80,
-    textAlign: "center" as const,
-  },
   budgetContent: { gap: 14 },
   emptyState: { alignItems: "center", paddingVertical: 24, gap: 8 },
-  emptyText: { fontFamily: "DMSans_400Regular", fontSize: 14, textAlign: "center" as const },
   invoiceBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -647,7 +680,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  invoiceBannerText: { flex: 1, fontFamily: "DMSans_500Medium", fontSize: 13 },
   seasonHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -655,29 +687,10 @@ const s = StyleSheet.create({
     marginBottom: 10,
   },
   seasonTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  seasonTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 15 },
   seasonArchetypeBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3 },
-  seasonArchetypeText: { fontFamily: "DMSans_600SemiBold", fontSize: 12 },
   xpBarBg: { height: 8, borderRadius: 4 },
   xpBarFill: { height: 8, borderRadius: 4, minWidth: 4 },
   seasonStatsRow: { flexDirection: "row", justifyContent: "space-around", alignItems: "center" },
   seasonStat: { alignItems: "center", flex: 1 },
   seasonStatDivider: { width: 1, height: 28 },
-  seasonStatValue: { fontFamily: "DMSans_700Bold", fontSize: 18 },
-  seasonStatLabel: { fontFamily: "DMSans_400Regular", fontSize: 11, marginTop: 2, textAlign: "center" },
-  fab: {
-    position: "absolute",
-    right: 24,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  fabPressed: { transform: [{ scale: 0.92 }], opacity: 0.9 },
 });

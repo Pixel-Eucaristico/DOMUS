@@ -16,15 +16,15 @@ export async function createSQLiteAdapter(
   const db = sqlite.openDatabaseSync(dbName);
 
   return {
-    execute(sql: string, params?: unknown[]): void {
+    execute(sql: string, params?: any[]): void {
       db.runSync(sql, params ?? []);
     },
 
-    query<T>(sql: string, params?: unknown[]): T[] {
+    query<T>(sql: string, params?: any[]): T[] {
       return db.getAllSync<T>(sql, params ?? []);
     },
 
-    queryOne<T>(sql: string, params?: unknown[]): T | null {
+    queryOne<T>(sql: string, params?: any[]): T | null {
       const result = db.getFirstSync<T>(sql, params ?? []);
       return result ?? null;
     },

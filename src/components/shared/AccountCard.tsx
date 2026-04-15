@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { formatCurrency } from "@/src/utils/formatCurrency";
 import { soundManager } from "@/src/services/SoundManager";
+import { TCard } from "@/src/components/tamagui";
 import type { AccountPayload, AccountType } from "@packages/events/src/types";
 
 const ACCOUNT_TYPES: { key: AccountType; label: string; icon: string; color: string }[] = [
@@ -47,12 +48,13 @@ export function AccountCard({
   const typeColor = accountTypeColor(acc.type);
 
   return (
-    <Pressable
-      style={({ pressed }) => [
-        s.accountCard,
-        { backgroundColor: theme.cardBackground, opacity: pressed ? 0.8 : 1, borderLeftColor: typeColor },
-      ]}
+    <TCard
+      elevated
+      backgroundColor={theme.cardBackground}
+      borderColor={theme.border}
       onPress={onPress}
+      pressStyle={{ opacity: 0.8 }}
+      style={{ borderLeftWidth: 4, borderLeftColor: typeColor }}
     >
       <View style={s.accountCardTop}>
         <View style={[s.accountIcon, { backgroundColor: `${typeColor}15` }]}>
@@ -185,21 +187,11 @@ export function AccountCard({
           )}
         </>
       )}
-    </Pressable>
+    </TCard>
   );
 }
 
 const s = StyleSheet.create({
-  accountCard: {
-    borderRadius: 16,
-    borderLeftWidth: 4,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
   accountCardTop: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 10 },
   accountIcon: { width: 44, height: 44, borderRadius: 14, justifyContent: "center", alignItems: "center" },
   accountInfo: { flex: 1 },

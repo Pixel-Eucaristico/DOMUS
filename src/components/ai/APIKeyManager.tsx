@@ -1,12 +1,11 @@
 import React, { useState } from "react";
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
+import { TInput, TText } from "@/src/components/tamagui";
 import * as WebBrowser from "expo-web-browser";
 import * as ExpoClipboard from "expo-clipboard";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -18,15 +17,11 @@ import type { OpenAIAuthMethod } from "@/src/modules/ai/domain/AISettings";
 interface APIKeyManagerProps {
   provider: AIProvider;
   hasKey: boolean;
-  /** OpenAI-specific: current auth method */
   openaiAuthMethod?: OpenAIAuthMethod;
-  /** OpenAI-specific: has active OAuth session */
   hasOAuthSession?: boolean;
   onSave: (provider: AIProvider, key: string) => Promise<boolean>;
   onDelete: (provider: AIProvider) => Promise<void>;
-  /** OpenAI-specific: start ChatGPT Device Code login */
   onLoginChatGPT?: (onCode: (code: string, verifyUrl: string) => void) => Promise<boolean>;
-  /** OpenAI-specific: logout from ChatGPT OAuth */
   onLogoutChatGPT?: () => Promise<void>;
 }
 
@@ -113,10 +108,10 @@ export function APIKeyManager({
       } else {
         setError("Login cancelado ou expirou.");
       }
-    } catch {
+    } catch (e) {
       setDeviceCode(null);
       setDeviceUrl(null);
-      setError("Erro ao conectar com ChatGPT.");
+      setError(e instanceof Error ? e.message : "Erro ao conectar com ChatGPT.");
       soundManager.play("error");
     } finally {
       setIsLoggingIn(false);
@@ -158,27 +153,33 @@ export function APIKeyManager({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
       {/* OAuth session active */}
       {usingOAuth ? (
         <>
-          <Text style={[styles.label, { color: theme.secondaryText }]}>
+          <TText
+            bold
+            variant="caption"
+            color={theme.secondaryText}
+            textTransform="uppercase"
+            letterSpacing={0.5}
+          >
             ChatGPT (assinatura)
-          </Text>
+          </TText>
           <View
             style={[
-              styles.hasKeyRow,
+              s.hasKeyRow,
               { backgroundColor: `${PROVIDER_GREEN}15`, borderColor: PROVIDER_GREEN },
             ]}
           >
             <MaterialCommunityIcons name="creation" size={16} color={PROVIDER_GREEN} />
-            <Text style={[styles.hasKeyText, { color: theme.textColor }]}>
+            <TText flex={1} color={theme.textColor}>
               Conectado via ChatGPT
-            </Text>
+            </TText>
             <TouchableOpacity
               onPress={handleLogoutChatGPT}
               disabled={isDeleting}
-              style={styles.deleteBtn}
+              style={s.deleteBtn}
             >
               {isDeleting ? (
                 <ActivityIndicator size="small" color={theme.danger} />
@@ -190,25 +191,31 @@ export function APIKeyManager({
         </>
       ) : (
         <>
-          <Text style={[styles.label, { color: theme.secondaryText }]}>
+          <TText
+            bold
+            variant="caption"
+            color={theme.secondaryText}
+            textTransform="uppercase"
+            letterSpacing={0.5}
+          >
             {providerLabels[provider]}
-          </Text>
+          </TText>
 
           {hasKey ? (
             <View
               style={[
-                styles.hasKeyRow,
+                s.hasKeyRow,
                 { backgroundColor: theme.cardBackground, borderColor: theme.border },
               ]}
             >
               <Feather name="lock" size={16} color={theme.success} />
-              <Text style={[styles.hasKeyText, { color: theme.textColor }]}>
+              <TText flex={1} color={theme.textColor}>
                 Chave armazenada com seguranca
-              </Text>
+              </TText>
               <TouchableOpacity
                 onPress={handleDelete}
                 disabled={isDeleting}
-                style={styles.deleteBtn}
+                style={s.deleteBtn}
               >
                 {isDeleting ? (
                   <ActivityIndicator size="small" color={theme.danger} />
@@ -218,27 +225,22 @@ export function APIKeyManager({
               </TouchableOpacity>
             </View>
           ) : (
-            <View style={styles.inputRow}>
-              <TextInput
+            <View style={s.inputRow}>
+              <TInput
                 value={input}
                 onChangeText={setInput}
                 placeholder="sk-... ou AIza... ou ant..."
-                placeholderTextColor={theme.secondaryText}
                 secureTextEntry={!showKey}
                 autoCapitalize="none"
                 autoCorrect={false}
-                style={[
-                  styles.input,
-                  {
-                    color: theme.textColor,
-                    backgroundColor: theme.cardBackground,
-                    borderColor: error ? theme.danger : theme.border,
-                  },
-                ]}
+                borderColor={error ? theme.danger : theme.border}
+                paddingRight={44}
+                color={theme.textColor}
+                backgroundColor={theme.cardBackground}
               />
               <TouchableOpacity
                 onPress={() => setShowKey((v) => !v)}
-                style={styles.eyeBtn}
+                style={s.eyeBtn}
               >
                 <Feather
                   name={showKey ? "eye-off" : "eye"}
@@ -252,22 +254,22 @@ export function APIKeyManager({
       )}
 
       {error && (
-        <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>
+        <TText variant="label" color={theme.danger}>{error}</TText>
       )}
 
       {success && (
-        <Text style={[styles.success, { color: theme.success }]}>
+        <TText variant="label" bold color={theme.success}>
           {usingOAuth ? "Conectado com sucesso!" : "Chave salva com sucesso!"}
-        </Text>
+        </TText>
       )}
 
       {!hasKey && !usingOAuth && (
-        <View style={styles.actionsColumn}>
+        <View style={s.actionsColumn}>
           <TouchableOpacity
             onPress={handleSave}
             disabled={isSaving || !input.trim()}
             style={[
-              styles.saveBtn,
+              s.saveBtn,
               {
                 backgroundColor: isSaving || !input.trim()
                   ? theme.border
@@ -278,7 +280,7 @@ export function APIKeyManager({
             {isSaving ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.saveBtnText}>Salvar chave</Text>
+              <TText bold fontSize={15} color="#fff">Salvar chave</TText>
             )}
           </TouchableOpacity>
 
@@ -291,27 +293,12 @@ export function APIKeyManager({
 
 const PROVIDER_GREEN = "#10A37F";
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: {
     gap: 8,
   },
-  label: {
-    fontSize: 12,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
   inputRow: {
     position: "relative",
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    paddingRight: 44,
-    fontSize: 14,
-    fontFamily: "monospace",
   },
   eyeBtn: {
     position: "absolute",
@@ -329,10 +316,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  hasKeyText: {
-    flex: 1,
-    fontSize: 14,
-  },
   deleteBtn: {
     padding: 4,
   },
@@ -343,103 +326,5 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: "center",
-  },
-  saveBtnText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 15,
-  },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  dividerLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-  },
-  dividerText: {
-    fontSize: 12,
-  },
-  oauthBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    borderRadius: 10,
-    paddingVertical: 12,
-  },
-  oauthBtnText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 15,
-  },
-  oauthHint: {
-    fontSize: 11,
-    textAlign: "center",
-    lineHeight: 16,
-  },
-  codeCard: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: "center",
-    gap: 8,
-  },
-  codeLabel: {
-    fontSize: 12,
-    textAlign: "center",
-  },
-  codeValue: {
-    fontSize: 28,
-    fontWeight: "700",
-    fontFamily: "monospace",
-    letterSpacing: 4,
-    marginVertical: 4,
-  },
-  codeCopyBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  codeCopyBtnText: {
-    fontSize: 13,
-    fontWeight: "500",
-  },
-  openBrowserBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    width: "100%",
-  },
-  openBrowserBtnText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  waitingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 4,
-  },
-  codeWaiting: {
-    fontSize: 11,
-    fontStyle: "italic",
-  },
-  error: {
-    fontSize: 13,
-  },
-  success: {
-    fontSize: 13,
-    fontWeight: "600",
   },
 });

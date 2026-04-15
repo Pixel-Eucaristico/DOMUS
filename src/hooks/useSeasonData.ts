@@ -185,7 +185,7 @@ export function useSeasonData(params: UseSeasonDataParams) {
     let monthlyValue = 0;
     if (series.id === "transactions") {
       monthlyValue = Object.values(domain.transactions ?? {}).filter(
-        (tx: any) => tx.date.startsWith(monthStr),
+        (tx: any) => tx.date?.startsWith(monthStr),
       ).length;
     } else if (series.id === "streak") {
       monthlyValue = gamification.currentStreak;

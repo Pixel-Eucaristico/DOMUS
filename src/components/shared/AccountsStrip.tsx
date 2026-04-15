@@ -1,10 +1,12 @@
 import React from "react";
-import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
+import { View, Pressable, ScrollView, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { getCreditUsage } from "@packages/domain/src/accounts";
 import { soundManager } from "@/src/services/SoundManager";
 import { formatCurrency } from "@/src/utils/formatCurrency";
+import { TText } from "@/src/components/tamagui";
+import { TCard } from "@/src/components/tamagui";
 
 interface AccountsStripProps {
   accounts: any[];
@@ -37,35 +39,39 @@ export function AccountsStrip({ accounts, transactions, theme }: AccountsStripPr
         return (
           <Pressable
             key={acc.id}
-            style={({ pressed }) => [
-              s.accountChip,
-              { backgroundColor: theme.cardBackground, borderColor: theme.border },
-              pressed && { opacity: 0.7 },
-            ]}
+            style={({ pressed }) => [pressed && { opacity: 0.7 }]}
             onPress={() => {
               soundManager.play("tap");
               router.push("/(tabs)/accounts");
             }}
           >
-            <View style={[s.accountChipIcon, { backgroundColor: `${chipColor}20` }]}>
-              <Feather name={typeIcon as any} size={14} color={chipColor} />
-            </View>
-            <Text style={[s.accountChipName, { color: theme.textColor }]} numberOfLines={1}>
-              {acc.name}
-            </Text>
-            <Text
-              style={[
-                s.accountChipBalance,
-                { color: isCC ? (usagePct > 80 ? theme.danger : theme.secondaryText) : theme.success },
-              ]}
+            <TCard
+              compact
+              elevated
+              width={120}
+              gap="$xs"
+              backgroundColor={theme.cardBackground}
+              borderColor={theme.border}
             >
-              {formatCurrency(acc.balance)}
-            </Text>
-            {isCC && acc.creditLimit ? (
-              <View style={[s.accountChipBar, { backgroundColor: theme.border }]}>
-                <View style={[s.accountChipBarFill, { width: `${usagePct}%` as any, backgroundColor: barColor }]} />
+              <View style={[s.accountChipIcon, { backgroundColor: `${chipColor}20` }]}>
+                <Feather name={typeIcon as any} size={14} color={chipColor} />
               </View>
-            ) : null}
+              <TText variant="caption" color={theme.textColor} numberOfLines={1}>
+                {acc.name}
+              </TText>
+              <TText
+                variant="label"
+                bold
+                color={isCC ? (usagePct > 80 ? theme.danger : theme.secondaryText) : theme.success}
+              >
+                {formatCurrency(acc.balance)}
+              </TText>
+              {isCC && acc.creditLimit ? (
+                <View style={[s.accountChipBar, { backgroundColor: theme.border }]}>
+                  <View style={[s.accountChipBarFill, { width: `${usagePct}%`, backgroundColor: barColor }]} />
+                </View>
+              ) : null}
+            </TCard>
           </Pressable>
         );
       })}
@@ -79,18 +85,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 10,
   },
-  accountChip: {
-    width: 120,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 12,
-    gap: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
   accountChipIcon: {
     width: 30,
     height: 30,
@@ -98,14 +92,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 2,
-  },
-  accountChipName: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 12,
-  },
-  accountChipBalance: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 13,
   },
   accountChipBar: {
     height: 4,
