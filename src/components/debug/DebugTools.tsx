@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useRef } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   View,
   Text,
@@ -9,6 +10,9 @@ import {
   TextInput,
   Platform,
   Pressable,
+  PanResponder,
+  Animated,
+  Dimensions,
 } from "react-native";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
@@ -59,6 +63,23 @@ export function DebugTools() {
     deviceId,
     resetApp
   } = useAppState();
+
+  // ─── Draggable button ────────────────────────────────────────────────
+  const { width: SW, height: SH } = Dimensions.get("window");
+  const pan = useRef(new Animated.ValueXY({ x: SW - 64, y: SH - 180 })).current;
+  const isDragging = useRef(false);
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_e, gs) => Math.abs(gs.dx) > 4 || Math.abs(gs.dy) > 4,
+      onPanResponderGrant: () => { isDragging.current = false; },
+      onPanResponderMove: (_e, gs) => {
+        if (Math.abs(gs.dx) > 4 || Math.abs(gs.dy) > 4) isDragging.current = true;
+        pan.setValue({ x: gs.moveX - 22, y: gs.moveY - 22 });
+      },
+      onPanResponderRelease: () => {},
+    })
+  ).current;
 
   if (!__DEV__) return null;
 
@@ -128,12 +149,14 @@ export function DebugTools() {
 
   return (
     <>
-      <TouchableOpacity
-        style={[st.toggleBtn, { backgroundColor: theme.primaryColor }]}
-        onPress={() => setVisible(true)}
+      <Animated.View
+        style={[st.toggleBtn, { backgroundColor: theme.primaryColor, left: pan.x, top: pan.y }]}
+        {...panResponder.panHandlers}
       >
-        <Feather name="terminal" size={20} color="#FFF" />
-      </TouchableOpacity>
+        <TouchableOpacity onPress={() => { if (!isDragging.current) setVisible(true); }}>
+          <Feather name="terminal" size={20} color="#FFF" />
+        </TouchableOpacity>
+      </Animated.View>
 
       <Modal visible={visible} animationType="slide" transparent>
         <View style={st.modalOverlay}>
@@ -328,7 +351,19 @@ export function DebugTools() {
                     <Feather name="trending-up" size={20} color={theme.primaryColor} />
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
+                  <TouchableOpacity
+                    style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                    onPress={async () => {
+                      await AsyncStorage.removeItem("domus_ai_last_greeting_date_v1");
+                      setVisible(false);
+                      alert("Saudação IA resetada. Reabra o chat para gerar nova saudação.");
+                    }}
+                  >
+                    <Text style={{ color: theme.textColor, fontWeight: "500" }}>Reset Saudação Diária IA</Text>
+                    <Feather name="message-circle" size={20} color={theme.primaryColor} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
                     style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.danger + '44' }]}
                     onPress={async () => {
                       await resetApp();
@@ -457,8 +492,6 @@ export function DebugTools() {
 const st = StyleSheet.create({
   toggleBtn: {
     position: "absolute",
-    bottom: 100,
-    right: 20,
     width: 44,
     height: 44,
     borderRadius: 22,

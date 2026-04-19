@@ -173,7 +173,7 @@ export default function AIChatScreen() {
       ...(msg.tokensUsed != null && { tokensUsed: msg.tokensUsed }),
       ...(msg.isLocalFallback && { isLocalFallback: true }),
     } as IMessage)).reverse();
-  }, [messages, welcomeMsg]);
+  }, [messages]);
 
   // ─── Permission modal ──────────────────────────────────────────────────
   const [permissionModal, setPermissionModal] = useState<{
