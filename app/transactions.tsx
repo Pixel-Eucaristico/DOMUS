@@ -296,6 +296,14 @@ export default function TransactionsScreen() {
                           <Text style={s.pendingBadgeText}>Pendente</Text>
                         </View>
                       ) : null}
+                      {tx.type === "transfer" && tx.returnDate && !tx.isReturnTransfer && tx.returnDate > new Date().toISOString().split("T")[0]! ? (
+                        <View style={[s.returnBadge, { borderColor: theme.warning, backgroundColor: `${theme.warning}12` }]}>
+                          <Feather name="corner-up-left" size={9} color={theme.warning} />
+                          <Text style={[s.returnBadgeText, { color: theme.warning }]}>
+                            {tx.returnDate.split("-").reverse().slice(0, 2).join("/")}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
                     <View style={s.txSub}>
                       {!accountId && (
@@ -424,6 +432,16 @@ const s = StyleSheet.create({
     paddingVertical: 2,
   },
   pendingBadgeText: { fontFamily: "DMSans_500Medium", fontSize: 10, color: "#D97706" },
+  returnBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  returnBadgeText: { fontFamily: "DMSans_500Medium", fontSize: 10 },
   efetivarBtn: {
     flexDirection: "row",
     alignItems: "center",

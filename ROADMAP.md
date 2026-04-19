@@ -337,7 +337,7 @@ yarn add react-native-smart-tooltip
  
 ---
 
-### 14 — Feature: Transferência com Data de Devolução (Empréstimo)
+### 14 — Feature: Transferência com Data de Devolução (Empréstimo) ✅
 - **Dificuldade:** FÁCIL-MÉDIO | **Urgência:** BAIXA
 - **Contexto:** Usuário empresta dinheiro a alguém (ou a si mesmo entre contas) e quer registrar a data de devolução. Hoje só existe transferência simples sem retorno agendado.
 - **Solução desejada:** Ao criar uma transferência, campo opcional "Data de devolução". Na data configurada, o app gera automaticamente uma transferência pendente de volta (`targetAccount → sourceAccount`), como lembrete/pré-lançamento.
@@ -352,12 +352,12 @@ yarn add react-native-smart-tooltip
   - **`src/components/transactions/TransferForm.tsx`** (ou equivalente) — adicionar DatePicker opcional "Devolução em" que popula `returnDate`.
   - **UI:** na lista de transações, transferências com `returnDate` futuro mostram badge "↩ dd/mm" indicando retorno pendente.
   - **Notificação:** na data de devolução, push notification "Lembrete: devolução de R$ X esperada hoje".
-- **Implementar:**
-  - [ ] Adicionar campos em `TransactionPayload`
-  - [ ] Lógica no reducer para auto-criar tx de retorno pendente
-  - [ ] Campo de data de devolução no form de transferência
-  - [ ] Badge visual na lista
-  - [ ] Notificação local no dia da devolução
+- **Implementado:**
+  - [x] Campos `returnDate`, `returnTransactionId`, `isReturnTransfer` em `TransactionPayload`
+  - [x] `createTransactionEvent` aceita `returnDate` — ao salvar transfer com returnDate, despacha automaticamente tx de retorno pendente
+  - [x] `DatePickerField` opcional com prop `onClear` no form de transferência
+  - [x] Badge "↩ dd/mm" com `theme.warning` na lista de transações
+  - [x] `computeReturnTransferReminders()` no `NotificationScheduler` + registrado no pipeline
 
 ---
 

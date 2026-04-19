@@ -16,6 +16,7 @@ import {
   computeSavingsContributionReminders,
   computePendingTransactionReminders,
   computeWeeklySummary,
+  computeReturnTransferReminders,
 } from "@/src/modules/notifications/application/NotificationScheduler";
 
 /**
@@ -49,6 +50,7 @@ export function useNotificationScheduler() {
           ...computeSavingsContributionReminders(domain.transactions, domain.accounts, settings),
           ...computePendingTransactionReminders(domain.transactions, domain.accounts, domain.categories, settings),
           ...computeWeeklySummary(domain.transactions, settings),
+          ...computeReturnTransferReminders(domain.transactions, domain.accounts, settings),
         ];
 
         for (const n of notifications) {

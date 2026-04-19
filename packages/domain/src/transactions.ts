@@ -29,6 +29,9 @@ export interface CreateTransactionParams {
   status?: TransactionStatus;
   recurrence?: RecurrenceType;
   recurrenceDays?: number;
+  returnDate?: string;
+  isReturnTransfer?: boolean;
+  returnTransactionId?: string;
 }
 
 export type { TransactionItem };
@@ -54,6 +57,9 @@ export function createTransactionEvent(
       status: params.status,
       recurrence: params.recurrence,
       recurrenceDays: params.recurrenceDays,
+      returnDate: params.returnDate,
+      isReturnTransfer: params.isReturnTransfer,
+      returnTransactionId: params.returnTransactionId,
     };
 
     return [

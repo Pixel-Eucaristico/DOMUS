@@ -40,6 +40,8 @@ interface DatePickerFieldProps {
   onChange: (v: string) => void;
   theme: ThemeColors;
   label?: string;
+  optional?: boolean;  // shows dimmed style when no value is set
+  onClear?: () => void; // X button to remove optional date
 }
 
 export function DatePickerField({
@@ -47,7 +49,10 @@ export function DatePickerField({
   onChange,
   theme,
   label = "Data",
+  optional,
+  onClear,
 }: DatePickerFieldProps) {
+  const hasValue = !optional || /^\d{4}-\d{2}-\d{2}$/.test(value);
   const safe = /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : todayISO();
   const { y: initY, m: initM } = parseISO(safe);
 
@@ -174,19 +179,27 @@ export function DatePickerField({
   return (
     <>
       <Pressable
-        style={[s.field, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+        style={[s.field, { backgroundColor: theme.cardBackground, borderColor: hasValue ? theme.border : `${theme.primaryColor}40` }]}
         onPress={handleOpen}
         accessibilityRole="button"
-        accessibilityLabel={`${label}: ${formatDisplay(safe)}. Toque para abrir o calendário`}
+        accessibilityLabel={`${label}: ${hasValue ? formatDisplay(safe) : "não definida"}. Toque para abrir o calendário`}
       >
-        <View style={[s.iconBox, { backgroundColor: `${theme.primaryColor}15` }]}>
-          <Feather name="calendar" size={18} color={theme.primaryColor} />
+        <View style={[s.iconBox, { backgroundColor: `${theme.primaryColor}${hasValue ? "15" : "08"}` }]}>
+          <Feather name="calendar" size={18} color={hasValue ? theme.primaryColor : theme.secondaryText} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>{label}</Text>
-          <Text style={[s.fieldValue, { color: theme.textColor }]}>{formatDisplay(safe)}</Text>
+          {hasValue && (
+            <Text style={[s.fieldValue, { color: theme.textColor }]}>{formatDisplay(safe)}</Text>
+          )}
         </View>
-        <Feather name="chevron-down" size={16} color={theme.secondaryText} />
+        {onClear ? (
+          <Pressable onPress={onClear} hitSlop={10}>
+            <Feather name="x" size={16} color={theme.secondaryText} />
+          </Pressable>
+        ) : (
+          <Feather name="chevron-down" size={16} color={theme.secondaryText} />
+        )}
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={handleClose}>

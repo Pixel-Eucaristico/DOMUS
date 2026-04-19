@@ -95,6 +95,9 @@ export interface TransactionPayload {
   status?: TransactionStatus;
   recurrence?: RecurrenceType;
   recurrenceDays?: number;  // usado quando recurrence === "custom"
+  returnDate?: string;          // YYYY-MM-DD — data esperada de devolução (só em transfers)
+  returnTransactionId?: string; // ID da tx de retorno gerada automaticamente
+  isReturnTransfer?: boolean;   // marca a tx de volta para não gerar loop
 }
 
 export interface CategoryPayload {

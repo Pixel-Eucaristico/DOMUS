@@ -425,3 +425,40 @@ export function computeWeeklySummary(
     data: { type: "weekly-summary" },
   }];
 }
+
+/** Lembretes de devolução de transferências com returnDate */
+export function computeReturnTransferReminders(
+  transactions: Record<string, TransactionPayload>,
+  accounts: Record<string, AccountPayload>,
+  settings: NotificationSettings,
+): ScheduledNotification[] {
+  if (!settings.billReminders) return [];
+
+  const results: ScheduledNotification[] = [];
+  const today = todayStr();
+
+  for (const tx of Object.values(transactions)) {
+    if (tx.type !== "transfer" || !tx.returnDate || tx.isReturnTransfer) continue;
+    if (tx.returnDate <= today) continue;
+
+    const returnDate = new Date(`${tx.returnDate}T09:00:00`);
+    if (returnDate.getTime() < Date.now()) continue;
+
+    if (isInQuietHours(returnDate, settings.quietHours)) {
+      returnDate.setHours(settings.quietHours.endHour, 0, 0, 0);
+    }
+
+    const sourceAcc = accounts[tx.accountId];
+    const targetAcc = tx.targetAccountId ? accounts[tx.targetAccountId] : null;
+
+    results.push({
+      channelId: CHANNELS.BILL_REMINDERS,
+      title: "Devolucao Esperada Hoje",
+      body: `${formatCurrency(tx.amount)} de ${targetAcc?.name || "conta"} para ${sourceAcc?.name || "sua conta"}\n${tx.description || "Transferencia"}`,
+      trigger: triggerAtDate(returnDate),
+      data: { type: "return-transfer", transactionId: tx.id },
+    });
+  }
+
+  return results;
+}

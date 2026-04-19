@@ -274,6 +274,20 @@ export default function AddTransactionScreen() {
                 </View>
               </View>
             )}
+
+            {/* Return date (transfer only) */}
+            {form.txType === "transfer" && (
+              <View style={{ marginBottom: 16 }}>
+                <DatePickerField
+                  value={form.returnDate || new Date().toISOString().split("T")[0]!}
+                  onChange={form.setReturnDate}
+                  theme={theme}
+                  label={form.returnDate ? "Data de devolucao" : "Devolucao (opcional — toque para definir)"}
+                  optional
+                  onClear={form.returnDate ? () => form.setReturnDate("") : undefined}
+                />
+              </View>
+            )}
           </ResponsiveColumn>
         </ResponsiveRow>
 

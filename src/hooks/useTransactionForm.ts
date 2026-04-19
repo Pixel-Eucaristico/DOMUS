@@ -57,6 +57,8 @@ export interface UseTransactionFormResult {
   setRecurrence: (v: RecurrenceType) => void;
   recurrenceDays: string;
   setRecurrenceDays: (v: string) => void;
+  returnDate: string;
+  setReturnDate: (v: string) => void;
   date: string;
   setDate: (v: string) => void;
   manualItems: ManualItem[];
@@ -112,6 +114,7 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
   const [date, setDate] = useState<string>(
     editingTx?.date ?? new Date().toISOString().split("T")[0]!
   );
+  const [returnDate, setReturnDate] = useState<string>(editingTx?.returnDate ?? "");
   const [manualItems, setManualItems] = useState<ManualItem[]>(() => {
     if (!editingTx?.items || editingTx.items.length === 0) return [];
     return editingTx.items.map((item) => {
@@ -326,10 +329,31 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
         status,
         recurrence,
         recurrenceDays: recurrenceDaysNum,
+        returnDate: txType === "transfer" && returnDate ? returnDate : undefined,
       });
 
       for (const evt of events) {
         dispatchDomainEvent(evt);
+      }
+
+      // Auto-create pending return transfer
+      if (txType === "transfer" && returnDate && targetAccountId) {
+        const parentId = events[0]?.payload?.id;
+        const returnEvents = createTransactionEvent({
+          accountId: targetAccountId,
+          targetAccountId: defaultAccountId,
+          type: "transfer",
+          amount: amountNum,
+          categoryId: catId,
+          date: returnDate,
+          description: `Devolucao: ${description || cat.name}`,
+          status: "pending",
+          isReturnTransfer: true,
+          returnTransactionId: parentId,
+        });
+        for (const evt of returnEvents) {
+          dispatchDomainEvent(evt);
+        }
       }
     }
 
@@ -396,6 +420,8 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     setRecurrence,
     recurrenceDays,
     setRecurrenceDays,
+    returnDate,
+    setReturnDate,
     date,
     setDate,
     manualItems,
