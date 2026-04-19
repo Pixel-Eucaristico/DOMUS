@@ -56,7 +56,7 @@ export default function AddTransactionScreen() {
   const form = useTransactionForm(txId);
   const tithe = useTitheCalculator();
   const accounts = Object.values(domain.accounts);
-  const defaultAccountId = form.selectedAccountId || accounts[0]?.id || "";
+  const defaultAccountId = form.selectedAccountId;
   const typeCats = getCategoriesForType(form.txType);
   const selectedCatId = typeCats[form.selectedCategory]?.id;
   const isTithe = form.txType === "expense" && selectedCatId === "dizimo";

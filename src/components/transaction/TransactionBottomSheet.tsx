@@ -365,7 +365,7 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
             {/* Account */}
             <AccountPicker
               accounts={accounts}
-              selectedId={form.selectedAccountId || accounts[0]?.id || ""}
+              selectedId={form.selectedAccountId}
               theme={theme}
               onSelect={form.setSelectedAccountId}
             />
@@ -376,7 +376,7 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
                 <Text style={[s.label, { color: theme.secondaryText }]}>Conta destino</Text>
                 <AccountPicker
                   accounts={accounts.filter(
-                    (a) => a.id !== (form.selectedAccountId || accounts[0]?.id),
+                    (a) => a.id !== form.selectedAccountId,
                   )}
                   selectedId={form.targetAccountId}
                   theme={theme}

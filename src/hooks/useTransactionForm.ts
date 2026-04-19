@@ -104,7 +104,9 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
 
   const installmentGroup = useInstallmentGroup(txId);
   const pendingChangesRef = useRef<Partial<Omit<TransactionPayload, "id">> | null>(null);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>(editingTx?.accountId ?? "");
+  const [selectedAccountId, setSelectedAccountId] = useState<string>(
+    () => editingTx?.accountId ?? Object.values(domain.accounts)[0]?.id ?? ""
+  );
   const [targetAccountId, setTargetAccountId] = useState<string>(editingTx?.targetAccountId ?? "");
   const [status, setStatus] = useState<TransactionStatus>(editingTx?.status ?? "confirmed");
   const [recurrence, setRecurrence] = useState<RecurrenceType>(editingTx?.recurrence ?? "once");
@@ -146,7 +148,7 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
   };
 
   const accounts = Object.values(domain.accounts);
-  const defaultAccountId = selectedAccountId || accounts[0]?.id || "";
+  const defaultAccountId = selectedAccountId;
   const computedItemsTotal = manualItems.reduce((s, i) => s + itemTotal(i), 0);
 
   const handleAddItem = (item: Omit<ManualItem, "id">) => {
