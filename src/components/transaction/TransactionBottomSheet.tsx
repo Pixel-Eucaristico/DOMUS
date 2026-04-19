@@ -383,14 +383,42 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
                   label="Destino"
                   onSelect={form.setTargetAccountId}
                 />
-                <DatePickerField
-                  value={form.returnDate || new Date().toISOString().split("T")[0]!}
-                  onChange={form.setReturnDate}
-                  theme={theme}
-                  label={form.returnDate ? "Data de devolucao" : "Devolucao (opcional — toque para definir)"}
-                  optional
-                  onClear={form.returnDate ? () => form.setReturnDate("") : undefined}
-                />
+                {/* Return date toggle */}
+                <View style={s.row}>
+                  <Pressable
+                    style={[
+                      s.chip,
+                      {
+                        backgroundColor: form.returnDate ? `${theme.warning}18` : theme.background,
+                        borderColor: form.returnDate ? theme.warning : theme.border,
+                      },
+                    ]}
+                    onPress={() => {
+                      soundManager.play("tap");
+                      if (form.returnDate) {
+                        form.setReturnDate("");
+                      } else {
+                        // default to 30 days from now
+                        const d = new Date();
+                        d.setDate(d.getDate() + 30);
+                        form.setReturnDate(d.toISOString().split("T")[0]!);
+                      }
+                    }}
+                  >
+                    <Feather name="corner-up-left" size={13} color={form.returnDate ? theme.warning : theme.secondaryText} />
+                    <Text style={[s.chipText, { color: form.returnDate ? theme.warning : theme.secondaryText }]}>
+                      Com devolucao
+                    </Text>
+                  </Pressable>
+                </View>
+                {!!form.returnDate && (
+                  <DatePickerField
+                    value={form.returnDate}
+                    onChange={form.setReturnDate}
+                    theme={theme}
+                    label="Data de devolucao"
+                  />
+                )}
               </>
             )}
 

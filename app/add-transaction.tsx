@@ -275,17 +275,40 @@ export default function AddTransactionScreen() {
               </View>
             )}
 
-            {/* Return date (transfer only) */}
+            {/* Return date toggle (transfer only) */}
             {form.txType === "transfer" && (
-              <View style={{ marginBottom: 16 }}>
-                <DatePickerField
-                  value={form.returnDate || new Date().toISOString().split("T")[0]!}
-                  onChange={form.setReturnDate}
-                  theme={theme}
-                  label={form.returnDate ? "Data de devolucao" : "Devolucao (opcional — toque para definir)"}
-                  optional
-                  onClear={form.returnDate ? () => form.setReturnDate("") : undefined}
-                />
+              <View style={{ marginBottom: 16, gap: 10 }}>
+                <Pressable
+                  style={[s.chip, {
+                    backgroundColor: form.returnDate ? `${theme.warning}18` : theme.cardBackground,
+                    borderColor: form.returnDate ? theme.warning : theme.border,
+                    flexDirection: "row", alignItems: "center", gap: 6,
+                    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1,
+                  }]}
+                  onPress={() => {
+                    soundManager.play("tap");
+                    if (form.returnDate) {
+                      form.setReturnDate("");
+                    } else {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 30);
+                      form.setReturnDate(d.toISOString().split("T")[0]!);
+                    }
+                  }}
+                >
+                  <Feather name="corner-up-left" size={15} color={form.returnDate ? theme.warning : theme.secondaryText} />
+                  <Text style={{ color: form.returnDate ? theme.warning : theme.secondaryText, fontFamily: "DMSans_500Medium", fontSize: 14 }}>
+                    {form.returnDate ? "Com devolucao" : "Sem devolucao"}
+                  </Text>
+                </Pressable>
+                {!!form.returnDate && (
+                  <DatePickerField
+                    value={form.returnDate}
+                    onChange={form.setReturnDate}
+                    theme={theme}
+                    label="Data de devolucao"
+                  />
+                )}
               </View>
             )}
           </ResponsiveColumn>
