@@ -1,4 +1,5 @@
 import React, { useRef, useCallback, useEffect, useMemo, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   View,
   Text,
@@ -132,24 +133,36 @@ export default function AIChatScreen() {
     if (issue) setSwitchModal({ reason: issue });
   }, [messages]);
 
-  // ─── Welcome message ───────────────────────────────────────────────────
+  // ─── Welcome message (daily greeting) ─────────────────────────────────
   const [welcomeMsg, setWelcomeMsg] = useState<ChatMessage | null>(null);
   const welcomeGenerated = useRef(false);
   const [welcomeLoading, setWelcomeLoading] = useState(false);
+  const GREETING_DATE_KEY = "domus_ai_last_greeting_date_v1";
 
   useEffect(() => {
     if (settingsLoading) return;
-    if (!settings.isEnabled) return; // No welcome if IA disabled
-    if (welcomeGenerated.current || messages.length > 0) return;
+    if (!settings.isEnabled) return;
+    if (welcomeGenerated.current) return;
     welcomeGenerated.current = true;
-    setWelcomeLoading(true);
-    generateWelcome()
-      .then((msg) => { if (msg) setWelcomeMsg(msg); })
-      .finally(() => setWelcomeLoading(false));
-  }, [settingsLoading, settings.isEnabled, generateWelcome, messages.length]);
+
+    const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+    AsyncStorage.getItem(GREETING_DATE_KEY).then((lastDate) => {
+      if (lastDate === today) return; // Already greeted today
+      setWelcomeLoading(true);
+      generateWelcome()
+        .then((msg) => {
+          if (msg) {
+            setWelcomeMsg(msg);
+            AsyncStorage.setItem(GREETING_DATE_KEY, today).catch(() => {});
+          }
+        })
+        .finally(() => setWelcomeLoading(false));
+    });
+  }, [settingsLoading, settings.isEnabled, generateWelcome]);
 
   const giftedMessages = useMemo(() => {
-    const source = messages.length > 0 ? messages : welcomeMsg ? [welcomeMsg] : [];
+    // welcomeMsg appended last → shows at top (most recent) in GiftedChat
+    const source = welcomeMsg ? [...messages, welcomeMsg] : messages;
     // Build provider map for avatar rendering
     for (const msg of source) {
       if (msg.provider) msgProviderMap.current[msg.id] = msg.provider;
@@ -570,9 +583,9 @@ export default function AIChatScreen() {
       <ChatInputBar
         text={inputText}
         onChangeText={setInputText}
-        onSend={() => {
-          if (!inputText.trim()) return;
-          handleSend([{ _id: Date.now(), text: inputText.trim(), createdAt: new Date(), user: HUMAN_USER }]);
+        onSend={(txt) => {
+          if (!txt) return;
+          handleSend([{ _id: Date.now(), text: txt, createdAt: new Date(), user: HUMAN_USER }]);
         }}
         isEnabled={settings.isEnabled}
         voiceEnabled={(settings.voiceEnabled ?? false) && (

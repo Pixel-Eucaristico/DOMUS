@@ -24,7 +24,7 @@ const BTN_RADIUS = BTN_SIZE / 2;
 interface ChatInputBarProps {
   text: string;
   onChangeText: (text: string) => void;
-  onSend: () => void;
+  onSend: (text: string) => void;
   isEnabled: boolean;
   voiceEnabled: boolean;
   visionOCREnabled?: boolean;
@@ -96,8 +96,9 @@ export function ChatInputBar({
   };
 
   const handleSend = () => {
-    if (!text.trim() || isLoading) return;
-    onSend();
+    const trimmed = text.trim();
+    if (!trimmed || isLoading) return;
+    onSend(trimmed);
   };
 
   return (

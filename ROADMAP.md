@@ -265,17 +265,13 @@ LONGO PRAZO (quando houver tempo):
   - `AccountCard.tsx`: `item.price ?? 0` → `(item.price ?? 0) * (item.quantity ?? 1)` (3 ocorrências)
   - `WishlistItemRow.tsx`: `item.price` → `item.price * (item.quantity ?? 1)` na barra de progresso
 
-### 12 — Bug/Feature: IA não Responde ao "Olá" + Mensagem Diária de Boas-Vindas
+### 12 — Bug/Feature: IA não Responde ao "Olá" + Mensagem Diária de Boas-Vindas ✅ RESOLVIDO
 - **Dificuldade:** MÉDIO | **Urgência:** MÉDIA
-- **Problemas:**
-  1. Ao enviar "Olá" para a IA ela não responde (só funciona ao clicar nas sugestões)
-  2. Claude funciona nas sugestões mas não no input livre
-  3. Seria ideal: a IA enviar automaticamente uma mensagem de boas-vindas diária ao abrir o chat
-- **Investigar:**
-  - [ ] Checar se o handler de envio de mensagem livre está conectado corretamente ao provider ativo
-  - [ ] Verificar se há algum filtro ou validação bloqueando mensagens curtas/saudações
-  - [ ] Implementar mensagem de boas-vindas diária: ao abrir o chat, se for o primeiro acesso do dia, a IA envia automaticamente uma mensagem de boas-vindas personalizada (nome do usuário, dica financeira do dia, humor/motivação)
-  - [ ] Armazenar `lastGreetingDate` em AsyncStorage para não repetir no mesmo dia
+- **Causa raiz (bug):** Stale closure no `renderInputToolbar` do GiftedChat — `onSend` capturava `inputText = ""` do primeiro render e nunca atualizava. Sugestões funcionavam porque passavam o texto explicitamente via `handleQuickSuggestion`.
+- **Correções:**
+  - `ChatInputBar.tsx`: `onSend()` → `onSend(text.trim())` — passa o texto direto, independente de closure
+  - `ai-chat.tsx`: `onSend` recebe `txt: string` do `ChatInputBar`, elimina dependência de `inputText` no closure
+  - `ai-chat.tsx`: welcome diário com `domus_ai_last_greeting_date_v1` em AsyncStorage — gera uma vez por dia, aparece mesmo com histórico existente
 
 ### 13 — Bug/Melhoria: TTS Sobrepondo Partes + Juntar Áudios em Arquivo Único
 - **Dificuldade:** MÉDIO | **Urgência:** MÉDIA
@@ -339,4 +335,7 @@ yarn add react-native-smart-tooltip
 
 *Nota: Antes de cada tarefa, será realizada uma análise técnica detalhada com planejamento via Task Master.*
  
+ ideias
+ - Fazer tranferencia com o dia de  devolução para o mesmo lugar como fose um credito
+ - na conta cartão de credito poder vincuar com uma ponpaça para ser o tipo cdb credito, ou seja quando coloca dinheiro nesta conta ela adiciona credito para o cartão de credito, este credito é adicional e não poderia ser reconfigurado na conficguração de credito ou seja é adicional. e permitir nesta conta cdb colocar os dividendos sem interfirir em maid adição de credito
  
