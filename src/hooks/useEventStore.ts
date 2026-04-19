@@ -12,20 +12,38 @@ function generateDeviceId(): string {
 }
 
 let eventStoreInstance: SQLiteEventStore | null = null;
+let initializationInProgress = false;
 
 export async function getEventStore(): Promise<SQLiteEventStore | null> {
   if (Platform.OS === "web") return null;
   if (eventStoreInstance) return eventStoreInstance;
-
-  try {
-    const { createSQLiteAdapter } = await import("@packages/storage/src/sqliteAdapter");
-    const adapter = await createSQLiteAdapter("domus.db");
-    eventStoreInstance = new SQLiteEventStore(adapter);
-    eventStoreInstance.initDatabase();
-    return eventStoreInstance;
-  } catch {
+  if (initializationInProgress) {
+    // Wait up to 3s for concurrent init to finish
+    for (let i = 0; i < 30; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      if (eventStoreInstance) return eventStoreInstance;
+    }
     return null;
   }
+
+  initializationInProgress = true;
+  // Retry up to 3 times with 200ms delay (SQLite NativeDatabase race on Android startup)
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 200 * attempt));
+      const { createSQLiteAdapter } = await import("@packages/storage/src/sqliteAdapter");
+      const adapter = await createSQLiteAdapter("domus.db");
+      const store = new SQLiteEventStore(adapter);
+      store.initDatabase();
+      eventStoreInstance = store;
+      initializationInProgress = false;
+      return eventStoreInstance;
+    } catch (err) {
+      console.warn(`[EventStore] Init attempt ${attempt + 1} failed:`, err);
+    }
+  }
+  initializationInProgress = false;
+  return null;
 }
 
 export interface EventStoreState {
