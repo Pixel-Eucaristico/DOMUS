@@ -335,7 +335,74 @@ yarn add react-native-smart-tooltip
 
 *Nota: Antes de cada tarefa, será realizada uma análise técnica detalhada com planejamento via Task Master.*
  
- ideias
- - Fazer tranferencia com o dia de  devolução para o mesmo lugar como fose um credito
- - na conta cartão de credito poder vincuar com uma ponpaça para ser o tipo cdb credito, ou seja quando coloca dinheiro nesta conta ela adiciona credito para o cartão de credito, este credito é adicional e não poderia ser reconfigurado na conficguração de credito ou seja é adicional. e permitir nesta conta cdb colocar os dividendos sem interfirir em maid adição de credito
+---
+
+### 14 — Feature: Transferência com Data de Devolução (Empréstimo)
+- **Dificuldade:** FÁCIL-MÉDIO | **Urgência:** BAIXA
+- **Contexto:** Usuário empresta dinheiro a alguém (ou a si mesmo entre contas) e quer registrar a data de devolução. Hoje só existe transferência simples sem retorno agendado.
+- **Solução desejada:** Ao criar uma transferência, campo opcional "Data de devolução". Na data configurada, o app gera automaticamente uma transferência pendente de volta (`targetAccount → sourceAccount`), como lembrete/pré-lançamento.
+- **Plano técnico:**
+  - **`packages/events/src/types.ts`** — adicionar em `TransactionPayload`:
+    ```ts
+    returnDate?: string;          // YYYY-MM-DD — data esperada de devolução
+    returnTransactionId?: string; // ID da transferência de retorno gerada
+    isReturnTransfer?: boolean;   // marca a tx de volta para não gerar loop
+    ```
+  - **`packages/domain/src/reducer.ts`** — ao processar `TRANSACTION_CREATED` com `type === "transfer"` e `returnDate` presente (e `!isReturnTransfer`): criar automaticamente um segundo evento `TRANSACTION_CREATED` com `type: "transfer"`, `accountId: targetAccountId`, `targetAccountId: accountId`, `date: returnDate`, `status: "pending"`, `isReturnTransfer: true`, `returnTransactionId: id`.
+  - **`src/components/transactions/TransferForm.tsx`** (ou equivalente) — adicionar DatePicker opcional "Devolução em" que popula `returnDate`.
+  - **UI:** na lista de transações, transferências com `returnDate` futuro mostram badge "↩ dd/mm" indicando retorno pendente.
+  - **Notificação:** na data de devolução, push notification "Lembrete: devolução de R$ X esperada hoje".
+- **Implementar:**
+  - [ ] Adicionar campos em `TransactionPayload`
+  - [ ] Lógica no reducer para auto-criar tx de retorno pendente
+  - [ ] Campo de data de devolução no form de transferência
+  - [ ] Badge visual na lista
+  - [ ] Notificação local no dia da devolução
+
+---
+
+### 15 — Feature: Conta CDB/Poupança com Crédito Adicional para Cartão
+- **Dificuldade:** MÉDIO | **Urgência:** BAIXA
+- **Contexto:** Usuário quer vincular uma conta poupança/CDB a um cartão de crédito, onde o saldo depositado (não dividendos) vira crédito adicional no cartão — separado do limite configurado manualmente. Dividendos entram na conta sem inflacionar o crédito adicional.
+- **Solução desejada:**
+  - Conta do tipo `savings` pode ser marcada como "CDB vinculado ao cartão X"
+  - `creditoAdicional = saldo_cdb - dividendos_acumulados`
+  - Limite efetivo do cartão = `creditLimit (fixo) + creditoAdicional`
+  - Dividendos registrados com flag especial → não somam ao crédito adicional
+  - Crédito adicional é **read-only** nas configurações do cartão (não editável pelo usuário)
+- **Plano técnico:**
+  - **`packages/events/src/types.ts`**:
+    ```ts
+    // Em AccountPayload:
+    linkedCreditCardId?: string;   // savings → aponta para credit_card que recebe boost
+    cdbDividendsTotal?: number;    // soma acumulada de dividendos (não conta como crédito)
+
+    // Em TransactionPayload:
+    isCdbDividend?: boolean;       // receita marcada como dividendo — não altera crédito adicional
+    ```
+  - **`packages/domain/src/accounts.ts`** — nova função:
+    ```ts
+    export function getCdbAdditionalCredit(
+      cdbAccount: AccountPayload,   // savings vinculada
+    ): number {
+      // crédito adicional = saldo atual - dividendos acumulados
+      return Math.max(0, cdbAccount.balance - (cdbAccount.cdbDividendsTotal ?? 0));
+    }
+    ```
+  - **`getAvailableCredit()`** — atualizar para somar `getCdbAdditionalCredit(linkedCdb)` ao `creditLimit` quando houver conta CDB vinculada.
+  - **`packages/domain/src/reducer.ts`** — ao processar `TRANSACTION_CREATED` com `isCdbDividend: true` na conta CDB: incrementar `cdbDividendsTotal` da conta em vez de apenas o `balance`.
+  - **UI — Configuração da conta savings:**
+    - Toggle "Vincular como CDB a cartão" → picker de contas `credit_card`
+    - Ao depositar, opção "É dividendo/rendimento" (checkbox) → seta `isCdbDividend: true`
+  - **UI — Card do cartão de crédito:**
+    - Exibir `Limite: R$ X (fixo) + R$ Y (CDB)` quando houver vínculo
+    - Campo `creditLimit` no form fica bloqueado para edição do crédito adicional (mostra como info)
+- **Implementar:**
+  - [ ] Campos `linkedCreditCardId`, `cdbDividendsTotal` em `AccountPayload`
+  - [ ] Campo `isCdbDividend` em `TransactionPayload`
+  - [ ] Função `getCdbAdditionalCredit()` e atualizar `getAvailableCredit()`
+  - [ ] Reducer: acumular `cdbDividendsTotal` em dividendos
+  - [ ] UI: toggle vínculo na tela de edição de conta savings
+  - [ ] UI: checkbox "É dividendo" ao adicionar receita na conta CDB
+  - [ ] UI: exibir breakdown do limite no card do cartão
  
