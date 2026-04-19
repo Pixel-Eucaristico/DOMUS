@@ -1,4 +1,3 @@
-// FIX-2026-03-09: ScrollView para conter TourCard overflow — ver docs/tour-crash-fixes.md #5
 import React from "react";
 import { View, Text, Pressable, StyleSheet, Platform, ScrollView } from "react-native";
 import { Feather } from "@expo/vector-icons";
@@ -6,7 +5,6 @@ import { useRouter } from "expo-router";
 import { ThemeColors } from "@packages/theme";
 import { soundManager } from "@/src/services/SoundManager";
 import { TButton } from "@/src/components/tamagui";
-import { TourGuideZone } from "rn-tourguide";
 
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=br.com.pixeleucaristico.domus";
 
@@ -28,7 +26,6 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
       <Text style={[s.subtitle, { color: theme.secondaryText }]}>Escolha como deseja importar</Text>
 
       <View style={s.actions}>
-        <TourGuideZone zone={1} text="5" isTourGuide borderRadius={16}>
           <Pressable
             collapsable={false}
             style={[s.mainBtn, { backgroundColor: theme.primaryColor, opacity: isWeb ? 0.5 : 1 }]}
@@ -42,7 +39,6 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
             </View>
             <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.6)" />
           </Pressable>
-        </TourGuideZone>
 
         {__DEV__ && (
           <Pressable
@@ -77,7 +73,6 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
           </Pressable>
         )}
 
-        <TourGuideZone zone={2} text="6" isTourGuide borderRadius={16}>
           <TButton
             variant="outline"
             borderColor={theme.border}
@@ -88,7 +83,6 @@ export function IdleScreen({ theme, onQRPress, onOCRPress, onManualEntry }: Prop
           >
             Lançar manualmente
           </TButton>
-        </TourGuideZone>
       </View>
 
       {__DEV__ && !isWeb && (

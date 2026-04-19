@@ -414,7 +414,7 @@ function SeasonalToastHost() {
 }
 
 function WelcomeCarouselHost() {
-  const { showWelcomeCarousel, completeWelcomeCarousel, startDemo } = useDemoMode();
+  const { showWelcomeCarousel, completeWelcomeCarousel } = useDemoMode();
   // Keep modal visible state separate from mount state so the Modal can close
   // gracefully before the component unmounts (avoids EdgeToEdge null-child crash
   // on Android 16 when Modal is destroyed mid-animation).
@@ -432,8 +432,6 @@ function WelcomeCarouselHost() {
         setTimeout(() => {
           completeWelcomeCarousel();
         }, 400);
-        // 3. Start demo tour after modal is fully gone
-        setTimeout(() => startDemo(), 1000);
       }}
     />
   );

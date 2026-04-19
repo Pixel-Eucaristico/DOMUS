@@ -20,9 +20,10 @@ import { useSync } from "@/src/context/SyncProvider";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { QRScannerModal } from "@/src/components/sync/QRScannerModal";
-import { TourGuideZone } from "rn-tourguide";
 import { TButton, TCard, TInput, TText } from "@/src/components/tamagui";
-import { TourPageHost } from "@/src/components/tour/TourPageHost";
+import { ScreenIntroModal } from "@/src/components/tour/ScreenIntroModal";
+import { useScreenIntro } from "@/src/hooks/useScreenIntro";
+import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const QR_SIZE = Math.min(SCREEN_W * 0.5, SCREEN_H * 0.3, 220);
@@ -72,6 +73,7 @@ export default function SyncScreen() {
   const [showScanner, setShowScanner] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const { showIntro, dismissIntro } = useScreenIntro("sync");
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
@@ -130,7 +132,6 @@ export default function SyncScreen() {
   const qrValue = groupId ? `domus://${groupId}` : "";
 
   return (
-    <TourPageHost groupId={7}>
     <View style={[s.root, { backgroundColor: theme.background }]}>
       <View style={[s.topBar, { paddingTop: insets.top + webTopInset + 12 }]}>
         <Pressable testID="sync-back-button" onPress={() => { haptic(); soundManager.play("tap"); router.canGoBack() ? router.back() : router.replace("/"); }} hitSlop={12}>
@@ -194,7 +195,6 @@ export default function SyncScreen() {
               </Text>
             </View>
 
-            <TourGuideZone zone={1} text="17" isTourGuide borderRadius={12}>
             <View collapsable={false} style={s.actionsRow}>
               <Pressable
                 style={({ pressed }) => [s.actionCard, { backgroundColor: theme.primaryColor }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
@@ -221,7 +221,6 @@ export default function SyncScreen() {
                 <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Com codigo</Text>
               </Pressable>
             </View>
-            </TourGuideZone>
 
             {Platform.OS !== "web" && (
               <TButton
@@ -355,7 +354,6 @@ export default function SyncScreen() {
             Exporta todos os dados criptografados para um arquivo que você guarda onde quiser
           </Text>
         </View>
-        <TourGuideZone zone={2} text="18" isTourGuide borderRadius={12}>
         <View collapsable={false}>
           <Pressable
             style={({ pressed }) => [s.backupBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }, pressed && { opacity: 0.8 }]}
@@ -371,7 +369,6 @@ export default function SyncScreen() {
             <Feather name="chevron-right" size={18} color={theme.secondaryText} />
           </Pressable>
         </View>
-        </TourGuideZone>
       </ScrollView>
 
       <QRScannerModal visible={showScanner} onClose={() => setShowScanner(false)} onScanned={handleScanResult} theme={theme} />
@@ -396,8 +393,12 @@ export default function SyncScreen() {
           </ScrollView>
         </Pressable>
       </Modal>
+      <ScreenIntroModal
+        visible={showIntro}
+        intro={SCREEN_INTROS.sync}
+        onDismiss={dismissIntro}
+      />
     </View>
-    </TourPageHost>
   );
 }
 

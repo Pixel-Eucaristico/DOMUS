@@ -22,7 +22,9 @@ import { useGoogleDriveBackup } from "@/src/hooks/useGoogleDriveBackup";
 import { useBackupRestore, STATUS_LABELS, isLoading } from "@/src/hooks/useBackupRestore";
 import { autoBackupFilePath } from "@/src/hooks/useAutoBackup";
 import { TCard, TText } from "@/src/components/tamagui";
-import { TourPageHost } from "@/src/components/tour/TourPageHost";
+import { ScreenIntroModal } from "@/src/components/tour/ScreenIntroModal";
+import { useScreenIntro } from "@/src/hooks/useScreenIntro";
+import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 
 type TabId = "export" | "restore" | "drive";
 
@@ -39,10 +41,10 @@ export default function BackupScreen() {
 
   const bk = useBackupRestore({ getAllEvents, restoreFromBackup, deviceId });
   const drive = useGoogleDriveBackup();
+  const { showIntro, dismissIntro } = useScreenIntro("backup");
   const eventCount = getAllEvents().length;
 
   return (
-    <TourPageHost groupId={8}>
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }} style={s.backBtn} activeOpacity={0.7}>
@@ -382,8 +384,12 @@ export default function BackupScreen() {
         onConfirm={() => { soundManager.play("pop"); bk.handleConfirmRestore(); }}
         onCancel={() => { soundManager.play("tap"); bk.setShowConfirmModal(false); bk.setPendingPayload(null); }}
       />
+      <ScreenIntroModal
+        visible={showIntro}
+        intro={SCREEN_INTROS.backup}
+        onDismiss={dismissIntro}
+      />
     </SafeAreaView>
-    </TourPageHost>
   );
 }
 

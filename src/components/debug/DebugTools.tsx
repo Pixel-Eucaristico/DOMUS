@@ -41,7 +41,7 @@ export function DebugTools() {
   const [debugTier, setDebugTier] = useState<number>(1);
   const [selectedTrophy, setSelectedTrophy] = useState<any>(null);
   
-  const { restartWithCarousel, startDemo } = useDemoMode();
+  const { restartWithCarousel } = useDemoMode();
 
   const {
     theme,
@@ -293,13 +293,6 @@ export function DebugTools() {
                 <View style={st.section}>
                   <Text style={[st.sectionTitle, { color: theme.textColor }]}>UI Triggers</Text>
 
-                  <TouchableOpacity
-                    style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-                    onPress={() => { startDemo(); setVisible(false); }}
-                  >
-                    <Text style={{ color: theme.textColor, fontWeight: '500' }}>Iniciar Tour (sem carrossel)</Text>
-                    <Feather name="play" size={20} color={theme.primaryColor} />
-                  </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}

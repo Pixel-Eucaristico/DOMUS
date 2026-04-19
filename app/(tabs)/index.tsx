@@ -40,10 +40,10 @@ import { ResponsiveContainer } from "@/src/ui/components/ResponsiveContainer";
 import { ResponsiveRow } from "@/src/ui/components/ResponsiveRow";
 import { ResponsiveColumn } from "@/src/ui/components/ResponsiveColumn";
 import { useResponsive } from "@/src/ui/layout/useResponsive";
-import { TourGuideZone } from "rn-tourguide";
-import { TourPageHost } from "@/src/components/tour/TourPageHost";
-import { useTourPage } from "@/src/tour/useTourPage";
 import { HomeFab } from "@/src/components/shared/HomeFab";
+import { ScreenIntroModal } from "@/src/components/tour/ScreenIntroModal";
+import { useScreenIntro } from "@/src/hooks/useScreenIntro";
+import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
 import { PixelText } from "@/src/components/pixel";
 import { TCard } from "@/src/components/tamagui";
@@ -67,8 +67,7 @@ export default function HomeScreen() {
   const { lists: wishlistLists } = useWishlist();
   const [showListPicker, setShowListPicker] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-  const scrollYRef = useRef<number>(0);
-  const { isGuideActive: tourActive } = useTourPage(0);
+  const { showIntro, dismissIntro } = useScreenIntro("home");
 
 
   // Month/Year filter state
@@ -267,7 +266,6 @@ export default function HomeScreen() {
   }
 
   return (
-    <TourPageHost groupId={0} scrollRef={scrollRef} scrollYRef={scrollYRef}>
     <View style={[s.root, { backgroundColor: theme.background }]}>
       <ScrollView
         ref={scrollRef}
@@ -280,8 +278,6 @@ export default function HomeScreen() {
           },
         ]}
         showsVerticalScrollIndicator={false}
-        scrollEnabled={!tourActive}
-        onScroll={e => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
         scrollEventThrottle={16}
       >
        <ResponsiveContainer style={{ gap: 16 }}>
@@ -300,8 +296,7 @@ export default function HomeScreen() {
               </View>
             </View>
             <View style={s.headerActions}>
-              <TourGuideZone zone={6} text="16" isTourGuide borderRadius={20}>
-                <AnimatedIconButton
+              <AnimatedIconButton
                   name="refresh-cw"
                   size={20}
                   color={theme.primaryColor}
@@ -309,7 +304,6 @@ export default function HomeScreen() {
                   style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
                   onPress={() => router.push("/sync")}
                 />
-              </TourGuideZone>
               <AnimatedIconButton
                 name="maximize"
                 size={20}
@@ -317,8 +311,7 @@ export default function HomeScreen() {
                 style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
                 onPress={() => router.push("/import-invoice")}
               />
-              <TourGuideZone zone={4} text="12" isTourGuide borderRadius={20}>
-                <AnimatedIconButton
+              <AnimatedIconButton
                   name="robot-happy"
                   iconSet="MaterialCommunityIcons"
                   size={22}
@@ -326,16 +319,13 @@ export default function HomeScreen() {
                   style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
                   onPress={() => router.push("/ai-chat")}
                 />
-              </TourGuideZone>
-              <TourGuideZone zone={5} text="13" isTourGuide borderRadius={20}>
-                <AnimatedIconButton
+              <AnimatedIconButton
                   name="settings"
                   size={20}
                   color={theme.primaryColor}
                   style={[s.settingsBtn, { backgroundColor: theme.cardBackground }]}
                   onPress={() => router.push("/about")}
                 />
-              </TourGuideZone>
             </View>
           </View>
         </View>
@@ -396,7 +386,6 @@ export default function HomeScreen() {
         {/* ── BALANCE + ACCOUNTS ─────────────────────────────────────────── */}
         <ResponsiveRow gap={16}>
           <ResponsiveColumn span={accountCount === 0 ? columns : 1} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
-            <TourGuideZone zone={1} text="1" isTourGuide borderRadius={20}>
             <AnimatedCard index={2}>
               <View collapsable={false} style={[s.balanceCard, { backgroundColor: theme.primaryColor, marginHorizontal: 0, width: "100%" }]}>
                 <View style={s.balanceHeader}>
@@ -409,7 +398,6 @@ export default function HomeScreen() {
                 <Text style={s.balanceValue}>{formatCurrency(totalBalance)}</Text>
               </View>
             </AnimatedCard>
-            </TourGuideZone>
           </ResponsiveColumn>
 
           {accountCount > 0 && (
@@ -449,7 +437,6 @@ export default function HomeScreen() {
         {/* ── BUDGET 50/30/20 ────────────────────────────────────────────── */}
         <ResponsiveRow>
           <ResponsiveColumn span={columns} style={{ paddingHorizontal: isMobile ? 16 : 0 }}>
-            <TourGuideZone zone={2} text="2" isTourGuide borderRadius={20}>
             <AnimatedCard index={3}>
               <TCard elevated backgroundColor={theme.cardBackground} borderColor={theme.border} marginHorizontal={0} width="100%">
                 <View style={s.monthFilterContainer}>
@@ -487,7 +474,6 @@ export default function HomeScreen() {
                 )}
               </TCard>
             </AnimatedCard>
-            </TourGuideZone>
           </ResponsiveColumn>
         </ResponsiveRow>
 
@@ -567,7 +553,6 @@ export default function HomeScreen() {
       <HomeFab
         bottom={insets.bottom + webBottomInset + 80}
         primaryColor={theme.primaryColor}
-        disabled={tourActive}
         actions={fabActions}
       />
 
@@ -593,8 +578,12 @@ export default function HomeScreen() {
         onCancel={() => setShowListPicker(false)}
         theme={theme}
       />
+      <ScreenIntroModal
+        visible={showIntro}
+        intro={SCREEN_INTROS.home}
+        onDismiss={dismissIntro}
+      />
     </View>
-    </TourPageHost>
   );
 }
 

@@ -15,8 +15,9 @@ import { soundManager } from "@/src/services/SoundManager";
 import { useWishlist } from "@/src/hooks/useWishlist";
 import { WishlistListCard } from "@/src/components/wishlist/WishlistListCard";
 import { CreateListModal } from "@/src/components/wishlist/CreateListModal";
-import { TourGuideZone } from "rn-tourguide";
-import { TourPageHost } from "@/src/components/tour/TourPageHost";
+import { ScreenIntroModal } from "@/src/components/tour/ScreenIntroModal";
+import { useScreenIntro } from "@/src/hooks/useScreenIntro";
+import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
 import { PixelText } from "@/src/components/pixel";
 import { TButton } from "@/src/components/tamagui";
@@ -28,6 +29,7 @@ export default function WishlistTab() {
   const { lists, getItemsByList, createList } = useWishlist();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const insets = useSafeAreaInsets();
+  const { showIntro, dismissIntro } = useScreenIntro("wishlist");
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
   const sortedLists = useMemo(
@@ -41,11 +43,9 @@ export default function WishlistTab() {
   };
 
   return (
-    <TourPageHost groupId={3}>
     <SafeAreaView
       style={[styles.safe, { backgroundColor: theme.background }]}
     >
-      <TourGuideZone zone={1} text="8" isTourGuide borderRadius={8}>
       <View collapsable={false}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
           <Text style={[styles.title, { color: theme.textColor }]}>
@@ -55,7 +55,6 @@ export default function WishlistTab() {
           {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
         </View>
       </View>
-      </TourGuideZone>
 
       {sortedLists.length === 0 ? (
         <View style={styles.emptyState}>
@@ -130,7 +129,6 @@ export default function WishlistTab() {
           { zIndex: 1 },
         ]}
       >
-        <TourGuideZone zone={2} text="9" isTourGuide borderRadius={40}>
         <Pressable
           collapsable={false}
           style={({ pressed }) => [
@@ -145,7 +143,6 @@ export default function WishlistTab() {
         >
           <Feather name="plus" size={28} color="#FFFFFF" />
         </Pressable>
-        </TourGuideZone>
       </View>
 
       <CreateListModal
@@ -154,8 +151,12 @@ export default function WishlistTab() {
         onConfirm={handleCreate}
         onCancel={() => setShowCreateModal(false)}
       />
+      <ScreenIntroModal
+        visible={showIntro}
+        intro={SCREEN_INTROS.wishlist}
+        onDismiss={dismissIntro}
+      />
     </SafeAreaView>
-    </TourPageHost>
   );
 }
 

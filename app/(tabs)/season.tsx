@@ -21,9 +21,10 @@ import { MonthlyTrophiesList } from "@/src/components/gamification/MonthlyTrophi
 import { AchievementGrid } from "@/src/components/gamification/AchievementGrid";
 import { soundManager } from "@/src/services/SoundManager";
 import { useSeasonData, MONTHS } from "@/src/hooks/useSeasonData";
-import { TourGuideZone } from "rn-tourguide";
 import { TButton, TCard } from "@/src/components/tamagui";
-import { TourPageHost } from "@/src/components/tour/TourPageHost";
+import { ScreenIntroModal } from "@/src/components/tour/ScreenIntroModal";
+import { useScreenIntro } from "@/src/hooks/useScreenIntro";
+import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
 import { PixelText } from "@/src/components/pixel";
 
@@ -35,6 +36,7 @@ export default function SeasonScreen() {
   const [selectedAch, setSelectedAch] = useState<Achievement | null>(null);
   const [activeTab, setActiveTab] = useState<"current" | "collection">("current");
   const seasonScrollRef = useRef<ScrollView>(null);
+  const { showIntro, dismissIntro } = useScreenIntro("season");
 
   const webTopInset = 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
@@ -54,7 +56,6 @@ export default function SeasonScreen() {
   };
 
   return (
-    <TourPageHost groupId={4} scrollRef={seasonScrollRef}>
     <View style={[st.root, { backgroundColor: theme.background }]}>
       {/* Header */}
       <View style={[st.header, { paddingTop: insets.top + webTopInset + 16, backgroundColor: theme.background }]}>
@@ -112,7 +113,6 @@ export default function SeasonScreen() {
             {/* Season progress / start */}
             {!sd.hasSeason ? (
               <>
-                <TourGuideZone zone={1} text="10" isTourGuide borderRadius={16}>
                 <View collapsable={false} style={[st.card, { backgroundColor: theme.cardBackground }]}>
                   <Feather name="calendar" size={32} color={theme.secondaryText} />
                   <Text style={[st.cardText, { color: theme.textColor }]}>Nenhuma temporada ativa</Text>
@@ -120,11 +120,9 @@ export default function SeasonScreen() {
                     Iniciar temporada
                   </TButton>
                 </View>
-                </TourGuideZone>
               </>
             ) : (
               <>
-              <TourGuideZone zone={1} text="10" isTourGuide borderRadius={16}>
               <View
                 ref={(node) => { (sd.progressCardRef as React.MutableRefObject<any>).current = node; }}
                 collapsable={false}
@@ -172,7 +170,6 @@ export default function SeasonScreen() {
                   </View>
                 )}
               </View>
-              </TourGuideZone>
               </>
             )}
 
@@ -184,7 +181,6 @@ export default function SeasonScreen() {
               onViewAll={() => setActiveTab("collection")}
             />
 
-            <TourGuideZone zone={2} text="11" isTourGuide borderRadius={16}>
             <View collapsable={false}>
               <SurpriseTrophyCard
                 currentYear={sd.currentYear}
@@ -197,7 +193,6 @@ export default function SeasonScreen() {
                 setIsCatholic={setIsCatholic}
               />
             </View>
-            </TourGuideZone>
 
             <MonthlyTrophiesList
               theme={theme}
@@ -232,8 +227,12 @@ export default function SeasonScreen() {
         seriesProgress={seriesProgress}
         onShare={() => sd.handleShareTrophy(selectedAch)}
       />
+      <ScreenIntroModal
+        visible={showIntro}
+        intro={SCREEN_INTROS.season}
+        onDismiss={dismissIntro}
+      />
     </View>
-    </TourPageHost>
   );
 }
 

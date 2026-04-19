@@ -8,7 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "android": {
-        "credentialsSource": "local",
+        "credentialsSource": "remote",
         "buildType": "apk",
         "image": "latest"
       }

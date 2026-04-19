@@ -6,7 +6,6 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/src/context/AppStateProvider";
-import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { InvoiceImportedPayload } from "@packages/parsers";
 
@@ -19,7 +18,6 @@ import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyServi
 import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
 
 import { IdleScreen } from "@/src/components/invoice/IdleScreen";
-import { TourPageHost } from "@/src/components/tour/TourPageHost";
 import { QrScanScreen } from "@/src/components/invoice/QrScanScreen";
 import { OcrScanScreen } from "@/src/components/invoice/OcrScanScreen";
 import { WebViewScreen } from "@/src/components/invoice/WebViewScreen";
@@ -28,48 +26,7 @@ import { ErrorScreen } from "@/src/components/invoice/ErrorScreen";
 
 type ScreenState = "idle" | "qr" | "ocr" | "webview" | "fetching" | "parsed" | "error";
 
-/**
- * FIX-2026-03-09: Quando em demo mode (tour), renderiza apenas a UI visual
- * sem montar useInvoiceScanner, evitando que useCameraPermissions() seja
- * chamado e cause crash no Samsung S23+ (GPU Mali texture overflow).
- * Ver docs/tour-crash-fixes.md
- */
-function DemoImportScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { theme } = useAppState();
-
-  return (
-    <TourPageHost groupId={2}>
-    <View style={[s.container, { backgroundColor: theme.background }]}>
-      <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-        <Pressable onPress={() => { soundManager.play("tap"); router.back(); }} hitSlop={12}>
-          <Feather name="arrow-left" size={24} color={theme.textColor} />
-        </Pressable>
-        <Text style={[s.title, { color: theme.textColor }]}>Importar NF</Text>
-        <View style={{ width: 24 }} />
-      </View>
-      <IdleScreen
-        theme={theme}
-        onQRPress={() => {}}
-        onOCRPress={() => {}}
-        onManualEntry={() => {}}
-      />
-    </View>
-    </TourPageHost>
-  );
-}
-
-// FIX: Wrapper que decide qual componente renderizar sem violar regras de hooks.
-// O early return condicional estava APÓS outros hooks, causando crash ao sair do tour
-// ("Rendered more hooks than during the previous render"). Ver docs/tour-crash-fixes.md
 export default function InvoiceImportScreen() {
-  const { isDemoActive } = useDemoMode();
-  if (isDemoActive) return <DemoImportScreen />;
-  return <RealInvoiceImportScreen />;
-}
-
-function RealInvoiceImportScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { domain, theme } = useAppState();

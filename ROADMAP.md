@@ -252,14 +252,8 @@ LONGO PRAZO (quando houver tempo):
 - [ ] Testes unitários
 - **Detalhes:** [docs/roadmap/09-olerite-ocr.md](docs/roadmap/09-olerite-ocr.md)
 
-### 10 — Bug: Tour Sumindo / Saindo Fora da Tela
-- **Dificuldade:** MÉDIO | **Urgência:** ALTA
-- **Problema:** O tour guiado está com comportamento bugado — elementos saem fora dos limites da tela e o overlay desaparece inesperadamente durante a navegação
-- **Investigar:**
-  - [ ] Verificar cálculo de posição do highlight (scroll offset não considerado?)
-  - [ ] Checar se `measure()` / `measureInWindow()` retorna coordenadas corretas em todos os tamanhos de tela
-  - [ ] Garantir que o tour respeita `SafeAreaInsets` (notch, barra de status)
-  - [ ] Testar em dispositivos com telas menores e com teclado aberto
+### 10 — ~~Bug: Tour Sumindo / Saindo Fora da Tela~~ ✅ RESOLVIDO
+- **Solução:** Tour com spotlight (`rn-tourguide`) removido completamente. Substituído por `ScreenIntroModal` — modal simples por tela, sem spotlight, sem scroll, sem dados fictícios. Aparece uma vez na primeira visita de cada tela.
 
 ### 11 — Bug: Barra de Progresso da Poupança não Contabiliza nos Objetivos Vinculados
 - **Dificuldade:** MÉDIO | **Urgência:** ALTA

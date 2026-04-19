@@ -24,13 +24,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
-import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { SupportModeSelector } from "@/src/components/monetization/SupportModeSelector";
 import { soundManager } from "@/src/services/SoundManager";
 import { SelectionModal } from "@/src/components/shared/SelectionModal";
-import { TourGuideZone } from "rn-tourguide";
-import { TourPageHost } from "@/src/components/tour/TourPageHost";
-import { useTourPage } from "@/src/tour/useTourPage";
+import { ScreenIntroModal } from "@/src/components/tour/ScreenIntroModal";
+import { useScreenIntro, resetAllScreenIntros } from "@/src/hooks/useScreenIntro";
+import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 
 // Extracted components
 import { ContactForm } from "@/src/components/about/ContactForm";
@@ -42,13 +41,8 @@ import { TText, TButton } from "@/src/components/tamagui";
 export default function AboutScreen() {
   const router = useRouter();
   const { theme, themeMode, setThemeMode, soundEnabled, setSoundEnabled, resetApp } = useAppState();
-  const { isDemoActive, startDemo, restartWithCarousel } = useDemoMode();
-  const { isGuideActive: aboutGuideActive } = useTourPage(6);
   const scrollRef = useRef<ScrollView>(null);
-  const scrollYRef = useRef(0);
-
-  // Force open settings accordion when tour targets security-btn or notifications-btn
-  const forceSettingsOpen = aboutGuideActive;
+  const { showIntro, dismissIntro } = useScreenIntro("about");
 
   const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
@@ -71,7 +65,6 @@ export default function AboutScreen() {
   const s = styles(theme);
 
   return (
-    <TourPageHost groupId={6} scrollRef={scrollRef} scrollYRef={scrollYRef} scrollViewTop={120}>
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
       {/* Header */}
         <View style={s.header}>
@@ -93,7 +86,6 @@ export default function AboutScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           bottomOffset={50}
-          onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
           scrollEventThrottle={16}
         >
           {/* ── COMPANY ─────────────────────────────────────────────────── */}
@@ -139,24 +131,16 @@ export default function AboutScreen() {
           </SectionCard>
 
           {/* ── SETTINGS ────────────────────────────────────────────────── */}
-          <SectionCard theme={theme} icon="settings" title="Configurações" accentColor={theme.accentColor} collapsible forceOpen={forceSettingsOpen}>
+          <SectionCard theme={theme} icon="settings" title="Configurações" accentColor={theme.accentColor} collapsible>
               <LinkRow icon="cpu" label="IA Financeira" description="Provedor, chave de API, limites e custos" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }} />
-              <TourGuideZone zone={1} text="14" isTourGuide borderRadius={12}>
-              <View collapsable={false}>
               <LinkRow icon="bell" label="Notificações" description="Lembretes, alertas de orçamento e resumos" color="#F59E0B" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/notification-settings"); }} />
-              </View>
-              </TourGuideZone>
               <LinkRow icon="bar-chart" label="Analytics & Performance" description="Compartilhamento de dados anônimos de uso" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/analytics-settings"); }} />
-              <TourGuideZone zone={2} text="15" isTourGuide borderRadius={12}>
-              <View collapsable={false}>
               <LinkRow icon="lock" label="Segurança" description="Bloqueio por PIN ou biometria" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/security-settings"); }} />
-              </View>
-              </TourGuideZone>
               <LinkRow icon="download-cloud" label="Backup & Restauração" description="Exportar e importar dados cifrados" color={theme.warning} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/backup"); }} />
               <LinkRow icon="shield" label="Política de Privacidade" description="Como seus dados são protegidos" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/privacy-policy"); }} />
               <LinkRow icon="star" label="Avaliar na Play Store" description="Deixe sua avaliação e ajude o DOMUS a crescer" color="#34A853" theme={theme} onPress={() => { soundManager.play("tap"); Linking.openURL("https://play.google.com/store/apps/details?id=br.com.pixeleucaristico.domus"); }} />
               <LinkRow icon="moon" label="Tema" description={`Modo atual: ${themeMode === "system" ? "Sistema" : themeMode === "dark" ? "Escuro" : "Claro"}`} color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); setThemeModalVisible(true); }} />
-              <LinkRow icon="play-circle" label="Refazer Tour do App" description="Reveja o guia de todas as funções do DOMUS (sandbox seguro)" color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); startDemo(); router.replace("/(tabs)"); }} />
+              <LinkRow icon="info" label="Ver Dicas das Telas" description="Reexibe as explicações de cada tela do DOMUS" color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); resetAllScreenIntros(); }} />
               <SwitchRow icon="volume-2" label="Efeitos Sonoros" description="Sons de confirmação e interações" color={theme.primaryColor} theme={theme} value={soundEnabled} onValueChange={setSoundEnabled} />
             </SectionCard>
 
@@ -266,8 +250,12 @@ export default function AboutScreen() {
           { label: "Escuro", icon: "moon", onPress: () => { soundManager.play("pop"); setThemeMode("dark"); } },
         ]}
       />
+      <ScreenIntroModal
+        visible={showIntro}
+        intro={SCREEN_INTROS.about}
+        onDismiss={dismissIntro}
+      />
     </SafeAreaView>
-    </TourPageHost>
   );
 }
 

@@ -7,7 +7,6 @@ import Animated, {
   withSpring,
   interpolate,
 } from "react-native-reanimated";
-import { TourGuideZone } from "rn-tourguide";
 import { TText } from "@/src/components/tamagui";
 import { soundManager } from "@/src/services/SoundManager";
 import * as Haptics from "expo-haptics";
@@ -186,7 +185,6 @@ export function HomeFab({
       )}
 
       <View style={[s.fabContainer, { bottom }]}>
-        <TourGuideZone zone={3} text="4" isTourGuide borderRadius={40} maskOffset={0} tooltipBottomOffset={80}>
           <Pressable
             collapsable={false}
             style={({ pressed }) => [s.fab, { backgroundColor: primaryColor }, pressed && s.fabPressed]}
@@ -196,7 +194,6 @@ export function HomeFab({
               <Feather name="plus" size={28} color="#FFF" />
             </Animated.View>
           </Pressable>
-        </TourGuideZone>
       </View>
     </>
   );

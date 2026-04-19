@@ -13,15 +13,17 @@ import { AccountCard } from "@/src/components/shared/AccountCard";
 import { AccountFormModal } from "@/src/components/shared/AccountFormModal";
 import { ResponsiveContainer } from "@/src/ui/components/ResponsiveContainer";
 import { ResponsiveGrid } from "@/src/ui/components/ResponsiveGrid";
-import { TourGuideZone } from "rn-tourguide";
-import { TourPageHost } from "@/src/components/tour/TourPageHost";
 import { PixelText } from "@/src/components/pixel";
+import { ScreenIntroModal } from "@/src/components/tour/ScreenIntroModal";
+import { useScreenIntro } from "@/src/hooks/useScreenIntro";
+import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 
 
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { domain, theme, wishlist, dispatchDomainEvent, isCatholic } = useAppState();
+  const { showIntro, dismissIntro } = useScreenIntro("accounts");
   const webTopInset = 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
@@ -70,8 +72,6 @@ export default function AccountsScreen() {
   };
 
   return (
-    <TourPageHost groupId={1}>
-    <TourPageHost groupId={9}>
     <View style={[s.root, { backgroundColor: theme.background }]}>
       <ScrollView
         ref={scrollRef}
@@ -89,7 +89,6 @@ export default function AccountsScreen() {
               <PixelText size={7} color={theme.primaryColor} style={{ opacity: 0.5 }}>PE</PixelText>
               {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
             </View>
-            <TourGuideZone zone={1} text="3" isTourGuide borderRadius={12}>
             <Pressable
               collapsable={false}
               style={[s.addBtn, { backgroundColor: theme.primaryColor }]}
@@ -100,7 +99,6 @@ export default function AccountsScreen() {
             >
               <Feather name="plus" size={20} color="#FFF" />
             </Pressable>
-            </TourGuideZone>
           </View>
         </View>
 
@@ -147,9 +145,12 @@ export default function AccountsScreen() {
           setEditingAccount(null);
         }}
       />
+      <ScreenIntroModal
+        visible={showIntro}
+        intro={SCREEN_INTROS.accounts}
+        onDismiss={dismissIntro}
+      />
     </View>
-    </TourPageHost>
-    </TourPageHost>
   );
 }
 

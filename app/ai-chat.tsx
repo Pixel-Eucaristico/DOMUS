@@ -35,7 +35,6 @@ import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyServi
 import { OpenAIAdapter } from "@packages/../packages/ai/src/adapters/OpenAIAdapter";
 import { ElevenLabsAdapter } from "@packages/../packages/ai/src/audio/ElevenLabsAdapter";
 import { createAudioPlayer as createPlayer, setAudioModeAsync as setAudioMode } from "expo-audio";
-import { TourPageHost } from "@/src/components/tour/TourPageHost";
 import { TText } from "@/src/components/tamagui";
 import { MarkdownText } from "@/src/components/ai/ChatBubble";
 import { FinancialCard } from "@/src/components/ai/FinancialCard";
@@ -601,7 +600,6 @@ export default function AIChatScreen() {
 
   return (
     <KeyboardProvider>
-    <TourPageHost groupId={5}>
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={["top", "bottom"]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.background }]}>
@@ -768,7 +766,6 @@ export default function AIChatScreen() {
           theme={theme}
         />
       </SafeAreaView>
-    </TourPageHost>
     </KeyboardProvider>
   );
 }
