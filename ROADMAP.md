@@ -273,19 +273,19 @@ LONGO PRAZO (quando houver tempo):
   - `ai-chat.tsx`: `onSend` recebe `txt: string` do `ChatInputBar`, elimina dependência de `inputText` no closure
   - `ai-chat.tsx`: welcome diário com `domus_ai_last_greeting_date_v1` em AsyncStorage — gera uma vez por dia, aparece mesmo com histórico existente
 
-### 13 — Bug/Melhoria: TTS Sobrepondo Partes + Juntar Áudios em Arquivo Único
+### 13 — Bug/Melhoria: TTS Sobrepondo Partes + Juntar Áudios em Arquivo Único ✅
 - **Dificuldade:** MÉDIO | **Urgência:** MÉDIA
 - **Problemas:**
-  1. O TTS está sobrepondo a reprodução da parte anterior ao iniciar a segunda parte (race condition)
+  1. O TTS estava sobrepondo a reprodução da parte anterior ao iniciar a segunda parte (race condition)
   2. Experiência fragmentada: pausas entre partes, sobreposição de fala
-- **Solução desejada:** Baixar todas as partes, concatenar em um único arquivo de áudio e reproduzir o arquivo final unificado
-- **Investigar/Implementar:**
-  - [ ] Pesquisar melhor abordagem para concatenar áudio no React Native (ex: `react-native-audio-toolkit`, `ffmpeg-kit-react-native`, ou API nativa)
-  - [ ] Baixar todas as partes em paralelo antes de iniciar reprodução
-  - [ ] Concatenar os buffers/arquivos de áudio em um único arquivo temporário
-  - [ ] Reproduzir apenas o arquivo final concatenado (sem fragmentação)
-  - [ ] Fallback: se concatenação falhar, reproduzir partes em sequência com await correto (sem sobreposição)
-  - [ ] Limpar arquivo temporário após reprodução
+- **Solução implementada:** Download paralelo de todos os chunks + concatenação pura em memória (WAV: merge correto de header RIFF + data; MP3: concatenação de frames) + reprodução de arquivo único. Sem dependências externas.
+- **Implementado:**
+  - [x] Download de todos os chunks em paralelo (`Promise.all`)
+  - [x] Concatenação WAV: merge correto do header RIFF + data chunks (sem biblioteca)
+  - [x] Concatenação MP3: concatenação direta de frames (compatível com todos players)
+  - [x] Reprodução única do arquivo concatenado (sem race condition possível)
+  - [x] Fallback sequential com `await` correto + delay 80ms inicial (evita polling prematuro)
+  - [x] Limpeza do arquivo temporário após reprodução (`finally`)
 
 ### Pendências da Fase 4
 - [ ] **Tooltips Inteligentes:** `react-native-smart-tooltip` (não instalado ainda)
