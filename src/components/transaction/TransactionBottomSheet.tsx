@@ -367,21 +367,21 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
               accounts={accounts}
               selectedId={form.selectedAccountId}
               theme={theme}
+              label="Conta de origem"
               onSelect={form.setSelectedAccountId}
+              compact={form.txType === "transfer"}
             />
 
             {/* Transfer target */}
             {form.txType === "transfer" && (
               <>
-                <Text style={[s.label, { color: theme.secondaryText }]}>Conta destino</Text>
                 <AccountPicker
-                  accounts={accounts.filter(
-                    (a) => a.id !== form.selectedAccountId,
-                  )}
+                  accounts={accounts.filter((a) => a.id !== form.selectedAccountId)}
                   selectedId={form.targetAccountId}
                   theme={theme}
-                  label="Destino"
+                  label="Conta de destino"
                   onSelect={form.setTargetAccountId}
+                  compact
                 />
                 {/* Return date toggle */}
                 <View style={s.row}>

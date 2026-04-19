@@ -235,43 +235,23 @@ export default function AddTransactionScreen() {
                 accounts={accounts}
                 selectedId={defaultAccountId}
                 theme={theme}
+                label="Conta de origem"
                 onSelect={form.setSelectedAccountId}
+                compact={form.txType === "transfer"}
               />
             </View>
 
             {/* Transfer target account */}
             {form.txType === "transfer" && accounts.length > 1 && (
-              <View style={[s.card, { backgroundColor: theme.cardBackground, marginBottom: 16 }]}>
-                <Text style={[s.label, { color: theme.secondaryText }]}>Conta de destino</Text>
-                <View style={s.chipRow}>
-                  {accounts
-                    .filter((a) => a.id !== defaultAccountId)
-                    .map((a) => {
-                      const active = form.targetAccountId === a.id;
-                      return (
-                        <Pressable
-                          key={a.id}
-                          style={[
-                            s.chip,
-                            {
-                              backgroundColor: active ? `${theme.primaryColor}15` : theme.background,
-                              borderColor: active ? theme.primaryColor : theme.border,
-                            },
-                          ]}
-                          onPress={() => {
-                            soundManager.play("tap");
-                            form.setTargetAccountId(a.id);
-                          }}
-                        >
-                          <Text
-                            style={[s.chipText, { color: active ? theme.primaryColor : theme.textColor }]}
-                          >
-                            {a.name}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                </View>
+              <View style={{ marginBottom: 16 }}>
+                <AccountPicker
+                  accounts={accounts.filter((a) => a.id !== defaultAccountId)}
+                  selectedId={form.targetAccountId}
+                  theme={theme}
+                  label="Conta de destino"
+                  onSelect={form.setTargetAccountId}
+                  compact
+                />
               </View>
             )}
 
