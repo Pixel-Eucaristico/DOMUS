@@ -139,6 +139,12 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     setSelectedCategory(0);
   };
 
+  // When source account changes, clear target if it now conflicts (same account)
+  const setSelectedAccountIdSafe = (id: string) => {
+    setSelectedAccountId(id);
+    if (targetAccountId === id) setTargetAccountId("");
+  };
+
   const accounts = Object.values(domain.accounts);
   const defaultAccountId = selectedAccountId || accounts[0]?.id || "";
   const computedItemsTotal = manualItems.reduce((s, i) => s + itemTotal(i), 0);
@@ -411,7 +417,7 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     setInstallmentStartFrom,
     isInstallment: installmentGroup.isInstallment,
     selectedAccountId,
-    setSelectedAccountId,
+    setSelectedAccountId: setSelectedAccountIdSafe,
     targetAccountId,
     setTargetAccountId,
     status,
