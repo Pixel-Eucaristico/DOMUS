@@ -1,5 +1,18 @@
 /** Funções de extração reutilizadas por todas as estratégias de scraping */
 
+/** Decode all HTML entities: numeric hex (&#x27;), decimal (&#39;) and named (&amp; etc.) */
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
 export function extractEan(html: string): string | undefined {
   const patterns = [
     /(?:EAN|GTIN|barcode)["\s:=]+["']?(\d{8,14})["']?/i,
@@ -41,7 +54,7 @@ export function extractImageUrl(html: string): string | undefined {
   for (const pattern of patterns) {
     const match = html.match(pattern);
     if (match?.[1] && match[1].startsWith("http")) {
-      return match[1].replace(/&amp;/g, "&");
+      return decodeHtmlEntities(match[1]);
     }
   }
   return undefined;
@@ -57,13 +70,7 @@ export function extractProductName(html: string): string | undefined {
   for (const pattern of patterns) {
     const match = html.match(pattern);
     if (match?.[1]) {
-      return match[1]
-        .trim()
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&#39;/g, "'")
-        .replace(/&quot;/g, '"');
+      return decodeHtmlEntities(match[1].trim());
     }
   }
   return undefined;
