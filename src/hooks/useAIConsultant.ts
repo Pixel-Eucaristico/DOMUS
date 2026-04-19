@@ -57,6 +57,7 @@ export interface UseAIConsultantResult {
   ) => Promise<void>;
   generateWelcome: () => Promise<ChatMessage | null>;
   clearHistory: () => void;
+  addSystemMessage: (msg: ChatMessage) => void;
 }
 
 export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
@@ -190,5 +191,11 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
     clearStoredHistory();
   }, []);
 
-  return { messages, isLoading, sendMessage, generateWelcome, clearHistory };
+  const addSystemMessage = useCallback((msg: ChatMessage) => {
+    historyRef.current = [...historyRef.current, msg];
+    setMessages([...historyRef.current]);
+    saveHistory(historyRef.current);
+  }, []);
+
+  return { messages, isLoading, sendMessage, generateWelcome, clearHistory, addSystemMessage };
 }

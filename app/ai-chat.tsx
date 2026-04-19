@@ -89,7 +89,7 @@ function tryParseConsultation(msg: IMessage): ConsultationResult | null {
 export default function AIChatScreen() {
   const { theme } = useAppState();
   const { settings, isLoading: settingsLoading, updateSettings, reload: reloadSettings } = useAISettings();
-  const { messages, isLoading, sendMessage, generateWelcome, clearHistory } = useAIConsultant(settings);
+  const { messages, isLoading, sendMessage, generateWelcome, clearHistory, addSystemMessage } = useAIConsultant(settings);
   const { isRecording, startRecording, stopRecording } = useVoiceRecorder();
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
@@ -134,7 +134,6 @@ export default function AIChatScreen() {
   }, [messages]);
 
   // ─── Welcome message (daily greeting) ─────────────────────────────────
-  const [welcomeMsg, setWelcomeMsg] = useState<ChatMessage | null>(null);
   const welcomeGenerated = useRef(false);
   const [welcomeLoading, setWelcomeLoading] = useState(false);
   const GREETING_DATE_KEY = "domus_ai_last_greeting_date_v1";
@@ -152,17 +151,16 @@ export default function AIChatScreen() {
       generateWelcome()
         .then((msg) => {
           if (msg) {
-            setWelcomeMsg(msg);
+            addSystemMessage(msg); // persists in history — survives navigation
             AsyncStorage.setItem(GREETING_DATE_KEY, today).catch(() => {});
           }
         })
         .finally(() => setWelcomeLoading(false));
     });
-  }, [settingsLoading, settings.isEnabled, generateWelcome]);
+  }, [settingsLoading, settings.isEnabled, generateWelcome, addSystemMessage]);
 
   const giftedMessages = useMemo(() => {
-    // welcomeMsg appended last → shows at top (most recent) in GiftedChat
-    const source = welcomeMsg ? [...messages, welcomeMsg] : messages;
+    const source = messages;
     // Build provider map for avatar rendering
     for (const msg of source) {
       if (msg.provider) msgProviderMap.current[msg.id] = msg.provider;
