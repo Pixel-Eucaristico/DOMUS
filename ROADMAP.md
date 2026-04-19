@@ -255,14 +255,15 @@ LONGO PRAZO (quando houver tempo):
 ### 10 — ~~Bug: Tour Sumindo / Saindo Fora da Tela~~ ✅ RESOLVIDO
 - **Solução:** Tour com spotlight (`rn-tourguide`) removido completamente. Substituído por `ScreenIntroModal` — modal simples por tela, sem spotlight, sem scroll, sem dados fictícios. Aparece uma vez na primeira visita de cada tela.
 
-### 11 — Bug: Barra de Progresso da Poupança não Contabiliza nos Objetivos Vinculados
+### 11 — Bug: Barra de Progresso da Poupança não Contabiliza nos Objetivos Vinculados ✅ RESOLVIDO
 - **Dificuldade:** MÉDIO | **Urgência:** ALTA
-- **Problema:** A barra que calcula o progresso na poupança (com flag de objetivo) não reflete corretamente nos objetivos vinculados exibidos no menu sanfona (accordion)
-- **Investigar:**
-  - [ ] Verificar se o valor acumulado na poupança está sendo propagado para o `goalId` vinculado
-  - [ ] Checar se a query/selector de objetivos relê o saldo após transações de poupança
-  - [ ] Garantir que o cálculo de `currentAmount` do objetivo considera depósitos categorizados como poupança
-  - [ ] Testar criação de objetivo → vincular à poupança → adicionar transação → verificar barra no accordion
+- **Causa raiz (2 bugs):**
+  1. `accounts.tsx` passava `linkedItems` apenas para contas do tipo `savings` — contas `checking`/`wallet` vinculadas a objetivos nunca mostravam o accordion
+  2. `AccountCard` e `WishlistItemRow` calculavam progresso com `item.price` ignorando `item.quantity` — meta exibida errada para itens com quantidade > 1
+- **Correções:**
+  - `accounts.tsx`: `acc.type === "savings"` → `acc.type !== "credit_card"` (alinhado com `SavingsGoalSection`)
+  - `AccountCard.tsx`: `item.price ?? 0` → `(item.price ?? 0) * (item.quantity ?? 1)` (3 ocorrências)
+  - `WishlistItemRow.tsx`: `item.price` → `item.price * (item.quantity ?? 1)` na barra de progresso
 
 ### 12 — Bug/Feature: IA não Responde ao "Olá" + Mensagem Diária de Boas-Vindas
 - **Dificuldade:** MÉDIO | **Urgência:** MÉDIA

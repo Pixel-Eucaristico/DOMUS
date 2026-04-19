@@ -117,7 +117,7 @@ export default function AccountsScreen() {
                 key={acc.id}
                 acc={acc}
                 theme={theme}
-                linkedItems={acc.type === "savings" ? (linkedItemsByAccount.get(acc.id) ?? []) : []}
+                linkedItems={acc.type !== "credit_card" ? (linkedItemsByAccount.get(acc.id) ?? []) : []}
                 isExpanded={expandedAccounts.has(acc.id)}
                 onPress={() => {
                   soundManager.play("tap");

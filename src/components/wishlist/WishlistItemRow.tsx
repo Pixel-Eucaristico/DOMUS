@@ -210,7 +210,7 @@ export function WishlistItemRow({
         {item.savingsGoal?.enabled && item.price !== undefined && linkedAccountBalance !== undefined && (
           (() => {
             const balance = linkedAccountBalance;
-            const price = item.price;
+            const price = item.price * (item.quantity ?? 1);
             const progress = Math.min(balance / price, 1);
             const reached = balance >= price;
             const remaining = Math.max(price - balance, 0);

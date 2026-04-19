@@ -122,7 +122,7 @@ export function AccountCard({
               {linkedItems.length} {linkedItems.length === 1 ? "objetivo" : "objetivos"}
               {(() => {
                 const n = linkedItems.filter(
-                  (i) => (i.price ?? 0) > 0 && acc.balance >= (i.price ?? 0),
+                  (i) => (i.price ?? 0) > 0 && acc.balance >= (i.price ?? 0) * (i.quantity ?? 1),
                 ).length;
                 return n > 0 ? `  •  ${n} atingido${n > 1 ? "s" : ""}` : "";
               })()}
@@ -133,7 +133,7 @@ export function AccountCard({
           {isExpanded && (
             <View style={s.cardGoalsSection}>
               {linkedItems.map((item) => {
-                const price = item.price ?? 0;
+                const price = (item.price ?? 0) * (item.quantity ?? 1);
                 const progress = price > 0 ? Math.min(acc.balance / price, 1) : 0;
                 const reached = price > 0 && acc.balance >= price;
                 return (
