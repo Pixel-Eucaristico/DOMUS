@@ -383,6 +383,14 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
                   label="Destino"
                   onSelect={form.setTargetAccountId}
                 />
+                <DatePickerField
+                  value={form.returnDate || new Date().toISOString().split("T")[0]!}
+                  onChange={form.setReturnDate}
+                  theme={theme}
+                  label={form.returnDate ? "Data de devolucao" : "Devolucao (opcional — toque para definir)"}
+                  optional
+                  onClear={form.returnDate ? () => form.setReturnDate("") : undefined}
+                />
               </>
             )}
 
