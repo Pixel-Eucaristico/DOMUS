@@ -38,7 +38,7 @@ export function ProductFormCard({
   data,
   onChange,
   theme,
-  namePlaceholder = "Descricao do produto",
+  namePlaceholder = "Descrição do produto",
   showConfirm = false,
   onConfirm,
   showRemove = false,

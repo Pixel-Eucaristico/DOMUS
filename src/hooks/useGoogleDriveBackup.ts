@@ -135,7 +135,7 @@ export function useGoogleDriveBackup() {
     const userEmail = response.data.user.email;
 
     if (!serverAuthCode) {
-      setSyncError("Nao foi possivel obter o codigo de autorizacao do Google.");
+      setSyncError("Não foi possível obter o código de autorização do Google.");
       return;
     }
 

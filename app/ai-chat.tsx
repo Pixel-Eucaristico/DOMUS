@@ -250,7 +250,7 @@ export default function AIChatScreen() {
 
     try {
       const apiKey = await SecureKeyService.retrieveKey(provider);
-      if (!apiKey) { Alert.alert("Sem chave API", "Configure a chave API nas configuracoes de IA."); setVisionLoading(false); return; }
+      if (!apiKey) { Alert.alert("Sem chave API", "Configure a chave API nas configurações de IA."); setVisionLoading(false); return; }
 
       // 3. Processar com VisionOCR
       const ocrResult = await VisionOCRService.process(asset.base64, mimeType, provider, apiKey, docType);
@@ -312,9 +312,9 @@ export default function AIChatScreen() {
 
       // Text actions — send as message
       const prompts: Record<string, string> = {
-        monthly_summary: "Faca um resumo financeiro completo do meu mes atual",
-        classify_transactions: "Classifique minhas transacoes recentes nas categorias corretas",
-        budget_check: "Como estou em relacao ao meu orcamento este mes?",
+        monthly_summary: "Faça um resumo financeiro completo do meu mês atual",
+        classify_transactions: "Classifique minhas transações recentes nas categorias corretas",
+        budget_check: "Como estou em relação ao meu orçamento este mês?",
         savings_tips: "Identifique onde estou gastando demais e sugira onde posso economizar",
       };
       if (prompts[action]) handleQuickSuggestion(prompts[action]);

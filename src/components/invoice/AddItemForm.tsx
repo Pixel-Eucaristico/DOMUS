@@ -69,7 +69,7 @@ export function AddItemForm({
         data={data}
         onChange={handleChange}
         theme={theme}
-        namePlaceholder="Descricao do produto"
+        namePlaceholder="Descrição do produto"
         showConfirm
         onConfirm={onConfirm}
       />

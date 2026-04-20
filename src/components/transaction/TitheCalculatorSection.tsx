@@ -122,7 +122,7 @@ export function TitheCalculatorSection({
       {periodType === "custom" && (
         <>
           <Text style={[s.label, { color: theme.secondaryText, marginTop: 10, fontSize: 12 }]}>
-            Ultimos quantos dias?
+            Últimos quantos dias?
           </Text>
           <TInput
             defaultValue={customDays}

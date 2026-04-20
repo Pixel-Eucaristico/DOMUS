@@ -107,7 +107,7 @@ export function EditableItemRow({ item, index, isEditing, theme, onToggleEdit, o
       {/* Inline edit form */}
       {isEditing && (
         <View style={[s.editForm, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}>
-          <TextInput style={[s.editInput, { color: theme.textColor, borderColor: theme.border }]} value={item.description} onChangeText={(v) => onEditField(index, "description", v)} placeholder="Descricao" placeholderTextColor={theme.secondaryText} />
+          <TextInput style={[s.editInput, { color: theme.textColor, borderColor: theme.border }]} value={item.description} onChangeText={(v) => onEditField(index, "description", v)} placeholder="Descrição" placeholderTextColor={theme.secondaryText} />
           <View style={s.editRow}>
             <TextInput style={[s.editInputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]} value={String(item.quantity)} onChangeText={(v) => onEditField(index, "quantity", v)} placeholder="Qtd" placeholderTextColor={theme.secondaryText} keyboardType="decimal-pad" />
             <TextInput style={[s.editInputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]} value={item.unit || ""} onChangeText={(v) => onEditField(index, "unit", v)} placeholder="UN" placeholderTextColor={theme.secondaryText} autoCapitalize="characters" />

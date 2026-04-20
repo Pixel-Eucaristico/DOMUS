@@ -61,15 +61,15 @@ const ACTIONS: ActionItem[] = [
   {
     id: "classify_transactions",
     icon: "tag",
-    label: "Classificar Transacoes",
+    label: "Classificar Transações",
     subtitle: "IA categoriza seus gastos recentes",
     color: "#9C27B0",
   },
   {
     id: "budget_check",
     icon: "dollar-sign",
-    label: "Verificar Orcamento",
-    subtitle: "Como estou em relacao ao meu orcamento",
+    label: "Verificar Orçamento",
+    subtitle: "Como estou em relação ao meu orçamento",
     color: "#00BCD4",
   },
   {

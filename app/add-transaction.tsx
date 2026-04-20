@@ -121,7 +121,7 @@ export default function AddTransactionScreen() {
             <Feather name="trash-2" size={22} color={theme.danger} />
           </Pressable>
           <Text style={[s.pageTitle, { color: theme.textColor }]}>
-            {txId ? "Editar transacao" : "Nova transacao"}
+            {txId ? "Editar transação" : "Nova Transação"}
           </Text>
           <Pressable onPress={form.handleSave} hitSlop={12}>
             <Feather name="check" size={24} color={theme.primaryColor} />
@@ -278,7 +278,7 @@ export default function AddTransactionScreen() {
                 >
                   <Feather name="corner-up-left" size={15} color={form.returnDate ? theme.warning : theme.secondaryText} />
                   <Text style={{ color: form.returnDate ? theme.warning : theme.secondaryText, fontFamily: "DMSans_500Medium", fontSize: 14 }}>
-                    {form.returnDate ? "Com devolucao" : "Sem devolucao"}
+                    {form.returnDate ? "Com devolução" : "Sem devolução"}
                   </Text>
                 </Pressable>
                 {!!form.returnDate && (
@@ -286,7 +286,7 @@ export default function AddTransactionScreen() {
                     value={form.returnDate}
                     onChange={form.setReturnDate}
                     theme={theme}
-                    label="Data de devolucao"
+                    label="Data de devolução"
                   />
                 )}
               </View>
@@ -460,7 +460,7 @@ export default function AddTransactionScreen() {
         {/* Save button */}
         <View style={{ marginTop: 8 }}>
           <TButton variant="primary" backgroundColor={theme.primaryColor} icon={<Feather name="check" size={20} color="#FFF" />} onPress={form.handleSave}>
-            {txId ? "Atualizar transacao" : "Salvar transacao"}
+            {txId ? "Atualizar transação" : "Salvar transação"}
           </TButton>
         </View>
 
@@ -468,7 +468,7 @@ export default function AddTransactionScreen() {
         {txId && (
           <View style={{ marginTop: 8 }}>
             <TButton variant="danger" backgroundColor={theme.danger ?? "#DC2626"} icon={<Feather name="trash-2" size={18} color="#FFF" />} onPress={form.handleDelete}>
-              Excluir transacao
+              Excluir transação
             </TButton>
           </View>
         )}
@@ -478,8 +478,8 @@ export default function AddTransactionScreen() {
       {/* Installment group save modal */}
       <SelectionModal
         visible={form.installmentModal === "save"}
-        title="Aplicar alteracoes"
-        subtitle="Esta transacao faz parte de um parcelamento"
+        title="Aplicar alterações"
+        subtitle="Esta transação faz parte de um parcelamento"
         options={[
           { label: "Somente esta parcela", icon: "edit-2", onPress: form.handleInstallmentSaveOne },
           { label: "Esta e futuras", icon: "fast-forward", onPress: form.handleInstallmentSaveFuture },
@@ -493,7 +493,7 @@ export default function AddTransactionScreen() {
       <SelectionModal
         visible={form.installmentModal === "delete"}
         title="Excluir parcela"
-        subtitle="Esta transacao faz parte de um parcelamento"
+        subtitle="Esta transação faz parte de um parcelamento"
         options={[
           { label: "Somente esta parcela", icon: "trash-2", color: theme.danger, onPress: form.handleInstallmentDeleteOne },
           { label: "Esta e futuras", icon: "fast-forward", color: theme.danger, onPress: form.handleInstallmentDeleteFuture },

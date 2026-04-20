@@ -15,19 +15,19 @@ export interface TransactionCategory {
 // Expense categories (despesas)
 // ──────────────────────────────────────────────────────────────────
 export const EXPENSE_CATEGORIES: TransactionCategory[] = [
-  { id: "alimentacao",   name: "Alimentacao",    group: "needs",   icon: "shopping-cart", allowGroupOverride: true },
+  { id: "alimentacao",   name: "Alimentação",    group: "needs",   icon: "shopping-cart", allowGroupOverride: true },
   { id: "higiene",       name: "Higiene",        group: "needs",   icon: "smile"           },
   { id: "limpeza",       name: "Limpeza",        group: "needs",   icon: "wind"            },
   { id: "moradia",       name: "Moradia",        group: "needs",   icon: "home"            },
   { id: "transporte",    name: "Transporte",     group: "needs",   icon: "truck"           },
-  { id: "saude",         name: "Saude",          group: "needs",   icon: "heart"           },
-  { id: "educacao",      name: "Educacao",       group: "needs",   icon: "book"            },
-  { id: "vestuario",     name: "Vestuario",      group: "wants",   icon: "shopping-bag", allowGroupOverride: true },
+  { id: "saude",         name: "Saúde",          group: "needs",   icon: "heart"           },
+  { id: "educacao",      name: "Educação",       group: "needs",   icon: "book"            },
+  { id: "vestuario",     name: "Vestuário",      group: "wants",   icon: "shopping-bag", allowGroupOverride: true },
   { id: "lazer",         name: "Lazer",          group: "wants",   icon: "music"           },
   { id: "compras",       name: "Compras",        group: "wants",   icon: "shopping-bag"    },
   { id: "restaurantes",  name: "Restaurantes",   group: "wants",   icon: "coffee",       allowGroupOverride: true },
   { id: "assinaturas",   name: "Assinaturas",    group: "wants",   icon: "repeat"          },
-  { id: "dizimo",        name: "Dizimo / Oferta", group: "wants",  icon: "gift"            },
+  { id: "dizimo",        name: "Dízimo / Oferta", group: "wants",  icon: "gift"            },
   { id: "outros_desp",   name: "Outros",         group: "wants",   icon: "more-horizontal" },
 ];
 
@@ -35,7 +35,7 @@ export const EXPENSE_CATEGORIES: TransactionCategory[] = [
 // Income categories (receitas)
 // ──────────────────────────────────────────────────────────────────
 export const INCOME_CATEGORIES: TransactionCategory[] = [
-  { id: "salario",       name: "Salario",        group: "needs",   icon: "briefcase"       },
+  { id: "salario",       name: "Salário",        group: "needs",   icon: "briefcase"       },
   { id: "renda_extra",   name: "Renda Extra",    group: "needs",   icon: "dollar-sign"     },
   { id: "freelance",     name: "Freelance",      group: "needs",   icon: "code"            },
   { id: "aluguel_rec",   name: "Aluguel",        group: "needs",   icon: "home"            },
@@ -57,7 +57,7 @@ export const TRANSACTION_CATEGORIES: TransactionCategory[] = [
 export function getCategoriesForType(type: TransactionType): TransactionCategory[] {
   if (type === "income") return INCOME_CATEGORIES;
   if (type === "transfer") return [
-    { id: "transferencia", name: "Transferencia", group: "needs", icon: "repeat" },
+    { id: "transferencia", name: "Transferência", group: "needs", icon: "repeat" },
   ];
   return EXPENSE_CATEGORIES;
 }

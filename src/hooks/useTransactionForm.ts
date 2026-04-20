@@ -175,8 +175,8 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
       return;
     }
     Alert.alert(
-      "Excluir transacao",
-      "Tem certeza que deseja remover esta transacao?",
+      "Excluir transação",
+      "Tem certeza que deseja remover esta transação?",
       [
         { text: "Cancelar", style: "cancel" },
         {

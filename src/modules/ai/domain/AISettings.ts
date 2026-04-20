@@ -34,8 +34,8 @@ export const DEFAULT_AI_DATA_PERMISSIONS: AIDataPermissions = {
 
 export const AI_DATA_PERMISSION_LABELS: Record<keyof AIDataPermissions, { title: string; description: string }> = {
   transactions: {
-    title: "Transacoes",
-    description: "Descricao, valor, data e categoria das suas transacoes",
+    title: "Transações",
+    description: "Descrição, valor, data e categoria das suas transações",
   },
   accounts: {
     title: "Contas",
@@ -51,15 +51,15 @@ export const AI_DATA_PERMISSION_LABELS: Record<keyof AIDataPermissions, { title:
   },
   wishlist: {
     title: "Lista de Desejos",
-    description: "Itens desejados, precos, urgencia e metas de poupanca",
+    description: "Itens desejados, preços, urgência e metas de poupança",
   },
   gamification: {
-    title: "Trofeus e Conquistas",
-    description: "Nivel, XP, streaks, conquistas desbloqueadas e trofeus",
+    title: "Troféus e Conquistas",
+    description: "Nível, XP, streaks, conquistas desbloqueadas e troféus",
   },
   sync: {
-    title: "Sincronizacao",
-    description: "Grupo de sincronizacao, status e quantidade de eventos",
+    title: "Sincronização",
+    description: "Grupo de sincronização, status e quantidade de eventos",
   },
 };
 

@@ -16,27 +16,27 @@ export const FINANCIAL_TOOLTIPS: Record<string, { title: string; content: string
   "50/30/20": {
     title: "Regra 50/30/20",
     content:
-      "Divida sua renda em: 50% para necessidades (moradia, alimentacao, transporte), 30% para desejos (lazer, compras) e 20% para poupanca e investimentos.",
+      "Divida sua renda em: 50% para necessidades (moradia, alimentação, transporte), 30% para desejos (lazer, compras) e 20% para poupança e investimentos.",
   },
   "taxa_selic": {
     title: "Taxa Selic",
     content:
-      "A taxa basica de juros da economia brasileira, definida pelo COPOM. Ela influencia todas as outras taxas de juros do mercado.",
+      "A taxa básica de juros da economia brasileira, definida pelo COPOM. Ela influencia todas as outras taxas de juros do mercado.",
   },
   "reserva_emergencia": {
-    title: "Reserva de Emergencia",
+    title: "Reserva de Emergência",
     content:
       "Fundo equivalente a 3-6 meses de despesas mensais, mantido em investimentos de alta liquidez para imprevistos.",
   },
   "juros_compostos": {
     title: "Juros Compostos",
     content:
-      "Juros que incidem sobre o capital inicial mais os juros acumulados. E o principal mecanismo de crescimento patrimonial de longo prazo.",
+      "Juros que incidem sobre o capital inicial mais os juros acumulados. É o principal mecanismo de crescimento patrimonial de longo prazo.",
   },
   "diversificacao": {
-    title: "Diversificacao",
+    title: "Diversificação",
     content:
-      "Estrategia de distribuir investimentos entre diferentes ativos para reduzir riscos. Nao colocar todos os ovos na mesma cesta.",
+      "Estratégia de distribuir investimentos entre diferentes ativos para reduzir riscos. Não colocar todos os ovos na mesma cesta.",
   },
 };
 

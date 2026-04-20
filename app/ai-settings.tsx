@@ -194,7 +194,7 @@ export default function AISettingsScreen() {
         {/* ════════════════════════════════════════════════════════════════════
             SECAO 1: ATIVACAO E PROVEDOR
             ════════════════════════════════════════════════════════════════════ */}
-        <SectionHeader title="Configuracao principal" theme={theme} />
+        <SectionHeader title="Configuração principal" theme={theme} />
 
         {/* Master toggle */}
         <Card theme={theme}>
@@ -623,12 +623,12 @@ export default function AISettingsScreen() {
             onPress={() => {
               soundManager.play("tap");
               if (Platform.OS === "web") {
-                const ok = window.confirm("Limpar historico da IA\n\nIsso apagara todas as mensagens da conversa atual. Esta acao nao pode ser desfeita.");
+                const ok = window.confirm("Limpar histórico da IA\n\nIsso apagará todas as mensagens da conversa atual. Esta ação não pode ser desfeita.");
                 if (ok) { soundManager.play("trash"); clearHistory(); }
               } else {
                 Alert.alert(
-                  "Limpar historico da IA",
-                  "Isso apagara todas as mensagens da conversa atual. Esta acao nao pode ser desfeita.",
+                  "Limpar histórico da IA",
+                  "Isso apagará todas as mensagens da conversa atual. Esta ação não pode ser desfeita.",
                   [
                     { text: "Cancelar", style: "cancel" },
                     {

@@ -54,13 +54,13 @@ const QUICK_ACTIONS: Suggestion[] = [
   {
     icon: "credit-card",
     label: "Classificar gastos",
-    prompt: "Classifique minhas transacoes recentes nas categorias corretas",
+    prompt: "Classifique minhas transações recentes nas categorias corretas",
     color: "#00BCD4",
   },
   {
     icon: "bar-chart-2",
     label: "Regra 50/30/20",
-    prompt: "Analise meus gastos e me diga como estou em relacao a regra 50/30/20",
+    prompt: "Analise meus gastos e me diga como estou em relação à regra 50/30/20",
     color: "#FF5722",
   },
   {

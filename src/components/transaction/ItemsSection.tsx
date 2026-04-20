@@ -59,7 +59,7 @@ export function ItemsSection({
     const qtyNum = parseFloat(newItemQty.replace(",", "."));
     const priceNum = parseFloat(newItemUnitPrice.replace(",", "."));
     if (!newItemDesc.trim() || isNaN(qtyNum) || qtyNum <= 0 || isNaN(priceNum) || priceNum <= 0) {
-      Alert.alert("Item invalido", "Informe descricao, quantidade e preco unitario.");
+      Alert.alert("Item inválido", "Informe descrição, quantidade e preço unitário.");
       return;
     }
     soundManager.play("success");
@@ -138,7 +138,7 @@ export function ItemsSection({
           <TInput
             value={newItemDesc}
             onChangeText={setNewItemDesc}
-            placeholder="Descricao do produto"
+            placeholder="Descrição do produto"
             color={theme.textColor}
             backgroundColor={theme.cardBackground}
             borderColor={theme.border}
@@ -311,7 +311,7 @@ export function ItemsSection({
                 <TInput
                   value={item.description}
                   onChangeText={(v: string) => onEditItemField(item.id, "description", v)}
-                  placeholder="Descricao"
+                  placeholder="Descrição"
                   color={theme.textColor}
                   backgroundColor={theme.cardBackground}
                   borderColor={theme.border}

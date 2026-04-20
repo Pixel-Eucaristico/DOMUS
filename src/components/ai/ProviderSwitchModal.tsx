@@ -94,7 +94,7 @@ export function detectProviderIssue(text: string): string | null {
     return "Limite de tokens atingido para este provedor.";
   }
   if (lower.includes("429") || lower.includes("rate") || lower.includes("excedido") || lower.includes("resource_exhausted")) {
-    return "Limite de requisicoes excedido pelo provedor.";
+    return "Limite de requisições excedido pelo provedor.";
   }
   if (lower.includes("invalida") && lower.includes("chave")) {
     return "Chave de API invalida ou expirada.";
