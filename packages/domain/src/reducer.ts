@@ -147,6 +147,7 @@ function applyTransactionToAccounts(
     type: string;
     amount: number;
     targetAccountId?: string;
+    isCdbDividend?: boolean;
   },
   direction: "apply" | "reverse",
 ): AppState {
@@ -157,10 +158,15 @@ function applyTransactionToAccounts(
 
   if (tx.type === "income" && sourceAccount) {
     if (sourceAccount.type !== "credit_card") {
-      accounts[tx.accountId] = {
-        ...sourceAccount,
-        balance: sourceAccount.balance + tx.amount * multiplier,
-      };
+      const balanceUpdate = { balance: sourceAccount.balance + tx.amount * multiplier };
+      const dividendUpdate =
+        tx.isCdbDividend && sourceAccount.type === "savings"
+          ? {
+              cdbDividendsTotal:
+                (sourceAccount.cdbDividendsTotal ?? 0) + tx.amount * multiplier,
+            }
+          : {};
+      accounts[tx.accountId] = { ...sourceAccount, ...balanceUpdate, ...dividendUpdate };
     }
   } else if (tx.type === "expense" && sourceAccount) {
     if (sourceAccount.type !== "credit_card") {

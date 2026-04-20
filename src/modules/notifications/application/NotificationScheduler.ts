@@ -453,8 +453,8 @@ export function computeReturnTransferReminders(
 
     results.push({
       channelId: CHANNELS.BILL_REMINDERS,
-      title: "Devolucao Esperada Hoje",
-      body: `${formatCurrency(tx.amount)} de ${targetAcc?.name || "conta"} para ${sourceAcc?.name || "sua conta"}\n${tx.description || "Transferencia"}`,
+      title: "Devolução Esperada Hoje",
+      body: `${formatCurrency(tx.amount)} de ${targetAcc?.name || "conta"} para ${sourceAcc?.name || "sua conta"}\n${tx.description || "Transferência"}`,
       trigger: triggerAtDate(returnDate),
       data: { type: "return-transfer", transactionId: tx.id },
     });

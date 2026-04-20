@@ -41,7 +41,7 @@ export function RecentTransactionsList({ recentTxs, txCount, categories, theme }
       >
         <View style={s.cardHeader}>
           <TText variant="subtitle" color={theme.textColor} marginBottom={12}>
-            Ultimas transacoes
+            Últimas transações
           </TText>
           <TText variant="caption" color={theme.secondaryText}>
             {txCount} total

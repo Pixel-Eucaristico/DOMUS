@@ -19,6 +19,8 @@ export interface CreateAccountParams {
   savingsGoalEnabled?: boolean;
   savingsContributionAmount?: number;
   contributionRecurrence?: "monthly" | "biweekly" | "weekly";
+  contributionDay?: number;
+  linkedCreditCardId?: string;
 }
 
 export function createAccountEvent(
@@ -37,6 +39,8 @@ export function createAccountEvent(
     savingsGoalEnabled: params.savingsGoalEnabled,
     savingsContributionAmount: params.savingsContributionAmount,
     contributionRecurrence: params.contributionRecurrence,
+    contributionDay: params.contributionDay,
+    linkedCreditCardId: params.linkedCreditCardId,
   };
 
   return createEvent<AccountCreatedEvent>(
@@ -79,11 +83,18 @@ export function getCreditUsage(
     .reduce((sum, t) => sum + t.amount, 0);
 }
 
+export function getCdbAdditionalCredit(cdbAccount: AccountPayload): number {
+  if (cdbAccount.type !== "savings" || !cdbAccount.linkedCreditCardId) return 0;
+  return Math.max(0, cdbAccount.balance - (cdbAccount.cdbDividendsTotal ?? 0));
+}
+
 export function getAvailableCredit(
   account: AccountPayload,
   transactions: Array<{ accountId: string; type: string; amount: number }>,
+  linkedCdb?: AccountPayload,
 ): number {
   if (account.type !== "credit_card" || !account.creditLimit) return 0;
   const usage = getCreditUsage(account, transactions);
-  return account.creditLimit - usage;
+  const additionalCredit = linkedCdb ? getCdbAdditionalCredit(linkedCdb) : 0;
+  return account.creditLimit + additionalCredit - usage;
 }

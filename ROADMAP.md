@@ -397,12 +397,12 @@ yarn add react-native-smart-tooltip
   - **UI — Card do cartão de crédito:**
     - Exibir `Limite: R$ X (fixo) + R$ Y (CDB)` quando houver vínculo
     - Campo `creditLimit` no form fica bloqueado para edição do crédito adicional (mostra como info)
-- **Implementar:**
-  - [ ] Campos `linkedCreditCardId`, `cdbDividendsTotal` em `AccountPayload`
-  - [ ] Campo `isCdbDividend` em `TransactionPayload`
-  - [ ] Função `getCdbAdditionalCredit()` e atualizar `getAvailableCredit()`
-  - [ ] Reducer: acumular `cdbDividendsTotal` em dividendos
-  - [ ] UI: toggle vínculo na tela de edição de conta savings
-  - [ ] UI: checkbox "É dividendo" ao adicionar receita na conta CDB
-  - [ ] UI: exibir breakdown do limite no card do cartão
+- **Implementado:**
+  - [x] Campos `linkedCreditCardId`, `cdbDividendsTotal` em `AccountPayload`
+  - [x] Campo `isCdbDividend` em `TransactionPayload`
+  - [x] Função `getCdbAdditionalCredit()` e atualizar `getAvailableCredit()`
+  - [x] Reducer: acumular `cdbDividendsTotal` em dividendos
+  - [x] UI: toggle vínculo na tela de edição de conta savings
+  - [x] UI: checkbox "É dividendo" ao adicionar receita na conta CDB
+  - [x] UI: exibir breakdown do limite no card do cartão
  

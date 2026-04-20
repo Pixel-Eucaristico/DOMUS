@@ -234,7 +234,7 @@ export function CategorySelectorGrid({
         return (
           <Animated.View
             key={group}
-            layout={Layout.springify().damping(15)}
+            layout={Layout.duration(180)}
             entering={FadeIn.delay(groupIdx * 100)}
             style={s.groupSection}
           >
@@ -338,7 +338,7 @@ function CategoryItem({ cat, selected, color, theme, onSelect, hasChildren, isEx
   };
 
   return (
-    <Animated.View style={animatedStyle} layout={Layout.springify()}>
+    <Animated.View style={animatedStyle} layout={Layout.duration(180)}>
       <Pressable
         onPress={handlePress}
         style={[

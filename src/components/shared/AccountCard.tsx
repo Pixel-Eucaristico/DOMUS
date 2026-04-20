@@ -33,6 +33,7 @@ interface AccountCardProps {
   onEdit: () => void;
   onToggleExpand: () => void;
   onGoalPress: (item: any) => void;
+  linkedCdb?: AccountPayload;
 }
 
 export function AccountCard({
@@ -44,6 +45,7 @@ export function AccountCard({
   onEdit,
   onToggleExpand,
   onGoalPress,
+  linkedCdb,
 }: AccountCardProps) {
   const typeColor = accountTypeColor(acc.type);
 
@@ -102,7 +104,15 @@ export function AccountCard({
         ]}
       >
         {acc.type === "credit_card"
-          ? `Limite: ${formatCurrency(acc.creditLimit ?? 0)}`
+          ? (() => {
+              const cdbCredit = linkedCdb
+                ? Math.max(0, linkedCdb.balance - (linkedCdb.cdbDividendsTotal ?? 0))
+                : 0;
+              if (cdbCredit > 0) {
+                return `Limite: ${formatCurrency(acc.creditLimit ?? 0)} + ${formatCurrency(cdbCredit)} CDB`;
+              }
+              return `Limite: ${formatCurrency(acc.creditLimit ?? 0)}`;
+            })()
           : formatCurrency(acc.balance)}
       </Text>
 

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   Animated,
+  Easing,
   Dimensions,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
@@ -52,10 +53,10 @@ export function SelectionModal({
           duration: 200,
           useNativeDriver: true,
         }),
-        Animated.spring(slideAnim, {
+        Animated.timing(slideAnim, {
           toValue: 0,
-          damping: 25,
-          stiffness: 300,
+          duration: 280,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
       ]).start();

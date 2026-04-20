@@ -34,6 +34,16 @@ export default function AccountsScreen() {
 
   const accounts = Object.values(domain.accounts);
 
+  const linkedCdbByCard = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const acc of accounts) {
+      if (acc.type === "savings" && acc.linkedCreditCardId) {
+        map.set(acc.linkedCreditCardId, acc);
+      }
+    }
+    return map;
+  }, [accounts]);
+
   const linkedItemsByAccount = useMemo(() => {
     const allItems = Object.values(wishlist?.items ?? {}) as any[];
     const map = new Map<string, any[]>();
@@ -118,6 +128,7 @@ export default function AccountsScreen() {
                 acc={acc}
                 theme={theme}
                 linkedItems={acc.type !== "credit_card" ? (linkedItemsByAccount.get(acc.id) ?? []) : []}
+                linkedCdb={acc.type === "credit_card" ? linkedCdbByCard.get(acc.id) : undefined}
                 isExpanded={expandedAccounts.has(acc.id)}
                 onPress={() => {
                   soundManager.play("tap");

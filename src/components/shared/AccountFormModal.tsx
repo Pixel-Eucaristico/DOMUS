@@ -56,6 +56,7 @@ export function AccountFormModal({
   const [savingsContribution, setSavingsContribution] = useState("");
   const [savingsRecurrence, setSavingsRecurrence] = useState<"monthly" | "biweekly" | "weekly">("monthly");
   const [contributionDay, setContributionDay] = useState("1");
+  const [linkedCreditCardId, setLinkedCreditCardId] = useState<string | undefined>(undefined);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [transferAccountId, setTransferAccountId] = useState<string | null>(null);
 
@@ -75,6 +76,7 @@ export function AccountFormModal({
         setSavingsContribution(editingAccount.savingsContributionAmount?.toString() ?? "");
         setSavingsRecurrence(editingAccount.contributionRecurrence ?? "monthly");
         setContributionDay(editingAccount.contributionDay?.toString() ?? "1");
+        setLinkedCreditCardId(editingAccount.linkedCreditCardId);
       } else {
         setName("");
         setBalance("");
@@ -86,6 +88,7 @@ export function AccountFormModal({
         setSavingsContribution("");
         setSavingsRecurrence("monthly");
         setContributionDay("1");
+        setLinkedCreditCardId(undefined);
       }
       Animated.parallel([
         Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
@@ -153,6 +156,7 @@ export function AccountFormModal({
         savingsContributionAmount: contributionNum,
         contributionRecurrence: accType === "savings" && savingsGoalEnabled ? savingsRecurrence : undefined,
         contributionDay: contributionDayNum,
+        linkedCreditCardId: accType === "savings" ? linkedCreditCardId : undefined,
       });
       dispatchDomainEvent(event);
     } else {
@@ -167,6 +171,7 @@ export function AccountFormModal({
         savingsContributionAmount: contributionNum,
         contributionRecurrence: accType === "savings" && savingsGoalEnabled ? savingsRecurrence : undefined,
         contributionDay: contributionDayNum,
+        linkedCreditCardId: accType === "savings" ? linkedCreditCardId : undefined,
       });
       dispatchDomainEvent(event);
     }
@@ -364,6 +369,56 @@ export function AccountFormModal({
                   editingAccountBalance={editingAccount?.balance ?? 0}
                 />
               )}
+
+              {accType === "savings" && (() => {
+                const creditCards = (Object.values(domain.accounts) as AccountPayload[]).filter(
+                  (a) => a.type === "credit_card",
+                );
+                if (creditCards.length === 0) return null;
+                return (
+                  <View style={{ marginTop: 8 }}>
+                    <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
+                      Vincular como CDB ao cartão
+                    </Text>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
+                      <Pressable
+                        style={[
+                          { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+                          {
+                            backgroundColor: !linkedCreditCardId ? `${theme.primaryColor}18` : theme.cardBackground,
+                            borderColor: !linkedCreditCardId ? theme.primaryColor : theme.border,
+                          },
+                        ]}
+                        onPress={() => setLinkedCreditCardId(undefined)}
+                      >
+                        <Text style={{ color: !linkedCreditCardId ? theme.primaryColor : theme.secondaryText, fontSize: 13 }}>
+                          Nenhum
+                        </Text>
+                      </Pressable>
+                      {creditCards.map((card) => {
+                        const active = linkedCreditCardId === card.id;
+                        return (
+                          <Pressable
+                            key={card.id}
+                            style={[
+                              { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+                              {
+                                backgroundColor: active ? `${theme.primaryColor}18` : theme.cardBackground,
+                                borderColor: active ? theme.primaryColor : theme.border,
+                              },
+                            ]}
+                            onPress={() => setLinkedCreditCardId(active ? undefined : card.id)}
+                          >
+                            <Text style={{ color: active ? theme.primaryColor : theme.textColor, fontSize: 13 }}>
+                              {card.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })()}
 
               <View style={{ marginTop: 16, marginBottom: 8 }}>
                 <TButton

@@ -59,6 +59,8 @@ export interface UseTransactionFormResult {
   setRecurrenceDays: (v: string) => void;
   returnDate: string;
   setReturnDate: (v: string) => void;
+  isCdbDividend: boolean;
+  setIsCdbDividend: (v: boolean) => void;
   date: string;
   setDate: (v: string) => void;
   manualItems: ManualItem[];
@@ -117,6 +119,7 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     editingTx?.date ?? new Date().toISOString().split("T")[0]!
   );
   const [returnDate, setReturnDate] = useState<string>(editingTx?.returnDate ?? "");
+  const [isCdbDividend, setIsCdbDividend] = useState<boolean>(editingTx?.isCdbDividend ?? false);
   const [manualItems, setManualItems] = useState<ManualItem[]>(() => {
     if (!editingTx?.items || editingTx.items.length === 0) return [];
     return editingTx.items.map((item) => {
@@ -338,6 +341,7 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
         recurrence,
         recurrenceDays: recurrenceDaysNum,
         returnDate: txType === "transfer" && returnDate ? returnDate : undefined,
+        isCdbDividend: txType === "income" && isCdbDividend ? true : undefined,
       });
 
       for (const evt of events) {
@@ -354,7 +358,7 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
           amount: amountNum,
           categoryId: catId,
           date: returnDate,
-          description: `Devolucao: ${description || cat.name}`,
+          description: `Devolução: ${description || cat.name}`,
           status: "pending",
           isReturnTransfer: true,
           returnTransactionId: parentId,
@@ -430,6 +434,8 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     setRecurrenceDays,
     returnDate,
     setReturnDate,
+    isCdbDividend,
+    setIsCdbDividend,
     date,
     setDate,
     manualItems,

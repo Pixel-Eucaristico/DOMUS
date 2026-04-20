@@ -265,6 +265,18 @@ function RootLayoutNav() {
         name="privacy-policy"
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="category-detail/[group]"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="transactions-by-category/[categoryId]"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="transaction-detail/[transactionId]"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 }

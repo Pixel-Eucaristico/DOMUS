@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Modal,
   View,
@@ -7,15 +7,12 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
+  Switch,
+  Animated,
+  Easing,
+  Dimensions,
 } from "react-native";
 import { KeyboardSafeView } from "@/src/components/shared/KeyboardSafeView";
-import Animated, { 
-  FadeIn, 
-  FadeOut, 
-  SlideInDown, 
-  SlideOutDown, 
-  Layout 
-} from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
@@ -53,7 +50,7 @@ const RECURRENCE_OPTIONS: { key: RecurrenceType; label: string }[] = [
   { key: "custom",  label: "Personalizado" },
 ];
 
-const SHEET_TRANSLATE = 700;
+const { height } = Dimensions.get("window");
 
 export function TransactionBottomSheet({ visible, onClose, theme, initialType }: TransactionBottomSheetProps) {
   const { domain } = useAppState();
@@ -62,11 +59,18 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
   const tithe = useTitheCalculator();
   const accounts = Object.values(domain.accounts);
 
+  const slideAnim = useRef(new Animated.Value(height)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     if (visible) {
       soundManager.play("pop");
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       if (initialType) form.setTxType(initialType);
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
     }
   }, [visible, initialType]);
 
@@ -100,10 +104,8 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
       onRequestClose={handleClose}
     >
       <View style={s.flex}>
-        <Animated.View 
-          entering={FadeIn.duration(200)} 
-          exiting={FadeOut.duration(200)}
-          style={s.overlay}
+        <Animated.View
+          style={[s.overlay, { opacity: fadeAnim }]}
         >
           <Pressable style={s.flex} onPress={handleClose} />
         </Animated.View>
@@ -112,13 +114,12 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
         >
           <View style={s.spacer} pointerEvents="none" />
           <Animated.View
-            entering={SlideInDown.springify().damping(20).stiffness(200)}
-            exiting={SlideOutDown}
             style={[
               s.sheet,
               {
                 backgroundColor: theme.cardBackground,
                 paddingBottom: Math.max(insets.bottom, 20),
+                transform: [{ translateY: slideAnim }],
               },
             ]}
           >
@@ -127,7 +128,7 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
 
           {/* Header */}
           <View style={s.header}>
-            <Text style={[s.title, { color: theme.textColor }]}>Nova transacao</Text>
+            <Text style={[s.title, { color: theme.textColor }]}>Nova Transação</Text>
             <Pressable onPress={handleClose} hitSlop={12}>
               <Feather name="x" size={22} color={theme.secondaryText} />
             </Pressable>
@@ -196,11 +197,11 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
             )}
 
             {/* Description */}
-            <Text style={[s.label, { color: theme.secondaryText }]}>Descricao (opcional)</Text>
+            <Text style={[s.label, { color: theme.secondaryText }]}>Descrição (opcional)</Text>
             <TInput
               value={form.description}
               onChangeText={form.setDescription}
-              placeholder="Ex: Mercado, Salario..."
+              placeholder="Ex: Mercado, Salário..."
               color={theme.textColor}
               backgroundColor={theme.cardBackground}
               borderColor={theme.border}
@@ -238,7 +239,7 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
                 <View style={s.titheHeader}>
                   <Feather name="gift" size={14} color="#A78BFA" />
                   <Text style={[s.label, { color: "#A78BFA", marginBottom: 0, fontSize: 13 }]}>
-                    Calculadora de Dizimo
+                    Calculadora de Dízimo
                   </Text>
                 </View>
 
@@ -263,7 +264,7 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
                   {(
                     [
                       { key: "gross" as const, label: "Bruta" },
-                      { key: "net" as const,   label: "Liquida" },
+                      { key: "net" as const,   label: "Líquida" },
                     ]
                   ).map(({ key, label }) => (
                     <Pressable
@@ -287,13 +288,13 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
                 </View>
 
                 <Text style={[s.label, { color: theme.secondaryText, marginTop: 8, fontSize: 12 }]}>
-                  Periodo
+                  Período
                 </Text>
                 <View style={s.titheChipRow}>
                   {(
                     [
-                      { key: "previous_month" as const, label: "Mes ant." },
-                      { key: "current_month" as const,  label: "Mes atual" },
+                      { key: "previous_month" as const, label: "Mês ant." },
+                      { key: "current_month" as const,  label: "Mês atual" },
                       { key: "custom" as const,         label: "Custom" },
                     ]
                   ).map(({ key, label }) => (
@@ -320,7 +321,7 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
                 {tithe.periodType === "custom" && (
                   <>
                     <Text style={[s.label, { color: theme.secondaryText, marginTop: 8, fontSize: 12 }]}>
-                      Ultimos quantos dias?
+                      Últimos quantos dias?
                     </Text>
                     <TInput
                       defaultValue={tithe.customDays}
@@ -407,7 +408,7 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
                   >
                     <Feather name="corner-up-left" size={13} color={form.returnDate ? theme.warning : theme.secondaryText} />
                     <Text style={[s.chipText, { color: form.returnDate ? theme.warning : theme.secondaryText }]}>
-                      Com devolucao
+                      Com devolução
                     </Text>
                   </Pressable>
                 </View>
@@ -416,11 +417,29 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
                     value={form.returnDate}
                     onChange={form.setReturnDate}
                     theme={theme}
-                    label="Data de devolucao"
+                    label="Data de devolução"
                   />
                 )}
               </>
             )}
+
+            {/* CDB Dividend toggle — only for income on savings account */}
+            {form.txType === "income" &&
+              domain.accounts[form.selectedAccountId]?.type === "savings" &&
+              domain.accounts[form.selectedAccountId]?.linkedCreditCardId && (
+                <View style={[s.row, { alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }]}>
+                  <Text style={[s.label, { color: theme.secondaryText, marginBottom: 0 }]}>É dividendo/rendimento</Text>
+                  <Switch
+                    value={form.isCdbDividend}
+                    onValueChange={(v) => {
+                      soundManager.play("tap");
+                      form.setIsCdbDividend(v);
+                    }}
+                    trackColor={{ false: theme.border, true: `${theme.primaryColor}80` }}
+                    thumbColor={form.isCdbDividend ? theme.primaryColor : theme.secondaryText}
+                  />
+                </View>
+              )}
 
             {/* Status */}
             <Text style={[s.label, { color: theme.secondaryText }]}>Status</Text>
@@ -453,7 +472,7 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
             </View>
 
             {/* Recurrence */}
-            <Text style={[s.label, { color: theme.secondaryText }]}>Recorrencia</Text>
+            <Text style={[s.label, { color: theme.secondaryText }]}>Recorrência</Text>
             <View style={[s.row, { flexWrap: "wrap" }]}>
               {RECURRENCE_OPTIONS.map((opt) => {
                 const active = form.recurrence === opt.key;

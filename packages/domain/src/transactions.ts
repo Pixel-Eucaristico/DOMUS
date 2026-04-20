@@ -32,6 +32,7 @@ export interface CreateTransactionParams {
   returnDate?: string;
   isReturnTransfer?: boolean;
   returnTransactionId?: string;
+  isCdbDividend?: boolean;
 }
 
 export type { TransactionItem };
@@ -60,6 +61,7 @@ export function createTransactionEvent(
       returnDate: params.returnDate,
       isReturnTransfer: params.isReturnTransfer,
       returnTransactionId: params.returnTransactionId,
+      isCdbDividend: params.isCdbDividend,
     };
 
     return [
@@ -121,6 +123,7 @@ export function createTransactionEvent(
       status: params.status,
       recurrence: params.recurrence,
       recurrenceDays: params.recurrenceDays,
+      isCdbDividend: params.isCdbDividend,
     };
 
     events.push(

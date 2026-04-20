@@ -65,6 +65,10 @@ export interface AccountPayload {
   contributionRecurrence?: "monthly" | "biweekly" | "weekly";
   /** Dia do mês para gerar o aporte mensal (1-28). Padrão: 1 */
   contributionDay?: number;
+  /** savings/CDB vinculada a um credit_card — saldo vira crédito adicional */
+  linkedCreditCardId?: string;
+  /** Soma acumulada de dividendos recebidos — excluída do cálculo de crédito adicional */
+  cdbDividendsTotal?: number;
 }
 
 export interface TransactionItem {
@@ -98,6 +102,7 @@ export interface TransactionPayload {
   returnDate?: string;          // YYYY-MM-DD — data esperada de devolução (só em transfers)
   returnTransactionId?: string; // ID da tx de retorno gerada automaticamente
   isReturnTransfer?: boolean;   // marca a tx de volta para não gerar loop
+  isCdbDividend?: boolean;      // receita de dividendo CDB — não altera crédito adicional
 }
 
 export interface CategoryPayload {

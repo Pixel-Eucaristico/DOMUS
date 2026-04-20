@@ -8,6 +8,7 @@ import {
   TextInput,
   ScrollView,
 } from "react-native";
+import Animated, { SlideInDown, SlideOutDown, FadeIn, FadeOut, Easing } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
 import { soundManager } from "@/src/services/SoundManager";
 import type { ThemeColors } from "@packages/theme";
@@ -35,7 +36,7 @@ interface AccountPickerProps {
   theme: ThemeColors;
   label?: string;
   onSelect: (id: string) => void;
-  compact?: boolean; // always modal — button + search modal
+  compact?: boolean;
 }
 
 // ─── Compact (modal) mode ─────────────────────────────────────────────────────
@@ -70,9 +71,14 @@ function CompactAccountPicker({
     setSearch("");
   };
 
+  const handleClose = () => {
+    setOpen(false);
+    setSearch("");
+  };
+
   return (
     <>
-      {/* Trigger button */}
+      {/* Trigger */}
       <Pressable
         style={[
           cs.trigger,
@@ -83,15 +89,13 @@ function CompactAccountPicker({
         ]}
         onPress={() => { soundManager.play("pop"); setOpen(true); }}
       >
-        {selCfg ? (
-          <View style={[cs.triggerIcon, { backgroundColor: `${selCfg.color}18` }]}>
-            <Feather name={selCfg.icon as any} size={16} color={selCfg.color} />
-          </View>
-        ) : (
-          <View style={[cs.triggerIcon, { backgroundColor: `${theme.primaryColor}12` }]}>
-            <Feather name="credit-card" size={16} color={theme.primaryColor} />
-          </View>
-        )}
+        <View style={[cs.triggerIcon, { backgroundColor: selCfg ? `${selCfg.color}18` : `${theme.primaryColor}12` }]}>
+          <Feather
+            name={(selCfg?.icon ?? "credit-card") as any}
+            size={16}
+            color={selCfg?.color ?? theme.primaryColor}
+          />
+        </View>
         <View style={{ flex: 1 }}>
           <Text style={[cs.triggerLabel, { color: theme.secondaryText }]}>{label}</Text>
           <Text style={[cs.triggerValue, { color: selected ? theme.textColor : theme.secondaryText }]}>
@@ -102,42 +106,59 @@ function CompactAccountPicker({
       </Pressable>
 
       {/* Modal */}
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={cs.overlay} onPress={() => { setOpen(false); setSearch(""); }}>
-          <Pressable
+      <Modal visible={open} transparent animationType="none" onRequestClose={handleClose}>
+        {/* Overlay */}
+        <Animated.View
+          entering={FadeIn.duration(180)}
+          exiting={FadeOut.duration(180)}
+          style={cs.overlay}
+        >
+          <Pressable style={{ flex: 1 }} onPress={handleClose} />
+        </Animated.View>
+
+        {/* Sheet */}
+        <View style={cs.sheetContainer} pointerEvents="box-none">
+          <View style={cs.spacer} pointerEvents="none" />
+          <Animated.View
+            entering={SlideInDown.duration(280).easing(Easing.out(Easing.cubic))}
+            exiting={SlideOutDown.duration(220).easing(Easing.in(Easing.cubic))}
             style={[cs.sheet, { backgroundColor: theme.background }]}
-            onPress={(e) => e.stopPropagation?.()}
           >
+            {/* Handle */}
+            <View style={[cs.handle, { backgroundColor: theme.border }]} />
+
             {/* Header */}
             <View style={[cs.sheetHeader, { borderBottomColor: theme.border }]}>
               <Text style={[cs.sheetTitle, { color: theme.textColor }]}>{label}</Text>
-              <Pressable onPress={() => { setOpen(false); setSearch(""); }} hitSlop={10}>
+              <Pressable onPress={handleClose} hitSlop={10}>
                 <Feather name="x" size={22} color={theme.secondaryText} />
               </Pressable>
             </View>
 
             {/* Search */}
-            {accounts.length > 4 && (
-              <View style={[cs.searchBox, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-                <Feather name="search" size={15} color={theme.secondaryText} />
-                <TextInput
-                  style={[cs.searchInput, { color: theme.textColor }]}
-                  placeholder="Buscar conta..."
-                  placeholderTextColor={theme.secondaryText}
-                  value={search}
-                  onChangeText={setSearch}
-                  autoFocus
-                />
-                {search.length > 0 && (
-                  <Pressable onPress={() => setSearch("")} hitSlop={8}>
-                    <Feather name="x-circle" size={15} color={theme.secondaryText} />
-                  </Pressable>
-                )}
-              </View>
-            )}
+            <View style={[cs.searchBox, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+              <Feather name="search" size={15} color={theme.secondaryText} />
+              <TextInput
+                style={[cs.searchInput, { color: theme.textColor }]}
+                placeholder="Buscar conta..."
+                placeholderTextColor={theme.secondaryText}
+                value={search}
+                onChangeText={setSearch}
+              />
+              {search.length > 0 && (
+                <Pressable onPress={() => setSearch("")} hitSlop={8}>
+                  <Feather name="x-circle" size={15} color={theme.secondaryText} />
+                </Pressable>
+              )}
+            </View>
 
             {/* List */}
-            <ScrollView style={cs.list} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={{ flexGrow: 1 }}
+              contentContainerStyle={{ paddingBottom: 8 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
               {filtered.length === 0 ? (
                 <Text style={[cs.empty, { color: theme.secondaryText }]}>Nenhuma conta encontrada</Text>
               ) : (
@@ -181,14 +202,14 @@ function CompactAccountPicker({
                 })
               )}
             </ScrollView>
-          </Pressable>
-        </Pressable>
+          </Animated.View>
+        </View>
       </Modal>
     </>
   );
 }
 
-// ─── List (inline) mode — original behavior ───────────────────────────────────
+// ─── List (inline) mode ───────────────────────────────────────────────────────
 
 function ListAccountPicker({
   accounts,
@@ -197,13 +218,39 @@ function ListAccountPicker({
   label = "Conta",
   onSelect,
 }: AccountPickerProps) {
+  const [search, setSearch] = useState("");
+
   if (accounts.length === 0) return null;
+
+  const filtered = search.trim()
+    ? accounts.filter((a) =>
+        a.name.toLowerCase().includes(search.toLowerCase()) ||
+        (TYPE_CONFIG[a.type]?.label ?? "").toLowerCase().includes(search.toLowerCase()),
+      )
+    : accounts;
 
   return (
     <View style={[s.card, { backgroundColor: theme.cardBackground }]}>
       <Text style={[s.label, { color: theme.secondaryText }]}>{label}</Text>
+      {accounts.length > 3 && (
+        <View style={[s.searchBox, { backgroundColor: theme.background, borderColor: theme.border }]}>
+          <Feather name="search" size={14} color={theme.secondaryText} />
+          <TextInput
+            style={[s.searchInput, { color: theme.textColor }]}
+            placeholder="Buscar..."
+            placeholderTextColor={theme.secondaryText}
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <Pressable onPress={() => setSearch("")} hitSlop={8}>
+              <Feather name="x-circle" size={14} color={theme.secondaryText} />
+            </Pressable>
+          )}
+        </View>
+      )}
       <View style={s.list}>
-        {accounts.map((a) => {
+        {filtered.map((a) => {
           const cfg = TYPE_CONFIG[a.type] ?? TYPE_CONFIG.checking;
           const active = selectedId === a.id;
           const color = cfg.color;
@@ -248,18 +295,16 @@ function ListAccountPicker({
   );
 }
 
-// ─── Public component — auto-selects mode ────────────────────────────────────
+// ─── Public component ─────────────────────────────────────────────────────────
 
 export function AccountPicker(props: AccountPickerProps) {
-  const useCompact = props.compact || props.accounts.length > 3;
-  return useCompact
+  return props.compact
     ? <CompactAccountPicker {...props} />
     : <ListAccountPicker {...props} />;
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-// Compact styles
 const cs = StyleSheet.create({
   trigger: {
     flexDirection: "row",
@@ -279,15 +324,27 @@ const cs = StyleSheet.create({
   triggerLabel: { fontFamily: "DMSans_400Regular", fontSize: 11, marginBottom: 2 },
   triggerValue: { fontFamily: "DMSans_600SemiBold", fontSize: 15 },
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  sheetContainer: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: "flex-end",
   },
+  spacer: { flex: 1 },
   sheet: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
     maxHeight: "75%",
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
+    opacity: 0.4,
   },
   sheetHeader: {
     flexDirection: "row",
@@ -314,7 +371,6 @@ const cs = StyleSheet.create({
     fontSize: 15,
     padding: 0,
   },
-  list: { flex: 1 },
   empty: { textAlign: "center", marginTop: 24, fontFamily: "DMSans_400Regular" },
   row: {
     flexDirection: "row",
@@ -346,10 +402,25 @@ const cs = StyleSheet.create({
   },
 });
 
-// List styles (original)
 const s = StyleSheet.create({
   card: { borderRadius: 20, padding: 20 },
   label: { fontFamily: "DMSans_500Medium", fontSize: 13, marginBottom: 10 },
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: "DMSans_400Regular",
+    fontSize: 14,
+    padding: 0,
+  },
   list: { gap: 8 },
   row: {
     flexDirection: "row",
