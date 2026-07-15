@@ -5,6 +5,47 @@ e segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [Não lançado]
+
+> Nota: as versões 1.3.0–1.8.0 foram lançadas sem entrada neste arquivo (o histórico
+> parcial está em `docs/history/CHANGELOG.md` até a 1.6.0). Este changelog volta a ser
+> mantido a partir daqui.
+
+### Corrigido
+- **Grupo 50/30/20 de itens importados de nota fiscal**: itens com categorias constantes
+  (ex.: `alimentacao`) eram todos contados como "Desejo" porque a categoria não existia no
+  estado de domínio. Agora a importação emite `CATEGORY_CREATED` para categorias ausentes e
+  `calculate503020` usa um mapa de grupos padrão como fallback (`DEFAULT_CATEGORY_GROUPS`).
+- **Override de grupo (Necessidade/Desejo) por produto não persistia**: `subcategoryId` e
+  `groupOverride` eram descartados ao salvar (importação de nota e lançamento manual) e
+  ignorados no cálculo 50/30/20. Agora são persistidos no evento, restaurados na edição e
+  respeitados em `calculate503020`, na tela de detalhe por grupo e no detalhe da transação.
+- **Toggle Necessidade↔Desejo sempre disponível**: o usuário pode corrigir o grupo de
+  qualquer produto (ex.: salgadinho classificado como alimento/necessidade → desejo), sem
+  depender da flag `allowGroupOverride` da subcategoria NCM.
+- Classificador emitia categoria `compras`/`restaurantes` que não existia na lista de
+  categorias da importação (exibia "Outros") — IDs adicionados a `CATEGORY_OPTIONS`.
+- **Google Drive (login Google)**: erro `DEVELOPER_ERROR` no Android agora mostra mensagem
+  acionável (SHA-1/package não registrados no Google Cloud Console); ausência do
+  `EXPO_PUBLIC_GOOGLE_CLIENT_SECRET` no build é detectada com mensagem clara; conexão via
+  web (implicit flow) não "desaparecia" mais ao recarregar; botão "Sincronizar agora" não
+  falha mais em silêncio quando o auto-backup ainda não foi gerado; texto corrigido (o
+  backup fica na área privada do app no Drive, não em "Meu Drive").
+- Chaves duplicadas em objetos: `sorvete` em `keywordMap.ts` e `bundleSearchBtn` em
+  `AddItemModal.tsx`.
+- Metadados de backup gravavam `APP_VERSION = "1.0.0"` fixo — agora usa a versão do
+  `package.json`.
+- README descrevia o app como "religioso/espiritual" — corrigido para finanças pessoais.
+
+### Documentação
+- `.env.example`: documenta `EXPO_PUBLIC_GOOGLE_CLIENT_SECRET`, o passo a passo de SHA-1
+  (EAS keystore + Play App Signing) e a necessidade de configurar as variáveis no EAS;
+  removidas variáveis não usadas (`ANDROID_CLIENT_ID`/`IOS_CLIENT_ID`).
+- `docs/roadmap/06-fix-google-drive.md`: reescrito para o fluxo atual
+  (@react-native-google-signin) com checklist de correção do login no Android.
+
+---
+
 ## [1.2.0] - 2026-03-12
 
 ### Adicionado

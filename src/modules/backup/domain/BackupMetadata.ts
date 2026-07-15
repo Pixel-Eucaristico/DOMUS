@@ -1,7 +1,8 @@
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 
 export const BACKUP_SCHEMA_VERSION = 1;
-export const APP_VERSION = "1.0.0";
+// Versão real do app gravada nos metadados do backup (antes era "1.0.0" fixo)
+export const APP_VERSION: string = require("../../../../package.json").version ?? "0.0.0";
 export const BACKUP_FILE_EXTENSION = ".domusbackup";
 export const PBKDF2_ITERATIONS = 100_000;
 

@@ -1,6 +1,6 @@
 # DOMUS
 
-Aplicativo mobile de cunho religioso/espiritual desenvolvido com React Native e Expo.
+Aplicativo mobile de finanças pessoais (orçamento 50/30/20, importação de notas fiscais NFC-e, gamificação e backup no Google Drive) desenvolvido com React Native e Expo.
 
 ---
 

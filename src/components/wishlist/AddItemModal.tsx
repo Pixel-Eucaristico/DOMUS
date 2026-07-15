@@ -562,7 +562,6 @@ const s = StyleSheet.create({
   bundleRowLine: { flexDirection: "row", alignItems: "center", gap: 6 },
   bundleNameInput: { flex: 1, fontSize: 13, fontFamily: "DMSans_400Regular" },
   bundlePrice: { fontSize: 11, fontFamily: "DMSans_600SemiBold" },
-  bundleSearchBtn: { width: 30, height: 30, borderRadius: 8, justifyContent: "center", alignItems: "center" },
   bundleAddBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1.5, borderRadius: 10, borderStyle: "dashed", paddingVertical: 10 },
   bundleAddText: { fontSize: 13, fontFamily: "DMSans_600SemiBold" },
   actions: { flexDirection: "row", gap: 10, marginTop: 16, marginBottom: 8 },

@@ -123,7 +123,6 @@ export const KEYWORD_MAP: Record<string, { categoryId: string; group: "needs" | 
   wafer: { categoryId: "lazer", group: "wants" },
   "bisc rec": { categoryId: "lazer", group: "wants" },
   cream: { categoryId: "lazer", group: "wants" },
-  sorvete: { categoryId: "lazer", group: "wants" },
   picole: { categoryId: "lazer", group: "wants" },
   picolé: { categoryId: "lazer", group: "wants" },
   // ── Higiene abreviações NF ──────────────────────────────────────────
