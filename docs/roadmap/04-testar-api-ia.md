@@ -17,14 +17,17 @@
 ## O Que Foi Feito
 
 ### Adapters Corrigidos e Adicionados
-| Adapter | Endpoint | Modelos |
+| Adapter | Endpoint | Modelos (validados em 2026-07-15) |
 |---------|----------|---------|
-| OpenAI | `api.openai.com/v1/chat/completions` | gpt-5-mini / gpt-4.1 |
-| Gemini | `generativelanguage.googleapis.com/v1beta` | gemini-2.5-flash / gemini-2.5-pro |
-| Claude | `api.anthropic.com/v1/messages` | claude-haiku-4-5 / claude-sonnet-4-6 |
-| **DeepSeek** (novo) | `api.deepseek.com/chat/completions` | deepseek-chat / deepseek-reasoner |
-| **Qwen** (novo) | `dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions` | qwen3.5-flash / qwen3.5-plus |
-| ChatGPT OAuth | `chatgpt.com/backend-api/codex/responses` | gpt-5.1-codex-mini / gpt-5.4 |
+| OpenAI | `api.openai.com/v1/chat/completions` | gpt-5.6-luna / gpt-5.6-terra |
+| Gemini | `generativelanguage.googleapis.com/v1beta` | gemini-3.1-flash-lite / gemini-3.5-flash |
+| Claude | `api.anthropic.com/v1/messages` | claude-haiku-4-5 / claude-sonnet-5 |
+| DeepSeek | `api.deepseek.com/chat/completions` | deepseek-v4-flash / deepseek-v4-pro (deepseek-chat/reasoner descontinuam em 2026-07-24) |
+| Qwen | `dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions` | qwen-turbo-latest / qwen-plus-latest |
+
+> ChatGPT OAuth (`chatgpt.com/backend-api/codex`) foi REMOVIDO em 2026-07-15: o fluxo
+> reutilizava o client_id do Codex CLI (violação de ToS) e parou de funcionar.
+> OpenAI autentica somente via API key.
 
 ### Bugs Corrigidos
 - GeminiAdapter: tratamento de `candidates` vazio (content blocked) e `finishReason: SAFETY`

@@ -37,6 +37,23 @@ e segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
   `package.json`.
 - README descrevia o app como "religioso/espiritual" — corrigido para finanças pessoais.
 
+### Alterado (IA — modelos validados em 15/07/2026)
+- **Modelos por provedor atualizados** (`AI_MODELS`): OpenAI `gpt-5.6-luna`/`gpt-5.6-terra`
+  (família GPT-5.6, GA 09/07/2026); Gemini `gemini-3.1-flash-lite`/`gemini-3.5-flash`;
+  Claude `claude-haiku-4-5`/`claude-sonnet-5`; DeepSeek `deepseek-v4-flash`/`deepseek-v4-pro`
+  (**os antigos `deepseek-chat`/`deepseek-reasoner` serão descontinuados em 24/07/2026**);
+  Qwen mantém aliases `-latest`. Visão (OCR) e tabela de preços por token atualizadas.
+- **Classificador NCM por IA**: o padrão Gemini era `gemini-2.0-flash`, desligado pelo
+  Google em 01/06/2026 (classificação via Gemini estava quebrada) — atualizado para
+  `gemini-3.1-flash-lite`; DeepSeek/Qwen/OpenAI do classificador também atualizados.
+- **ClaudeAdapter**: omite `temperature` em modelos que rejeitam sampling params
+  (Sonnet 5, Opus 4.7+), evitando erro 400.
+
+### Removido
+- **Login "ChatGPT OAuth"**: o fluxo reutilizava o client_id do Codex CLI contra
+  `chatgpt.com/backend-api` (violação provável de ToS) e parou de funcionar.
+  OpenAI agora autentica exclusivamente por API key (token), como os demais provedores.
+
 ### Documentação
 - `.env.example`: documenta `EXPO_PUBLIC_GOOGLE_CLIENT_SECRET`, o passo a passo de SHA-1
   (EAS keystore + Play App Signing) e a necessidade de configurar as variáveis no EAS;

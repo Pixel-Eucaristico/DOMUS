@@ -227,7 +227,8 @@ export interface GeminiConfig {
 }
 
 export function createGeminiClassifier(config: GeminiConfig): ClassifierAdapter {
-  const model = config.model ?? "gemini-2.0-flash";
+  // gemini-2.0-flash foi desligado pelo Google em 2026-06-01
+  const model = config.model ?? "gemini-3.1-flash-lite";
 
   return {
     async classify(itemName: string): Promise<ClassificationResult> {
@@ -390,7 +391,7 @@ function createAIClassifierForProvider(provider: string, apiKey: string): Classi
               "anthropic-version": "2023-06-01",
             },
             body: JSON.stringify({
-              model: "claude-haiku-4-5-20251001",
+              model: "claude-haiku-4-5",
               max_tokens: 100,
               messages: [{ role: "user", content: prompt }],
             }),
@@ -403,7 +404,8 @@ function createAIClassifierForProvider(provider: string, apiKey: string): Classi
               Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-              model: provider === "deepseek" ? "deepseek-chat" : provider === "qwen" ? "qwen-turbo" : "gpt-4o-mini",
+              // deepseek-chat será descontinuado em 2026-07-24 → v4-flash
+              model: provider === "deepseek" ? "deepseek-v4-flash" : provider === "qwen" ? "qwen-turbo-latest" : "gpt-5.6-luna",
               messages: [{ role: "user", content: prompt }],
               temperature: 0.1,
               max_tokens: 100,
