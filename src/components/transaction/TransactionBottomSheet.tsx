@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   Modal,
   View,
@@ -24,7 +24,7 @@ import { DatePickerField } from "@/src/components/shared/DatePickerField";
 import { ItemsSection } from "@/src/components/transaction/ItemsSection";
 import { InstallmentSelector } from "@/src/components/transaction/InstallmentSelector";
 import { TX_TYPES, getCategoriesForType } from "@/src/constants/transactionCategories";
-import type { TransactionStatus, RecurrenceType, CategoryGroup } from "@packages/events/src/types";
+import type { TransactionStatus, RecurrenceType } from "@packages/events/src/types";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import * as Haptics from "expo-haptics";
@@ -79,8 +79,11 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
     onClose();
   };
 
-  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string | undefined>();
-  const [groupOverride, setGroupOverride] = useState<CategoryGroup | undefined>();
+  // Subcategoria e override de grupo vivem no form para serem persistidos no save
+  const selectedSubcategoryId = form.subcategoryId;
+  const setSelectedSubcategoryId = form.setSubcategoryId;
+  const groupOverride = form.groupOverride;
+  const setGroupOverride = form.setGroupOverride;
 
   const typeCats = getCategoriesForType(form.txType);
   const selectedCatId = typeCats[form.selectedCategory]?.id ?? typeCats[0]?.id ?? "";

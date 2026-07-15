@@ -36,7 +36,7 @@ export interface UseEditableItemsResult {
   setInvoiceDateDisplay: (v: string) => void;
   computedTotal: number;
   handleRemoveEditableItem: (idx: number) => void;
-  handleEditField: (idx: number, field: keyof InvoiceItem | "categoryId", value: string) => void;
+  handleEditField: (idx: number, field: keyof InvoiceItem | "categoryId" | "subcategoryId" | "groupOverride", value: string) => void;
   handleAddEditableItem: () => void;
 }
 
@@ -75,7 +75,8 @@ export function useEditableItems(
           _id: String(i),
           categoryId: result.categoryId,
           subcategoryId: result.subcategoryId,
-          groupOverride: result.allowGroupOverride ? undefined : undefined,
+          // O classificador nunca define override — é sempre correção manual do usuário
+          groupOverride: undefined,
         };
       }),
     ).then(setEditableItems);
@@ -114,7 +115,8 @@ export function useEditableItems(
         } else if (field === "subcategoryId") {
           (updated as EditableItem).subcategoryId = value || undefined;
         } else if (field === "groupOverride") {
-          (updated as EditableItem).groupOverride = value as CategoryGroup;
+          // String vazia limpa o override (volta ao grupo automático)
+          (updated as EditableItem).groupOverride = (value || undefined) as CategoryGroup | undefined;
         }
         return updated;
       }),

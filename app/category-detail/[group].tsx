@@ -4,6 +4,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { resolveEffectiveGroup } from "@packages/domain/src/transactions";
+import { CATEGORY_OPTIONS } from "@/src/constants/invoiceCategories";
 
 export default function CategoryDetailScreen() {
   const { group, month, year } = useLocalSearchParams<{
@@ -21,35 +23,44 @@ export default function CategoryDetailScreen() {
   const groupLabel = group === "needs" ? "Necessidades" :
                      group === "wants" ? "Desejos" : "Poupança";
 
-  // Filter categories by group
-  const categories = useMemo(() =>
-    Object.values(domain.categories).filter(cat => cat.group === group),
-    [domain.categories, group]
-  );
+  // Categorias do domínio + constantes da importação de notas (transações
+  // antigas podem referenciar IDs constantes sem CATEGORY_CREATED)
+  const allCategories = useMemo(() => {
+    const map: Record<string, { id: string; name: string; group: string }> = {};
+    for (const opt of CATEGORY_OPTIONS) map[opt.id] = { id: opt.id, name: opt.name, group: opt.group };
+    for (const cat of Object.values(domain.categories)) map[cat.id] = cat;
+    return map;
+  }, [domain.categories]);
 
-  // Calculate totals per category
+  // Calculate totals per category, honoring per-item/tx group overrides
   const categoryTotals = useMemo(() => {
-    return categories.map(cat => {
+    return Object.values(allCategories).map(cat => {
       const total = Object.values(domain.transactions)
         .filter(tx => {
+          if (tx.type !== "expense" || tx.status === "pending") return false;
           const [y, m] = tx.date.split("-").map(Number);
           return y === filterYear && m === filterMonth + 1;
         })
         .reduce((sum, tx) => {
           if (tx.items && tx.items.length > 0) {
-            // If has items, sum only items of this category
+            // Soma itens desta categoria cujo grupo efetivo é o da tela
             return sum + tx.items
-              .filter(item => item.categoryId === cat.id)
+              .filter(item =>
+                item.categoryId === cat.id &&
+                resolveEffectiveGroup(item.categoryId, domain.categories, item.groupOverride) === group)
               .reduce((s, item) => s + item.amount, 0);
           }
-          // Otherwise, check if transaction is of this category
-          return tx.categoryId === cat.id ? sum + tx.amount : sum;
+          // Sem itens: usa categoria + override da própria transação
+          return tx.categoryId === cat.id &&
+            resolveEffectiveGroup(tx.categoryId, domain.categories, tx.groupOverride) === group
+            ? sum + tx.amount
+            : sum;
         }, 0);
 
       return { category: cat, total };
     }).filter(ct => ct.total > 0) // Only categories with spending
       .sort((a, b) => b.total - a.total); // Sort by value
-  }, [categories, domain.transactions, filterMonth, filterYear]);
+  }, [allCategories, domain.categories, domain.transactions, filterMonth, filterYear, group]);
 
   const totalSpent = categoryTotals.reduce((sum, ct) => sum + ct.total, 0);
 

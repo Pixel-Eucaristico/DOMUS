@@ -5,7 +5,6 @@ import * as Haptics from "expo-haptics";
 import type { ThemeColors } from "@packages/theme";
 import type { CategoryGroup } from "@packages/events/src/types";
 import type { EditableItem } from "@/src/hooks/useEditableItems";
-import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
 import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal";
 import { soundManager } from "@/src/services/SoundManager";
 import {
@@ -42,12 +41,9 @@ export function EditableItemRow({ item, index, isEditing, theme, onToggleEdit, o
   const groupColor = getGroupColor(currentGroup);
   const groupLabel = getGroupLabel(currentGroup);
 
-  const canToggleGroup = item.subcategoryId
-    ? NCM_SUBCATEGORIES.find((s) => s.id === item.subcategoryId)?.allowGroupOverride ?? false
-    : false;
-
+  // O usuário sempre pode corrigir o grupo — a classificação automática pode
+  // errar (ex.: salgadinho é "alimentacao" mas é desejo, não necessidade).
   const handleToggleGroup = () => {
-    if (!canToggleGroup) return;
     const idx = GROUP_TOGGLE_CYCLE.indexOf(currentGroup);
     const next = GROUP_TOGGLE_CYCLE[(idx + 1) % GROUP_TOGGLE_CYCLE.length]!;
     soundManager.play("tap");
@@ -57,7 +53,10 @@ export function EditableItemRow({ item, index, isEditing, theme, onToggleEdit, o
 
   const handlePickerSelect = (categoryId: string, subcategoryId?: string) => {
     onEditField(index, "categoryId", categoryId);
-    if (subcategoryId) onEditField(index, "subcategoryId", subcategoryId);
+    // Sempre atualiza a subcategoria (vazio limpa) e reseta o override manual,
+    // já que a troca de categoria redefine o grupo automático.
+    onEditField(index, "subcategoryId", subcategoryId ?? "");
+    onEditField(index, "groupOverride", "");
   };
 
   return (
@@ -83,11 +82,10 @@ export function EditableItemRow({ item, index, isEditing, theme, onToggleEdit, o
               <Feather name="chevron-right" size={10} color={catColor} />
             </Pressable>
             <Pressable
-              onPress={canToggleGroup ? handleToggleGroup : undefined}
-              disabled={!canToggleGroup}
+              onPress={handleToggleGroup}
               style={[s.tag, { backgroundColor: `${groupColor}18`, borderColor: `${groupColor}40`, borderWidth: 1 }]}
             >
-              {canToggleGroup && <Feather name="refresh-cw" size={9} color={groupColor} />}
+              <Feather name="refresh-cw" size={9} color={groupColor} />
               <TText variant="caption" bold color={groupColor} fontSize={9}>{groupLabel}</TText>
             </Pressable>
           </View>
