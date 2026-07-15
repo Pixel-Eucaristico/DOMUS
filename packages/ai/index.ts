@@ -26,7 +26,7 @@ export type {
   ImageUrlContentPart,
   MultimodalContent,
 } from "./src/types";
-export { AI_MODELS, CHATGPT_OAUTH_MODELS } from "./src/types";
+export { AI_MODELS } from "./src/types";
 
 // ─── TOON ─────────────────────────────────────────────────────────────────────
 export { TOONSerializer } from "./src/toon/TOONSerializer";
@@ -56,7 +56,6 @@ export { GeminiAdapter } from "./src/adapters/GeminiAdapter";
 export { ClaudeAdapter } from "./src/adapters/ClaudeAdapter";
 export { DeepSeekAdapter } from "./src/adapters/DeepSeekAdapter";
 export { QwenAdapter } from "./src/adapters/QwenAdapter";
-export { ChatGPTOAuthAdapter } from "./src/adapters/ChatGPTOAuthAdapter";
 
 // ─── Audio Adapters ──────────────────────────────────────────────────────────
 export { OpenAIAudioAdapter } from "./src/audio/OpenAIAudioAdapter";

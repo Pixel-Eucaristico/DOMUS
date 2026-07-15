@@ -136,8 +136,6 @@ export default function AISettingsScreen() {
     isLoading,
     saveApiKey,
     deleteApiKey,
-    loginWithChatGPT,
-    logoutChatGPT,
     updateSettings,
   } = useAISettings();
   const { clearHistory } = useAIConsultant(settings);
@@ -218,11 +216,6 @@ export default function AISettingsScreen() {
               selectedProvider={settings.provider}
               selectedTier={settings.modelTier}
               apiKeyStatus={settings.apiKeyStatus}
-              usingChatGPTOAuth={
-                settings.provider === "openai" &&
-                settings.openaiAuthMethod === "chatgpt_oauth" &&
-                settings.hasOAuthSession === true
-              }
               onProviderChange={(provider) =>
                 updateSettings({ provider, systemPromptSent: false })
               }
@@ -244,12 +237,8 @@ export default function AISettingsScreen() {
             <APIKeyManager
               provider={settings.provider}
               hasKey={settings.apiKeyStatus[settings.provider] === true}
-              openaiAuthMethod={settings.openaiAuthMethod}
-              hasOAuthSession={settings.hasOAuthSession}
               onSave={saveApiKey}
               onDelete={deleteApiKey}
-              onLoginChatGPT={loginWithChatGPT}
-              onLogoutChatGPT={logoutChatGPT}
             />
             {/* Link to official docs for getting API key */}
             <TouchableOpacity
@@ -370,8 +359,6 @@ export default function AISettingsScreen() {
                       <APIKeyManager
                         provider={"elevenlabs" as AIProvider}
                         hasKey={settings.elevenLabsKeyStatus === true}
-                        openaiAuthMethod="apikey"
-                        hasOAuthSession={false}
                         onSave={async (_, key) => {
                           await saveApiKey("elevenlabs" as AIProvider, key);
                           updateSettings({ elevenLabsKeyStatus: true });
@@ -381,8 +368,6 @@ export default function AISettingsScreen() {
                           await deleteApiKey("elevenlabs" as AIProvider);
                           updateSettings({ elevenLabsKeyStatus: false });
                         }}
-                        onLoginChatGPT={async (_onCode) => false}
-                        onLogoutChatGPT={async () => {}}
                       />
                       <TouchableOpacity
                         onPress={() => Linking.openURL("https://elevenlabs.io/app/settings/api-keys")}
@@ -403,12 +388,8 @@ export default function AISettingsScreen() {
                       <APIKeyManager
                         provider={(settings.audioProvider ?? "openai") as AIProvider}
                         hasKey={settings.apiKeyStatus[settings.audioProvider ?? "openai"] === true}
-                        openaiAuthMethod="apikey"
-                        hasOAuthSession={false}
                         onSave={saveApiKey}
                         onDelete={deleteApiKey}
-                        onLoginChatGPT={async (_onCode) => false}
-                        onLogoutChatGPT={async () => {}}
                       />
                     </View>
                   )}

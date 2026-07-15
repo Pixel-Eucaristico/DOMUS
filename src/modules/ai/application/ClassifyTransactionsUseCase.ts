@@ -74,7 +74,6 @@ export class ClassifyTransactionsUseCase {
           modelTier: "fast",
           messages,
           cacheKey,
-          openaiAuthMethod: settings.openaiAuthMethod,
           customBudgets: settings.customBudgets,
           budgetMode: settings.budgetMode,
           monthlyBudgets: settings.monthlyBudgets,
