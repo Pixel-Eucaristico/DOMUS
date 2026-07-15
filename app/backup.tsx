@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
   Platform,
   Share,
   Switch,
@@ -338,7 +339,13 @@ export default function BackupScreen() {
                       try {
                         const content = await FileSystemService.read(filePath);
                         await drive.uploadContent(content);
-                      } catch {}
+                      } catch {
+                        // Arquivo de auto-backup ainda não existe ou não pôde ser lido
+                        Alert.alert(
+                          "Backup ainda não gerado",
+                          "O arquivo de auto-backup ainda não foi criado. Ative o auto-backup e aguarde a primeira execução, ou use \"Exportar backup\".",
+                        );
+                      }
                     }}
                     disabled={drive.isSyncing}
                     activeOpacity={0.8}
@@ -350,7 +357,7 @@ export default function BackupScreen() {
               ) : (
                 <>
                   <Text style={[s.hintText, { color: theme.secondaryText }]}>
-                    Conecte sua conta Google para enviar o auto-backup diário automaticamente. O arquivo ficará visível em "Meu Drive".
+                    Conecte sua conta Google para enviar o auto-backup diário automaticamente. O arquivo fica guardado na área privada do app no Google Drive (não aparece em "Meu Drive").
                   </Text>
                   {drive.syncError && <StatusRow status={{ type: "error", message: drive.syncError }} theme={theme} />}
                   <TouchableOpacity

@@ -52,6 +52,12 @@ export function useGoogleDriveBackup() {
   // ── Actions ───────────────────────────────────────────────────────────────
 
   const exchangeCodeForTokens = useCallback(async (authCode: string, redirectUri?: string): Promise<DriveTokens | null> => {
+    if (!CLIENT_SECRET) {
+      setSyncError(
+        "Google Client Secret nao configurado no build. Adicione EXPO_PUBLIC_GOOGLE_CLIENT_SECRET nas variaveis de ambiente do EAS e gere um novo build.",
+      );
+      return null;
+    }
     const body: Record<string, string> = {
       client_id: WEB_CLIENT_ID,
       client_secret: CLIENT_SECRET,
@@ -178,6 +184,13 @@ export function useGoogleDriveBackup() {
         setSyncError("Login ja em andamento.");
       } else if (e?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
         setSyncError("Google Play Services nao disponivel.");
+      } else if (e?.code === "DEVELOPER_ERROR" || e?.code === 10 || /DEVELOPER_ERROR/.test(String(e?.message ?? ""))) {
+        // Erro de configuracao OAuth: o SHA-1 do certificado que assinou este
+        // build (EAS keystore ou chave do Play App Signing) nao esta registrado
+        // como cliente OAuth Android no Google Cloud Console.
+        setSyncError(
+          "Configuracao OAuth invalida (DEVELOPER_ERROR): o SHA-1 do certificado deste build nao esta registrado no Google Cloud Console para o pacote br.com.pixeleucaristico.domus.",
+        );
       } else {
         setSyncError(e instanceof Error ? e.message : "Erro ao conectar com o Google.");
       }
