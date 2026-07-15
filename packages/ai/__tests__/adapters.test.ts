@@ -25,6 +25,7 @@ function mockFetchResponse(body: unknown, status = 200) {
   return vi.fn().mockResolvedValue({
     ok: status >= 200 && status < 300,
     status,
+    headers: { get: () => null },
     json: () => Promise.resolve(body),
     text: () => Promise.resolve(JSON.stringify(body)),
   } as unknown as Response);
@@ -62,7 +63,7 @@ describe("OpenAIAdapter", () => {
     const adapter = new OpenAIAdapter();
     await expect(
       adapter.complete(MESSAGES, API_KEY, DEFAULT_OPTIONS),
-    ).rejects.toThrow("OpenAI HTTP 401");
+    ).rejects.toThrow("Chave de API do OpenAI invalida ou expirada");
   });
 });
 
@@ -211,7 +212,7 @@ describe("DeepSeekAdapter", () => {
     const adapter = new DeepSeekAdapter();
     await expect(
       adapter.complete(MESSAGES, API_KEY, DEFAULT_OPTIONS),
-    ).rejects.toThrow("DeepSeek HTTP 429");
+    ).rejects.toThrow("Limite de requisicoes do DeepSeek excedido");
   });
 });
 

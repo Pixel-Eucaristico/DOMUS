@@ -31,21 +31,21 @@ const SAMPLE_HTML = `
 describe("parseSefazHtml", () => {
   it("extracts items from SEFAZ HTML", () => {
     const result = parseSefazHtml(SAMPLE_HTML);
-    expect(result.partialInvoice.items).toHaveLength(3);
-    expect(result.partialInvoice.items[0]!.description).toBe("ARROZ TIPO 1 5KG");
-    expect(result.partialInvoice.items[0]!.quantity).toBe(2);
-    expect(result.partialInvoice.items[0]!.unitPrice).toBe(22.9);
+    expect(result.items).toHaveLength(3);
+    expect(result.items[0]!.description).toBe("ARROZ TIPO 1 5KG");
+    expect(result.items[0]!.quantity).toBe(2);
+    expect(result.items[0]!.unitPrice).toBe(22.9);
   });
 
   it("extracts total value", () => {
     const result = parseSefazHtml(SAMPLE_HTML);
-    expect(result.partialInvoice.totalAmount).toBe(79.29);
+    expect(result.totalAmount).toBe(79.29);
   });
 
   it("extracts date", () => {
     const result = parseSefazHtml(SAMPLE_HTML);
-    expect(result.partialInvoice.date).not.toBeNull();
-    const date = new Date(result.partialInvoice.date!);
+    expect(result.date).not.toBeNull();
+    const date = new Date(result.date!);
     expect(date.getFullYear()).toBe(2026);
     expect(date.getMonth()).toBe(1); // February
     expect(date.getDate()).toBe(14);
@@ -53,7 +53,7 @@ describe("parseSefazHtml", () => {
 
   it("extracts invoice ID from chave de acesso", () => {
     const result = parseSefazHtml(SAMPLE_HTML);
-    expect(result.partialInvoice.invoiceId).toBe("12345678901234567890123456789012345678901234");
+    expect(result.invoiceId).toBe("12345678901234567890123456789012345678901234");
   });
 
   it("calculates total from items when total is missing", () => {
@@ -68,13 +68,13 @@ describe("parseSefazHtml", () => {
       <span class="valor">10,00</span>
     `;
     const result = parseSefazHtml(html);
-    expect(result.partialInvoice.totalAmount).toBe(20);
+    expect(result.totalAmount).toBe(20);
   });
 
   it("handles empty HTML gracefully", () => {
     const result = parseSefazHtml("<html></html>");
-    expect(result.partialInvoice.items).toHaveLength(0);
-    expect(result.partialInvoice.totalAmount).toBe(0);
+    expect(result.items).toHaveLength(0);
+    expect(result.totalAmount).toBe(0);
   });
 
   it("handles HTML entities in product names", () => {
@@ -85,13 +85,13 @@ describe("parseSefazHtml", () => {
       <span class="valor">15,90</span>
     `;
     const result = parseSefazHtml(html);
-    expect(result.partialInvoice.items[0]!.description).toBe("CAFE & CIA PREMIUM");
+    expect(result.items[0]!.description).toBe("CAFE & CIA PREMIUM");
   });
 
   it("extracts date in ISO format", () => {
     const html = `<div>2026-02-14T15:30:00</div>`;
     const result = parseSefazHtml(html);
-    expect(result.partialInvoice.date).not.toBeNull();
+    expect(result.date).not.toBeNull();
   });
 });
 
@@ -104,8 +104,8 @@ describe("fetchAndParseSefaz", () => {
     };
 
     const result = await fetchAndParseSefaz("https://sefaz.gov.br/nfce?p=123", fetcher);
-    expect(result.partialInvoice.items).toHaveLength(3);
-    expect(result.partialInvoice.totalAmount).toBe(79.29);
+    expect(result.items).toHaveLength(3);
+    expect(result.totalAmount).toBe(79.29);
   });
 
   it("propagates fetch errors", async () => {

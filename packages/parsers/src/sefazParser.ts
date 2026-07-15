@@ -15,7 +15,9 @@ export interface SefazParseResult {
 const ITEM_PATTERNS = [
   // Padrão 1: spans SEFAZ SP (txtTit/txtTit2, Rqtd, RUN opcional, RvlUnit, valor)
   // [\s\S]*? em vez de .*? para capturar conteúdo com newlines dentro dos spans
-  /<span[^>]*class="[^"]*txtTit2?[^"]*"[^>]*>([\s\S]*?)<\/span>[\s\S]*?<span[^>]*class="[^"]*Rqtd[^"]*"[^>]*>[\s\S]*?([\d.,]+)[\s\S]*?<\/span>(?:[\s\S]*?<span[^>]*class="[^"]*RUN[^"]*"[^>]*>([\s\S]*?)<\/span>)?[\s\S]*?<span[^>]*class="[^"]*RvlUnit[^"]*"[^>]*>[\s\S]*?([\d.,]+)[\s\S]*?<\/span>[\s\S]*?<span[^>]*class="[^"]*valor[^"]*"[^>]*>[\s\S]*?([\d.,]+)[\s\S]*?<\/span>/gi,
+  // (\d[\d.,]*) exige ao menos um dígito — [\d.,]+ sozinho capturava só o "."
+  // de "Qtde." / "Vl. Unit." e zerava quantidade/preço, descartando os itens
+  /<span[^>]*class="[^"]*txtTit2?[^"]*"[^>]*>([\s\S]*?)<\/span>[\s\S]*?<span[^>]*class="[^"]*Rqtd[^"]*"[^>]*>[\s\S]*?(\d[\d.,]*)[\s\S]*?<\/span>(?:[\s\S]*?<span[^>]*class="[^"]*RUN[^"]*"[^>]*>([\s\S]*?)<\/span>)?[\s\S]*?<span[^>]*class="[^"]*RvlUnit[^"]*"[^>]*>[\s\S]*?(\d[\d.,]*)[\s\S]*?<\/span>[\s\S]*?<span[^>]*class="[^"]*valor[^"]*"[^>]*>[\s\S]*?(\d[\d.,]*)[\s\S]*?<\/span>/gi,
   // Padrão 2: tabela com classes fixo-prod-serv-* (outros estados)
   /<tr[^>]*>[\s\S]*?<td[^>]*class="[^"]*fixo-prod-serv-descricao[^"]*"[^>]*>([\s\S]*?)<\/td>[\s\S]*?<td[^>]*class="[^"]*fixo-prod-serv-qtd[^"]*"[^>]*>([\s\S]*?)<\/td>[\s\S]*?<td[^>]*class="[^"]*fixo-prod-serv-uc[^"]*"[^>]*>([\s\S]*?)<\/td>[\s\S]*?<td[^>]*class="[^"]*fixo-prod-serv-vb[^"]*"[^>]*>([\s\S]*?)<\/td>/gi,
 ];
@@ -24,6 +26,8 @@ const ITEM_PATTERNS = [
 const DATE_PATTERNS = [
   /(?:emissão|data)[:\s]*(\d{2}\/\d{2}\/\d{4})/i,
   /(\d{2}\/\d{2}\/\d{4})\s*\d{2}:\d{2}:\d{2}/,
+  // Alguns estados exibem data/hora em formato ISO (2026-02-14T15:30:00)
+  /(\d{4}-\d{2}-\d{2})/,
 ];
 
 // SEFAZ SP usa id="u20" class="txtTopo" — outros estados usam txtNome

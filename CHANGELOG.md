@@ -33,6 +33,17 @@ e segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
   backup fica na área privada do app no Drive, não em "Meu Drive").
 - Chaves duplicadas em objetos: `sorvete` em `keywordMap.ts` e `bundleSearchBtn` em
   `AddItemModal.tsx`.
+- **Classificação por IA na importação de notas nunca ativava**: `import-invoice.tsx`
+  lia `aiSettings.enabled` (campo inexistente — o correto é `isEnabled`), então o
+  pipeline de IA ficava sempre desligado nessa tela.
+- **Parser SEFAZ**: a regex numérica podia capturar apenas o "." de "Qtde."/"Vl. Unit.",
+  zerando quantidade/preço e descartando itens; agora exige ao menos um dígito.
+  Suporte a datas em formato ISO (usado por alguns estados).
+- **Suíte de testes 100% verde (590 testes/35 arquivos)**: atualizados testes
+  desatualizados de gamificação/integração (valores de XP rebalanceados no código),
+  dos adapters de IA (mensagens de erro amigáveis) e do parser SEFAZ (API atual);
+  removido teste órfão `importInvoice.test.ts` (módulo inexistente); `assertOk`
+  tolera `headers` indefinido em fetch mockado/polyfill.
 - Metadados de backup gravavam `APP_VERSION = "1.0.0"` fixo — agora usa a versão do
   `package.json`.
 - README descrevia o app como "religioso/espiritual" — corrigido para finanças pessoais.

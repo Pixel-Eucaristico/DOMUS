@@ -45,14 +45,14 @@ export default function InvoiceImportScreen() {
 
   // Carregar API key do provedor ativo para classificação por IA
   useEffect(() => {
-    if (aiSettings.enabled && aiSettings.provider) {
+    if (aiSettings.isEnabled && aiSettings.provider) {
       SecureKeyService.retrieveKey(aiSettings.provider as any).then((key) => {
         setAiApiKey(key ?? undefined);
       });
     } else {
       setAiApiKey(undefined);
     }
-  }, [aiSettings.enabled, aiSettings.provider]);
+  }, [aiSettings.isEnabled, aiSettings.provider]);
 
   // Carregar dados do Vision OCR (quando vem do ai-chat)
   const params = useLocalSearchParams<{ fromVision?: string }>();
@@ -91,7 +91,7 @@ export default function InvoiceImportScreen() {
   );
 
   const items = useEditableItems(importedData, {
-    aiEnabled: aiSettings.enabled && !!aiApiKey,
+    aiEnabled: aiSettings.isEnabled && !!aiApiKey,
     aiApiKey: aiApiKey,
     aiProvider: aiSettings.provider,
     onTokensUsed: (provider, tokens) => {
