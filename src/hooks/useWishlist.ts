@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useAppState } from "@/src/context/AppStateProvider";
 import {
-  URGENCY_ORDER,
   wishlistAffordabilityService,
   createWishlistListEvent,
   addWishlistItemEvent,

@@ -72,6 +72,7 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
         Animated.timing(slideAnim, { toValue: 0, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]).start();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deve rodar só na abertura do sheet; 'form' é recriado a cada render e reexecutar repetiria som/háptica/animação
   }, [visible, initialType]);
 
   const handleClose = () => {

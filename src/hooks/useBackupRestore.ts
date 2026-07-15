@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Platform, Share } from "react-native";
+import { Platform } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as Haptics from "expo-haptics";
 import { BackupExportService } from "@/src/modules/backup/application/BackupExportService";

@@ -463,7 +463,7 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
                   <Text style={[st.infoText, { color: "#10B981" }]}>Chave salva com sucesso!</Text>
                 </View>
               ) : (
-                <View style={[st.apiKeyRow, { borderColor: theme.border, backgroundColor: theme.inputBackground ?? theme.cardBackground }]}>
+                <View style={[st.apiKeyRow, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}>
                   <TextInput
                     style={[st.apiKeyInput, { color: theme.textColor }]}
                     placeholder={`Chave de API ${selectedProvider}`}

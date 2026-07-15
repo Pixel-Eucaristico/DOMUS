@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams , useRouter } from "expo-router";
 import { View, ActivityIndicator, Text, StyleSheet, Pressable } from "react-native";
-import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/src/context/AppStateProvider";
@@ -76,7 +75,7 @@ export default function InvoiceImportScreen() {
     if (accounts.length > 0 && !selectedAccountId) {
       setSelectedAccountId(accounts[0]!.id);
     }
-  }, [accounts]);
+  }, [accounts, selectedAccountId]);
 
   const webview = useInvoiceWebView(
     (payload) => { setImportedData(payload); setState("parsed"); },

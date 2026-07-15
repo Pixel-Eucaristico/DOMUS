@@ -7,14 +7,13 @@ import { AnimatedCard } from "@/src/components/shared/AnimatedCard";
 import type { AchievementRarity } from "@packages/gamification/src/achievements";
 import { soundManager } from "@/src/services/SoundManager";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { useResponsive } from "@/src/ui/layout/useResponsive";
 
 interface GamificationWidgetProps {
   theme: any;
   currentTrophy: { id: string; icon: string; tier: number } | null;
   levelInfo: { level: number };
-  recentAchievements: Array<{ id: string; rarity: AchievementRarity; name?: string }>;
-  achievementPool: Array<{ id: string; name: string }>;
+  recentAchievements: { id: string; rarity: AchievementRarity; name?: string }[];
+  achievementPool: { id: string; name: string }[];
   monthProgress: number;
 }
 
@@ -27,7 +26,6 @@ export function GamificationWidget({
   monthProgress,
 }: GamificationWidgetProps) {
   const router = useRouter();
-  const { isMobile } = useResponsive();
 
   return (
     <AnimatedCard index={1}>

@@ -5,7 +5,6 @@ function mf(c){return{ty:"fl",c:{a:0,k:c},o:{a:0,k:100},r:1,bm:0,nm:"F"}}
 function ms(c,w){return{ty:"st",c:{a:0,k:c},o:{a:0,k:100},w:{a:0,k:w},lc:2,lj:2,bm:0,nm:"S"}}
 
 const V=JSON.parse(fs.readFileSync(path.join(__dirname,'lottie-verts-fa-leaf.json'),'utf8'));
-const white=[1,1,1,1];
 
 const TIERS = {
   base: { // Bronze — folha marrom escura, sem folhas extras, sem hanger

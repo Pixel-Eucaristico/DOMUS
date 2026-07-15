@@ -66,7 +66,7 @@ export function AnimatedTrophy({ rarity, size = 64, spinning = true }: Props) {
     } else {
       rotation.value = 0;
     }
-  }, [spinning]);
+  }, [spinning, rotation]);
 
   const trophyStyle = useAnimatedStyle(() => ({
     transform: [{ scaleX: Math.cos(rotation.value) }],

@@ -65,6 +65,27 @@ e segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
   `chatgpt.com/backend-api` (violação provável de ToS) e parou de funcionar.
   OpenAI agora autentica exclusivamente por API key (token), como os demais provedores.
 
+### Qualidade — repositório com 0 erros e 0 warnings (15/07/2026)
+- **TypeScript: 444 → 0 erros.** Raiz de ~320 deles: os wrappers Tamagui
+  (`TText`/`TButton`/`TCard`/`TInput`) tipavam cores como tokens e rejeitavam as
+  strings do `ThemeColors` — agora exportam tipos relaxados mantendo as variantes
+  tipadas. Demais correções: imports `@noble/*` com sufixo `.js` (exports map v2),
+  tipagem WebCrypto em `packages/sync/crypto.ts`, remoção do prop `estimatedItemSize`
+  (extinto no FlashList v2), `getTierColor` aceita tier 4 (diamante), guardas de
+  null em `ai-chat`, `StyleProp` em `AppTextInput`, e testes com provider correto.
+- **Código morto removido**: cluster completo do tour antigo por spotlight
+  (12 arquivos em `src/tour` e `src/components/tour`), substituído desde a 1.7
+  pelos modais de introdução por tela (`ScreenIntroModal`) — era a fonte de 15
+  erros de tipo e não era importado por nenhuma tela.
+- **ESLint: 186 erros/197 warnings → 0/0.** Config com globals de Node para
+  `scripts/**` (~170 no-undef falsos); 7 violações reais de rules-of-hooks
+  corrigidas (hooks condicionais em DebugTools/WishlistSearchWebView e
+  `useAnimatedStyle` em função comum no AnimatedSeasonalTrophy — risco real de
+  crash); aspas escapadas em JSX; ~96 imports/variáveis não usados removidos;
+  33 exhaustive-deps resolvidos (deps adicionadas quando estáveis, refatoração,
+  ou disable pontual com justificativa quando reexecutar mudaria comportamento);
+  requires tardios de módulos nativos documentados com justificativa.
+
 ### Documentação
 - `.env.example`: documenta `EXPO_PUBLIC_GOOGLE_CLIENT_SECRET`, o passo a passo de SHA-1
   (EAS keystore + Play App Signing) e a necessidade de configurar as variáveis no EAS;

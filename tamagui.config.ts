@@ -117,6 +117,7 @@ const config = createTamagui({
 export type AppConfig = typeof config;
 
 declare module "@tamagui/core" {
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- augmentação de módulo exigida pelo Tamagui (declaration merging)
   interface TamaguiCustomConfig extends AppConfig {}
 }
 

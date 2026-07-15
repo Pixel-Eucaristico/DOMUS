@@ -80,6 +80,7 @@ export function useEditableItems(
         };
       }),
     ).then(setEditableItems);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- classificação deve rodar uma vez por importedData; classifyOptions é recriado pelo chamador e reexecutar refaria chamadas de IA
   }, [importedData]);
 
   const computedTotal = editableItems.reduce((s, i) => s + i.totalPrice, 0);

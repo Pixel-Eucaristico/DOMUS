@@ -2,7 +2,6 @@ const fs=require('fs'),path=require('path');
 const bY=108,io={i:{x:[.667],y:[1]},o:{x:[.333],y:[0]}};
 const io3={i:{x:[.667,.667,.667],y:[1,1,1]},o:{x:[.333,.333,.333],y:[0,0,0]}};
 function mf(c){return{ty:"fl",c:{a:0,k:c},o:{a:0,k:100},r:1,bm:0,nm:"F"}}
-function ms(c,w){return{ty:"st",c:{a:0,k:c},o:{a:0,k:100},w:{a:0,k:w},lc:2,lj:2,bm:0,nm:"S"}}
 
 // Load converted SVG vertices
 const V=JSON.parse(fs.readFileSync(path.join(__dirname,'lottie-verts-piggybank.json'),'utf8'));

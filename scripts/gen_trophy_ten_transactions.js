@@ -25,7 +25,6 @@ function createTier(tier) {
   const clipW = boardW * 0.4;
   const clipH = 8;
   const cx = 100, cy = 100;
-  const boardTop = cy - boardH/2;
   const fr = tier >= 3 ? 4 : tier === 2 ? 2 : 1; // float range
 
   // ── GLOW (tier >= 2)

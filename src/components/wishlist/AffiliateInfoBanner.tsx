@@ -10,8 +10,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import { AFFILIATE_INFO } from "@packages/wishlist";
-import { TText } from "@/src/components/tamagui";
-import { TCard } from "@/src/components/tamagui";
+import { TText , TCard } from "@/src/components/tamagui";
 
 interface Props {
   theme: ThemeColors;

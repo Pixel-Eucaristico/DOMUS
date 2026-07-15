@@ -44,7 +44,7 @@ export function DailyAdModal({ onClose }: Props) {
     }
 
     let interstitial: any = null;
-    const unsubscribes: Array<() => void> = [];
+    const unsubscribes: (() => void)[] = [];
 
     (async () => {
       try {

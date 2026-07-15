@@ -161,7 +161,6 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     if (targetAccountId === id) setTargetAccountId("");
   };
 
-  const accounts = Object.values(domain.accounts);
   const defaultAccountId = selectedAccountId;
   const computedItemsTotal = manualItems.reduce((s, i) => s + itemTotal(i), 0);
 
@@ -175,7 +174,7 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
 
   const handleEditItemField = (id: string, field: keyof ManualItem, value: string | number) => {
     // Campos opcionais: string vazia significa "limpar" (volta ao automático)
-    const optionalFields: Array<keyof ManualItem> = ["subcategoryId", "groupOverride", "ean", "ncm"];
+    const optionalFields: (keyof ManualItem)[] = ["subcategoryId", "groupOverride", "ean", "ncm"];
     const normalized = value === "" && optionalFields.includes(field) ? undefined : value;
     setManualItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, [field]: normalized } : item)),

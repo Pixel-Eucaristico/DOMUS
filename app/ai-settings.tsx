@@ -469,7 +469,7 @@ export default function AISettingsScreen() {
                 detalhadas. Nenhum dado pessoal (CPF, nome, conta) e enviado.
               </TText>
               <View style={styles.cardBody}>
-                {(Object.keys(AI_DATA_PERMISSION_LABELS) as Array<keyof AIDataPermissions>).map(
+                {(Object.keys(AI_DATA_PERMISSION_LABELS) as (keyof AIDataPermissions)[]).map(
                   (key) => {
                     const label = AI_DATA_PERMISSION_LABELS[key];
                     const enabled = settings.dataPermissions[key] ?? false;

@@ -11,17 +11,15 @@ import { EVENT_TYPES } from "@packages/events/src/types";
 import { domainReducer } from "@packages/domain/src/reducer";
 import { createInitialState, type AppState } from "@packages/domain/src/state";
 import { calculate503020, type BudgetBreakdown } from "@packages/domain/src/transactions";
-import type { GamificationEvent, GamificationState, AchievementUnlockedPayload, MonthlyTrophyCompletedPayload } from "@packages/gamification/src/types";
+import type { GamificationEvent, GamificationState, AchievementUnlockedPayload, MonthlyTrophyCompletedPayload , SeasonalTrophyCompletedPayload } from "@packages/gamification/src/types";
 import { GAMIFICATION_EVENTS } from "@packages/gamification/src/types";
-import type { SeasonalTrophyCompletedPayload } from "@packages/gamification/src/types";
 import { gamificationReducer, createInitialGamificationState } from "@packages/gamification/src/reducer";
 import { getLevelInfo, type LevelInfo } from "@packages/gamification/src/levelEngine";
 import type { OnboardingEvent, OnboardingState } from "@packages/onboarding/src/types";
 import { ONBOARDING_EVENTS } from "@packages/onboarding/src/types";
 import { onboardingReducer, createInitialOnboardingState } from "@packages/onboarding/src/reducer";
-import type { SeasonState } from "@packages/season/src/types";
+import type { SeasonState , SeasonEvent } from "@packages/season/src/types";
 import { SEASON_EVENTS } from "@packages/season/src/types";
-import type { SeasonEvent } from "@packages/season/src/types";
 import { seasonReducer, createInitialSeasonState } from "@packages/season/src/reducer";
 import type { ThemeColors, ThemeMode } from "@packages/theme";
 import type { ArchetypeType } from "@packages/personality/src/types";
@@ -150,14 +148,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return { ...baseGamification, totalXp: debug.debugXp };
   }, [baseGamification, debug.debugXp]);
 
-  const now = new Date();
   const budget = useMemo(
-    () => calculate503020(
-      Object.values(domain.transactions),
-      domain.categories,
-      now.getMonth(),
-      now.getFullYear(),
-    ),
+    () => {
+      const now = new Date();
+      return calculate503020(
+        Object.values(domain.transactions),
+        domain.categories,
+        now.getMonth(),
+        now.getFullYear(),
+      );
+    },
     [domain.transactions, domain.categories],
   );
 
@@ -219,6 +219,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         eventStore.setLocalEventCount((c) => c + 1);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- eventStore é recriado a cada render; os campos realmente usados já estão nas deps e reexecutar dispararia o evento de recuperação de novo
   }, [isDemoActive, eventStore.loading, eventStore.allEvents.length, domain.transactions, gamification.totalXp, eventStore.deviceId, debug.debugXp]);
 
   // Gamification side-effects (trophy checks, dispatchDomainEvent)
@@ -253,6 +254,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       };
       eventStore.dispatch(syncEvt);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- eventStore é recriado a cada render; dispatch e deviceId (os membros usados) já são deps
     [eventStore.dispatch, eventStore.deviceId],
   );
 
@@ -263,6 +265,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.removeItem(THEME_MODE_KEY);
     themePrefs.setSoundEnabled(true);
     await AsyncStorage.removeItem(SOUND_ENABLED_KEY);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- eventStore/themePrefs são recriados a cada render; os métodos usados já são deps
   }, [eventStore.resetApp, themePrefs.setThemeMode, themePrefs.setSoundEnabled]);
 
   // Assemble context value

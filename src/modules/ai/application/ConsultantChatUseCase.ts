@@ -1,8 +1,3 @@
-import type {
-  TransactionPayload,
-  AccountPayload,
-  CategoryPayload,
-} from "@packages/events/src/types";
 import {
   ProfileCalculator,
   FinancialAnalysisEngine,

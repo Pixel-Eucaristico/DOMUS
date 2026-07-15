@@ -369,7 +369,7 @@ export async function testRelayConnection(): Promise<{ connected: string[]; fail
           `relay ${relay}`,
         );
         return { status: "fulfilled", relay };
-      } catch (err) {
+      } catch {
         return { status: "rejected", relay };
       }
     }),
@@ -438,7 +438,7 @@ export async function publishSyncEvents(
         "publish batch",
       );
       published += batch.length;
-    } catch (err) {
+    } catch {
       console.warn(`[NostrSync] Failed to publish batch ${batchId} to any relay.`);
     }
   }
@@ -518,7 +518,7 @@ export async function pullSyncEvents(
         const decrypted = await decryptPayload(ne.content, keys.encryptionKey);
         const events = parseSyncPayload(decrypted);
         syncEvents.push(...events);
-      } catch (err) {
+      } catch {
         // Ignorar falhas de decriptação (eventos de outros grupos)
       }
     }

@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
-import type { TextInputProps, ViewStyle } from "react-native";
+import type { StyleProp, TextInputProps, ViewStyle } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 
@@ -88,13 +88,14 @@ export const AppTextInput = React.forwardRef<TextInput, AppTextInputProps>(
       : theme.border;
 
     // ─── Input row styles ───────────────────────────────────────────────
-    const inputRowStyle = [
+    // StyleProp<ViewStyle> (não `as const`): tupla readonly não é aceita pelo RN
+    const inputRowStyle: StyleProp<ViewStyle> = [
       s.inputRow,
       isUnderline
         ? { borderBottomWidth: 1, borderBottomColor: borderColor, borderRadius: 0, paddingHorizontal: 0 }
         : { borderWidth: 1, borderColor, borderRadius: 12, backgroundColor: theme.cardBackground, paddingHorizontal: 14 },
       disabled && { opacity: 0.5 },
-    ] as const;
+    ];
 
     // ─── Effective left icon ────────────────────────────────────────────
     const effectiveLeftIcon: IconName | undefined = isSearch ? "search" : leftIcon;

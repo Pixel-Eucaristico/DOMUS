@@ -2,12 +2,11 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { SecureStorageService } from "@/src/modules/security/infrastructure/SecureStorageService";
 import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
 import { AIClientService } from "@/src/modules/ai/application/AIClientService";
-import type { AISettings, AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
+import type { AISettings } from "@/src/modules/ai/domain/AISettings";
 import {
   DEFAULT_AI_SETTINGS,
   DEFAULT_AI_DATA_PERMISSIONS,
   AI_SETTINGS_STORE_KEY,
-  hasActiveKey,
 } from "@/src/modules/ai/domain/AISettings";
 import type { AIProvider } from "@packages/ai";
 

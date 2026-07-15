@@ -13,12 +13,6 @@ const outDir = path.join(__dirname, '..', 'assets', 'lottie', 'trophies');
 const prevDir = 'C:/Code/ReactNative/DOMUS-Rive-Preview/public/assets/lottie/trophies';
 
 // Color palettes
-const BRONZE = {
-  main: [.804,.498,.196,1],
-  glow: [.804,.498,.196,.35],
-  accent: [.65,.38,.15,1],
-  sparkle: [.804,.498,.196,1],
-};
 const SILVER = {
   main: [.75,.75,.78,1],
   glow: [.75,.75,.82,.4],
@@ -41,7 +35,6 @@ function replaceAllColors(jsonStr, fromColor, toColor) {
 
 function generateTiers(id) {
   const baseJson = fs.readFileSync(path.join(outDir, id + '.json'), 'utf8');
-  const base = JSON.parse(baseJson);
 
   // Identify the gold color used in sparkles/border (common across all seasonals)
   const goldColor = [1,.843,0,1];

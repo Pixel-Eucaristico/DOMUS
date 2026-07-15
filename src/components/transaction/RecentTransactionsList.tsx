@@ -1,16 +1,13 @@
 import React from "react";
-import { View, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet , Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { soundManager } from "@/src/services/SoundManager";
 import { InstallmentBadge } from "@/src/components/transaction/InstallmentBadge";
 import { formatCurrency } from "@/src/utils/formatCurrency";
 import Animated, { SlideInRight, Layout } from "react-native-reanimated";
-import { useResponsive } from "@/src/ui/layout/useResponsive";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
-import { Platform } from "react-native";
-import { TText } from "@/src/components/tamagui";
-import { TCard } from "@/src/components/tamagui";
+import { TText , TCard } from "@/src/components/tamagui";
 
 interface RecentTransactionsListProps {
   recentTxs: any[];
@@ -21,7 +18,6 @@ interface RecentTransactionsListProps {
 
 export function RecentTransactionsList({ recentTxs, txCount, categories, theme }: RecentTransactionsListProps) {
   const router = useRouter();
-  const { isMobile } = useResponsive();
   const { isDemoActive } = useDemoMode();
 
   return (

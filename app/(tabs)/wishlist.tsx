@@ -3,13 +3,13 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Platform,
+  Pressable,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { Platform, Pressable } from "react-native";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { useWishlist } from "@/src/hooks/useWishlist";
@@ -90,7 +90,6 @@ export default function WishlistTab() {
           data={sortedLists}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
-          estimatedItemSize={100}
           renderItem={({ item }) => (
             <WishlistListCard
               list={item}

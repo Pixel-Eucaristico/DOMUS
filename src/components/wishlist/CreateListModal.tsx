@@ -36,7 +36,7 @@ export function CreateListModal({ visible, theme, onConfirm, onCancel }: Props) 
         Animated.spring(slideAnim, { toValue: 0, damping: 25, stiffness: 280, useNativeDriver: true }),
       ]).start();
     }
-  }, [visible]);
+  }, [visible, fadeAnim, slideAnim]);
 
   const animateClose = (callback: () => void) => {
     Animated.parallel([

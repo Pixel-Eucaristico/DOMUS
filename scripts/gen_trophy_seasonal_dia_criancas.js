@@ -8,7 +8,6 @@ const svgpath=require('svgpath');
 const io={i:{x:[.667],y:[1]},o:{x:[.333],y:[0]}};
 const io3={i:{x:[.667,.667,.667],y:[1,1,1]},o:{x:[.333,.333,.333],y:[0,0,0]}};
 function mf(c){return{ty:"fl",c:{a:0,k:c},o:{a:0,k:100},r:1,bm:0,nm:"F"}}
-function ms(c,w){return{ty:"st",c:{a:0,k:c},o:{a:0,k:100},w:{a:0,k:w},lc:2,lj:2,bm:0,nm:"S"}}
 function tr(){return{ty:"tr",p:{a:0,k:[0,0]},a:{a:0,k:[0,0]},s:{a:0,k:[100,100]},r:{a:0,k:0},o:{a:0,k:100}}}
 
 // ── SVG paths (Tabler filled balloon) ────────────────────────────────────────

@@ -18,11 +18,9 @@ import * as Haptics from "expo-haptics";
 import { createAccountEvent, updateAccountEvent, deleteAccountEvent } from "@packages/domain/src/accounts";
 import { createEvent } from "@packages/events/src/factory";
 import { EVENT_TYPES } from "@packages/events/src/types";
-import type { TransactionUpdatedEvent } from "@packages/events/src/types";
+import type { TransactionUpdatedEvent , AccountPayload, AccountType } from "@packages/events/src/types";
 import { soundManager } from "@/src/services/SoundManager";
 import { TButton, TInput } from "@/src/components/tamagui";
-import { formatCurrency } from "@/src/utils/formatCurrency";
-import type { AccountPayload, AccountType } from "@packages/events/src/types";
 import { ACCOUNT_TYPES } from "@/src/components/shared/AccountCard";
 import { URGENCY_ORDER } from "@packages/wishlist";
 
@@ -95,7 +93,7 @@ export function AccountFormModal({
         Animated.spring(slideAnim, { toValue: 0, damping: 25, stiffness: 280, mass: 0.8, useNativeDriver: true }),
       ]).start();
     }
-  }, [visible, editingAccount]);
+  }, [visible, editingAccount, fadeAnim, slideAnim]);
 
   const animateClose = useCallback(
     (callback: () => void) => {
@@ -455,7 +453,7 @@ export function AccountFormModal({
                 <View style={[s.deleteCard, { backgroundColor: theme.cardBackground }]}>
                   <Feather name="alert-triangle" size={36} color="#DC2626" style={{ alignSelf: "center" }} />
                   <Text style={[s.deleteTitle, { color: theme.textColor }]}>
-                    Excluir "{editingAccount?.name}"?
+                    Excluir &quot;{editingAccount?.name}&quot;?
                   </Text>
 
                   {accountTransactions.length > 0 ? (

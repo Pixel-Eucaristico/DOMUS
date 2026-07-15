@@ -1,6 +1,6 @@
-import { gcm } from "@noble/ciphers/aes";
-import { pbkdf2Async } from "@noble/hashes/pbkdf2";
-import { sha256 } from "@noble/hashes/sha2";
+import { gcm } from "@noble/ciphers/aes.js";
+import { pbkdf2Async } from "@noble/hashes/pbkdf2.js";
+import { sha256 } from "@noble/hashes/sha2.js";
 import type { EncryptedBackup } from "../domain/BackupMetadata";
 import { PBKDF2_ITERATIONS } from "../domain/BackupMetadata";
 

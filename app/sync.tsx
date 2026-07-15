@@ -62,7 +62,7 @@ export default function SyncScreen() {
   const router = useRouter();
   const { theme } = useAppState();
   const {
-    deviceId, groupId, syncStatus, lastSyncTime, errorMessage,
+    groupId, syncStatus, lastSyncTime, errorMessage,
     eventCount, relayCount, isAutoSyncEnabled,
     createGroup, joinGroup, leaveGroup, pushNow, pullNow, resetStatus,
   } = useSync();
@@ -134,7 +134,7 @@ export default function SyncScreen() {
   return (
     <View style={[s.root, { backgroundColor: theme.background }]}>
       <View style={[s.topBar, { paddingTop: insets.top + webTopInset + 12 }]}>
-        <Pressable testID="sync-back-button" onPress={() => { haptic(); soundManager.play("tap"); router.canGoBack() ? router.back() : router.replace("/"); }} hitSlop={12}>
+        <Pressable testID="sync-back-button" onPress={() => { haptic(); soundManager.play("tap"); if (router.canGoBack()) { router.back(); } else { router.replace("/"); } }} hitSlop={12}>
           <Feather name="arrow-left" size={24} color={theme.textColor} />
         </Pressable>
         <TText variant="subtitle" color={theme.textColor} fontSize={18}>Sincronizar</TText>

@@ -4,7 +4,6 @@ import {
   View,
   Text,
   Pressable,
-  ScrollView,
   Platform,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";

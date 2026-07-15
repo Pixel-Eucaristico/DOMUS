@@ -42,7 +42,7 @@ function createWebDataChannelAdapter(
 }
 
 function createWebPeerConnectionAdapter(
-  config: { iceServers: Array<{ urls: string }> },
+  config: { iceServers: { urls: string }[] },
   deviceId: string,
   networkId: string,
 ): PeerConnectionAdapter {
@@ -151,7 +151,7 @@ export function createBrowserPeerConnectionFactory(
   networkId: string,
 ): PeerConnectionFactory {
   return {
-    create(config: { iceServers: Array<{ urls: string }> }) {
+    create(config: { iceServers: { urls: string }[] }) {
       return createWebPeerConnectionAdapter(config, deviceId, networkId);
     },
   };

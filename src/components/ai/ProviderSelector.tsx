@@ -14,7 +14,7 @@ interface ProviderSelectorProps {
   onTierChange: (tier: AIModelTier) => void;
 }
 
-const PROVIDERS: Array<{ id: AIProvider; label: string }> = [
+const PROVIDERS: { id: AIProvider; label: string }[] = [
   { id: "openai", label: "OpenAI" },
   { id: "gemini", label: "Gemini" },
   { id: "claude", label: "Claude" },
@@ -22,7 +22,7 @@ const PROVIDERS: Array<{ id: AIProvider; label: string }> = [
   { id: "qwen", label: "Qwen" },
 ];
 
-const TIERS: Array<{ id: AIModelTier; label: string }> = [
+const TIERS: { id: AIModelTier; label: string }[] = [
   { id: "fast", label: "Rapido" },
   { id: "smart", label: "Avancado" },
 ];

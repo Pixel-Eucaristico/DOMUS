@@ -101,6 +101,7 @@ export function BudgetCostSection({
       setUsdInput(usd.toFixed(2));
       setBrlInput(brl.toFixed(2));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sincroniza apenas em mudança externa de orçamento/provedor; reagir a editingField/exchangeRate sobrescreveria o que o usuário digita
   }, [activeBudget, activeUnlimited, provider, budgetMode]);
 
   // Fetch exchange rate and cost estimate
@@ -123,6 +124,7 @@ export function BudgetCostSection({
       }
     })();
     return () => { mounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- busca cotação só quando orçamento/modelo mudam; usdPrice deriva de provider+modelTier e editingField não deve refazer o fetch
   }, [provider, modelTier, activeBudget, activeUnlimited]);
 
   // ── Bidirectional conversion helpers ──

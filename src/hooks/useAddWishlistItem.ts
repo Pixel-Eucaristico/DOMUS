@@ -94,7 +94,7 @@ export function useAddWishlistItem({
         }),
       ]).start();
     }
-  }, [visible]);
+  }, [visible, fadeAnim, slideAnim]);
 
   const animateClose = useCallback(
     (callback: () => void) => {

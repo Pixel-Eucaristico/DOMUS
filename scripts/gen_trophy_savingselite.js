@@ -1,5 +1,4 @@
 const fs = require('fs');
-const {safe} = JSON.parse(fs.readFileSync(__dirname + '/lottie-verts-safe.json'));
 
 const tierColors = {
   1: { safe: [0.5,0.5,0.55,1], safeDark: [0.35,0.35,0.4,1], door: [0.55,0.55,0.6,1], handle: [0.65,0.5,0.25,1], bar: [0.8,0.6,0.2,1], barDark: [0.6,0.4,0.1,1], ray: [1,0.9,0.5,1], glow: [0.8,0.6,0.2,1], sparkle: [1,0.75,0.35,1], conf: [[0.9,0.5,0.2,1],[0.8,0.6,0.3,1]] },

@@ -173,7 +173,7 @@ export function DatePickerField({
   };
 
   // ── Selected values for highlighting ─────────────────────
-  const { y: selY, m: selM, d: selD } = parseISO(safe);
+  const { y: selY, m: selM } = parseISO(safe);
 
   // ── Render ────────────────────────────────────────────────
   return (

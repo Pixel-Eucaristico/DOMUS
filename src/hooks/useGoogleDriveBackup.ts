@@ -12,6 +12,7 @@ const CLIENT_SECRET = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_SECRET ?? "";
 let GoogleSignin: any = null;
 let statusCodes: any = {};
 if (Platform.OS !== "web") {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- import tardio: módulo nativo indisponível no web
   const mod = require("@react-native-google-signin/google-signin");
   GoogleSignin = mod.GoogleSignin;
   statusCodes = mod.statusCodes;

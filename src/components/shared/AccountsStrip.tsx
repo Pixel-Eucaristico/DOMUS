@@ -5,8 +5,7 @@ import { useRouter } from "expo-router";
 import { getCreditUsage } from "@packages/domain/src/accounts";
 import { soundManager } from "@/src/services/SoundManager";
 import { formatCurrency } from "@/src/utils/formatCurrency";
-import { TText } from "@/src/components/tamagui";
-import { TCard } from "@/src/components/tamagui";
+import { TText , TCard } from "@/src/components/tamagui";
 
 interface AccountsStripProps {
   accounts: any[];

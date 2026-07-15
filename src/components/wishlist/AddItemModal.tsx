@@ -21,7 +21,6 @@ import type { AccountPayload } from "@packages/events";
 import { CATEGORY_OPTIONS, GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal";
 import { ProductFormCard } from "@/src/components/shared/ProductFormCard";
-import type { ProductFormData } from "@/src/components/shared/ProductFormCard";
 import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
 import { WishlistSearchWebView } from "./WishlistSearchWebView";
 import { StoreGridModal } from "./StoreGridModal";

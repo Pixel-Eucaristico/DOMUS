@@ -9,15 +9,12 @@ import {
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import {
-  TRANSACTION_CATEGORIES,
   EXPENSE_CATEGORIES,
   ManualItem,
   itemTotal,
 } from "@/src/constants/transactionCategories";
-import { GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal";
 import { soundManager } from "@/src/services/SoundManager";
-import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
 import { TButton, TInput } from "@/src/components/tamagui";
 import { getCategoryDisplayName, getCategoryColor, getGroupColor, getGroupLabel, getCategoryGroup } from "@/src/utils/categoryHelpers";
 

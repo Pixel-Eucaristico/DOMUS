@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
@@ -357,7 +356,7 @@ export default function BackupScreen() {
               ) : (
                 <>
                   <Text style={[s.hintText, { color: theme.secondaryText }]}>
-                    Conecte sua conta Google para enviar o auto-backup diário automaticamente. O arquivo fica guardado na área privada do app no Google Drive (não aparece em "Meu Drive").
+                    Conecte sua conta Google para enviar o auto-backup diário automaticamente. O arquivo fica guardado na área privada do app no Google Drive (não aparece em &quot;Meu Drive&quot;).
                   </Text>
                   {drive.syncError && <StatusRow status={{ type: "error", message: drive.syncError }} theme={theme} />}
                   <TouchableOpacity
