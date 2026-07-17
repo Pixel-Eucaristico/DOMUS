@@ -134,7 +134,8 @@
           "androidAppId": "ca-app-pub-8693115758199908~8641009249",
           "iosAppId": "ca-app-pub-8693115758199908~8641009249"
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -86,6 +86,16 @@ e segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
   ou disable pontual com justificativa quando reexecutar mudaria comportamento);
   requires tardios de módulos nativos documentados com justificativa.
 
+### Qualidade — expo doctor 18/18
+- Removido `yarn.lock` (o projeto usa npm — o CI roda `npm ci`; dois lockfiles
+  confundem EAS Build/CI na detecção do gerenciador de pacotes).
+- 13 pacotes Expo atualizados para as versões do SDK 54 via `expo install --fix`
+  (expo 54.0.36, expo-router 6.0.24, expo-crypto 15.0.9 etc.); plugin
+  `expo-asset` adicionado ao app.json pelo próprio fix.
+- `rn-mlkit-ocr` adicionado a `expo.doctor.reactNativeDirectoryCheck.exclude`
+  (aviso "untested on New Architecture" — a lib funciona no app; trocar de
+  biblioteca de OCR fica como decisão futura).
+
 ### Documentação
 - `.env.example`: documenta `EXPO_PUBLIC_GOOGLE_CLIENT_SECRET`, o passo a passo de SHA-1
   (EAS keystore + Play App Signing) e a necessidade de configurar as variáveis no EAS;
