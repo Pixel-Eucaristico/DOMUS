@@ -1,19 +1,25 @@
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { webSecrets } from "@/src/modules/security/infrastructure/webSecrets";
 import { BACKUP_FILE_EXTENSION } from "../domain/BackupMetadata";
+import { getNativeAccessToken } from "./GoogleNativeAuth";
+import { isDriveConnected, resolveAccessToken } from "./driveTokens";
+import type { DriveTokens } from "./driveTokens";
 
-// SecureStore is not available on web; use AsyncStorage as fallback
+export type { DriveTokens } from "./driveTokens";
+
+// SecureStore não existe na web; lá os tokens ficam cifrados por webSecrets (AES-GCM).
 const secureGet = async (key: string): Promise<string | null> => {
-  if (Platform.OS === "web") return AsyncStorage.getItem(key);
+  if (Platform.OS === "web") return webSecrets.get(key);
   return SecureStore.getItemAsync(key);
 };
 const secureSet = async (key: string, value: string): Promise<void> => {
-  if (Platform.OS === "web") { await AsyncStorage.setItem(key, value); return; }
+  if (Platform.OS === "web") { await webSecrets.set(key, value); return; }
   await SecureStore.setItemAsync(key, value);
 };
 const secureDelete = async (key: string): Promise<void> => {
-  if (Platform.OS === "web") { await AsyncStorage.removeItem(key); return; }
+  if (Platform.OS === "web") { await webSecrets.remove(key); return; }
   await SecureStore.deleteItemAsync(key);
 };
 
@@ -26,14 +32,6 @@ const FILE_ID_KEY = "domus_gdrive_file_id";
 export const DRIVE_BACKUP_FILENAME = `domus-backup${BACKUP_FILE_EXTENSION}`;
 
 // ─── types ───────────────────────────────────────────────────────────────────
-
-export interface DriveTokens {
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: number; // epoch ms
-  email: string;
-  clientId: string; // usado para refresh
-}
 
 // ─── service ─────────────────────────────────────────────────────────────────
 
@@ -62,8 +60,7 @@ export const GoogleDriveService = {
   },
 
   async isConnected(): Promise<boolean> {
-    const t = await this.loadTokens();
-    return !!t?.refreshToken;
+    return isDriveConnected(await this.loadTokens());
   },
 
   async getConnectedEmail(): Promise<string | null> {
@@ -71,50 +68,17 @@ export const GoogleDriveService = {
     return t?.email ?? null;
   },
 
-  // ── Token refresh ─────────────────────────────────────────────────────────
+  // ── Access token ──────────────────────────────────────────────────────────
 
-  async refreshAccessToken(refreshToken: string, clientId: string): Promise<{ accessToken: string; expiresIn: number } | null> {
-    try {
-      const res = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_SECRET ?? "",
-          grant_type: "refresh_token",
-          refresh_token: refreshToken,
-        }).toString(),
-      });
-      if (!res.ok) return null;
-      const data = await res.json();
-      return { accessToken: data.access_token, expiresIn: data.expires_in ?? 3600 };
-    } catch {
-      return null;
-    }
-  },
-
-  /** Retorna um access token válido, renovando via refresh token se necessário. */
+  /** Retorna um access token válido; no nativo renova pelo Google Sign-In (sem client secret). */
   async getValidAccessToken(): Promise<string | null> {
     const tokens = await this.loadTokens();
-    if (!tokens) return null;
+    const provider = Platform.OS === "web" ? null : getNativeAccessToken;
+    const resolved = await resolveAccessToken(tokens, provider);
+    if (!resolved) return null;
 
-    // Válido por mais de 5 minutos
-    if (tokens.expiresAt - Date.now() > 5 * 60 * 1000) {
-      return tokens.accessToken;
-    }
-
-    if (!tokens.refreshToken) return null;
-
-    const refreshed = await this.refreshAccessToken(tokens.refreshToken, tokens.clientId);
-    if (!refreshed) return null;
-
-    const updated: DriveTokens = {
-      ...tokens,
-      accessToken: refreshed.accessToken,
-      expiresAt: Date.now() + refreshed.expiresIn * 1000,
-    };
-    await this.saveTokens(updated);
-    return updated.accessToken;
+    if (resolved !== tokens) await this.saveTokens(resolved);
+    return resolved.accessToken;
   },
 
   // ── User info ─────────────────────────────────────────────────────────────
