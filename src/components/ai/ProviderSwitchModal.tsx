@@ -1,10 +1,9 @@
 import React from "react";
 import { View, Text, StyleSheet, Modal, Pressable } from "react-native";
-import { TCard } from "@/src/components/tamagui";
+import { TCard , TButton } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
-import { TButton } from "@/src/components/tamagui";
 import { PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
 import type { AIProvider } from "@packages/ai";
 

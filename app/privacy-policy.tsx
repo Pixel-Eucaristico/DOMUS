@@ -128,7 +128,7 @@ export default function PrivacyPolicyScreen() {
           <PolicyItem theme={theme}>
             <BoldText theme={theme}>O que é enviado:</BoldText>
             {" "}Saldo total, média de receitas e despesas, score de perfil
-            financeiro, tendência de gastos (ex: "+12%"). Sem nomes, CPF,
+            financeiro, tendência de gastos (ex: &quot;+12%&quot;). Sem nomes, CPF,
             números de conta ou identificadores pessoais.
           </PolicyItem>
           <PolicyItem theme={theme}>

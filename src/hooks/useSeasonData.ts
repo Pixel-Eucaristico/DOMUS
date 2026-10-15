@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 import type { View } from "react-native";
 import { Share } from "react-native";
 import { captureRef } from "react-native-view-shot";
@@ -208,7 +208,7 @@ export function useSeasonData(params: UseSeasonDataParams) {
       soundManager.play("share");
       const uri = await captureRef(trophyModalRef, { format: "png", quality: 0.9 });
       await Sharing.shareAsync(uri, { dialogTitle: `Conquista: ${selectedAch.name}` });
-    } catch (_) {
+    } catch {
       await Share.share({
         message:
           `🏆 Conquistei "${selectedAch.name}" no DOMUS!\n` +
@@ -224,7 +224,7 @@ export function useSeasonData(params: UseSeasonDataParams) {
       soundManager.play("share");
       const uri = await captureRef(levelCardRef, { format: "png", quality: 0.9 });
       await Sharing.shareAsync(uri, { dialogTitle: `Meu Nível no DOMUS` });
-    } catch (_) {
+    } catch {
       await Share.share({
         message:
           `✨ Alcancei o Nível ${levelInfo.level} no DOMUS!\n` +
@@ -240,7 +240,7 @@ export function useSeasonData(params: UseSeasonDataParams) {
       soundManager.play("share");
       const uri = await captureRef(progressCardRef, { format: "png", quality: 0.9 });
       await Sharing.shareAsync(uri, { dialogTitle: `Progresso de ${MONTHS[currentMonth - 1]}` });
-    } catch (_) {
+    } catch {
       await Share.share({
         message:
           `📅 Meu progresso em ${MONTHS[currentMonth - 1]} está em ${monthProgress}%!\n` +
@@ -256,7 +256,7 @@ export function useSeasonData(params: UseSeasonDataParams) {
       soundManager.play("share");
       const uri = await captureRef(challengesCardRef, { format: "png", quality: 0.9 });
       await Sharing.shareAsync(uri, { dialogTitle: `Desafios Mensais: ${count}/${total}` });
-    } catch (_) {
+    } catch {
       await Share.share({
         message:
           `🏅 Completei ${count} de ${total} desafios mensais no DOMUS!\n` +
@@ -272,7 +272,7 @@ export function useSeasonData(params: UseSeasonDataParams) {
       soundManager.play("share");
       const uri = await captureRef(collectionCardRef, { format: "png", quality: 0.9 });
       await Sharing.shareAsync(uri, { dialogTitle: `Minha Coleção de Troféus` });
-    } catch (_) {
+    } catch {
       await Share.share({
         message: `Minha coleção de troféus no DOMUS está crescendo! 🏆💎\n#DOMUS #Finanças`,
       });

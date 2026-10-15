@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { ledger, spread } = JSON.parse(fs.readFileSync(__dirname + '/lottie-verts-ledger.json'));
+const { ledger } = JSON.parse(fs.readFileSync(__dirname + '/lottie-verts-ledger.json'));
 const padlock = JSON.parse(fs.readFileSync(__dirname + '/lottie-verts-padlock.json'));
 
 const tierColors = {

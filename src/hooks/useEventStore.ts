@@ -136,6 +136,7 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
       mounted = false;
       clearTimeout(safetyTimeout);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hidratação roda uma única vez na montagem; 'loading' no safety timeout é só guarda do estado inicial
   }, []);
 
   const dispatch = useCallback(
@@ -214,7 +215,7 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
           "@/src/modules/security/infrastructure/SecureStorageService"
         );
         await SecureStorageService.delete("domus_security_settings_v1");
-      } catch (_) {}
+      } catch {}
     }
   }, [restoreFromBackup]);
 

@@ -90,6 +90,8 @@ export interface TransactionPayload {
   type: TransactionType;
   amount: number;
   categoryId: string;
+  subcategoryId?: string;          // subcategoria NCM granular (nível transação)
+  groupOverride?: CategoryGroup;   // override manual do grupo needs/wants/savings
   date: string;
   description?: string;
   items?: TransactionItem[];

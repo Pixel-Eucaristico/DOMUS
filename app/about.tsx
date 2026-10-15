@@ -6,10 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   Linking,
   Platform,
-  ActivityIndicator,
   LayoutAnimation,
   Switch,
   Modal,
@@ -33,8 +31,7 @@ import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 
 // Extracted components
 import { ContactForm } from "@/src/components/about/ContactForm";
-import { DonationSection } from "@/src/components/about/DonationSection";
-import { LinkRow } from "@/src/components/about/DonationSection";
+import { DonationSection , LinkRow } from "@/src/components/about/DonationSection";
 import { PixelText } from "@/src/components/pixel";
 import { TText, TButton } from "@/src/components/tamagui";
 
@@ -287,6 +284,7 @@ function SectionCard({
       rotationAnim.value = withTiming(1, { duration: 250 });
       setOpen(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deve reagir apenas a forceOpen; incluir 'open' reabriria a seção após o usuário fechá-la
   }, [forceOpen]);
 
   const chevronStyle = useAnimatedStyle(() => ({

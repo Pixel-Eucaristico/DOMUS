@@ -19,7 +19,7 @@ import {
   getOverallProgress,
 } from "@packages/onboarding/src/onboardingEngine";
 import { getEncouragementMessage, evaluatePerformance } from "@packages/onboarding/src/adaptiveMissionEngine";
-import { ONBOARDING_EVENTS, ONBOARDING_STEPS } from "@packages/onboarding/src/types";
+import { ONBOARDING_EVENTS } from "@packages/onboarding/src/types";
 import { generateId } from "@packages/events/src/factory";
 import { TButton, TCard, TText } from "@/src/components/tamagui";
 

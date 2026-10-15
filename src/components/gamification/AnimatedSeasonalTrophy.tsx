@@ -84,7 +84,7 @@ export function AnimatedSeasonalTrophy({
     animateRotation();
     animateGlow();
     animateInitialScale();
-  }, [isStatic]);
+  }, [isStatic, floatY, glowOpacity, rotationY, scaleValue]);
 
   const floatingStyle = useAnimatedStyle(() => ({
     transform: [
@@ -105,7 +105,9 @@ export function AnimatedSeasonalTrophy({
     transform: [{ scale: 1.1 + glowOpacity.value * 0.2 }],
   }));
 
-  const sparkleStyle = (delay: number) => useAnimatedStyle(() => ({
+  // Hook único no topo do componente (rules-of-hooks) — o antigo sparkleStyle(delay)
+  // chamava useAnimatedStyle dentro de função comum e ignorava o delay.
+  const sparkleAnimatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(floatY.value, [0, 0.5, 1], [0.2, 0.8, 0.2]),
     transform: [
       { scale: interpolate(floatY.value, [0, 1], [0.5, 1.2]) },
@@ -125,9 +127,9 @@ export function AnimatedSeasonalTrophy({
       />
       
       {/* Sparkles */}
-      <Animated.View style={[styles.sparkle, { top: '10%', left: '20%', backgroundColor: color }, sparkleStyle(0)]} />
-      <Animated.View style={[styles.sparkle, { top: '30%', right: '15%', backgroundColor: color }, sparkleStyle(500)]} />
-      <Animated.View style={[styles.sparkle, { bottom: '20%', left: '25%', backgroundColor: color }, sparkleStyle(1000)]} />
+      <Animated.View style={[styles.sparkle, { top: '10%', left: '20%', backgroundColor: color }, sparkleAnimatedStyle]} />
+      <Animated.View style={[styles.sparkle, { top: '30%', right: '15%', backgroundColor: color }, sparkleAnimatedStyle]} />
+      <Animated.View style={[styles.sparkle, { bottom: '20%', left: '25%', backgroundColor: color }, sparkleAnimatedStyle]} />
 
       <Animated.View style={[styles.contentWrapper, floatingStyle]}>
         <Svg width={size} height={size} viewBox="0 0 100 100">

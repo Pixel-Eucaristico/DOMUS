@@ -2,11 +2,10 @@ import * as ExpoCrypto from "expo-crypto";
 import { CircuitBreaker, CacheService } from "@packages/ai";
 import type { AIProvider, AIModelTier, AdapterMessage } from "@packages/ai";
 import { SecureKeyService } from "../infrastructure/SecureKeyService";
-import { OpenAIOAuthService } from "../infrastructure/OpenAIOAuthService";
 import { ConnectivityService } from "../infrastructure/ConnectivityService";
 import { TokenTracker } from "./TokenTracker";
 import { AIProviderFactory } from "./AIProviderFactory";
-import type { OpenAIAuthMethod, BudgetMode } from "../domain/AISettings";
+import type { BudgetMode } from "../domain/AISettings";
 import type { GeminiAudioAttachment } from "@packages/../packages/ai/src/adapters/GeminiAdapter";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -17,8 +16,6 @@ export interface ClientRequestOptions {
   messages: AdapterMessage[];
   /** Pre-computed SHA256 cache key. If provided, response is cached. */
   cacheKey?: string;
-  /** OpenAI auth method — defaults to "apikey" */
-  openaiAuthMethod?: OpenAIAuthMethod;
   /** User-defined daily budgets per provider */
   customBudgets?: Partial<Record<AIProvider, number>>;
   /** "daily" or "monthly" budget mode */
@@ -113,38 +110,23 @@ export class AIClientService {
       );
     }
 
-    // 4. Determine auth method early (needed for breaker logic)
-    const useOAuth = provider === "openai" && options.openaiAuthMethod === "chatgpt_oauth";
-
-    // 5. Circuit breaker — skip for OAuth (different backend, stale failures don't apply)
+    // 4. Circuit breaker
     const breaker = AIClientService.getBreaker(provider);
-    if (!useOAuth && !breaker.canAttempt()) {
+    if (!breaker.canAttempt()) {
       throw new AIClientError(
         "CIRCUIT_OPEN",
         `Provedor ${provider} temporariamente indisponível (circuit breaker aberto)`,
       );
     }
-    let apiKey: string | null;
 
-    if (useOAuth) {
-      apiKey = await OpenAIOAuthService.getValidAccessToken();
-      if (!apiKey) {
-        throw new AIClientError("NO_API_KEY", "Sessão ChatGPT expirada. Faça login novamente.");
-      }
-    } else {
-      apiKey = await SecureKeyService.retrieveKey(provider);
-      if (!apiKey) {
-        throw new AIClientError("NO_API_KEY", `Chave de API não encontrada para ${provider}`);
-      }
+    // 5. API key
+    const apiKey = await SecureKeyService.retrieveKey(provider);
+    if (!apiKey) {
+      throw new AIClientError("NO_API_KEY", `Chave de API não encontrada para ${provider}`);
     }
 
-    const adapter = useOAuth
-      ? AIProviderFactory.createChatGPTOAuth()
-      : AIProviderFactory.create(provider);
-    // ChatGPT backend uses different models than the standard OpenAI API
-    const modelId = useOAuth
-      ? AIProviderFactory.getChatGPTOAuthModelId(modelTier)
-      : AIProviderFactory.getModelId(provider, modelTier);
+    const adapter = AIProviderFactory.create(provider);
+    const modelId = AIProviderFactory.getModelId(provider, modelTier);
     const adapterOptions = {
       model: modelId,
       temperature: 0.2,

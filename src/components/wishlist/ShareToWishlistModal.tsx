@@ -68,6 +68,7 @@ export function ShareToWishlistModal({ visible, url, onClose }: Props) {
       slideAnim.setValue(500);
       fadeAnim.setValue(0);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- roda só na abertura do modal; 'lists' é snapshot inicial e reexecutar repetiria som/animação/scraping
   }, [visible, url]);
 
   // Seleciona a primeira lista disponível automaticamente

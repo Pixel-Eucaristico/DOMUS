@@ -51,7 +51,7 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [settings?.lockedUntil]);
+  }, [settings?.lockedUntil, settings]);
 
   const tryBiometric = useCallback(async () => {
     setBiometricLoading(true);
@@ -83,6 +83,7 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
     if (settings?.method === "biometric") {
       tryBiometric();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- prompt biométrico deve disparar só quando o método muda; incluir tryBiometric repetiria o prompt a cada render do pai
   }, [settings?.method]);
 
   const handlePinComplete = useCallback(

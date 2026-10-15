@@ -165,14 +165,15 @@ describe("DOMUS Integration - Full User Journey", () => {
 
   it("6. gains XP for transaction logging", () => {
     const xpPayload = createXpPayload("transaction_logged");
-    expect(xpPayload.amount).toBe(10);
+    // 5 XP conforme XP_TABLE atual (rebalanceada) em gamification/src/xpEngine.ts
+    expect(xpPayload.amount).toBe(5);
     expect(xpPayload.source).toBe("transaction_logged");
 
     const event = makeEvent(GAMIFICATION_EVENTS.XP_GAINED, xpPayload) as GamificationEvent;
     allGamificationEvents.push(event);
     gamificationState = gamificationReducer(gamificationState, event);
 
-    expect(gamificationState.totalXp).toBe(10);
+    expect(gamificationState.totalXp).toBe(5);
   });
 
   it("7. gains XP for budget adherence and checks level", () => {
@@ -183,14 +184,15 @@ describe("DOMUS Integration - Full User Journey", () => {
       totalIncome: 5000, adherenceScore: 100
     };
     const adherenceXp = calculateBudgetAdherenceXp(mockBudget);
-    expect(adherenceXp).toBe(60);
+    // 15 = 5 (bônus saúde: needs<=50 && wants<=30) + 10 (poupança >= 20%)
+    expect(adherenceXp).toBe(15);
 
     const xpPayload = createXpPayload("budget_adherence", adherenceXp);
     const event = makeEvent(GAMIFICATION_EVENTS.XP_GAINED, xpPayload) as GamificationEvent;
     allGamificationEvents.push(event);
     gamificationState = gamificationReducer(gamificationState, event);
 
-    expect(gamificationState.totalXp).toBe(70);
+    expect(gamificationState.totalXp).toBe(20); // 5 (tx) + 15 (aderência)
 
     const level = calculateLevel(gamificationState.totalXp);
     expect(level).toBeGreaterThanOrEqual(1);

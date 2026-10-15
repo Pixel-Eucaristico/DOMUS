@@ -1,4 +1,5 @@
 import { styled, Text } from "tamagui";
+import type { LooseComponent, TTextProps } from "./types";
 
 /**
  * Texto estilizado DOMUS com Tamagui.
@@ -9,7 +10,7 @@ import { styled, Text } from "tamagui";
  *   <TText variant="title">Título</TText>
  *   <TText variant="caption" secondary>Legenda</TText>
  */
-export const TText = styled(Text, {
+const TTextStyled = styled(Text, {
   fontFamily: "$body",
   color: "$color",
   fontSize: "$5", // 14px
@@ -53,3 +54,6 @@ export const TText = styled(Text, {
     variant: "body",
   },
 });
+
+// Tipos relaxados: o app passa cores do ThemeColors como string — ver types.ts
+export const TText = TTextStyled as unknown as LooseComponent<TTextProps>;

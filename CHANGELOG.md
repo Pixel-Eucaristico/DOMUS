@@ -5,6 +5,106 @@ e segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [Não lançado]
+
+> Nota: as versões 1.3.0–1.8.0 foram lançadas sem entrada neste arquivo (o histórico
+> parcial está em `docs/history/CHANGELOG.md` até a 1.6.0). Este changelog volta a ser
+> mantido a partir daqui.
+
+### Corrigido
+- **Grupo 50/30/20 de itens importados de nota fiscal**: itens com categorias constantes
+  (ex.: `alimentacao`) eram todos contados como "Desejo" porque a categoria não existia no
+  estado de domínio. Agora a importação emite `CATEGORY_CREATED` para categorias ausentes e
+  `calculate503020` usa um mapa de grupos padrão como fallback (`DEFAULT_CATEGORY_GROUPS`).
+- **Override de grupo (Necessidade/Desejo) por produto não persistia**: `subcategoryId` e
+  `groupOverride` eram descartados ao salvar (importação de nota e lançamento manual) e
+  ignorados no cálculo 50/30/20. Agora são persistidos no evento, restaurados na edição e
+  respeitados em `calculate503020`, na tela de detalhe por grupo e no detalhe da transação.
+- **Toggle Necessidade↔Desejo sempre disponível**: o usuário pode corrigir o grupo de
+  qualquer produto (ex.: salgadinho classificado como alimento/necessidade → desejo), sem
+  depender da flag `allowGroupOverride` da subcategoria NCM.
+- Classificador emitia categoria `compras`/`restaurantes` que não existia na lista de
+  categorias da importação (exibia "Outros") — IDs adicionados a `CATEGORY_OPTIONS`.
+- **Google Drive (login Google)**: erro `DEVELOPER_ERROR` no Android agora mostra mensagem
+  acionável (SHA-1/package não registrados no Google Cloud Console); ausência do
+  `EXPO_PUBLIC_GOOGLE_CLIENT_SECRET` no build é detectada com mensagem clara; conexão via
+  web (implicit flow) não "desaparecia" mais ao recarregar; botão "Sincronizar agora" não
+  falha mais em silêncio quando o auto-backup ainda não foi gerado; texto corrigido (o
+  backup fica na área privada do app no Drive, não em "Meu Drive").
+- Chaves duplicadas em objetos: `sorvete` em `keywordMap.ts` e `bundleSearchBtn` em
+  `AddItemModal.tsx`.
+- **Classificação por IA na importação de notas nunca ativava**: `import-invoice.tsx`
+  lia `aiSettings.enabled` (campo inexistente — o correto é `isEnabled`), então o
+  pipeline de IA ficava sempre desligado nessa tela.
+- **Parser SEFAZ**: a regex numérica podia capturar apenas o "." de "Qtde."/"Vl. Unit.",
+  zerando quantidade/preço e descartando itens; agora exige ao menos um dígito.
+  Suporte a datas em formato ISO (usado por alguns estados).
+- **Suíte de testes 100% verde (590 testes/35 arquivos)**: atualizados testes
+  desatualizados de gamificação/integração (valores de XP rebalanceados no código),
+  dos adapters de IA (mensagens de erro amigáveis) e do parser SEFAZ (API atual);
+  removido teste órfão `importInvoice.test.ts` (módulo inexistente); `assertOk`
+  tolera `headers` indefinido em fetch mockado/polyfill.
+- Metadados de backup gravavam `APP_VERSION = "1.0.0"` fixo — agora usa a versão do
+  `package.json`.
+- README descrevia o app como "religioso/espiritual" — corrigido para finanças pessoais.
+
+### Alterado (IA — modelos validados em 15/07/2026)
+- **Modelos por provedor atualizados** (`AI_MODELS`): OpenAI `gpt-5.6-luna`/`gpt-5.6-terra`
+  (família GPT-5.6, GA 09/07/2026); Gemini `gemini-3.1-flash-lite`/`gemini-3.5-flash`;
+  Claude `claude-haiku-4-5`/`claude-sonnet-5`; DeepSeek `deepseek-v4-flash`/`deepseek-v4-pro`
+  (**os antigos `deepseek-chat`/`deepseek-reasoner` serão descontinuados em 24/07/2026**);
+  Qwen mantém aliases `-latest`. Visão (OCR) e tabela de preços por token atualizadas.
+- **Classificador NCM por IA**: o padrão Gemini era `gemini-2.0-flash`, desligado pelo
+  Google em 01/06/2026 (classificação via Gemini estava quebrada) — atualizado para
+  `gemini-3.1-flash-lite`; DeepSeek/Qwen/OpenAI do classificador também atualizados.
+- **ClaudeAdapter**: omite `temperature` em modelos que rejeitam sampling params
+  (Sonnet 5, Opus 4.7+), evitando erro 400.
+
+### Removido
+- **Login "ChatGPT OAuth"**: o fluxo reutilizava o client_id do Codex CLI contra
+  `chatgpt.com/backend-api` (violação provável de ToS) e parou de funcionar.
+  OpenAI agora autentica exclusivamente por API key (token), como os demais provedores.
+
+### Qualidade — repositório com 0 erros e 0 warnings (15/07/2026)
+- **TypeScript: 444 → 0 erros.** Raiz de ~320 deles: os wrappers Tamagui
+  (`TText`/`TButton`/`TCard`/`TInput`) tipavam cores como tokens e rejeitavam as
+  strings do `ThemeColors` — agora exportam tipos relaxados mantendo as variantes
+  tipadas. Demais correções: imports `@noble/*` com sufixo `.js` (exports map v2),
+  tipagem WebCrypto em `packages/sync/crypto.ts`, remoção do prop `estimatedItemSize`
+  (extinto no FlashList v2), `getTierColor` aceita tier 4 (diamante), guardas de
+  null em `ai-chat`, `StyleProp` em `AppTextInput`, e testes com provider correto.
+- **Código morto removido**: cluster completo do tour antigo por spotlight
+  (12 arquivos em `src/tour` e `src/components/tour`), substituído desde a 1.7
+  pelos modais de introdução por tela (`ScreenIntroModal`) — era a fonte de 15
+  erros de tipo e não era importado por nenhuma tela.
+- **ESLint: 186 erros/197 warnings → 0/0.** Config com globals de Node para
+  `scripts/**` (~170 no-undef falsos); 7 violações reais de rules-of-hooks
+  corrigidas (hooks condicionais em DebugTools/WishlistSearchWebView e
+  `useAnimatedStyle` em função comum no AnimatedSeasonalTrophy — risco real de
+  crash); aspas escapadas em JSX; ~96 imports/variáveis não usados removidos;
+  33 exhaustive-deps resolvidos (deps adicionadas quando estáveis, refatoração,
+  ou disable pontual com justificativa quando reexecutar mudaria comportamento);
+  requires tardios de módulos nativos documentados com justificativa.
+
+### Qualidade — expo doctor 18/18
+- Removido `yarn.lock` (o projeto usa npm — o CI roda `npm ci`; dois lockfiles
+  confundem EAS Build/CI na detecção do gerenciador de pacotes).
+- 13 pacotes Expo atualizados para as versões do SDK 54 via `expo install --fix`
+  (expo 54.0.36, expo-router 6.0.24, expo-crypto 15.0.9 etc.); plugin
+  `expo-asset` adicionado ao app.json pelo próprio fix.
+- `rn-mlkit-ocr` adicionado a `expo.doctor.reactNativeDirectoryCheck.exclude`
+  (aviso "untested on New Architecture" — a lib funciona no app; trocar de
+  biblioteca de OCR fica como decisão futura).
+
+### Documentação
+- `.env.example`: documenta `EXPO_PUBLIC_GOOGLE_CLIENT_SECRET`, o passo a passo de SHA-1
+  (EAS keystore + Play App Signing) e a necessidade de configurar as variáveis no EAS;
+  removidas variáveis não usadas (`ANDROID_CLIENT_ID`/`IOS_CLIENT_ID`).
+- `docs/roadmap/06-fix-google-drive.md`: reescrito para o fluxo atual
+  (@react-native-google-signin) com checklist de correção do login no Android.
+
+---
+
 ## [1.2.0] - 2026-03-12
 
 ### Adicionado

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { PinAuthService } from "../application/PinAuthService";
 import { MAX_PIN_ATTEMPTS, LOCKOUT_DURATION_MS } from "../domain/UserSecuritySettings";
 import type { UserSecuritySettings } from "../domain/UserSecuritySettings";

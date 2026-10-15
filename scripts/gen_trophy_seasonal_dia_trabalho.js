@@ -60,14 +60,6 @@ function floatP(delay){
   ]};
 }
 
-function staticFloat(delay){
-  return {a:1,k:[
-    {i:{x:.667,y:1},o:{x:.333,y:0},t:delay,s:[100,bY,0],to:[0,0,0],ti:[0,0,0]},
-    {i:{x:.667,y:1},o:{x:.333,y:0},t:45,s:[100,bY-3,0],to:[0,0,0],ti:[0,0,0]},
-    {i:{x:.667,y:1},o:{x:.333,y:0},t:67,s:[100,bY+3,0],to:[0,0,0],ti:[0,0,0]},
-    {t:90,s:[100,bY-3,0]}
-  ]};
-}
 
 function buildAnim(tc) {
   const L=[];

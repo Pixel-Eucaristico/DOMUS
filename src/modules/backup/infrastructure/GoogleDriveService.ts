@@ -63,7 +63,10 @@ export const GoogleDriveService = {
 
   async isConnected(): Promise<boolean> {
     const t = await this.loadTokens();
-    return !!t?.refreshToken;
+    if (!t) return false;
+    // Fluxo web (implicit) nao fornece refresh token: considera conectado
+    // enquanto o access token ainda nao expirou.
+    return !!t.refreshToken || t.expiresAt > Date.now();
   },
 
   async getConnectedEmail(): Promise<string | null> {

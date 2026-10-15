@@ -23,11 +23,11 @@ const PAYSLIP_USER_PROMPT = `Extraia os dados deste holerite/contracheque no for
 /** Vision-capable providers */
 const VISION_PROVIDERS: AIProvider[] = ["openai", "gemini", "claude", "qwen"];
 
-/** Vision model IDs per provider */
+/** Vision model IDs per provider (validados em 2026-07-15) */
 const VISION_MODELS: Partial<Record<AIProvider, string>> = {
-  openai: "gpt-5.4",
-  claude: "claude-sonnet-4-6",
-  gemini: "gemini-2.5-flash",
+  openai: "gpt-5.6-terra",
+  claude: "claude-sonnet-5",
+  gemini: "gemini-3.5-flash",
   qwen: "qwen-vl-plus-latest",
 };
 

@@ -7,9 +7,8 @@ import {
   ActivityIndicator,
   Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView , useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
 import { AFFILIATE_CONFIG } from "@packages/wishlist";
 import { TText } from "@/src/components/tamagui";
@@ -61,10 +60,7 @@ export function WishlistSearchWebView({
   const [isProduct, setIsProduct] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  if (Platform.OS === "web") return null;
-
-  const WebView = require("react-native-webview").default;
-
+  // Hooks SEMPRE antes de qualquer return condicional (rules-of-hooks)
   const handleNavigationStateChange = useCallback((state: any) => {
     const url = state.url ?? "";
     setCurrentUrl(url);
@@ -82,6 +78,11 @@ export function WishlistSearchWebView({
     setIsProduct(false);
     setLoading(true);
   }, [initialUrl]);
+
+  if (Platform.OS === "web") return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- import tardio: módulo nativo indisponível no web
+  const WebView = require("react-native-webview").default;
 
   return (
     <Modal

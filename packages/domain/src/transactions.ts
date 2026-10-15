@@ -13,12 +13,15 @@ import type {
 } from "../../events/src/types";
 import { EVENT_TYPES } from "../../events/src/types";
 import { createEvent, generateId } from "../../events/src/factory";
+import { DEFAULT_CATEGORY_GROUPS } from "./defaultCategoryGroups";
 
 export interface CreateTransactionParams {
   accountId: string;
   type: TransactionType;
   amount: number;
   categoryId: string;
+  subcategoryId?: string;
+  groupOverride?: CategoryGroup;
   date: string;
   description?: string;
   installments?: number;
@@ -50,6 +53,8 @@ export function createTransactionEvent(
       type: params.type,
       amount: params.amount,
       categoryId: params.categoryId,
+      subcategoryId: params.subcategoryId,
+      groupOverride: params.groupOverride,
       date: params.date,
       description: params.description,
       installments: 1,
@@ -115,6 +120,8 @@ export function createTransactionEvent(
       type: params.type,
       amount: currentAmount,
       categoryId: params.categoryId,
+      subcategoryId: params.subcategoryId,
+      groupOverride: params.groupOverride,
       date: dueDate,
       description: desc,
       installments,
@@ -172,6 +179,24 @@ export interface BudgetBreakdown {
   adherenceScore: number;
 }
 
+/**
+ * Resolve o grupo efetivo (needs/wants/savings) de uma categoria:
+ * override manual do usuário > categoria do domínio > grupo padrão do
+ * catálogo constante (importação de notas) > "wants".
+ */
+export function resolveEffectiveGroup(
+  categoryId: string,
+  categories: Record<string, { group: CategoryGroup }>,
+  groupOverride?: CategoryGroup,
+): CategoryGroup {
+  return (
+    groupOverride ??
+    categories[categoryId]?.group ??
+    DEFAULT_CATEGORY_GROUPS[categoryId] ??
+    "wants"
+  );
+}
+
 export function calculate503020(
   transactions: TransactionPayload[],
   categories: Record<string, { group: CategoryGroup }>,
@@ -207,8 +232,7 @@ export function calculate503020(
 
       if (tx.items && tx.items.length > 0) {
         for (const item of tx.items) {
-          const cat = categories[item.categoryId];
-          const group = cat?.group ?? "wants";
+          const group = resolveEffectiveGroup(item.categoryId, categories, item.groupOverride);
           switch (group) {
             case "needs":
               needs += item.amount;
@@ -222,8 +246,7 @@ export function calculate503020(
           }
         }
       } else {
-        const cat = categories[tx.categoryId];
-        const group = cat?.group ?? "wants";
+        const group = resolveEffectiveGroup(tx.categoryId, categories, tx.groupOverride);
         switch (group) {
           case "needs":
             needs += tx.amount;

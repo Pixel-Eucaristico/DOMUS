@@ -14,9 +14,18 @@ interface AnthropicMessage {
 interface AnthropicRequestBody {
   model: string;
   max_tokens: number;
-  temperature: number;
+  /** Omitido em modelos que rejeitam sampling params (Sonnet 5, Opus 4.7+, Fable) */
+  temperature?: number;
   messages: AnthropicMessage[];
   system?: string;
+}
+
+/**
+ * Modelos Claude a partir de Sonnet 5 / Opus 4.7 retornam 400 se receberem
+ * `temperature` não-padrão — o parâmetro foi removido da API nesses modelos.
+ */
+function supportsTemperature(model: string): boolean {
+  return !/sonnet-5|opus-4-[789]|fable|mythos/.test(model);
 }
 
 interface AnthropicResponse {
@@ -65,12 +74,15 @@ export class ClaudeAdapter implements AIProviderAdapter {
       anthropicMessages.unshift({ role: "user", content: "." });
     }
 
+    const model = options.model || "claude-haiku-4-5";
     const body: AnthropicRequestBody = {
-      model: options.model || "claude-haiku-4-5-20251001",
+      model,
       max_tokens: options.maxTokens ?? 4096,
-      temperature: options.temperature ?? 0.2,
       messages: anthropicMessages,
     };
+    if (supportsTemperature(model)) {
+      body.temperature = options.temperature ?? 0.2;
+    }
 
     if (systemMessages.length > 0) {
       body.system = systemMessages.map((m) => m.content).join("\n");

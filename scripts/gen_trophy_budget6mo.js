@@ -1,6 +1,5 @@
 const fs = require('fs');
 const {body: tightropeBody, headCX, headCY, headR} = JSON.parse(fs.readFileSync(__dirname + '/lottie-verts-tightrope.json'));
-const {crown, crownBase} = JSON.parse(fs.readFileSync(__dirname + '/lottie-verts-crown.json'));
 
 const tierColors = {
   1: { person: [0.55,0.35,0.2,1], rope: [0.6,0.5,0.35,1], crown: [0.7,0.45,0.15,1], crownDark: [0.5,0.3,0.1,1], glow: [0.6,0.45,0.25,1], sparkle: [1,0.75,0.35,1], conf: [[0.9,0.5,0.2,1],[0.8,0.6,0.3,1]] },

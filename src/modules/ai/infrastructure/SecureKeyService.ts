@@ -1,7 +1,7 @@
 import * as ExpoCrypto from "expo-crypto";
-import { gcm } from "@noble/ciphers/aes";
-import { pbkdf2 } from "@noble/hashes/pbkdf2";
-import { sha256 } from "@noble/hashes/sha2";
+import { gcm } from "@noble/ciphers/aes.js";
+import { pbkdf2 } from "@noble/hashes/pbkdf2.js";
+import { sha256 } from "@noble/hashes/sha2.js";
 import { SecureStorageService } from "@/src/modules/security/infrastructure/SecureStorageService";
 import type { AIProvider } from "@packages/ai";
 import { AI_KEY_PREFIX } from "../domain/AISettings";

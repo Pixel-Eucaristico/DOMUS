@@ -21,11 +21,12 @@ export default function TransactionsByCategoryScreen() {
   const category = domain.categories[categoryId];
 
   // Find transactions containing this category
+  type DomainTransaction = typeof domain.transactions[string];
   const transactionsWithCategory = useMemo(() => {
-    const results: Array<{
-      tx: typeof domain.transactions[string];
+    const results: {
+      tx: DomainTransaction;
       categoryAmount: number;
-    }> = [];
+    }[] = [];
 
     Object.values(domain.transactions).forEach(tx => {
       // Apply month/year filter if provided

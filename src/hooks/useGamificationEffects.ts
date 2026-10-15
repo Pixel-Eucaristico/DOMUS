@@ -15,7 +15,7 @@ import {
 } from "@packages/gamification/src/seasonalTrophies";
 import type { LiturgicalTrophy } from "@packages/gamification/src/liturgicalTrophies";
 import { ALL_LITURGICAL_TROPHIES } from "@packages/gamification/src/liturgicalTrophies";
-import { getLevelInfo, shouldLevelUp } from "@packages/gamification/src/levelEngine";
+import { shouldLevelUp } from "@packages/gamification/src/levelEngine";
 import { createXpPayload, getXpForAction, calculateBudgetAdherenceXp } from "@packages/gamification/src/xpEngine";
 import { updateStreak, type StreakState } from "@packages/gamification/src/streakEngine";
 import { generateId } from "@packages/events/src/factory";
@@ -75,8 +75,6 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
   useEffect(() => {
     if (isDemoActive || debugXp !== null) return;
     if (!loading && allEventsLength > 0 && deviceId) {
-      const txCount = Object.keys(domain.transactions).length;
-      const currentXp = gamification.totalXp;
       // Check if recovery already happened (scanning for event ID prefix is fragile,
       // but we keep backward compat with existing logic)
       // Note: we can't easily access allEvents here without passing it, so we use allEventsLength as trigger
@@ -400,7 +398,7 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
         }
       }
     },
-    [dispatch, dispatchGamEvent, gamification, deviceId, domain.transactions, domain.categories, setPendingToast],
+    [dispatch, dispatchGamEvent, gamification, deviceId, domain, setPendingToast],
   );
 
   return { dispatchDomainEvent };

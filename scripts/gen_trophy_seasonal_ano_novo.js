@@ -5,7 +5,7 @@ function mf(c){return{ty:"fl",c:{a:0,k:c},o:{a:0,k:100},r:1,bm:0,nm:"F"}}
 function ms(c,w){return{ty:"st",c:{a:0,k:c},o:{a:0,k:100},w:{a:0,k:w},lc:2,lj:2,bm:0,nm:"S"}}
 
 const L=[];
-const gold=[1,.843,0,1],white=[1,1,1,1];
+const gold=[1,.843,0,1];
 const red=[.95,.25,.2,1],orange=[1,.6,.15,1],cyan=[.2,.85,.95,1],magenta=[.9,.25,.7,1];
 const darkBg=[.08,.06,.18,1];
 

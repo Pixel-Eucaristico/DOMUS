@@ -1,11 +1,13 @@
 import React from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
+import { View, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { TCard, TText } from "@/src/components/tamagui";
+import { resolveEffectiveGroup } from "@packages/domain/src/transactions";
+import { getCategoryDisplayName, getGroupColor, getGroupLabel } from "@/src/utils/categoryHelpers";
 
 export default function TransactionDetailScreen() {
   const { transactionId } = useLocalSearchParams<{ transactionId: string }>();
@@ -85,6 +87,9 @@ export default function TransactionDetailScreen() {
             </TText>
             {transaction.items!.map((item, index) => {
               const category = domain.categories[item.categoryId];
+              // Fallback para categorias constantes da importação de notas
+              const categoryName = category?.name ?? getCategoryDisplayName(item.categoryId, item.subcategoryId);
+              const itemGroup = resolveEffectiveGroup(item.categoryId, domain.categories, item.groupOverride);
               return (
                 <TCard
                   key={index}
@@ -107,7 +112,11 @@ export default function TransactionDetailScreen() {
                         {item.description}
                       </TText>
                       <TText variant="caption" secondary>
-                        {category?.name || "Sem categoria"}
+                        {categoryName}
+                        {"  •  "}
+                        <TText variant="caption" color={getGroupColor(itemGroup)}>
+                          {getGroupLabel(itemGroup)}
+                        </TText>
                       </TText>
                     </View>
                   </View>

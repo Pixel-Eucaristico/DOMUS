@@ -1,8 +1,3 @@
-import type {
-  TransactionPayload,
-  AccountPayload,
-  CategoryPayload,
-} from "@packages/events/src/types";
 import {
   ProfileCalculator,
   FinancialAnalysisEngine,
@@ -162,7 +157,6 @@ export class ConsultantChatUseCase {
         modelTier: tier,
         messages,
         cacheKey,
-        openaiAuthMethod: settings.openaiAuthMethod,
         customBudgets: settings.customBudgets,
         budgetMode: settings.budgetMode,
         monthlyBudgets: settings.monthlyBudgets,
@@ -273,7 +267,6 @@ export class ConsultantChatUseCase {
         modelTier: "fast",
         messages,
         cacheKey,
-        openaiAuthMethod: settings.openaiAuthMethod,
         customBudgets: settings.customBudgets,
         budgetMode: settings.budgetMode,
         monthlyBudgets: settings.monthlyBudgets,

@@ -6,7 +6,6 @@ function ms(c,w){return{ty:"st",c:{a:0,k:c},o:{a:0,k:100},w:{a:0,k:w},lc:2,lj:2,
 
 const V=JSON.parse(fs.readFileSync(path.join(__dirname,'lottie-verts-bs-egg.json'),'utf8'));
 V.egg.c=true; // close the egg path
-const white=[1,1,1,1];
 
 const TIERS = {
   base: { // Bronze — ovo marrom simples, sem decoração

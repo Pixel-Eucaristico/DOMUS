@@ -6,7 +6,7 @@ import type { AIDataPermissions } from "../domain/AISettings";
  * permissions are already granted.
  */
 
-const KEYWORD_MAP: Array<{ keys: string[]; permission: keyof AIDataPermissions }> = [
+const KEYWORD_MAP: { keys: string[]; permission: keyof AIDataPermissions }[] = [
   {
     keys: ["transacao", "transacoes", "gasto", "gastos", "despesa", "despesas", "compra", "compras", "extrato", "pagamento", "pagamentos", "receita", "receitas"],
     permission: "transactions",

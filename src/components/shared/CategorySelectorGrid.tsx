@@ -138,9 +138,10 @@ export function CategorySelectorGrid({
     return NCM_SUBCATEGORIES.find((s) => s.id === selectedSubcategoryId) ?? null;
   }, [selectedSubcategoryId]);
 
+  // Sempre permite corrigir o grupo em despesas — a classificação automática
+  // pode errar (ex.: salgadinho cai em "alimentacao"/needs mas é desejo).
   const showGroupOverride =
-    onGroupOverride &&
-    (selectedSub?.allowGroupOverride || (!selectedSubcategoryId && selectedCategory?.allowGroupOverride));
+    !!onGroupOverride && type === "expense" && !!(selectedSub || selectedCategory);
 
   return (
     <View style={s.container}>

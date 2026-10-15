@@ -8,7 +8,6 @@ import {
   ScrollView,
   Modal,
   TextInput,
-  Platform,
   Pressable,
   PanResponder,
   Animated,
@@ -38,6 +37,13 @@ const ARCHETYPES: ArchetypeType[] = [
 
 type TabType = "archetypes" | "trophies" | "state" | "triggers";
 
+const TYPE_ICONS: Record<string, string> = {
+  "Sazonal": "sun",
+  "Litúrgico": "book-open",
+  "Conquista": "award",
+  "Mensal": "calendar",
+};
+
 export function DebugTools() {
   const [visible, setVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("archetypes");
@@ -52,7 +58,6 @@ export function DebugTools() {
     debugArchetype,
     setDebugArchetype, 
     setIsCatholic,
-    setPendingToast,
     debugXp,
     setDebugXp,
     debugBalance,
@@ -81,8 +86,6 @@ export function DebugTools() {
     })
   ).current;
 
-  if (!__DEV__) return null;
-
   const allTrophies = useMemo(() => [
     ...(ALL_SEASONAL_TROPHIES || []).map(t => ({ ...t, _debugType: "Sazonal" })),
     ...(ALL_LITURGICAL_TROPHIES || []).map(t => ({ ...t, _debugType: "Litúrgico" })),
@@ -99,13 +102,6 @@ export function DebugTools() {
       )
     );
   }, [allTrophies, search]);
-
-  const TYPE_ICONS: Record<string, string> = {
-    "Sazonal": "sun",
-    "Litúrgico": "book-open",
-    "Conquista": "award",
-    "Mensal": "calendar",
-  };
 
   const renderTrophyRow = useCallback(({ item: t }: { item: any }) => (
     <TouchableOpacity
@@ -146,6 +142,9 @@ export function DebugTools() {
     }
     return <LottieTrophy trophyId={t.id} type="achievement" rarity={t.rarity || "gold"} size={size * 0.9} isStatic={isStatic} />;
   };
+
+  // Early-return DEPOIS de todos os hooks (rules-of-hooks); __DEV__ é constante
+  if (!__DEV__) return null;
 
   return (
     <>
@@ -221,7 +220,6 @@ export function DebugTools() {
                 <FlashList
                   data={filteredTrophies}
                   keyExtractor={(item, idx) => `${item.id}-${item._debugType}-${idx}`}
-                  estimatedItemSize={72}
                   renderItem={renderTrophyRow}
                   keyboardShouldPersistTaps="handled"
                 />

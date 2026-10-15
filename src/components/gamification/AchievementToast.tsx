@@ -62,6 +62,7 @@ export function AchievementToast({ toast, onDismiss, offsetTop = 56 }: Props) {
     }, 3900);
 
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- animação e som devem disparar somente quando o toast muda; shared values são estáveis e onDismiss pode ser recriado pelo pai
   }, [toast]);
 
   const animStyle = useAnimatedStyle(() => ({

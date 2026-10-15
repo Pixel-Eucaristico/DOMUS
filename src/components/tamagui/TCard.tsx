@@ -1,3 +1,4 @@
+import type { LooseComponent, TCardProps } from "./types";
 import { styled, View } from "tamagui";
 
 /**
@@ -8,7 +9,8 @@ import { styled, View } from "tamagui";
  *   <TCard>Conteúdo</TCard>
  *   <TCard elevated>Card com sombra</TCard>
  */
-export const TCard = styled(View, {
+const TCardStyled = styled(View, {
+  // @ts-expect-error — o config do styled(View) sugere 'background', mas backgroundColor é válido em runtime
   backgroundColor: "$cardBackground",
   borderRadius: "$lg",
   padding: "$lg",
@@ -32,3 +34,6 @@ export const TCard = styled(View, {
     },
   } as const,
 });
+
+// Tipos relaxados: o app passa cores do ThemeColors como string — ver types.ts
+export const TCard = TCardStyled as unknown as LooseComponent<TCardProps>;

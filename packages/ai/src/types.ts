@@ -20,24 +20,33 @@ export type CircuitState = "closed" | "open" | "half_open";
 
 // ─── Model Registry ───────────────────────────────────────────────────────────
 
+// IDs validados em 2026-07-15 contra a documentação oficial de cada provedor.
 export const AI_MODELS: Record<AIProvider, Record<AIModelTier, string>> = {
   openai: {
-    fast: "gpt-5-mini",
-    smart: "gpt-5.4",
+    // Família GPT-5.6 (GA 2026-07-09): luna = custo-eficiente, terra = balanceado
+    // (mesmo preço do antigo gpt-5.4); sol é o flagship ($5/$30 por MTok).
+    fast: "gpt-5.6-luna",
+    smart: "gpt-5.6-terra",
   },
   gemini: {
-    fast: "gemini-2.5-flash",
-    smart: "gemini-2.5-pro",
+    // gemini-2.0 foi desligado em 2026-06-01; 2.5 ainda ativo porém antigo.
+    fast: "gemini-3.1-flash-lite",
+    smart: "gemini-3.5-flash",
   },
   claude: {
-    fast: "claude-haiku-4-5-20251001",
-    smart: "claude-sonnet-4-6",
+    // Aliases oficiais (sem sufixo de data). Sonnet 5 rejeita `temperature`
+    // não-padrão — o ClaudeAdapter omite o parâmetro para modelos 5+.
+    fast: "claude-haiku-4-5",
+    smart: "claude-sonnet-5",
   },
   deepseek: {
-    fast: "deepseek-chat",
-    smart: "deepseek-reasoner",
+    // deepseek-chat/deepseek-reasoner serão DESCONTINUADOS em 2026-07-24;
+    // equivalem aos modos non-thinking/thinking do deepseek-v4-flash.
+    fast: "deepseek-v4-flash",
+    smart: "deepseek-v4-pro",
   },
   qwen: {
+    // Aliases "-latest" continuam válidos no DashScope (acompanham Qwen 3.x).
     fast: "qwen-turbo-latest",
     smart: "qwen-plus-latest",
   },
@@ -47,17 +56,6 @@ export const AI_MODELS: Record<AIProvider, Record<AIModelTier, string>> = {
 export const GEMINI_TTS_MODELS = {
   fast: "gemini-2.5-flash-preview-tts",
   quality: "gemini-2.5-pro-preview-tts",
-} as const;
-
-/**
- * Models available on the ChatGPT backend (chatgpt.com/backend-api/codex).
- * These are different from the standard API models and are required when
- * using ChatGPT OAuth (subscription-based access).
- * Source: Codex CLI bundled models.json catalog.
- */
-export const CHATGPT_OAUTH_MODELS: Record<AIModelTier, string> = {
-  fast: "gpt-5.1-codex-mini",
-  smart: "gpt-5.4",
 } as const;
 
 // ─── Domain Shapes ────────────────────────────────────────────────────────────

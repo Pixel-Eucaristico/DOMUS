@@ -47,6 +47,7 @@ export default function SeasonScreen() {
 
   const seriesProgress = useMemo(
     () => sd.computeSeriesProgress(selectedAch),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sd é recriado a cada render; as deps reais do cálculo já estão listadas
     [selectedAch, domain, gamification, budget],
   );
 

@@ -9,7 +9,7 @@ const V=JSON.parse(fs.readFileSync(path.join(__dirname,'lottie-verts-crown.json'
 V.crown.c = true;
 
 const L=[];
-const gold=[1,.843,0,1],darkGold=[.85,.65,0,1],lightGold=[1,.92,.5,1],white=[1,1,1,1];
+const gold=[1,.843,0,1],darkGold=[.85,.65,0,1],lightGold=[1,.92,.5,1];
 const ruby=[.85,.12,.18,1],emerald=[.1,.65,.35,1],sapphire=[.15,.3,.75,1];
 
 // --- Glow ---
