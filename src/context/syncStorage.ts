@@ -1,4 +1,6 @@
+import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { webSecrets } from "@/src/modules/security/infrastructure/webSecrets";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 
 export const DEVICE_ID_KEY = "domus_device_id";
@@ -32,6 +34,65 @@ export async function loadOrCreateDeviceId(): Promise<string> {
     await AsyncStorage.setItem(DEVICE_ID_KEY, id);
   } catch {}
   return id;
+}
+
+// ── Group code ────────────────────────────────────────────────────────────────
+// O group code gera as chaves do sync: guardado em SecureStore no nativo.
+// Na web não há SecureStore: usa webSecrets (AES-GCM com chave não extraível no IndexedDB).
+// `process.env.EXPO_OS` é trocado pela plataforma no build e dispensa importar react-native (testável no vitest).
+const isWeb = (): boolean => process.env.EXPO_OS === "web";
+
+/** Lê o group code; migra o valor legado de AsyncStorage para SecureStore. */
+export async function loadGroupCode(): Promise<string | null> {
+  if (isWeb()) return webSecrets.get(GROUP_CODE_KEY);
+
+  try {
+    const secure = await SecureStore.getItemAsync(GROUP_CODE_KEY);
+    if (secure) return secure;
+  } catch {
+    // SecureStore indisponível: cai para o valor legado abaixo
+  }
+
+  const legacy = await AsyncStorage.getItem(GROUP_CODE_KEY);
+  if (legacy) {
+    try {
+      await SecureStore.setItemAsync(GROUP_CODE_KEY, legacy);
+      await AsyncStorage.removeItem(GROUP_CODE_KEY);
+    } catch {
+      // migração falhou: mantém o legado e tenta de novo no próximo boot
+    }
+  }
+  return legacy;
+}
+
+/** Grava o group code em SecureStore (web: cifrado; AsyncStorage só se o SecureStore falhar no nativo). */
+export async function saveGroupCode(code: string): Promise<void> {
+  if (isWeb()) {
+    await webSecrets.set(GROUP_CODE_KEY, code);
+    return;
+  }
+  try {
+    await SecureStore.setItemAsync(GROUP_CODE_KEY, code);
+    await AsyncStorage.removeItem(GROUP_CODE_KEY);
+    return;
+  } catch (err) {
+    console.warn("[syncStorage] SecureStore falhou ao gravar group code; usando AsyncStorage.", err);
+  }
+  await AsyncStorage.setItem(GROUP_CODE_KEY, code);
+}
+
+/** Remove o group code de todos os armazenamentos. */
+export async function clearGroupCode(): Promise<void> {
+  if (isWeb()) {
+    await webSecrets.remove(GROUP_CODE_KEY);
+    return;
+  }
+  try {
+    await SecureStore.deleteItemAsync(GROUP_CODE_KEY);
+  } catch {
+    // chave pode não existir
+  }
+  await AsyncStorage.removeItem(GROUP_CODE_KEY);
 }
 
 export function computeEventHash(events: SyncEvent[]): string {

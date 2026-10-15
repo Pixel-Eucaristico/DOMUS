@@ -31,7 +31,6 @@ jobs:
       - name: Expo prebuild (iOS)
         env:
           EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
-          EXPO_PUBLIC_GOOGLE_CLIENT_SECRET: ${{ secrets.EXPO_PUBLIC_GOOGLE_CLIENT_SECRET }}
           EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID }}
         run: npx expo prebuild --platform ios --clean --no-install
 
@@ -43,7 +42,6 @@ jobs:
         working-directory: ios
         env:
           EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
-          EXPO_PUBLIC_GOOGLE_CLIENT_SECRET: ${{ secrets.EXPO_PUBLIC_GOOGLE_CLIENT_SECRET }}
           EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID }}
         run: |
           xcodebuild \
