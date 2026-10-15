@@ -77,7 +77,7 @@ context:
 | E1/E2/E7/V3/B3 patch do `expo-asset` x lockfile (12.0.12 vs 12.0.13) | false | `package.json` pede `~12.0.13` e o lockfile resolve 12.0.13; `npm ci` imprime `expo-asset@12.0.13 ✔` sem aviso. Os revisores leram o checkout principal, defasado. |
 | E8 patch copiado e não regerado | false | O patch aplica limpo em 12.0.13; só mudou a linha `index`, porque o arquivo upstream é o mesmo. |
 | E3/V5/B4 `agent-cli-detector` novo, sem vetting | false | `npm view`: repositório `expo/agent-cli-detector`, mantido pela equipe da Expo, puxado por `@expo/cli@54.0.27`; `npm audit signatures`: 1.452 pacotes com assinatura verificada. |
-| E4 `vitest/node_modules/yaml` removido do lock | false | `vitest run` no baseline: 620 passam, 1 falha (`season`). |
+| E4 `vitest/node_modules/yaml` removido do lock | medium | **Veredito corrigido após a CI.** Eu o tinha como `false` porque `vitest` passava no meu npm 11; o `npm ci` da CI (npm 10, Node 20) falhou com `Missing: yaml@2.9.1 from lock file`. Reproduzido com `npx npm@10 ci --dry-run`. Corrigido: lockfile regerado com npm 10 (commit `fix(deps)`). |
 | E6 licença do `@expo/xcpretty` mudou no lock | low | Só metadado vindo do upstream; sem efeito no build. |
 | E5/V1/B2 sem prova de que o build API 36 funciona | maybe-false | Prebuild local declara `compileSdkVersion=36` e `targetSdkVersion=36`; falta o `assembleRelease`/`bundleRelease` real (sem JDK local). Fica na tarefa pendente de disparar `build-android.yml` na `dev`. |
 | V1 sem teste automatizado de target SDK | low | A story é de configuração; a prova é o prebuild e a CI. Gate automático é escopo da Story 2.8. |
@@ -89,7 +89,7 @@ context:
 | B5 bumps Expo parciais, sem `--check`/doctor | false | `expo install --check` lista exatamente os 4 pacotes; `expo-doctor` 18/18. |
 | B6 `yarn.lock`, modo 100755, baseline no Node 20 | false | `yarn.lock` foi removido pela `main`; o modo do lockfile é pré-existente; as deps novas exigem Node >=18; `tsc`/`vitest` no baseline. |
 
-**Rota:** nenhum `intent_gap` nem `bad_spec`. Um `patch` (doc com SDK 35, commit `e9597f1`, aplicado direto por ser uma linha). Um `defer` (D6: checklist do Android 16 para a Story 1.3). O resto foi rejeitado como `false`/`low`. `maybe-false` de prova do build real fica na tarefa de CI pendente. Sem loopback (`review_loop_iteration` = 0).
+**Rota:** nenhum `intent_gap` nem `bad_spec`. Dois `patch`: doc com SDK 35 (`e9597f1`) e o lockfile para npm 10 (E4, achado pela CI). Um `defer` (D6: checklist do Android 16 para a Story 1.3). O resto foi rejeitado como `false`/`low`. `maybe-false` de prova do build real fica na tarefa de CI pendente. Sem loopback (`review_loop_iteration` = 0).
 
 ## Verification
 

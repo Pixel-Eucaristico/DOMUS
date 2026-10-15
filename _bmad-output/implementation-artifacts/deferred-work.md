@@ -16,3 +16,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-2-mirar-a-api-36-no-build-de-release.md`
   summary: D6 — Comportamentos do Android 16 com target 36 sem verificação: predictive back ligado por padrão (e `onBackPressed` legado deixa de ser chamado), edge-to-edge obrigatório e redimensionamento em telas grandes; rever também a armadilha de View grande com animação (Mali, `docs/tour-crash-fixes.md`).
   evidence: efeitos de runtime que o `expo prebuild` e o `tsc` não pegam; a revisão da Story 1.2 só os apontou. Incluir cada item na checklist da Story 1.3 e testar o botão/gesto de voltar nas abas, no modal de introdução e no scanner.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-2-mirar-a-api-36-no-build-de-release.md`
+  summary: D7 — O job `Build Web` do `build-android.yml` falha no `Export Web` na `main` (já em 15/10, antes da 1.2): `Unable to resolve module @lottiefiles/dotlottie-react` pedido por `lottie-react-native` (`index.web.js`) via `LottieTrophy.tsx`.
+  evidence: log do run 38795050025 (main). Falta a dependência web do Lottie ou um alias/stub só para a web. A CI Android também está vermelha na `main` desde março (último sucesso 15/03, tag v1.2.13); reativar o gate de CI conversa com a Story 2.8.
