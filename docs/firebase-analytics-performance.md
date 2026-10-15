@@ -290,7 +290,7 @@ O Expo lê esses arquivos graças às configurações no `app.json`:
 ```json
 // Garante que a build nativa tem as versões certas
 ["expo-build-properties", {
-  "android": { "minSdkVersion": 24, "compileSdkVersion": 35, "targetSdkVersion": 35 },
+  "android": { "minSdkVersion": 24, "compileSdkVersion": 36, "targetSdkVersion": 36 },
   "ios": { "deploymentTarget": "15.1", "useFrameworks": "static" }
 }]
 
