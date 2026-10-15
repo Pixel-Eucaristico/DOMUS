@@ -4,12 +4,14 @@ Guia definitivo para o login Google/backup no Drive voltar a funcionar no Androi
 São 5 partes: **A)** Google Cloud/Firebase (uma vez), **B)** local (`.env`),
 **C)** GitHub (secrets do Actions), **D)** Expo/EAS, **E)** teste.
 
-O app usa 2 credenciais em tempo de build e 1 registro no console:
+O app usa 1 credencial em tempo de build e 1 registro no console. **O app não usa nem
+guarda o client secret do Google**: o token do Drive vem do Google Sign-In nativo
+(`GoogleSignin.getTokens()`), e qualquer `EXPO_PUBLIC_*` vai embutida no bundle.
+Se você ainda tem o secret em algum lugar, não o copie para variável de ambiente.
 
 | O quê | Onde é usado |
 |---|---|
-| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (cliente **Web**) | `GoogleSignin.configure` + troca/refresh de tokens |
-| `EXPO_PUBLIC_GOOGLE_CLIENT_SECRET` (secret do cliente Web) | Troca do serverAuthCode e refresh do token |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (cliente **Web**) | `GoogleSignin.configure` (`webClientId`) |
 | Cliente OAuth **Android** (package + SHA-1) | Validado pelo Google Play Services no aparelho — **sem ele o login falha com DEVELOPER_ERROR** |
 
 ---
@@ -48,7 +50,7 @@ Você tem até 3 origens de assinatura — registre todos os SHA-1 que usar:
 > O Firebase cria automaticamente os clientes OAuth Android no projeto
 > Google Cloud vinculado — um por SHA-1.
 
-### A3. Cliente Web (ID + Secret) e API do Drive
+### A3. Cliente Web (só o ID) e API do Drive
 
 1. Acesse https://console.cloud.google.com/apis/credentials — **confira no topo
    que o projeto selecionado é o MESMO do Firebase** (`domus-finance-97990251`).
@@ -56,9 +58,8 @@ Você tem até 3 origens de assinatura — registre todos os SHA-1 que usar:
    Procure um cliente do tipo **"Web application"** (o Firebase geralmente cria
    um chamado "Web client (auto created by Google Service)").
    - Se não existir: **Create credentials → OAuth client ID → Web application**.
-3. Abra o cliente Web e copie:
-   - **Client ID** → será o `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
-   - **Client secret** (formato `GOCSPX-...`) → será o `EXPO_PUBLIC_GOOGLE_CLIENT_SECRET`
+3. Abra o cliente Web e copie o **Client ID** → será o `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`.
+   Não copie o client secret: o app não o usa.
 4. Em **APIs & Services → Library**, ative a **Google Drive API**.
 5. Em **OAuth consent screen**: se o app estiver em "Testing", adicione seu
    e-mail em **Test users** (ou publique o app). Escopo usado:
@@ -78,7 +79,6 @@ Edite o `.env`:
 
 ```
 EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID="123456789-xxxxxxxx.apps.googleusercontent.com"
-EXPO_PUBLIC_GOOGLE_CLIENT_SECRET="GOCSPX-xxxxxxxxxxxxxxxx"
 ```
 
 Depois **reinicie o Metro com cache limpo** (as `EXPO_PUBLIC_*` são lidas no build do bundle):
@@ -102,7 +102,6 @@ O workflow já injeta tudo sozinho — ele só precisa dos secrets existirem.
    | Secret | Valor |
    |---|---|
    | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Client ID do cliente **Web** (A3) |
-   | `EXPO_PUBLIC_GOOGLE_CLIENT_SECRET` | Client secret do cliente Web (A3) |
    | `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` | Client ID do cliente **Android** criado pelo Firebase para o SHA-1 do keystore do GitHub (visível em Cloud Console → Credentials) |
    | `ANDROID_KEYSTORE_BASE64` | `base64 -w0 release.keystore` (se ainda não existir) |
    | `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD` | Dados do mesmo keystore |
@@ -114,7 +113,6 @@ O workflow já injeta tudo sozinho — ele só precisa dos secrets existirem.
 2. Pelo terminal, se preferir (com o GitHub CLI autenticado):
    ```bash
    gh secret set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID --body "123456789-xxx.apps.googleusercontent.com"
-   gh secret set EXPO_PUBLIC_GOOGLE_CLIENT_SECRET --body "GOCSPX-xxxx"
    gh secret set EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID --body "123456789-yyy.apps.googleusercontent.com"
    ```
 
@@ -135,13 +133,7 @@ As `EXPO_PUBLIC_*` precisam existir no ambiente do EAS **no momento do build**
      --value "123456789-xxx.apps.googleusercontent.com" \
      --visibility plaintext
 
-   npx eas env:create --environment production \
-     --name EXPO_PUBLIC_GOOGLE_CLIENT_SECRET \
-     --value "GOCSPX-xxxx" \
-     --visibility sensitive
-
    npx eas env:create --environment preview --name EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID --value "..." --visibility plaintext
-   npx eas env:create --environment preview --name EXPO_PUBLIC_GOOGLE_CLIENT_SECRET --value "..." --visibility sensitive
    ```
    Ou pelo site: https://expo.dev → seu projeto → **Environment variables**.
 
@@ -168,9 +160,7 @@ As `EXPO_PUBLIC_*` precisam existir no ambiente do EAS **no momento do build**
    | Mensagem | Causa | Correção |
    |---|---|---|
    | "Google Client ID nao configurado" | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` não estava no ambiente do build | Partes B/C/D |
-   | "Google Client Secret nao configurado no build" | `EXPO_PUBLIC_GOOGLE_CLIENT_SECRET` ausente | Partes B/C/D |
    | "Configuracao OAuth invalida (DEVELOPER_ERROR)..." | SHA-1 do certificado deste build não registrado | Partes A1/A2 |
-   | "Erro ao obter token: invalid_client..." | Client ID/Secret não são do mesmo cliente Web, ou de outro projeto | Parte A3 |
 
 3. Usuários que já tinham conectado antes: **Desconectar → Conectar** de novo
    para renovar os tokens.
