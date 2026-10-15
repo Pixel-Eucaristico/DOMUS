@@ -60,12 +60,10 @@ jobs:
       - name: Inject Google OAuth env vars
         env:
           EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
-          EXPO_PUBLIC_GOOGLE_CLIENT_SECRET: ${{ secrets.EXPO_PUBLIC_GOOGLE_CLIENT_SECRET }}
           EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID }}
         run: |
           # Escreve .env para garantir que Metro/Expo injete as vars no bundle JS
           echo "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=$EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID" >> .env
-          echo "EXPO_PUBLIC_GOOGLE_CLIENT_SECRET=$EXPO_PUBLIC_GOOGLE_CLIENT_SECRET" >> .env
           echo "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=$EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID" >> .env
 
           # Patching google-services.json com oauth_client (necessario para native Android sign-in)
@@ -87,7 +85,6 @@ jobs:
       - name: Expo prebuild (Android)
         env:
           EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
-          EXPO_PUBLIC_GOOGLE_CLIENT_SECRET: ${{ secrets.EXPO_PUBLIC_GOOGLE_CLIENT_SECRET }}
           EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID }}
         run: npx expo prebuild --platform android --clean --no-install
 
@@ -113,7 +110,6 @@ jobs:
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
-          EXPO_PUBLIC_GOOGLE_CLIENT_SECRET: ${{ secrets.EXPO_PUBLIC_GOOGLE_CLIENT_SECRET }}
           EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID }}
         run: |
           chmod +x gradlew
