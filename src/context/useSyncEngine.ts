@@ -14,12 +14,14 @@ import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { SubCloser } from "nostr-tools/pool";
 import {
   LAST_SYNC_KEY,
-  GROUP_CODE_KEY,
   LAST_PULL_TS_KEY,
   LAST_PUSH_HASH_KEY,
   PULL_INTERVAL_MS,
   generateGroupCode,
   computeEventHash,
+  loadGroupCode,
+  saveGroupCode,
+  clearGroupCode,
 } from "./syncStorage";
 
 export type SyncStatus = "idle" | "syncing" | "connected" | "offline" | "error";
@@ -93,7 +95,7 @@ export function useSyncEngine({
     AsyncStorage.getItem(LAST_SYNC_KEY).then((val) => {
       if (val) setLastSyncTime(parseInt(val, 10));
     });
-    AsyncStorage.getItem(GROUP_CODE_KEY).then(async (val) => {
+    loadGroupCode().then(async (val) => {
       if (val) {
         setGroupCode(val);
         const derived = await deriveKeysFromCode(val);
@@ -358,7 +360,7 @@ export function useSyncEngine({
 
       setKeys(derivedKeys);
       setGroupCode(code);
-      await AsyncStorage.setItem(GROUP_CODE_KEY, code);
+      await saveGroupCode(code);
       lastPushHashRef.current = "empty";
       initialSyncDoneRef.current = false;
 
@@ -398,7 +400,7 @@ export function useSyncEngine({
 
         setKeys(derivedKeys);
         setGroupCode(normalizedCode);
-        await AsyncStorage.setItem(GROUP_CODE_KEY, normalizedCode);
+        await saveGroupCode(normalizedCode);
         lastPushHashRef.current = "empty";
         initialSyncDoneRef.current = false;
 
@@ -436,7 +438,7 @@ export function useSyncEngine({
     setLastPullTs(0);
     lastPushHashRef.current = "empty";
     initialSyncDoneRef.current = false;
-    await AsyncStorage.removeItem(GROUP_CODE_KEY);
+    await clearGroupCode();
     await AsyncStorage.removeItem(LAST_PULL_TS_KEY);
     await AsyncStorage.removeItem(LAST_PUSH_HASH_KEY);
   }, []);
