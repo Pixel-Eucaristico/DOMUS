@@ -87,7 +87,6 @@ export default function WishlistIndexScreen() {
           data={sortedLists}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
-          estimatedItemSize={100}
           renderItem={({ item }) => (
             <WishlistListCard
               list={item}

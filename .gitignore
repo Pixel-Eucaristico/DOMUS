@@ -68,3 +68,4 @@ dev-debug.log
 _bmad/config.user.toml
 _bmad/custom/*.user.toml
 _bmad-output/party-mode/
+.claude/scheduled_tasks.lock

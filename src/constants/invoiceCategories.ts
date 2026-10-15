@@ -14,7 +14,9 @@ export const CATEGORY_OPTIONS: CategoryOption[] = [
   { id: "lazer",          name: "Lazer",              group: "wants"   },
   { id: "vestuario",      name: "Vestuário",          group: "wants"   },
   { id: "outros",         name: "Outros",             group: "wants"   },
+  { id: "compras",        name: "Compras",            group: "wants"   },
   { id: "compras_diversas", name: "Compras Diversas", group: "wants"   },
+  { id: "restaurantes",   name: "Restaurantes",       group: "wants"   },
   { id: "educacao",       name: "Educação",           group: "savings" },
   { id: "investimentos",  name: "Investimentos",      group: "savings" },
 ];

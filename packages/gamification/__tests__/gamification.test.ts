@@ -48,54 +48,55 @@ function makeGamEvent(
 
 describe("XP Engine", () => {
   describe("getXpForAction", () => {
+    // Valores conforme XP_TABLE em src/xpEngine.ts (rebalanceado)
     it("returns correct XP for transaction_logged", () => {
-      expect(getXpForAction("transaction_logged")).toBe(10);
+      expect(getXpForAction("transaction_logged")).toBe(5);
     });
 
     it("returns correct XP for budget_adherence", () => {
-      expect(getXpForAction("budget_adherence")).toBe(25);
+      expect(getXpForAction("budget_adherence")).toBe(10);
     });
 
     it("returns correct XP for mission_completed", () => {
-      expect(getXpForAction("mission_completed")).toBe(50);
+      expect(getXpForAction("mission_completed")).toBe(30);
     });
 
     it("returns correct XP for daily_consistency", () => {
-      expect(getXpForAction("daily_consistency")).toBe(15);
+      expect(getXpForAction("daily_consistency")).toBe(10);
     });
 
     it("returns correct XP for streak_bonus", () => {
-      expect(getXpForAction("streak_bonus")).toBe(20);
+      expect(getXpForAction("streak_bonus")).toBe(15);
     });
 
     it("returns correct XP for season_bonus", () => {
-      expect(getXpForAction("season_bonus")).toBe(100);
+      expect(getXpForAction("season_bonus")).toBe(50);
     });
   });
 
   describe("calculateBudgetAdherenceXp", () => {
-    it("returns base reward (40xp) + health bonus (20xp) = 60xp for perfect 50/30/20 split", () => {
+    it("returns savings reward (10xp) + health bonus (5xp) = 15xp for perfect 50/30/20 split", () => {
       expect(calculateBudgetAdherenceXp({
-        needs: 500, wants: 300, savings: 200, 
-        needsPercent: 50, wantsPercent: 30, savingsPercent: 20, 
+        needs: 500, wants: 300, savings: 200,
+        needsPercent: 50, wantsPercent: 30, savingsPercent: 20,
         totalIncome: 1000, adherenceScore: 100
-      })).toBe(60);
+      })).toBe(15); // 5 (health: needs<=50 && wants<=30) + 10 (savings >= 20%)
     });
 
     it("penalizes Needs only if income is present", () => {
-      // With income: 60% needs -> -10 penalty
+      // With income: 60% needs -> -10 penalty; sem bônus de saúde (needs > 50)
       expect(calculateBudgetAdherenceXp({
-        needs: 600, wants: 200, savings: 200, 
-        needsPercent: 60, wantsPercent: 20, savingsPercent: 20, 
+        needs: 600, wants: 200, savings: 200,
+        needsPercent: 60, wantsPercent: 20, savingsPercent: 20,
         totalIncome: 1000, adherenceScore: 80
-      })).toBe(30); // 40 (savings) + 0 (health) - 10 (needs)
+      })).toBe(0); // 10 (savings) - 10 (needs 60% -> -10)
 
       // Without income: no penalties
       expect(calculateBudgetAdherenceXp({
-        needs: 600, wants: 200, savings: 200, 
-        needsPercent: 60, wantsPercent: 20, savingsPercent: 20, 
+        needs: 600, wants: 200, savings: 200,
+        needsPercent: 60, wantsPercent: 20, savingsPercent: 20,
         totalIncome: 0, adherenceScore: 80
-      })).toBe(40); // 40 (savings >= 20%). The +15 bonus is for savings > 0 BUT < 20. Here savings is >= 20, so it uses the main reward block.
+      })).toBe(10); // 10 (savings >= 20%), sem penalidade porque totalIncome = 0
     });
 
     it("returns 0 if no data is present", () => {
@@ -138,7 +139,7 @@ describe("XP Engine", () => {
   describe("createXpPayload", () => {
     it("creates payload with correct XP for source", () => {
       const payload = createXpPayload("transaction_logged");
-      expect(payload.amount).toBe(10);
+      expect(payload.amount).toBe(5);
       expect(payload.source).toBe("transaction_logged");
       expect(payload.seasonId).toBeUndefined();
     });
@@ -151,7 +152,7 @@ describe("XP Engine", () => {
 
     it("creates payload with seasonId", () => {
       const payload = createXpPayload("season_bonus", undefined, "season-001");
-      expect(payload.amount).toBe(100);
+      expect(payload.amount).toBe(50);
       expect(payload.seasonId).toBe("season-001");
     });
 

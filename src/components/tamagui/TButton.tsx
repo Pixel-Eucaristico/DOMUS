@@ -1,3 +1,4 @@
+import type { LooseComponent, TButtonProps } from "./types";
 import { styled, Button } from "tamagui";
 
 /**
@@ -9,7 +10,8 @@ import { styled, Button } from "tamagui";
  *   <TButton variant="outline" onPress={fn}>Cancelar</TButton>
  *   <TButton variant="danger" onPress={fn}>Excluir</TButton>
  */
-export const TButton = styled(Button, {
+const TButtonStyled = styled(Button, {
+  // @ts-expect-error — o config do styled(Button) não tipa fontFamily, mas o Tamagui aplica em runtime
   fontFamily: "$body",
   fontWeight: "600",
   borderRadius: "$lg",
@@ -47,3 +49,6 @@ export const TButton = styled(Button, {
     variant: "primary",
   },
 });
+
+// Tipos relaxados: o app passa cores do ThemeColors como string — ver types.ts
+export const TButton = TButtonStyled as unknown as LooseComponent<TButtonProps>;

@@ -6,8 +6,7 @@ import {
   updateTransactionEvent,
   deleteTransactionEvent,
 } from "@packages/domain/src/transactions";
-import type { TransactionPayload } from "@packages/events/src/types";
-import type {
+import type { TransactionPayload ,
   TransactionUpdatedEvent,
   TransactionDeletedEvent,
 } from "@packages/events/src/types";

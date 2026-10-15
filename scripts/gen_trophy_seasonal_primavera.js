@@ -56,15 +56,6 @@ const POFFSET_Y = -30;
 // Animação de rotação fiel ao original (bounce spring -75°→50°→-50°→25°→0°)
 // Original: frames 10-14 start, 15-19 peak, 24-28 valley, 34-38 mid, 45-49 settle
 // Adaptado para 90 frames: multiplicar por 90/75 ≈ 1.2
-function petalRotKeys(startT) {
-  return {a:1,k:[
-    {i:{x:[.667],y:[1]},o:{x:[.333],y:[0]},t:startT,   s:[-75]},
-    {i:{x:[.667],y:[1]},o:{x:[.333],y:[0]},t:startT+6, s:[50]},
-    {i:{x:[.667],y:[1]},o:{x:[.333],y:[0]},t:startT+15,s:[-50]},
-    {i:{x:[.833],y:[1]},o:{x:[.333],y:[0]},t:startT+24,s:[25]},
-    {t:startT+35,s:[0]}
-  ]};
-}
 function petalScaleKeys(startT) {
   return {a:1,k:[
     {...io3,t:startT,s:[118,118,100]},

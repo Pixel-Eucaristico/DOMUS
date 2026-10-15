@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { StyleSheet, View, Dimensions, Text } from "react-native";
+import { StyleSheet, View, Text } from "react-native";
 import Svg, { Path, Rect } from "react-native-svg";
 import Animated, {
   useSharedValue,
@@ -8,13 +8,11 @@ import Animated, {
   withTiming,
   withDelay,
   Easing,
-  withSequence,
   runOnJS,
 } from "react-native-reanimated";
 import type { ThemeColors } from "@packages/theme";
 import { PixelText } from "@/src/components/pixel";
 
-const { width } = Dimensions.get("window");
 
 interface AnimatedSplashProps {
   onAnimationFinish: () => void;
@@ -50,6 +48,7 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onAnimationFinis
     }, 2800);
 
     return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- animação de splash roda uma única vez na montagem; shared values são estáveis e onAnimationFinish não deve reiniciá-la
   }, []);
 
   const roofProps = useAnimatedProps(() => ({

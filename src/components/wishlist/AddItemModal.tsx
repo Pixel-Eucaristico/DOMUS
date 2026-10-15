@@ -21,7 +21,6 @@ import type { AccountPayload } from "@packages/events";
 import { CATEGORY_OPTIONS, GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal";
 import { ProductFormCard } from "@/src/components/shared/ProductFormCard";
-import type { ProductFormData } from "@/src/components/shared/ProductFormCard";
 import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
 import { WishlistSearchWebView } from "./WishlistSearchWebView";
 import { StoreGridModal } from "./StoreGridModal";
@@ -562,7 +561,6 @@ const s = StyleSheet.create({
   bundleRowLine: { flexDirection: "row", alignItems: "center", gap: 6 },
   bundleNameInput: { flex: 1, fontSize: 13, fontFamily: "DMSans_400Regular" },
   bundlePrice: { fontSize: 11, fontFamily: "DMSans_600SemiBold" },
-  bundleSearchBtn: { width: 30, height: 30, borderRadius: 8, justifyContent: "center", alignItems: "center" },
   bundleAddBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1.5, borderRadius: 10, borderStyle: "dashed", paddingVertical: 10 },
   bundleAddText: { fontSize: 13, fontFamily: "DMSans_600SemiBold" },
   actions: { flexDirection: "row", gap: 10, marginTop: 16, marginBottom: 8 },

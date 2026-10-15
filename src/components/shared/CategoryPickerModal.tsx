@@ -15,7 +15,6 @@ import { EXPENSE_CATEGORIES } from "@/src/constants/transactionCategories";
 import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
 import { GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { soundManager } from "@/src/services/SoundManager";
-import { getGroupLabel } from "@/src/utils/categoryHelpers";
 import * as Haptics from "expo-haptics";
 
 interface PickerItem {
@@ -171,7 +170,6 @@ export function CategoryPickerModal({
             data={filtered}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
-            estimatedItemSize={48}
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
               <Text style={[s.empty, { color: theme.secondaryText }]}>

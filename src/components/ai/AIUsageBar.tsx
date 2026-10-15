@@ -124,7 +124,7 @@ export function AIUsageBar({
   const audioProv = voiceEnabled ? audioProvider : undefined;
   const sameProvider = !audioProv || audioProv === provider;
 
-  const bars: Array<{ id: string; label: string; tokens: number; budget: number; unlimited: boolean; cost: number | null }> = [];
+  const bars: { id: string; label: string; tokens: number; budget: number; unlimited: boolean; cost: number | null }[] = [];
 
   const textTokens = usage.byProvider[provider] ?? 0;
   const getBudget = (p: AIProvider) => isMonthly ? getMonthlyBudget(p, monthlyBudgets) : getProviderBudget(p, customBudgets);

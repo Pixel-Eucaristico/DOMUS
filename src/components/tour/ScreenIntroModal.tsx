@@ -1,7 +1,6 @@
 import React from "react";
-import { Modal, StyleSheet, Dimensions } from "react-native";
+import { Modal, StyleSheet, Dimensions , Pressable } from "react-native";
 import { View, Text, XStack, YStack } from "tamagui";
-import { Pressable } from "react-native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/src/context/AppStateProvider";

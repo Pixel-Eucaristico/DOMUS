@@ -10,7 +10,7 @@ function toHex(buffer: ArrayBuffer): string {
     .join("");
 }
 
-function fromHex(hex: string): Uint8Array {
+function fromHex(hex: string): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length; i += 2) {
     bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
@@ -18,7 +18,9 @@ function fromHex(hex: string): Uint8Array {
   return bytes;
 }
 
-const HMAC_ALGO = { name: "HMAC", hash: "SHA-256" };
+// Tipado como HmacKeyGenParams/HmacImportParams para o TS resolver os
+// overloads específicos de generateKey/importKey (retornam CryptoKey).
+const HMAC_ALGO: HmacKeyGenParams & HmacImportParams = { name: "HMAC", hash: "SHA-256" };
 
 export const webCryptoAdapter: CryptoAdapter = {
   async generateKeyPair() {

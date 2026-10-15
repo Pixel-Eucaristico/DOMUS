@@ -37,7 +37,7 @@ export function LoadingSpinner({ size = 40, theme }: LoadingSpinnerProps) {
       -1,
       true
     );
-  }, []);
+  }, [rotation, strokeOffset]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],

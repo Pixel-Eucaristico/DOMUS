@@ -10,18 +10,18 @@ import {
   Dimensions,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-
-const NUM_COLS = 5;
-const SCREEN_W = Dimensions.get("window").width;
-const H_PAD = 16 * 2; // paddingHorizontal do sheet
-const CARD_MARGIN = 4 * 2; // margin de cada lado
-const CARD_SIZE = Math.floor((SCREEN_W - H_PAD - CARD_MARGIN * NUM_COLS) / NUM_COLS);
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
 import { ScraperRegistry } from "@packages/wishlist/src/scrapers/ScraperRegistry";
 import type { IScraperStrategy } from "@packages/wishlist/src/scrapers/IScraperStrategy";
 import { soundManager } from "@/src/services/SoundManager";
+
+const NUM_COLS = 5;
+const SCREEN_W = Dimensions.get("window").width;
+const H_PAD = 16 * 2; // paddingHorizontal do sheet
+const CARD_MARGIN = 4 * 2; // margin de cada lado
+const CARD_SIZE = Math.floor((SCREEN_W - H_PAD - CARD_MARGIN * NUM_COLS) / NUM_COLS);
 
 // Ícones das lojas via Google Favicon Service (128px, confiável e sempre atualizado)
 function getStoreIconUrl(storeId: string, baseUrls: string[]): string {
@@ -139,7 +139,6 @@ export function StoreGridModal({ visible, theme, searchQuery = "", onSelectStore
             keyExtractor={(s) => s.id}
             renderItem={renderItem}
             numColumns={5}
-            estimatedItemSize={80}
             contentContainerStyle={styles.grid}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={

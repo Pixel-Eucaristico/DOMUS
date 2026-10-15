@@ -1,10 +1,9 @@
-import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -28,7 +27,7 @@ import type { WishlistItem, UrgencyLevel } from "@packages/wishlist";
 export default function WishlistDetailScreen() {
   const { listId, addItem: addItemParam } = useLocalSearchParams<{ listId: string; addItem?: string }>();
   const router = useRouter();
-  const { theme, domain, budget, dispatchDomainEvent, deviceId } = useAppState();
+  const { theme, domain, dispatchDomainEvent, deviceId } = useAppState();
   const did = deviceId ?? "local";
   const {
     lists,

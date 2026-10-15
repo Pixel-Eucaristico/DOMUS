@@ -80,7 +80,9 @@ export function getTierLabel(tier: SeasonalTier): string {
   return "Bronze";
 }
 
-export function getTierColor(tier: SeasonalTier): string {
+// Aceita number para incluir o tier 4 (diamante) usado na UI de debug/preview
+export function getTierColor(tier: SeasonalTier | number): string {
+  if (tier === 4) return "#4FC3F7"; // diamante
   if (tier === 3) return "#FFC107";
   if (tier === 2) return "#9E9E9E";
   return "#CD7F32";

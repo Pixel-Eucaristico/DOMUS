@@ -9,15 +9,12 @@ import {
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import {
-  TRANSACTION_CATEGORIES,
   EXPENSE_CATEGORIES,
   ManualItem,
   itemTotal,
 } from "@/src/constants/transactionCategories";
-import { GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal";
 import { soundManager } from "@/src/services/SoundManager";
-import { NCM_SUBCATEGORIES } from "@packages/parsers/src/classifier/ncmCategories";
 import { TButton, TInput } from "@/src/components/tamagui";
 import { getCategoryDisplayName, getCategoryColor, getGroupColor, getGroupLabel, getCategoryGroup } from "@/src/utils/categoryHelpers";
 
@@ -99,11 +96,11 @@ export function ItemsSection({
       setNewItemCatId(categoryId);
       setNewItemSubCatId(subcategoryId);
     } else {
-      // Editing existing item
+      // Editing existing item — sempre atualiza a subcategoria (vazio limpa) e
+      // reseta o override manual, pois a nova categoria redefine o grupo padrão
       onEditItemField(pickerTarget, "categoryId", categoryId);
-      if (subcategoryId) {
-        onEditItemField(pickerTarget, "subcategoryId" as keyof ManualItem, subcategoryId);
-      }
+      onEditItemField(pickerTarget, "subcategoryId", subcategoryId ?? "");
+      onEditItemField(pickerTarget, "groupOverride", "");
     }
   };
 
@@ -279,10 +276,19 @@ export function ItemsSection({
                   {(() => {
                     const group = item.groupOverride ?? getCategoryGroup(item.categoryId, item.subcategoryId);
                     const gc = getGroupColor(group);
+                    // Toque alterna Necessidade ↔ Desejo (override manual por produto)
+                    const nextGroup = group === "needs" ? "wants" : "needs";
                     return (
-                      <View style={[s.groupBadge, { backgroundColor: `${gc}18` }]}>
+                      <Pressable
+                        onPress={() => {
+                          soundManager.play("tap");
+                          onEditItemField(item.id, "groupOverride", nextGroup);
+                        }}
+                        style={[s.groupBadge, { backgroundColor: `${gc}18` }]}
+                      >
+                        <Feather name="refresh-cw" size={9} color={gc} />
                         <Text style={[s.groupBadgeText, { color: gc }]}>{getGroupLabel(group)}</Text>
-                      </View>
+                      </Pressable>
                     );
                   })()}
                 </View>
@@ -501,6 +507,9 @@ const s = StyleSheet.create({
     borderRadius: 6,
   },
   groupBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,

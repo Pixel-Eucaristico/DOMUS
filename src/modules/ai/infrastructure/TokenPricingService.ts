@@ -2,12 +2,13 @@ import type { AIProvider, AIModelTier } from "@packages/ai";
 import { SecureStorageService } from "@/src/modules/security/infrastructure/SecureStorageService";
 
 // Prices in USD per 1 million tokens (average of input+output)
+// Atualizado em 2026-07-15 conforme as tabelas oficiais dos provedores.
 export const TOKEN_PRICES_USD: Record<AIProvider, Record<AIModelTier, number>> = {
-  openai: { fast: 0.40, smart: 4.00 },    // gpt-5-mini / gpt-4.1
-  gemini: { fast: 0.15, smart: 2.50 },     // gemini-2.5-flash / gemini-2.5-pro
-  claude: { fast: 1.00, smart: 9.00 },     // haiku-4.5 / sonnet-4.6
-  deepseek: { fast: 0.35, smart: 0.35 },   // deepseek-chat / deepseek-reasoner (same pricing)
-  qwen: { fast: 0.10, smart: 0.39 },       // qwen3.5-flash / qwen3.5-plus
+  openai: { fast: 3.50, smart: 8.75 },     // gpt-5.6-luna ($1/$6) / gpt-5.6-terra ($2.5/$15)
+  gemini: { fast: 0.90, smart: 5.25 },     // gemini-3.1-flash-lite ($0.25/$1.50) / gemini-3.5-flash ($1.50/$9)
+  claude: { fast: 3.00, smart: 9.00 },     // claude-haiku-4-5 ($1/$5) / claude-sonnet-5 ($3/$15)
+  deepseek: { fast: 0.21, smart: 0.65 },   // deepseek-v4-flash ($0.14/$0.28) / deepseek-v4-pro ($0.435/$0.87)
+  qwen: { fast: 0.10, smart: 0.39 },       // qwen-turbo-latest / qwen-plus-latest
 };
 
 const CUSTOM_PRICES_KEY = "domus_ai_custom_prices";

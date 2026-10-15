@@ -8,7 +8,7 @@ const V=JSON.parse(fs.readFileSync(path.join(__dirname,'lottie-verts-praying.jso
 
 const L=[];
 const gold=[1,.843,0,1],white=[1,1,1,1];
-const purple=[.55,.3,.75,1],darkPurple=[.4,.2,.6,1],lightPurple=[.7,.5,.85,1];
+const purple=[.55,.3,.75,1],darkPurple=[.4,.2,.6,1];
 const warmYellow=[1,.92,.5,1];
 
 // --- Glow (warm golden for spiritual feel) ---

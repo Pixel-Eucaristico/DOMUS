@@ -58,7 +58,8 @@ export async function assertOk(response: Response, providerName: string): Promis
     }
 
     if (response.status === 429) {
-      const retryAfter = response.headers.get("retry-after");
+      // headers pode ser indefinido em fetch mockado/polyfill — não quebrar aqui
+      const retryAfter = response.headers?.get?.("retry-after") ?? null;
       const waitMsg = retryAfter ? ` Tente novamente em ${retryAfter}s.` : " Aguarde um momento e tente novamente.";
       throw new Error(
         `Limite de requisicoes do ${providerName} excedido.${waitMsg}`,

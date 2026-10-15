@@ -7,7 +7,7 @@ import type { ThemeColors } from "@packages/theme";
 import type { CategoryGroup } from "@packages/events/src/types";
 import { TText } from "@/src/components/tamagui";
 
-const GROUP_OPTIONS: Array<{ value: CategoryGroup; label: string; color: string }> = [
+const GROUP_OPTIONS: { value: CategoryGroup; label: string; color: string }[] = [
   { value: "needs", label: "Necessidade", color: "#10B981" },
   { value: "wants", label: "Desejo", color: "#F59E0B" },
   { value: "savings", label: "Poupanca", color: "#3B82F6" },

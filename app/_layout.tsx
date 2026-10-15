@@ -3,7 +3,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState, useCallback } from "react";
-import { View, Platform } from "react-native";
+import { View, Platform, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AvoidSoftInput } from "react-native-avoid-softinput";
@@ -20,7 +20,7 @@ import { TamaguiProvider } from "tamagui";
 import tamaguiConfig from "@/tamagui.config";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
-import { AppStateProvider } from "@/src/context/AppStateProvider";
+import { AppStateProvider , useAppState } from "@/src/context/AppStateProvider";
 import { SyncProvider } from "@/src/context/SyncProvider";
 import { DemoModeProvider, useDemoMode } from "@/src/context/DemoModeProvider";
 import { TourOverlay } from "@/src/components/shared/TourOverlay";
@@ -38,7 +38,6 @@ import type { TransactionUpdatedEvent } from "@packages/events/src/types";
 import { LockScreen } from "@/src/components/security/LockScreen";
 import { useSecurityLock } from "@/src/hooks/useSecurityLock";
 import { AnimatedSplash } from "@/src/components/shared/AnimatedSplash";
-import { useAppState } from "@/src/context/AppStateProvider";
 import { DebugTools } from "@/src/components/debug/DebugTools";
 import { ResponsiveLayoutProvider } from "@/src/ui/layout/ResponsiveLayoutProvider";
 import { useResponsive } from "@/src/ui/layout/useResponsive";
@@ -171,6 +170,7 @@ function ShareIntentHandler() {
       // URL não é Amazon nem ML — ignora e limpa o intent
       resetShareIntent();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- resetShareIntent é recriado a cada render pelo expo-share-intent; o efeito deve reagir só ao intent
   }, [hasShareIntent, shareIntent]);
 
   const handleClose = useCallback(() => {
@@ -298,7 +298,7 @@ function DesktopLayout({ children }: { children: React.ReactNode }) {
 
 function AppContainer({ children }: { children: React.ReactNode }) {
   const { theme, themeMode } = useAppState();
-  const systemScheme = require("react-native").useColorScheme?.() ?? "light";
+  const systemScheme = useColorScheme() ?? "light";
   const isDark = themeMode === "dark" || (themeMode === "system" && systemScheme === "dark");
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>

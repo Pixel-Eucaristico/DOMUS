@@ -13,7 +13,6 @@ import {
   initialLocalState,
   type LocalState,
   type LocalAction,
-  type SetupStep,
 } from "@/src/modules/security/application/securitySetupReducer";
 
 export interface SecuritySetupState {
@@ -190,6 +189,7 @@ export function useSecuritySetup(): SecuritySetupState {
     if (local.step === "verify_biometric_to_disable") {
       handleBiometricToDisable();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- prompt biométrico deve disparar só na entrada do passo; reexecutar por mudança do callback repetiria o prompt
   }, [local.step]);
 
   // Change PIN flow

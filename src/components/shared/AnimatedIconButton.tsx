@@ -59,7 +59,7 @@ export const AnimatedIconButton: React.FC<AnimatedIconButtonProps> = ({
       rotation.value = withTiming(0);
       opacity.value = withTiming(1);
     }
-  }, [isLoading]);
+  }, [isLoading, opacity, rotation]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [

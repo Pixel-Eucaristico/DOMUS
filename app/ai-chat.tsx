@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Animated,
   ActivityIndicator,
-} from "react-native";
+ Alert } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -16,14 +16,12 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { GiftedChat, Bubble } from "react-native-gifted-chat";
 import type { IMessage, BubbleProps } from "react-native-gifted-chat";
 import { useAppState } from "@/src/context/AppStateProvider";
-import { Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { soundManager } from "@/src/services/SoundManager";
 import { VisionOCRService } from "@packages/ai/src/vision/VisionOCRService";
-import type { OCRDocumentType } from "@packages/ai/src/vision/ocrSchema";
+import type { OCRDocumentType , InvoiceOCRResult, PayslipOCRResult } from "@packages/ai/src/vision/ocrSchema";
 import { SelectionModal } from "@/src/components/shared/SelectionModal";
 import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
-import type { InvoiceOCRResult, PayslipOCRResult } from "@packages/ai/src/vision/ocrSchema";
 import { useAIConsultant } from "@/src/hooks/useAIConsultant";
 import { useAISettings } from "@/src/hooks/useAISettings";
 import { useVoiceRecorder } from "@/src/hooks/useVoiceRecorder";
@@ -43,7 +41,7 @@ import { QuickSuggestions } from "@/src/components/ai/QuickSuggestions";
 import { ChatInputBar } from "@/src/components/ai/ChatInputBar";
 import type { ChatAction } from "@/src/components/ai/ChatActionMenu";
 import { ProviderSwitchModal, detectProviderIssue } from "@/src/components/ai/ProviderSwitchModal";
-import type { ChatMessage, ConsultationResult } from "@packages/ai";
+import type { ConsultationResult } from "@packages/ai";
 import type { AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -243,6 +241,7 @@ export default function AIChatScreen() {
     if (result.canceled || !result.assets?.[0]?.base64) return;
 
     const asset = result.assets[0]!;
+    const imageBase64 = asset.base64!; // garantido pelo guard acima (result.assets?.[0]?.base64)
     const mimeType = asset.mimeType ?? (asset.uri.endsWith(".png") ? "image/png" : "image/jpeg");
 
     setVisionLoading(true);
@@ -253,7 +252,7 @@ export default function AIChatScreen() {
       if (!apiKey) { Alert.alert("Sem chave API", "Configure a chave API nas configurações de IA."); setVisionLoading(false); return; }
 
       // 3. Processar com VisionOCR
-      const ocrResult = await VisionOCRService.process(asset.base64, mimeType, provider, apiKey, docType);
+      const ocrResult = await VisionOCRService.process(imageBase64, mimeType, provider, apiKey, docType);
 
       // 4. Registrar tokens (~2000 por Vision request)
       await TokenTracker.record(provider, 2000, settings.billingDay);
@@ -282,7 +281,6 @@ export default function AIChatScreen() {
           totalAmount: inv.total,
         };
         // Salvar no AsyncStorage temporário para a tela de import ler
-        const AsyncStorage = require("@react-native-async-storage/async-storage").default;
         await AsyncStorage.setItem("@domus/vision_ocr_result", JSON.stringify(payload));
         router.push("/import-invoice?fromVision=1");
       } else {
@@ -455,7 +453,7 @@ export default function AIChatScreen() {
       await voiceOutputService.stop();
       try { await startRecording(); } catch { /* ignore */ }
     }
-  }, [isRecording, stopRecording, startRecording, settings.provider, settings.dataPermissions, sendMessage]);
+  }, [isRecording, stopRecording, startRecording, settings.provider, settings.audioProvider, settings.isEnabled, settings.voiceEnabled, settings.dataPermissions, sendMessage]);
 
   // ─── GiftedChat: Bubble with Markdown + Listen + Copy ─────────────────
   const renderBubble = useCallback(
@@ -599,7 +597,7 @@ export default function AIChatScreen() {
         onAction={handleAction}
       />
     ),
-    [inputText, settings.isEnabled, settings.voiceEnabled, settings.visionOCREnabled, isRecording, isTranscribing, isLoading, pulseAnim, handleVoicePress, handleAction, handleSend],
+    [inputText, settings.isEnabled, settings.voiceEnabled, settings.visionOCREnabled, settings.provider, settings.audioProvider, isRecording, isTranscribing, isLoading, visionLoading, pulseAnim, handleVoicePress, handleAction, handleSend],
   );
 
   // ─── GiftedChat: Scroll to bottom ─────────────────────────────────────
@@ -746,7 +744,7 @@ export default function AIChatScreen() {
           visible={switchModal !== null}
           currentProvider={settings.provider}
           availableProviders={
-            (Object.keys(settings.apiKeyStatus) as Array<import("@packages/ai").AIProvider>)
+            (Object.keys(settings.apiKeyStatus) as import("@packages/ai").AIProvider[])
               .filter((p) => settings.apiKeyStatus[p] === true)
           }
           reason={switchModal?.reason ?? ""}

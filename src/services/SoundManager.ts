@@ -72,6 +72,7 @@ class SoundManager {
         this.isLoaded = true;
       } else {
         // Native: use expo-audio
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- import tardio: expo-audio só é carregado no nativo
         const { createAudioPlayer } = require("expo-audio");
         for (const [key, asset] of Object.entries(SOUND_ASSETS)) {
           try {

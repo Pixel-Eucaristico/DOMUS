@@ -50,9 +50,9 @@ describe("SecureKeyService.storeKey / retrieveKey", () => {
 
   it("stores different keys per provider without collision", async () => {
     await SecureKeyService.storeKey("openai", "openai-key-value");
-    await SecureKeyService.storeKey("anthropic", "anthropic-key-value");
+    await SecureKeyService.storeKey("claude", "anthropic-key-value");
     expect(await SecureKeyService.retrieveKey("openai")).toBe("openai-key-value");
-    expect(await SecureKeyService.retrieveKey("anthropic")).toBe("anthropic-key-value");
+    expect(await SecureKeyService.retrieveKey("claude")).toBe("anthropic-key-value");
   });
 
   it("overwrites old key when storeKey is called again for same provider", async () => {
@@ -67,7 +67,7 @@ describe("SecureKeyService.storeKey / retrieveKey", () => {
 
   it("returns null for a different provider than stored", async () => {
     await SecureKeyService.storeKey("openai", "openai-key");
-    expect(await SecureKeyService.retrieveKey("anthropic")).toBeNull();
+    expect(await SecureKeyService.retrieveKey("claude")).toBeNull();
   });
 });
 
@@ -85,7 +85,7 @@ describe("SecureKeyService.hasKey", () => {
 
   it("returns false for a different provider", async () => {
     await SecureKeyService.storeKey("openai", "sk-test");
-    expect(await SecureKeyService.hasKey("anthropic")).toBe(false);
+    expect(await SecureKeyService.hasKey("claude")).toBe(false);
   });
 });
 
@@ -106,9 +106,9 @@ describe("SecureKeyService.deleteKey", () => {
 
   it("does not affect a different provider's key", async () => {
     await SecureKeyService.storeKey("openai", "openai-key");
-    await SecureKeyService.storeKey("anthropic", "anthropic-key");
+    await SecureKeyService.storeKey("claude", "anthropic-key");
     await SecureKeyService.deleteKey("openai");
-    expect(await SecureKeyService.retrieveKey("anthropic")).toBe("anthropic-key");
+    expect(await SecureKeyService.retrieveKey("claude")).toBe("anthropic-key");
   });
 
   it("does not throw when key does not exist", async () => {

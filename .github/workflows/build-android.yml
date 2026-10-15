@@ -140,6 +140,17 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
 
+      # Sempre anexa APK/AAB como artefatos do run — permite baixar builds de
+      # qualquer branch (workflow_dispatch) sem esperar merge na main
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: domus-android-${{ steps.apk.outputs.version }}-${{ steps.apk.outputs.short_sha }}
+          path: |
+            ${{ steps.apk.outputs.apk_name }}
+            ${{ steps.apk.outputs.aab_name }}
+          retention-days: 14
+
       - name: Publish pre-release (push na main)
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2

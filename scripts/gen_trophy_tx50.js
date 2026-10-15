@@ -113,10 +113,6 @@ function createTier(tier) {
 
   // ── SCROLL (pergaminho) ──
   // Body: rounded rect
-  // Top curl
-  const topCurl = {v:[[-sw/2,-sh/2],[-sw/2-5,-sh/2-4],[sw/2+5,-sh/2-4],[sw/2,-sh/2]],i:[[0,0],[0,2],[0,0],[0,-2]],o:[[0,-2],[0,0],[0,2],[0,0]],c:false};
-  // Bottom curl
-  const botCurl = {v:[[-sw/2,sh/2],[-sw/2-5,sh/2+4],[sw/2+5,sh/2+4],[sw/2,sh/2]],i:[[0,0],[0,-2],[0,0],[0,2]],o:[[0,2],[0,0],[0,-2],[0,0]],c:false};
 
   layers.push({
     ddd:0,ind:10,ty:4,nm:'Scroll',sr:1,

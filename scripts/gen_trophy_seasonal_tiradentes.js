@@ -8,7 +8,6 @@ const VS=JSON.parse(fs.readFileSync(path.join(__dirname,'lottie-verts-crossed-sw
 // Load shield from bootstrap (reuse from monthly_controle)
 const VSH=JSON.parse(fs.readFileSync(path.join(__dirname,'lottie-verts-shield-bootstrap.json'),'utf8'));
 
-const white=[1,1,1,1];
 
 const TIERS = {
   base: { // Bronze

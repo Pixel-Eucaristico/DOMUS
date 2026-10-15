@@ -14,7 +14,7 @@ export async function restoreSiscomexCacheFromStorage(): Promise<boolean> {
     const raw = await AsyncStorage.getItem(CACHE_KEY);
     if (!raw) return false;
 
-    const data = JSON.parse(raw) as Array<{ Codigo: string; Descricao: string }>;
+    const data = JSON.parse(raw) as { Codigo: string; Descricao: string }[];
     if (!Array.isArray(data) || data.length === 0) return false;
 
     restoreSiscomexCache(data);

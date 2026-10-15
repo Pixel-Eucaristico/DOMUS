@@ -10,7 +10,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { useSync } from "@/src/context/SyncProvider";
 import { calculate503020 } from "@packages/domain/src/transactions";
@@ -46,8 +45,7 @@ import { useScreenIntro } from "@/src/hooks/useScreenIntro";
 import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
 import { PixelText } from "@/src/components/pixel";
-import { TCard } from "@/src/components/tamagui";
-import { TText } from "@/src/components/tamagui";
+import { TCard , TText } from "@/src/components/tamagui";
 
 
 
@@ -171,13 +169,6 @@ export default function HomeScreen() {
     }
     return result;
   }, [txArr, savingsGoalAccounts]);
-
-  const playTap = () => {
-    soundManager.play("tap");
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  };
 
   const fabActions = useMemo(() => {
     const all = [

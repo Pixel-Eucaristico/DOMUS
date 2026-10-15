@@ -5,7 +5,7 @@ function mf(c){return{ty:"fl",c:{a:0,k:c},o:{a:0,k:100},r:1,bm:0,nm:"F"}}
 function ms(c,w){return{ty:"st",c:{a:0,k:c},o:{a:0,k:100},w:{a:0,k:w},lc:2,lj:2,bm:0,nm:"S"}}
 
 const L=[];
-const gold=[1,.843,0,1],white=[1,1,1,1],green=[.18,.75,.34,1],red=[.85,.2,.15,1];
+const gold=[1,.843,0,1],white=[1,1,1,1],red=[.85,.2,.15,1];
 
 // Glow
 L.push({ddd:0,ind:1,ty:4,nm:"Glow",sr:1,ks:{o:{a:1,k:[{...io,t:0,s:[12]},{...io,t:45,s:[22]},{t:90,s:[12]}]},r:{a:0,k:0},p:{a:0,k:[100,bY-15,0]},a:{a:0,k:[0,0,0]},s:{a:1,k:[{...io3,t:0,s:[80,80,100]},{...io3,t:45,s:[100,100,100]},{t:90,s:[80,80,100]}]}},ao:0,shapes:[{ty:"el",d:1,s:{a:0,k:[110,110]},p:{a:0,k:[0,0]},nm:"G"},mf([.95,.85,.4,1])],ip:0,op:90,st:0,bm:0});

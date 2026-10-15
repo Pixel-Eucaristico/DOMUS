@@ -284,6 +284,7 @@ export function useSyncEngine({
         subRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lastPullTs muda a cada pull; incluí-lo recriaria a subscription de sync a cada pull (o valor atual é lido via lastPullTsRef)
   }, [groupCode, deviceId, keys, loading, doSync, pullFromRelays, pushMyEvents, importEvents, saveLastSync]);
 
   // --- Auto-push on local event changes ---

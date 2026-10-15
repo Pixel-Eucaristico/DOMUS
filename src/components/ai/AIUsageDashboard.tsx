@@ -63,7 +63,7 @@ export function AIUsageDashboard({
 
       const providerEntries = Object.entries(u.byProvider).filter(
         ([, tokens]) => (tokens ?? 0) > 0,
-      ) as Array<[AIProvider, number]>;
+      ) as [AIProvider, number][];
 
       const costMap: Record<string, ProviderCost> = {};
       for (const [p, tokens] of providerEntries) {
@@ -85,7 +85,7 @@ export function AIUsageDashboard({
 
   const providers = Object.entries(usage.byProvider).filter(
     ([, tokens]) => (tokens ?? 0) > 0,
-  ) as Array<[AIProvider, number]>;
+  ) as [AIProvider, number][];
 
   if (providers.length === 0 && usage.totalTokens === 0) return null;
 

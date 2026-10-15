@@ -98,7 +98,7 @@ export function useAutoBackup() {
           const driveConnected = await GoogleDriveService.isConnected();
           if (driveConnected) {
             // Lê o arquivo recém-salvo e envia ao Drive
-            const { FileSystemService } = require("@/src/modules/backup/infrastructure/FileSystemService");
+            const { FileSystemService } = await import("@/src/modules/backup/infrastructure/FileSystemService");
             const content = await FileSystemService.read(filePath);
             await GoogleDriveService.uploadBackup(content);
           }
@@ -109,5 +109,5 @@ export function useAutoBackup() {
         // auto-backup é best-effort — nunca crashar o app
       }
     })();
-  }, [loading]);
+  }, [loading, deviceId, getAllEvents]);
 }

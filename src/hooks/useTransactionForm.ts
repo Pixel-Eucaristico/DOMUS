@@ -18,6 +18,7 @@ import type {
   RecurrenceType,
   InstallmentAmountMode,
   CategoryCreatedEvent,
+  CategoryGroup,
 } from "@packages/events/src/types";
 import { createEvent, generateId } from "@packages/events/src/factory";
 import { EVENT_TYPES } from "@packages/events/src/types";
@@ -40,6 +41,10 @@ export interface UseTransactionFormResult {
   setDescription: (v: string) => void;
   selectedCategory: number;
   setSelectedCategory: (v: number) => void;
+  subcategoryId: string | undefined;
+  setSubcategoryId: (v: string | undefined) => void;
+  groupOverride: CategoryGroup | undefined;
+  setGroupOverride: (v: CategoryGroup | undefined) => void;
   installmentCount: number;
   setInstallmentCount: (v: number) => void;
   installmentAmountMode: InstallmentAmountMode;
@@ -99,6 +104,8 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     }
     return 0;
   });
+  const [subcategoryId, setSubcategoryId] = useState<string | undefined>(editingTx?.subcategoryId);
+  const [groupOverride, setGroupOverride] = useState<CategoryGroup | undefined>(editingTx?.groupOverride);
   const [installmentCount, setInstallmentCount] = useState(editingTx?.installments ?? 1);
   const [installmentAmountMode, setInstallmentAmountMode] = useState<InstallmentAmountMode>("total");
   const [installmentStartFrom, setInstallmentStartFrom] = useState(1);
@@ -132,6 +139,8 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
         unit: "UN",
         unitPrice: item.amount.toString(),
         categoryId: localCat?.id ?? TRANSACTION_CATEGORIES[0]!.id,
+        subcategoryId: item.subcategoryId,
+        groupOverride: item.groupOverride,
         ean: item.ean,
         ncm: item.ncm,
       };
@@ -142,6 +151,8 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
   const setTxType = (v: TransactionType) => {
     setTxTypeRaw(v);
     setSelectedCategory(0);
+    setSubcategoryId(undefined);
+    setGroupOverride(undefined);
   };
 
   // When source account changes, clear target if it now conflicts (same account)
@@ -150,7 +161,6 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     if (targetAccountId === id) setTargetAccountId("");
   };
 
-  const accounts = Object.values(domain.accounts);
   const defaultAccountId = selectedAccountId;
   const computedItemsTotal = manualItems.reduce((s, i) => s + itemTotal(i), 0);
 
@@ -163,8 +173,11 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
   };
 
   const handleEditItemField = (id: string, field: keyof ManualItem, value: string | number) => {
+    // Campos opcionais: string vazia significa "limpar" (volta ao automático)
+    const optionalFields: (keyof ManualItem)[] = ["subcategoryId", "groupOverride", "ean", "ncm"];
+    const normalized = value === "" && optionalFields.includes(field) ? undefined : value;
     setManualItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)),
+      prev.map((item) => (item.id === id ? { ...item, [field]: normalized } : item)),
     );
   };
 
@@ -280,6 +293,8 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
           description: mi.description,
           amount: itemTotal(mi),
           categoryId: itemCatId,
+          subcategoryId: mi.subcategoryId || undefined,
+          groupOverride: mi.groupOverride || undefined,
           ean: mi.ean || undefined,
           ncm: mi.ncm || undefined,
         };
@@ -298,6 +313,8 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
           type: txType,
           amount: amountNum,
           categoryId: catId,
+          subcategoryId,
+          groupOverride,
           date,
           description: description || cat.name,
           targetAccountId: txType === "transfer" ? targetAccountId || undefined : undefined,
@@ -315,6 +332,8 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
         type: txType,
         amount: amountNum,
         categoryId: catId,
+        subcategoryId,
+        groupOverride,
         date,
         description: description || cat.name,
         targetAccountId: txType === "transfer" ? targetAccountId || undefined : undefined,
@@ -330,6 +349,8 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
         type: txType,
         amount: amountNum,
         categoryId: catId,
+        subcategoryId,
+        groupOverride,
         date,
         description: description || cat.name,
         installments: installmentCount,
@@ -415,6 +436,10 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     setDescription,
     selectedCategory,
     setSelectedCategory,
+    subcategoryId,
+    setSubcategoryId,
+    groupOverride,
+    setGroupOverride,
     installmentCount,
     setInstallmentCount,
     installmentAmountMode,

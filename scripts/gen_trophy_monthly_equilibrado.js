@@ -6,7 +6,7 @@ function ms(c,w){return{ty:"st",c:{a:0,k:c},o:{a:0,k:100},w:{a:0,k:w},lc:2,lj:2,
 
 const L=[];
 const gold=[1,.843,0,1],white=[1,1,1,1],blue=[.23,.51,.85,1],darkBlue=[.15,.35,.65,1];
-const lightBlue=[.4,.65,.95,1],green=[.18,.75,.34,1];
+const lightBlue=[.4,.65,.95,1];
 
 // --- Glow ---
 L.push({ddd:0,ind:1,ty:4,nm:"Glow",sr:1,ks:{o:{a:1,k:[{...io,t:0,s:[10]},{...io,t:45,s:[20]},{t:90,s:[10]}]},r:{a:0,k:0},p:{a:0,k:[100,bY,0]},a:{a:0,k:[0,0,0]},s:{a:1,k:[{...io3,t:0,s:[80,80,100]},{...io3,t:45,s:[100,100,100]},{t:90,s:[80,80,100]}]}},ao:0,shapes:[{ty:"el",d:1,s:{a:0,k:[120,120]},p:{a:0,k:[0,0]},nm:"G"},mf([.3,.55,.9,.5])],ip:0,op:90,st:0,bm:0});

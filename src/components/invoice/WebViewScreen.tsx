@@ -11,7 +11,8 @@ import { TButton } from "@/src/components/tamagui";
 
 // Require WebView fora do render para evitar crash durante mount em Samsung
 const NativeWebView = Platform.OS !== "web"
-  ? (() => { try { return require("react-native-webview").default; } catch { return null; } })()
+  ? // eslint-disable-next-line @typescript-eslint/no-require-imports -- import tardio: módulo nativo indisponível no web
+    (() => { try { return require("react-native-webview").default; } catch { return null; } })()
   : null;
 
 interface Props {
