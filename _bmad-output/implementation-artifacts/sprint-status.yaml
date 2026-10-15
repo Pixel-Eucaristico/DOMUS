@@ -1,0 +1,147 @@
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when its first story starts (via build's sprint sync)
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates the next story after the previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; the status view surfaces open ones
+generated: 10-15-2026 14:00
+last_updated: 10-15-2026 14:00
+project: DOMUS
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+development_status:
+  epic-1: backlog
+  1-1-consolidar-as-correções-de-segredo-na-dev: backlog
+  1-2-mirar-a-api-36-no-build-de-release: backlog
+  1-3-validar-no-android-16-e-corrigir-o-que-quebrar: backlog
+  1-4-corrigir-a-descrição-da-loja-e-a-política-de-privacidade: backlog
+  1-5-alinhar-o-formulário-data-safety-ao-comportamento: backlog
+  1-6-enviar-o-aab-com-target-36-à-play-até-25-10-2026: backlog
+  1-7-verificar-que-o-build-publicado-não-tem-o-client_secret: backlog
+  1-8-revogar-o-segredo-antigo-do-google-depois-da-adoção: backlog
+  epic-1-retrospective: optional
+
+  epic-2: backlog
+  2-1-alinhar-os-testes-de-xp-com-as-regras-de-xp-que-valem: backlog
+  2-2-corrigir-os-testes-do-parser-sefaz: backlog
+  2-3-corrigir-os-testes-de-erro-http-dos-adaptadores-de-ia: backlog
+  2-4-resolver-o-teste-de-importinvoice-e-o-teste-de-season: backlog
+  2-5-configurar-o-eslint-para-scripts-e-pastas-de-ferramentas: backlog
+  2-6-corrigir-os-erros-de-lint-reais-em-src-e-app: backlog
+  2-7-usar-node-24-nos-workflows-e-declarar-a-versão: backlog
+  2-8-barrar-lint-e-testes-na-ci: backlog
+  epic-2-retrospective: optional
+
+  epic-3: backlog
+  3-1-validar-o-envelope-e-o-tipo-na-importação: backlog
+  3-2-isolar-cada-evento-no-replay-e-registrar-a-quarentena: backlog
+  3-3-reprocessar-eventos-desconhecidos-depois-de-atualizar-o-app: backlog
+  3-4-ordem-total-do-replay-em-memória-e-no-sqlite: backlog
+  3-5-rejeitar-timestamp-no-futuro-e-nunca-reescrevê-lo: backlog
+  3-6-separar-o-cursor-de-leitura-dos-relays-do-timestamp-do-event: backlog
+  3-7-aplicar-edição-e-exclusão-que-chegam-antes-do-alvo: backlog
+  3-8-evoluir-o-formato-dos-eventos-sem-quebrar-versões-publicadas: backlog
+  epic-3-retrospective: optional
+
+  epic-4: backlog
+  4-1-gerar-o-segredo-de-grupo-forte-e-derivar-as-chaves: backlog
+  4-2-cifrar-e-decifrar-eventos-com-cifra-autenticada: backlog
+  4-3-criar-um-grupo-forte-e-mostrá-lo-por-qr-e-por-texto: backlog
+  4-4-parear-um-aparelho-por-qr-ou-colagem: backlog
+  4-5-publicar-e-ler-eventos-no-grupo-forte: backlog
+  4-6-registrar-em-qual-grupo-cada-evento-já-foi-publicado: backlog
+  4-7-manter-o-grupo-antigo-e-o-forte-ao-mesmo-tempo: backlog
+  4-8-migrar-um-aparelho-do-grupo-antigo-para-o-forte: backlog
+  4-9-cortar-o-grupo-antigo-na-versão-mínima-e-na-data: backlog
+  4-10-reativar-ponta-a-ponta-no-texto-público-depois-do-corte: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog
+  5-1-testar-o-sync-com-três-aparelhos-simulados: backlog
+  5-2-confirmar-o-envio-por-lote-e-reenviar-os-perdidos: backlog
+  5-3-publicar-só-os-lotes-novos-no-grupo-forte: backlog
+  5-4-ler-o-histórico-de-forma-incremental-e-paginada: backlog
+  5-5-enfileirar-eventos-recebidos-em-rajada: backlog
+  5-6-nunca-republicar-o-que-veio-do-grupo: backlog
+  5-7-propagar-rápido-inclusive-depois-de-ficar-offline: backlog
+  5-8-publicar-o-marcador-de-reset-e-de-restauração: backlog
+  5-9-pedir-confirmação-antes-de-apagar-por-causa-de-um-marcador: backlog
+  epic-5-retrospective: optional
+
+  epic-6: backlog
+  6-1-mover-a-chave-do-ocr-para-o-armazenamento-seguro: backlog
+  6-2-mover-a-chave-e-a-senha-do-auto-backup-para-o-armazenamento: backlog
+  6-3-tirar-a-queda-silenciosa-do-securestore-para-o-asyncstorage: backlog
+  6-4-cifrar-o-log-de-eventos-da-web: backlog
+  6-5-barrar-por-teste-novo-segredo-em-asyncstorage: backlog
+  epic-6-retrospective: optional
+
+  epic-7: backlog
+  7-1-dar-id-determinístico-às-conquistas-e-deduplicar-no-reducer: backlog
+  7-2-rodar-os-efeitos-só-depois-do-primeiro-pull: backlog
+  7-3-criar-o-aporte-pendente-uma-vez-por-período: backlog
+  7-4-não-dar-xp-a-transação-pendente: backlog
+  7-5-recuperar-o-xp-uma-vez-só: backlog
+  7-6-categorias-sem-duplicar-entre-aparelhos: backlog
+  7-7-emitir-cada-conquista-uma-vez-num-parcelamento: backlog
+  7-8-derivar-o-nível-do-log: backlog
+  7-9-derivar-o-streak-do-log: backlog
+  7-10-criar-e-excluir-uma-transação-deixa-o-xp-igual: backlog
+  epic-7-retrospective: optional
+
+  epic-8: backlog
+  8-1-medir-a-linha-de-base-e-atualizar-para-o-expo-sdk-55: backlog
+  8-2-reavaliar-patches-e-tamagui-no-sdk-55-e-validar-os-fluxos: backlog
+  8-3-atualizar-para-o-expo-sdk-56-e-aplicar-o-codemod-do-expo-rou: backlog
+  8-4-medir-a-memória-e-validar-o-sdk-56: backlog
+  8-5-atualizar-para-o-expo-sdk-57: backlog
+  8-6-reavaliar-patches-e-tamagui-no-sdk-57-e-validar-os-fluxos: backlog
+  8-7-decidir-a-biblioteca-do-novo-login-do-google: backlog
+  8-8-migrar-o-login-e-a-autorização-do-drive: backlog
+  8-9-explicar-a-reconexão-do-drive-ao-usuário: backlog
+  epic-8-retrospective: optional
+
+  epic-9: backlog
+  9-1-inventariar-e-classificar-tudo-que-o-app-guarda-fora-do-log: backlog
+  9-2-criar-o-evento-de-preferência-e-o-reducer: backlog
+  9-3-sincronizar-tema-som-e-modo-de-apoio: backlog
+  9-4-sincronizar-a-configuração-de-ia-e-os-preços-personalizados: backlog
+  9-5-sincronizar-a-configuração-do-ocr-sem-a-chave: backlog
+  9-6-sincronizar-a-preferência-do-backup-no-drive: backlog
+  9-7-barrar-por-teste-dado-do-aparelho-no-sync: backlog
+  epic-9-retrospective: optional
+
+  epic-10: backlog
+  10-1-registrar-a-exceção-do-ad-6-e-atualizar-os-textos: backlog
+  10-2-sincronizar-a-preferência-religiosa-só-pelo-grupo-forte: backlog
+  10-3-ativar-o-sync-de-chaves-com-opt-in-explícito: backlog
+  10-4-enviar-as-chaves-cifradas-ao-grupo-forte: backlog
+  10-5-receber-as-chaves-em-outro-aparelho-nativo: backlog
+  10-6-desligar-o-sync-de-chaves: backlog
+  10-7-backup-do-drive-com-o-mesmo-escopo-sem-chave-em-texto-puro: backlog
+  epic-10-retrospective: optional
