@@ -238,7 +238,7 @@ O usuário mantém o sync entre versão nova e antiga durante uma janela curta, 
 - Existe uma **versão mínima** e uma **data de corte**; depois dela, o Grupo antigo deixa de ser lido e escrito, e o app mostra uma mensagem a quem estiver atrasado.
 - A versão antiga é avisada do corte por um Evento de aviso no Grupo antigo, publicado antes do corte, que ela pode exibir se suportar.
 - Enquanto o Grupo antigo existir, nenhum texto público afirma "ponta-a-ponta" (FR-5).
-- `[ASSUMPTION]` A data de corte é definida pelo dono (proposta: 30 dias depois da publicação do FR-13).
+- O corte acontece 14 dias depois da publicação da versão com o FR-13 (decisão do dono). O tablet esquecido por meses não perde dado: o log local dele é republicado no Grupo forte quando ele atualizar e parear.
 
 **Notas:** `[NOTE FOR PM]` A janela mantém o formato fraco ativo por um tempo; a duração é uma escolha de risco.
 
@@ -317,6 +317,7 @@ O dono não consegue integrar uma mudança que quebra lint ou testes.
 **Consequências (testáveis):**
 - Os workflows do GitHub Actions rodam `npx expo lint` e `npx vitest run` e falham se algum quebrar.
 - `[ASSUMPTION]` O `tsc --noEmit` entra no gate só depois que o baseline de erros de tipo for zerado (hoje há centenas de linhas).
+- O baseline de lint é zerado antes do gate (hoje `npx eslint .` tem 190 erros em 100 arquivos: 173 em `scripts/`, 3 em pastas de ferramentas de agente e 15 em `src/` e `app/`, 7 deles hooks chamados condicionalmente).
 - Depende de FR-20.
 
 #### FR-22: Revogar o segredo antigo do Google com segurança
@@ -414,17 +415,16 @@ O prazo de 01/11/2026 cobre só FR-1 e FR-5 (publicação); os demais seguem a o
 
 ## 8. Perguntas em aberto
 
-1. Qual a data de corte do Grupo antigo (FR-14)? A proposta é 30 dias depois da publicação do FR-13.
-2. Qual o aparelho Android 16 de teste do FR-1 e do FR-3?
-3. O texto do `PLAY_STORE_LISTING.md` é o que está publicado na loja?
-4. Qual o limite Δ do `timestamp` no futuro (FR-16)? A proposta é 24 horas.
-5. Qual a latência-alvo do FR-6? A proposta é 15 segundos.
-6. Os relays públicos não garantem retenção dos Eventos; e dados financeiros cifrados em relays públicos têm implicação de privacidade (LGPD)? Quem avalia?
-7. O `server/` (Express, `drizzle`, `pg`) entra no formulário *Data safety*? Hoje não recebe dado do app, mas existe no repositório.
-8. A biblioteca "Universal" de login do Google é paga? Se for, qual a alternativa (FR-4)?
-9. Node 24 ou 22 (FR-2)? A máquina do dono já usa o 24.
-10. O `tsc` entra no gate de CI quando o baseline de tipos for zerado (FR-21)?
-11. O perfil de empresa terá o mesmo grupo de sync ou grupos separados (FR-17)?
+1. Qual o aparelho Android 16 de teste do FR-1 e do FR-3?
+2. O texto do `PLAY_STORE_LISTING.md` é o que está publicado na loja?
+3. Qual o limite Δ do `timestamp` no futuro (FR-16)? A proposta é 24 horas.
+4. Qual a latência-alvo do FR-6? A proposta é 15 segundos.
+5. Os relays públicos não garantem retenção dos Eventos; e dados financeiros cifrados em relays públicos têm implicação de privacidade (LGPD)? Quem avalia?
+6. O `server/` (Express, `drizzle`, `pg`) entra no formulário *Data safety*? Hoje não recebe dado do app, mas existe no repositório.
+7. A biblioteca "Universal" de login do Google é paga? Se for, qual a alternativa (FR-4)?
+8. Node 24 ou 22 (FR-2)? A máquina do dono já usa o 24.
+9. O `tsc` entra no gate de CI quando o baseline de tipos for zerado (FR-21)?
+10. O perfil de empresa terá o mesmo grupo de sync ou grupos separados (FR-17)?
 
 ## 9. Índice de suposições
 
@@ -433,7 +433,6 @@ O prazo de 01/11/2026 cobre só FR-1 e FR-5 (publicação); os demais seguem a o
 - §4.1 FR-4 — custo e licença da API "Universal" do Google Sign-In não confirmados.
 - §4.2 FR-5 — o `PLAY_STORE_LISTING.md` do repositório é igual ao publicado.
 - §4.3 FR-6 — latência de 15 segundos.
-- §4.4 FR-14 — data de corte 30 dias depois do FR-13.
 - §4.5 FR-16 — Δ de 24 horas no limite de `timestamp`.
 - §4.7 FR-21 — o `tsc` entra no gate só depois de zerar o baseline.
 - §4.7 FR-23 — remover ou avisar na queda do `SecureStore` para `AsyncStorage`.
