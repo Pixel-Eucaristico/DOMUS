@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 10-15-2026 17:40
+last_updated: 10-15-2026 19:40
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -37,7 +37,7 @@ story_location: _bmad-output/implementation-artifacts
 development_status:
   epic-1: in-progress
   1-1-consolidar-as-correções-de-segredo-na-dev: review
-  1-2-mirar-a-api-36-no-build-de-release: backlog
+  1-2-mirar-a-api-36-no-build-de-release: review
   1-3-validar-no-android-16-e-corrigir-o-que-quebrar: backlog
   1-4-corrigir-a-descrição-da-loja-e-a-política-de-privacidade: backlog
   1-5-alinhar-o-formulário-data-safety-ao-comportamento: backlog

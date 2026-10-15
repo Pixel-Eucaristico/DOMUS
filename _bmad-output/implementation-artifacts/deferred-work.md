@@ -13,3 +13,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-1-consolidar-correcoes-de-segredo-na-dev.md`
   summary: D5 — Superfícies sem teste: `useSyncEngine` (group code), fiação nativa de `GoogleDriveService`/`GoogleNativeAuth` e cofre IndexedDB real.
   evidence: nenhum teste importa esses módulos; `react-native` quebra o vitest (AGENTS.md). Extrair a escolha de provedor para função pura, como em `driveTokens`; testar o cofre exige `fake-indexeddb` e atualizar `package-lock.json` para a CI.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-2-mirar-a-api-36-no-build-de-release.md`
+  summary: D6 — Comportamentos do Android 16 com target 36 sem verificação: predictive back ligado por padrão (e `onBackPressed` legado deixa de ser chamado), edge-to-edge obrigatório e redimensionamento em telas grandes; rever também a armadilha de View grande com animação (Mali, `docs/tour-crash-fixes.md`).
+  evidence: efeitos de runtime que o `expo prebuild` e o `tsc` não pegam; a revisão da Story 1.2 só os apontou. Incluir cada item na checklist da Story 1.3 e testar o botão/gesto de voltar nas abas, no modal de introdução e no scanner.
