@@ -33,8 +33,12 @@ describe("isDriveConnected", () => {
     expect(isDriveConnected(tokens({ refreshToken: "rt" }))).toBe(true);
   });
 
-  it("é falso para token web implícito (sem refresh token)", () => {
-    expect(isDriveConnected(tokens())).toBe(false);
+  it("é verdadeiro para token web implícito ainda válido (sem refresh token)", () => {
+    expect(isDriveConnected(tokens({ expiresAt: NOW + 60_000 }), NOW)).toBe(true);
+  });
+
+  it("é falso para token web implícito já expirado (sem refresh token)", () => {
+    expect(isDriveConnected(tokens({ expiresAt: NOW - 1 }), NOW)).toBe(false);
   });
 });
 

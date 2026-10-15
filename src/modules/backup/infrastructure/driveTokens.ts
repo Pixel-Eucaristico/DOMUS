@@ -17,9 +17,12 @@ export type NativeTokenProvider = (staleAccessToken?: string) => Promise<string 
 export const NATIVE_TOKEN_TTL_MS = 30 * 60 * 1000;
 export const EXPIRY_MARGIN_MS = 5 * 60 * 1000;
 
-/** Conectado = refresh token legado ou sessão nativa. Token web implícito (sem refresh) não conta. */
-export function isDriveConnected(tokens: DriveTokens | null): boolean {
-  return !!tokens && (!!tokens.refreshToken || tokens.native === true);
+/**
+ * Conectado = refresh token legado, sessão nativa ou token web implícito ainda válido.
+ * O fluxo web implícito não tem refresh token: conta como conectado enquanto o access token não expira.
+ */
+export function isDriveConnected(tokens: DriveTokens | null, now: number = Date.now()): boolean {
+  return !!tokens && (!!tokens.refreshToken || tokens.native === true || tokens.expiresAt > now);
 }
 
 /**
