@@ -19,13 +19,13 @@ export function FinancialTooltip({ visible, title, content, onClose }: Financial
   const { theme } = useAppState();
 
   return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={styles.overlay} onPress={onClose}>
         <TCard padding={20} gap={10} maxWidth={340} width="100%" backgroundColor={theme.cardBackground} borderColor={theme.border}>
           <View style={styles.header}>
             <Feather name="info" size={16} color={theme.primaryColor} />
             <Text style={[styles.title, { color: theme.textColor }]}>{title}</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel="Fechar">
               <Feather name="x" size={16} color={theme.secondaryText} />
             </TouchableOpacity>
           </View>

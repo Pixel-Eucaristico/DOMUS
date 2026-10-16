@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { InfoTip } from "@/src/components/shared/InfoTip";
 import { useSync } from "@/src/context/SyncProvider";
 import { calculate503020 } from "@packages/domain/src/transactions";
 import { TransactionBottomSheet } from "@/src/components/transaction/TransactionBottomSheet";
@@ -431,9 +432,12 @@ export default function HomeScreen() {
             <AnimatedCard index={3}>
               <TCard elevated backgroundColor={theme.cardBackground} borderColor={theme.border} marginHorizontal={0} width="100%">
                 <View style={s.monthFilterContainer}>
-                  <TText variant="subtitle" color={theme.textColor}>
-                    Orçamento 50/30/20
-                  </TText>
+                  <View style={s.titleWithTip}>
+                    <TText variant="subtitle" color={theme.textColor} flexShrink={1}>
+                      Orçamento 50/30/20
+                    </TText>
+                    <InfoTip term="50/30/20" />
+                  </View>
                   <View style={s.monthFilter}>
                     <Pressable onPress={() => { soundManager.play("tap"); handlePreviousMonth(); }} style={s.monthArrow}>
                       <Feather name="chevron-left" size={20} color={theme.textColor} />
@@ -579,6 +583,7 @@ export default function HomeScreen() {
 }
 
 const s = StyleSheet.create({
+  titleWithTip: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
   root: { flex: 1 },
   scrollView: { flex: 1 },
   scrollContent: { gap: 16 },

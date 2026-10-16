@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 10-16-2026 22:40
+last_updated: 10-16-2026 23:20
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -148,7 +148,7 @@ development_status:
 
   epic-11: in-progress
   11-1-criar-o-glossário-financeiro-e-o-balão-de-dica: review
-  11-2-mostrar-dicas-nas-telas-e-atalhos-no-chat-da-ia: backlog
+  11-2-mostrar-dicas-nas-telas-e-atalhos-no-chat-da-ia: review
   11-3-extrair-os-dados-do-holerite-a-partir-do-texto-do-ocr: backlog
   11-4-registrar-o-holerite-como-evento-local: backlog
   11-5-capturar-revisar-e-salvar-o-holerite: backlog

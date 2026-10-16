@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectGlossaryTerms, FINANCIAL_GLOSSARY } from "../financialGlossary";
+import { detectGlossaryTerms, glossaryShortcuts, FINANCIAL_GLOSSARY } from "../financialGlossary";
 
 describe("detectGlossaryTerms", () => {
   it("encontra termos com acentos e caixa variados", () => {
@@ -36,3 +36,24 @@ describe("detectGlossaryTerms", () => {
     expect(detectGlossaryTerms("50/30/20, selic, reserva de emergência e juros compostos")).toHaveLength(3);
   });
 });
+
+describe("glossaryShortcuts", () => {
+  const text = "Siga a regra 50/30/20, monte a reserva de emergência, olhe a Selic e os juros compostos.";
+
+  it("mostra até 3 atalhos nas respostas da IA com a opção ligada", () => {
+    expect(glossaryShortcuts(text, { isUser: false, enabled: true })).toEqual(["50/30/20", "taxa_selic", "reserva_emergencia"]);
+  });
+
+  it("nada com a opção desligada", () => {
+    expect(glossaryShortcuts(text, { isUser: false, enabled: false })).toEqual([]);
+  });
+
+  it("nada nas mensagens do usuário", () => {
+    expect(glossaryShortcuts(text, { isUser: true, enabled: true })).toEqual([]);
+  });
+
+  it("nada quando a resposta não cita termo do glossário", () => {
+    expect(glossaryShortcuts("Olá! Como posso ajudar?", { isUser: false, enabled: true })).toEqual([]);
+  });
+});
+

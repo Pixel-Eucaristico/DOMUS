@@ -86,3 +86,15 @@ export function detectGlossaryTerms(text: string, limit = 3): GlossaryTerm[] {
     .filter((term) => TERM_PATTERNS[term].test(normalized))
     .slice(0, limit);
 }
+
+/**
+ * Atalhos "O que é…?" de uma mensagem do chat: só em respostas da IA, só com a
+ * opção de tooltips ligada, no máximo 3 termos.
+ */
+export function glossaryShortcuts(
+  text: string,
+  opts: { isUser: boolean; enabled: boolean },
+): GlossaryTerm[] {
+  if (opts.isUser || !opts.enabled || !text) return [];
+  return detectGlossaryTerms(text, 3);
+}

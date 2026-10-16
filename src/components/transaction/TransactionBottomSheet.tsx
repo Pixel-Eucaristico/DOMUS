@@ -26,6 +26,7 @@ import { InstallmentSelector } from "@/src/components/transaction/InstallmentSel
 import { TX_TYPES, getCategoriesForType } from "@/src/constants/transactionCategories";
 import type { TransactionStatus, RecurrenceType } from "@packages/events/src/types";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { InfoTip } from "@/src/components/shared/InfoTip";
 import { soundManager } from "@/src/services/SoundManager";
 import * as Haptics from "expo-haptics";
 import { TButton, TInput } from "@/src/components/tamagui";
@@ -432,7 +433,14 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
               domain.accounts[form.selectedAccountId]?.type === "savings" &&
               domain.accounts[form.selectedAccountId]?.linkedCreditCardId && (
                 <View style={[s.row, { alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }]}>
-                  <Text style={[s.label, { color: theme.secondaryText, marginBottom: 0 }]}>É dividendo/rendimento</Text>
+                  <View style={s.labelWithTip}>
+                    <Text style={[s.label, { color: theme.secondaryText, marginBottom: 0 }]}>É dividendo/rendimento</Text>
+                    <InfoTip
+                      size={13}
+                      title="Dividendo ou rendimento"
+                      content="Marque quando esta receita for rendimento do CDB vinculado ao cartão. Ela entra no saldo da conta, mas não aumenta o crédito adicional do cartão, que vem só do valor que você depositou."
+                    />
+                  </View>
                   <Switch
                     value={form.isCdbDividend}
                     onValueChange={(v) => {
@@ -543,6 +551,7 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
 }
 
 const s = StyleSheet.create({
+  labelWithTip: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
   flex: { flex: 1 },
   spacer: { flex: 1 },
   overlay: {
