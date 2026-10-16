@@ -17,6 +17,11 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import type { AchievementRarity } from "@packages/gamification/src/achievements";
+import {
+  getTrophyAnimationConfig,
+  type TrophyAnimationConfig,
+} from "@/src/constants/trophyAnimationConfigs";
+import { TrophyEffects, useTrophyMotion } from "./TrophyMotion";
 
 interface TrophyColors {
   light: string;
@@ -46,41 +51,58 @@ const RARITY_COLORS: Record<AchievementRarity, TrophyColors> = {
   },
 };
 
+/** Comportamento original (giro contínuo) para quando não há trophyId/config */
+const LEGACY_CONFIG: TrophyAnimationConfig = {
+  primaryMotion: "spin",
+  motionSpeed: 3500,
+  secondaryEffect: "none",
+  entryAnimation: "fade",
+  entryDuration: 1,
+  particles: "none",
+  particleCount: 0,
+};
+
 interface Props {
   rarity: AchievementRarity;
   size?: number;
   spinning?: boolean;
+  /** ID do troféu — seleciona a animação individual em trophyAnimationConfigs */
+  trophyId?: string;
+  /** Configuração explícita (tem prioridade sobre trophyId) */
+  config?: TrophyAnimationConfig;
 }
 
-export function AnimatedTrophy({ rarity, size = 64, spinning = true }: Props) {
+export function AnimatedTrophy({ rarity, size = 64, spinning = true, trophyId, config: configProp }: Props) {
   const rotation = useSharedValue(0);
   const colors = RARITY_COLORS[rarity];
   const gradientId = `grad_${rarity}`;
+  const config = configProp ?? (trophyId ? getTrophyAnimationConfig(trophyId) : LEGACY_CONFIG);
+  const isSpin = config.primaryMotion === "spin";
+  const motionStyle = useTrophyMotion(config, size, !spinning);
 
   useEffect(() => {
-    if (spinning) {
+    // Rotação usada apenas pelo reflexo animado no movimento "spin"
+    if (spinning && isSpin) {
       rotation.value = withRepeat(
-        withTiming(2 * Math.PI, { duration: 3500, easing: Easing.linear }),
+        withTiming(2 * Math.PI, { duration: config.motionSpeed, easing: Easing.linear }),
         -1,
       );
     } else {
       rotation.value = 0;
     }
-  }, [spinning, rotation]);
-
-  const trophyStyle = useAnimatedStyle(() => ({
-    transform: [{ scaleX: Math.cos(rotation.value) }],
-  }));
+  }, [spinning, isSpin, config.motionSpeed, rotation]);
 
   const shineStyle = useAnimatedStyle(() => ({
-    opacity: Math.max(0, Math.cos(rotation.value - 0.5)) * 0.5,
+    opacity: isSpin ? Math.max(0, Math.cos(rotation.value - 0.5)) * 0.5 : 0,
   }));
 
   const svgHeight = size * 1.2;
 
   return (
     <View style={{ width: size, height: svgHeight, alignItems: "center", justifyContent: "center" }}>
-      <Animated.View style={[{ width: size, height: svgHeight }, trophyStyle]}>
+      {/* Em listas estáticas (grades de conquistas) o troféu aparece sem efeitos, como antes */}
+      {spinning && <TrophyEffects config={config} color={colors.mid} size={size} isStatic={false} />}
+      <Animated.View style={[{ width: size, height: svgHeight }, motionStyle]}>
         <Svg viewBox="0 0 100 120" width={size} height={svgHeight}>
           <Defs>
             <RadialGradient id={gradientId} cx="40%" cy="35%" r="65%">

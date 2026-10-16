@@ -231,25 +231,29 @@ LONGO PRAZO (quando houver tempo):
 
 **Detalhes completos em: `docs/roadmap/`**
 
-### 08 — Animação Individual para Cada Troféu (167 troféus)
+### 08 — Animação Individual para Cada Troféu (197 troféus) — INFRA CONCLUÍDA
 - **Dificuldade:** COMPLEXO | **Urgência:** BAIXA | **~15-25h (com acompanhamento)**
 - **Problema:** Todos os troféus usam mesma animação genérica. Precisa animação única por troféu
 - **Total:** 40 conquistas + 6 mensais + 48 sazonais + 73 litúrgicos = 167 troféus
 - **Solução:** Criar config map por troféu/categoria com parâmetros de animação customizados
 - **Detalhes:** [docs/roadmap/08-animacao-trofeus.md](docs/roadmap/08-animacao-trofeus.md) (lista completa de todos os 167 troféus)
-- [ ] Criar `trophyAnimationConfigs.ts` com mapa de configs
-- [ ] Refatorar AnimatedTrophy e AnimatedSeasonalTrophy para aceitar config
-- [ ] Implementar um a um com aprovação individual
+- [x] Criar `src/constants/trophyAnimationConfigs.ts` — 17 categorias temáticas + overrides individuais; cobre os 197 troféus reais (29 conquistas + 6 mensais + 48 sazonais + 114 litúrgicos), validado por teste
+- [x] Refatorar AnimatedTrophy e AnimatedSeasonalTrophy para aceitar config (`TrophyMotion.tsx`: 6 movimentos, 4 efeitos, 4 entradas, 6 tipos de partícula)
+- [x] DebugTools mostra categoria/movimento/efeito/partículas de cada troféu para revisão
+- [ ] Revisão individual com aprovação — ajustar em `TROPHY_OVERRIDES` conforme feedback (preview no DebugTools)
 
-### 09 — Leitor de Olerite por OCR (Parcial)
+### 09 — Leitor de Holerite por OCR ✅ CONCLUÍDA
 - **Dificuldade:** COMPLEXO | **Urgência:** MÉDIA | **~6-10h**
 - **Depende de:** Tarefa 05 (OCR Android — CONCLUÍDA)
 - **Já implementado:** Payslip OCR schema (Zod) + VisionOCRService + scan_payslip no chat
 - **Falta:**
-- [ ] Criar `oleriteParser.ts` (parser dedicado para medidores)
-- [ ] Criar tela de captura dedicada reutilizando OcrScanScreen
-- [ ] Implementar histórico com gráfico de evolução
-- [ ] Testes unitários
+- **Nota:** "olerite" = **holerite** (contracheque), não medidor de óleo — alinhado ao PayslipOCRSchema já existente
+- [x] `packages/parsers/src/payslipParser.ts` — texto OCR → empresa, CNPJ, competência, bruto, líquido, rubricas, descontos, FGTS + confiança/avisos; normaliza o retorno do Vision OCR
+- [x] Eventos `PAYSLIP_RECORDED` / `PAYSLIP_DELETED` + `domain/src/payslips.ts` (histórico, resumo, variação, % de descontos)
+- [x] Tela `app/payslips.tsx`: câmera/galeria (Vision IA com fallback para OCR local) ou manual, revisão editável, lançamento opcional do líquido como receita
+- [x] Histórico com gráfico de evolução (líquido × bruto) e descontos acumulados
+- [x] Chat IA: "Escanear holerite" abre a revisão na tela de holerites
+- [x] Testes unitários (parser 19 + domínio 9)
 - **Detalhes:** [docs/roadmap/09-olerite-ocr.md](docs/roadmap/09-olerite-ocr.md)
 
 ### 10 — ~~Bug: Tour Sumindo / Saindo Fora da Tela~~ ✅ RESOLVIDO
@@ -288,9 +292,11 @@ LONGO PRAZO (quando houver tempo):
   - [x] Limpeza do arquivo temporário após reprodução (`finally`)
 
 ### Pendências da Fase 4
-- [ ] **Tooltips Inteligentes:** `react-native-smart-tooltip` (não instalado ainda)
+- [x] **Tooltips Inteligentes:** implementado sem dependência nova (`src/components/shared/InfoTip.tsx`, balão ancorado) + glossário `src/constants/financialGlossary.ts`
+    - Dicas no orçamento 50/30/20, no dividendo CDB e na tela de holerites
+    - Chat IA mostra atalhos "O que é…" para termos citados (respeita a opção Tooltips)
     - `react-native-sprinkle-toast` já está instalado e em uso
-- [ ] **Upgrade de OCR:** Finalizar motor de Olerite/Holerite para automação total
+- [x] **Upgrade de OCR:** motor de Holerite finalizado (ver tarefa 09)
     - MiniChart no chat já existe (`src/components/ai/MiniChart.tsx`)
     - FinancialCard e BudgetChart já existem
 
@@ -304,8 +310,8 @@ PRÓXIMO (rápido, alto impacto):
   3.2 - Temas Católico/Laico .......... [MÉDIO]            ~4-6h
 
 MÉDIO PRAZO:
-  09 - Olerite OCR (parte restante) .... [COMPLEXO]         ~4-6h
-  08 - Animação Troféus (configs) ...... [COMPLEXO]         ~15-25h
+  09 - Holerite OCR .................... ✅ CONCLUÍDA
+  08 - Animação Troféus (configs) ...... ✅ infra pronta — falta revisão individual
 
 LONGO PRAZO:
   3.3 - Migração Tamagui .............. [COMPLEXO]         ~40-60h
@@ -322,7 +328,7 @@ yarn add tamagui @rive-app/react-native @bsky.app/expo-scroll-edge-effect
 # @shopify/flash-list — já instalado (v2.0.2)
 
 # UX
-yarn add react-native-smart-tooltip
+# react-native-smart-tooltip — dispensado: tooltips implementados in-house (InfoTip)
 ```
 
 ### Referências das Bibliotecas

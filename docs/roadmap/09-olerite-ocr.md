@@ -1,5 +1,15 @@
 # Tarefa 09 - Adicionar Leitor de Olerite por OCR
 
+## Status: CONCLUIDA (2026-10)
+
+> **Correcao de escopo:** "olerite" foi implementado como **holerite** (contracheque),
+> coerente com o `PayslipOCRSchema` e o `scan_payslip` ja existentes. A proposta original
+> abaixo (medidor de oleo) foi mantida apenas como historico.
+>
+> Implementado: `packages/parsers/src/payslipParser.ts`, eventos `PAYSLIP_RECORDED` /
+> `PAYSLIP_DELETED`, `packages/domain/src/payslips.ts`, `app/payslips.tsx`,
+> `src/hooks/usePayslipScanner.ts`, `src/components/payslip/*` e testes.
+
 ## Prioridade: COMPLEXO | Urgencia: MEDIA
 ## Estimativa: ~6-10h | Arquivos: ~8-12
 

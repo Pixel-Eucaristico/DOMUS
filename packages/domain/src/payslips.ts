@@ -100,7 +100,7 @@ export function summarizePayslips(history: StoredPayslip[]): PayslipSummary {
     averageGross: round2(sumGross / count),
     netChange,
     netChangePct,
-    deductionRate: sumGross > 0 ? round2((sumGross - sumNet) / sumGross) : 0,
+    deductionRate: sumGross > 0 ? Math.round(((sumGross - sumNet) / sumGross) * 10000) / 10000 : 0,
     deductionTotals: [...totals.values()]
       .map((t) => ({ name: t.name, value: round2(t.value) }))
       .sort((a, b) => b.value - a.value),

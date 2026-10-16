@@ -1,5 +1,13 @@
 # Tarefa 08 - Animacao Individual para Cada Trofeu
 
+## Status: INFRA CONCLUIDA (2026-10) — falta revisao individual
+
+> - Config map: `src/constants/trophyAnimationConfigs.ts` (17 categorias + `TROPHY_OVERRIDES`)
+> - Motor: `src/components/gamification/TrophyMotion.tsx` (movimento, entrada, efeito, particulas)
+> - `AnimatedTrophy` / `AnimatedSeasonalTrophy` leem a config pelo ID do trofeu
+> - Total real: 197 trofeus (29 conquistas + 6 mensais + 48 sazonais + 114 liturgicos)
+> - Para ajustar um trofeu: editar a entrada dele em `TROPHY_OVERRIDES`; conferir no DebugTools
+
 ## Prioridade: COMPLEXO | Urgencia: BAIXA
 ## Estimativa: ~15-25h (com acompanhamento) | Arquivos: ~5-10
 

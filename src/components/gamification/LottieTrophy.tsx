@@ -559,7 +559,7 @@ export function LottieTrophy({
 
   // Fallback: SVG animado existente
   if (type === "achievement") {
-    return <AnimatedTrophy rarity={rarity} size={Math.round(size * 0.75) + 2} spinning={!isStatic} />;
+    return <AnimatedTrophy rarity={rarity} trophyId={trophyId} size={Math.round(size * 0.75) + 2} spinning={!isStatic} />;
   }
 
   return (

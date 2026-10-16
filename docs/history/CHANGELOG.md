@@ -4,6 +4,19 @@
 
 ---
 
+## Não lançado — Outubro de 2026
+
+**Holerite OCR + Tooltips Inteligentes + Animação por Troféu**
+
+**Destaques:**
+- Leitor de holerite: Vision IA ou OCR local, revisão editável, receita automática, histórico e gráfico
+- Eventos `PAYSLIP_RECORDED` / `PAYSLIP_DELETED` com testes de replay
+- Tooltips ancorados com glossário financeiro (sem dependência nova) e atalhos no chat IA
+- Animação individual configurável para os 197 troféus (`trophyAnimationConfigs` + `TrophyMotion`)
+- Marketplace/plugins BMAD habilitados no projeto (`.claude/settings.json`)
+
+---
+
 ## v1.6.0 — 18 de Março de 2026
 
 **NCM Categories + AI Vision OCR + SOLID Refactor**

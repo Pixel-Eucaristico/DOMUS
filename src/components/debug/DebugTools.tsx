@@ -23,6 +23,7 @@ import { FlashList } from "@shopify/flash-list";
 import type { ArchetypeType } from "@packages/personality/src/types";
 import { getArchetypeDescription } from "@packages/personality/src/archetypeEngine";
 import { LottieTrophy } from "@/src/components/gamification/LottieTrophy";
+import { getTrophyAnimationCategory, getTrophyAnimationConfig } from "@/src/constants/trophyAnimationConfigs";
 import { AnimatedSeasonalTrophy } from "@/src/components/gamification/AnimatedSeasonalTrophy";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -121,6 +122,12 @@ export function DebugTools() {
           </View>
         </View>
         <Text style={[st.trophyId, { color: theme.secondaryText, fontSize: 10 }]}>{t.id}</Text>
+        <Text style={[st.trophyId, { color: theme.secondaryText, fontSize: 10 }]}>
+          {(() => {
+            const c = getTrophyAnimationConfig(t.id);
+            return `${getTrophyAnimationCategory(t.id)} · ${c.primaryMotion} · ${c.secondaryEffect}${c.particles !== "none" ? ` · ${c.particles}×${c.particleCount}` : ""}`;
+          })()}
+        </Text>
       </View>
       <Feather name="chevron-right" size={16} color={theme.border} />
     </TouchableOpacity>
