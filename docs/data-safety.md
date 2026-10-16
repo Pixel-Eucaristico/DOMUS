@@ -94,8 +94,8 @@ Lidas do APK de release gerado pela CI da `dev` (run #71, `c93928a`, versão 1.8
 | com.google.android.gms.permission.AD_ID, ACCESS_ADSERVICES_AD_ID / ATTRIBUTION / TOPICS | SDK do AdMob | Declarar o ID de publicidade (seção 3) |
 | com.google.android.c2dm.permission.RECEIVE, BIND_GET_INSTALL_REFERRER_SERVICE | Firebase / Play | Internas |
 | Permissões de selo no ícone (Samsung, Huawei, Oppo, HTC, Sony e outras) | Notificações | Só o contador no ícone |
-| **ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION** | **`expo-location`**, dependência que nenhum código usa | **Não usada. Remover antes do AAB (achado A6)** |
-| **SYSTEM_ALERT_WINDOW** | manifesto de debug do React Native | **Conferir no AAB de release; não é usada pelo app** |
+| ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION | `expo-location`, que nenhum código usava | Estavam no run #71. **Bloqueadas em `app.json` e dependência removida (D16); confirmar ausência no AAB da Story 1.6** |
+| SYSTEM_ALERT_WINDOW | manifesto gerado pelo prebuild (estava no APK de release, então não vem só do debug) | Estava no run #71. **Bloqueada em `app.json` (D16); o app não usa; confirmar ausência no AAB** |
 
 O app não declara `usesCleartextTraffic` nem configuração de rede: com target 36, o Android
 bloqueia HTTP sem cifra por padrão, o que sustenta a resposta "cifrado em trânsito".
@@ -123,11 +123,12 @@ bloqueia HTTP sem cifra por padrão, o que sustenta a resposta "cifrado em trân
    vale acrescentar isso à política numa próxima revisão.
 5. **Anúncios personalizados sem consentimento** (D9, Story 12.4). O formulário declara o
    compartilhamento para publicidade; o fluxo de consentimento ainda não existe.
-6. **A6 — Localização sem uso.** O APK de release pede `ACCESS_FINE_LOCATION` e
+6. **A6 — Localização sem uso.** O APK de release do run #71 pedia `ACCESS_FINE_LOCATION` e
    `ACCESS_COARSE_LOCATION` porque `expo-location` está em `package.json` desde a v1.4.0, sem
    nenhum uso no código. O Play exige justificativa e declaração de localização para essas
-   permissões. Remover a dependência (ou bloquear as permissões em `app.json`) antes do AAB da
-   Story 1.6; enquanto isso, **não** declarar localização *precisa* por causa do `expo-location`,
-   porque o app nunca a lê. A localização *aproximada* que o SDK de anúncios deriva do IP é
+   permissões. **Resolvido (D16, 16/10/2026):** `expo-location` removido e as permissões de
+   localização e `SYSTEM_ALERT_WINDOW` bloqueadas em `app.json` (o prebuild gera
+   `tools:node="remove"`). Conferir no manifesto do AAB da Story 1.6. **Não** declarar
+   localização *precisa*: o app nunca a lê. A localização *aproximada* que o SDK de anúncios deriva do IP é
    declarada em F10.
 

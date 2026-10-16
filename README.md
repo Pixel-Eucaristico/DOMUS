@@ -136,7 +136,6 @@ Aplicativo mobile de finanças pessoais (orçamento 50/30/20, importação de no
 | Biblioteca | Versao | Documentacao |
 |---|---|---|
 | [expo-notifications](https://docs.expo.dev/versions/latest/sdk/notifications) | ^0.32.16 | https://docs.expo.dev/versions/latest/sdk/notifications |
-| [expo-location](https://docs.expo.dev/versions/latest/sdk/location) | ~19.0.8 | https://docs.expo.dev/versions/latest/sdk/location |
 
 ---
 

@@ -258,9 +258,9 @@ abaixo é cópia da seção 4 desse arquivo; ao mudar uma, mude a outra.
 | POST_NOTIFICATIONS | Mostrar lembretes locais de vencimento, orçamento, metas e resumo semanal, agendados no aparelho |
 
 As permissões que as bibliotecas acrescentam ao APK estão em `docs/data-safety.md` §4,
-"Permissões no APK final". Pendentes (achado A6): ACCESS_FINE_LOCATION e
-ACCESS_COARSE_LOCATION, trazidas pelo `expo-location` sem uso, e SYSTEM_ALERT_WINDOW, a
-conferir no AAB de release.
+"Permissões no APK final". ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION e
+SYSTEM_ALERT_WINDOW não entram mais no app (bloqueadas em `app.json`, D16); conferir no
+manifesto do AAB antes do envio.
 
 ---
 
@@ -291,6 +291,7 @@ Opcionais:
 - [x] `eas.json` — production profile com app-bundle
 - [x] `eas.json` — credentialsSource: remote
 - [ ] Política de privacidade hospedada em URL pública
+- [ ] Manifesto do AAB sem ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION e SYSTEM_ALERT_WINDOW (`docs/data-safety.md` §4, D16)
 - [ ] Google Service Account Key configurada (para futuro eas submit)
 - [ ] Screenshots capturados
 - [ ] Primeiro upload manual feito no Play Console

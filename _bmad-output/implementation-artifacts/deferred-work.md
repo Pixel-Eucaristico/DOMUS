@@ -45,7 +45,7 @@
   evidence: não verificado (maybe-false); o teclado não mostra estado de espera enquanto `verifyPin` roda. Medir junto da checklist da Story 1.3.
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-5-data-safety.md`
   summary: D16 — **Antes do AAB da Story 1.6:** remover `expo-location` (em `package.json` desde a v1.4.0, sem uso no código) ou bloquear `ACCESS_FINE_LOCATION`/`ACCESS_COARSE_LOCATION` em `app.json`; conferir também `SYSTEM_ALERT_WINDOW` no manifesto do AAB de release.
-  evidence: APK de release da CI (run #71) pede as duas permissões de localização; `docs/data-safety.md` §4 e achado A6. Sem isso, o Play cobra declaração e justificativa de localização. Dependência nova/removida exige atualizar `package-lock.json` (AGENTS.md).
+  evidence: APK de release da CI (run #71) pede as duas permissões de localização; `docs/data-safety.md` §4 e achado A6. Sem isso, o Play cobra declaração e justificativa de localização. Dependência nova/removida exige atualizar `package-lock.json` (AGENTS.md). **Resolvido (16/10/2026):** dependência removida e permissões bloqueadas em `app.json`; ver `spec-d16-remover-expo-location.md`. Confirmar no manifesto do AAB (Story 1.6).
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-5-data-safety.md`
   summary: D17 — Atualizar a política (três textos): busca de produto na Amazon/Mercado Livre com código de afiliado ao adicionar item à lista de desejos; ID da instalação do Firebase; IP visto pelo Firebase e pelo AdMob; localização aproximada do AdMob; ID de publicidade no Analytics.
   evidence: achados 1 e 4 de `docs/data-safety.md` §5 e revisão da Story 1.5. Encaixa na Story 12.7 ou antes da publicação da política na Story 1.6.
