@@ -53,6 +53,6 @@
   summary: D18 — Páginas `http://` da SEFAZ (QR Code) e da lista de desejos falham no release com target 36, porque o HTTP sem cifra é bloqueado.
   evidence: achado 3 de `docs/data-safety.md`; APK sem `usesCleartextTraffic`. Não reproduzido em aparelho. Incluir na checklist da Story 1.3 (ler QR de NFC-e de estados que ainda usam `http://`); correção possível: reescrever para `https://` quando o host aceitar.
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-5-data-safety.md`
-  summary: D19 — Rever a resposta "Não" à exclusão de dados: o desenvolvedor consegue pedir a exclusão dos dados do Analytics (Firebase) e do AdMob vinculados ao app.
+  summary: D19 — Rever a resposta "Não" à exclusão de dados: o desenvolvedor consegue pedir a exclusão dos dados do Analytics (Firebase) e do AdMob vinculados ao app. **Decidido (16/10/2026):** o dono mantém "Não", sem story para mostrar o ID da instalação; os dados do Firebase são opcionais (desligados por padrão) e anônimos.
   evidence: a decisão do dono partiu da premissa "nada em servidor"; Firebase e AdMob guardam dados na conta Google do desenvolvedor. Decisão do dono antes de preencher o formulário (Story 1.6).
 

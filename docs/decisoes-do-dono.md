@@ -37,3 +37,14 @@ Além de `targetSdkVersion` e `compileSdkVersion` 36, entram:
 - `npx expo install --check`, para os 4 patches do SDK 54 (`expo`, `expo-constants`,
   `expo-file-system`, `expo-local-authentication`) com `package-lock.json` atualizado;
 - regerar o patch do `expo-asset` para a versão instalada (12.0.13), limpando o aviso do `patch-package`.
+
+## 2026-10-16
+
+### Exclusão de dados no Data safety (Story 1.5, D19)
+
+À pergunta da Play "o usuário pode pedir a exclusão dos dados?", a resposta é **"Não"**.
+O DOMUS não guarda dados em servidor próprio; o que vai a relays, provedores de IA e Drive
+fica fora do alcance do desenvolvedor, e as estatísticas do Firebase são opcionais
+(desligadas por padrão) e anônimas. Não haverá story para mostrar o ID da instalação.
+O reset do app apaga os dados do aparelho, como a política explica.
+
