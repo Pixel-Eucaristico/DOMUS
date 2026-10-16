@@ -373,6 +373,17 @@ O usuário vê cada troféu com uma animação ligada ao tema dele.
 - Em listas estáticas, o troféu aparece sem efeitos.
 - O DebugTools mostra a configuração de cada troféu para a aprovação individual do dono.
 
+#### FR-28: Privacidade por escolha
+*Incluído pela Sprint Change Proposal "Privacidade por escolha" (`sprint-change-proposal-2026-10-16-b.md`).*
+
+O usuário decide cada envio de dados para fora do aparelho pela flag do recurso e sabe o que perde se não ativar.
+
+**Consequências (testáveis):**
+- Todo fluxo que envia dados para fora do aparelho tem uma flag de ativação; os que não têm (consulta de código de barras, tabela NCM, atualização de preços, ícones de lojas) ganham uma, no padrão das existentes, desligada em instalação nova.
+- Para quem já usa, o que já funcionava continua ligado e o app avisa uma vez.
+- A política, a tela do app e a loja dizem, para cada flag, o que é transmitido se ativada e quais benefícios se perdem se desligada.
+- As fraquezas registradas na Story 1.4 (D8 a D12) são corrigidas: salt do PIN, anúncio personalizado sem consentimento, código do grupo enviado à IA, backup automático que ignora o interruptor e exportação sem cifra sem aviso.
+
 ### 4.9 NFRs transversais
 
 - **NFR-1 — Sem segredo exposto.** Nenhum Segredo em `AsyncStorage` em texto puro, em variável `EXPO_PUBLIC_*` ou em Evento em texto puro. Hoje é violado pelo OCR e pelo auto-backup (corrigido em FR-23). Verificação: regra de ESLint para `EXPO_PUBLIC_*` e revisão do inventário do FR-8a a cada release.
@@ -408,7 +419,7 @@ O usuário vê cada troféu com uma animação ligada ao tema dele.
 ## 6. Escopo e prioridade
 
 ### 6.1 Em escopo
-Os FRs FR-1 a FR-27 (FR-25 a FR-27 incluídos em 16/10/2026). O dono definiu "o que der": não há corte fixo, só uma ordem, e o FR-1 vem primeiro.
+Os FRs FR-1 a FR-28 (FR-25 a FR-28 incluídos em 16/10/2026). O dono definiu "o que der": não há corte fixo, só uma ordem, e o FR-1 vem primeiro.
 
 ### 6.2 Fora do escopo
 Ver §5.
@@ -418,7 +429,8 @@ Ver §5.
 | Ordem | FRs | Por quê |
 |---|---|---|
 | 1 (até 25/10) | FR-1, FR-5 | prazo da Play; FR-5 publica junto |
-| 1b | FR-25 | sem dependência; decisão do dono (D3) |
+| 1a | FR-28 (D10, D11, D8) | correções pequenas antes do AAB de 25/10 (decisão D-A) |
+| 1b | FR-25, FR-28 (restante) | sem dependência; logo depois do Epic 1 |
 | 2 | FR-22 (publicação sem o segredo; revogação só depois da adoção) | depende de FR-1 já publicado |
 | 3 | FR-20, FR-21 | baseline e gate antes de mudanças grandes |
 | 4 | FR-2 | Node novo antes dos upgrades |

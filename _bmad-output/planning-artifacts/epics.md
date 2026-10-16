@@ -66,6 +66,7 @@ This document provides the complete epic and story breakdown for DOMUS — Segur
 **H. Recursos de uso** *(Sprint Change Proposal de 16/10/2026)*
 - FR-25: Tooltips ancorados com glossário financeiro único; dicas no 50/30/20, no CDB e no holerite; atalhos "O que é…?" no chat da IA com `tooltipsEnabled`.
 - FR-26: Leitor de holerite (parser, Vision OCR com fallback local, revisão, receita, histórico e gráfico) como Evento com `schemaVersion`, sem nome do funcionário e sem publicar no Grupo antigo.
+- FR-28: Privacidade por escolha: flag de ativação em todo envio (nova flag para consultas de itens, preços e ícones), texto "o que transmite / o que perde" e correção das fraquezas D8 a D12.
 - FR-27: Animação por troféu via `trophyAnimationConfigs`, substituindo o Lottie em todos os troféus, com prévia no DebugTools.
 
 ### NonFunctional Requirements
@@ -132,6 +133,7 @@ FR-11: Epic 10 - Google Drive com o mesmo escopo do sync
 FR-25: Epic 11 - tooltips com glossário financeiro
 FR-26: Epic 11 - leitor de holerite (local até o Grupo forte)
 FR-27: Epic 11 - animação por troféu, substituindo o Lottie
+FR-28: Epic 12 - privacidade por escolha e correção das fraquezas D8 a D12
 
 ## Epic List
 
@@ -182,6 +184,12 @@ A pessoa entende os termos financeiros na hora, acompanha o salário pelo holeri
 **FRs covered:** FR-25, FR-26, FR-27
 **Ordem:** 11.1 e 11.2 logo depois do Epic 1 (decisão do dono); 11.3 a 11.6 depois das stories 3.1, 3.3 e 3.8; o holerite só sincroniza pelo Grupo forte (Epic 4).
 **Origem:** Sprint Change Proposal de 16/10/2026.
+
+### Epic 12: Privacidade por escolha
+A pessoa ativa cada envio pela flag do recurso, sabe o que perde ao não ativar, e as fraquezas encontradas na Story 1.4 deixam de existir.
+**FRs covered:** FR-28
+**Ordem:** 12.1 a 12.3 antes do AAB de 25/10; o resto logo depois do Epic 1.
+**Origem:** Sprint Change Proposal "Privacidade por escolha" de 16/10/2026.
 
 ### Epic 10: Segredos e backup em todos os aparelhos
 A preferência religiosa e o escopo completo do backup do Drive acompanham o usuário entre aparelhos, e as chaves de IA e OCR sincronizam só entre aparelhos nativos, com opt-in.
@@ -1759,3 +1767,131 @@ So that o app fique menor e o build web pare de falhar.
 **And** `package-lock.json` é atualizado para a CI (`npm ci`)
 **And** o build web volta a empacotar sem `@lottiefiles/dotlottie-react`
 **And** o build Android de release continua verde.
+
+## Epic 12: Privacidade por escolha
+
+A pessoa ativa cada envio pela flag do recurso, sabe o que perde ao não ativar, e as fraquezas encontradas na Story 1.4 deixam de existir.
+
+*Incluído pela Sprint Change Proposal "Privacidade por escolha" de 16/10/2026.*
+
+### Story 12.1: Nunca enviar o código do grupo à IA
+
+As a usuário do DOMUS,
+I want que a IA nunca receba o código do meu grupo de sync,
+So that o provedor de IA não consiga ler o que publico nos relays.
+
+**Implementa:** FR-28 (D10)
+
+**Acceptance Criteria:**
+
+**Given** a permissão de dados da sincronização ligada nas configurações da IA
+**When** o contexto é montado para o provedor
+**Then** ele não contém o código do grupo nem nada derivado dele
+**And** um teste do construtor de contexto garante isso para todas as permissões ligadas.
+
+### Story 12.2: Fazer o backup automático obedecer ao interruptor
+
+As a usuário do DOMUS,
+I want que o backup automático só rode quando eu ligar a opção,
+So that nenhuma cópia seja gravada ou enviada ao Drive sem a minha escolha.
+
+**Implementa:** FR-28 (D11)
+
+**Acceptance Criteria:**
+
+**Given** o interruptor de backup automático desligado
+**When** o app abre num dia sem backup
+**Then** nenhuma cópia local é gravada e nada é enviado ao Drive
+
+**Given** o interruptor ligado
+**When** o app abre num dia sem backup
+**Then** a cópia diária é gravada e, com o Drive conectado, enviada como hoje
+**And** um teste cobre os dois estados.
+
+### Story 12.3: Proteger o PIN com salt criptográfico e derivação lenta
+
+As a usuário do DOMUS,
+I want que meu PIN não possa ser descoberto por tentativa rápida,
+So that o bloqueio do app proteja de verdade.
+
+**Implementa:** FR-28 (D8)
+
+**Acceptance Criteria:**
+
+**Given** um PIN novo
+**When** ele é salvo
+**Then** o salt vem de uma fonte criptográfica e o hash usa derivação lenta (PBKDF2 ou similar)
+
+**Given** um PIN salvo no formato antigo
+**When** o usuário desbloqueia com o PIN certo
+**Then** o PIN é regravado no formato novo, sem pedir de novo
+**And** testes cobrem o formato novo, a migração e o PIN errado.
+
+### Story 12.4: Anúncio personalizado só com consentimento no modo de apoio
+
+As a usuário do DOMUS,
+I want escolher se os anúncios usam meus dados,
+So that apoiar o app com anúncios não exija abrir mão da privacidade.
+
+**Implementa:** FR-28 (D9)
+
+**Acceptance Criteria:**
+
+**Given** um modo de apoio com anúncios
+**When** um anúncio é pedido
+**Then** ele é não personalizado, a menos que eu tenha consentido com anúncios personalizados
+**And** o consentimento é pedido de forma explícita, dizendo o que é enviado, e pode ser revogado no mesmo lugar.
+
+### Story 12.5: Avisar antes da exportação sem criptografia
+
+As a usuário do DOMUS,
+I want ser avisado antes de exportar um backup sem cifra,
+So that eu saiba que qualquer pessoa com o arquivo lê meus dados.
+
+**Implementa:** FR-28 (D12)
+
+**Acceptance Criteria:**
+
+**Given** a opção de exportação sem criptografia
+**When** eu a escolho
+**Then** o app pede confirmação com o aviso de que o arquivo fica legível por qualquer pessoa
+**And** sem confirmação, nada é exportado.
+
+### Story 12.6: Criar a flag das consultas de itens, preços e ícones
+
+As a usuário do DOMUS,
+I want ligar ou desligar as consultas externas de itens, preços e ícones,
+So that nada saia do aparelho sem eu escolher.
+
+**Implementa:** FR-28
+
+**Acceptance Criteria:**
+
+**Given** a flag desligada
+**When** importo uma nota, abro a lista de desejos ou o app faz a atualização diária
+**Then** não há consulta a Open Food Facts, Cosmos, Siscomex, páginas de produto nem ao serviço de ícones do Google
+**And** o app classifica por palavras-chave, mostra ícone genérico e o último preço salvo
+
+**Given** uma instalação nova
+**When** abro as configurações
+**Then** a flag começa desligada
+
+**Given** quem já usa o app
+**When** atualiza
+**Then** a flag começa ligada e o app avisa uma vez o que ela envia e o que se perde ao desligar.
+
+### Story 12.7: Dizer em cada flag o que transmite e o que se perde
+
+As a usuário do DOMUS,
+I want ler, em cada flag, o que é enviado e o que perco se não ativar,
+So that minha escolha seja informada.
+
+**Implementa:** FR-5, FR-28
+
+**Acceptance Criteria:**
+
+**Given** cada flag de envio (IA e permissões, voz, Cloud Vision, sync, Drive, backup automático, Firebase, anúncios, consultas de itens)
+**When** a vejo no app
+**Then** ela diz o que é transmitido se ativada e quais benefícios se perdem se desligada
+**And** `docs/politica-de-privacidade.md`, a tela da política e o `PLAY_STORE_LISTING.md` dizem o mesmo
+**And** os textos refletem as Stories 12.1 a 12.6 já entregues.
