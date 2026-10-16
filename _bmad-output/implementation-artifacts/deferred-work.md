@@ -29,7 +29,7 @@
   summary: D10 — O código do grupo de sincronização vai à IA quando a permissão "sync" está ligada, o que dá ao provedor a chave para ler os Eventos publicados nos relays. **Virou Story 12.1** (Sprint Change "Privacidade por escolha", 16/10/2026).
   evidence: `src/modules/ai/application/AIContextBuilder.ts` (seção Sync, `Grupo: ${s.groupId}`). Enviar só o status (ligado, contagem, última sync), nunca o código.
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-4-corrigir-loja-e-politica-de-privacidade.md`
-  summary: D11 — O auto-backup diário ignora o interruptor de auto-backup: grava a cópia local e envia ao Drive (se conectado) mesmo com a opção desligada. **Virou Story 12.2** (Sprint Change "Privacidade por escolha", 16/10/2026).
+  summary: D11 — O auto-backup diário ignora o interruptor de auto-backup: grava a cópia local e envia ao Drive (se conectado) mesmo com a opção desligada. **Virou Story 12.2** (Sprint Change "Privacidade por escolha", 16/10/2026). **Resultado (16/10):** o interruptor só existia no `AutoBackupService` morto, removido; o envio ao Drive depende de conectar o Drive.
   evidence: `src/hooks/useAutoBackup.ts:63-110` não lê `isAutoBackupEnabled` de `src/modules/backup/application/AutoBackupService.ts:16,46`. A chave do aparelho fica em `AsyncStorage` em texto puro (`useAutoBackup.ts:31-48`), não no armazenamento seguro. A política descreve o comportamento atual (cópia diária sempre).
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-4-corrigir-loja-e-politica-de-privacidade.md`
   summary: D12 — Existe exportação de backup sem criptografia, com todos os Eventos legíveis. **Virou Story 12.5** (Sprint Change "Privacidade por escolha", 16/10/2026).

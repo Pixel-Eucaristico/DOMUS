@@ -382,7 +382,7 @@ O usuário decide cada envio de dados para fora do aparelho pela flag do recurso
 - Todo fluxo que envia dados para fora do aparelho tem uma flag de ativação; os que não têm (consulta de código de barras, tabela NCM, atualização de preços, ícones de lojas) ganham uma, no padrão das existentes, desligada em instalação nova.
 - Para quem já usa, o que já funcionava continua ligado e o app avisa uma vez.
 - A política, a tela do app e a loja dizem, para cada flag, o que é transmitido se ativada e quais benefícios se perdem se desligada.
-- As fraquezas registradas na Story 1.4 (D8 a D12) são corrigidas: salt do PIN, anúncio personalizado sem consentimento, código do grupo enviado à IA, backup automático que ignora o interruptor e exportação sem cifra sem aviso.
+- As fraquezas registradas na Story 1.4 (D8 a D12) são corrigidas: salt do PIN, anúncio personalizado sem consentimento, código do grupo enviado à IA, backup automático que ignora o interruptor (revisto em 16/10: o interruptor só existia em código morto, removido; o envio ao Drive depende de conectar o Drive) e exportação sem cifra sem aviso.
 
 ### 4.9 NFRs transversais
 

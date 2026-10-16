@@ -957,20 +957,22 @@ So that ela não possa ser lida de dentro do armazenamento do app.
 **And** quem já tem a chave salva tem o valor migrado sozinho na próxima abertura, sem perder o OCR
 **And** o OCR com serviço de nuvem continua funcionando depois da migração.
 
-### Story 6.2: Mover a chave e a senha do auto-backup para o armazenamento seguro
+### Story 6.2: Mover a chave do auto-backup para o armazenamento seguro
 
 As a usuário do DOMUS,
-I want que a senha do meu backup automático fique protegida,
+I want que a chave do meu backup automático fique protegida,
 So that quem lê o armazenamento do app não consiga abrir meus backups.
 
 **Implementa:** FR-23
 
+*Revisada em 16/10/2026: a `domus_auto_backup_password` só existia no `AutoBackupService`, removido na Story 12.2; resta uma chave.*
+
 **Acceptance Criteria:**
 
-**Given** `domus_auto_backup_device_key` e `domus_auto_backup_password` ficam em `AsyncStorage`
-**When** passo a gravá-las em `expo-secure-store` (nativo) ou `webSecrets` (web), com migração do valor atual
+**Given** `domus_auto_backup_device_key` fica em `AsyncStorage`
+**When** passo a gravá-la em `expo-secure-store` (nativo) ou `webSecrets` (web), com migração do valor atual
 **Then** o valor da chave é **o mesmo** antes e depois, então um backup automático já feito continua restaurável
-**And** nenhuma das duas chaves aparece mais em `AsyncStorage`
+**And** a chave não aparece mais em `AsyncStorage`
 **And** um teste de migração confirma o valor preservado.
 
 ### Story 6.3: Tirar a queda silenciosa do SecureStore para o AsyncStorage
@@ -1792,21 +1794,26 @@ So that o provedor de IA não consiga ler o que publico nos relays.
 ### Story 12.2: Fazer o backup automático obedecer ao interruptor
 
 As a usuário do DOMUS,
-I want que o backup automático só rode quando eu ligar a opção,
-So that nenhuma cópia seja gravada ou enviada ao Drive sem a minha escolha.
+I want que o backup só saia do aparelho quando eu escolher,
+So that nenhuma cópia vá ao Drive sem a minha escolha.
 
 **Implementa:** FR-28 (D11)
 
+*Revisada em 16/10/2026 (decisão do dono, "limpar e manter"): o interruptor citado no D11 só existia em código morto (`AutoBackupService`); a flag do envio é conectar o Google Drive.*
+
 **Acceptance Criteria:**
 
-**Given** o interruptor de backup automático desligado
-**When** o app abre num dia sem backup
-**Then** nenhuma cópia local é gravada e nada é enviado ao Drive
+**Given** o código do app
+**When** rodo `git grep -nE "AutoBackupService|domus_auto_backup_(enabled|password|interval_h)" -- src app`
+**Then** não há ocorrência
 
-**Given** o interruptor ligado
-**When** o app abre num dia sem backup
-**Then** a cópia diária é gravada e, com o Drive conectado, enviada como hoje
-**And** um teste cobre os dois estados.
+**Given** o Google Drive desconectado
+**When** o backup automático diário roda
+**Then** a cópia cifrada fica só no aparelho e nada é enviado ao Drive
+
+**Given** o Google Drive conectado
+**When** o backup automático diário roda
+**Then** a cópia é enviada ao Drive, como hoje.
 
 ### Story 12.3: Proteger o PIN com salt criptográfico e derivação lenta
 

@@ -38,7 +38,7 @@ Fazer com que nenhum dado saia do aparelho sem que o usuário ative a flag do re
 - PIN, chaves de API e segredos ficam só em `expo-secure-store` (na web, `webSecrets`); nenhum segredo novo em `AsyncStorage`, em Evento ou em `EXPO_PUBLIC_*`.
 - `packages/*` não importam `react`, `react-native` nem `expo`; `packages/sync` é intocável.
 - Testes com `npx vitest run`; `vi.mock("react-native")` não funciona (usar `process.env.EXPO_OS` ou lógica sem `react-native`).
-- Pontos de partida apontados na triagem das fraquezas: geração do salt em `PinAuthService` (usa `Math.random`); `requestNonPersonalizedAdsOnly: false` em `AppOpenAdHost` e `DailyAdModal`, sem uso de `AdsConsent`; seção Sync do `AIContextBuilder` (envia `groupId`); `useAutoBackup` não lê `isAutoBackupEnabled` do `AutoBackupService`; `handleExportPlain` em `useBackupRestore`; envios sem flag em `eanLookup.ts`, `siscomexCacheService.ts`, `usePriceRefresh.ts` e `StoreGridModal.tsx`.
+- Pontos de partida apontados na triagem das fraquezas: geração do salt em `PinAuthService` (usa `Math.random`); `requestNonPersonalizedAdsOnly: false` em `AppOpenAdHost` e `DailyAdModal`, sem uso de `AdsConsent`; seção Sync do `AIContextBuilder` (envia `groupId`); `useAutoBackup` não lê `isAutoBackupEnabled` do `AutoBackupService`; `handleExportPlain` em `useBackupRestore`; envios sem flag em `eanLookup.ts`, `siscomexCacheService.ts`, `usePriceRefresh.ts` e `StoreGridModal.tsx`. *(Revisto em 16/10: o `AutoBackupService` era código morto e foi removido na Story 12.2; a flag do envio é conectar o Drive.)*
 
 ## UX & Interaction Patterns
 
