@@ -244,14 +244,23 @@ Nestes acessos o app não envia dados pessoais, mas os serviços veem o endereç
 
 ## Permissões justificadas (Data Safety)
 
-Na Play Console você precisa declarar cada permissão:
+As respostas completas do formulário Data safety (fluxos, tipos de dado, coleta,
+compartilhamento, cifra em trânsito e exclusão) estão em `docs/data-safety.md`. A tabela
+abaixo é cópia da seção 4 desse arquivo; ao mudar uma, mude a outra.
 
 | Permissão | Justificativa |
 |-----------|--------------|
 | CAMERA | Ler o QR Code e fotografar notas fiscais e holerites |
-| READ/WRITE_EXTERNAL_STORAGE | Importar/exportar backups |
-| USE_BIOMETRIC / USE_FINGERPRINT | Bloqueio de segurança do app |
-| INTERNET | Sincronização P2P, assistente IA, busca de cotação USD/BRL |
+| READ_EXTERNAL_STORAGE / WRITE_EXTERNAL_STORAGE | Importar e exportar arquivos de backup e escolher fotos de notas e holerites na galeria |
+| USE_BIOMETRIC / USE_FINGERPRINT | Desbloquear o app com biometria; o processamento é do sistema e o DOMUS não guarda dados biométricos |
+| RECORD_AUDIO | Gravar a pergunta por voz no chat da IA, só quando o usuário liga a voz; o áudio vai ao provedor de voz escolhido |
+| MODIFY_AUDIO_SETTINGS | Ajustar o modo de áudio para gravar a voz e tocar a resposta falada da IA |
+| POST_NOTIFICATIONS | Mostrar lembretes locais de vencimento, orçamento, metas e resumo semanal, agendados no aparelho |
+
+As permissões que as bibliotecas acrescentam ao APK estão em `docs/data-safety.md` §4,
+"Permissões no APK final". Pendentes (achado A6): ACCESS_FINE_LOCATION e
+ACCESS_COARSE_LOCATION, trazidas pelo `expo-location` sem uso, e SYSTEM_ALERT_WINDOW, a
+conferir no AAB de release.
 
 ---
 
@@ -295,7 +304,7 @@ Opcionais:
 2. "Criar app" → preencha nome, idioma (pt-BR), tipo (App), gratuito
 3. Preencha Ficha da Play Store (nome, descrições, ícone, screenshots)
 4. Preencha Classificação de conteúdo
-5. Preencha Segurança dos dados (Data Safety) — usar tabela de permissões acima
+5. Preencha Segurança dos dados (Data Safety) — usar `docs/data-safety.md`
 6. Preencha Política de privacidade (URL)
 
 ### 2. Build

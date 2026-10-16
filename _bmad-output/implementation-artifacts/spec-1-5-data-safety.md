@@ -2,7 +2,7 @@
 title: 'Story 1.5: Alinhar o formulário Data safety ao comportamento'
 type: 'chore'
 created: '2026-10-16'
-status: 'in-review'
+status: 'done'
 baseline_commit: 'c6208c854d4ab0b4115680acc13b2b9fe602f140'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -79,3 +79,27 @@ context:
 **Manual checks (if no CLI):**
 - Comparar cada `android.permission.*` de `app.json` com a tabela de permissões dos dois arquivos
 - Comparar cada seção de `docs/politica-de-privacidade.md` com as linhas de fluxo de `docs/data-safety.md`
+
+## Review Triage Log
+
+| Achado | Veredito | Evidência |
+|---|---|---|
+| AdMob sem "Localização aproximada" (IP) e A6 contraditório | medium | Orientação do Google para o Mobile Ads SDK declara localização aproximada. **patch** (F10, §3, A6). |
+| Analytics pode ler o ID de publicidade, não declarado | medium | Sem `google_analytics_adid_collection_enabled=false` em `app.json`/`plugins`. **patch** (F7, §1). |
+| "Histórico de compras" opcional × F11 "Não" | medium | Contradição interna. **patch**: F11 "Sim (só ao ler o QR Code)". |
+| F4 inclui Qwen nas gravações | medium | Política §3: gravação só para OpenAI, Gemini, ElevenLabs. **patch**. |
+| F2 declara e-mail como coletado | medium | O e-mail vem do Google e fica no aparelho; regra "Never" da spec. **patch** com justificativa; isenção ponta a ponta registrada, declaração mantida por cautela. |
+| Cópia das permissões no `PLAY_STORE_LISTING.md` dessincronizada | medium | Omitia localização e `SYSTEM_ALERT_WINDOW`. **patch**: aponta para §4. |
+| F16 vago | low | Correção direta. **patch**. |
+| A6 (`expo-location`) sem rastreio | medium | **defer** D16, prioridade antes do AAB. |
+| Achados 1 e 4 sem rastreio (política) | medium | **defer** D17. |
+| Páginas `http://` falham no release | maybe-false | Seria medium se uma NFC-e real usar `http://`; testar no aparelho. **defer** D18. |
+| "Não" à exclusão parte de premissa não verificada | medium | Firebase/AdMob guardam dados na conta do desenvolvedor. **defer** D19, decisão do dono. |
+| Critério compara permissões só com `app.json` | low | A correção seria editar a spec; a §4 já cobre o APK. rejeitado |
+| Sem checagem automática de sincronia das tabelas | low | Script novo sem dano demonstrado. rejeitado |
+| `epic-1-context.md` perdeu restrições | low | É cache regerado do plano; as fontes (`epics.md`, PRD) mantêm tudo. rejeitado |
+| Status divergente / D13 resolvido antes da revisão | false | A entrega sincroniza o sprint; o D13 foi de fato resolvido. |
+| V (verification-gap) | — | nenhuma lacuna. |
+
+**Rota:** 7 `patch`, 4 `defer` (D16 a D19), 3 rejeitados. Sem loopback.
+
