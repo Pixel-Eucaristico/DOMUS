@@ -2,7 +2,7 @@
 title: 'Story 1.4: Corrigir a descrição da loja e a política de privacidade'
 type: 'chore'
 created: '2026-10-16'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: 'dc9cc08eaf7b90548b9b1433bf988ef1caa7dcff'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -59,10 +59,10 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `docs/politica-de-privacidade.md` -- criar a política pública como fonte única, com as mesmas seções do app -- decisão 2
-- [ ] `app/privacy-policy.tsx` -- reescrever intro e seções (Dados no aparelho, Sincronização, IA, Câmera e fotos, Backup e Google Drive, Estatísticas e anúncios, Outros serviços, Seus direitos e exclusão) com as evidências -- FR-5
-- [ ] `PLAY_STORE_LISTING.md` -- corrigir descrição (remover "SQLite criptografado", "ponta-a-ponta", "nenhum dado vai para servidores de terceiros"; sync "cifrado com a chave do grupo"), tags e rascunho da política igual ao app -- FR-5
-- [ ] `_bmad-output/implementation-artifacts/deferred-work.md` -- registrar defeitos de código achados (salt do PIN com `Math.random`, anúncios personalizados sem consentimento, código do grupo enviado à IA, auto-backup ignora o interruptor, exportação sem cifra) -- fora do escopo de texto
+- [x] `docs/politica-de-privacidade.md` -- criar a política pública como fonte única, com as mesmas seções do app -- decisão 2
+- [x] `app/privacy-policy.tsx` -- reescrever intro e seções (Dados no aparelho, Sincronização, IA, Câmera e fotos, Backup e Google Drive, Estatísticas e anúncios, Outros serviços, Seus direitos e exclusão) com as evidências -- FR-5
+- [x] `PLAY_STORE_LISTING.md` -- corrigir descrição (remover "SQLite criptografado", "ponta-a-ponta", "nenhum dado vai para servidores de terceiros"; sync "cifrado com a chave do grupo"), tags e rascunho da política igual ao app -- FR-5
+- [x] `_bmad-output/implementation-artifacts/deferred-work.md` -- registrar defeitos de código achados (salt do PIN com `Math.random`, anúncios personalizados sem consentimento, código do grupo enviado à IA, auto-backup ignora o interruptor, exportação sem cifra) -- fora do escopo de texto
 
 **Acceptance Criteria:**
 - Given os dois textos, when procuro "SQLite criptografado", "ponta-a-ponta", "WebRTC" e "nenhum dado vai para servidores", then não há ocorrência
@@ -72,9 +72,39 @@ context:
 
 ## Implementation Notes
 
+- `docs/politica-de-privacidade.md` é a fonte; o rascunho no `PLAY_STORE_LISTING.md` é cópia literal (sem o bloco de nota) e a tela do app tem o mesmo texto (conferido por diff de palavras).
+- Seção "Biometria e PIN" do app antigo entrou em "Dados no aparelho"; "Rede e Segurança" saiu (a frase "bloqueia HTTP" não foi verificada e o WebRTC era falso). Contato virou a seção 9.
+- O tamanho do código do grupo não é citado (a epic fala em 6 caracteres, mas `app/sync.tsx` aceita até 8).
+- Afirmações extras verificadas: SEFAZ pela chave de acesso (WebView), nome do item à IA para classificar (`classifyItem.ts`), tabela NCM baixada do Siscomex, pasta oculta `appDataFolder` no Drive, reset em Sobre › "Resetar aplicativo", Firebase em Sobre › "Analytics & Performance".
+- Tags da loja mantidas: "backup criptografado" confere com o código. Linha CAMERA da tabela de permissões passou a citar fotos de notas e holerites; o resto da tabela fica para a Story 1.5.
+- Defeitos adiados: D8 a D12 em `deferred-work.md`.
+- Verificação do orquestrador: "holerites" saiu da lista de registros guardados nos três textos; o holerite ainda não é registro local (Story 11.4), só é lido pelo chat da IA.
+- Auditoria da matriz: as três linhas são de texto, sem teste automatizado possível; cobertas pelo `git grep` da Verificação e pela leitura comparada dos três textos.
+
 ## Spec Change Log
 
 ## Review Triage Log
+
+| Achado | Veredito | Evidência |
+|---|---|---|
+| E1/E6 §3 "sempre enviado" omite categorias, volatilidade e perfil e inclui "sua mensagem" no resumo | high | `ConsultantChatUseCase.ts:113-124`: `buildSummaryRequest` (3 categorias com valor e %, volatilidade) e `buildConsultationRequest` (risco, impulso, tendência, preço) saem sem permissão; o resumo não leva a mensagem. **patch** |
+| E2 voz só pela ElevenLabs | medium | `app/ai-chat.tsx:355-440`: `audioProvider` padrão `openai`, também Gemini e Qwen para fala e transcrição. **patch** |
+| B6 §1 "segredos no armazenamento seguro" | medium | chave do Cloud Vision (`ocrConfigService.ts`) e chave do backup automático (`useAutoBackup.ts:31-46`) em `AsyncStorage` puro. **patch** (o defeito de código já está em D11 e no FR-23) |
+| B4/E4 introdução da loja: só IA, sync e Drive enviam dados | medium | SEFAZ, EAN (Open Food Facts/Cosmos), Siscomex, páginas de produto e favicons saem sem opt-in (§4 e §7 da política). **patch** |
+| B5 código do grupo à IA sem dizer a consequência | medium | o código é a única chave do sync (`nostrSync.ts:230-251`); quem o tem lê os relays. **patch** |
+| B3 fotos da galeria não citadas | low | `NSPhotoLibraryUsageDescription` e `launchImageLibraryAsync` seguem o mesmo caminho do Vision e do Cloud Vision. Correção direta. **patch** |
+| B9 rótulo "política completa online" | low | a tela passou a ter a política inteira; troca de texto direta. **patch** |
+| B2/E5 tabela de permissões e linha INTERNET incompletas | medium | pré-existente e escopo da Story 1.5 (Data safety). **defer** |
+| B7 conteúdo exigido pela LGPD (controlador, encarregado, base legal, transferência internacional, retenção, menores, mudanças) | medium | ausente também na política anterior; a intenção desta story é veracidade, não completude legal. **defer** |
+| B1 `NSMicrophoneUsageDescription` "não usa o microfone" | low | iOS não é publicado (PRD §5, não-objetivo); usuário não encontra. rejeitado |
+| B8 sem checagem automática de igualdade dos três textos | low | correção exige script novo; sem dano demonstrado nesta entrega. rejeitado |
+| B10 spec `in-review` × sprint `in-progress` | false | a etapa 5 do `bmad-build` sincroniza o sprint para `review` ao concluir. |
+| B11 Firebase na web | false | `AnalyticsService.ts:16,65` retorna em `Platform.OS === "web"`; nada é inicializado na web. |
+| B12 AdMob sem consentimento | low | a política já diz que os anúncios podem ser personalizados; o defeito de código está em D9. rejeitado |
+| E3 `git grep` ignora arquivo não rastreado | low | correção seria editar esta spec (regra de triagem); a verificação final usa `grep` comum. rejeitado |
+| V (verification-gap) | — | nenhuma lacuna de verificação. |
+
+**Rota:** 7 `patch` (corrigidos pelo implementador), 2 `defer` (D13, D14), 6 rejeitados. Sem `intent_gap` nem `bad_spec`; sem loopback (`review_loop_iteration` = 0).
 
 ## Verification
 

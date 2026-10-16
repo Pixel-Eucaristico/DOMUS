@@ -19,3 +19,25 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-2-mirar-a-api-36-no-build-de-release.md`
   summary: D7 — O job `Build Web` do `build-android.yml` falha no `Export Web` na `main` (já em 15/10, antes da 1.2): `Unable to resolve module @lottiefiles/dotlottie-react` pedido por `lottie-react-native` (`index.web.js`) via `LottieTrophy.tsx`.
   evidence: log do run 38795050025 (main). Falta a dependência web do Lottie ou um alias/stub só para a web. A CI Android também está vermelha na `main` desde março (último sucesso 15/03, tag v1.2.13); reativar o gate de CI conversa com a Story 2.8. **Atualização 16/10:** resolvido pela Story 11.9 (remover o Lottie), aprovada na Sprint Change Proposal de 16/10/2026 (decisão D1).
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-corrigir-loja-e-politica-de-privacidade.md`
+  summary: D8 — O salt do PIN usa `Math.random` (não criptográfico), embora o comentário diga "cryptographically random".
+  evidence: `src/modules/security/application/PinAuthService.ts:19-27` (`generateSalt`). A política só afirma "hash SHA-256 com salt". Trocar por `crypto.getRandomValues`/`expo-crypto` e manter compatibilidade com hashes antigos (o salt fica salvo junto).
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-corrigir-loja-e-politica-de-privacidade.md`
+  summary: D9 — Anúncios personalizados sem consentimento: os modos de apoio com anúncio pedem `requestNonPersonalizedAdsOnly: false` sem fluxo de consentimento (UMP/GDPR) nem opção de anúncio não personalizado.
+  evidence: `src/components/monetization/AppOpenAdHost.tsx:26`, `src/components/monetization/DailyAdModal.tsx:55`; nenhum uso de `AdsConsent`. A política descreve o comportamento atual; alinhar com o Data safety na Story 1.5.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-corrigir-loja-e-politica-de-privacidade.md`
+  summary: D10 — O código do grupo de sincronização vai à IA quando a permissão "sync" está ligada, o que dá ao provedor a chave para ler os Eventos publicados nos relays.
+  evidence: `src/modules/ai/application/AIContextBuilder.ts` (seção Sync, `Grupo: ${s.groupId}`). Enviar só o status (ligado, contagem, última sync), nunca o código.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-corrigir-loja-e-politica-de-privacidade.md`
+  summary: D11 — O auto-backup diário ignora o interruptor de auto-backup: grava a cópia local e envia ao Drive (se conectado) mesmo com a opção desligada.
+  evidence: `src/hooks/useAutoBackup.ts:63-110` não lê `isAutoBackupEnabled` de `src/modules/backup/application/AutoBackupService.ts:16,46`. A chave do aparelho fica em `AsyncStorage` em texto puro (`useAutoBackup.ts:31-48`), não no armazenamento seguro. A política descreve o comportamento atual (cópia diária sempre).
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-corrigir-loja-e-politica-de-privacidade.md`
+  summary: D12 — Existe exportação de backup sem criptografia, com todos os Eventos legíveis.
+  evidence: `src/hooks/useBackupRestore.ts:99` (`handleExportPlain` → `BackupExportService.exportPlain`). A política avisa; decidir se a opção fica (com aviso forte na tela) ou sai.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-corrigir-loja-e-politica-de-privacidade.md`
+  summary: D13 — Tabela de permissões do `PLAY_STORE_LISTING.md` incompleta (faltam `RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS`, `POST_NOTIFICATIONS`; a linha INTERNET ainda diz "Sincronização P2P" e omite Drive, Firebase, AdMob, SEFAZ e consultas).
+  evidence: `app.json` declara essas permissões; a revisão da Story 1.4 apontou. Resolver na Story 1.5, junto do Data safety, mantendo igual à `docs/politica-de-privacidade.md`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-corrigir-loja-e-politica-de-privacidade.md`
+  summary: D14 — A política não tem o conteúdo esperado pela LGPD: controlador e encarregado, base legal por tratamento, transferência internacional (provedores de IA, Firebase, AdMob, relays), retenção, menores e aviso de mudanças.
+  evidence: ausente na política anterior e na nova; a Story 1.4 só tratou da veracidade. Exige decisão do dono (texto jurídico) antes da publicação da Story 1.6.
+
