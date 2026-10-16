@@ -24,6 +24,7 @@ import { SelectionModal } from "@/src/components/shared/SelectionModal";
 import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
 import { useAIConsultant } from "@/src/hooks/useAIConsultant";
 import { useAISettings } from "@/src/hooks/useAISettings";
+import { VISION_PAYSLIP_KEY } from "@/src/hooks/usePayslipScanner";
 import { useVoiceRecorder } from "@/src/hooks/useVoiceRecorder";
 import { voiceOutputService } from "@/src/services/VoiceOutputService";
 import { AIUsageBar } from "@/src/components/ai/AIUsageBar";
@@ -284,16 +285,9 @@ export default function AIChatScreen() {
         await AsyncStorage.setItem("@domus/vision_ocr_result", JSON.stringify(payload));
         router.push("/import-invoice?fromVision=1");
       } else {
-        const pay = ocrResult as PayslipOCRResult;
-        // Enviar para chat com resumo + instruir usuário a adicionar manualmente
-        const resumo = `Holerite escaneado com sucesso!\n\n` +
-          `Empresa: ${pay.company}\n` +
-          `Periodo: ${pay.period}\n` +
-          `Salario Bruto: R$ ${pay.grossSalary.toFixed(2)}\n` +
-          `Descontos: ${pay.deductions.map((d) => `${d.name}: R$ ${d.value.toFixed(2)}`).join(", ")}\n` +
-          `Salario Liquido: R$ ${pay.netSalary.toFixed(2)}\n\n` +
-          `Adicione como receita na tela principal com valor R$ ${pay.netSalary.toFixed(2)}.`;
-        await sendMessage(resumo);
+        // Abrir tela de holerites com revisão pré-preenchida
+        await AsyncStorage.setItem(VISION_PAYSLIP_KEY, JSON.stringify(ocrResult as PayslipOCRResult));
+        router.push("/payslips?fromVision=1");
       }
     } catch (err: any) {
       setVisionLoading(false);

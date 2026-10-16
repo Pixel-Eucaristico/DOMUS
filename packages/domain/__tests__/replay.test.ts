@@ -4,10 +4,17 @@ import { createInitialState } from "../src/state";
 import { domainReducer } from "../src/reducer";
 import { createEvent } from "../../events/src/factory";
 import { EVENT_TYPES } from "../../events/src/types";
+import { recordPayslipEvent, deletePayslipEvent } from "../src/payslips";
 import type {
   AccountCreatedEvent,
+  AccountUpdatedEvent,
+  AccountDeletedEvent,
   TransactionCreatedEvent,
+  TransactionUpdatedEvent,
+  TransactionDeletedEvent,
   CategoryCreatedEvent,
+  InvoiceImportedEvent,
+  InvoiceConfirmedEvent,
   DomainEvent,
 } from "../../events/src/types";
 
@@ -197,5 +204,162 @@ describe("integration with SQLiteEventStore pattern", () => {
     expect(state.accounts["acc-1"]!.balance).toBe(2850);
     expect(state.accounts["cc-1"]!.balance).toBe(0);
     expect(Object.keys(state.transactions)).toHaveLength(2);
+  });
+});
+
+// ── Cobertura de replay para os tipos de evento adicionados depois do MVP ──
+
+function account(id: string, type: "checking" | "savings" | "credit_card" = "checking", balance = 1000) {
+  return createEvent<AccountCreatedEvent>(EVENT_TYPES.ACCOUNT_CREATED, { id, name: id, type, balance });
+}
+
+function tx(payload: Partial<TransactionCreatedEvent["payload"]> & { id: string }) {
+  return createEvent<TransactionCreatedEvent>(EVENT_TYPES.TRANSACTION_CREATED, {
+    accountId: "acc-1",
+    type: "expense",
+    amount: 100,
+    categoryId: "cat-1",
+    date: "2026-03-01",
+    ...payload,
+  });
+}
+
+describe("replay de novos tipos de evento", () => {
+  it("INVOICE_IMPORTED + INVOICE_CONFIRMED reconstroem a nota confirmada", () => {
+    const imported = createEvent<InvoiceImportedEvent>(EVENT_TYPES.INVOICE_IMPORTED, {
+      invoiceId: "nf-1",
+      source: "SEFAZ_QR",
+      emitter: { cnpj: "12345678000190", name: "Mercado" },
+      date: "2026-03-01",
+      items: [{ description: "Arroz", quantity: 1, unitPrice: 25, totalPrice: 25 }],
+      totalAmount: 25,
+    });
+    const confirmed = createEvent<InvoiceConfirmedEvent>(EVENT_TYPES.INVOICE_CONFIRMED, {
+      invoiceId: "nf-1",
+      date: "2026-03-01",
+      totalAmount: 25,
+    });
+
+    const state = replayEvents([imported, confirmed]);
+    expect(state.invoices["nf-1"]).toMatchObject({
+      confirmed: true,
+      importedAt: imported.timestamp,
+      confirmedAt: confirmed.timestamp,
+      totalAmount: 25,
+    });
+  });
+
+  it("INVOICE_CONFIRMED sem importação prévia é ignorado", () => {
+    const state = replayEvents([
+      createEvent<InvoiceConfirmedEvent>(EVENT_TYPES.INVOICE_CONFIRMED, {
+        invoiceId: "fantasma",
+        date: "2026-03-01",
+        totalAmount: 10,
+      }),
+    ]);
+    expect(state.invoices).toEqual({});
+  });
+
+  it("transação pendente só altera saldo ao ser efetivada via TRANSACTION_UPDATED", () => {
+    const pending = replayEvents([account("acc-1"), tx({ id: "tx-1", status: "pending" })]);
+    expect(pending.accounts["acc-1"]!.balance).toBe(1000);
+
+    const confirmed = replayEvents([
+      account("acc-1"),
+      tx({ id: "tx-1", status: "pending" }),
+      createEvent<TransactionUpdatedEvent>(EVENT_TYPES.TRANSACTION_UPDATED, { id: "tx-1", status: "confirmed" }),
+    ]);
+    expect(confirmed.accounts["acc-1"]!.balance).toBe(900);
+  });
+
+  it("dividendo de CDB acumula cdbDividendsTotal e é revertido ao excluir", () => {
+    const base = [
+      account("cdb", "savings", 0),
+      tx({ id: "dep", accountId: "cdb", type: "income", amount: 1000 }),
+      tx({ id: "div", accountId: "cdb", type: "income", amount: 50, isCdbDividend: true }),
+    ];
+    const state = replayEvents(base);
+    expect(state.accounts.cdb!.balance).toBe(1050);
+    expect(state.accounts.cdb!.cdbDividendsTotal).toBe(50);
+
+    const afterDelete = replayEvents([
+      ...base,
+      createEvent<TransactionDeletedEvent>(EVENT_TYPES.TRANSACTION_DELETED, { id: "div" }),
+    ]);
+    expect(afterDelete.accounts.cdb!.balance).toBe(1000);
+    expect(afterDelete.accounts.cdb!.cdbDividendsTotal).toBe(0);
+  });
+
+  it("transferência para cartão de crédito não altera o saldo do cartão", () => {
+    const state = replayEvents([
+      account("acc-1"),
+      account("card", "credit_card", 0),
+      tx({ id: "pay", type: "transfer", amount: 300, targetAccountId: "card" }),
+    ]);
+    expect(state.accounts["acc-1"]!.balance).toBe(700);
+    expect(state.accounts.card!.balance).toBe(0);
+  });
+
+  it("ACCOUNT_UPDATED e ACCOUNT_DELETED são reaplicados na ordem", () => {
+    const state = replayEvents([
+      account("acc-1"),
+      account("acc-2"),
+      createEvent<AccountUpdatedEvent>(EVENT_TYPES.ACCOUNT_UPDATED, { id: "acc-1", name: "Renomeada", linkedCreditCardId: "card" }),
+      createEvent<AccountDeletedEvent>(EVENT_TYPES.ACCOUNT_DELETED, { id: "acc-2" }),
+      createEvent<AccountUpdatedEvent>(EVENT_TYPES.ACCOUNT_UPDATED, { id: "acc-2", name: "Não deve voltar" }),
+    ]);
+    expect(Object.keys(state.accounts)).toEqual(["acc-1"]);
+    expect(state.accounts["acc-1"]).toMatchObject({ name: "Renomeada", linkedCreditCardId: "card" });
+  });
+
+  it("PAYSLIP_RECORDED / PAYSLIP_DELETED convivem com transações de salário", () => {
+    const salary = tx({ id: "sal", type: "income", amount: 4000, categoryId: "salario" });
+    const state = replayEvents([
+      account("acc-1", "checking", 0),
+      salary,
+      recordPayslipEvent({
+        id: "hol-1",
+        period: "2026-03",
+        company: "ACME",
+        grossSalary: 5000,
+        netSalary: 4000,
+        deductions: [{ name: "INSS", value: 1000 }],
+        source: "vision",
+        transactionId: "sal",
+      }),
+      recordPayslipEvent({
+        id: "hol-2",
+        period: "2026-04",
+        company: "ACME",
+        grossSalary: 5000,
+        netSalary: 4000,
+        deductions: [],
+        source: "manual",
+      }),
+      deletePayslipEvent("hol-2"),
+    ]);
+    expect(state.accounts["acc-1"]!.balance).toBe(4000);
+    expect(Object.keys(state.payslips)).toEqual(["hol-1"]);
+    expect(state.payslips["hol-1"]!.transactionId).toBe("sal");
+  });
+
+  it("replayEventsSince com novos tipos equivale ao replay completo", () => {
+    const events: DomainEvent[] = [
+      account("acc-1"),
+      tx({ id: "tx-1", status: "pending" }),
+      recordPayslipEvent({ id: "h", period: "2026-03", company: "X", grossSalary: 1, netSalary: 1, deductions: [], source: "manual" }),
+      createEvent<TransactionUpdatedEvent>(EVENT_TYPES.TRANSACTION_UPDATED, { id: "tx-1", status: "confirmed" }),
+      deletePayslipEvent("h"),
+    ];
+    for (let split = 0; split <= events.length; split++) {
+      const partial = replayEvents(events.slice(0, split));
+      expect(replayEventsSince(partial, events.slice(split))).toEqual(replayEvents(events));
+    }
+  });
+
+  it("evento de tipo desconhecido não altera o estado", () => {
+    const before = replayEvents([account("acc-1")]);
+    const after = domainReducer(before, { ...account("x"), type: "EVENTO_FUTURO" } as unknown as DomainEvent);
+    expect(after).toBe(before);
   });
 });

@@ -22,3 +22,13 @@ export {
   getIdeal503020,
 } from "./src/transactions";
 export type { CreateTransactionParams, BudgetBreakdown } from "./src/transactions";
+
+export {
+  recordPayslipEvent,
+  deletePayslipEvent,
+  getPayslipHistory,
+  summarizePayslips,
+  formatPayslipPeriod,
+} from "./src/payslips";
+export type { RecordPayslipParams, PayslipSummary } from "./src/payslips";
+export type { StoredPayslip } from "./src/state";

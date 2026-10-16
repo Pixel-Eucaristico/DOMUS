@@ -8,6 +8,8 @@ export const EVENT_TYPES = {
   CATEGORY_CREATED: "CATEGORY_CREATED",
   INVOICE_IMPORTED: "INVOICE_IMPORTED",
   INVOICE_CONFIRMED: "INVOICE_CONFIRMED",
+  PAYSLIP_RECORDED: "PAYSLIP_RECORDED",
+  PAYSLIP_DELETED: "PAYSLIP_DELETED",
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
@@ -142,6 +144,28 @@ export interface InvoiceConfirmedPayload {
   totalAmount: number;
 }
 
+export interface PayslipLinePayload {
+  name: string;
+  value: number;
+}
+
+export interface PayslipPayload {
+  id: string;
+  /** Competência no formato YYYY-MM */
+  period: string;
+  company: string;
+  cnpj?: string;
+  employee?: string;
+  grossSalary: number;
+  netSalary: number;
+  earnings?: PayslipLinePayload[];
+  deductions: PayslipLinePayload[];
+  fgts?: number;
+  source: "vision" | "ocr" | "manual";
+  /** Receita lançada a partir deste holerite (se houver) */
+  transactionId?: string;
+}
+
 interface BaseEvent {
   id: string;
   type: EventType;
@@ -195,6 +219,16 @@ export interface InvoiceConfirmedEvent extends BaseEvent {
   payload: InvoiceConfirmedPayload;
 }
 
+export interface PayslipRecordedEvent extends BaseEvent {
+  type: typeof EVENT_TYPES.PAYSLIP_RECORDED;
+  payload: PayslipPayload;
+}
+
+export interface PayslipDeletedEvent extends BaseEvent {
+  type: typeof EVENT_TYPES.PAYSLIP_DELETED;
+  payload: { id: string };
+}
+
 export type DomainEvent =
   | AccountCreatedEvent
   | AccountUpdatedEvent
@@ -204,4 +238,6 @@ export type DomainEvent =
   | TransactionDeletedEvent
   | CategoryCreatedEvent
   | InvoiceImportedEvent
-  | InvoiceConfirmedEvent;
+  | InvoiceConfirmedEvent
+  | PayslipRecordedEvent
+  | PayslipDeletedEvent;

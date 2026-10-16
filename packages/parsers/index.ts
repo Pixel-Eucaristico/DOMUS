@@ -20,6 +20,14 @@ export type { SefazParseResult } from "./src/sefazParser";
 export { parseOCRText, parseFromImage } from "./src/ocrParser";
 export type { OCRParseResult } from "./src/ocrParser";
 
+export {
+  parsePayslipText,
+  normalizePayslipPeriod,
+  normalizeVisionPayslip,
+  parseBRL,
+} from "./src/payslipParser";
+export type { PayslipParseResult, PayslipLine, VisionPayslipInput } from "./src/payslipParser";
+
 export { QRScannerService } from "./src/qrScannerService";
 export { SefazService } from "./src/sefazService";
 export { OCRService } from "./src/ocrService";

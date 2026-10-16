@@ -135,9 +135,38 @@ export function domainReducer(state: AppState, event: DomainEvent): AppState {
       };
     }
 
+    case EVENT_TYPES.PAYSLIP_RECORDED: {
+      const payslip = event.payload;
+      // Uma competência por empresa: regravar substitui a leitura anterior
+      const payslips = Object.fromEntries(
+        Object.entries(state.payslips).filter(
+          ([, p]) => !(p.period === payslip.period && samePayer(p, payslip)) || p.id === payslip.id,
+        ),
+      );
+      return {
+        ...state,
+        payslips: {
+          ...payslips,
+          [payslip.id]: { ...payslip, recordedAt: event.timestamp },
+        },
+      };
+    }
+
+    case EVENT_TYPES.PAYSLIP_DELETED: {
+      if (!state.payslips[event.payload.id]) return state;
+      const { [event.payload.id]: _removed, ...remaining } = state.payslips;
+      return { ...state, payslips: remaining };
+    }
+
     default:
       return state;
   }
+}
+
+function samePayer(a: { cnpj?: string; company: string }, b: { cnpj?: string; company: string }): boolean {
+  const digits = (s?: string) => (s ?? "").replace(/\D/g, "");
+  if (digits(a.cnpj) && digits(b.cnpj)) return digits(a.cnpj) === digits(b.cnpj);
+  return a.company.trim().toLowerCase() === b.company.trim().toLowerCase();
 }
 
 function applyTransactionToAccounts(
