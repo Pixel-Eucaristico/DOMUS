@@ -2,7 +2,7 @@
 title: 'Story 1.5: Alinhar o formulário Data safety ao comportamento'
 type: 'chore'
 created: '2026-10-16'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: 'c6208c854d4ab0b4115680acc13b2b9fe602f140'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -49,9 +49,9 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `docs/data-safety.md` -- criar: (1) resumo das respostas gerais do formulário (coleta, compartilhamento, cifra em trânsito, exclusão); (2) tabela por fluxo: destino, tipos de dado do Play, finalidade, opcional e como ativar, coletado/compartilhado; (3) tabela de permissões do Android com justificativa -- FR-5
-- [ ] `PLAY_STORE_LISTING.md` -- substituir a tabela de permissões pela versão completa (D13), igual à de `docs/data-safety.md`, e apontar para o arquivo -- D13
-- [ ] `_bmad-output/implementation-artifacts/deferred-work.md` -- marcar o D13 como resolvido por esta story -- rastreio
+- [x] `docs/data-safety.md` -- criar: (1) resumo das respostas gerais do formulário (coleta, compartilhamento, cifra em trânsito, exclusão); (2) tabela por fluxo: destino, tipos de dado do Play, finalidade, opcional e como ativar, coletado/compartilhado; (3) tabela de permissões do Android com justificativa -- FR-5
+- [x] `PLAY_STORE_LISTING.md` -- substituir a tabela de permissões pela versão completa (D13), igual à de `docs/data-safety.md`, e apontar para o arquivo -- D13
+- [x] `_bmad-output/implementation-artifacts/deferred-work.md` -- marcar o D13 como resolvido por esta story -- rastreio
 
 **Acceptance Criteria:**
 - Given `docs/data-safety.md`, when o leio, then há uma linha para relays Nostr, Google Drive, provedores de IA (texto e voz), OCR de terceiros (Cloud Vision), Firebase (Analytics, Crashlytics, Performance), AdMob e as consultas sem flag, cada uma com o dado enviado e o consentimento
@@ -60,6 +60,15 @@ context:
 - Given a tabela de permissões, when a comparo com `app.json`, then todas as permissões declaradas aparecem com justificativa e nenhuma sobra
 
 ## Implementation Notes
+
+- Verificação do orquestrador: permissões do APK de release da CI (run #71) lidas com `pyaxmlparser`; acrescentada a seção "Permissões no APK final" e o achado A6 (`expo-location` sem uso traz localização). Sem `usesCleartextTraffic`: HTTP bloqueado por padrão no target 36.
+
+- `docs/data-safety.md` tem: respostas gerais (coleta sim, cifra em trânsito sim, exclusão "Não" pela decisão do dono, anúncios e ID de publicidade sim, sem isenção de ponta a ponta), 16 fluxos (F1 a F16) com tipo de dado do Play, finalidade, opcional/ativação, coletado/compartilhado e evidência, resumo por tipo de dado e a tabela de permissões.
+- Cruzamento com a política: §2→F1; §3→F3, F4; §4→F5, F6, F11; §5→F2 (backup manual citado como não-fluxo); §6→F7 a F10; §7→F12 a F16. §1 e §8/§9 não têm fluxo.
+- Compartilhamento: marcado "sim" de forma conservadora para relays (públicos, cifra fraca) e AdMob (anúncios personalizados); IA, Drive, Cloud Vision e SEFAZ usam a isenção de ação iniciada pelo usuário; Firebase a de prestador de serviço. Decisão final do dono na 1.6.
+- Permissões: as 8 de `android.permissions` com justificativa, iguais nos dois arquivos (conferido por `diff`); INTERNET saiu da tabela (não está no `app.json`) e foi para uma nota sobre permissões das bibliotecas (INTERNET, ACCESS_NETWORK_STATE, WAKE_LOCK, AD_ID), a conferir no manifesto mesclado do AAB.
+- Divergências registradas na seção 5 de `docs/data-safety.md`, sem mudar a política: busca de produto na Amazon/Mercado Livre com código de afiliado ausente da §7; EAN e páginas de desejo tratados como "sem dado pessoal" (opção de declarar "Histórico de compras"); cifra em trânsito depende do bloqueio de HTTP do Android; §6 não cita o ID da instalação do Firebase nem o IP; anúncios personalizados sem consentimento (D9/12.4).
+- Tipos de dado do Firebase e do AdMob seguem o que o código chama (`logEvent`, `logScreenView`, `recordError`, anúncios) e as categorias usuais desses SDKs; não verificados no tráfego real.
 
 ## Spec Change Log
 

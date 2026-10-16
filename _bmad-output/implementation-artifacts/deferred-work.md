@@ -36,11 +36,23 @@
   evidence: `src/hooks/useBackupRestore.ts:99` (`handleExportPlain` → `BackupExportService.exportPlain`). A política avisa; decidir se a opção fica (com aviso forte na tela) ou sai.
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-4-corrigir-loja-e-politica-de-privacidade.md`
   summary: D13 — Tabela de permissões do `PLAY_STORE_LISTING.md` incompleta (faltam `RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS`, `POST_NOTIFICATIONS`; a linha INTERNET ainda diz "Sincronização P2P" e omite Drive, Firebase, AdMob, SEFAZ e consultas).
-  evidence: `app.json` declara essas permissões; a revisão da Story 1.4 apontou. Resolver na Story 1.5, junto do Data safety, mantendo igual à `docs/politica-de-privacidade.md`.
+  evidence: `app.json` declara essas permissões; a revisão da Story 1.4 apontou. Resolver na Story 1.5, junto do Data safety, mantendo igual à `docs/politica-de-privacidade.md`. **Resolvido (16/10):** Story 1.5 completou a tabela em `PLAY_STORE_LISTING.md`, igual à seção 4 de `docs/data-safety.md`.
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-4-corrigir-loja-e-politica-de-privacidade.md`
   summary: D14 — A política não tem o conteúdo esperado pela LGPD: controlador e encarregado, base legal por tratamento, transferência internacional (provedores de IA, Firebase, AdMob, relays), retenção, menores e aviso de mudanças.
   evidence: ausente na política anterior e na nova; a Story 1.4 só tratou da veracidade. Exige decisão do dono (texto jurídico) antes da publicação da Story 1.6.
 - source_spec: `_bmad-output/implementation-artifacts/spec-12-3-pin-com-salt-criptografico-e-derivacao-lenta.md`
   summary: D15 — Medir em Android real o tempo do PBKDF2 do PIN (30 mil iterações, JS puro no Hermes) e, se passar de ~300 ms, mostrar indicador de espera no teclado do PIN (`LockScreen`, `useSecuritySetup`).
   evidence: não verificado (maybe-false); o teclado não mostra estado de espera enquanto `verifyPin` roda. Medir junto da checklist da Story 1.3.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-5-data-safety.md`
+  summary: D16 — **Antes do AAB da Story 1.6:** remover `expo-location` (em `package.json` desde a v1.4.0, sem uso no código) ou bloquear `ACCESS_FINE_LOCATION`/`ACCESS_COARSE_LOCATION` em `app.json`; conferir também `SYSTEM_ALERT_WINDOW` no manifesto do AAB de release.
+  evidence: APK de release da CI (run #71) pede as duas permissões de localização; `docs/data-safety.md` §4 e achado A6. Sem isso, o Play cobra declaração e justificativa de localização. Dependência nova/removida exige atualizar `package-lock.json` (AGENTS.md).
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-5-data-safety.md`
+  summary: D17 — Atualizar a política (três textos): busca de produto na Amazon/Mercado Livre com código de afiliado ao adicionar item à lista de desejos; ID da instalação do Firebase; IP visto pelo Firebase e pelo AdMob; localização aproximada do AdMob; ID de publicidade no Analytics.
+  evidence: achados 1 e 4 de `docs/data-safety.md` §5 e revisão da Story 1.5. Encaixa na Story 12.7 ou antes da publicação da política na Story 1.6.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-5-data-safety.md`
+  summary: D18 — Páginas `http://` da SEFAZ (QR Code) e da lista de desejos falham no release com target 36, porque o HTTP sem cifra é bloqueado.
+  evidence: achado 3 de `docs/data-safety.md`; APK sem `usesCleartextTraffic`. Não reproduzido em aparelho. Incluir na checklist da Story 1.3 (ler QR de NFC-e de estados que ainda usam `http://`); correção possível: reescrever para `https://` quando o host aceitar.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-5-data-safety.md`
+  summary: D19 — Rever a resposta "Não" à exclusão de dados: o desenvolvedor consegue pedir a exclusão dos dados do Analytics (Firebase) e do AdMob vinculados ao app.
+  evidence: a decisão do dono partiu da premissa "nada em servidor"; Firebase e AdMob guardam dados na conta Google do desenvolvedor. Decisão do dono antes de preencher o formulário (Story 1.6).
 
