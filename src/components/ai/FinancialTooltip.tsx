@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity, Pressable } from "reac
 import { TCard } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { FINANCIAL_GLOSSARY, type GlossaryEntry } from "@/src/constants/financialGlossary";
 
 interface FinancialTooltipProps {
   visible: boolean;
@@ -12,33 +13,7 @@ interface FinancialTooltipProps {
 }
 
 /** Educational financial term definitions */
-export const FINANCIAL_TOOLTIPS: Record<string, { title: string; content: string }> = {
-  "50/30/20": {
-    title: "Regra 50/30/20",
-    content:
-      "Divida sua renda em: 50% para necessidades (moradia, alimentação, transporte), 30% para desejos (lazer, compras) e 20% para poupança e investimentos.",
-  },
-  "taxa_selic": {
-    title: "Taxa Selic",
-    content:
-      "A taxa básica de juros da economia brasileira, definida pelo COPOM. Ela influencia todas as outras taxas de juros do mercado.",
-  },
-  "reserva_emergencia": {
-    title: "Reserva de Emergência",
-    content:
-      "Fundo equivalente a 3-6 meses de despesas mensais, mantido em investimentos de alta liquidez para imprevistos.",
-  },
-  "juros_compostos": {
-    title: "Juros Compostos",
-    content:
-      "Juros que incidem sobre o capital inicial mais os juros acumulados. É o principal mecanismo de crescimento patrimonial de longo prazo.",
-  },
-  "diversificacao": {
-    title: "Diversificação",
-    content:
-      "Estratégia de distribuir investimentos entre diferentes ativos para reduzir riscos. Não colocar todos os ovos na mesma cesta.",
-  },
-};
+export const FINANCIAL_TOOLTIPS: Record<string, GlossaryEntry> = FINANCIAL_GLOSSARY;
 
 export function FinancialTooltip({ visible, title, content, onClose }: FinancialTooltipProps) {
   const { theme } = useAppState();

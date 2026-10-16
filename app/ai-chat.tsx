@@ -38,6 +38,8 @@ import { createAudioPlayer as createPlayer, setAudioModeAsync as setAudioMode } 
 import { TText } from "@/src/components/tamagui";
 import { MarkdownText } from "@/src/components/ai/ChatBubble";
 import { FinancialCard } from "@/src/components/ai/FinancialCard";
+import { FinancialTooltip } from "@/src/components/ai/FinancialTooltip";
+import { FINANCIAL_GLOSSARY, detectGlossaryTerms, type GlossaryEntry } from "@/src/constants/financialGlossary";
 import { QuickSuggestions } from "@/src/components/ai/QuickSuggestions";
 import { ChatInputBar } from "@/src/components/ai/ChatInputBar";
 import type { ChatAction } from "@/src/components/ai/ChatActionMenu";
@@ -450,6 +452,9 @@ export default function AIChatScreen() {
   }, [isRecording, stopRecording, startRecording, settings.provider, settings.audioProvider, settings.isEnabled, settings.voiceEnabled, settings.dataPermissions, sendMessage]);
 
   // ─── GiftedChat: Bubble with Markdown + Listen + Copy ─────────────────
+  const [glossaryTip, setGlossaryTip] = useState<GlossaryEntry | null>(null);
+  const tooltipsEnabled = settings.tooltipsEnabled ?? true;
+
   const renderBubble = useCallback(
     (props: Readonly<BubbleProps<IMessage>>) => {
       const msg = props.currentMessage;
@@ -504,6 +509,27 @@ export default function AIChatScreen() {
                   </View>
                 )}
 
+                {/* Tooltips educativos para termos citados pela IA */}
+                {!isUser && tooltipsEnabled && (() => {
+                  const terms = detectGlossaryTerms(msg.text);
+                  if (!terms.length) return null;
+                  return (
+                    <View style={styles.glossaryRow}>
+                      {terms.map((term) => (
+                        <TouchableOpacity
+                          key={term}
+                          onPress={() => { soundManager.play("tap"); setGlossaryTip(FINANCIAL_GLOSSARY[term]); }}
+                          style={[styles.glossaryChip, { borderColor: theme.border }]}
+                          accessibilityLabel={`O que é ${FINANCIAL_GLOSSARY[term].title}?`}
+                        >
+                          <Feather name="info" size={11} color={theme.primaryColor} />
+                          <Text style={{ color: theme.primaryColor, fontSize: 11 }}>{FINANCIAL_GLOSSARY[term].title}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  );
+                })()}
+
                 {/* Action row: Copy + Listen */}
                 {!isUser && (
                   <View style={styles.actionRow}>
@@ -548,7 +574,7 @@ export default function AIChatScreen() {
         />
       );
     },
-    [theme, speakText, ttsState, settings.voiceEnabled, settings.isEnabled],
+    [theme, speakText, ttsState, settings.voiceEnabled, settings.isEnabled, tooltipsEnabled],
   );
 
   // ─── GiftedChat: Custom view for FinancialCard ────────────────────────
@@ -757,6 +783,13 @@ export default function AIChatScreen() {
           onDeny={handlePermissionDeny}
         />
 
+        <FinancialTooltip
+          visible={!!glossaryTip}
+          title={glossaryTip?.title ?? ""}
+          content={glossaryTip?.content ?? ""}
+          onClose={() => setGlossaryTip(null)}
+        />
+
         <SelectionModal
           visible={visionModal.visible}
           title={visionModal.docType === "invoice" ? "Escanear Nota Fiscal" : "Escanear Holerite"}
@@ -800,6 +833,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   messageContent: { paddingHorizontal: 12, paddingVertical: 8 },
+  glossaryRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 8,
+  },
+  glossaryChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
   actionRow: {
     flexDirection: "row",
     alignItems: "center",

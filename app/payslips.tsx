@@ -29,6 +29,7 @@ import { PayslipChart } from "@/src/components/payslip/PayslipChart";
 import { PayslipReviewModal, type PayslipReviewValues } from "@/src/components/payslip/PayslipReviewModal";
 import { SelectionModal } from "@/src/components/shared/SelectionModal";
 import { formatCurrency } from "@/src/utils/formatCurrency";
+import { InfoTip } from "@/src/components/shared/InfoTip";
 
 const EMPTY_PAYSLIP: PayslipParseResult = {
   company: "",
@@ -202,7 +203,10 @@ export default function PayslipsScreen() {
           <>
             <View style={s.stats}>
               <View style={[s.stat, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-                <Text style={[s.statLabel, { color: theme.secondaryText }]}>Último líquido</Text>
+                <View style={s.labelRow}>
+                  <Text style={[s.statLabel, { color: theme.secondaryText }]}>Último líquido</Text>
+                  <InfoTip term="salario_liquido" size={12} />
+                </View>
                 <Text style={[s.statValue, { color: theme.textColor }]}>{formatCurrency(summary.latest!.netSalary)}</Text>
                 <Text style={[s.statSub, { color: changeColor }]}>
                   {summary.netChangePct === null
@@ -211,7 +215,10 @@ export default function PayslipsScreen() {
                 </Text>
               </View>
               <View style={[s.stat, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-                <Text style={[s.statLabel, { color: theme.secondaryText }]}>Média líquida</Text>
+                <View style={s.labelRow}>
+                  <Text style={[s.statLabel, { color: theme.secondaryText }]}>Média líquida</Text>
+                  <InfoTip term="descontos_holerite" size={12} />
+                </View>
                 <Text style={[s.statValue, { color: theme.textColor }]}>{formatCurrency(summary.averageNet)}</Text>
                 <Text style={[s.statSub, { color: theme.secondaryText }]}>
                   {(summary.deductionRate * 100).toFixed(1)}% em descontos
@@ -219,7 +226,10 @@ export default function PayslipsScreen() {
               </View>
             </View>
 
-            <Text style={[s.section, { color: theme.textColor }]}>Evolução</Text>
+            <View style={s.labelRow}>
+              <Text style={[s.section, { color: theme.textColor }]}>Evolução</Text>
+              <InfoTip term="salario_bruto" size={13} style={s.sectionTip} />
+            </View>
             <PayslipChart history={history} theme={theme} />
 
             {summary.deductionTotals.length > 0 && (
@@ -302,6 +312,8 @@ const s = StyleSheet.create({
   stats: { flexDirection: "row", gap: 12 },
   stat: { flex: 1, borderRadius: 16, borderWidth: 1, padding: 14, gap: 4 },
   statLabel: { fontSize: 12 },
+  labelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  sectionTip: { marginTop: 8 },
   statValue: { fontSize: 18, fontWeight: "700" },
   statSub: { fontSize: 12 },
   section: { fontSize: 15, fontWeight: "700", marginTop: 8 },

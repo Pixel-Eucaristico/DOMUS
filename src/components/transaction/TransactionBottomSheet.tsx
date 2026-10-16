@@ -26,6 +26,7 @@ import { InstallmentSelector } from "@/src/components/transaction/InstallmentSel
 import { TX_TYPES, getCategoriesForType } from "@/src/constants/transactionCategories";
 import type { TransactionStatus, RecurrenceType } from "@packages/events/src/types";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { InfoTip } from "@/src/components/shared/InfoTip";
 import { soundManager } from "@/src/services/SoundManager";
 import * as Haptics from "expo-haptics";
 import { TButton, TInput } from "@/src/components/tamagui";
@@ -432,7 +433,10 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
               domain.accounts[form.selectedAccountId]?.type === "savings" &&
               domain.accounts[form.selectedAccountId]?.linkedCreditCardId && (
                 <View style={[s.row, { alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }]}>
-                  <Text style={[s.label, { color: theme.secondaryText, marginBottom: 0 }]}>É dividendo/rendimento</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={[s.label, { color: theme.secondaryText, marginBottom: 0 }]}>É dividendo/rendimento</Text>
+                    <InfoTip term="limite_cdb" size={13} />
+                  </View>
                   <Switch
                     value={form.isCdbDividend}
                     onValueChange={(v) => {
