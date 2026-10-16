@@ -2,7 +2,7 @@
 title: 'DOMUS — Segurança e Atualização'
 status: final
 created: '2026-10-15'
-updated: '2026-10-15'
+updated: '2026-10-16'
 ---
 
 # PRD: DOMUS — Segurança e Atualização
@@ -337,7 +337,43 @@ O usuário tem seus Segredos guardados em armazenamento seguro, sem exceção si
 - A queda silenciosa do `SecureStore` para `AsyncStorage` no código do Grupo antigo é removida, ou o app avisa o usuário `[ASSUMPTION]`.
 - O inventário do FR-8a não deixa Segredo em `AsyncStorage` em texto puro.
 
-### 4.8 NFRs transversais
+### 4.8 H. Recursos de uso
+
+*Incluído pela Sprint Change Proposal de 16/10/2026 (`sprint-change-proposal-2026-10-16.md`).*
+
+#### FR-25: Tooltips com glossário financeiro
+O usuário toca num ícone de informação e lê a explicação de um termo financeiro sem sair da tela.
+
+**Consequências (testáveis):**
+- Um glossário único (`src/constants/financialGlossary.ts`) alimenta todas as dicas.
+- A dica é um balão ancorado ao ícone, que abre acima ou abaixo conforme o espaço e fecha ao tocar fora.
+- Há dicas no orçamento 50/30/20, no campo de dividendo do CDB e na tela de holerites (quando o FR-26 existir).
+- No chat da IA, termos do glossário citados na resposta viram atalhos "O que é…?", só com `tooltipsEnabled` ligado.
+- Nenhuma dependência nova.
+
+#### FR-26: Leitor de holerite
+O usuário fotografa o holerite e acompanha a evolução do salário e dos descontos.
+
+**Consequências (testáveis):**
+- O parser extrai empresa, CNPJ, competência (`YYYY-MM`), bruto, líquido, rubricas, descontos e FGTS, sem tratar bases de cálculo como desconto, e informa confiança e avisos.
+- A captura usa o Vision OCR quando há provedor com visão; senão, o OCR do aparelho.
+- O usuário revisa e corrige antes de salvar e pode lançar o líquido como receita (categoria `salario`).
+- O holerite é Evento (`PAYSLIP_RECORDED` / `PAYSLIP_DELETED`) com `schemaVersion`; a mesma competência do mesmo empregador substitui a leitura anterior.
+- O nome do funcionário não é guardado.
+- Eventos de holerite **não são publicados no Grupo antigo**; só sincronizam pelo Grupo forte (FR-13), como a preferência religiosa.
+- A tela mostra o histórico, o gráfico líquido × bruto e o total por desconto.
+- Depende de FR-15 e FR-17.
+
+#### FR-27: Animação por troféu
+O usuário vê cada troféu com uma animação ligada ao tema dele.
+
+**Consequências (testáveis):**
+- Toda configuração vem de `src/constants/trophyAnimationConfigs.ts` (categoria + ajuste por troféu), e um teste garante configuração válida para todos os troféus do app.
+- A animação por configuração **substitui o Lottie** em todos os troféus (decisão do dono); o app deixa de depender de `lottie-react-native`.
+- Em listas estáticas, o troféu aparece sem efeitos.
+- O DebugTools mostra a configuração de cada troféu para a aprovação individual do dono.
+
+### 4.9 NFRs transversais
 
 - **NFR-1 — Sem segredo exposto.** Nenhum Segredo em `AsyncStorage` em texto puro, em variável `EXPO_PUBLIC_*` ou em Evento em texto puro. Hoje é violado pelo OCR e pelo auto-backup (corrigido em FR-23). Verificação: regra de ESLint para `EXPO_PUBLIC_*` e revisão do inventário do FR-8a a cada release.
 - **NFR-2 — Estado determinístico.** O mesmo conjunto de Eventos produz o mesmo estado em qualquer Aparelho.
@@ -347,7 +383,7 @@ O usuário tem seus Segredos guardados em armazenamento seguro, sem exceção si
 - **NFR-6 — Texto igual ao comportamento.** Toda afirmação pública sobre privacidade e segurança é verificável no código.
 - **NFR-7 — Português do Brasil.** Todo texto de interface em pt-BR com acentuação completa.
 
-### 4.9 Restrições e *guardrails*
+### 4.10 Restrições e *guardrails*
 
 - **Sem backend próprio de sync** (AD-8); os relays Nostr são públicos.
 - **`packages/*` ficam puros** (sem `react`, `react-native` nem `expo`; AD-3).
@@ -359,9 +395,9 @@ O usuário tem seus Segredos guardados em armazenamento seguro, sem exceção si
 
 - **Perfis múltiplos e perfil de empresa.** Ficam para depois; o formato dos Eventos deve só não impedir (FR-17).
 - **App iOS.** Só quando houver um aparelho iOS e verba para a loja.
-- **Reformulação dos troféus.** Está em andamento fora deste PRD; a regra do colecionável fica como insumo (§4.6).
+- **Reformulação das regras dos troféus.** A regra do colecionável fica como insumo (§4.6). A parte visual entrou pelo FR-27, que substitui a reformulação por Lottie (decisão de 16/10/2026).
 - **Cifrar o banco SQLite local.** Decidido corrigir o texto em vez de cifrar o banco (FR-5).
-- **Interface nova do app.** Além de mensagens de reconexão, migração e privacidade.
+- **Interface nova do app.** Além de mensagens de reconexão, migração e privacidade, e dos recursos do FR-25 (tooltips), FR-26 (holerite) e FR-27 (animação de troféus), incluídos pela Sprint Change Proposal de 16/10/2026.
 - **Backend próprio.**
 - **Sincronizar o histórico de chat da IA.** O dono decidiu que não é necessário.
 - **Assinatura de Eventos individuais.** A confiança vem do Segredo de grupo; só o marcador de reset é assinado (FR-10).
@@ -372,7 +408,7 @@ O usuário tem seus Segredos guardados em armazenamento seguro, sem exceção si
 ## 6. Escopo e prioridade
 
 ### 6.1 Em escopo
-Os FRs FR-1 a FR-24. O dono definiu "o que der": não há corte fixo, só uma ordem, e o FR-1 vem primeiro.
+Os FRs FR-1 a FR-27 (FR-25 a FR-27 incluídos em 16/10/2026). O dono definiu "o que der": não há corte fixo, só uma ordem, e o FR-1 vem primeiro.
 
 ### 6.2 Fora do escopo
 Ver §5.
@@ -382,16 +418,19 @@ Ver §5.
 | Ordem | FRs | Por quê |
 |---|---|---|
 | 1 (até 25/10) | FR-1, FR-5 | prazo da Play; FR-5 publica junto |
+| 1b | FR-25 | sem dependência; decisão do dono (D3) |
 | 2 | FR-22 (publicação sem o segredo; revogação só depois da adoção) | depende de FR-1 já publicado |
 | 3 | FR-20, FR-21 | baseline e gate antes de mudanças grandes |
 | 4 | FR-2 | Node novo antes dos upgrades |
 | 5 | FR-15, FR-16, FR-17 | log robusto, base do sync |
+| 5b | FR-26 | depende do log robusto; sincroniza só depois de FR-13 |
 | 6 | FR-13, FR-12, FR-14 | sigilo do sync, antes de sincronizar Segredos |
 | 7 | FR-9, FR-10, FR-7, FR-6 | sync confiável e sem eco |
 | 8 | FR-19, FR-24, FR-18, FR-23 | gamificação e segredos locais |
 | 9 | FR-3a, FR-3b, FR-3c | upgrade do SDK, um salto por vez |
 | 10 | FR-4 | login moderno |
 | 11 | FR-8a, FR-8b, FR-8c, FR-11 | sincronizar tudo, por último, porque depende de FR-12 e FR-13 |
+| 12 | FR-27 | animação dos troféus, substituindo o Lottie |
 
 O prazo de 01/11/2026 cobre só FR-1 e FR-5 (publicação); os demais seguem a ordem, sem data comprometida.
 

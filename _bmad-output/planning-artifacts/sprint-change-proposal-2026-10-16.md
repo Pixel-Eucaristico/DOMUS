@@ -1,6 +1,7 @@
 ---
 title: 'Sprint Change Proposal — Recursos do ROADMAP legado'
-status: draft
+status: approved
+approved: '2026-10-16'
 created: '2026-10-16'
 mode: batch
 trigger: pedido do dono (requisito novo de stakeholder)
@@ -208,3 +209,13 @@ Marcar a tarefa 1 como `cancelled`, com a nota "coberta pelas stories 3.2 e 3.4 
 - **D1 — Troféus:** (a) fazer o FR-27 só para o fallback SVG, como proposto; (b) não fazer o FR-27 e seguir só com o Lottie; (c) parar o Lottie e usar só a configuração.
 - **D2 — Sigilo do holerite:** (a) sincronizar como os gastos já sincronizam (Grupo antigo incluído); (b) só sincronizar depois do Epic 4, mantendo o holerite local até lá.
 - **D3 — Ordem:** confirmar os tooltips (11.1 e 11.2) logo depois do Epic 1, antes do Epic 2.
+
+## 7. Aprovação (16/10/2026)
+
+O dono aprovou a proposta com estas decisões, que **substituem** o que diverge nas seções 3 e 4:
+
+- **D1 = (c) Trocar o Lottie.** O FR-27 vale para **todos** os troféus: a animação por configuração substitui o Lottie, e a reformulação por Lottie do ROADMAP §3.4 é encerrada. Entra a story 11.9 (remover o Lottie do app: `lottie-react-native`, `assets/lottie/` com 6 MB e `APPROVED_LOTTIE`). Isso também elimina a falha conhecida do build web, que exige `@lottiefiles/dotlottie-react`.
+- **D2 = (b) Só depois do Epic 4.** `PAYSLIP_*` não é publicado no Grupo antigo; o holerite fica no aparelho (e no backup do próprio Drive) até o Grupo forte. A story 4.5 passa a publicar esses eventos no Grupo forte.
+- **D3 = Sim.** As stories 11.1 e 11.2 vêm logo depois do Epic 1, antes do Epic 2.
+
+As emendas foram aplicadas no PRD, em `epics.md`, em `sprint-status.yaml` e no Taskmaster na mesma data.

@@ -63,6 +63,11 @@ This document provides the complete epic and story breakdown for DOMUS — Segur
 - FR-22: Publicar a versão sem `client_secret` antes de revogar o segredo antigo; revogar só depois da adoção; validar o Drive num Android real.
 - FR-23: Mover a chave de OCR e a senha do auto-backup para `expo-secure-store` (nativo) ou `webSecrets` (web), com migração; remover ou avisar a queda silenciosa do `SecureStore` para `AsyncStorage` no código do Grupo antigo.
 
+**H. Recursos de uso** *(Sprint Change Proposal de 16/10/2026)*
+- FR-25: Tooltips ancorados com glossário financeiro único; dicas no 50/30/20, no CDB e no holerite; atalhos "O que é…?" no chat da IA com `tooltipsEnabled`.
+- FR-26: Leitor de holerite (parser, Vision OCR com fallback local, revisão, receita, histórico e gráfico) como Evento com `schemaVersion`, sem nome do funcionário e sem publicar no Grupo antigo.
+- FR-27: Animação por troféu via `trophyAnimationConfigs`, substituindo o Lottie em todos os troféus, com prévia no DebugTools.
+
 ### NonFunctional Requirements
 
 - NFR-1: Nenhum Segredo em `AsyncStorage` em texto puro, em `EXPO_PUBLIC_*` ou em Evento em texto puro; verificado por regra de ESLint e pela revisão do inventário do FR-8a a cada release.
@@ -124,6 +129,9 @@ FR-3: Epic 8 - Expo SDK 54→57 em três saltos (3a, 3b, 3c)
 FR-4: Epic 8 - login do Google com Credential Manager e AuthorizationClient
 FR-8: Epic 9 e Epic 10 - 8a inventário e 8b (preferências de baixo risco) no Epic 9; 8b (preferência religiosa) e 8c (segredos opt-in nativos) no Epic 10
 FR-11: Epic 10 - Google Drive com o mesmo escopo do sync
+FR-25: Epic 11 - tooltips com glossário financeiro
+FR-26: Epic 11 - leitor de holerite (local até o Grupo forte)
+FR-27: Epic 11 - animação por troféu, substituindo o Lottie
 
 ## Epic List
 
@@ -168,6 +176,12 @@ O app roda no Expo SDK 57 e usa o login moderno do Google, sem depender de API d
 Tema, som, modo de apoio e a configuração de IA e de OCR (sem chave) ficam iguais em todos os aparelhos, e existe um inventário que classifica tudo que o app guarda fora do log.
 **FRs covered:** FR-8a, FR-8b (preferências de baixo risco)
 **Depende de:** Epic 3 (log robusto e `schemaVersion`). Não leva dado sensível, então pode vir logo depois do Epic 3.
+
+### Epic 11: Recursos de uso
+A pessoa entende os termos financeiros na hora, acompanha o salário pelo holerite e vê cada troféu com uma animação ligada ao tema dele.
+**FRs covered:** FR-25, FR-26, FR-27
+**Ordem:** 11.1 e 11.2 logo depois do Epic 1 (decisão do dono); 11.3 a 11.6 depois das stories 3.1, 3.3 e 3.8; o holerite só sincroniza pelo Grupo forte (Epic 4).
+**Origem:** Sprint Change Proposal de 16/10/2026.
 
 ### Epic 10: Segredos e backup em todos os aparelhos
 A preferência religiosa e o escopo completo do backup do Drive acompanham o usuário entre aparelhos, e as chaves de IA e OCR sincronizam só entre aparelhos nativos, com opt-in.
@@ -262,7 +276,8 @@ So that o app cumpra a política da Play.
 **When** os levanto em `docs/data-safety.md`
 **Then** a lista inclui relays Nostr, Google Drive, provedores de IA, OCR de terceiros, Firebase (Analytics, Crashlytics, Performance) e anúncios, cada um com o dado enviado e o consentimento
 **And** o formulário no Play Console fica igual à lista
-**And** a política da Story 1.4 e a lista dizem o mesmo.
+**And** a política da Story 1.4 e a lista dizem o mesmo
+**And** o fluxo "provedores de IA e OCR" cita que fotos de documentos financeiros (nota fiscal e holerite) são enviadas ao provedor escolhido pelo usuário.
 
 ### Story 1.6: Enviar o AAB com target 36 à Play até 25/10/2026
 
@@ -673,6 +688,7 @@ So that o sync novo funcione de ponta a ponta de verdade.
 **Then** os eventos publicados vão cifrados com AES-GCM e usam uma identidade Nostr própria do grupo, separada da do Grupo antigo
 **And** um terceiro sem o Segredo de grupo não decifra um evento (testado)
 **And** os eventos do Grupo antigo não são alterados nem lidos por este caminho.
+**And** os eventos `PAYSLIP_*` (Story 11.4), que não vão ao Grupo antigo, passam a ser publicados no Grupo forte.
 
 ### Story 4.6: Registrar em qual grupo cada evento já foi publicado
 
@@ -1556,3 +1572,190 @@ So that trocar de celular não me faça perder configurações nem dados.
 **And** nenhuma chave de API aparece em texto puro no arquivo de backup
 **And** as chaves só voltam se o opt-in e o Grupo forte do Épico 10 estiverem ativos no aparelho novo
 **And** um teste restaura um backup com preferências e confirma o estado.
+
+## Epic 11: Recursos de uso
+
+A pessoa entende os termos financeiros na hora, acompanha o salário pelo holerite e vê cada troféu com uma animação ligada ao tema dele.
+
+*Incluído pela Sprint Change Proposal de 16/10/2026.*
+
+### Story 11.1: Criar o glossário financeiro e o balão de dica
+
+As a usuário do DOMUS,
+I want tocar num ícone de informação e ler o que um termo significa,
+So that eu aprenda sem sair da tela.
+
+**Implementa:** FR-25
+
+**Acceptance Criteria:**
+
+**Given** o glossário em `src/constants/financialGlossary.ts`
+**When** ele é carregado
+**Then** cada termo tem título e explicação em pt-BR com acentos
+**And** uma função detecta os termos citados num texto livre, sem confundir palavras parecidas, e um teste cobre a detecção
+
+**Given** um ícone de informação na tela
+**When** eu toco nele
+**Then** um balão ancorado ao ícone mostra o termo, abrindo abaixo dele ou acima quando não houver espaço
+**And** o balão fecha ao tocar fora
+**And** nenhuma dependência nova é adicionada.
+
+### Story 11.2: Mostrar dicas nas telas e atalhos no chat da IA
+
+As a usuário do DOMUS,
+I want ver dicas onde os termos aparecem e no chat da IA,
+So that eu entenda o que a tela e a IA dizem.
+
+**Implementa:** FR-25
+
+**Acceptance Criteria:**
+
+**Given** o orçamento 50/30/20 da tela inicial e o campo de dividendo do CDB
+**When** abro essas telas
+**Then** cada uma tem o ícone de dica do termo correspondente
+
+**Given** uma resposta da IA que cita termos do glossário
+**When** a opção `tooltipsEnabled` está ligada
+**Then** a resposta mostra até três atalhos "O que é…?" que abrem a explicação
+**And** com a opção desligada, os atalhos não aparecem.
+
+### Story 11.3: Extrair os dados do holerite a partir do texto do OCR
+
+As a usuário do DOMUS,
+I want que o app entenda o texto do meu holerite,
+So that eu não precise digitar os valores.
+
+**Implementa:** FR-26
+
+**Acceptance Criteria:**
+
+**Given** o texto de um holerite lido por OCR
+**When** o parser em `packages/parsers` o processa
+**Then** ele devolve empresa, CNPJ, competência (`YYYY-MM`), bruto, líquido, rubricas, descontos e FGTS
+**And** bases de cálculo (INSS, IRRF, FGTS) não entram como desconto
+**And** o bruto ou o líquido ausente é calculado a partir dos outros valores, com aviso
+**And** a confiança cai quando os totais não fecham ou o líquido passa do bruto
+**And** data de pagamento não é confundida com competência
+**And** o resultado do Vision OCR é normalizado para o mesmo formato
+**And** o nome do funcionário não é devolvido
+**And** o parser é puro (AD-3) e coberto por testes.
+
+### Story 11.4: Registrar o holerite como evento local
+
+As a usuário do DOMUS,
+I want que meus holerites fiquem no log como os outros dados,
+So that eles sobrevivam ao replay e ao backup sem expor meu salário.
+
+**Implementa:** FR-26
+**Depende de:** Stories 3.1, 3.3 e 3.8
+
+**Acceptance Criteria:**
+
+**Given** os tipos `PAYSLIP_RECORDED` e `PAYSLIP_DELETED` em `packages/events`
+**When** o log é reproduzido
+**Then** os tipos são roteados ao `domainReducer` (AD-4) e o payload tem `schemaVersion` (FR-17)
+**And** registrar a mesma competência do mesmo empregador (por CNPJ, ou por nome sem CNPJ) substitui a leitura anterior
+**And** excluir remove o holerite e um id inexistente é ignorado
+**And** o holerite não altera saldo de conta
+
+**Given** um Grupo antigo configurado
+**When** o sync publica eventos
+**Then** nenhum evento `PAYSLIP_*` é publicado no Grupo antigo
+**And** um teste garante esse filtro.
+
+### Story 11.5: Capturar, revisar e salvar o holerite
+
+As a usuário do DOMUS,
+I want fotografar o holerite, conferir os valores e salvar,
+So that meu salário fique registrado sem digitação.
+
+**Implementa:** FR-26
+
+**Acceptance Criteria:**
+
+**Given** a tela de holerites
+**When** escolho câmera ou galeria
+**Then** a leitura usa o Vision OCR se houver provedor com visão e cai para o OCR do aparelho se ele falhar ou não existir
+**And** posso preencher manualmente
+
+**Given** o resultado da leitura
+**When** abro a revisão
+**Then** vejo os avisos do parser e posso corrigir empresa, competência, bruto e líquido
+**And** só salvo com competência válida e líquido maior que zero e menor ou igual ao bruto
+**And** posso lançar o líquido como receita numa conta que não seja cartão de crédito
+**And** se a competência já existir, o app pede confirmação para substituir
+
+**Given** o chat da IA
+**When** uso "Escanear holerite"
+**Then** o resultado abre a mesma revisão.
+
+### Story 11.6: Mostrar o histórico e o gráfico do holerite
+
+As a usuário do DOMUS,
+I want ver a evolução do meu salário e dos descontos,
+So that eu perceba aumentos, quedas e quanto vai para impostos.
+
+**Implementa:** FR-26
+
+**Acceptance Criteria:**
+
+**Given** holerites salvos
+**When** abro a tela de holerites
+**Then** vejo o último líquido com a variação em relação ao anterior, a média líquida e o percentual de descontos
+**And** um gráfico mostra líquido e bruto das últimas 12 competências
+**And** o total acumulado por desconto aparece do maior para o menor
+**And** posso excluir um holerite sem apagar a receita já lançada
+**And** sem holerites, a tela explica o recurso e oferece a captura.
+
+### Story 11.7: Configurar a animação de cada troféu
+
+As a dono do DOMUS,
+I want um mapa de animação por troféu,
+So that cada troféu tenha uma animação ligada ao tema dele.
+
+**Implementa:** FR-27
+
+**Acceptance Criteria:**
+
+**Given** `src/constants/trophyAnimationConfigs.ts`
+**When** pego a configuração de qualquer troféu do app (conquistas, mensais, sazonais e litúrgicos)
+**Then** ela vem da categoria temática do troféu mais o ajuste próprio dele, se houver
+**And** um teste confirma configuração válida para todos os troféus e que todo ajuste aponta para um troféu existente.
+
+### Story 11.8: Animar os troféus pela configuração e mostrar a prévia
+
+As a usuário do DOMUS,
+I want ver os troféus animados conforme o tema,
+So that cada conquista pareça única.
+
+**Implementa:** FR-27
+
+**Acceptance Criteria:**
+
+**Given** a configuração da Story 11.7
+**When** um troféu é exibido animado
+**Then** movimento, entrada, efeito e partículas seguem a configuração dele, em todos os troféus, sem usar Lottie
+**And** em listas estáticas o troféu aparece sem efeitos
+**And** nenhuma View animada passa do tamanho da tela (pitfall do GPU Mali)
+
+**Given** o DebugTools
+**When** abro a lista de troféus
+**Then** cada um mostra categoria, movimento, efeito e partículas, para a aprovação do dono.
+
+### Story 11.9: Remover o Lottie do app
+
+As a dono do DOMUS,
+I want tirar o Lottie depois que a animação por configuração cobrir todos os troféus,
+So that o app fique menor e o build web pare de falhar.
+
+**Implementa:** FR-27
+**Depende de:** Story 11.8
+
+**Acceptance Criteria:**
+
+**Given** a Story 11.8 concluída
+**When** removo `lottie-react-native`, `assets/lottie/` e `APPROVED_LOTTIE`
+**Then** nenhum import de Lottie sobra no código
+**And** `package-lock.json` é atualizado para a CI (`npm ci`)
+**And** o build web volta a empacotar sem `@lottiefiles/dotlottie-react`
+**And** o build Android de release continua verde.
