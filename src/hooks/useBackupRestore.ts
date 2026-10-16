@@ -1,5 +1,7 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Platform } from "react-native";
+import { confirmAsync } from "@/src/utils/confirmAsync";
+import { runIfConfirmed, PLAIN_EXPORT_WARNING } from "@/src/modules/backup/application/confirmedExport";
 import * as DocumentPicker from "expo-document-picker";
 import * as Haptics from "expo-haptics";
 import { BackupExportService } from "@/src/modules/backup/application/BackupExportService";
@@ -39,6 +41,7 @@ interface UseBackupRestoreParams {
 export function useBackupRestore({ getAllEvents, restoreFromBackup, deviceId }: UseBackupRestoreParams) {
   // Export state
   const [encryptExport, setEncryptExport] = useState(true);
+  const plainExportBusy = useRef(false);
   const [exportPassword, setExportPassword] = useState("");
   const [exportConfirm, setExportConfirm] = useState("");
   const [exportStatus, setExportStatus] = useState<BackupStatus>({ type: "idle" });
@@ -93,16 +96,27 @@ export function useBackupRestore({ getAllEvents, restoreFromBackup, deviceId }: 
   }, [exportPassword, exportConfirm, getAllEvents, deviceId]);
 
   const handleExportPlain = useCallback(async () => {
+    // Evita dois diálogos/exportações com toque duplo enquanto o aviso está aberto
+    if (plainExportBusy.current) return;
+    plainExportBusy.current = true;
     try {
-      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const events = getAllEvents();
-      await BackupExportService.exportPlain(events, deviceId ?? "unknown", setExportStatus);
-      setExportStatus({ type: "success", message: `${events.length} eventos exportados sem criptografia.` });
-      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const result = await runIfConfirmed(
+        () => confirmAsync(PLAIN_EXPORT_WARNING.title, PLAIN_EXPORT_WARNING.message, PLAIN_EXPORT_WARNING.confirmLabel),
+        async () => {
+          if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          const events = getAllEvents();
+          await BackupExportService.exportPlain(events, deviceId ?? "unknown", setExportStatus);
+          setExportStatus({ type: "success", message: `${events.length} eventos exportados sem criptografia.` });
+          if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        },
+      );
+      if (result === "cancelled") setExportStatus({ type: "idle" });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erro desconhecido ao exportar.";
       setExportStatus({ type: "error", message });
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      plainExportBusy.current = false;
     }
   }, [getAllEvents, deviceId]);
 

@@ -129,7 +129,7 @@ export default function BackupScreen() {
                   <View style={[s.warnBanner, { borderColor: "#F59E0B40", backgroundColor: "#F59E0B12" }]}>
                     <Feather name="alert-triangle" size={14} color="#F59E0B" />
                     <Text style={[s.warnText, { color: theme.secondaryText }]}>
-                      Sem proteção por senha. Use apenas em local seguro.
+                      Sem criptografia: qualquer pessoa ou serviço que receber o arquivo lê todos os seus dados.
                     </Text>
                   </View>
                 )}
