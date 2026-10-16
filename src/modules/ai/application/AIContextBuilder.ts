@@ -13,11 +13,32 @@ const MAX_TRANSACTIONS = 50;
 const MAX_INVOICES = 10;
 
 export interface SyncInfo {
+  /** Só indica se há grupo: o código do grupo é a chave do sync e nunca vai à IA (D10). */
+  inGroup: boolean;
+  eventCount: number;
+  relayCount: number;
+  isAutoSyncEnabled: boolean;
+  lastSyncTime: number | null;
+}
+
+/** Estado do sync como chega da casca; `groupId` é o código do grupo. */
+export interface SyncSource {
   groupId: string | null;
   eventCount: number;
   relayCount: number;
   isAutoSyncEnabled: boolean;
   lastSyncTime: number | null;
+}
+
+/** Único ponto que converte o estado do sync para a IA: descarta o código do grupo (D10). */
+export function toSyncInfo(source: SyncSource): SyncInfo {
+  return {
+    inGroup: !!source.groupId,
+    eventCount: source.eventCount,
+    relayCount: source.relayCount,
+    isAutoSyncEnabled: source.isAutoSyncEnabled,
+    lastSyncTime: source.lastSyncTime,
+  };
 }
 
 export interface ContextData {
@@ -118,7 +139,7 @@ export function buildFinancialContext(
       ? new Date(s.lastSyncTime).toLocaleString("pt-BR")
       : "nunca";
     const lines = [
-      `- Grupo: ${s.groupId ?? "nenhum"}`,
+      `- Grupo: ${s.inGroup ? "configurado" : "nenhum"}`,
       `- Auto-sync: ${s.isAutoSyncEnabled ? "ativado" : "desativado"}`,
       `- Eventos sincronizados: ${s.eventCount}`,
       `- Relays conectados: ${s.relayCount}`,

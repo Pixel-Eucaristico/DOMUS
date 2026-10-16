@@ -6,7 +6,7 @@ import { useAppState } from "@/src/context/AppStateProvider";
 import { useSync } from "@/src/context/SyncProvider";
 import type { ChatMessage } from "@packages/ai";
 import type { AISettings } from "@/src/modules/ai/domain/AISettings";
-import type { ContextData } from "@/src/modules/ai/application/AIContextBuilder";
+import { toSyncInfo, type ContextData } from "@/src/modules/ai/application/AIContextBuilder";
 import { generateId } from "@packages/events/src/factory";
 import type { GeminiAudioAttachment } from "@packages/../packages/ai/src/adapters/GeminiAdapter";
 
@@ -112,13 +112,7 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
           invoices: domain.invoices ?? {},
           wishlist: wishlist,
           gamification: gamification,
-          sync: {
-            groupId: syncCtx.groupId,
-            eventCount: syncCtx.eventCount,
-            relayCount: syncCtx.relayCount,
-            isAutoSyncEnabled: syncCtx.isAutoSyncEnabled,
-            lastSyncTime: syncCtx.lastSyncTime,
-          },
+          sync: toSyncInfo(syncCtx),
         };
 
         // Send only SESSION messages to AI (not full history) → controls cost
@@ -168,13 +162,7 @@ export function useAIConsultant(settings: AISettings): UseAIConsultantResult {
       invoices: domain.invoices ?? {},
       wishlist: wishlist,
       gamification: gamification,
-      sync: {
-        groupId: syncCtx.groupId,
-        eventCount: syncCtx.eventCount,
-        relayCount: syncCtx.relayCount,
-        isAutoSyncEnabled: syncCtx.isAutoSyncEnabled,
-        lastSyncTime: syncCtx.lastSyncTime,
-      },
+      sync: toSyncInfo(syncCtx),
     };
 
     try {

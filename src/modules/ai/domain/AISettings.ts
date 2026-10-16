@@ -15,7 +15,7 @@ export interface AIDataPermissions {
   wishlist: boolean;
   /** Acesso a trofeus, conquistas, nivel e streaks */
   gamification: boolean;
-  /** Acesso a info de sincronizacao (grupo, dispositivos, status) */
+  /** Acesso a info de sincronizacao (se ha grupo, status, contagens); nunca o codigo do grupo */
   sync: boolean;
 }
 
@@ -56,7 +56,7 @@ export const AI_DATA_PERMISSION_LABELS: Record<keyof AIDataPermissions, { title:
   },
   sync: {
     title: "Sincronização",
-    description: "Grupo de sincronização, status e quantidade de eventos",
+    description: "Se há grupo de sincronização (sem o código), status e quantidade de eventos",
   },
 };
 

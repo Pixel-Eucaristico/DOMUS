@@ -175,9 +175,9 @@ export default function PrivacyPolicyScreen() {
             {" "}(todas começam desligadas): até 50 transações recentes (data, valor,
             categoria e descrição), contas (nome, tipo, saldo e limite), categorias,
             até 10 notas fiscais (data, emissor e valor), lista de desejos, nível e
-            conquistas, e dados da sincronização, incluindo o código do grupo. Com
-            esse código, o provedor de IA consegue ler os registros publicados nos
-            relays.
+            conquistas, e dados da sincronização (se há grupo, quantidade de
+            eventos e de relays e a última sincronização). O código do grupo nunca
+            é enviado à IA.
           </PolicyItem>
           <PolicyItem theme={theme}>
             Ao revisar uma nota fiscal, o nome de um item pode ser enviado ao

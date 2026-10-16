@@ -56,8 +56,8 @@ condição em que acontece.
 - Só se você liberar nas configurações da IA (todas começam desligadas): até 50 transações
   recentes (data, valor, categoria e descrição), contas (nome, tipo, saldo e limite),
   categorias, até 10 notas fiscais (data, emissor e valor), lista de desejos, nível e
-  conquistas, e dados da sincronização, incluindo o código do grupo. Com esse código, o
-  provedor de IA consegue ler os registros publicados nos relays.
+  conquistas, e dados da sincronização (se há grupo, quantidade de eventos e de relays e
+  a última sincronização). O código do grupo nunca é enviado à IA.
 - Ao revisar uma nota fiscal, o nome de um item pode ser enviado ao provedor de IA
   configurado para sugerir a categoria.
 - **Voz (só se você ligar a voz):** o texto a ser falado vai ao provedor de áudio escolhido
