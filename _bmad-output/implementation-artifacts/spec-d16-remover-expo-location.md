@@ -30,6 +30,8 @@ context:
 - Por que as duas coisas: remover a dependência tira a origem; o bloqueio em `app.json` garante que nenhuma outra biblioteca traga essas permissões de volta sem aviso. O AdMob e o Firebase não dependem de permissão de localização (o AdMob estima a localização aproximada pelo IP, F10 do `data-safety.md`).
 - `README.md`: tirada a linha do `expo-location`. Checklist do `PLAY_STORE_LISTING.md`: novo item para conferir o manifesto do AAB.
 
+- **Prova no build real (16/10, 21:36 UTC):** run #72 (`Build Android & Web`, `dev`, `471fb7f`, id 38964479230), job Build Release APK verde. Permissões lidas do APK `domus-v1.8.0-471fb7f.apk` com `pyaxmlparser`: sem `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` e `SYSTEM_ALERT_WINDOW`; seguem `CAMERA`, `RECORD_AUDIO`, `AD_ID` e as demais do §4. O job Build Web falhou só pelo adiado D7 (Lottie).
+
 ## Review Triage Log
 
 | Achado | Veredito | Evidência |
@@ -43,4 +45,3 @@ context:
 | Sem justificativa de remover e bloquear; efeito no AdMob | low | **patch** nas notas acima. |
 | Sem guarda automática do manifesto na CI | low | Exige gate de CI (Story 2.8). rejeitado |
 | Status da spec | false | Acertado na finalização. |
-

@@ -94,8 +94,8 @@ Lidas do APK de release gerado pela CI da `dev` (run #71, `c93928a`, versão 1.8
 | com.google.android.gms.permission.AD_ID, ACCESS_ADSERVICES_AD_ID / ATTRIBUTION / TOPICS | SDK do AdMob | Declarar o ID de publicidade (seção 3) |
 | com.google.android.c2dm.permission.RECEIVE, BIND_GET_INSTALL_REFERRER_SERVICE | Firebase / Play | Internas |
 | Permissões de selo no ícone (Samsung, Huawei, Oppo, HTC, Sony e outras) | Notificações | Só o contador no ícone |
-| ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION | `expo-location`, que nenhum código usava | Estavam no run #71. **Bloqueadas em `app.json` e dependência removida (D16); confirmar ausência no AAB da Story 1.6** |
-| SYSTEM_ALERT_WINDOW | manifesto gerado pelo prebuild (estava no APK de release, então não vem só do debug) | Estava no run #71. **Bloqueada em `app.json` (D16); o app não usa; confirmar ausência no AAB** |
+| ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION | `expo-location`, que nenhum código usava | Estavam no run #71. **Removidas (D16): ausentes no APK de release do run #72 (`471fb7f`)**; conferir também no AAB da Story 1.6 |
+| SYSTEM_ALERT_WINDOW | manifesto gerado pelo prebuild (estava no APK de release, então não vem só do debug) | Estava no run #71. **Removida (D16): ausente no APK do run #72**; o app não usa |
 
 O app não declara `usesCleartextTraffic` nem configuração de rede: com target 36, o Android
 bloqueia HTTP sem cifra por padrão, o que sustenta a resposta "cifrado em trânsito".
