@@ -79,7 +79,7 @@ context:
 | E3/V5/B4 `agent-cli-detector` novo, sem vetting | false | `npm view`: repositório `expo/agent-cli-detector`, mantido pela equipe da Expo, puxado por `@expo/cli@54.0.27`; `npm audit signatures`: 1.452 pacotes com assinatura verificada. |
 | E4 `vitest/node_modules/yaml` removido do lock | medium | **Veredito corrigido após a CI.** Eu o tinha como `false` porque `vitest` passava no meu npm 11; o `npm ci` da CI (npm 10, Node 20) falhou com `Missing: yaml@2.9.1 from lock file`. Reproduzido com `npx npm@10 ci --dry-run`. Corrigido: lockfile regerado com npm 10 (commit `fix(deps)`). |
 | E6 licença do `@expo/xcpretty` mudou no lock | low | Só metadado vindo do upstream; sem efeito no build. |
-| E5/V1/B2 sem prova de que o build API 36 funciona | maybe-false | Prebuild local declara `compileSdkVersion=36` e `targetSdkVersion=36`; falta o `assembleRelease`/`bundleRelease` real (sem JDK local). Fica na tarefa pendente de disparar `build-android.yml` na `dev`. |
+| E5/V1/B2 sem prova de que o build API 36 funciona | false (provado em 16/10) | Prebuild local declara `compileSdkVersion=36` e `targetSdkVersion=36`; falta o `assembleRelease`/`bundleRelease` real (sem JDK local). Fica na tarefa pendente de disparar `build-android.yml` na `dev`. |
 | V1 sem teste automatizado de target SDK | low | A story é de configuração; a prova é o prebuild e a CI. Gate automático é escopo da Story 2.8. |
 | B1 predictive back por padrão no target 36 | medium | Real e fora do alcance do diff: comportamento de runtime, a validar no aparelho. Vai para a checklist da Story 1.3 (D6). |
 | B1 trava de orientação ignorada em telas grandes | false | `app.json` tem `"orientation": "default"`, sem trava de retrato; a trava do scanner ML Kit já é removida por `withOrientationFix`. |
@@ -100,3 +100,9 @@ context:
 - `npx tsc --noEmit` -- expected: 0 erros
 - `npx vitest run` -- expected: só a falha de `season`
 - `aapt2 dump badging <apk>` -- expected: `targetSdkVersion:'36'`
+
+## Evidência do build real (16/10/2026)
+
+- Run `Build Android & Web` #71 na `dev` (`c93928a`, id 38804350098): job **Build Release APK** verde (APK + AAB); o job **Build Web** falhou só pelo adiado D7.
+- `targetSdkVersion` lido do APK do artefato `domus-android-1.8.0-c93928a` (via `pyaxmlparser`, equivalente ao `aapt2 dump badging`): `minSdk 24`, `targetSdk 36`, versão `1.8.0` (`10`).
+- No mesmo APK, `assets/index.android.bundle` não contém `GOCSPX`, `client_secret` nem `CLIENT_SECRET` (evidência antecipada para a Story 1.7, que valida o build **publicado**).
