@@ -1,0 +1,131 @@
+# Política de Privacidade — DOMUS
+
+Última atualização: outubro de 2026
+
+> Fonte única da política pública (Story 1.4). A tela `app/privacy-policy.tsx` e o
+> rascunho em `PLAY_STORE_LISTING.md` repetem este texto. O dono publica este arquivo em
+> `https://pixel-eucaristico.com.br/domus/privacy`. Ao mudar um, mude os três.
+
+Esta política descreve o que o DOMUS faz hoje com os seus dados. O DOMUS não tem servidor
+próprio que receba seus dados: eles ficam no seu aparelho. Alguns recursos, quando você os
+usa ou ativa, enviam dados a serviços de terceiros. Cada um está descrito abaixo, com a
+condição em que acontece.
+
+## 1. Dados no aparelho
+
+- **Seus registros:** transações, contas, orçamento, notas fiscais e lista de
+  desejos ficam no banco de dados local do aparelho (SQLite). Esse banco não é cifrado pelo
+  DOMUS; ele conta com a proteção do próprio sistema, que isola os dados de cada app. Na
+  versão web, os dados ficam no armazenamento do navegador, sem cifra.
+- **Segredos:** chaves de API, o código do grupo de sincronização e o acesso ao Google Drive
+  ficam no armazenamento seguro do sistema (Keystore no Android, Keychain no iOS). Na web,
+  ficam cifrados com uma chave do próprio navegador. Exceções: a chave do Google Cloud Vision
+  e a chave da cópia automática de backup ficam no armazenamento comum do app, sem cifra.
+- **PIN e biometria:** o PIN é guardado só como hash SHA-256 com salt, no armazenamento
+  seguro. A biometria é processada pelo sistema; o DOMUS não acessa nem guarda dados
+  biométricos.
+- O DOMUS não pede CPF, RG, endereço, número de cartão nem dados bancários. Fotos de notas
+  fiscais e holerites podem conter alguns desses dados (veja "Câmera e fotos").
+
+## 2. Sincronização entre aparelhos (opcional)
+
+- Fica desligada até você criar ou entrar num grupo com um código.
+- Quando ligada, o app publica seus registros em seis relays Nostr públicos, mantidos por
+  terceiros: relay.damus.io, nos.lol, relay.snort.social, relay.primal.net,
+  relay.nostr.com.br e nostr.bitcoiner.social.
+- O conteúdo vai cifrado com uma chave derivada do código do grupo. É uma proteção simples:
+  quem souber o código, ou descobri-lo por tentativa, consegue ler os registros publicados.
+- Ficam visíveis sem cifra: o identificador do aparelho gerado pelo app, o horário de
+  publicação, a quantidade de registros de cada lote e a chave pública do grupo. Os relays
+  também veem o endereço IP do aparelho.
+- Os registros publicados continuam nos relays depois que você sai do grupo, reseta o app
+  ou o desinstala. O DOMUS não consegue apagá-los.
+
+## 3. Assistente de IA (opcional)
+
+- Só funciona se você cadastrar a sua própria chave de API de um provedor: OpenAI, Google
+  Gemini, Anthropic Claude, DeepSeek, Qwen ou OpenRouter. As chamadas saem do aparelho direto
+  para o provedor, sem passar por servidor do DOMUS, e seguem a política desse provedor.
+- Sem precisar de permissão, cada mensagem envia ao provedor as 6 últimas mensagens da
+  conversa e mais: numa conversa comum, saldo total, receita e despesa do mês, taxa de
+  poupança e a sua mensagem; num pedido de resumo do mês, esses mesmos números, as 3
+  categorias com mais gastos (valor e percentual) e um índice de variação dos gastos, no
+  lugar da sua mensagem; num pedido de conselho de compra, seu perfil (tolerância a risco,
+  taxa de poupança, índices de impulsividade e de variação dos gastos), a tendência de
+  gastos, o preço do item e a sua pergunta.
+- Só se você liberar nas configurações da IA (todas começam desligadas): até 50 transações
+  recentes (data, valor, categoria e descrição), contas (nome, tipo, saldo e limite),
+  categorias, até 10 notas fiscais (data, emissor e valor), lista de desejos, nível e
+  conquistas, e dados da sincronização, incluindo o código do grupo. Com esse código, o
+  provedor de IA consegue ler os registros publicados nos relays.
+- Ao revisar uma nota fiscal, o nome de um item pode ser enviado ao provedor de IA
+  configurado para sugerir a categoria.
+- **Voz (só se você ligar a voz):** o texto a ser falado vai ao provedor de áudio escolhido
+  (OpenAI, Gemini, Qwen ou ElevenLabs), que devolve o áudio. A voz que você grava vai à
+  OpenAI, ao Gemini ou à ElevenLabs para ser transcrita ou entendida.
+- As respostas da IA são informativas e não são aconselhamento financeiro profissional.
+
+## 4. Câmera e fotos
+
+- A câmera serve para ler o QR Code de notas fiscais e para fotografar notas fiscais e
+  holerites.
+- Ao ler o QR Code, o app abre a página da SEFAZ do seu estado com a chave de acesso da nota,
+  para buscar os itens.
+- Com a IA configurada, a foto, tirada ou escolhida na galeria, vai ao provedor de IA
+  escolhido para leitura do texto. Se você cadastrar uma chave do Google Cloud Vision, a
+  foto também vai ao Google Cloud Vision quando a leitura feita no aparelho tem confiança
+  abaixo de 60%.
+- Fotos de notas e holerites podem conter nome, CPF, empregador e salário.
+- O DOMUS não salva as fotos de forma permanente.
+
+## 5. Backup e Google Drive
+
+- **Backup manual:** gera um arquivo .domusbackup cifrado com AES-256-GCM, com chave derivada
+  da sua senha (PBKDF2-SHA256, 100 mil iterações). O DOMUS não conhece a senha, e você
+  escolhe para onde enviar o arquivo. Também existe a exportação sem criptografia: esse
+  arquivo pode ser lido por qualquer pessoa que tenha acesso a ele.
+- **Cópia automática:** no Android e no iOS, uma vez por dia, ao abrir o app, o DOMUS grava
+  uma cópia cifrada (AES-256-GCM, PBKDF2-SHA256 com 100 mil iterações) na pasta do app, com
+  uma chave gerada no próprio aparelho.
+- **Google Drive (opcional):** se você conectar sua conta Google, essa cópia diária é
+  enviada automaticamente para a pasta de dados do app no seu Drive, que fica oculta. O
+  e-mail da conta e o acesso ao Drive ficam no armazenamento seguro do aparelho.
+
+## 6. Estatísticas e anúncios
+
+- **Firebase (Google):** Analytics (uso do app), Crashlytics (relatórios de falha) e
+  Performance (desempenho) começam desligados. Só enviam dados se você aceitar no aviso de
+  consentimento ou ligar em Sobre › Analytics & Performance, e você pode desligá-los a
+  qualquer momento.
+- **Anúncios (Google AdMob):** o modo de apoio padrão não tem anúncios. Se você escolher um
+  modo de apoio com anúncios, o AdMob recebe dados do aparelho, como o ID de publicidade, e
+  pode mostrar anúncios personalizados. Volte ao modo sem anúncios para parar.
+
+## 7. Outros serviços consultados
+
+Nestes acessos o app não envia dados pessoais, mas os serviços veem o endereço IP do aparelho:
+
+- **Cotação do dólar** (AwesomeAPI, DolarAPI e ExchangeRate-API), para estimar o custo da IA.
+- **Classificação de itens de nota:** o código de barras (EAN) do item vai ao Open Food
+  Facts e ao Cosmos (Bluesoft); a tabela pública de NCM é baixada do Portal Único Siscomex.
+- **Lista de desejos:** o app acessa as páginas dos produtos que você salvou para atualizar
+  o preço, e busca o ícone de cada loja no serviço de ícones do Google, que recebe o
+  endereço da loja.
+
+## 8. Seus direitos e exclusão
+
+- **Apagar os dados do aparelho:** use "Resetar aplicativo" na tela Sobre ou desinstale o
+  app.
+- **O reset e a desinstalação não apagam:** registros já publicados nos relays Nostr; cópias
+  no seu Google Drive (apague-as no Drive ou remova o acesso do DOMUS na sua Conta Google);
+  arquivos de backup que você exportou; e dados já enviados a provedores de IA, ao Firebase
+  ou ao AdMob, que seguem as políticas desses serviços.
+- **Exportar seus dados:** use o backup.
+- **Parar envios:** saia do grupo de sincronização, desconecte o Google Drive, remova as
+  chaves de IA ou desligue as permissões de dados, desligue as estatísticas e escolha o modo
+  de apoio sem anúncios.
+
+## 9. Contato
+
+- E-mail: williancustodioquintino+domus@gmail.com
+- Empresa: Pixel Eucarístico (CNPJ 55.075.291/0001-79)

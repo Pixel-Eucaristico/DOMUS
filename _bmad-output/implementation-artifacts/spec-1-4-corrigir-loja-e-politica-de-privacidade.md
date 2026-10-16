@@ -2,7 +2,7 @@
 title: 'Story 1.4: Corrigir a descrição da loja e a política de privacidade'
 type: 'chore'
 created: '2026-10-16'
-status: 'in-review'
+status: 'done'
 baseline_commit: 'dc9cc08eaf7b90548b9b1433bf988ef1caa7dcff'
 route: 'dispatch'
 review_loop_iteration: 0
