@@ -21,8 +21,9 @@ condição em que acontece.
   ficam no armazenamento seguro do sistema (Keystore no Android, Keychain no iOS). Na web,
   ficam cifrados com uma chave do próprio navegador. Exceções: a chave do Google Cloud Vision
   e a chave da cópia automática de backup ficam no armazenamento comum do app, sem cifra.
-- **PIN e biometria:** o PIN é guardado só como hash SHA-256 com salt, no armazenamento
-  seguro. A biometria é processada pelo sistema; o DOMUS não acessa nem guarda dados
+- **PIN e biometria:** o PIN é guardado só como hash PBKDF2-SHA256 (30 mil
+  iterações) com salt aleatório, no armazenamento seguro; um PIN criado antes desta
+  versão passa para esse formato no próximo desbloqueio por PIN. A biometria é processada pelo sistema; o DOMUS não acessa nem guarda dados
   biométricos.
 - O DOMUS não pede CPF, RG, endereço, número de cartão nem dados bancários. Fotos de notas
   fiscais e holerites podem conter alguns desses dados (veja "Câmera e fotos").

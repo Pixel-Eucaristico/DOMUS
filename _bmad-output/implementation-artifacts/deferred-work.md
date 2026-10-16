@@ -40,4 +40,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-4-corrigir-loja-e-politica-de-privacidade.md`
   summary: D14 — A política não tem o conteúdo esperado pela LGPD: controlador e encarregado, base legal por tratamento, transferência internacional (provedores de IA, Firebase, AdMob, relays), retenção, menores e aviso de mudanças.
   evidence: ausente na política anterior e na nova; a Story 1.4 só tratou da veracidade. Exige decisão do dono (texto jurídico) antes da publicação da Story 1.6.
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-3-pin-com-salt-criptografico-e-derivacao-lenta.md`
+  summary: D15 — Medir em Android real o tempo do PBKDF2 do PIN (30 mil iterações, JS puro no Hermes) e, se passar de ~300 ms, mostrar indicador de espera no teclado do PIN (`LockScreen`, `useSecuritySetup`).
+  evidence: não verificado (maybe-false); o teclado não mostra estado de espera enquanto `verifyPin` roda. Medir junto da checklist da Story 1.3.
 

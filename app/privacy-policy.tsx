@@ -108,8 +108,9 @@ export default function PrivacyPolicyScreen() {
           </PolicyItem>
           <PolicyItem theme={theme}>
             <BoldText theme={theme}>PIN e biometria:</BoldText>
-            {" "}o PIN é guardado só como hash SHA-256 com salt, no armazenamento
-            seguro. A biometria é processada pelo sistema; o DOMUS não acessa nem
+            {" "}o PIN é guardado só como hash PBKDF2-SHA256 (30 mil iterações) com
+            salt aleatório, no armazenamento seguro; um PIN criado antes desta versão
+            passa para esse formato no próximo desbloqueio por PIN. A biometria é processada pelo sistema; o DOMUS não acessa nem
             guarda dados biométricos.
           </PolicyItem>
           <PolicyItem theme={theme}>

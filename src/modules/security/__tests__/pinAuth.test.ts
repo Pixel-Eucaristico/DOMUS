@@ -1,28 +1,23 @@
 import { describe, it, expect, vi } from "vitest";
-import { PinAuthService } from "../application/PinAuthService";
+import { PinAuthService, PIN_PBKDF2_ITERATIONS } from "../application/PinAuthService";
+import { SecurityService } from "../application/SecurityService";
+import { createHash, pbkdf2Sync } from "node:crypto";
 import { MAX_PIN_ATTEMPTS, LOCKOUT_DURATION_MS } from "../domain/UserSecuritySettings";
 import type { UserSecuritySettings } from "../domain/UserSecuritySettings";
 
 // ─── Mock expo-crypto ─────────────────────────────────────────────────────────
-// expo-crypto is a native module, so we provide a deterministic mock.
+// expo-crypto é nativo; no teste usamos o crypto do Node com o mesmo contrato
+// (SHA-256 real em hex minúsculo e bytes de fonte criptográfica).
 
-vi.mock("expo-crypto", () => ({
-  digestStringAsync: async (
-    _algorithm: string,
-    input: string,
-  ): Promise<string> => {
-    // Simple deterministic mock: encode input as hex-like string
-    // Real SHA-256 is not available in Vitest without native bridge.
-    // We use a repeatable stub so tests remain deterministic.
-    let hash = 0;
-    for (let i = 0; i < input.length; i++) {
-      hash = ((hash << 5) - hash + input.charCodeAt(i)) | 0;
-    }
-    // Return a 64-char hex string (padded)
-    return Math.abs(hash).toString(16).padStart(64, "0");
-  },
-  CryptoDigestAlgorithm: { SHA256: "SHA-256" },
-}));
+vi.mock("expo-crypto", async () => {
+  const { createHash, randomBytes } = await import("node:crypto");
+  return {
+    digestStringAsync: async (_algorithm: string, input: string): Promise<string> =>
+      createHash("sha256").update(input, "utf8").digest("hex"),
+    CryptoDigestAlgorithm: { SHA256: "SHA-256" },
+    getRandomBytes: (n: number): Uint8Array => new Uint8Array(randomBytes(n)),
+  };
+});
 
 // ─── Mock SecurityService (save/load settings) ────────────────────────────────
 
@@ -65,10 +60,10 @@ describe("PinAuthService.generateSalt", () => {
 });
 
 describe("PinAuthService.hashPin", () => {
-  it("returns a 64-character hex string", async () => {
+  it("usa PBKDF2-SHA256 com prefixo de versão e 32 bytes em hex", async () => {
     const hash = await PinAuthService.hashPin("123456", "abcdef01234567890abcdef012345678");
-    expect(hash).toHaveLength(64);
-    expect(/^[0-9a-f]+$/.test(hash)).toBe(true);
+    expect(hash.startsWith(`pbkdf2-sha256$${PIN_PBKDF2_ITERATIONS}$`)).toBe(true);
+    expect(hash.split("$")[2]).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it("is deterministic for same inputs", async () => {
@@ -182,5 +177,86 @@ describe("PinAuthService.verifyPin", () => {
     const settings = makeSettings({ pinHash: null, pinSalt: null });
     const result = await PinAuthService.verifyPin("123456", settings);
     expect(result.success).toBe(false);
+  });
+});
+
+describe("PinAuthService — vetores conhecidos", () => {
+  it("hashPin bate com PBKDF2-SHA256 de referência (pin e salt em UTF-8, 32 bytes)", async () => {
+    const salt = "00112233445566778899aabbccddeeff";
+    const expected = pbkdf2Sync("1234", salt, PIN_PBKDF2_ITERATIONS, 32, "sha256").toString("hex");
+    expect(await PinAuthService.hashPin("1234", salt)).toBe(`pbkdf2-sha256$${PIN_PBKDF2_ITERATIONS}$${expected}`);
+  });
+
+  it("hashPinLegacy bate com o SHA-256 do formato antigo", async () => {
+    const expected = createHash("sha256").update("1234:abc:domus_v1").digest("hex");
+    expect(await PinAuthService.hashPinLegacy("1234", "abc")).toBe(expected);
+  });
+});
+
+describe("PinAuthService — iterações gravadas", () => {
+  it("verifica com as iterações do hash salvo e regrava com as atuais", async () => {
+    const save = vi.mocked(SecurityService.saveSettings);
+    save.mockClear();
+    const salt = PinAuthService.generateSalt();
+    const pinHash = await PinAuthService.hashPin("1234", salt, 1_000);
+    const result = await PinAuthService.verifyPin("1234", makeSettings({ pinHash, pinSalt: salt }));
+    expect(result.success).toBe(true);
+    const saved = save.mock.calls.at(-1)![0];
+    expect(PinAuthService.storedIterations(saved.pinHash!)).toBe(PIN_PBKDF2_ITERATIONS);
+  });
+
+  it("formato desconhecido nunca confere", async () => {
+    const result = await PinAuthService.verifyPin("1234", makeSettings({ pinHash: "bcrypt$10$xyz", pinSalt: "s" }));
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("PinAuthService — migração do formato antigo (D8)", () => {
+  it("o salt não usa Math.random", () => {
+    const spy = vi.spyOn(Math, "random");
+    PinAuthService.generateSalt();
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("desbloqueia com PIN antigo e regrava no formato novo com salt novo", async () => {
+    const save = vi.mocked(SecurityService.saveSettings);
+    save.mockClear();
+    const oldSalt = "legacy_salt_000000000000000000000";
+    const pinHash = await PinAuthService.hashPinLegacy("1234", oldSalt);
+    const result = await PinAuthService.verifyPin(
+      "1234",
+      makeSettings({ pinHash, pinSalt: oldSalt, failedAttempts: 2, lockedUntil: Date.now() - 1 }),
+    );
+
+    expect(result.success).toBe(true);
+    const saved = save.mock.calls.at(-1)![0];
+    expect(saved.failedAttempts).toBe(0);
+    expect(saved.lockedUntil).toBeNull();
+    expect(PinAuthService.isLegacyHash(saved.pinHash!)).toBe(false);
+    expect(saved.pinSalt).not.toBe(oldSalt);
+    expect(await PinAuthService.hashPin("1234", saved.pinSalt!)).toBe(saved.pinHash);
+  });
+
+  it("PIN errado no formato antigo não migra e conta a tentativa", async () => {
+    const save = vi.mocked(SecurityService.saveSettings);
+    save.mockClear();
+    const oldSalt = "legacy_salt_000000000000000000000";
+    const pinHash = await PinAuthService.hashPinLegacy("1234", oldSalt);
+    const result = await PinAuthService.verifyPin("9999", makeSettings({ pinHash, pinSalt: oldSalt }));
+
+    expect(result.success).toBe(false);
+    const saved = save.mock.calls.at(-1)![0];
+    expect(saved.pinHash).toBe(pinHash);
+    expect(saved.failedAttempts).toBe(1);
+  });
+
+  it("PIN já no formato novo não é regravado com outro salt", async () => {
+    const save = vi.mocked(SecurityService.saveSettings);
+    save.mockClear();
+    const salt = PinAuthService.generateSalt();
+    const pinHash = await PinAuthService.hashPin("1234", salt);
+    await PinAuthService.verifyPin("1234", makeSettings({ pinHash, pinSalt: salt }));
+    expect(save.mock.calls.at(-1)![0].pinSalt).toBe(salt);
   });
 });
