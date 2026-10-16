@@ -4,7 +4,7 @@
 
 ## Goal
 
-Manter o DOMUS distribuível pela Play Store (target API 36) e garantir que o que a loja e a política de privacidade afirmam sobre dados é verdade. Também desativa o `client_secret` antigo do Google, que já foi publicado em builds anteriores, sem derrubar o Drive de quem usa o app. Prazo interno: AAB enviado até 25/10/2026; a Play estendeu o prazo final até 01/11/2026.
+Manter o DOMUS publicável na Play e honesto sobre privacidade. O app passa a mirar a API 36 (exigida pela Play desde 31/08/2026, com prazo estendido até 01/11/2026) e é validado no Android 16. A descrição da loja, a política de privacidade dentro do app e o formulário *Data safety* passam a dizer só o que o código faz de verdade. O `client_secret` do Google, publicado em builds antigos, sai do app e só é revogado depois que a versão sem ele for adotada, para não derrubar o backup no Drive de ninguém. Este é o épico prioritário: a data interna de envio do AAB é **25/10/2026**.
 
 ## Stories
 
@@ -19,36 +19,36 @@ Manter o DOMUS distribuível pela Play Store (target API 36) e garantir que o qu
 
 ## Requirements & Constraints
 
-- O app deve compilar com `targetSdkVersion` 36 e `compileSdkVersion` igual ou maior, via `expo-build-properties`. Deve ser validado em Android 16 e enviado como AAB assinado, com `version` e `versionCode` incrementados.
-- Os 4 patches de `patches/` devem continuar aplicando via `patch-package`, e o workflow Android do GitHub Actions deve terminar verde.
-- Textos públicos (descrição da loja e `app/privacy-policy.tsx`) devem bater com o código:
-  - não afirmar "SQLite criptografado";
-  - não afirmar "ponta-a-ponta" no sync (usar algo como "cifrado com a chave do grupo");
-  - descrever o sync por relays Nostr, não WebRTC;
-  - avisar que Eventos já publicados continuam nos relays após excluir o app.
-- O *Data safety* deve listar todos os fluxos que enviam dados para fora do aparelho, cada um com o dado enviado e o consentimento: relays Nostr, Google Drive, provedores de IA, OCR de terceiros, Firebase (Analytics, Crashlytics, Performance) e anúncios. Texto da política, lista e formulário do Play Console devem dizer o mesmo.
-- Ordem de segurança do segredo: publicar a versão sem `client_secret` antes de revogar o antigo; revogar só depois da adoção. O Drive deve ser validado num Android real (conectar e fazer backup completo).
-- Verificação do build publicado: extrair o bundle do AAB e buscar `GOCSPX-` e `CLIENT_SECRET` (nada pode aparecer); `git grep CLIENT_SECRET` também deve vir vazio.
-- Baseline de testes: `npx vitest run` tem 25 falhas pré-existentes, que são tratadas no Epic 2; este épico não pode introduzir falhas novas.
+- **Target API:** `targetSdkVersion` 36 e `compileSdkVersion` >= 36 via `expo-build-properties` (o `app.json` hoje sobrescreve com 35; o Expo SDK 54 já mira 36 por padrão). O Play Console deve aceitar o AAB sem aviso de *target API*. Não mexer no `minSdkVersion`.
+- **Android 16:** abas principais, introdução por tela, câmera/OCR, backup e sync abrem sem falha; nenhum conteúdo sob as barras do sistema (borda a borda sempre ligada). O resultado vira checklist em `docs/`.
+- **Prazos e saídas:** envio até 25/10/2026; se reprovar ou atrasar, o dono decide (até 29/10) entre corrigir até 01/11 ou aceitar a perda de disponibilidade para novos usuários em aparelhos mais novos. Registrar a decisão.
+- **Textos públicos verdadeiros** (loja e `app/privacy-policy.tsx`):
+  - remover "SQLite criptografado" (o banco local não é cifrado; cifrar o SQLite é não-objetivo);
+  - remover "criptografia ponta-a-ponta" ou trocar por "cifrado com a chave do grupo" enquanto o Grupo antigo (cifra XOR com código de 6 caracteres) existir;
+  - descrever o sync por relays Nostr públicos, não WebRTC;
+  - dizer que Eventos já publicados continuam nos relays depois de excluir o app;
+  - o backup AES-256-GCM com senha já confere e pode ficar.
+  - Supõe-se que `PLAY_STORE_LISTING.md` é igual ao texto publicado: comparar e corrigir diferenças.
+- **Data safety:** listar em `docs/data-safety.md` cada fluxo que sai do aparelho (relays Nostr, Google Drive, provedores de IA, OCR de terceiros, Firebase Analytics/Crashlytics/Performance, anúncios), com o dado enviado e o consentimento. Citar que fotos de documentos financeiros (nota fiscal e holerite) vão ao provedor de IA/OCR escolhido. Play Console, lista e política devem dizer o mesmo. Em aberto: se o `server/` entra (hoje não recebe dado do app).
+- **Segredo do Google:** nenhum `client_secret` no app (`git grep CLIENT_SECRET` e busca por `GOCSPX-`/`CLIENT_SECRET` no bundle extraído do AAB vazias). Publicar sem o segredo **antes** de revogar; revogar só após adoção pelos aparelhos do dono e dos usuários ativos, comunicando que versões antigas deixam de renovar o token do Drive. Validar conexão do Drive e backup completo num Android real (antes e depois da rotação).
+- **Testes na integração da `dev`:** `npx vitest run` só pode mostrar as 25 falhas pré-existentes, nenhuma nova; `npx expo lint` sem erro na regra de `EXPO_PUBLIC_*`.
+- **Métricas de sucesso:** Play aceita a atualização com target 36 até 25/10; 100% das afirmações públicas de privacidade têm verificação no código.
 - Texto de interface em pt-BR com acentuação completa.
-- Versões antigas deixam de renovar o token do Drive após a revogação; isso deve ser comunicado aos usuários ativos, e o dono adia ou avisa se alguém ainda estiver na versão antiga.
-- Se um item da validação no Android 16 não puder ser corrigido até 01/11/2026, ou se o envio não sair até 25/10 (decisão em 29/10), o dono decide e registra se aceita a perda de disponibilidade.
-- Resultados de validação e checklists ficam registrados em `docs/` (por exemplo `docs/data-safety.md`).
 
 ## Technical Decisions
 
-- Segredos só em `expo-secure-store` (na web, `webSecrets`); nenhum segredo em `AsyncStorage` em texto puro, em evento ou em `EXPO_PUBLIC_*`. O ESLint (`no-restricted-syntax` em `eslint.config.js`) barra `process.env.EXPO_PUBLIC_*` com `SECRET`, `PRIVATE` ou `PASSWORD` no nome.
-- O group code do sync fica em `SecureStore`. O Drive no nativo usa `GoogleSignin.getTokens()` (`GoogleNativeAuth.ts`), sem `client_secret` no app. O usuário precisa reconectar o Drive uma vez, e esse fluxo ainda não foi testado em aparelho real.
-- O sync troca o log pelos relays Nostr públicos, sem servidor próprio. A cifra atual é XOR, que não é criptografia forte, então os textos públicos não podem chamá-la de ponta-a-ponta.
-- Pipelines canônicos de build e release: EAS e GitHub Actions. O GitLab CI é legado e não deve ser alterado.
-- Nunca editar `ios/` nem `android/` (gerados por `expo prebuild`); mudança nativa vai em `plugins/` ou `patches/`. Não alterar `packages/sync`, `replit.md`, `replit.nix` nem `.replit`.
-- Dependência nova também exige atualizar `package-lock.json`, porque a CI roda `npm ci`.
+- **Segredos:** só em `expo-secure-store` (nativo) ou `webSecrets` (web: AES-GCM com chave não extraível no IndexedDB). Nunca em `AsyncStorage` em texto puro, em Evento ou em `EXPO_PUBLIC_*`. O ESLint (`no-restricted-syntax` em `eslint.config.js`) barra `process.env.EXPO_PUBLIC_*` com `SECRET`, `PRIVATE` ou `PASSWORD` no nome.
+- **Correções de segredo já feitas a consolidar (1.1):** group code do sync no SecureStore (`loadGroupCode`/`saveGroupCode` em `src/context/syncStorage.ts`, com migração do legado), Drive nativo via `GoogleSignin.getTokens()` sem `client_secret` (`src/modules/backup/infrastructure/GoogleNativeAuth.ts`), `webSecrets`, regra de ESLint e workflows sem o segredo. Integrar em commits separados por tema.
+- **Login do Google:** `getTokens()` usa a API legada e exige uma reconexão do Drive; a troca por Credential Manager/`AuthorizationClient` fica para outro épico. Proxy no `server/` para o segredo foi descartado.
+- **Build e release:** pipelines canônicos são EAS e GitHub Actions; o GitLab CI é legado e não deve ser alterado. O workflow Android do GitHub Actions deve ficar verde. `patch-package` precisa aplicar os 4 patches de `patches/` sem erro. `ios/` e `android/` são gerados por `expo prebuild --clean` e não vão ao git. Aumentar `version` e `versionCode` antes do envio.
+- **Stack atual:** Expo SDK 54 (~54.0.33), React Native 0.81.5 com Nova Arquitetura, Node 20 na CI (a troca de Node e de SDK é de outros épicos).
+- **Intocáveis:** `packages/sync`, `replit.md`, `replit.nix`, `.replit`. `packages/*` não importam `react`, `react-native` nem `expo`.
+- **Testes:** `vi.mock("react-native")` não funciona no vitest; usar `process.env.EXPO_OS` ou lógica sem `react-native`.
+- **Risco residual a não contradizer nos textos:** Eventos já publicados em XOR seguem legíveis por força bruta do código de 6 caracteres, mesmo após o corte futuro do Grupo antigo.
 
 ## Cross-Story Dependencies
 
-- Story 1.6 depende das Stories 1.1 a 1.5 concluídas.
-- Story 1.7 depende do AAB da Story 1.6.
-- Story 1.8 depende da 1.7 e da adoção da versão sem segredo nos aparelhos do dono e dos usuários ativos.
-- Story 1.5 deve ser consistente com a política corrigida na Story 1.4.
-- Story 1.3 valida a build com target 36 produzida na Story 1.2.
-- O Epic 2 (testes verdes) resolve as 25 falhas pré-existentes; o Epic 8 refaz o login do Google com Credential Manager e `AuthorizationClient`, e depende do baseline do Epic 2.
+- 1.1 a 1.5 precisam estar concluídas antes do envio (1.6); FR-5 é publicado junto com FR-1.
+- 1.4 e 1.5 precisam ser consistentes entre si (política, lista e Play Console).
+- 1.7 depende do AAB da 1.6; 1.8 depende de 1.7 e da adoção da versão publicada.
+- Outros épicos: o termo "ponta-a-ponta" só volta depois do corte do Grupo antigo (Epic 4, Story 4.10). O gate de lint e testes na CI e o baseline verde vêm no Epic 2. As stories 11.1 e 11.2 (tooltips) vêm logo depois deste épico; o holerite (Epic 11) já precisa estar refletido no Data safety.
