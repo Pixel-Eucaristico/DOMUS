@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 10-16-2026 14:00
+last_updated: 10-16-2026 15:00
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -39,7 +39,7 @@ development_status:
   1-1-consolidar-as-correções-de-segredo-na-dev: done
   1-2-mirar-a-api-36-no-build-de-release: done
   1-3-validar-no-android-16-e-corrigir-o-que-quebrar: backlog
-  1-4-corrigir-a-descrição-da-loja-e-a-política-de-privacidade: backlog
+  1-4-corrigir-a-descrição-da-loja-e-a-política-de-privacidade: in-progress
   1-5-alinhar-o-formulário-data-safety-ao-comportamento: backlog
   1-6-enviar-o-aab-com-target-36-à-play-até-25-10-2026: backlog
   1-7-verificar-que-o-build-publicado-não-tem-o-client_secret: backlog

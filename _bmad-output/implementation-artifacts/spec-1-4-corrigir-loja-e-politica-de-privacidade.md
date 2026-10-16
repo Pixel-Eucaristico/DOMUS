@@ -2,7 +2,8 @@
 title: 'Story 1.4: Corrigir a descrição da loja e a política de privacidade'
 type: 'chore'
 created: '2026-10-16'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: 'dc9cc08eaf7b90548b9b1433bf988ef1caa7dcff'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -30,14 +31,14 @@ context:
 |----------|--------------|---------------------------|----------------|
 | Afirmação falsa | Frase sem evidência no código | Removida ou reescrita | N/A |
 | Fluxo omitido | Dado sai do aparelho e o texto não diz | Fluxo descrito, com a condição (opt-in, configuração) | N/A |
-| Texto publicado diferente | Loja publicada ≠ `PLAY_STORE_LISTING.md` | Ver Open Questions | Registrar diferença |
+| Texto publicado diferente | Loja publicada ≠ `PLAY_STORE_LISTING.md` | Vale a suposição do PRD (decisão 1); o dono copia o texto novo ao Console na Story 1.6 | N/A |
+
+**Decisões do dono (16/10/2026):**
+1. Assumir que `PLAY_STORE_LISTING.md` é o texto publicado (suposição do PRD); o dono copia o texto corrigido para o Play Console na Story 1.6.
+2. `docs/politica-de-privacidade.md` passa a ser a fonte única da política pública; o app e o rascunho do `PLAY_STORE_LISTING.md` dizem o mesmo, e o dono publica o arquivo em `https://pixel-eucaristico.com.br/domus/privacy`.
+3. Spec mantida inteira (~1.900 tokens): um objetivo só; o excesso é o mapa de evidências.
 
 </frozen-after-approval>
-
-## Open Questions
-
-1. **Texto publicado na loja.** O AC pede comparar com o que está no Play Console, e esta sessão não tem acesso a ele. — (a) o dono cola aqui a descrição publicada atual e eu comparo antes de fechar; (b) assumir a suposição do PRD (`PLAY_STORE_LISTING.md` = publicado) e o dono só copia o texto novo ao Console na Story 1.6.
-2. **Política pública (URL).** O app aponta para `https://pixel-eucaristico.com.br/domus/privacy`, que não está no repositório. — (a) criar `docs/politica-de-privacidade.md` como fonte única e o dono publica no site; (b) servir a página pelo `server/` deste repositório (rota nova, fora do escopo de texto e com deploy); (c) só corrigir o app e o rascunho do `PLAY_STORE_LISTING.md`, e o dono atualiza o site à mão.
 
 ## Code Map
 
@@ -58,6 +59,7 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
+- [ ] `docs/politica-de-privacidade.md` -- criar a política pública como fonte única, com as mesmas seções do app -- decisão 2
 - [ ] `app/privacy-policy.tsx` -- reescrever intro e seções (Dados no aparelho, Sincronização, IA, Câmera e fotos, Backup e Google Drive, Estatísticas e anúncios, Outros serviços, Seus direitos e exclusão) com as evidências -- FR-5
 - [ ] `PLAY_STORE_LISTING.md` -- corrigir descrição (remover "SQLite criptografado", "ponta-a-ponta", "nenhum dado vai para servidores de terceiros"; sync "cifrado com a chave do grupo"), tags e rascunho da política igual ao app -- FR-5
 - [ ] `_bmad-output/implementation-artifacts/deferred-work.md` -- registrar defeitos de código achados (salt do PIN com `Math.random`, anúncios personalizados sem consentimento, código do grupo enviado à IA, auto-backup ignora o interruptor, exportação sem cifra) -- fora do escopo de texto
@@ -65,6 +67,7 @@ context:
 **Acceptance Criteria:**
 - Given os dois textos, when procuro "SQLite criptografado", "ponta-a-ponta", "WebRTC" e "nenhum dado vai para servidores", then não há ocorrência
 - Given a política, when a leio, then ela descreve o sync por relays Nostr, diz que eventos publicados continuam nos relays depois de excluir o app ou resetar, e lista IA, fotos, Drive, Firebase, AdMob e os serviços de consulta, cada um com sua condição
+- Given `docs/politica-de-privacidade.md`, a tela do app e o rascunho do `PLAY_STORE_LISTING.md`, when os comparo, then dizem o mesmo
 - Given o app compilado, when abro a política, then a tela renderiza sem erro de tipo ou lint
 
 ## Implementation Notes
@@ -78,4 +81,4 @@ context:
 **Commands:**
 - `npx tsc --noEmit` -- expected: 0 erros
 - `npx expo lint` -- expected: sem erro novo
-- `git grep -n -iE "SQLite criptografado|ponta-a-ponta|WebRTC" -- app/privacy-policy.tsx PLAY_STORE_LISTING.md` -- expected: vazio
+- `git grep -n -iE "SQLite criptografado|ponta-a-ponta|WebRTC" -- app/privacy-policy.tsx PLAY_STORE_LISTING.md docs/politica-de-privacidade.md` -- expected: vazio
