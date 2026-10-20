@@ -34,12 +34,14 @@ import { ContactForm } from "@/src/components/about/ContactForm";
 import { DonationSection , LinkRow } from "@/src/components/about/DonationSection";
 import { PixelText } from "@/src/components/pixel";
 import { TText, TButton } from "@/src/components/tamagui";
+import { useExternalLookups } from "@/src/hooks/useExternalLookups";
 
 export default function AboutScreen() {
   const router = useRouter();
   const { theme, themeMode, setThemeMode, soundEnabled, setSoundEnabled, resetApp } = useAppState();
   const scrollRef = useRef<ScrollView>(null);
   const { showIntro, dismissIntro } = useScreenIntro("about");
+  const externalLookups = useExternalLookups();
 
   const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
@@ -138,6 +140,7 @@ export default function AboutScreen() {
               <LinkRow icon="star" label="Avaliar na Play Store" description="Deixe sua avaliação e ajude o DOMUS a crescer" color="#34A853" theme={theme} onPress={() => { soundManager.play("tap"); Linking.openURL("https://play.google.com/store/apps/details?id=br.com.pixeleucaristico.domus"); }} />
               <LinkRow icon="moon" label="Tema" description={`Modo atual: ${themeMode === "system" ? "Sistema" : themeMode === "dark" ? "Escuro" : "Claro"}`} color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); setThemeModalVisible(true); }} />
               <LinkRow icon="info" label="Ver Dicas das Telas" description="Reexibe as explicações de cada tela do DOMUS" color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); resetAllScreenIntros(); }} />
+              <SwitchRow icon="globe" label="Consultas de itens, preços e ícones" description="Envia código de barras, NCM, links de produto e lojas a serviços externos. Desligado: classificação por palavras, sem atualização de preço e sem ícone das lojas." color={theme.accentColor} theme={theme} value={externalLookups.enabled} onValueChange={(v) => { externalLookups.setEnabled(v).catch(() => {}); }} />
               <SwitchRow icon="volume-2" label="Efeitos Sonoros" description="Sons de confirmação e interações" color={theme.primaryColor} theme={theme} value={soundEnabled} onValueChange={setSoundEnabled} />
             </SectionCard>
 

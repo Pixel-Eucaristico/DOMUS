@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   classifyByKeyword,
   createKeywordClassifier,
   createHybridClassifier,
+  classifyItemFull,
 } from "../src/classifier";
 
 describe("classifyByKeyword", () => {
@@ -93,5 +94,64 @@ describe("createHybridClassifier", () => {
     const result = await classifier.classify("GADGET ELETRONICO XZ99");
     expect(result.categoryId).toBe("outros");
     expect(result.method).toBe("keyword");
+  });
+});
+
+// ─── Flag "Consultas de itens, preços e ícones" (Story 12.6) ────────────────
+
+describe("classifyItemFull — flag externalLookups", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function stubFetch() {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => [],
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("flag ausente (padrão) não consulta EAN nem Siscomex e cai nas palavras-chave", async () => {
+    const fetchMock = stubFetch();
+    const result = await classifyItemFull({
+      name: "ARROZ TIPO 1 5KG",
+      ncm: "99999999",
+      ean: "7891234567895",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.categoryId).toBe("alimentacao");
+  });
+
+  it("flag falsa não chama fetch e mantém o mapa NCM estático", async () => {
+    const fetchMock = stubFetch();
+    const result = await classifyItemFull(
+      { name: "PRODUTO XYZ", ncm: "22030000", ean: "7891234567895" },
+      { externalLookups: false },
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.categoryId).toBe("lazer");
+  });
+
+  it("flag falsa sem NCM conhecido nem palavra-chave cai em outros, sem rede", async () => {
+    const fetchMock = stubFetch();
+    const result = await classifyItemFull(
+      { name: "PRODUTO XYZ", ncm: "99999999", ean: "7891234567000" },
+      { externalLookups: false },
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.categoryId).toBe("outros");
+  });
+
+  it("flag ligada consulta Siscomex e EAN como antes", async () => {
+    const fetchMock = stubFetch();
+    await classifyItemFull(
+      { name: "PRODUTO XYZ", ncm: "99999999", ean: "7891234567888" },
+      { externalLookups: true },
+    );
+    const urls = fetchMock.mock.calls.map((c) => String((c as unknown[])[0]));
+    expect(urls.some((u) => u.includes("siscomex"))).toBe(true);
+    expect(urls.some((u) => u.includes("openfoodfacts"))).toBe(true);
   });
 });

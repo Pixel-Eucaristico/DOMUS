@@ -16,6 +16,8 @@ import type { ThemeColors } from "@packages/theme";
 import { ScraperRegistry } from "@packages/wishlist/src/scrapers/ScraperRegistry";
 import type { IScraperStrategy } from "@packages/wishlist/src/scrapers/IScraperStrategy";
 import { soundManager } from "@/src/services/SoundManager";
+import { useExternalLookups } from "@/src/hooks/useExternalLookups";
+import { resolveStoreIconUrl } from "./storeIcon";
 
 const NUM_COLS = 5;
 const SCREEN_W = Dimensions.get("window").width;
@@ -23,10 +25,29 @@ const H_PAD = 16 * 2; // paddingHorizontal do sheet
 const CARD_MARGIN = 4 * 2; // margin de cada lado
 const CARD_SIZE = Math.floor((SCREEN_W - H_PAD - CARD_MARGIN * NUM_COLS) / NUM_COLS);
 
-// Ícones das lojas via Google Favicon Service (128px, confiável e sempre atualizado)
-function getStoreIconUrl(storeId: string, baseUrls: string[]): string {
-  const domain = baseUrls[0] ?? storeId;
-  return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+interface StoreIconProps {
+  store: IScraperStrategy;
+  remoteEnabled: boolean;
+  color: string;
+}
+
+/** Favicon da loja com a flag ligada; ícone genérico sem flag ou se a imagem falhar. */
+function StoreIcon({ store, remoteEnabled, color }: StoreIconProps) {
+  const [failed, setFailed] = useState(false);
+  const uri = resolveStoreIconUrl(store.id, store.baseUrls, remoteEnabled, failed);
+
+  if (!uri) {
+    return <Feather name="shopping-bag" size={Math.round(CARD_SIZE * 0.4)} color={color} />;
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      style={styles.iconImage}
+      resizeMode="contain"
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 // Cores de fundo para cada loja (estilo card Android)
@@ -47,6 +68,7 @@ interface Props {
 export function StoreGridModal({ visible, theme, searchQuery = "", onSelectStore, onCancel }: Props) {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
+  const { enabled: externalLookupsEnabled } = useExternalLookups();
 
   const allStores = ScraperRegistry.getAll();
 
@@ -64,7 +86,6 @@ export function StoreGridModal({ visible, theme, searchQuery = "", onSelectStore
   }
 
   function renderItem({ item }: { item: IScraperStrategy }) {
-    const iconUrl = getStoreIconUrl(item.id, item.baseUrls);
     const bg = STORE_BG[item.id] ?? theme.primaryColor + "22";
 
     return (
@@ -74,10 +95,11 @@ export function StoreGridModal({ visible, theme, searchQuery = "", onSelectStore
         activeOpacity={0.75}
       >
         <View style={[styles.iconSquare, { backgroundColor: bg }]}>
-          <Image
-            source={{ uri: iconUrl }}
-            style={styles.iconImage}
-            resizeMode="contain"
+          <StoreIcon
+            key={item.id}
+            store={item}
+            remoteEnabled={externalLookupsEnabled}
+            color={theme.textColor}
           />
           {item.isSponsored && (
             <View style={styles.sponsoredBadge}>
@@ -138,6 +160,7 @@ export function StoreGridModal({ visible, theme, searchQuery = "", onSelectStore
             data={filtered}
             keyExtractor={(s) => s.id}
             renderItem={renderItem}
+            extraData={externalLookupsEnabled}
             numColumns={5}
             contentContainerStyle={styles.grid}
             showsVerticalScrollIndicator={false}

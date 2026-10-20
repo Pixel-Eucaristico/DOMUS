@@ -2,7 +2,7 @@
 title: 'Story 12.6: Criar a flag das consultas de itens, preços e ícones'
 type: 'feature'
 created: '2026-10-20'
-status: 'in-review'
+status: 'done'
 baseline_commit: 'f94f67dd94662401ac4587ce53a61db29fe0a585'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -70,6 +70,11 @@ context:
 - Given quem já usa o app, when abre a versão nova, then o interruptor está ligado e o aviso aparece uma única vez, mesmo após "rever introduções"
 
 ## Implementation Notes
+
+- Flag em `src/modules/privacy/externalLookups.ts` (`domus_external_lookups_v1`), hook `useExternalLookups`; leitura na raiz (`ExternalLookupsPreloader`) antes da introdução gravar `domus_welcome_done_v1`; aviso em `ExternalLookupsNoticeHost` dentro do `SecurityGuard`, com `window.confirm` na web.
+- Favicon movido para `src/components/wishlist/storeIcon.ts` (`resolveStoreIconUrl`, puro e testado) para cobrir a linha da matriz do ícone.
+- Linhas da matriz da lista de desejos (sem scraping com a flag desligada) ficam sem teste automatizado: não há infraestrutura de teste de hook (D21); conferir no aparelho.
+- Se a flag carregar antes dos timestamps de 24 h, o reenfileiramento ao ligar espera a próxima rolagem, como já acontecia antes.
 
 ## Spec Change Log
 

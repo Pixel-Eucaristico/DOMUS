@@ -14,6 +14,7 @@ import { soundManager } from "@/src/services/SoundManager";
 import { ConfirmDeleteModal } from "@/src/components/shared/ConfirmDeleteModal";
 import { useWishlist } from "@/src/hooks/useWishlist";
 import { usePriceRefresh } from "@/src/hooks/usePriceRefresh";
+import { useExternalLookups } from "@/src/hooks/useExternalLookups";
 import { createEvent, generateId } from "@packages/events/src/factory";
 import { EVENT_TYPES } from "@packages/events/src/types";
 import type { TransactionCreatedEvent } from "@packages/events/src/types";
@@ -106,10 +107,12 @@ export default function WishlistDetailScreen() {
     return rawItems.map((item) => affordableMap.get(item.id) ?? item);
   }, [rawItems, affordableItems]);
 
-  // Atualização automática de preços dos itens visíveis
+  // Atualização automática de preços dos itens visíveis (só com a flag de consultas)
+  const { enabled: externalLookupsEnabled } = useExternalLookups();
   const { refreshingId, enqueueVisible } = usePriceRefresh({
     items: itemsWithAffordability,
     updateItem,
+    enabled: externalLookupsEnabled,
   });
 
   const handleAddItem = useCallback(

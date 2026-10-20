@@ -3,7 +3,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState, useCallback } from "react";
-import { View, Platform, useColorScheme } from "react-native";
+import { View, Platform, useColorScheme, Alert } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AvoidSoftInput } from "react-native-avoid-softinput";
@@ -32,6 +32,7 @@ import { useSavingsGoalScheduler } from "@/src/hooks/useSavingsGoalScheduler";
 import { useAutoBackup } from "@/src/hooks/useAutoBackup";
 import { useNotificationScheduler } from "@/src/hooks/useNotificationScheduler";
 import { useAnalyticsInit } from "@/src/hooks/useAnalyticsInit";
+import { loadExternalLookups, markExternalLookupsNoticeShown, setExternalLookupsEnabled } from "@/src/modules/privacy/externalLookups";
 import { createEvent } from "@packages/events/src/factory";
 import { EVENT_TYPES } from "@packages/events/src/types";
 import type { TransactionUpdatedEvent } from "@packages/events/src/types";
@@ -71,6 +72,77 @@ function SavingsGoalScheduler() {
 /** Executa na inicialização: cria auto-backup local cifrado se passaram ≥ 24 h. */
 function AutoBackupScheduler() {
   useAutoBackup();
+  return null;
+}
+
+const EXTERNAL_LOOKUPS_NOTICE_TITLE = "Consultas de itens, preços e ícones";
+const EXTERNAL_LOOKUPS_NOTICE_BODY =
+  "Para classificar itens das notas, atualizar preços da lista de desejos e mostrar o ícone das lojas, o DOMUS envia a serviços externos o código de barras e o NCM dos itens (Open Food Facts, Cosmos e Siscomex), o endereço das páginas de produto e o domínio das lojas (serviço de ícones do Google).\n\nSe desligar, você perde a classificação mais precisa, o preço atualizado e o ícone da loja. Dá para mudar quando quiser em Sobre → Configurações.";
+
+/**
+ * Flag "Consultas de itens, preços e ícones" (Story 12.6). Lê a flag logo na
+ * montagem, na raiz — antes que a introdução de uma instalação nova grave
+ * `domus_welcome_done_v1` e a confunda com quem já usa o app.
+ */
+function ExternalLookupsPreloader() {
+  useEffect(() => {
+    loadExternalLookups().catch(() => {});
+  }, []);
+  return null;
+}
+
+/**
+ * Aviso único para quem já usa o app. Montado dentro do SecurityGuard: só
+ * aparece depois do desbloqueio.
+ */
+function ExternalLookupsNoticeHost({ ready }: { ready: boolean }) {
+  const [pendingNotice, setPendingNotice] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    loadExternalLookups()
+      .then((s) => {
+        if (active && !s.noticeShown) setPendingNotice(true);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!ready || !pendingNotice) return;
+    setPendingNotice(false);
+    // Grava antes de mostrar: o aviso nunca reaparece, nem se o app fechar
+    markExternalLookupsNoticeShown().catch(() => {});
+
+    if (Platform.OS === "web") {
+      // Na web o Alert com botões não funciona (ver src/utils/confirmAsync.ts)
+      const w = globalThis as unknown as { confirm?: (msg: string) => boolean };
+      const keep = w.confirm
+        ? w.confirm(
+            `${EXTERNAL_LOOKUPS_NOTICE_TITLE}\n\n${EXTERNAL_LOOKUPS_NOTICE_BODY}\n\nOK = Manter ligado · Cancelar = Desligar`,
+          )
+        : true;
+      if (!keep) setExternalLookupsEnabled(false).catch(() => {});
+      return;
+    }
+
+    Alert.alert(
+      EXTERNAL_LOOKUPS_NOTICE_TITLE,
+      EXTERNAL_LOOKUPS_NOTICE_BODY,
+      [
+        {
+          text: "Desligar",
+          style: "destructive",
+          onPress: () => { setExternalLookupsEnabled(false).catch(() => {}); },
+        },
+        { text: "Manter ligado" },
+      ],
+      { cancelable: false },
+    );
+  }, [ready, pendingNotice]);
+
   return null;
 }
 
@@ -365,11 +437,13 @@ export default function RootLayout() {
                   <NotificationSchedulerRunner />
                   <AnalyticsInitRunner />
                   <NotificationResponseRunner />
+                  <ExternalLookupsPreloader />
                   <TourContent>
                     <SecurityGuard>
                       <DesktopLayout>
                         <RootLayoutNav />
                       </DesktopLayout>
+                      <ExternalLookupsNoticeHost ready={splashFinished} />
                     </SecurityGuard>
 
                     {/* Todos os overlays/modais pós-splash num único slot condicional para

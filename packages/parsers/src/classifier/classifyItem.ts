@@ -461,6 +461,12 @@ export interface ClassifyItemOptions {
   aiProvider?: string; // "openai" | "gemini" | "claude" | "deepseek" | "qwen"
   /** Callback chamado quando tokens são consumidos pela IA */
   onTokensUsed?: (provider: string, tokens: number) => void;
+  /**
+   * Flag "Consultas de itens, preços e ícones". Quando falsa (padrão), não
+   * consulta código de barras (Open Food Facts, Cosmos) nem baixa a tabela
+   * NCM do Siscomex; o mapa NCM estático e as palavras-chave seguem valendo.
+   */
+  externalLookups?: boolean;
 }
 
 /**
@@ -475,14 +481,21 @@ export async function classifyItemFull(
   item: ClassifyItemInput,
   options: ClassifyItemOptions = {},
 ): Promise<ExtendedClassificationResult> {
-  // 1. NCM-based classification
+  const externalLookups = options.externalLookups === true;
+
+  // 1. NCM-based classification (Siscomex só com a flag de consultas ligada)
   if (item.ncm) {
-    const ncmResult = await classifyByNcmWithSiscomex(item.ncm);
-    if (ncmResult.confidence >= 0.7) return ncmResult;
+    if (externalLookups) {
+      const ncmResult = await classifyByNcmWithSiscomex(item.ncm);
+      if (ncmResult.confidence >= 0.7) return ncmResult;
+    } else {
+      const staticResult = classifyByNcm(item.ncm.replace(/\D/g, "").substring(0, 8));
+      if (staticResult && staticResult.confidence >= 0.7) return staticResult;
+    }
   }
 
-  // 2. EAN-based classification
-  if (item.ean) {
+  // 2. EAN-based classification (rede — só com a flag de consultas ligada)
+  if (externalLookups && item.ean) {
     const eanResult = await classifyByEan(item.ean);
     if (eanResult && eanResult.confidence >= 0.7) return eanResult;
   }

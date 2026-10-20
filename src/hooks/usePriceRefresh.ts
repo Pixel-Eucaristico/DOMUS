@@ -45,6 +45,11 @@ function needsRefresh(timestamps: Record<string, number>, itemId: string): boole
 interface Options {
   items: WishlistItem[];
   updateItem: (id: string, listId: string, changes: Partial<WishlistItem>) => void;
+  /**
+   * Flag "Consultas de itens, preços e ícones". Falsa: nada é enfileirado nem
+   * raspado — a lista mostra o último preço salvo.
+   */
+  enabled: boolean;
 }
 
 interface Result {
@@ -57,8 +62,9 @@ interface Result {
 /**
  * Atualiza preços de itens visíveis de forma sequencial com delay aleatório.
  * Cada item é atualizado no máximo uma vez a cada 24 horas (persiste entre sessões).
+ * Só roda com a flag de consultas ligada (`enabled`).
  */
-export function usePriceRefresh({ items, updateItem }: Options): Result {
+export function usePriceRefresh({ items, updateItem, enabled }: Options): Result {
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
   // Fila de IDs aguardando scraping
@@ -73,6 +79,11 @@ export function usePriceRefresh({ items, updateItem }: Options): Result {
   const timestampsRef = useRef<Record<string, number>>({});
   // Indica se os timestamps já foram carregados
   const timestampsLoadedRef = useRef(false);
+
+  // Flag sempre atualizada (efeito abaixo, depois de enqueueVisible)
+  const enabledRef = useRef(enabled);
+  // Últimos IDs visíveis recebidos, mesmo com a flag desligada
+  const lastVisibleRef = useRef<string[]>([]);
 
   // Mapa id→item sempre atualizado (evita closure stale)
   const itemsRef = useRef<Map<string, WishlistItem>>(new Map());
@@ -98,7 +109,7 @@ export function usePriceRefresh({ items, updateItem }: Options): Result {
   }, []);
 
   const processNext = useCallback(async () => {
-    if (!activeRef.current || queueRef.current.length === 0) {
+    if (!activeRef.current || !enabledRef.current || queueRef.current.length === 0) {
       processingRef.current = false;
       return;
     }
@@ -129,6 +140,11 @@ export function usePriceRefresh({ items, updateItem }: Options): Result {
 
           await sleep(randomDelay());
           if (!activeRef.current) return;
+          if (!enabledRef.current) {
+            seenRef.current.delete(itemId);
+            processingRef.current = false;
+            return;
+          }
 
           try {
             const data = await wishlistScraperService.scrape(bItem.originalUrl);
@@ -155,6 +171,11 @@ export function usePriceRefresh({ items, updateItem }: Options): Result {
         // Item simples: delay + scrape
         await sleep(randomDelay());
         if (!activeRef.current) return;
+        if (!enabledRef.current) {
+          seenRef.current.delete(itemId);
+          processingRef.current = false;
+          return;
+        }
 
         const data = await wishlistScraperService.scrape(item.originalUrl);
         if (!activeRef.current) return;
@@ -179,6 +200,9 @@ export function usePriceRefresh({ items, updateItem }: Options): Result {
 
   const enqueueVisible = useCallback(
     (visibleIds: string[]) => {
+      lastVisibleRef.current = visibleIds;
+      // Flag de consultas desligada (ou ainda carregando): nenhum scraping
+      if (!enabledRef.current) return;
       // Aguarda o carregamento inicial dos timestamps antes de enfileirar
       if (!timestampsLoadedRef.current) return;
 
@@ -207,6 +231,18 @@ export function usePriceRefresh({ items, updateItem }: Options): Result {
     },
     [processNext],
   );
+
+  // Desligar descarta a fila (e libera os IDs para reenfileirar depois);
+  // ligar reenfileira os itens visíveis sem esperar uma rolagem.
+  useEffect(() => {
+    enabledRef.current = enabled;
+    if (!enabled) {
+      for (const id of queueRef.current) seenRef.current.delete(id);
+      queueRef.current = [];
+    } else {
+      enqueueVisible(lastVisibleRef.current);
+    }
+  }, [enabled, enqueueVisible]);
 
   return { refreshingId, enqueueVisible };
 }

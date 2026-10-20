@@ -11,6 +11,7 @@ import { InvoiceImportedPayload } from "@packages/parsers";
 import { useInvoiceWebView } from "@/src/hooks/useInvoiceWebView";
 import { useInvoiceScanner } from "@/src/hooks/useInvoiceScanner";
 import { useEditableItems } from "@/src/hooks/useEditableItems";
+import { useExternalLookups } from "@/src/hooks/useExternalLookups";
 import { useInvoiceConfirm } from "@/src/hooks/useInvoiceConfirm";
 import { useAISettings } from "@/src/hooks/useAISettings";
 import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
@@ -89,8 +90,12 @@ export default function InvoiceImportScreen() {
     () => setState("fetching"),
   );
 
+  const externalLookups = useExternalLookups();
+
   const items = useEditableItems(importedData, {
     aiEnabled: aiSettings.isEnabled && !!aiApiKey,
+    // Flag de consultas: EAN (Open Food Facts, Cosmos) e tabela NCM (Siscomex)
+    externalLookups: externalLookups.enabled,
     aiApiKey: aiApiKey,
     aiProvider: aiSettings.provider,
     onTokensUsed: (provider, tokens) => {
