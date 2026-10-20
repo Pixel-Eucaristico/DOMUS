@@ -26,6 +26,7 @@ This document provides the complete epic and story breakdown for DOMUS — Segur
 - FR-1: Subir o target API do app para 36 (`targetSdkVersion` 36, `compileSdkVersion` igual ou maior), validar no Android 16 e enviar o AAB à Play até 25/10/2026.
 - FR-2: Usar Node 24 (ou 22) no GitHub Actions e no EAS, declarado em `.nvmrc` e `engines`; o GitLab CI é legado e não é atualizado.
 - FR-3: Atualizar o Expo SDK de 54 para 57 em três saltos independentes: 3a (54→55), 3b (55→56, com o codemod do `expo-router`), 3c (56→57); cada salto com `expo-doctor`, vitest, build e verificação no Android 16, reavaliando `patches/` e a Tamagui, medindo memória.
+- FR-29: Teclado nunca cobre o campo: `KeyboardProvider` na raiz e só o keyboard-controller; telas, modais, buscas, chat e a câmera da NF sobem até o campo focado; checklist no aparelho.
 - FR-4: Trocar o login do Google da API legada por Credential Manager e `AuthorizationClient`, sem `client_secret` no app, com reconexão única explicada.
 
 **B. Verdade na privacidade**
@@ -134,6 +135,7 @@ FR-25: Epic 11 - tooltips com glossário financeiro
 FR-26: Epic 11 - leitor de holerite (local até o Grupo forte)
 FR-27: Epic 11 - animação por troféu, substituindo o Lottie
 FR-28: Epic 12 - privacidade por escolha e correção das fraquezas D8 a D12
+FR-29: Epic 13 - teclado nunca cobre o campo
 
 ## Epic List
 
@@ -184,6 +186,12 @@ A pessoa entende os termos financeiros na hora, acompanha o salário pelo holeri
 **FRs covered:** FR-25, FR-26, FR-27
 **Ordem:** 11.1 e 11.2 logo depois do Epic 1 (decisão do dono); 11.3 a 11.6 depois das stories 3.1, 3.3 e 3.8; o holerite só sincroniza pelo Grupo forte (Epic 4).
 **Origem:** Sprint Change Proposal de 16/10/2026.
+
+### Epic 13: Teclado nunca cobre o campo
+A pessoa digita em qualquer campo do app vendo o campo e o botão de confirmar, em telas, modais e no chat.
+**FRs covered:** FR-29
+**Ordem:** depois do AAB de 25/10 (Story 1.6); antecipa só se a Story 1.3 achar campo coberto que impeça o uso.
+**Origem:** Sprint Change Proposal de 20/10/2026.
 
 ### Epic 12: Privacidade por escolha
 A pessoa ativa cada envio pela flag do recurso, sabe o que perde ao não ativar, e as fraquezas encontradas na Story 1.4 deixam de existir.
@@ -1902,3 +1910,114 @@ So that minha escolha seja informada.
 **Then** ela diz o que é transmitido se ativada e quais benefícios se perdem se desligada
 **And** `docs/politica-de-privacidade.md`, a tela da política e o `PLAY_STORE_LISTING.md` dizem o mesmo
 **And** os textos refletem as Stories 12.1 a 12.6 já entregues.
+
+## Epic 13: Teclado nunca cobre o campo
+
+A pessoa digita em qualquer campo do app vendo o campo e o botão de confirmar, em telas, modais e no chat.
+
+*Incluído pela Sprint Change Proposal de 20/10/2026.*
+
+### Story 13.1: Ligar o sistema único de teclado na raiz
+
+As a usuário do DOMUS,
+I want que o app trate o teclado de um jeito só,
+So that a tela suba sempre do mesmo modo, sem deslocar duas vezes.
+
+**Implementa:** FR-29
+
+**Acceptance Criteria:**
+
+**Given** `app/_layout.tsx`
+**When** o app abre
+**Then** um `KeyboardProvider` (translúcido para edge-to-edge) envolve a navegação
+**And** o `react-native-avoid-softinput` sai do código, do `package.json` e do `package-lock.json` (npm 10)
+**And** as telas com `KeyboardAwareScrollView` (add-transaction, ai-settings, backup, about) sobem até o campo focado
+**And** nenhuma tela que subia antes deixa de subir.
+
+### Story 13.2: Padronizar a rolagem das telas com campos
+
+As a usuário do DOMUS,
+I want que toda tela com formulário role até o campo que estou digitando,
+So that eu veja o que escrevo.
+
+**Implementa:** FR-29
+
+**Acceptance Criteria:**
+
+**Given** um componente de rolagem padrão (a partir de `components/KeyboardAwareScrollViewCompat.tsx`)
+**When** o uso em add-transaction, ai-settings, backup, about, ocr-settings, sync e na revisão da nota (ParsedScreen)
+**Then** ao focar qualquer campo, ele fica visível acima do teclado com folga, e o botão principal fica alcançável rolando
+**And** tocar num botão com o teclado aberto funciona no primeiro toque (`keyboardShouldPersistTaps`).
+
+### Story 13.3: Fazer os modais com formulário subirem
+
+As a usuário do DOMUS,
+I want que os formulários em modal subam com o teclado,
+So that eu consiga lançar transação, criar conta e adicionar item sem o teclado tampar.
+
+**Implementa:** FR-29
+
+**Acceptance Criteria:**
+
+**Given** o `KeyboardSafeView` funcionando com o provider da raiz
+**When** abro a nova transação da tela inicial, o formulário de conta, a criação de lista e a adição de item da lista de desejos
+**Then** o campo focado e o botão de salvar ficam acima do teclado
+**And** ao fechar o teclado não sobra espaço em branco no modal.
+
+### Story 13.4: Fazer as buscas e diálogos em modal subirem
+
+As a usuário do DOMUS,
+I want que as buscas e diálogos com campo também subam,
+So that eu veja o que digito em qualquer lugar do app.
+
+**Implementa:** FR-29
+
+**Acceptance Criteria:**
+
+**Given** a busca de categoria, a busca de loja, a busca de conta (modo compacto), o diálogo "APAGAR TUDO", a chave de IA no onboarding e as ferramentas de debug
+**When** foco o campo
+**Then** o campo e a lista ou o botão de confirmar ficam visíveis acima do teclado.
+
+### Story 13.5: Um só deslocamento no chat da IA
+
+As a usuário do DOMUS,
+I want que a caixa de mensagem do chat fique logo acima do teclado,
+So that não sobre nem falte espaço quando digito.
+
+**Implementa:** FR-29
+
+**Acceptance Criteria:**
+
+**Given** o chat da IA com o provider da raiz
+**When** abro e fecho o teclado várias vezes
+**Then** a caixa de mensagem fica colada acima do teclado e volta ao lugar ao fechar
+**And** o `ai-chat.tsx` não tem provider próprio; o GiftedChat é ajustado por `keyboardProviderProps`/`keyboardAvoidingViewProps`.
+
+### Story 13.6: Corrigir a digitação manual da chave da NF sobre a câmera
+
+As a usuário do DOMUS,
+I want ver a chave de acesso que digito sobre a câmera,
+So that eu importe a nota sem QR legível.
+
+**Implementa:** FR-29
+
+**Acceptance Criteria:**
+
+**Given** a tela de QR da importação de nota com o campo de chave em `autoFocus`
+**When** o teclado abre
+**Then** a barra inferior com o campo e o botão sobe acima do teclado.
+
+### Story 13.7: Verificar todos os campos no aparelho
+
+As a dono do DOMUS,
+I want uma checklist de todos os campos testados no aparelho,
+So that eu tenha prova de que o teclado nunca cobre o campo.
+
+**Implementa:** FR-29
+
+**Acceptance Criteria:**
+
+**Given** a lista de locais com campo da Sprint Change Proposal de 20/10/2026
+**When** testo cada um no Android 16 e no navegador
+**Then** uma checklist em `docs/` registra o resultado de cada campo
+**And** a checklist anda junto da checklist da Story 1.3.

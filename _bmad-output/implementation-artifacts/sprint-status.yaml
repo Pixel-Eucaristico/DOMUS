@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 10-16-2026 23:50
+last_updated: 10-20-2026 12:00
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -95,7 +95,7 @@ development_status:
 
   epic-6: backlog
   6-1-mover-a-chave-do-ocr-para-o-armazenamento-seguro: backlog
-  6-2-mover-a-chave-e-a-senha-do-auto-backup-para-o-armazenamento: backlog
+  6-2-mover-a-chave-do-auto-backup-para-o-armazenamento-seguro: backlog
   6-3-tirar-a-queda-silenciosa-do-securestore-para-o-asyncstorage: backlog
   6-4-cifrar-o-log-de-eventos-da-web: backlog
   6-5-barrar-por-teste-novo-segredo-em-asyncstorage: backlog
@@ -167,3 +167,13 @@ development_status:
   12-6-criar-a-flag-das-consultas-de-itens-preços-e-ícones: backlog
   12-7-dizer-em-cada-flag-o-que-transmite-e-o-que-se-perde: backlog
   epic-12-retrospective: optional
+
+  epic-13: backlog
+  13-1-ligar-o-sistema-único-de-teclado-na-raiz: backlog
+  13-2-padronizar-a-rolagem-das-telas-com-campos: backlog
+  13-3-fazer-os-modais-com-formulário-subirem: backlog
+  13-4-fazer-as-buscas-e-diálogos-em-modal-subirem: backlog
+  13-5-um-só-deslocamento-no-chat-da-ia: backlog
+  13-6-corrigir-a-digitação-manual-da-chave-da-nf-sobre-a-câmera: backlog
+  13-7-verificar-todos-os-campos-no-aparelho: backlog
+  epic-13-retrospective: optional

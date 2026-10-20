@@ -118,7 +118,7 @@ Setas = "pode depender de". Nada em `packages/*` aponta para `app/` ou `src/`.
 | --- | --- |
 | Naming (entities, files, interfaces, events) | Tipos de evento em UPPER_SNAKE dentro de `*_EVENTS`; cada package tem `index.ts`, `src/` e `__tests__/`; aliases `@/*`, `@packages/*`, `@shared/*` |
 | Data & formats (ids, dates, error shapes, envelopes) | `id` via `generateId()` de `packages/events` (AD-3); `timestamp` em ms epoch; dia civil como `YYYY-MM-DD` local; valor em reais com 2 casas |
-| State & cross-cutting (mutation, errors, logging, config, auth) | Mutação só por evento (AD-1); telas usam `useAppState()`; texto de UI em pt-BR com acentos completos; segredos só em SecureStore (AD-6) |
+| State & cross-cutting (mutation, errors, logging, config, auth) | Mutação só por evento (AD-1); telas usam `useAppState()`; texto de UI em pt-BR com acentos completos; segredos só em SecureStore (AD-6); teclado só pelo `react-native-keyboard-controller` (`KeyboardProvider` na raiz): telas usam a rolagem padrão e modais o `KeyboardSafeView`, sem `KeyboardAvoidingView` do RN nem AvoidSoftInput (FR-29, 20/10/2026) |
 
 ## Stack
 

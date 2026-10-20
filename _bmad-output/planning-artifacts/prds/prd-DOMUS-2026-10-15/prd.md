@@ -113,6 +113,18 @@ O dono pode usar o Expo SDK 57 (estável desde 30/06/2026), em **três saltos in
 
 **Fora do escopo:** o SDK 58, ainda em beta.
 
+#### FR-29: Teclado nunca cobre o campo
+*Incluído pela Sprint Change Proposal de 20/10/2026 (`sprint-change-proposal-2026-10-20-teclado.md`).*
+
+O usuário digita em qualquer campo do app vendo o campo e o botão de confirmar.
+
+**Consequências (testáveis):**
+- Em toda tela, modal e bottom sheet, ao focar um campo, o conteúdo sobe ou rola até o campo ficar visível acima do teclado, com folga mínima de 8 dp.
+- O botão principal do formulário (Salvar, Adicionar, Confirmar) fica alcançável com o teclado aberto, rolando se preciso.
+- Ao fechar o teclado, a tela volta à posição original, sem espaço sobrando.
+- Um só sistema de teclado no app (`react-native-keyboard-controller`, com `KeyboardProvider` na raiz); o `react-native-avoid-softinput` sai.
+- Vale no Android 16 com edge-to-edge e no navegador.
+
 #### FR-4: Login do Google com API moderna
 O usuário conecta o Google Drive sem depender da API legada de login (deprecada, com remoção anunciada e sem data).
 
@@ -419,7 +431,7 @@ O usuário decide cada envio de dados para fora do aparelho pela flag do recurso
 ## 6. Escopo e prioridade
 
 ### 6.1 Em escopo
-Os FRs FR-1 a FR-28 (FR-25 a FR-28 incluídos em 16/10/2026). O dono definiu "o que der": não há corte fixo, só uma ordem, e o FR-1 vem primeiro.
+Os FRs FR-1 a FR-29 (FR-25 a FR-28 incluídos em 16/10/2026; FR-29 em 20/10/2026). O dono definiu "o que der": não há corte fixo, só uma ordem, e o FR-1 vem primeiro.
 
 ### 6.2 Fora do escopo
 Ver §5.
@@ -442,6 +454,7 @@ Ver §5.
 | 9 | FR-3a, FR-3b, FR-3c | upgrade do SDK, um salto por vez |
 | 10 | FR-4 | login moderno |
 | 11 | FR-8a, FR-8b, FR-8c, FR-11 | sincronizar tudo, por último, porque depende de FR-12 e FR-13 |
+| 1c | FR-29 | depois do AAB de 25/10; antecipa só se a Story 1.3 achar campo coberto que impeça o uso |
 | 12 | FR-27 | animação dos troféus, substituindo o Lottie |
 
 O prazo de 01/11/2026 cobre só FR-1 e FR-5 (publicação); os demais seguem a ordem, sem data comprometida.
