@@ -4,7 +4,7 @@
 
 ## Goal
 
-Fazer com que nenhum dado saia do aparelho sem que o usuário ative a flag do recurso correspondente, que cada flag diga claramente o que transmite e quais benefícios se perdem ao não ativá-la, e corrigir as fraquezas reais de privacidade e segurança expostas quando a política de privacidade passou a descrever o comportamento verdadeiro do app (salt do PIN, anúncio personalizado sem consentimento, código do grupo enviado à IA, backup automático que ignora o interruptor, exportação sem cifra sem aviso). Importa porque a loja e a política só podem afirmar o que o código cumpre, e o dono decidiu que privacidade é escolha do usuário, não padrão imposto.
+Garantir que nenhum dado saia do aparelho sem que o usuário ative a flag do recurso, que cada flag diga o que transmite e quais benefícios se perdem ao desligá-la, e corrigir as fraquezas reais (D8 a D12) que ficaram visíveis quando a política de privacidade passou a descrever o comportamento verdadeiro do app: salt do PIN, anúncio personalizado sem consentimento, código do grupo enviado à IA, backup que vai ao Drive sem escolha e exportação sem cifra sem aviso. Importa porque a loja e a política só podem afirmar o que o código cumpre, e o dono decidiu que privacidade é escolha do usuário.
 
 ## Stories
 
@@ -18,39 +18,37 @@ Fazer com que nenhum dado saia do aparelho sem que o usuário ative a flag do re
 
 ## Requirements & Constraints
 
-- Todo fluxo que envia dados para fora do aparelho precisa de uma flag de ativação. Exceção: a ação que o próprio usuário pede explicitamente.
-- **As flags existentes são o mecanismo** (IA e suas permissões, Cloud Vision, sync, Google Drive, Firebase, modo de apoio com anúncios, backup automático). Não criar central de privacidade nem tela de consentimento genérica nova.
-- Envios ainda sem flag ganham uma única flag nova, no mesmo padrão das existentes: consulta de código de barras (Open Food Facts, Cosmos), download da tabela NCM (Siscomex), atualização automática de preços a cada 24 h (páginas de produto) e ícones de lojas (serviço de ícones do Google). A cotação do dólar já depende da flag da IA.
-- Flag nova: **desligada em instalação nova**; para quem já usa, **ligada** (mantém o que já funcionava), com **aviso único** do que envia e do que se perde ao desligar.
-- Com a flag de consultas desligada, o app continua funcionando: classifica por palavras-chave, mostra ícone genérico e usa o último preço salvo.
-- O contexto enviado à IA nunca pode conter o código do grupo nem nada derivado dele, em nenhuma combinação de permissões; só o status (ligado, contagem, última sync).
-- Backup automático desligado: nem cópia local nem envio ao Drive.
-- PIN: salt de fonte criptográfica e hash por derivação lenta (PBKDF2 ou similar); PIN no formato antigo é migrado no próximo desbloqueio correto, sem pedir de novo; PIN errado continua rejeitado.
+- Todo fluxo que envia dados para fora do aparelho tem uma flag de ativação. Quem ativa aceita a transmissão; quem não ativa perde os benefícios daquele recurso.
+- **As flags existentes são o mecanismo** (chave e permissões da IA, Cloud Vision, sync, Google Drive, Firebase, modo de apoio com anúncios). Não criar central de privacidade nem aviso genérico novo.
+- Envios sem flag ganham uma única flag nova, no padrão das existentes: consulta de código de barras (Open Food Facts, Cosmos), download da tabela NCM (Siscomex), atualização automática de preços a cada 24 h (páginas de produto) e ícones de lojas (serviço do Google). A cotação do dólar só roda no painel da IA e já depende da flag da IA.
+- Flag nova: desligada em instalação nova; ligada para quem já usa o app, com aviso único do que envia e do que se perde ao desligar. Desligada, o app segue funcionando: classifica por palavras-chave, mostra ícone genérico e usa o último preço salvo.
+- O contexto montado para o provedor de IA nunca contém o código do grupo nem nada derivado dele, em nenhuma combinação de permissões; um teste do construtor de contexto garante isso.
+- Backup: o interruptor antigo só existia em código morto e é removido (nenhuma ocorrência de `AutoBackupService` nem das chaves `domus_auto_backup_(enabled|password|interval_h)` em `src` e `app`). A flag do envio é conectar o Google Drive: desconectado, a cópia cifrada fica só no aparelho; conectado, é enviada ao Drive como hoje.
+- PIN: salt de fonte criptográfica e hash por derivação lenta (PBKDF2 ou similar); PIN no formato antigo é regravado no formato novo no próximo desbloqueio correto, sem pedir de novo; testes cobrem formato novo, migração e PIN errado.
 - Anúncios: não personalizados por padrão; personalizado só com consentimento explícito que diga o que é enviado, revogável no mesmo lugar.
 - Exportação sem cifra: confirmação obrigatória com aviso de que qualquer pessoa com o arquivo lê os dados; sem confirmação, nada é exportado.
-- Textos (12.7): cada flag diz o que transmite e o que se perde; `docs/politica-de-privacidade.md`, a tela da política no app e o `PLAY_STORE_LISTING.md` dizem o mesmo e refletem só o que já foi entregue em 12.1 a 12.6. Toda afirmação pública de privacidade precisa ser verificável no código.
+- Textos: cada flag (IA e permissões, voz, Cloud Vision, sync, Drive, backup automático, Firebase, anúncios, consultas de itens) diz o que transmite e o que se perde; a política em `docs/politica-de-privacidade.md`, a tela da política no app e o `PLAY_STORE_LISTING.md` dizem o mesmo. Toda afirmação pública de privacidade precisa ser verificável no código.
 - Todo texto de interface em pt-BR com acentuação completa.
-- Cada correção tem teste (construtor de contexto da IA, os dois estados do backup, formato novo, migração e PIN errado do PIN).
 
 ## Technical Decisions
 
-- Preferências de consentimento e flags são **estado do aparelho** em `AsyncStorage`, sem Evento no log; ficam fora do sync até o inventário do Epic 9 classificá-las.
+- Flags e consentimentos são estado do aparelho em `AsyncStorage`, sem Evento no log; ficam fora do sync até o inventário do Epic 9 classificá-los.
 - PIN, chaves de API e segredos ficam só em `expo-secure-store` (na web, `webSecrets`); nenhum segredo novo em `AsyncStorage`, em Evento ou em `EXPO_PUBLIC_*`.
 - `packages/*` não importam `react`, `react-native` nem `expo`; `packages/sync` é intocável.
+- Pontos de envio sem flag localizados no planejamento: `packages/parsers/src/classifier/eanLookup.ts`, `src/services/siscomexCacheService.ts`, `src/hooks/usePriceRefresh.ts` e `src/components/wishlist/StoreGridModal.tsx`.
 - Testes com `npx vitest run`; `vi.mock("react-native")` não funciona (usar `process.env.EXPO_OS` ou lógica sem `react-native`).
-- Pontos de partida apontados na triagem das fraquezas: geração do salt em `PinAuthService` (usa `Math.random`); `requestNonPersonalizedAdsOnly: false` em `AppOpenAdHost` e `DailyAdModal`, sem uso de `AdsConsent`; seção Sync do `AIContextBuilder` (envia `groupId`); `useAutoBackup` não lê `isAutoBackupEnabled` do `AutoBackupService`; `handleExportPlain` em `useBackupRestore`; envios sem flag em `eanLookup.ts`, `siscomexCacheService.ts`, `usePriceRefresh.ts` e `StoreGridModal.tsx`. *(Revisto em 16/10: o `AutoBackupService` era código morto e foi removido na Story 12.2; a flag do envio é conectar o Drive.)*
 
 ## UX & Interaction Patterns
 
-- Nada de tela nova de privacidade: o texto "o que transmite / o que se perde" fica junto de cada flag existente.
-- Aviso único (uma vez) para quem atualiza e recebe a flag nova ligada.
-- Consentimento de anúncio personalizado explícito, no mesmo lugar onde pode ser revogado.
-- Exportação sem cifra exige confirmação com aviso forte.
+- Sem tela nova de privacidade: a frase "o que transmite / o que se perde" fica junto de cada flag existente, igual nas telas, na política e na loja.
+- Aviso único para quem atualiza e recebe a flag nova ligada.
+- Consentimento de anúncio personalizado explícito e revogável no mesmo lugar.
+- Exportação sem cifra exige confirmação com aviso claro.
 
 ## Cross-Story Dependencies
 
-- **Ordem (decisão do dono):** 12.1, 12.2 e 12.3 entram antes do envio do AAB de 25/10/2026 (Epic 1); 12.4 a 12.7 logo depois do Epic 1.
-- 12.7 vem por último: os textos refletem as Stories 12.1 a 12.6 já entregues e precisam ficar alinhados ao Data safety e à política (Stories 1.4 a 1.6).
-- O que for entregue antes do AAB muda o que a política e o Data safety podem afirmar nas Stories 1.5 e 1.6.
-- A chave do backup automático em texto puro e a chave do OCR são tratadas no Epic 6; a cifra fraca do sync, no Epic 4; não duplicar aqui.
-- O Epic 9 decidirá se as flags e consentimentos passam a sincronizar.
+- Ordem decidida pelo dono: 12.1, 12.2 e 12.3 antes do envio do AAB de 25/10/2026 (Epic 1); 12.4 a 12.7 logo depois do Epic 1.
+- 12.7 vem por último: os textos refletem só o que 12.1 a 12.6 já entregaram.
+- O que entrar antes do AAB muda o que a política e o Data safety podem afirmar (Stories 1.5 e 1.6).
+- Chave do OCR e senha do auto-backup em armazenamento seguro ficam no Epic 6; a cifra fraca do sync, no Epic 4; não duplicar aqui.
+- O Epic 9 decide se flags e consentimentos passam a sincronizar.
