@@ -56,3 +56,9 @@
   summary: D19 — Rever a resposta "Não" à exclusão de dados: o desenvolvedor consegue pedir a exclusão dos dados do Analytics (Firebase) e do AdMob vinculados ao app. **Decidido (16/10/2026):** o dono mantém "Não", sem story para mostrar o ID da instalação; os dados do Firebase são opcionais (desligados por padrão) e anônimos.
   evidence: a decisão do dono partiu da premissa "nada em servidor"; Firebase e AdMob guardam dados na conta Google do desenvolvedor. Decisão do dono antes de preencher o formulário (Story 1.6).
 
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-6-flag-consultas-itens-precos-icones.md`
+  summary: D20 — "Apagar tudo" (`resetApp`) não volta a flag "Consultas de itens, preços e ícones" (`domus_external_lookups_v1`) ao padrão de instalação nova; a escolha anterior sobrevive ao reset.
+  evidence: `resetApp` em `src/hooks/useEventStore.ts` limpa Eventos e segurança, não a chave da flag. Decidir com o dono se o reset deve desligar a flag (Story 12.7 ou próxima revisão das flags).
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-6-flag-consultas-itens-precos-icones.md`
+  summary: D21 — Sem testes do corte da flag nos pontos de React: `usePriceRefresh` (não raspar com a flag desligada, retomar ao ligar), repasse de `externalLookups` em `import-invoice.tsx`/`useEditableItems` e o aviso único em `app/_layout.tsx`.
+  evidence: o repositório não tem infraestrutura de teste de hook/componente (sem `@testing-library`, `renderHook` nem jsdom). Cobrir na checklist de aparelho (Story 13.7/1.3) ou extrair a lógica da fila para módulo puro.

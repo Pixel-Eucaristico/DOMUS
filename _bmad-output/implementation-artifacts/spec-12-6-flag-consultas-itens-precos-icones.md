@@ -2,7 +2,7 @@
 title: 'Story 12.6: Criar a flag das consultas de itens, preços e ícones'
 type: 'feature'
 created: '2026-10-20'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: 'f94f67dd94662401ac4587ce53a61db29fe0a585'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -54,15 +54,15 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/modules/privacy/externalLookups.ts` (novo, sem `react-native`) -- chave `domus_external_lookups_v1` `{ enabled, noticeShown }`; `loadExternalLookups()` que, na primeira leitura sem chave, decide pelo `WELCOME_KEY` (presente → `enabled: true, noticeShown: false`; ausente → `enabled: false, noticeShown: true`) e grava; `setExternalLookupsEnabled()`, `markExternalLookupsNoticeShown()`; o AsyncStorage injetável para teste -- fonte única da flag
-- [ ] `src/hooks/useExternalLookups.ts` (novo) -- hook `{ enabled, loaded, setEnabled }` sobre o módulo -- uso nas telas
-- [ ] `packages/parsers/src/classifier/classifyItem.ts` -- opção `externalLookups` -- corte do EAN e Siscomex
-- [ ] `src/hooks/useEditableItems.ts`, `app/import-invoice.tsx` -- repassar a flag -- AC 1
-- [ ] `src/hooks/usePriceRefresh.ts`, `app/wishlist/[listId].tsx` -- opção `enabled` -- AC 1
-- [ ] `src/components/wishlist/StoreGridModal.tsx` -- ícone genérico sem flag e no `onError` -- AC 1
-- [ ] `app/about.tsx` -- `SwitchRow` "Consultas de itens, preços e ícones" com subtítulo "Envia código de barras, NCM, links de produto e lojas a serviços externos. Desligado: classificação por palavras, sem atualização de preço e sem ícone das lojas." -- AC 2
-- [ ] `app/_layout.tsx` (ou componente montado nele) -- aviso único via `Alert` para quem já usa, com "Manter ligado" e "Desligar"; grava `noticeShown` -- AC 3
-- [ ] `packages/parsers/__tests__/classifier.test.ts` e `src/modules/privacy/__tests__/externalLookups.test.ts` -- testar: `classifyItemFull` com flag falsa não chama `fetch` (EAN e NCM); migração nova/existente; aviso marcado só uma vez -- matriz
+- [x] `src/modules/privacy/externalLookups.ts` (novo, sem `react-native`) -- chave `domus_external_lookups_v1` `{ enabled, noticeShown }`; `loadExternalLookups()` que, na primeira leitura sem chave, decide pelo `WELCOME_KEY` (presente → `enabled: true, noticeShown: false`; ausente → `enabled: false, noticeShown: true`) e grava; `setExternalLookupsEnabled()`, `markExternalLookupsNoticeShown()`; o AsyncStorage injetável para teste -- fonte única da flag
+- [x] `src/hooks/useExternalLookups.ts` (novo) -- hook `{ enabled, loaded, setEnabled }` sobre o módulo -- uso nas telas
+- [x] `packages/parsers/src/classifier/classifyItem.ts` -- opção `externalLookups` -- corte do EAN e Siscomex
+- [x] `src/hooks/useEditableItems.ts`, `app/import-invoice.tsx` -- repassar a flag -- AC 1
+- [x] `src/hooks/usePriceRefresh.ts`, `app/wishlist/[listId].tsx` -- opção `enabled` -- AC 1
+- [x] `src/components/wishlist/StoreGridModal.tsx` -- ícone genérico sem flag e no `onError` -- AC 1
+- [x] `app/about.tsx` -- `SwitchRow` "Consultas de itens, preços e ícones" com subtítulo "Envia código de barras, NCM, links de produto e lojas a serviços externos. Desligado: classificação por palavras, sem atualização de preço e sem ícone das lojas." -- AC 2
+- [x] `app/_layout.tsx` (ou componente montado nele) -- aviso único via `Alert` para quem já usa, com "Manter ligado" e "Desligar"; grava `noticeShown` -- AC 3
+- [x] `packages/parsers/__tests__/classifier.test.ts` e `src/modules/privacy/__tests__/externalLookups.test.ts` -- testar: `classifyItemFull` com flag falsa não chama `fetch` (EAN e NCM); migração nova/existente; aviso marcado só uma vez -- matriz
 
 **Acceptance Criteria:**
 - Given a flag desligada, when importo uma nota, abro a lista de desejos ou escolho uma loja, then não há requisição a Open Food Facts, Cosmos, Siscomex, páginas de produto nem `google.com/s2/favicons`, e o app mostra classificação local, último preço salvo e ícone genérico
@@ -74,6 +74,27 @@ context:
 ## Spec Change Log
 
 ## Review Triage Log
+
+| Achado | Veredito | Evidência |
+|---|---|---|
+| Aviso aparece sobre a tela do PIN (runner fora do `SecurityGuard`) | medium | `SecurityGuard` (`app/_layout.tsx:184`) só renderiza os filhos destravado; o runner estava fora. **patch**: leitura na raiz, aviso dentro do guard. |
+| Na web o `Alert` com botões não faz nada, mas `noticeShown` é gravado | medium | `src/utils/confirmAsync.ts` já trata isso com `window.confirm`. **patch**. |
+| `save()` publica antes de gravar; falha de escrita deixa tela e disco divergentes | medium | Ordem em `externalLookups.ts`. **patch**: grava, depois publica. |
+| Ao ligar a flag (ou terminar de carregar) a lista não atualiza até rolar; ids descartados ficam em `seenRef` | medium | `enqueueVisible` só roda na mudança de visibilidade. **patch**: guarda os últimos ids visíveis e reenfileira. |
+| Comentário diz que o módulo não importa `react-native` | low | Importa AsyncStorage. **patch** (correção direta). |
+| Caminho do cache/assinantes sem teste | medium (gap) | Todos os testes injetam armazenamento. **patch**: testes com o AsyncStorage mockado. |
+| `usePriceRefresh`, repasse no import e aviso único sem teste | medium (gap) | Sem infraestrutura de teste de hook. **defer** D21. |
+| "Apagar tudo" não reseta a flag | medium | `resetApp` não limpa a chave. **defer** D20 (decisão do dono). |
+| Nota importada antes da flag carregar é classificada sem consultas | low | A flag é lida no início do app; o caso é raro e falha para o lado seguro. rejeitado |
+| Falha de leitura da chave de introdução grava "instalação nova" | low | AsyncStorage raramente falha na leitura; correção acrescenta ramo. rejeitado |
+| JSON corrompido mantém a flag desligada | low | Mesmo motivo; falha para o lado seguro. rejeitado |
+| Scraping em andamento termina após desligar | low | Uma requisição já enviada; não há como desfazer. rejeitado |
+| Aviso marcado antes de mostrar se perde se o app fechar | low | Escolha deliberada para nunca repetir; a flag fica no interruptor. rejeitado |
+| Interruptor do Sobre pisca desligado enquanto carrega | low | A flag é pré-carregada no início do app. rejeitado |
+| Cache do Siscomex/EAN pode afetar o teste "flag ligada" | low | Os testes anteriores não chamam rede; nenhuma instabilidade observada. rejeitado |
+| Usuário antigo sem `domus_welcome_done_v1` | false | A introdução aparece sempre que a chave falta (`DemoModeProvider.tsx:34`); quem não a concluiu é tratado como novo pelo próprio app. |
+
+**Rota:** 6 `patch`, 2 `defer` (D20, D21), 7 rejeitados, 1 falso. Sem loopback.
 
 ## Verification
 
