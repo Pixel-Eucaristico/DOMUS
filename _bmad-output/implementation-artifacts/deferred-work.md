@@ -74,3 +74,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-corrigir-modos-de-apoio-com-anuncio.md`
   summary: D25 — Sem testes do fluxo do intersticial diário em `MonetizationHosts` (gravar o dia ao fechar, não reabrir no mesmo dia, ligar com o app aberto), do `useSupportModes` e do `ensureMobileAdsInitialized`.
   evidence: mesma falta de infraestrutura de teste de hook/componente (D21, D23); extrair a decisão do diário para módulo puro e testar.
+- source_spec: `_bmad-output/implementation-artifacts/spec-11-7-gerar-lottie-dos-trofeus-sem-animacao.md`
+  summary: D26 — Os Lottie novos usam ícones do Twemoji (CC-BY 4.0), que exige atribuição onde a arte é distribuída: antes de a Story 11.8 registrar esses troféus no app, incluir o crédito ao Twemoji (ex.: tela Sobre ou arquivo de licenças).
+  evidence: a licença está citada só nos comentários de `scripts/trophy-lot-1.js`; os JSONs ainda não entram no app (não estão em `APPROVED_LOTTIE`).

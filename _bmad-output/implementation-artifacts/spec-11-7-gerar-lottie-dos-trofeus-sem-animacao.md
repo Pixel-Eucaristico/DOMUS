@@ -74,6 +74,25 @@ context:
 
 ## Review Triage Log
 
+| Achado | Veredito | Evidência |
+|---|---|---|
+| `parsePath` gera vértices `null` com coordenadas negativas e ignora Q/T em silêncio | medium | Demonstrado `M-3-3` → `null`; o lote atual não é afetado, mas os próximos 104 usam a biblioteca. **patch** + teste de vértices finitos. |
+| `readApprovedIds` frágil (só aspas duplas, lê até o fim sem marcador) | medium | A proteção contra sobrescrever troféu aprovado falharia aberta. **patch** + teste com fixture. |
+| Cor litúrgica, elemento ou `fill` inválidos quebram com TypeError ou NaN | medium | Os próximos lotes usam verde, roxo e rosa. **patch**; gerar tudo antes de escrever. |
+| Ícone passa da medalha (13º) e encosta na auréola (Sebastião, Conversão de Paulo, Francisco de Sales) | medium | Medido pelo revisor. **patch**: ajuste automático + teste. |
+| Arte encosta na borda do quadro de 200×200 | medium | `LottieTrophy` amplia 1,45× contando com margem; risco de corte. **patch**: mesma margem dos aprovados + teste. |
+| Comentários dizem "igual ao natal" mas os valores diferem | low | Correção direta. **patch**. |
+| Teste "nenhum id do lote aprovado" vai quebrar na 11.8 | low | Correção direta (remover). **patch**. |
+| `hex` sem uso; `t: 90` sem explicação | low | Correção direta. **patch**. |
+| Atribuição CC-BY do Twemoji só nos comentários | medium | Os JSONs ainda não entram no app. **defer** D26 (antes da 11.8). |
+| Coroa de Maria Mãe de Deus parecida com a coroa aprovada do Dia de Reis | low | Desenhos de fontes diferentes; o dono decide na aprovação da 11.8. rejeitado |
+| Conversão de Paulo com espada, e o app mostra ⚡ | low | A espada é o atributo de São Paulo; escolha deliberada. rejeitado |
+| Saída dos geradores antigos sem teste | low | Geradores antigos não foram tocados; md5 conferido. rejeitado |
+| JSONs fora do diff; antes/depois do 13º | low | Saída gerada e testada; troca do 13º informada ao dono. rejeitado |
+| Código comum copiado em vez de extraído dos geradores antigos | false | A spec manda os antigos continuarem com a mesma saída; a biblioteca nova é a base dos próximos lotes. |
+
+**Rota:** 8 `patch`, 1 `defer` (D26), 5 rejeitados, 1 falso. Sem loopback.
+
 ## Verification
 
 **Commands:**
