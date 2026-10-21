@@ -2,7 +2,7 @@
 title: 'Story 12.7: Dizer em cada flag o que transmite e o que se perde'
 type: 'chore'
 created: '2026-10-21'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: '53c52a50d1154dbf7b7ecaf2fb3f0658c8eab701'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -51,18 +51,24 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/constants/privacyFlagTexts.ts` -- frases por flag, a partir da política
-- [ ] telas do Code Map -- mostrar as duas frases junto de cada flag e corrigir os textos contraditórios -- AC 1
-- [ ] `docs/politica-de-privacidade.md`, `app/privacy-policy.tsx`, `PLAY_STORE_LISTING.md` -- mesmas frases por seção; D17 e D22; data -- AC 2
-- [ ] `docs/data-safety.md` -- alinhar anúncios e consultas
-- [ ] `src/constants/__tests__/privacyFlagTexts.test.ts` -- cada flag tem `sends` e `loses`; cada frase aparece nos três arquivos (lidos com `fs`) -- matriz
-- [ ] `_bmad-output/implementation-artifacts/deferred-work.md` -- marcar D17 e D22 como resolvidos
+- [x] `src/constants/privacyFlagTexts.ts` -- frases por flag, a partir da política
+- [x] telas do Code Map -- mostrar as duas frases junto de cada flag e corrigir os textos contraditórios -- AC 1
+- [x] `docs/politica-de-privacidade.md`, `app/privacy-policy.tsx`, `PLAY_STORE_LISTING.md` -- mesmas frases por seção; D17 e D22; data -- AC 2
+- [x] `docs/data-safety.md` -- alinhar anúncios e consultas
+- [x] `src/constants/__tests__/privacyFlagTexts.test.ts` -- cada flag tem `sends` e `loses`; cada frase aparece nos três arquivos (lidos com `fs`) -- matriz
+- [x] `_bmad-output/implementation-artifacts/deferred-work.md` -- marcar D17 e D22 como resolvidos
 
 **Acceptance Criteria:**
 - Given cada flag da lista, when a abro no app, then vejo o que é enviado e o que perco
 - Given a política, a tela da política e o listing, when os comparo, then dizem o mesmo de cada flag e refletem 12.1 a 12.6
 
 ## Implementation Notes
+
+- 13 flags em `PRIVACY_FLAG_TEXTS` (o Firebase tem uma por interruptor); `PrivacyFlagNote` (`src/components/privacy/`) mostra "Envia:" e "Sem isso:" junto de cada flag; o Sobre e o aviso único das consultas usam `formatPrivacyFlagText`.
+- Na política e no listing, cada flag é um item `- **Título.** Envia: … Sem isso: …` na seção do recurso; na tela da política, `<FlagItem sends="…" loses="…" />` com as frases em atributo (por isso as frases não têm aspas duplas nem chaves; o teste confere).
+- Textos corrigidos além do Code Map, por afirmarem o contrário da política: `AnalyticsConsentModal` (sem uso, mas dizia "100% anônimo"), `notification-settings.tsx` ("Nenhum dado é enviado para servidores"), intro do sync em `screenIntroContent.ts` ("ponta-a-ponta"), descrições das permissões da IA (alinhadas ao `AIContextBuilder`), descrição da chave de API ("AES-256" → armazenamento seguro) e o aviso único das consultas (dizia que o NCM era enviado; só a tabela é baixada).
+- A política passou a dizer que o Cloud Vision, quando escolhido como provedor principal, recebe a foto primeiro (`useInvoiceScanner.ts`), e que o OCR por visão da IA só roda no chat com "OCR por Visão (IA)" ligado.
+- O Analytics não registra telas nem eventos próprios (nenhuma chamada a `logEvent`/`logScreenView`); o texto fala em eventos coletados automaticamente pelo Firebase.
 
 ## Spec Change Log
 
