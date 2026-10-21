@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   Modal,
   View,
@@ -16,6 +16,7 @@ import { ClipboardService } from "@/src/modules/security/application/ClipboardSe
 import { soundManager } from "@/src/services/SoundManager";
 import { ADMOB_IDS } from "./AdMobConfig";
 import { getAdRequestOptions } from "@/src/modules/monetization/adConsent";
+import { markFullScreenAdActive, markFullScreenAdClosed } from "./fullScreenAd";
 import { AFFILIATE_URLS, DONATION_PIX_KEY } from "./AffiliateLinks";
 import { TCard } from "@/src/components/tamagui";
 
@@ -29,14 +30,29 @@ async function openAffiliateUrl(url: string): Promise<void> {
   }
 }
 
+/** Sem carregar até aqui, desiste nesta abertura (nada de anúncio surpresa depois). */
+const LOAD_DEADLINE_MS = 10_000;
+
 interface Props {
+  /** Fechou o que foi mostrado (anúncio ou fallback): o dia conta como visto. */
   onClose: () => void;
+  /** Não carregou a tempo: some sem fallback e sem gravar o dia. */
+  onGiveUp: () => void;
 }
 
-export function DailyAdModal({ onClose }: Props) {
-  const [adReady, setAdReady] = useState(false);
-  const [adShown, setAdShown] = useState(false);
+/**
+ * Intersticial diário. Mostra o anúncio do Google quando carrega; se falhar,
+ * mostra o fallback de afiliados. Avisa o pai (`onClose`) só ao fechar o que
+ * foi mostrado: é aí que a data do dia é gravada.
+ */
+export function DailyAdModal({ onClose, onGiveUp }: Props) {
   const [showFallback, setShowFallback] = useState(false);
+  // `onClose`/`onGiveUp` novos a cada render do pai não recriam o anúncio
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const onGiveUpRef = useRef(onGiveUp);
+  onGiveUpRef.current = onGiveUp;
+  const closeFallback = useCallback(() => onCloseRef.current(), []);
 
   useEffect(() => {
     if (Platform.OS === "web") {
@@ -47,6 +63,27 @@ export function DailyAdModal({ onClose }: Props) {
     let interstitial: any = null;
     const unsubscribes: (() => void)[] = [];
     let cancelled = false;
+    let adOpen = false;
+    let deadline: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+      deadline = undefined;
+      if (cancelled) return;
+      cancelled = true;
+      onGiveUpRef.current();
+    }, LOAD_DEADLINE_MS);
+    const clearDeadline = () => {
+      if (deadline !== undefined) clearTimeout(deadline);
+      deadline = undefined;
+    };
+    const closeAd = () => {
+      if (!adOpen) return;
+      adOpen = false;
+      markFullScreenAdClosed();
+    };
+    const fail = () => {
+      clearDeadline();
+      closeAd();
+      if (!cancelled) setShowFallback(true);
+    };
 
     (async () => {
       try {
@@ -61,40 +98,45 @@ export function DailyAdModal({ onClose }: Props) {
 
         unsubscribes.push(
           interstitial.addAdEventListener(AdEventType.LOADED, () => {
-            setAdReady(true);
-            interstitial.show();
+            clearDeadline();
+            if (cancelled) return;
+            adOpen = true;
+            markFullScreenAdActive();
+            try {
+              Promise.resolve(interstitial.show()).catch(fail);
+            } catch {
+              fail();
+            }
           }),
         );
 
         unsubscribes.push(
           interstitial.addAdEventListener(AdEventType.CLOSED, () => {
-            setAdShown(true);
-            onClose();
+            closeAd();
+            if (!cancelled) onCloseRef.current();
           }),
         );
 
-        unsubscribes.push(
-          interstitial.addAdEventListener(AdEventType.ERROR, () => {
-            setShowFallback(true);
-          }),
-        );
+        unsubscribes.push(interstitial.addAdEventListener(AdEventType.ERROR, fail));
 
         interstitial.load();
       } catch {
-        setShowFallback(true);
+        fail();
       }
     })();
 
     return () => {
       cancelled = true;
+      clearDeadline();
+      closeAd();
       unsubscribes.forEach((u) => u());
     };
-  }, [onClose]);
+  }, []);
 
-  if (adShown) return null;
-  if (!showFallback && !adReady) return null;
+  // Anúncio carregando ou na tela (é nativo, fora da árvore): nada aqui
+  if (!showFallback) return null;
 
-  return <AffiliateFallbackModal onClose={onClose} />;
+  return <AffiliateFallbackModal onClose={closeFallback} />;
 }
 
 function AffiliateFallbackModal({ onClose }: { onClose: () => void }) {

@@ -47,8 +47,14 @@ import { SupportBanner } from "@/src/components/monetization/SupportBanner";
 import { DailyAdModal } from "@/src/components/monetization/DailyAdModal";
 import { NativeAdBanner } from "@/src/components/monetization/NativeAdBanner";
 import { AppOpenAdHost } from "@/src/components/monetization/AppOpenAdHost";
-import { loadSupportModes, loadLastDailyAdDate, saveLastDailyAdDate } from "@/src/modules/monetization/MonetizationSettingsStore";
-import type { SupportMode } from "@/src/modules/monetization/MonetizationSettingsStore";
+import { ensureMobileAdsInitialized } from "@/src/components/monetization/mobileAdsInit";
+import {
+  dailyAdDay,
+  loadLastDailyAdDate,
+  saveLastDailyAdDate,
+  shouldShowDailyAd,
+} from "@/src/modules/monetization/MonetizationSettingsStore";
+import { useSupportModes } from "@/src/hooks/useSupportModes";
 import { ToastProvider } from "react-native-sprinkle-toast";
 
 SplashScreen.preventAutoHideAsync();
@@ -524,42 +530,87 @@ function WelcomeCarouselHost() {
 }
 
 function MonetizationHosts() {
-  const [modes, setModes] = useState<SupportMode[]>([]);
+  // Fonte única dos modos: ligar ou desligar em Sobre vale na hora
+  const { modes } = useSupportModes();
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [nativeDismissed, setNativeDismissed] = useState(false);
   const [showDailyModal, setShowDailyModal] = useState(false);
+  const [sdkReady, setSdkReady] = useState(false);
+  const dailyDayRef = React.useRef<string | null>(null);
+  // Dia já mostrado nesta sessão: não repete mesmo se gravar a data falhar
+  const dailyShownDayRef = React.useRef<string | null>(null);
   const { loading } = useAppState();
   const { isDemoActive } = useDemoMode();
 
-  useEffect(() => {
-    if (loading || isDemoActive || Platform.OS === "web") return;
-    loadSupportModes().then(async (ms) => {
-      setModes(ms);
-      if (ms.includes("daily_ad")) {
-        const last = await loadLastDailyAdDate();
-        const today = new Date().toISOString().slice(0, 10);
-        if (last !== today) {
-          await saveLastDailyAdDate(today);
-          setShowDailyModal(true);
-        }
-      }
-    });
-  }, [loading, isDemoActive]);
+  const bannersOn = modes.has("banners");
+  const dailyOn = modes.has("daily_ad");
+  const nativeOn = modes.has("native_ad");
+  const appOpenOn = modes.has("app_open");
+  const hasAdMode = bannersOn || dailyOn || nativeOn || appOpenOn;
+  const active = !loading && !isDemoActive && Platform.OS !== "web";
 
-  if (isDemoActive || modes.length === 0) return null;
+  // Desligar um modo esquece o "fechar": ao religar, o anúncio volta
+  useEffect(() => {
+    if (!bannersOn) setBannerDismissed(false);
+  }, [bannersOn]);
+  useEffect(() => {
+    if (!nativeOn) setNativeDismissed(false);
+  }, [nativeOn]);
+
+  // SDK inicializado uma vez, antes do primeiro pedido, só com modo de anúncio
+  useEffect(() => {
+    if (!active || !hasAdMode || sdkReady) return;
+    let cancelled = false;
+    ensureMobileAdsInitialized().then(() => {
+      if (!cancelled) setSdkReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [active, hasAdMode, sdkReady]);
+
+  // Intersticial diário: mostra se ainda não foi visto hoje (inclusive ao
+  // ligar o modo com o app aberto). A data só é gravada ao fechar.
+  useEffect(() => {
+    if (!active || !sdkReady || !dailyOn || showDailyModal) return;
+    let cancelled = false;
+    const today = dailyAdDay();
+    loadLastDailyAdDate().then((last) => {
+      if (cancelled || dailyShownDayRef.current === today || !shouldShowDailyAd(last, today)) return;
+      dailyDayRef.current = today;
+      setShowDailyModal(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [active, sdkReady, dailyOn, showDailyModal]);
+
+  const handleDailyClose = useCallback(() => {
+    const day = dailyDayRef.current ?? dailyAdDay();
+    dailyDayRef.current = null;
+    dailyShownDayRef.current = day;
+    // Grava antes de esconder: o efeito acima não reabre no mesmo dia
+    saveLastDailyAdDate(day).finally(() => setShowDailyModal(false));
+  }, []);
+
+  const handleDailyGiveUp = useCallback(() => {
+    // Não carregou a tempo: desiste nesta abertura, sem gravar o dia
+    dailyShownDayRef.current = dailyDayRef.current ?? dailyAdDay();
+    dailyDayRef.current = null;
+    setShowDailyModal(false);
+  }, []);
+
+  const handleBannerDismiss = useCallback(() => setBannerDismissed(true), []);
+  const handleNativeDismiss = useCallback(() => setNativeDismissed(true), []);
+
+  if (!active || !hasAdMode || !sdkReady) return null;
 
   return (
     <>
-      {modes.includes("banners") && !bannerDismissed && (
-        <SupportBanner onDismiss={() => setBannerDismissed(true)} />
-      )}
-      {modes.includes("native_ad") && !nativeDismissed && (
-        <NativeAdBanner onDismiss={() => setNativeDismissed(true)} />
-      )}
-      {modes.includes("daily_ad") && showDailyModal && (
-        <DailyAdModal onClose={() => setShowDailyModal(false)} />
-      )}
-      <AppOpenAdHost enabled={modes.includes("app_open")} />
+      {bannersOn && !bannerDismissed && <SupportBanner onDismiss={handleBannerDismiss} />}
+      {nativeOn && !nativeDismissed && <NativeAdBanner onDismiss={handleNativeDismiss} />}
+      {dailyOn && showDailyModal && <DailyAdModal onClose={handleDailyClose} onGiveUp={handleDailyGiveUp} />}
+      <AppOpenAdHost enabled={appOpenOn} />
     </>
   );
 }

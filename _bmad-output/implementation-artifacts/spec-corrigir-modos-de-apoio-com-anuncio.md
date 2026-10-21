@@ -2,7 +2,7 @@
 title: 'Corrigir os modos de apoio com anúncio'
 type: 'bugfix'
 created: '2026-10-21'
-status: 'in-review'
+status: 'done'
 baseline_commit: '2bb059cf3fa5538bf5a4898306acfd4ca9ab1ed3'
 route: 'dispatch'
 review_loop_iteration: 0

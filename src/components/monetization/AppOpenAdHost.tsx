@@ -3,6 +3,7 @@ import { AppState, Platform } from "react-native";
 import { ADMOB_IDS } from "./AdMobConfig";
 import { adRequestOptions } from "@/src/modules/monetization/adConsent";
 import { usePersonalizedAdsConsent } from "@/src/hooks/usePersonalizedAdsConsent";
+import { isFullScreenAdBlocking } from "./fullScreenAd";
 
 interface Props {
   enabled: boolean;
@@ -58,7 +59,8 @@ export function AppOpenAdHost({ enabled }: Props) {
       const isReturningToForeground =
         appStateRef.current.match(/inactive|background/) && nextState === "active";
 
-      if (isReturningToForeground && appOpenAdRef.current) {
+      // Não emenda com o intersticial: aberto agora ou fechado há menos de 30 s
+      if (isReturningToForeground && appOpenAdRef.current && !isFullScreenAdBlocking()) {
         appOpenAdRef.current.show();
       }
       appStateRef.current = nextState;

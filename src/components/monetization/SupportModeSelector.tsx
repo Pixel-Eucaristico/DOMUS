@@ -16,10 +16,10 @@ interface SupportOption {
 
 const SUPPORT_OPTIONS: SupportOption[] = [
   { mode: "links",      label: "🔗  Apenas Links na Lista",    desc: "Padrão — sem anúncios extras",                        color: "#6366F1" },
-  { mode: "banners",    label: "📢  Banner de Afiliados",       desc: "Barra discreta Amazon/ML abaixo da navegação",         color: "#F59E0B" },
-  { mode: "daily_ad",   label: "⭐  Intersticial Diário",       desc: "Tela de apoio 1× por dia ao abrir o app",             color: "#F59E0B" },
-  { mode: "native_ad",  label: "🎯  Anúncio Nativo",           desc: "Banner Google integrado ao layout do app",            color: "#6366F1" },
-  { mode: "app_open",   label: "🚀  Abertura do App",          desc: "Anúncio Google ao abrir ou retornar ao app",          color: "#10B981" },
+  { mode: "banners",    label: "📢  Banner",                   desc: "Banner Google abaixo da navegação; se ele falhar, barra de afiliados Amazon/Mercado Livre", color: "#F59E0B" },
+  { mode: "daily_ad",   label: "⭐  Intersticial Diário",       desc: "Anúncio Google em tela cheia 1× por dia; se falhar, tela de apoio com links", color: "#F59E0B" },
+  { mode: "native_ad",  label: "🎯  Anúncio Nativo",           desc: "Anúncio Google no visual do app, acima da navegação",  color: "#6366F1" },
+  { mode: "app_open",   label: "🚀  Abertura do App",          desc: "Anúncio Google ao voltar ao app",                     color: "#10B981" },
 ];
 
 interface Props {

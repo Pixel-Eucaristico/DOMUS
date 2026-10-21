@@ -1,7 +1,9 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
+  getCachedSupportModes,
   loadSupportModes,
   saveSupportModes,
+  subscribeSupportModes,
   type SupportMode,
 } from "@/src/modules/monetization/MonetizationSettingsStore";
 import { soundManager } from "@/src/services/SoundManager";
@@ -28,23 +30,43 @@ interface UseSupportModesResult {
   toggleMode: (mode: SupportMode) => void;
 }
 
+/**
+ * Modos de apoio escolhidos. Assina a fonte única em
+ * `MonetizationSettingsStore`: o seletor e os anúncios veem a mesma escolha.
+ */
 export function useSupportModes(onChange?: (modes: SupportMode[]) => void): UseSupportModesResult {
-  const [modes, setModes] = useState<Set<SupportMode>>(new Set([EXCLUSIVE_MODE]));
+  const [modes, setModes] = useState<Set<SupportMode>>(
+    () => new Set(getCachedSupportModes() ?? [EXCLUSIVE_MODE]),
+  );
+  const modesRef = useRef(modes);
+  modesRef.current = modes;
 
   useEffect(() => {
-    loadSupportModes().then((saved) => setModes(new Set(saved)));
+    let active = true;
+    const apply = (ms: SupportMode[]) => {
+      if (!active) return;
+      const next = new Set(ms);
+      modesRef.current = next;
+      setModes(next);
+    };
+    const unsubscribe = subscribeSupportModes(apply);
+    loadSupportModes().then(apply).catch(() => {});
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   const toggleMode = useCallback(
     (mode: SupportMode) => {
       soundManager.play("tap");
-      setModes((prev) => {
-        const next = computeNextModes(prev, mode);
-        const arr = Array.from(next);
-        saveSupportModes(arr);
-        onChange?.(arr);
-        return next;
-      });
+      const next = computeNextModes(modesRef.current, mode);
+      const arr = Array.from(next);
+      modesRef.current = next;
+      setModes(next);
+      // Publica para os assinantes (anúncios) na hora e grava
+      void saveSupportModes(arr);
+      onChange?.(arr);
     },
     [onChange],
   );
