@@ -377,13 +377,15 @@ O usuário fotografa o holerite e acompanha a evolução do salário e dos desco
 - Depende de FR-15 e FR-17.
 
 #### FR-27: Animação por troféu
-O usuário vê cada troféu com uma animação ligada ao tema dele.
+*Revisado pela Sprint Change Proposal "Manter o Lottie" (`sprint-change-proposal-2026-10-21-lottie.md`).*
+
+O usuário vê cada troféu com uma animação própria, ligada ao tema dele.
 
 **Consequências (testáveis):**
-- Toda configuração vem de `src/constants/trophyAnimationConfigs.ts` (categoria + ajuste por troféu), e um teste garante configuração válida para todos os troféus do app.
-- A animação por configuração **substitui o Lottie** em todos os troféus (decisão do dono); o app deixa de depender de `lottie-react-native`.
+- Troféu com Lottie aprovado (`APPROVED_LOTTIE`) usa o Lottie dele, no celular e na web.
+- Troféu sem Lottie usa a configuração de `src/constants/trophyAnimationConfigs.ts` (categoria + ajuste por troféu), e um teste garante configuração válida para todos esses troféus.
 - Em listas estáticas, o troféu aparece sem efeitos.
-- O DebugTools mostra a configuração de cada troféu para a aprovação individual do dono.
+- O DebugTools mostra a animação de cada troféu para a aprovação individual do dono.
 
 #### FR-28: Privacidade por escolha
 *Incluído pela Sprint Change Proposal "Privacidade por escolha" (`sprint-change-proposal-2026-10-16-b.md`).*
@@ -418,7 +420,7 @@ O usuário decide cada envio de dados para fora do aparelho pela flag do recurso
 
 - **Perfis múltiplos e perfil de empresa.** Ficam para depois; o formato dos Eventos deve só não impedir (FR-17).
 - **App iOS.** Só quando houver um aparelho iOS e verba para a loja.
-- **Reformulação das regras dos troféus.** A regra do colecionável fica como insumo (§4.6). A parte visual entrou pelo FR-27, que substitui a reformulação por Lottie (decisão de 16/10/2026).
+- **Reformulação das regras dos troféus.** A regra do colecionável fica como insumo (§4.6). A parte visual entrou pelo FR-27: o Lottie aprovado continua, e a configuração cobre os troféus sem Lottie (decisão revista em 21/10/2026).
 - **Cifrar o banco SQLite local.** Decidido corrigir o texto em vez de cifrar o banco (FR-5).
 - **Interface nova do app.** Além de mensagens de reconexão, migração e privacidade, e dos recursos do FR-25 (tooltips), FR-26 (holerite) e FR-27 (animação de troféus), incluídos pela Sprint Change Proposal de 16/10/2026.
 - **Backend próprio.**

@@ -68,7 +68,7 @@ This document provides the complete epic and story breakdown for DOMUS — Segur
 - FR-25: Tooltips ancorados com glossário financeiro único; dicas no 50/30/20, no CDB e no holerite; atalhos "O que é…?" no chat da IA com `tooltipsEnabled`.
 - FR-26: Leitor de holerite (parser, Vision OCR com fallback local, revisão, receita, histórico e gráfico) como Evento com `schemaVersion`, sem nome do funcionário e sem publicar no Grupo antigo.
 - FR-28: Privacidade por escolha: flag de ativação em todo envio (nova flag para consultas de itens, preços e ícones), texto "o que transmite / o que perde" e correção das fraquezas D8 a D12.
-- FR-27: Animação por troféu via `trophyAnimationConfigs`, substituindo o Lottie em todos os troféus, com prévia no DebugTools.
+- FR-27: Animação própria por troféu: o Lottie aprovado continua (também na web) e `trophyAnimationConfigs` cobre os troféus sem Lottie, com prévia no DebugTools.
 
 ### NonFunctional Requirements
 
@@ -133,7 +133,7 @@ FR-8: Epic 9 e Epic 10 - 8a inventário e 8b (preferências de baixo risco) no E
 FR-11: Epic 10 - Google Drive com o mesmo escopo do sync
 FR-25: Epic 11 - tooltips com glossário financeiro
 FR-26: Epic 11 - leitor de holerite (local até o Grupo forte)
-FR-27: Epic 11 - animação por troféu, substituindo o Lottie
+FR-27: Epic 11 - animação própria por troféu (Lottie aprovado + configuração para os demais)
 FR-28: Epic 12 - privacidade por escolha e correção das fraquezas D8 a D12
 FR-29: Epic 13 - teclado nunca cobre o campo
 
@@ -1728,17 +1728,17 @@ So that eu perceba aumentos, quedas e quanto vai para impostos.
 ### Story 11.7: Configurar a animação de cada troféu
 
 As a dono do DOMUS,
-I want um mapa de animação por troféu,
-So that cada troféu tenha uma animação ligada ao tema dele.
+I want um mapa de animação para os troféus sem Lottie aprovado,
+So that cada troféu tenha uma animação própria ligada ao tema dele.
 
 **Implementa:** FR-27
 
 **Acceptance Criteria:**
 
 **Given** `src/constants/trophyAnimationConfigs.ts`
-**When** pego a configuração de qualquer troféu do app (conquistas, mensais, sazonais e litúrgicos)
+**When** pego a configuração de um troféu sem Lottie aprovado (conquistas, mensais, sazonais e litúrgicos)
 **Then** ela vem da categoria temática do troféu mais o ajuste próprio dele, se houver
-**And** um teste confirma configuração válida para todos os troféus e que todo ajuste aponta para um troféu existente.
+**And** um teste confirma configuração válida para todos os troféus sem Lottie e que todo ajuste aponta para um troféu existente.
 
 ### Story 11.8: Animar os troféus pela configuração e mostrar a prévia
 
@@ -1752,30 +1752,29 @@ So that cada conquista pareça única.
 
 **Given** a configuração da Story 11.7
 **When** um troféu é exibido animado
-**Then** movimento, entrada, efeito e partículas seguem a configuração dele, em todos os troféus, sem usar Lottie
+**Then** troféus sem Lottie seguem a configuração (movimento, entrada, efeito e partículas), e troféus com Lottie aprovado continuam com o Lottie
 **And** em listas estáticas o troféu aparece sem efeitos
 **And** nenhuma View animada passa do tamanho da tela (pitfall do GPU Mali)
 
 **Given** o DebugTools
 **When** abro a lista de troféus
-**Then** cada um mostra categoria, movimento, efeito e partículas, para a aprovação do dono.
+**Then** cada um mostra a animação usada (Lottie ou a configuração com categoria, movimento, efeito e partículas), para a aprovação do dono.
 
-### Story 11.9: Remover o Lottie do app
+### Story 11.9: Fazer o Lottie funcionar na web
 
 As a dono do DOMUS,
-I want tirar o Lottie depois que a animação por configuração cobrir todos os troféus,
-So that o app fique menor e o build web pare de falhar.
+I want que os troféus em Lottie também animem no navegador,
+So that o build web volte a empacotar e cada troféu tenha a animação dele em todas as plataformas.
 
-**Implementa:** FR-27
-**Depende de:** Story 11.8
+**Implementa:** FR-27 (D7)
 
 **Acceptance Criteria:**
 
-**Given** a Story 11.8 concluída
-**When** removo `lottie-react-native`, `assets/lottie/` e `APPROVED_LOTTIE`
-**Then** nenhum import de Lottie sobra no código
-**And** `package-lock.json` é atualizado para a CI (`npm ci`)
-**And** o build web volta a empacotar sem `@lottiefiles/dotlottie-react`
+**Given** o build web (`npx expo export --platform web`)
+**When** ele empacota o `LottieTrophy`
+**Then** resolve `@lottiefiles/dotlottie-react` sem erro
+**And** `package.json` e `package-lock.json` são atualizados para a CI (`npm ci`, npm 10)
+**And** um troféu com Lottie aprovado anima no navegador
 **And** o build Android de release continua verde.
 
 ## Epic 12: Privacidade por escolha
