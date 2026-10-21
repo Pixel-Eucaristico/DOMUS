@@ -126,7 +126,7 @@ export const SCREEN_INTROS: Record<string, ScreenIntroDef> = {
         icon: "refresh-cw",
         title: "Sincronização P2P",
         description:
-          "Conecte dispositivos via QR Code. Dados replicados com criptografia ponta-a-ponta, sem nuvem.",
+          "Conecte dispositivos via QR Code. Os dados passam por relays Nostr públicos, com uma cifra simples derivada do código do grupo.",
       },
       {
         icon: "archive",

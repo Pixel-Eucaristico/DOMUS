@@ -35,6 +35,7 @@ import { DonationSection , LinkRow } from "@/src/components/about/DonationSectio
 import { PixelText } from "@/src/components/pixel";
 import { TText, TButton } from "@/src/components/tamagui";
 import { useExternalLookups } from "@/src/hooks/useExternalLookups";
+import { formatPrivacyFlagText } from "@/src/constants/privacyFlagTexts";
 
 export default function AboutScreen() {
   const router = useRouter();
@@ -101,8 +102,8 @@ export default function AboutScreen() {
               promovem autonomia financeira e crescimento pessoal.
             </TText>
             <TText variant="label" secondary lineHeight={20}>
-              Criadora do DOMUS — seus dados ficam no seu dispositivo,
-              nunca em servidores de terceiros.
+              Criadora do DOMUS — seus dados ficam no seu dispositivo e só
+              saem dele pelos recursos que você ativa.
             </TText>
           </SectionCard>
 
@@ -113,9 +114,9 @@ export default function AboutScreen() {
             title="Sobre o DOMUS"
             accentColor={theme.accentColor}
           >
-            <FeatureRow icon="shield" color={theme.success} theme={theme} label="Privacidade em primeiro lugar" description="Nenhum dado é enviado para servidores." />
+            <FeatureRow icon="shield" color={theme.success} theme={theme} label="Privacidade em primeiro lugar" description="Sem servidor do DOMUS. Os dados só saem do aparelho pelos recursos que você ativa, e cada um diz o que envia." />
             <FeatureRow icon="database" color={theme.primaryColor} theme={theme} label="Arquitetura baseada em eventos" description="Histórico imutável e rastreável de transações." />
-            <FeatureRow icon="hard-drive" color={theme.warning} theme={theme} label="Armazenamento local" description="SQLite criptografado no seu dispositivo." />
+            <FeatureRow icon="hard-drive" color={theme.warning} theme={theme} label="Armazenamento local" description="SQLite no seu dispositivo, protegido pelo isolamento do sistema; o DOMUS não cifra o banco." />
             <FeatureRow icon="download" color={theme.accentColor} theme={theme} label="Backup manual e cifrado" description="AES-256-GCM com senha sua. Você controla tudo." />
           </SectionCard>
 
@@ -133,14 +134,14 @@ export default function AboutScreen() {
           <SectionCard theme={theme} icon="settings" title="Configurações" accentColor={theme.accentColor} collapsible>
               <LinkRow icon="cpu" label="IA Financeira" description="Provedor, chave de API, limites e custos" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }} />
               <LinkRow icon="bell" label="Notificações" description="Lembretes, alertas de orçamento e resumos" color="#F59E0B" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/notification-settings"); }} />
-              <LinkRow icon="bar-chart" label="Analytics & Performance" description="Compartilhamento de dados anônimos de uso" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/analytics-settings"); }} />
+              <LinkRow icon="bar-chart" label="Analytics & Performance" description="Dados de uso, desempenho e falhas ao Firebase (Google)" color="#6366F1" theme={theme} onPress={() => { soundManager.play("tap"); router.push("/analytics-settings"); }} />
               <LinkRow icon="lock" label="Segurança" description="Bloqueio por PIN ou biometria" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/security-settings"); }} />
               <LinkRow icon="download-cloud" label="Backup & Restauração" description="Exportar e importar dados cifrados" color={theme.warning} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/backup"); }} />
               <LinkRow icon="shield" label="Política de Privacidade" description="Como seus dados são protegidos" color={theme.primaryColor} theme={theme} onPress={() => { soundManager.play("tap"); router.push("/privacy-policy"); }} />
               <LinkRow icon="star" label="Avaliar na Play Store" description="Deixe sua avaliação e ajude o DOMUS a crescer" color="#34A853" theme={theme} onPress={() => { soundManager.play("tap"); Linking.openURL("https://play.google.com/store/apps/details?id=br.com.pixeleucaristico.domus"); }} />
               <LinkRow icon="moon" label="Tema" description={`Modo atual: ${themeMode === "system" ? "Sistema" : themeMode === "dark" ? "Escuro" : "Claro"}`} color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); setThemeModalVisible(true); }} />
               <LinkRow icon="info" label="Ver Dicas das Telas" description="Reexibe as explicações de cada tela do DOMUS" color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); resetAllScreenIntros(); }} />
-              <SwitchRow icon="globe" label="Consultas de itens, preços e ícones" description="Envia código de barras, NCM, links de produto e lojas a serviços externos. Desligado: classificação por palavras, sem atualização de preço e sem ícone das lojas." color={theme.accentColor} theme={theme} value={externalLookups.enabled} onValueChange={(v) => { externalLookups.setEnabled(v).catch(() => {}); }} />
+              <SwitchRow icon="globe" label="Consultas de itens, preços e ícones" description={formatPrivacyFlagText("externalLookups")} color={theme.accentColor} theme={theme} value={externalLookups.enabled} onValueChange={(v) => { externalLookups.setEnabled(v).catch(() => {}); }} />
               <SwitchRow icon="volume-2" label="Efeitos Sonoros" description="Sons de confirmação e interações" color={theme.primaryColor} theme={theme} value={soundEnabled} onValueChange={setSoundEnabled} />
             </SectionCard>
 

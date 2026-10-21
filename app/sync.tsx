@@ -24,6 +24,7 @@ import { TButton, TCard, TInput, TText } from "@/src/components/tamagui";
 import { ScreenIntroModal } from "@/src/components/tour/ScreenIntroModal";
 import { useScreenIntro } from "@/src/hooks/useScreenIntro";
 import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
+import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const QR_SIZE = Math.min(SCREEN_W * 0.5, SCREEN_H * 0.3, 220);
@@ -274,9 +275,12 @@ export default function SyncScreen() {
 
             <View style={[s.infoCard, { backgroundColor: theme.cardBackground }]}>
               <Feather name="info" size={16} color={theme.secondaryText} />
-              <Text style={[s.infoText, { color: theme.secondaryText }]}>
-                Crie um grupo no celular A, depois entre com o codigo ou escaneie o QR Code no celular B. Os dados sao sincronizados via relays publicos Nostr com criptografia ponta-a-ponta. Sem servidor central.
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.infoText, { color: theme.secondaryText, flex: 0 }]}>
+                  Crie um grupo no celular A, depois entre com o código ou escaneie o QR Code no celular B. Os dados são sincronizados por relays públicos Nostr, sem servidor do DOMUS.
+                </Text>
+                <PrivacyFlagNote flag="sync" color={theme.secondaryText} />
+              </View>
             </View>
           </>
         ) : (
@@ -340,9 +344,12 @@ export default function SyncScreen() {
 
             <View style={[s.infoCard, { backgroundColor: theme.cardBackground }]}>
               <Feather name="info" size={16} color={theme.secondaryText} />
-              <Text style={[s.infoText, { color: theme.secondaryText }]}>
-                Sync descentralizado via Nostr. Eventos encriptados sao publicados em relays publicos e buscados automaticamente. Nenhum servidor central. Seus dados ficam locais e funcionam offline.
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.infoText, { color: theme.secondaryText, flex: 0 }]}>
+                  Sync descentralizado via Nostr. Os eventos são publicados em relays públicos e buscados automaticamente, sem servidor do DOMUS. Seus dados continuam no aparelho e funcionam offline.
+                </Text>
+                <PrivacyFlagNote flag="sync" color={theme.secondaryText} />
+              </View>
             </View>
           </>
         )}

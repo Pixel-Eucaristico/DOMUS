@@ -32,31 +32,31 @@ export const DEFAULT_AI_DATA_PERMISSIONS: AIDataPermissions = {
 export const AI_DATA_PERMISSION_LABELS: Record<keyof AIDataPermissions, { title: string; description: string }> = {
   transactions: {
     title: "Transações",
-    description: "Descrição, valor, data e categoria das suas transações",
+    description: "Até 50 transações recentes: data, tipo, valor, categoria e descrição",
   },
   accounts: {
     title: "Contas",
-    description: "Nome, tipo, saldo e limite de credito das suas contas",
+    description: "Nome, tipo, saldo e limite de crédito das suas contas",
   },
   categories: {
     title: "Categorias",
-    description: "Nomes e grupos das suas categorias de gastos",
+    description: "Nome e grupo das suas categorias",
   },
   invoices: {
     title: "Notas Fiscais",
-    description: "Itens, valores e emitentes das notas importadas",
+    description: "Até 10 notas importadas: data, emissor, quantidade de itens e valor total",
   },
   wishlist: {
     title: "Lista de Desejos",
-    description: "Itens desejados, preços, urgência e metas de poupança",
+    description: "Nome, urgência e preço dos itens desejados",
   },
   gamification: {
     title: "Troféus e Conquistas",
-    description: "Nível, XP, streaks, conquistas desbloqueadas e troféus",
+    description: "Nível, XP total e da temporada, sequência atual e maior sequência, quantidade de conquistas e de troféus mensais",
   },
   sync: {
     title: "Sincronização",
-    description: "Se há grupo de sincronização (sem o código), status e quantidade de eventos",
+    description: "Se há grupo (nunca o código), sync automático, quantidade de eventos e de relays e a última sincronização",
   },
 };
 

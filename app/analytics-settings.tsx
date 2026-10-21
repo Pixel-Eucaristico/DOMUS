@@ -23,6 +23,8 @@ import {
   DEFAULT_ANALYTICS_SETTINGS,
   type AnalyticsSettings,
 } from "@/src/modules/analytics/domain/AnalyticsSettings";
+import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
+import type { PrivacyFlagId } from "@/src/constants/privacyFlagTexts";
 
 export default function AnalyticsSettingsScreen() {
   const router = useRouter();
@@ -88,7 +90,7 @@ export default function AnalyticsSettingsScreen() {
             </Text>
             <Text style={[s.statusDesc, { color: theme.secondaryText }]}>
               {anyEnabled
-                ? "Dados anônimos estão sendo enviados para melhorar o DOMUS."
+                ? "Dados de uso e desempenho estão sendo enviados ao Firebase (Google) para melhorar o DOMUS."
                 : "Nenhum dado de uso ou desempenho está sendo coletado."}
             </Text>
           </View>
@@ -109,7 +111,8 @@ export default function AnalyticsSettingsScreen() {
             <SwitchRow
               icon="bar-chart-2"
               label="Analytics de Uso"
-              description="Telas visitadas, funcionalidades mais usadas e fluxos de navegação"
+              description="Uso geral do app, como aberturas e duração das sessões"
+              flag="firebaseAnalytics"
               color="#6366F1"
               theme={theme}
               value={settings.analyticsEnabled}
@@ -118,7 +121,8 @@ export default function AnalyticsSettingsScreen() {
             <SwitchRow
               icon="activity"
               label="Performance"
-              description="Tempo de carregamento, FPS, slow frames e uso de memória"
+              description="Tempos de carregamento, de tela e de rede"
+              flag="firebasePerformance"
               color="#10B981"
               theme={theme}
               value={settings.performanceEnabled}
@@ -127,7 +131,8 @@ export default function AnalyticsSettingsScreen() {
             <SwitchRow
               icon="alert-triangle"
               label="Crash Reports"
-              description="Relatórios de erros e crashes para correção rápida"
+              description="Relatórios de falha, com a mensagem de erro, para correção rápida"
+              flag="firebaseCrashlytics"
               color="#F59E0B"
               theme={theme}
               value={settings.crashlyticsEnabled}
@@ -148,10 +153,12 @@ export default function AnalyticsSettingsScreen() {
           </View>
           <View style={[s.divider, { backgroundColor: theme.border }]} />
           <View style={s.cardBody}>
-            <InfoItem icon="check" color="#10B981" label="Navegação entre telas" theme={theme} />
-            <InfoItem icon="check" color="#10B981" label="Tempo de carregamento e FPS" theme={theme} />
-            <InfoItem icon="check" color="#10B981" label="Crashes e logs de erro" theme={theme} />
+            <InfoItem icon="check" color="#10B981" label="Uso do app (aberturas e sessões)" theme={theme} />
+            <InfoItem icon="check" color="#10B981" label="Tempos de carregamento, de tela e de rede" theme={theme} />
+            <InfoItem icon="check" color="#10B981" label="Relatórios de falha, com a mensagem de erro e a pilha de componentes" theme={theme} />
             <InfoItem icon="check" color="#10B981" label="Versão do app e do sistema" theme={theme} />
+            <InfoItem icon="check" color="#10B981" label="ID da instalação do app e, no Analytics, o ID de publicidade" theme={theme} />
+            <InfoItem icon="check" color="#10B981" label="Endereço IP, visto pelo Firebase" theme={theme} />
           </View>
         </TCard>
 
@@ -162,7 +169,7 @@ export default function AnalyticsSettingsScreen() {
               <Feather name="shield" size={16} color="#EF4444" />
             </View>
             <TText variant="subtitle" bold color={theme.textColor} fontSize={15} flex={1}>
-              O que NUNCA Coletamos
+              O que não Coletamos de Propósito
             </TText>
           </View>
           <View style={[s.divider, { backgroundColor: theme.border }]} />
@@ -196,8 +203,9 @@ export default function AnalyticsSettingsScreen() {
         <View style={[s.infoBox, { backgroundColor: `${theme.primaryColor}10` }]}>
           <Feather name="info" size={14} color={theme.primaryColor} />
           <Text style={[s.infoText, { color: theme.primaryColor }]}>
-            Os dados são processados pelo Firebase (Google) de forma anônima.
-            Nenhuma informação permite identificar você pessoalmente.
+            Os dados são processados pelo Firebase (Google). Eles não levam seu nome,
+            e-mail nem dados financeiros, mas incluem o ID da instalação do app e o
+            endereço IP, por isso não são anônimos.
           </Text>
         </View>
       </ScrollView>
@@ -211,6 +219,7 @@ function SwitchRow({
   icon,
   label,
   description,
+  flag,
   color,
   theme,
   value,
@@ -219,6 +228,7 @@ function SwitchRow({
   icon: string;
   label: string;
   description: string;
+  flag: PrivacyFlagId;
   color: string;
   theme: any;
   value: boolean;
@@ -234,6 +244,7 @@ function SwitchRow({
         <Text style={[swStyles.description, { color: theme.secondaryText }]}>
           {description}
         </Text>
+        <PrivacyFlagNote flag={flag} color={theme.secondaryText} />
       </View>
       <Switch
         value={value}

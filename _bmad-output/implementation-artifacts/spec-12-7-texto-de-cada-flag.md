@@ -2,7 +2,7 @@
 title: 'Story 12.7: Dizer em cada flag o que transmite e o que se perde'
 type: 'chore'
 created: '2026-10-21'
-status: 'in-review'
+status: 'done'
 baseline_commit: '53c52a50d1154dbf7b7ecaf2fb3f0658c8eab701'
 route: 'dispatch'
 review_loop_iteration: 0

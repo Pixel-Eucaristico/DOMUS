@@ -17,6 +17,7 @@ import { soundManager } from "@/src/services/SoundManager";
 import { TButton, TCard, TInput, TText } from "@/src/components/tamagui";
 import { OCRConfigService } from "@/src/services/ocrConfigService";
 import type { OCRProvider } from "@packages/parsers";
+import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
 
 type OCRProviderExtended = OCRProvider | "vision_ai";
 
@@ -181,7 +182,7 @@ export default function OCRSettingsScreen() {
             </View>
             <Text style={[s.providerDesc, { color: theme.secondaryText }]}>
               Melhor precisão, requer internet e API Key do Google Cloud (~$1,50/1.000 imagens).
-              Funciona em qualquer build do app, inclusive Expo Go.
+              A foto vai ao Google. Funciona em qualquer build do app, inclusive Expo Go.
             </Text>
           </Pressable>
 
@@ -243,8 +244,9 @@ export default function OCRSettingsScreen() {
           <TText variant="caption" color={theme.secondaryText} marginBottom={16}>
             {provider === "cloudvision"
               ? "Obrigatório para usar Cloud Vision como provedor principal"
-              : "Opcional — usada como fallback se o OCR on-device falhar"}
+              : "Opcional — usada se a leitura no aparelho falhar ou tiver confiança abaixo de 60%"}
           </TText>
+          <PrivacyFlagNote flag="cloudVision" color={theme.secondaryText} style={{ marginTop: -8, marginBottom: 16 }} />
 
           <View style={[s.inputContainer, { backgroundColor: theme.cardBackground }]}>
             <Feather name="key" size={18} color={theme.secondaryText} />

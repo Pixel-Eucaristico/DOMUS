@@ -6,6 +6,7 @@ import type { SupportMode } from "@/src/modules/monetization/MonetizationSetting
 import { useSupportModes } from "@/src/hooks/useSupportModes";
 import { usePersonalizedAdsConsent } from "@/src/hooks/usePersonalizedAdsConsent";
 import { soundManager } from "@/src/services/SoundManager";
+import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
 
 interface SupportOption {
   mode: SupportMode;
@@ -43,6 +44,7 @@ export function SupportModeSelector({ theme, onChange }: Props) {
           theme={theme}
         />
       ))}
+      <PrivacyFlagNote flag="adModes" color={theme.secondaryText} style={{ paddingHorizontal: 4 }} />
       {hasAdMode && <PersonalizedAdsConsentRow theme={theme} />}
     </View>
   );
@@ -81,11 +83,9 @@ function PersonalizedAdsConsentRow({ theme }: { theme: ThemeColors }) {
           accessibilityLabel="Anúncios personalizados"
         />
       </View>
+      <PrivacyFlagNote flag="personalizedAds" color={theme.secondaryText} />
       <Text style={[st.desc, { color: theme.secondaryText }]}>
-        Ligado: o Google recebe o ID de publicidade do aparelho, informações do aparelho e do uso dos anúncios para escolher anúncios relacionados aos seus interesses.
-      </Text>
-      <Text style={[st.desc, { color: theme.secondaryText }]}>
-        Desligado (padrão): os anúncios continuam aparecendo e o Google ainda recebe dados do aparelho necessários para entregar e medir os anúncios, mas não os usa para escolher anúncios pelos seus interesses; por isso eles ficam menos relacionados a você. Você pode mudar quando quiser; vale a partir do próximo anúncio.
+        Desligado por padrão. Você pode mudar quando quiser; vale a partir do próximo anúncio.
       </Text>
     </View>
   );

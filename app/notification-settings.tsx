@@ -267,7 +267,7 @@ export default function NotificationSettingsScreen() {
         <View style={[s.infoBox, { backgroundColor: `${theme.primaryColor}10` }]}>
           <Feather name="shield" size={14} color={theme.primaryColor} />
           <Text style={[s.infoText, { color: theme.primaryColor }]}>
-            Todas as notificações são 100% locais. Nenhum dado é enviado para servidores.
+            Todas as notificações são 100% locais, agendadas no aparelho. Nenhum dado de notificação sai do aparelho.
           </Text>
         </View>
       </ScrollView>

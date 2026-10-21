@@ -48,7 +48,7 @@
   evidence: APK de release da CI (run #71) pede as duas permissões de localização; `docs/data-safety.md` §4 e achado A6. Sem isso, o Play cobra declaração e justificativa de localização. Dependência nova/removida exige atualizar `package-lock.json` (AGENTS.md). **Resolvido (16/10/2026):** dependência removida e permissões bloqueadas em `app.json`; ver `spec-d16-remover-expo-location.md`. Confirmar no manifesto do AAB (Story 1.6).
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-5-data-safety.md`
   summary: D17 — Atualizar a política (três textos): busca de produto na Amazon/Mercado Livre com código de afiliado ao adicionar item à lista de desejos; ID da instalação do Firebase; IP visto pelo Firebase e pelo AdMob; localização aproximada do AdMob; ID de publicidade no Analytics.
-  evidence: achados 1 e 4 de `docs/data-safety.md` §5 e revisão da Story 1.5. Encaixa na Story 12.7 ou antes da publicação da política na Story 1.6.
+  evidence: achados 1 e 4 de `docs/data-safety.md` §5 e revisão da Story 1.5. Encaixa na Story 12.7 ou antes da publicação da política na Story 1.6. **Resolvido (21/10/2026, Story 12.7):** Política §6 (ID da instalação, IP, ID de publicidade no Analytics, localização aproximada do AdMob) e §7 (busca com código de afiliado) nos três textos.
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-5-data-safety.md`
   summary: D18 — Páginas `http://` da SEFAZ (QR Code) e da lista de desejos falham no release com target 36, porque o HTTP sem cifra é bloqueado.
   evidence: achado 3 de `docs/data-safety.md`; APK sem `usesCleartextTraffic`. Não reproduzido em aparelho. Incluir na checklist da Story 1.3 (ler QR de NFC-e de estados que ainda usam `http://`); correção possível: reescrever para `https://` quando o host aceitar.
@@ -64,7 +64,7 @@
   evidence: o repositório não tem infraestrutura de teste de hook/componente (sem `@testing-library`, `renderHook` nem jsdom). Cobrir na checklist de aparelho (Story 13.7/1.3) ou extrair a lógica da fila para módulo puro.
 - source_spec: `_bmad-output/implementation-artifacts/spec-12-4-anuncio-personalizado-so-com-consentimento.md`
   summary: D22 — Na Story 12.7, atualizar `app/privacy-policy.tsx` (§6, linhas ~259-263), `docs/politica-de-privacidade.md` e `docs/data-safety.md`: os anúncios agora são não personalizados por padrão, com o interruptor "Anúncios personalizados" em Sobre → Apoio & Anúncios; mesmo desligado, o Google recebe dados do aparelho para entregar e medir os anúncios.
-  evidence: a política ainda diz que o AdMob "pode mostrar anúncios personalizados"; a spec da 12.4 deixou a política para a 12.7.
+  evidence: a política ainda diz que o AdMob "pode mostrar anúncios personalizados"; a spec da 12.4 deixou a política para a 12.7. **Resolvido (21/10/2026, Story 12.7):** Política §6 nos três textos e F10 de `docs/data-safety.md`.
 - source_spec: `_bmad-output/implementation-artifacts/spec-12-4-anuncio-personalizado-so-com-consentimento.md`
   summary: D23 — Sem testes de que `AppOpenAdHost`, `DailyAdModal`, `SupportBanner` e o hook `usePersonalizedAdsConsent` usam as opções do consentimento (só o módulo puro `adConsent.ts` é testado).
   evidence: mesma falta de infraestrutura de teste de hook/componente do D21. Conferir no aparelho que o anúncio recarrega ao mudar o interruptor; ou extrair o mapeamento do hook para função pura e testar.

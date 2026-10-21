@@ -27,6 +27,7 @@ import { ProviderSelector } from "@/src/components/ai/ProviderSelector";
 import { AIUsageDashboard } from "@/src/components/ai/AIUsageDashboard";
 import { BudgetCostSection } from "@/src/components/ai/BudgetCostSection";
 import { TCard, TText } from "@/src/components/tamagui";
+import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
 import type { AIProvider, AudioProvider } from "@packages/ai";
 import { ELEVENLABS_VOICES } from "@packages/../packages/ai/src/audio/ElevenLabsAdapter";
 import { GEMINI_TTS_VOICES } from "@packages/../packages/ai/src/audio/GeminiAudioAdapter";
@@ -204,6 +205,7 @@ export default function AISettingsScreen() {
             disabled={!hasActiveKey(settings)}
             theme={theme}
           />
+          <PrivacyFlagNote flag="ai" color={theme.secondaryText} />
         </Card>
 
         {/* Provider + Model — always visible so user can configure before enabling */}
@@ -230,8 +232,10 @@ export default function AISettingsScreen() {
             Chave de API
           </TText>
           <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
-            Criptografada com AES-256 e armazenada localmente.
-            Nunca enviada para servidores do DOMUS.
+            {Platform.OS === "web"
+              ? "Guardada cifrada com uma chave do próprio navegador."
+              : "Guardada no armazenamento seguro do aparelho."}{" "}
+            Só vai ao provedor escolhido, nunca a servidores do DOMUS.
           </TText>
           <View style={styles.cardBody}>
             <APIKeyManager
@@ -293,11 +297,12 @@ export default function AISettingsScreen() {
             <Card theme={theme}>
               <ToggleRow
                 title="Modo Voz"
-                subtitle="Microfone para entrada + resposta em audio (TTS)"
+                subtitle="Microfone para entrada + resposta em áudio (TTS)"
                 value={settings.voiceEnabled ?? false}
                 onToggle={(v) => updateSettings({ voiceEnabled: v })}
                 theme={theme}
               />
+              <PrivacyFlagNote flag="voice" color={theme.secondaryText} />
             </Card>
 
             {/* Auto-play TTS toggle — only when voice is enabled */}
@@ -429,16 +434,17 @@ export default function AISettingsScreen() {
             {/* Vision OCR toggle */}
             <Card theme={theme}>
               <ToggleRow
-                title="OCR por Visao (IA)"
-                subtitle="Usar IA para ler notas fiscais e holerites via camera"
+                title="OCR por Visão (IA)"
+                subtitle="Usar IA para ler notas fiscais e holerites pela câmera"
                 value={settings.visionOCREnabled ?? false}
                 onToggle={(v) => updateSettings({ visionOCREnabled: v })}
                 theme={theme}
               />
+              <PrivacyFlagNote flag="visionOcr" color={theme.secondaryText} />
               {(settings.visionOCREnabled ?? false) && (
                 <Text style={[styles.hint, { color: theme.secondaryText }]}>
                   Usa o provedor de IA ativo ({settings.provider}) para analisar imagens.
-                  Consome tokens do seu orcamento.
+                  Consome tokens do seu orçamento.
                 </Text>
               )}
             </Card>
@@ -466,8 +472,9 @@ export default function AISettingsScreen() {
             <Card theme={theme}>
               <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
                 Escolha quais dados a IA pode acessar para respostas mais
-                detalhadas. Nenhum dado pessoal (CPF, nome, conta) e enviado.
+                detalhadas. Todas começam desligadas.
               </TText>
+              <PrivacyFlagNote flag="aiDataPermissions" color={theme.secondaryText} />
               <View style={styles.cardBody}>
                 {(Object.keys(AI_DATA_PERMISSION_LABELS) as (keyof AIDataPermissions)[]).map(
                   (key) => {
@@ -479,7 +486,7 @@ export default function AISettingsScreen() {
                       if (value && !enabled) {
                         if (Platform.OS === "web") {
                           const ok = window.confirm(
-                            `Permitir acesso: ${label.title}\n\nA IA podera ver: ${label.description}.\n\nVoce pode desativar a qualquer momento.`,
+                            `Permitir acesso: ${label.title}\n\nA IA poderá ver: ${label.description}.\n\nVocê pode desativar a qualquer momento.`,
                           );
                           if (ok) {
                             updateSettings({
@@ -489,7 +496,7 @@ export default function AISettingsScreen() {
                         } else {
                           Alert.alert(
                             `Permitir acesso: ${label.title}`,
-                            `A IA podera ver: ${label.description}.\n\nVoce pode desativar a qualquer momento.`,
+                            `A IA poderá ver: ${label.description}.\n\nVocê pode desativar a qualquer momento.`,
                             [
                               { text: "Cancelar", style: "cancel" },
                               {

@@ -33,6 +33,7 @@ import { useAutoBackup } from "@/src/hooks/useAutoBackup";
 import { useNotificationScheduler } from "@/src/hooks/useNotificationScheduler";
 import { useAnalyticsInit } from "@/src/hooks/useAnalyticsInit";
 import { loadExternalLookups, markExternalLookupsNoticeShown, setExternalLookupsEnabled } from "@/src/modules/privacy/externalLookups";
+import { formatPrivacyFlagText } from "@/src/constants/privacyFlagTexts";
 import { createEvent } from "@packages/events/src/factory";
 import { EVENT_TYPES } from "@packages/events/src/types";
 import type { TransactionUpdatedEvent } from "@packages/events/src/types";
@@ -83,7 +84,7 @@ function AutoBackupScheduler() {
 
 const EXTERNAL_LOOKUPS_NOTICE_TITLE = "Consultas de itens, preços e ícones";
 const EXTERNAL_LOOKUPS_NOTICE_BODY =
-  "Para classificar itens das notas, atualizar preços da lista de desejos e mostrar o ícone das lojas, o DOMUS envia a serviços externos o código de barras e o NCM dos itens (Open Food Facts, Cosmos e Siscomex), o endereço das páginas de produto e o domínio das lojas (serviço de ícones do Google).\n\nSe desligar, você perde a classificação mais precisa, o preço atualizado e o ícone da loja. Dá para mudar quando quiser em Sobre → Configurações.";
+  `Para classificar itens das notas, atualizar preços da lista de desejos e mostrar o ícone das lojas, o DOMUS consulta serviços externos.\n\n${formatPrivacyFlagText("externalLookups").replace("\n", "\n\n")}\n\nDá para mudar quando quiser em Sobre → Configurações.`;
 
 /**
  * Flag "Consultas de itens, preços e ícones" (Story 12.6). Lê a flag logo na

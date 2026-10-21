@@ -32,10 +32,13 @@ import {
 } from "@/src/modules/analytics/application/AnalyticsSettingsStore";
 import { applyAnalyticsPreferences } from "@/src/modules/analytics/infrastructure/AnalyticsService";
 import { SupportModeSelector } from "@/src/components/monetization/SupportModeSelector";
+import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
+import { PRIVACY_FLAG_TEXTS, type PrivacyFlagId } from "@/src/constants/privacyFlagTexts";
 import { ClipboardService } from "@/src/modules/security/application/ClipboardService";
 import { useAISettings } from "@/src/hooks/useAISettings";
 import type { AIProvider } from "@packages/ai";
 
+const FIREBASE_FLAGS: PrivacyFlagId[] = ["firebaseAnalytics", "firebasePerformance", "firebaseCrashlytics"];
 const { width: SCREEN_W } = Dimensions.get("window");
 const TOTAL_SLIDES = 6;
 
@@ -347,13 +350,23 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
               </View>
               <Text style={[st.title, { color: theme.textColor }]}>Ajude a Melhorar o DOMUS</Text>
               <Text style={[st.subtitle, { color: theme.secondaryText }]}>
-                Compartilhe dados anônimos de uso e desempenho para nos ajudar a identificar problemas e melhorar o app.
+                Compartilhe dados de uso, desempenho e falhas com o Firebase (Google) para nos ajudar a identificar problemas e melhorar o app.
               </Text>
               <View style={[st.infoRow, { backgroundColor: `${theme.primaryColor}12` }]}>
                 <Feather name="shield" size={16} color={theme.primaryColor} />
-                <Text style={[st.infoText, { color: theme.primaryColor }]}>
-                  Nenhum dado financeiro é coletado. Apenas métricas de uso — sem identificação pessoal.
-                </Text>
+                <View style={{ flex: 1, gap: 6 }}>
+                  {FIREBASE_FLAGS.map((id) => (
+                    <View key={id}>
+                      <Text style={[st.infoText, { color: theme.primaryColor, fontFamily: "DMSans_600SemiBold", flex: 0 }]}>
+                        {PRIVACY_FLAG_TEXTS[id].title}
+                      </Text>
+                      <PrivacyFlagNote flag={id} color={theme.primaryColor} style={{ marginTop: 0 }} />
+                    </View>
+                  ))}
+                  <Text style={[st.infoText, { color: theme.primaryColor, flex: 0 }]}>
+                    Você pode mudar em Sobre › Analytics &amp; Performance.
+                  </Text>
+                </View>
               </View>
               <View style={st.choiceRow}>
                 <TouchableOpacity

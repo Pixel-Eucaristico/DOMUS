@@ -93,15 +93,17 @@ export function AnalyticsConsentModal({ visible, onDone }: Props) {
           </Text>
 
           <Text style={[st.subtitle, { color: theme.secondaryText }]}>
-            Você pode compartilhar dados anônimos de uso e desempenho para nos
-            ajudar a identificar problemas e melhorar a experiência do app.
+            Você pode compartilhar dados de uso, desempenho e falhas com o
+            Firebase (Google) para nos ajudar a identificar problemas e melhorar
+            a experiência do app.
           </Text>
 
           <View style={[st.infoRow, { backgroundColor: `${theme.primaryColor}15` }]}>
             <Feather name="shield" size={16} color={theme.primaryColor} />
             <Text style={[st.infoText, { color: theme.primaryColor }]}>
-              Nenhum dado financeiro é coletado. Apenas métricas de uso e
-              desempenho — sem identificação pessoal.
+              Nenhum dado financeiro é coletado. Vão o ID da instalação do app
+              e, no Analytics, o ID de publicidade; o Firebase também vê o
+              endereço IP.
             </Text>
           </View>
 
@@ -127,7 +129,7 @@ export function AnalyticsConsentModal({ visible, onDone }: Props) {
             <FeatureItem
               icon="eye-off"
               color="#8B5CF6"
-              label="100% anônimo — sem dados financeiros"
+              label="Sem dados financeiros"
               theme={theme}
             />
           </View>
@@ -138,7 +140,7 @@ export function AnalyticsConsentModal({ visible, onDone }: Props) {
             activeOpacity={0.85}
           >
             <Feather name="check" size={18} color="#FFF" />
-            <Text style={st.btnPrimaryText}>Compartilhar Dados Anônimos</Text>
+            <Text style={st.btnPrimaryText}>Compartilhar dados</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

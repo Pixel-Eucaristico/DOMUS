@@ -25,6 +25,7 @@ import { TCard, TText } from "@/src/components/tamagui";
 import { ScreenIntroModal } from "@/src/components/tour/ScreenIntroModal";
 import { useScreenIntro } from "@/src/hooks/useScreenIntro";
 import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
+import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
 
 type TabId = "export" | "restore" | "drive";
 
@@ -328,6 +329,7 @@ export default function BackupScreen() {
                     O auto-backup diário é enviado ao seu Google Drive automaticamente.
                     Arquivo: <Text style={{ fontFamily: "DMSans_500Medium" }}>domus-backup.domusbackup</Text>
                   </Text>
+                  <PrivacyFlagNote flag="googleDrive" color={theme.secondaryText} />
                   {drive.syncError && <StatusRow status={{ type: "error", message: drive.syncError }} theme={theme} />}
                   <TouchableOpacity
                     style={[s.actionBtn, { backgroundColor: "#4285F4" }, drive.isSyncing && s.actionBtnDisabled]}
@@ -342,7 +344,7 @@ export default function BackupScreen() {
                         // Arquivo de auto-backup ainda não existe ou não pôde ser lido
                         Alert.alert(
                           "Backup ainda não gerado",
-                          "O arquivo de auto-backup ainda não foi criado. Ative o auto-backup e aguarde a primeira execução, ou use \"Exportar backup\".",
+                          "A cópia automática ainda não foi criada. Ela é gravada no aparelho uma vez por dia, ao abrir o app; abra o app de novo mais tarde ou use \"Exportar backup\".",
                         );
                       }
                     }}
@@ -358,6 +360,7 @@ export default function BackupScreen() {
                   <Text style={[s.hintText, { color: theme.secondaryText }]}>
                     Conecte sua conta Google para enviar o auto-backup diário automaticamente. O arquivo fica guardado na área privada do app no Google Drive (não aparece em &quot;Meu Drive&quot;).
                   </Text>
+                  <PrivacyFlagNote flag="googleDrive" color={theme.secondaryText} />
                   {drive.syncError && <StatusRow status={{ type: "error", message: drive.syncError }} theme={theme} />}
                   <TouchableOpacity
                     style={[s.actionBtn, { backgroundColor: "#4285F4" }, (drive.isConnecting || !drive.canConnect) && s.actionBtnDisabled]}
