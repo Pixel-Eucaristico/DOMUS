@@ -16,3 +16,5 @@ export { useWishlist } from "./useWishlist";
 export type { UseWishlistResult } from "./useWishlist";
 
 export { useSupportModes } from "./useSupportModes";
+export { usePersonalizedAdsConsent } from "./usePersonalizedAdsConsent";
+export type { UsePersonalizedAdsConsentResult } from "./usePersonalizedAdsConsent";

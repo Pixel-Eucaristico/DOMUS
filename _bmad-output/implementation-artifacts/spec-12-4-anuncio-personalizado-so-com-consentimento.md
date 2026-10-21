@@ -2,7 +2,7 @@
 title: 'Story 12.4: Anúncio personalizado só com consentimento no modo de apoio'
 type: 'feature'
 created: '2026-10-20'
-status: 'in-review'
+status: 'done'
 baseline_commit: '8bd67d319095299d87cc0e426421d665c2fbdec2'
 route: 'dispatch'
 review_loop_iteration: 0

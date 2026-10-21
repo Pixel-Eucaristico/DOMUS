@@ -15,6 +15,8 @@ import { useAppState } from "@/src/context/AppStateProvider";
 import type { ThemeColors } from "@packages/theme";
 import { ADMOB_IDS } from "./AdMobConfig";
 import { AFFILIATE_URLS } from "./AffiliateLinks";
+import { adRequestOptions } from "@/src/modules/monetization/adConsent";
+import { usePersonalizedAdsConsent } from "@/src/hooks/usePersonalizedAdsConsent";
 
 async function openAffiliatUrl(url: string): Promise<void> {
   try {
@@ -32,6 +34,7 @@ export function SupportBanner({ onDismiss }: Props) {
   const { theme } = useAppState();
   const insets = useSafeAreaInsets();
   const [adError, setAdError] = useState(false);
+  const { consent, loaded } = usePersonalizedAdsConsent();
 
   if (Platform.OS === "web") {
     return <AffiliateBanner onDismiss={onDismiss} insets={insets} theme={theme} />;
@@ -52,11 +55,17 @@ export function SupportBanner({ onDismiss }: Props) {
     return <AffiliateBanner onDismiss={onDismiss} insets={insets} theme={theme} />;
   }
 
+  // Nenhum pedido antes de ler o consentimento
+  if (!loaded) return null;
+
   return (
     <View style={[st.container, { bottom: 0, paddingBottom: insets.bottom, backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
       <BannerAd
+        // Remonta ao mudar o consentimento: o próximo pedido segue a escolha atual
+        key={consent ? "personalized" : "non-personalized"}
         unitId={ADMOB_IDS.banner}
         size={BannerAdSize.BANNER}
+        requestOptions={adRequestOptions(consent)}
         onAdFailedToLoad={() => setAdError(true)}
       />
       <TouchableOpacity onPress={onDismiss} hitSlop={12} style={st.close}>

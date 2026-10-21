@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { AppState, Platform } from "react-native";
 import { ADMOB_IDS } from "./AdMobConfig";
+import { adRequestOptions } from "@/src/modules/monetization/adConsent";
+import { usePersonalizedAdsConsent } from "@/src/hooks/usePersonalizedAdsConsent";
 
 interface Props {
   enabled: boolean;
@@ -9,11 +11,15 @@ interface Props {
 export function AppOpenAdHost({ enabled }: Props) {
   const appOpenAdRef = useRef<any>(null);
   const appStateRef = useRef(AppState.currentState);
+  const { consent, loaded } = usePersonalizedAdsConsent();
 
   useEffect(() => {
-    if (!enabled || Platform.OS === "web") return;
+    // Só pede anúncio depois de ler o consentimento; mudar o consentimento
+    // descarta o anúncio já carregado e pede um novo com a escolha atual.
+    if (!enabled || !loaded || Platform.OS === "web") return;
 
     let AppOpenAd: any = null;
+    const unsubscribes: (() => void)[] = [];
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const admob = require("react-native-google-mobile-ads");
@@ -22,22 +28,26 @@ export function AppOpenAdHost({ enabled }: Props) {
 
       if (!AppOpenAd) return;
 
-      const ad = AppOpenAd.createForAdRequest(ADMOB_IDS.appOpen, {
-        requestNonPersonalizedAdsOnly: false,
-      });
+      const ad = AppOpenAd.createForAdRequest(ADMOB_IDS.appOpen, adRequestOptions(consent));
 
-      ad.addAdEventListener(AdEventType.LOADED, () => {
-        appOpenAdRef.current = ad;
-      });
+      unsubscribes.push(
+        ad.addAdEventListener(AdEventType.LOADED, () => {
+          appOpenAdRef.current = ad;
+        }),
+      );
 
-      ad.addAdEventListener(AdEventType.CLOSED, () => {
-        appOpenAdRef.current = null;
-        ad.load();
-      });
+      unsubscribes.push(
+        ad.addAdEventListener(AdEventType.CLOSED, () => {
+          appOpenAdRef.current = null;
+          ad.load();
+        }),
+      );
 
-      ad.addAdEventListener(AdEventType.ERROR, () => {
-        appOpenAdRef.current = null;
-      });
+      unsubscribes.push(
+        ad.addAdEventListener(AdEventType.ERROR, () => {
+          appOpenAdRef.current = null;
+        }),
+      );
 
       ad.load();
     } catch {
@@ -54,8 +64,18 @@ export function AppOpenAdHost({ enabled }: Props) {
       appStateRef.current = nextState;
     });
 
-    return () => subscription.remove();
-  }, [enabled]);
+    return () => {
+      subscription.remove();
+      unsubscribes.forEach((u) => {
+        try {
+          u?.();
+        } catch {
+          // best-effort
+        }
+      });
+      appOpenAdRef.current = null;
+    };
+  }, [enabled, loaded, consent]);
 
   return null;
 }

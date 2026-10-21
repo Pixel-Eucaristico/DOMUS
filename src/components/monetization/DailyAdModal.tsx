@@ -15,6 +15,7 @@ import { useAppState } from "@/src/context/AppStateProvider";
 import { ClipboardService } from "@/src/modules/security/application/ClipboardService";
 import { soundManager } from "@/src/services/SoundManager";
 import { ADMOB_IDS } from "./AdMobConfig";
+import { getAdRequestOptions } from "@/src/modules/monetization/adConsent";
 import { AFFILIATE_URLS, DONATION_PIX_KEY } from "./AffiliateLinks";
 import { TCard } from "@/src/components/tamagui";
 
@@ -45,15 +46,18 @@ export function DailyAdModal({ onClose }: Props) {
 
     let interstitial: any = null;
     const unsubscribes: (() => void)[] = [];
+    let cancelled = false;
 
     (async () => {
       try {
         const admob = await import("react-native-google-mobile-ads");
+        if (cancelled) return;
         const { InterstitialAd, AdEventType } = admob;
 
-        interstitial = InterstitialAd.createForAdRequest(ADMOB_IDS.interstitial, {
-          requestNonPersonalizedAdsOnly: false,
-        });
+        // Lê o consentimento na hora do pedido: revogar vale para o próximo anúncio
+        const requestOptions = await getAdRequestOptions();
+        if (cancelled) return;
+        interstitial = InterstitialAd.createForAdRequest(ADMOB_IDS.interstitial, requestOptions);
 
         unsubscribes.push(
           interstitial.addAdEventListener(AdEventType.LOADED, () => {
@@ -82,6 +86,7 @@ export function DailyAdModal({ onClose }: Props) {
     })();
 
     return () => {
+      cancelled = true;
       unsubscribes.forEach((u) => u());
     };
   }, [onClose]);

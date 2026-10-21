@@ -4,6 +4,8 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { ADMOB_IDS } from "./AdMobConfig";
+import { adRequestOptions } from "@/src/modules/monetization/adConsent";
+import { usePersonalizedAdsConsent } from "@/src/hooks/usePersonalizedAdsConsent";
 
 const TAB_BAR_BASE_HEIGHT = 49;
 
@@ -21,12 +23,13 @@ export function NativeAdBanner({ onDismiss }: Props) {
   const tabBarHeight = TAB_BAR_BASE_HEIGHT + insets.bottom;
   const [adLoaded, setAdLoaded] = useState(false);
   const [adError, setAdError] = useState(false);
+  const { consent, loaded } = usePersonalizedAdsConsent();
 
   if (Platform.OS === "web") return null;
 
   const NativeAd = NativeAdComponent;
 
-  if (!NativeAd || adError) {
+  if (!NativeAd || adError || !loaded) {
     return null;
   }
 
@@ -42,7 +45,9 @@ export function NativeAdBanner({ onDismiss }: Props) {
       ]}
     >
       <NativeAd
+        key={consent ? "personalized" : "non-personalized"}
         adUnitId={ADMOB_IDS.nativeAdvanced}
+        requestOptions={adRequestOptions(consent)}
         onAdLoaded={() => setAdLoaded(true)}
         onAdFailedToLoad={() => setAdError(true)}
         style={st.nativeAd}
