@@ -2,7 +2,7 @@
 title: 'Story 11.7: Gerar o Lottie dos troféus sem animação própria (lote 1)'
 type: 'feature'
 created: '2026-10-21'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: 'a0d7864fd587a7ce3f4d7a71931058921c21c5d8'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -52,17 +52,23 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `scripts/lottie-lib/` (novo) -- funções comuns extraídas (svg→shapes, preenchimento, brilhos, halo, montagem do Lottie, escrita com recusa de id aprovado)
-- [ ] `scripts/trophy-lot-1.js` (novo) -- tabela do lote 1 (id, elemento SVG com fonte e licença, cores, níveis) e geração
-- [ ] `assets/lottie/trophies/` -- JSONs do lote 1 (9 sazonais + 10 litúrgicos)
-- [ ] `scripts/__tests__/` ou `src/constants/__tests__/` -- teste do lote: todos os ids existem no app, cada arquivo é um Lottie válido (v, fr, op, w, h, layers), nenhum id já aprovado foi escrito, nenhum desenho repetido
-- [ ] `scripts/gen_trophy_seasonal_natal.js` -- conferir que a saída não mudou
+- [x] `scripts/lottie-lib/` (novo) -- funções comuns extraídas (svg→shapes, preenchimento, brilhos, halo, montagem do Lottie, escrita com recusa de id aprovado)
+- [x] `scripts/trophy-lot-1.js` (novo) -- tabela do lote 1 (id, elemento SVG com fonte e licença, cores, níveis) e geração
+- [x] `assets/lottie/trophies/` -- JSONs do lote 1 (9 sazonais + 10 litúrgicos)
+- [x] `scripts/__tests__/` ou `src/constants/__tests__/` -- teste do lote: todos os ids existem no app, cada arquivo é um Lottie válido (v, fr, op, w, h, layers), nenhum id já aprovado foi escrito, nenhum desenho repetido
+- [x] `scripts/gen_trophy_seasonal_natal.js` -- conferir que a saída não mudou
 
 **Acceptance Criteria:**
 - Given o lote 1, when rodo `node scripts/trophy-lot-1.js`, then os 19 arquivos são gerados e o teste do lote passa
 - Given os arquivos gerados, when os abro num player Lottie, then cada troféu mostra o seu elemento próprio animado
 
 ## Implementation Notes
+
+- `scripts/lottie-lib/index.js`: parser SVG→shapes copiado sem mudança do `gen_trophy_seasonal_natal.js`, mais `makeFill`/`makeEllipse`/`makeRing`/`makeRays`, `iconShapes`, camadas (`mainLayer`, `sparkleLayers`, `glowLayer`, `raysLayer`), `assemble`, `readApprovedIds` (lê as chaves de `APPROVED_LOTTIE` em `LottieTrophy.tsx`) e `writeTrophy` (recusa id aprovado). Os geradores antigos não foram tocados: continuam com a própria cópia, e `seasonal_natal*.json` sai idêntico (md5 conferido).
+- `scripts/trophy-lot-1.js`: ícones Twemoji 15.1.0 (CC-BY 4.0) copiados para a tabela `ICONS`, um por troféu. Sazonais sobre medalha na cor do nível (bronze/prata/ouro); litúrgicos sobre disco na cor litúrgica (branco; vermelho para mártires) com auréola dourada e 12 raios que giram 30° por ciclo (laço sem salto).
+- `scripts/gen_trophy_seasonal_decimo_terceiro.js` removido: foi substituído pelo lote 1 (rodá-lo sobrescreveria a saída nova).
+- `scripts/trophy-templates.js` mantido sem uso (fora do escopo).
+- Teste: `scripts/__tests__/trophyLot1.test.ts`.
 
 ## Spec Change Log
 
