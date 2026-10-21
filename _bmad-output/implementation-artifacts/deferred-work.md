@@ -62,3 +62,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-12-6-flag-consultas-itens-precos-icones.md`
   summary: D21 — Sem testes do corte da flag nos pontos de React: `usePriceRefresh` (não raspar com a flag desligada, retomar ao ligar), repasse de `externalLookups` em `import-invoice.tsx`/`useEditableItems` e o aviso único em `app/_layout.tsx`.
   evidence: o repositório não tem infraestrutura de teste de hook/componente (sem `@testing-library`, `renderHook` nem jsdom). Cobrir na checklist de aparelho (Story 13.7/1.3) ou extrair a lógica da fila para módulo puro.
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-4-anuncio-personalizado-so-com-consentimento.md`
+  summary: D22 — Na Story 12.7, atualizar `app/privacy-policy.tsx` (§6, linhas ~259-263), `docs/politica-de-privacidade.md` e `docs/data-safety.md`: os anúncios agora são não personalizados por padrão, com o interruptor "Anúncios personalizados" em Sobre → Apoio & Anúncios; mesmo desligado, o Google recebe dados do aparelho para entregar e medir os anúncios.
+  evidence: a política ainda diz que o AdMob "pode mostrar anúncios personalizados"; a spec da 12.4 deixou a política para a 12.7.
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-4-anuncio-personalizado-so-com-consentimento.md`
+  summary: D23 — Sem testes de que `AppOpenAdHost`, `DailyAdModal`, `SupportBanner` e o hook `usePersonalizedAdsConsent` usam as opções do consentimento (só o módulo puro `adConsent.ts` é testado).
+  evidence: mesma falta de infraestrutura de teste de hook/componente do D21. Conferir no aparelho que o anúncio recarrega ao mudar o interruptor; ou extrair o mapeamento do hook para função pura e testar.
