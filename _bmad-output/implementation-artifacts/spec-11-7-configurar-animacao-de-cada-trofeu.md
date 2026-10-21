@@ -2,7 +2,7 @@
 title: 'Story 11.7: Configurar a animação de cada troféu'
 type: 'feature'
 created: '2026-10-21'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'd690328e7ae592ed2e6da6ee63bb618ce56b0972'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -68,3 +68,7 @@ context:
 **Commands:**
 - `npx vitest run src/constants` -- expected: passa
 - `npx vitest run` e `npx tsc --noEmit` -- expected: sem falhas; tsc exit 0
+
+## Spec Change Log
+
+- 21/10/2026: story substituída pela Sprint Change "Lottie para todos" (`sprint-change-proposal-2026-10-21-lottie-todos.md`) antes de qualquer código entrar; o rascunho `approvedLottieIds.ts` foi descartado. Esta spec fica só como registro.

@@ -68,7 +68,7 @@ This document provides the complete epic and story breakdown for DOMUS — Segur
 - FR-25: Tooltips ancorados com glossário financeiro único; dicas no 50/30/20, no CDB e no holerite; atalhos "O que é…?" no chat da IA com `tooltipsEnabled`.
 - FR-26: Leitor de holerite (parser, Vision OCR com fallback local, revisão, receita, histórico e gráfico) como Evento com `schemaVersion`, sem nome do funcionário e sem publicar no Grupo antigo.
 - FR-28: Privacidade por escolha: flag de ativação em todo envio (nova flag para consultas de itens, preços e ícones), texto "o que transmite / o que perde" e correção das fraquezas D8 a D12.
-- FR-27: Animação própria por troféu: o Lottie aprovado continua (também na web) e `trophyAnimationConfigs` cobre os troféus sem Lottie, com prévia no DebugTools.
+- FR-27: Animação própria por troféu: cada troféu ganha o seu Lottie (pipeline `scripts/gen_trophy_*.js`, aprovado pelo dono), também na web; o SVG fica como reserva até a aprovação.
 
 ### NonFunctional Requirements
 
@@ -133,7 +133,7 @@ FR-8: Epic 9 e Epic 10 - 8a inventário e 8b (preferências de baixo risco) no E
 FR-11: Epic 10 - Google Drive com o mesmo escopo do sync
 FR-25: Epic 11 - tooltips com glossário financeiro
 FR-26: Epic 11 - leitor de holerite (local até o Grupo forte)
-FR-27: Epic 11 - animação própria por troféu (Lottie aprovado + configuração para os demais)
+FR-27: Epic 11 - Lottie próprio para cada troféu
 FR-28: Epic 12 - privacidade por escolha e correção das fraquezas D8 a D12
 FR-29: Epic 13 - teclado nunca cobre o campo
 
@@ -1725,40 +1725,40 @@ So that eu perceba aumentos, quedas e quanto vai para impostos.
 **And** posso excluir um holerite sem apagar a receita já lançada
 **And** sem holerites, a tela explica o recurso e oferece a captura.
 
-### Story 11.7: Configurar a animação de cada troféu
+### Story 11.7: Gerar o Lottie dos troféus sem animação própria
 
 As a dono do DOMUS,
-I want um mapa de animação para os troféus sem Lottie aprovado,
-So that cada troféu tenha uma animação própria ligada ao tema dele.
+I want gerar o Lottie de cada troféu que ainda não tem,
+So that todos os troféus tenham uma animação própria no mesmo estilo.
 
 **Implementa:** FR-27
 
 **Acceptance Criteria:**
 
-**Given** `src/constants/trophyAnimationConfigs.ts`
-**When** pego a configuração de um troféu sem Lottie aprovado (conquistas, mensais, sazonais e litúrgicos)
-**Then** ela vem da categoria temática do troféu mais o ajuste próprio dele, se houver
-**And** um teste confirma configuração válida para todos os troféus sem Lottie e que todo ajuste aponta para um troféu existente.
+**Given** os troféus sem Lottie aprovado (114 litúrgicos e 3 sazonais)
+**When** rodo o gerador de um lote (ex.: um mês litúrgico)
+**Then** cada troféu do lote ganha o seu JSON em `assets/lottie/trophies/`, com os níveis de raridade, no padrão de `scripts/gen_trophy_*.js`
+**And** cada animação usa um elemento próprio do troféu (ícone de licença aberta, com a fonte citada no gerador)
+**And** nenhum troféu fica com animação igual à de outro.
 
-### Story 11.8: Animar os troféus pela configuração e mostrar a prévia
+### Story 11.8: Aprovar os novos Lottie e registrar no app
 
-As a usuário do DOMUS,
-I want ver os troféus animados conforme o tema,
-So that cada conquista pareça única.
+As a dono do DOMUS,
+I want ver e aprovar cada Lottie gerado,
+So that só animações aprovadas apareçam no app.
 
 **Implementa:** FR-27
 
 **Acceptance Criteria:**
 
-**Given** a configuração da Story 11.7
-**When** um troféu é exibido animado
-**Then** troféus sem Lottie seguem a configuração (movimento, entrada, efeito e partículas), e troféus com Lottie aprovado continuam com o Lottie
-**And** em listas estáticas o troféu aparece sem efeitos
-**And** nenhuma View animada passa do tamanho da tela (pitfall do GPU Mali)
+**Given** um lote gerado pela Story 11.7
+**When** abro o Artifact de aprovação
+**Then** vejo cada troféu animado, com os níveis, e posso aprovar ou pedir ajuste com comentário
 
-**Given** o DebugTools
-**When** abro a lista de troféus
-**Then** cada um mostra a animação usada (Lottie ou a configuração com categoria, movimento, efeito e partículas), para a aprovação do dono.
+**Given** um troféu aprovado
+**When** o lote é registrado
+**Then** ele entra em `APPROVED_LOTTIE` e aparece com o Lottie no app e no DebugTools
+**And** troféus ainda não aprovados continuam com a animação SVG atual.
 
 ### Story 11.9: Fazer o Lottie funcionar na web
 

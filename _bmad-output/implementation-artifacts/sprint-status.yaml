@@ -153,8 +153,8 @@ development_status:
   11-4-registrar-o-holerite-como-evento-local: backlog
   11-5-capturar-revisar-e-salvar-o-holerite: backlog
   11-6-mostrar-o-histórico-e-o-gráfico-do-holerite: backlog
-  11-7-configurar-a-animação-de-cada-troféu: in-progress
-  11-8-animar-os-troféus-pela-configuração-e-mostrar-a-prévia: backlog
+  11-7-gerar-o-lottie-dos-troféus-sem-animação-própria: in-progress
+  11-8-aprovar-os-novos-lottie-e-registrar-no-app: backlog
   11-9-fazer-o-lottie-funcionar-na-web: review
   epic-11-retrospective: optional
 
