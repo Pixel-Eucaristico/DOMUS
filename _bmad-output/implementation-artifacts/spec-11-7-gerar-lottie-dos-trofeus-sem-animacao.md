@@ -2,7 +2,7 @@
 title: 'Story 11.7: Gerar o Lottie dos troféus sem animação própria (lote 1)'
 type: 'feature'
 created: '2026-10-21'
-status: 'in-review'
+status: 'done'
 baseline_commit: 'a0d7864fd587a7ce3f4d7a71931058921c21c5d8'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -99,3 +99,4 @@ context:
 - `node scripts/trophy-lot-1.js` -- expected: 19 arquivos escritos
 - `npx vitest run` e `npx tsc --noEmit` -- expected: sem falhas; tsc exit 0
 - `git diff --stat assets/lottie/trophies` -- expected: só arquivos do lote 1
+- A remoção de `scripts/gen_trophy_seasonal_decimo_terceiro.js` foi para o commit `e7908e7` (de documentação) por estar no índice; o efeito é o mesmo.
