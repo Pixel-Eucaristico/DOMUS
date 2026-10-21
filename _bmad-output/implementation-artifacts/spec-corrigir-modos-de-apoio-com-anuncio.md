@@ -2,7 +2,7 @@
 title: 'Corrigir os modos de apoio com anúncio'
 type: 'bugfix'
 created: '2026-10-21'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: '2bb059cf3fa5538bf5a4898306acfd4ca9ab1ed3'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -55,18 +55,26 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/modules/monetization/MonetizationSettingsStore.ts` -- cache + assinantes dos modos; função pura `shouldShowDailyAd(lastDate, today)` -- fonte única
-- [ ] `src/hooks/useSupportModes.ts`, `app/_layout.tsx` -- assinar a fonte; `MonetizationHosts` reage na hora; inicializar o SDK; gravar a data diária só ao fechar -- AC 1
-- [ ] `src/components/monetization/DailyAdModal.tsx` -- não recriar por `onClose`; não mostrar o fallback junto do anúncio carregado; avisar o pai ao fechar -- matriz
-- [ ] `src/components/monetization/NativeAdBanner.tsx` -- anúncio nativo real com a API nova -- matriz
-- [ ] `src/components/monetization/SupportModeSelector.tsx` -- textos conforme a decisão do banner
-- [ ] `src/modules/monetization/__tests__/supportModes.test.ts` -- assinantes recebem a mudança; `shouldShowDailyAd`
+- [x] `src/modules/monetization/MonetizationSettingsStore.ts` -- cache + assinantes dos modos; função pura `shouldShowDailyAd(lastDate, today)` -- fonte única
+- [x] `src/hooks/useSupportModes.ts`, `app/_layout.tsx` -- assinar a fonte; `MonetizationHosts` reage na hora; inicializar o SDK; gravar a data diária só ao fechar -- AC 1
+- [x] `src/components/monetization/DailyAdModal.tsx` -- não recriar por `onClose`; não mostrar o fallback junto do anúncio carregado; avisar o pai ao fechar -- matriz
+- [x] `src/components/monetization/NativeAdBanner.tsx` -- anúncio nativo real com a API nova -- matriz
+- [x] `src/components/monetization/SupportModeSelector.tsx` -- textos conforme a decisão do banner
+- [x] `src/modules/monetization/__tests__/supportModes.test.ts` -- assinantes recebem a mudança; `shouldShowDailyAd`
 
 **Acceptance Criteria:**
 - Given o app aberto, when ligo ou desligo qualquer modo em Sobre, then o anúncio correspondente aparece ou some sem reiniciar
 - Given cada modo com anúncio ligado num build de desenvolvimento, when uso o app, then o anúncio de teste do Google aparece (verificação no aparelho)
 
 ## Implementation Notes
+
+- Fonte única em `MonetizationSettingsStore.ts`: cache em memória + `subscribeSupportModes`/`getCachedSupportModes` (padrão de `adConsent.ts`); `saveSupportModes` publica antes de gravar (vale na sessão mesmo se a gravação falhar); gravação durante a leitura vence. `shouldShowDailyAd(last, today)` puro e `dailyAdDay()` (mesmo dia UTC de antes, frequência inalterada).
+- `useSupportModes` assina a fonte; `toggleMode` calcula a partir de um ref (sem efeito colateral dentro do `setState`). `MonetizationHosts` usa o mesmo hook, então o seletor em Sobre e os anúncios veem a mesma escolha na hora. Desligar um modo esquece o "fechar" do banner/nativo, para religar mostrar de novo.
+- SDK: `ensureMobileAdsInitialized()` em `src/components/monetization/mobileAdsInit.ts` (promessa única; `.web.ts` vazio para o bundle web). Só é chamado com algum modo de anúncio ligado, fora do demo; os anúncios só montam depois dele. Falha não bloqueia: cada anúncio cai no próprio fallback.
+- Diário: o efeito reage a ligar o modo com o app aberto; a data é gravada em `handleDailyClose` (fechar o intersticial ou o fallback), com o dia da checagem; um ref de sessão impede repetir no mesmo dia se a gravação falhar. `DailyAdModal` guarda `onClose` em ref (efeito com `[]`), não mostra mais o fallback junto do anúncio carregado e cai no fallback se `show()` falhar.
+- Nativo: `NativeAd.createForAdRequest(ADMOB_IDS.nativeAdvanced, { ...adRequestOptions(consent), adChoicesPlacement: TOP_LEFT })`, `NativeAdView` com `NativeMediaView` 120×120, `NativeAsset` de título, anunciante (se houver) e botão, selo "Anúncio"; `destroy()` ao desmontar ou ao mudar o consentimento; falha → nada.
+- Textos: "Banner" diz que é do Google com a barra de afiliados como reserva; diário e nativo dizem que são do Google; abertura diz "ao voltar ao app" (era "ao abrir ou retornar", que não batia com a frequência).
+- Sem teste de componente/hook (D23); conferir no aparelho.
 
 ## Spec Change Log
 
