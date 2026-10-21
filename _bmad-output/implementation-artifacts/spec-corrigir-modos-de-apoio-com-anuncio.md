@@ -80,6 +80,27 @@ context:
 
 ## Review Triage Log
 
+| Achado | Veredito | Evidência |
+|---|---|---|
+| Init do SDK que nunca termina esconde todos os modos, inclusive o fallback; falha fica em cache sem aviso | medium | `MonetizationHosts` só monta com `sdkReady`. **patch**: timeout, nova tentativa, aviso em dev. |
+| Dia do intersticial em UTC (vira às 21h no Brasil) | medium | `toISOString()`; já era assim, mas a intenção é 1× por dia local. **patch**. |
+| Intersticial aparece quando carregar, mesmo minutos depois | medium | Sem prazo de carga; política do Google. **patch**: desiste em ~10 s. |
+| `show()` síncrono que lança não vai ao fallback | low | Correção direta (try/catch). **patch**. |
+| Abertura do app logo depois de fechar o intersticial | medium | `AppOpenAdHost` mostra ao voltar ao primeiro plano. **patch**: trava compartilhada. |
+| Nativo sem mídia deixa caixa vazia | low | `NativeMediaView` sempre 120×120. **patch** (ícone como alternativa). |
+| Nativo de ~137 dp cobre conteúdo | medium | Só confirmável no aparelho. **defer** D24. |
+| Fluxo do diário, hook e init sem teste | medium (gap) | Sem infraestrutura de teste de hook. **defer** D25. |
+| Sem UMP | false | Decisão do dono (21/10): sem UMP. |
+| Desligar o diário com o anúncio na tela não grava o dia | low | Anúncio cobre a tela; caso raro. rejeitado |
+| App aberto na virada do dia não mostra o novo diário | low | Mostra na próxima abertura. rejeitado |
+| `destroy()` do nativo durante a troca de consentimento | maybe-false | Seria low; checar no aparelho se há erro nativo. rejeitado |
+| Nativo que falhou não tenta de novo | low | Volta na próxima abertura. rejeitado |
+| Gravações rápidas dos modos fora de ordem | low | Raro; correção pede fila de escrita. rejeitado |
+| App fechado no meio do anúncio mostra de novo na próxima abertura | low | Troca deliberada: só grava ao fechar. rejeitado |
+| Pequenos ajustes do `NativeAdBanner` (`require` por render, número mágico) | low | Sem dano. rejeitado |
+
+**Rota:** 6 `patch`, 2 `defer` (D24, D25), 7 rejeitados, 1 falso. Sem loopback.
+
 ## Verification
 
 **Commands:**

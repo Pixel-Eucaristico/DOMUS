@@ -68,3 +68,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-12-4-anuncio-personalizado-so-com-consentimento.md`
   summary: D23 — Sem testes de que `AppOpenAdHost`, `DailyAdModal`, `SupportBanner` e o hook `usePersonalizedAdsConsent` usam as opções do consentimento (só o módulo puro `adConsent.ts` é testado).
   evidence: mesma falta de infraestrutura de teste de hook/componente do D21. Conferir no aparelho que o anúncio recarrega ao mudar o interruptor; ou extrair o mapeamento do hook para função pura e testar.
+- source_spec: `_bmad-output/implementation-artifacts/spec-corrigir-modos-de-apoio-com-anuncio.md`
+  summary: D24 — O anúncio nativo novo tem ~137 dp de altura (mídia mínima de 120×120 do Google) e fica fixo acima da navegação em todas as telas, podendo cobrir o fim de listas e botões flutuantes.
+  evidence: `NativeAdBanner.tsx` posicionado em `bottom: tabBarHeight`, montado na raiz. Conferir no aparelho; se cobrir, dar espaço inferior às telas ou usar o ícone no lugar da mídia.
+- source_spec: `_bmad-output/implementation-artifacts/spec-corrigir-modos-de-apoio-com-anuncio.md`
+  summary: D25 — Sem testes do fluxo do intersticial diário em `MonetizationHosts` (gravar o dia ao fechar, não reabrir no mesmo dia, ligar com o app aberto), do `useSupportModes` e do `ensureMobileAdsInitialized`.
+  evidence: mesma falta de infraestrutura de teste de hook/componente (D21, D23); extrair a decisão do diário para módulo puro e testar.
