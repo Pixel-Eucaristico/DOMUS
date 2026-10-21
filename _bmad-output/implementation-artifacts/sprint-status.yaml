@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 10-21-2026 23:00
+last_updated: 10-21-2026 23:30
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -153,7 +153,7 @@ development_status:
   11-4-registrar-o-holerite-como-evento-local: backlog
   11-5-capturar-revisar-e-salvar-o-holerite: backlog
   11-6-mostrar-o-histórico-e-o-gráfico-do-holerite: backlog
-  11-7-configurar-a-animação-de-cada-troféu: backlog
+  11-7-configurar-a-animação-de-cada-troféu: in-progress
   11-8-animar-os-troféus-pela-configuração-e-mostrar-a-prévia: backlog
   11-9-fazer-o-lottie-funcionar-na-web: review
   epic-11-retrospective: optional
