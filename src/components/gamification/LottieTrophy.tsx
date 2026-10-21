@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import LottieView from "lottie-react-native";
+import { configureLottieWasm } from "./lottieWasm";
 import { AnimatedTrophy } from "./AnimatedTrophy";
 import { AnimatedSeasonalTrophy } from "./AnimatedSeasonalTrophy";
 import type { AchievementRarity } from "@packages/gamification/src/achievements";
@@ -14,6 +15,8 @@ import type { AchievementRarity } from "@packages/gamification/src/achievements"
  * Troféus aprovados com variantes por tier.
  * base = fallback, t1-t4 = Bronze/Prata/Ouro/Diamante.
  */
+configureLottieWasm();
+
 const APPROVED_LOTTIE: Record<string, {
   base: any;
   t1?: any;
