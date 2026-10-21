@@ -74,6 +74,28 @@ context:
 
 ## Review Triage Log
 
+| Achado | Veredito | Evidência |
+|---|---|---|
+| "Sem isso" das consultas diz que só NCM e palavras classificam, mas a IA também classifica | medium | `classifyItemFull` usa a IA com `aiEnabled`. **patch**. |
+| Texto do acesso aos dados omite campos enviados e diverge dos rótulos | medium | `buildFinancialContext` envia tipo, itens, grupo, XP da temporada, maior sequência, troféus. **patch**. |
+| "Cada recurso que envia dados tem uma opção" exagera | medium | SEFAZ, link colado e busca com afiliado não têm interruptor. **patch**. |
+| Título da §7 diz que nada pessoal é enviado | medium | Contradiz os itens da própria seção. **patch**. |
+| `adModes` promete que nenhum anúncio aparece | low | Reescrito para o que o código garante (nenhum pedido ao Google). **patch**. |
+| Crashlytics recebe mensagens de erro não citadas; tela do Firebase diverge das notas | medium | `crashlytics().log(...)` em `AnalyticsService.ts`. **patch**. |
+| Legenda da chave diz armazenamento seguro também na web | medium | Política §1: na web a chave é cifrada com chave do navegador. **patch**. |
+| Carrossel escreve texto próprio do Firebase | medium | Fora da fonte única e do teste. **patch**. |
+| `data-safety.md` F3, F5, F6 desatualizados | medium | Contradizem a política nova. **patch**. |
+| Regex do teste sem `&`, `<`, `>`; nada garante a nota na tela | medium (gap) | **patch**: regex e teste de presença por flag. |
+| Tela da política copia as frases em vez de importar | low | O teste compara o código-fonte; funciona. rejeitado |
+| `AnalyticsConsentModal` sem nota | false | Componente sem uso no app. |
+| Leitura de arquivos na coleta do teste | low | Só piora a mensagem de erro. rejeitado |
+| `.replace("\n")` no aviso das consultas | low | O formatador gera uma quebra só. rejeitado |
+| Interruptor das consultas em formato diferente | low | Cosmético. rejeitado |
+| Frase no item da flag errada passaria no teste | low | Revisado à mão; correção pede parser. rejeitado |
+| Notas enviadas à IA não são as "recentes" | low | O rótulo novo não diz "recentes". rejeitado |
+
+**Rota:** 10 `patch`, 6 rejeitados, 1 falso. Sem loopback.
+
 ## Verification
 
 **Commands:**
