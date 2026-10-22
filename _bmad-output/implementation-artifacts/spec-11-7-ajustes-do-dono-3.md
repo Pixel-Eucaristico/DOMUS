@@ -2,7 +2,7 @@
 title: 'Story 11.7: ajustes do dono no lote 3 (rodada 3)'
 type: 'bugfix'
 created: '2026-10-22'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: '35f8088688a323b9bc7eb5096e4054aa55b029b3'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -30,3 +30,21 @@ Figuras de corpo inteiro seguem o estilo simples dos bustos (`busto` em `desenho
 </frozen-after-approval>
 
 ## Implementation Notes
+
+- Biblioteca (`scripts/lottie-lib/desenhos.js`): `figura(k, {...})`, figura de corpo inteiro no estilo do `busto` (a mesma cabeça e a pele `PELE`): túnica longa, pés, braços `abertos`, `baixos`, `postas`, `mostrando`, `esquerdo` ou `nenhum`, manto de capuz até os pés com orla, faixa no peito e chaga do lado. `espinhosShapes` ganhou a opção `metade` ("frente" = arco de baixo, "tras" = arco de cima). Sem `metade` a saída é a mesma (lote 2 idêntico).
+- `scripts/trophy-lot-3.js`, só os 6 troféus:
+  - **Ascensão:** `G_Jesus` (corpo inteiro, túnica branca, faixa dourada, braços abertos) sobe junto com a nuvem; a `luzSuave` (`G_Luz`) acende no bronze. A prata acrescenta as pegadas; o ouro, os raios. A luz do ouro saiu (agora a luz é do gesto).
+  - **Fátima:** `G_Maria` de corpo inteiro (k 0,7, manto branco com orla dourada, mãos postas), de pé sobre a copa e na frente dela. A nuvem saiu. A copa, o tronco, os pastorinhos e a auréola de base foram reposicionados. Prata e ouro como antes.
+  - **São Matias:** o dado saiu (o 1f3b2 deixou a tabela). `G_Onze` são 11 chamas desenhadas num círculo; `G_Chama12` acende no lugar vago do alto. A peça principal é `desenho-doze-chamas`. A prata acrescenta o livro aberto; o ouro, o machado e a `luzSuave`. A auréola de base subiu para o alto do círculo.
+  - **Sagrado Coração:** a coroa foi dividida em `T2_EspinhosFrente` (arco de baixo, na frente do coração) e `T2_EspinhosTras` (arco de cima, atrás). A coroa é mais larga (32 × 9) e passa em volta do coração. O bronze não mudou.
+  - **São Tomé:** `G_Jesus` (corpo inteiro, chaga do lado) e `G_Tome` (corpo inteiro, túnica e faixa vermelha). O braço de Tomé (`G_Braco`) vai do ombro e gira até a mão pousar na chaga; o ângulo e o comprimento são calculados para a mão chegar à chaga. A mão emoji (1faf1) saiu. A peça principal é `desenho-tome-e-jesus`. A prata acrescenta o esquadro; o ouro, duas auréolas e raios em volta de Jesus.
+  - **Visitação:** o braço `G_Abraco` saiu. Os bustos ficam mais próximos e mais inclinados (±9°). `G_Maos` mostra a mão de Isabel pousada sobre a de Maria, cada uma saindo da manga do próprio manto. A auréola de base acompanha a nova posição de Maria.
+- Testes (`trophyLot3.test.ts`):
+  - Matias: 12 chamas e nenhum dado.
+  - Sagrado Coração: a coroa tem uma parte na frente do coração e outra atrás.
+  - Tomé: as duas figuras de corpo inteiro; a mão de Tomé fica a menos de 2,5 px da chaga no quadro final.
+  - Ascensão: Jesus de corpo inteiro com a `luzSuave`.
+  - Visitação: sem braço; a mão de Isabel na frente da de Maria.
+  - Fátima: Maria de corpo inteiro e mãos postas, na frente da copa e sem nuvem.
+  - `lottieLib.test.ts`: testes de `figura` e de `metade`.
+- Verificação: depois de `node scripts/trophy-lot-1.js && node scripts/trophy-lot-2.js && node scripts/trophy-lot-3.js`, `git status --short` mostra só 17 arquivos de assets mudados. O `lt_sagrado_coracao.json` (bronze) não muda, porque a coroa só existe na prata e no ouro. Os lotes 1 e 2 e os outros 21 troféus do lote 3 ficam idênticos. `npx vitest run scripts/__tests__` passa: 4 arquivos, 107 testes. Renderizei os quadros 10, 30, 50 e 89 dos seis ouros.
