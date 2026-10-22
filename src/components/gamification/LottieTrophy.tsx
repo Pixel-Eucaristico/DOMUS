@@ -91,6 +91,9 @@ export function LottieTrophy({
             ref={lottieRef}
             source={source}
             style={{ width: lottieSize, height: lottieSize }}
+            // web: o `style` não chega ao canvas; sem `webStyle` ele ocupa a
+            // caixa toda em vez de 1,45× (flexShrink 0, como no estático)
+            webStyle={{ width: lottieSize, height: lottieSize, flexShrink: 0 }}
             autoPlay={!isStatic}
             loop={!isStatic}
             speed={1}
