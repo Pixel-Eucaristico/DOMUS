@@ -2,7 +2,7 @@
 title: 'Story 3.3: reprocessar eventos desconhecidos depois de atualizar o app'
 type: 'feature'
 created: '2026-10-22'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '715334e'
 route: 'one-shot'
 review_loop_iteration: 0
@@ -46,8 +46,8 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] Injeção opcional de tipos e reducers no replay (padrão = os do app) e testes da matriz
-- [ ] Teste de ponta a ponta: evento novo passa por `selectEventsToImport` e pelo replay "antigo" e "novo"
+- [x] Injeção opcional de tipos e reducers no replay (padrão = os do app) e testes da matriz
+- [x] Teste de ponta a ponta: evento novo passa por `selectEventsToImport` e pelo replay "antigo" e "novo"
 
 **Acceptance Criteria:**
 - Given um evento de tipo desconhecido na Quarentena, when abro uma versão que conhece o tipo, then ele é aplicado
@@ -56,3 +56,11 @@ context:
 ## Verification
 
 - `npx vitest run` e `npx tsc --noEmit` sem falhas novas
+
+## Implementation Notes
+
+- **Injeção só para teste:** `replayAllEvents(events, options?)` em `src/context/replay.ts` ganhou o segundo parâmetro opcional `ReplayOptions` = `{ knownTypes?: ReadonlySet<string>; reducers?: Partial<ReplayReducers> }`. Omitido, usa `KNOWN_EVENT_TYPES` e os reducers do app (`DEFAULT_REDUCERS`), então o comportamento do app é o mesmo; a chamada no `AppStateProvider` não mudou. O roteamento por pacote (`DOMAIN_TYPES`, `WISHLIST_TYPES`…) e a conferência de payload (`PAYLOAD_SPECS`) continuam os do app: a "versão antiga" de teste só precisa não conhecer o tipo, porque o evento desconhecido para antes da conferência de payload.
+- **Nenhuma mudança de comportamento:** o evento de tipo desconhecido já ficava no log (Story 3.1 grava, Story 3.2 só põe na Quarentena em memória) e o estado já era refeito do log inteiro a cada abertura; nenhuma migração foi necessária.
+- **Testes:** `src/context/__tests__/replay.reprocess.test.ts` (7). X = `WISHLIST_PRICE_UPDATED` (tipo real), retirado dos tipos conhecidos da "versão antiga" (cujo reducer de wishlist lança erro se receber X, provando que X nunca chega a ele). Cobre: sem opções = padrões explícitos; tipo novo válido (antiga: Quarentena `unknown_type` "tipo desconhecido", estado = log sem X, log igual por valor e por referência; nova: aplicado, Quarentena vazia, estado = aplicar o log com os reducers reais); tipo novo com payload ruim (antiga `unknown_type`; nova `invalid_payload` nomeando `"newPrice"`, sem efeito); envelope inválido (Quarentena `invalid_envelope` nas duas, mesmo motivo); ordem A, X, B (reducer espião confere a sequência de `id` e `timestamp` originais; B depois de X vale; diferente de aplicar X por último); ponta a ponta (lote bruto do relay com X, um repetido e um malformado → `parseSyncPayloadDetailed` + `selectEventsToImport` aceitam só X → anexado e ordenado como no `importEvents` → antiga: Quarentena; nova: aplicado).
+- **Únicos caminhos que apagam o log (conferido por revisão de código, sem teste de grep):** `EventStore.clearAllEvents()` (`packages/storage/src/eventStore.ts`, `DELETE FROM events`) é chamado só em `restoreFromBackup` (`src/hooks/useEventStore.ts`), que também sobrescreve a chave `domus_events_v1` na web; `resetApp` chama `restoreFromBackup([])`. Os demais pontos que escrevem no log só anexam: `dispatch`, `importEvents` (via `selectEventsToImport`), categorias padrão em `useGamificationEffects` e o evento de recuperação no `AppStateProvider` (todos `appendEvent` + `setAllEvents([...prev, ...])`). O espelho web (`useEffect` que grava `allEvents` em `domus_events_v1`) grava a lista em memória já normalizada pela hidratação da Story 3.2 (`deviceId`, payload em texto), sem remover itens objeto nem filtrar por tipo.
+- **Verificação:** `npx vitest run` → 64 arquivos, 1229 testes passando (baseline 63 / 1222 + o arquivo novo com 7); `npx tsc --noEmit` → sem erros (exit 0).

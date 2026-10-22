@@ -85,7 +85,37 @@ function errorReason(err: unknown): string {
   return safeText(`erro no reducer: ${message}`, MAX_REASON_LENGTH);
 }
 
-export function replayAllEvents(events: readonly SyncEvent[]): ReplayResult {
+/** Reducers do replay; cada um pode ser trocado só em teste. */
+export interface ReplayReducers {
+  domain: (state: AppState, event: DomainEvent) => AppState;
+  gamification: (state: GamificationState, event: GamificationEvent) => GamificationState;
+  onboarding: (state: OnboardingState, event: OnboardingEvent) => OnboardingState;
+  season: (state: SeasonState, event: SeasonEvent) => SeasonState;
+  wishlist: (state: WishlistState, event: WishlistEvent) => WishlistState;
+}
+
+/**
+ * Injeção só para teste (Story 3.3): simula uma versão do app que conhece
+ * outro conjunto de tipos ou outros reducers. Omitido = o que o app usa.
+ */
+export interface ReplayOptions {
+  /** Tipos conhecidos; fora dele = "tipo desconhecido". Padrão: `KNOWN_EVENT_TYPES`. */
+  knownTypes?: ReadonlySet<string>;
+  /** Reducers a trocar; os ausentes são os do app. */
+  reducers?: Partial<ReplayReducers>;
+}
+
+const DEFAULT_REDUCERS: ReplayReducers = {
+  domain: domainReducer,
+  gamification: gamificationReducer,
+  onboarding: onboardingReducer,
+  season: seasonReducer,
+  wishlist: wishlistReducer,
+};
+
+export function replayAllEvents(events: readonly SyncEvent[], options: ReplayOptions = {}): ReplayResult {
+  const knownTypes = options.knownTypes ?? KNOWN_EVENT_TYPES;
+  const reducers: ReplayReducers = { ...DEFAULT_REDUCERS, ...options.reducers };
   let domain = createInitialState();
   let gamification = createInitialGamificationState();
   let onboarding = createInitialOnboardingState();
@@ -112,7 +142,7 @@ export function replayAllEvents(events: readonly SyncEvent[]): ReplayResult {
     const id = safeText(evt.id);
     const type = safeText(t);
 
-    if (!KNOWN_EVENT_TYPES.has(t)) {
+    if (!knownTypes.has(t)) {
       quarantine.push({ id, type, kind: "unknown_type", reason: UNKNOWN_TYPE_REASON });
       continue;
     }
@@ -130,16 +160,16 @@ export function replayAllEvents(events: readonly SyncEvent[]): ReplayResult {
 
     // Calcula os próximos estados e só os confirma se nenhum reducer lançar erro.
     try {
-      const nextDomain = DOMAIN_TYPES.has(t) ? domainReducer(domain, evt as unknown as DomainEvent) : domain;
+      const nextDomain = DOMAIN_TYPES.has(t) ? reducers.domain(domain, evt as unknown as DomainEvent) : domain;
       const nextGamification = GAMIFICATION_TYPES.has(t)
-        ? gamificationReducer(gamification, evt as unknown as GamificationEvent)
+        ? reducers.gamification(gamification, evt as unknown as GamificationEvent)
         : gamification;
       const nextOnboarding = ONBOARDING_TYPES.has(t)
-        ? onboardingReducer(onboarding, evt as unknown as OnboardingEvent)
+        ? reducers.onboarding(onboarding, evt as unknown as OnboardingEvent)
         : onboarding;
-      const nextSeason = SEASON_TYPES.has(t) ? seasonReducer(season, evt as unknown as SeasonEvent) : season;
+      const nextSeason = SEASON_TYPES.has(t) ? reducers.season(season, evt as unknown as SeasonEvent) : season;
       const nextWishlist = WISHLIST_TYPES.has(t)
-        ? wishlistReducer(wishlist, evt as unknown as WishlistEvent)
+        ? reducers.wishlist(wishlist, evt as unknown as WishlistEvent)
         : wishlist;
 
       domain = nextDomain;
