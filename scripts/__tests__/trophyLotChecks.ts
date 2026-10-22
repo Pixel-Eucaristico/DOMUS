@@ -271,9 +271,10 @@ export function checkLot({ name, lot, generator, files: count }: LotOptions) {
 
     it("quadro final (o do troféu parado): o gesto e o acréscimo do nível estão à vista", () => {
       const last = lib.FORMAT.op - 1;
-      // corte (trim) com fim > 0 em todos os grupos que o têm, grupos aninhados inclusive
+      // corte (trim) com fim > início em todos os grupos que o têm, grupos aninhados inclusive
+      // (início = fim, mesmo em 100, não mostra nada; com início > fim o Lottie mostra o trecho entre os dois)
       const trimsOk = (items: any[]): boolean => items.every((it: any) =>
-        it.ty === "gr" ? trimsOk(it.it) : it.ty !== "tm" || valueAt(it.e, last)[0] > 0);
+        it.ty === "gr" ? trimsOk(it.it) : it.ty !== "tm" || Math.abs(valueAt(it.e, last)[0] - valueAt(it.s, last)[0]) > 0);
       const visible = (ly: any) => last >= ly.ip && last < ly.op && valueAt(ly.ks.o, last)[0] > 0
         && valueAt(ly.ks.s, last).slice(0, 2).every((v) => Math.abs(v) > 0) && trimsOk(ly.shapes);
       for (const e of TROPHIES) {
@@ -283,6 +284,31 @@ export function checkLot({ name, lot, generator, files: count }: LotOptions) {
           if (k > 0) expect(shown.some((n: string) => n.startsWith(`T${k + 1}_`)), `${f}: ${shown}`).toBe(true);
         });
       }
+    });
+
+    it("luz do alto sem esticar: nenhuma camada de luz tem escala não uniforme nem forma animada", () => {
+      // camadas de luz: pelo nome ou pelo conteúdo (os grupos que luzSuave desenha)
+      const LUZ_GRUPOS = /^Luz(Fonte|Raios|Miolo|Meio|Borda)$/;
+      const groupsOf = (items: any[]): any[] => items.flatMap((it: any) => (it.ty === "gr" ? [it, ...groupsOf(it.it)] : []));
+      const uniforme = (v: number[]) => Math.abs(v[0]) === Math.abs(v[1]);
+      const valores = (prop: any): number[][] =>
+        prop.a === 1 ? prop.k.flatMap((kf: any) => [kf.s, ...(kf.e ? [kf.e] : [])]) : [prop.k];
+      let vistas = 0;
+      for (const f of TROPHIES.flatMap(filesOf)) {
+        for (const ly of readLottie(f).layers) {
+          const groups = groupsOf(ly.shapes);
+          if (!/Luz|Ceu/.test(ly.nm) && !groups.some((g: any) => LUZ_GRUPOS.test(g.nm))) continue;
+          vistas++;
+          for (const v of valores(ly.ks.s)) expect(uniforme(v), `${f} ${ly.nm}: escala ${JSON.stringify(v)}`).toBe(true);
+          for (const g of groups) {
+            for (const it of g.it) {
+              if (it.ty === "tr") for (const v of valores(it.s)) expect(uniforme(v), `${f} ${ly.nm}/${g.nm}: escala do grupo ${JSON.stringify(v)}`).toBe(true);
+              if (it.ty === "sh") expect(it.ks.a, `${f} ${ly.nm}/${g.nm}: forma animada`).not.toBe(1);
+            }
+          }
+        }
+      }
+      expect(vistas).toBeGreaterThan(0);
     });
 
     it("base comum: brilhos e halo mais fortes a cada nível; halo litúrgico na cor da festa; auréola onde há halo", () => {

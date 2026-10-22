@@ -183,7 +183,7 @@ function gestoMariaMaeDeus(t, c) {
     o: anim(aparecer(8, 10)),
   });
   const layers = [coroa];
-  if (t >= 3) layers.push(lib.luzDescendo(0, c.col.luz, { nm: "T3_Luz", top: 24, bottom: 130, w0: 12, w1: 84, t0: 30, peak: 30 }));
+  if (t >= 3) layers.push(lib.luzSuave(0, c.col.luz, { nm: "T3_Luz", top: 24, bottom: 130, w0: 12, w1: 84, t0: 30, peak: 30 }));
   layers.push(mantoLayer);
   const estrelas = (nm, centers, size, ks) => L(nm, pieces("twemoji-2b50", size, centers), { p: [100, 94], a: [100, 94], ...ks });
   if (t >= 3) {
@@ -206,10 +206,15 @@ function gestoEpifania(t) {
   const passos = trajeto(caminho, 0, 34);
   const f = fracoes(caminho);
   const fim = passos.map(([tt, , cv], k) => [tt, f[k] * 100, cv]);
-  const rastro = (nm, width, opacity, lag) => L(nm, [stroke([lib.polyline(caminho)], width, hex("#FFE8B6"), "Rastro", {
+  // `fica`: fração do caminho que o início do corte deixa de percorrer (ele vai só até (1 − fica)·100),
+  // então o rastro fica mais comprido durante todo o voo e parte dele continua à vista no fim
+  const rastro = (nm, width, opacity, lag, fica = 0) => {
+    if (!(fica >= 0 && fica < 1)) throw new Error(`rastro: fica ${fica} fora de [0, 1)`);
+    return L(nm, [stroke([lib.polyline(caminho)], width, hex("#FFE8B6"), "Rastro", {
     opacity,
-    trim: { e: anim(fim), s: anim([[0, 0], ...fim.map(([tt, v, cv]) => [tt + lag, v, cv])]) },
-  })], { p: [0, 0] });
+    trim: { e: anim(fim), s: anim([[0, 0], ...fim.map(([tt, v, cv]) => [tt + lag, v * (1 - fica), cv])]) },
+    })], { p: [0, 0] });
+  };
   const estrela = L("G_Estrela", piece("twemoji-2b50", 34), {
     p: anim([...passos, ...flutuar([100, 60], 44, 1.5)]),
     s: anim([[0, 80], [34, 80, "out"], [40, 125], [48, 100], ...pulsar(48, END, { amp: 6, period: 21 })]),
@@ -223,7 +228,9 @@ function gestoEpifania(t) {
     o: anim([...aparecer(34, 4, { to: 90 }), [50, 70]]),
   });
   const layers = [estrela, brilho, rastro("G_Rastro", 4, 85, 10)];
-  if (t >= 2) layers.push(rastro("T2_RastroLongo", 8, 35, 26));
+  // Na prata o rastro longo é o único acréscimo: parte dele fica à vista no
+  // troféu parado. No ouro (os presentes são o acréscimo à vista) fica como foi aprovado.
+  if (t >= 2) layers.push(rastro("T2_RastroLongo", 8, 35, 26, t === 2 ? 0.45 : 0));
   if (t >= 3) {
     const presentes = [
       [58, 42, { "#FDD888": "#FFCC4D", "#FCAB40": "#F4900C", "#DA2F47": "#FFF1C1" }],  // ouro
@@ -259,7 +266,7 @@ function gestoBatismoSenhor(t, c) {
     lib.ondulacao(0, agua, { nm: "G_Onda", center: [100, 150], rx: 26, ry: 6, t0: 42, dur: 26 }),
     L("Rio", [lib.makeEllipse(0, 0, 46, 9, hex("#3B88C3"), "Rio", 45)], { p: [100, 151], o: anim(aparecer(0, 10)) }),
   );
-  if (t >= 3) layers.push(lib.luzDescendo(0, c.col.luz, { nm: "T3_Luz", top: 24, bottom: 104, w0: 10, w1: 64, t0: 20, peak: 34 }));
+  if (t >= 3) layers.push(lib.luzSuave(0, c.col.luz, { nm: "T3_Luz", top: 24, bottom: 104, w0: 10, w1: 64, t0: 20, peak: 34 }));
   return layers;
 }
 
@@ -358,7 +365,7 @@ function gestoInes(t, c) {
     }));
   }
   layers.push(cordeiro);
-  if (t >= 3) layers.push(lib.luzDescendo(0, c.col.luz, { nm: "T3_Luz", top: 24, bottom: 132, w0: 10, w1: 70, t0: 40, peak: 30 }));
+  if (t >= 3) layers.push(lib.luzSuave(0, c.col.luz, { nm: "T3_Luz", top: 24, bottom: 132, w0: 10, w1: 70, t0: 40, peak: 30 }));
   return layers;
 }
 
@@ -413,7 +420,7 @@ function gestoConvPaulo(t, c) {
     s: anim(pop(16, 14, { over: 110 })),
     o: anim(aparecer(16, 4)),
   });
-  const luz = lib.luzDescendo(0, c.col.luz, { nm: "G_Luz", top: 24, bottom: 136, w0: 16, w1: 90, t0: 2, dur: 10, peak: 45 });
+  const luz = lib.luzSuave(0, c.col.luz, { nm: "G_Luz", top: 24, bottom: 136, w0: 16, w1: 90, t0: 2, dur: 10, peak: 45 });
   const layers = [raio, espada];
   if (t >= 3) {
     layers.push(L("T3_Livro", piece("bootstrap-book-fill", 36, { fill: "#FFE8B6" }), {

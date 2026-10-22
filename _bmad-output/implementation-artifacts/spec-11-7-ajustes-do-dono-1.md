@@ -2,7 +2,7 @@
 title: 'Story 11.7: ajustes pedidos pelo dono na página de aprovação (rodada 1)'
 type: 'bugfix'
 created: '2026-10-22'
-status: 'in-review'
+status: 'done'
 baseline_commit: 'eb27f370d65d8e6a2975cf675320f5e63ed47578'
 route: 'dispatch'
 review_loop_iteration: 0

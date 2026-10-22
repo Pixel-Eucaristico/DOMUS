@@ -573,17 +573,53 @@ function makeEllipseRing(cx, cy, rx, ry, width, color, name, opacity = 100) {
   };
 }
 
-/** Luz descendo: feixe que desce do alto (cresce para baixo a partir de `top`) entre t0 e t0+dur. */
-function luzDescendo(ind, color, { nm = "Luz", x = 100, top = 24, bottom = 150, w0 = 14, w1 = 70, t0 = 0, dur = 16, peak = 40 } = {}) {
-  const h = bottom - top;
-  const trap = (a, b) => polyline([[-a / 2, 0], [a / 2, 0], [b / 2, h], [-b / 2, h]], { smooth: false, closed: true });
+/**
+ * Luz do alto que acende e desce suave, sem esticar nem deformar (pedido do
+ * dono na rodada 1 de ajustes, Story 11.7): a forma tem tamanho fixo — um
+ * brilho difuso (três cones macios, um dentro do outro, mais forte no miolo) e
+ * `rays` raios finos de comprimento fixo saindo do alto. A camada nunca muda de
+ * escala: só ganha opacidade e desce `drop` px entre t0 e t0+dur; depois
+ * respira devagar. Ocupa de `top` a `bottom` (descida incluída) e no máximo
+ * `w1` de largura; `w0` é a largura da fonte de luz no alto. `peak` é o nível
+ * de opacidade a que a luz acende; depois ela respira ±20% em volta dele
+ * (por isso `peak` · 1,2 não pode passar de 100).
+ * Substitui o antigo `luzDescendo` (feixe que crescia só na vertical) em
+ * todos os troféus.
+ */
+function luzSuave(ind, color, { nm = "Luz", x = 100, top = 24, bottom = 150, w0 = 14, w1 = 70, t0 = 0, dur = 16, peak = 40, rays = 5, drop = 8 } = {}) {
+  const h = bottom - top - drop;
+  if (!(h > 0 && w1 > w0 && w0 > 0)) throw new Error(`luzSuave: medidas inválidas (top ${top}, bottom ${bottom}, drop ${drop}, w0 ${w0}, w1 ${w1})`);
+  if (!(Number.isInteger(rays) && rays >= 2)) throw new Error(`luzSuave: raios inválidos ${rays}`);
+  // a fonte (altura 0,7·w0) e o pé do raio mais curto (0,68·h) precisam caber, com os raios descendo
+  if (!(w0 * 0.7 < h * 0.68)) throw new Error(`luzSuave: altura ${h} (bottom − top − drop) curta demais para w0 ${w0}`);
+  if (!(Number.isFinite(dur) && dur > 0)) throw new Error(`luzSuave: dur inválido ${dur}`);
+  if (!(Number.isFinite(t0) && t0 >= 0 && t0 + dur + 18 <= FORMAT.op - 1)) {
+    throw new Error(`luzSuave: t0 ${t0} + dur ${dur} não deixa meio período (18 quadros) para respirar até o quadro ${FORMAT.op - 1}`);
+  }
+  if (!(Number.isFinite(peak) && peak > 0 && peak * 1.2 <= 100)) throw new Error(`luzSuave: peak ${peak} fora de 0..${r3(100 / 1.2)} (respira ±20%)`);
+  // cone macio: estreito no alto (largura w0), abrindo até a base larga e arredondada
+  const cone = (f) => {
+    const w = w0 + (w1 - w0) * f, hh = h * (0.6 + 0.4 * f);
+    const sh = polyline([[w0 / 2, 0], [w * 0.36, hh * 0.5], [w * 0.5, hh * 0.86], [w * 0.36, hh * 0.98], [0, hh],
+      [-w * 0.36, hh * 0.98], [-w * 0.5, hh * 0.86], [-w * 0.36, hh * 0.5], [-w0 / 2, 0]], { closed: true });
+    // borda de cima reta (cantos sem curva), para a luz não passar de `top`
+    for (const k of [0, sh.v.length - 1]) { sh.i[k] = [0, 0]; sh.o[k] = [0, 0]; }
+    return sh;
+  };
+  const src = r3(w0 * 0.35);
+  const raios = Array.from({ length: rays }, (_, k) => {
+    const u = (k / (rays - 1)) * 2 - 1;
+    return polyline([[u * w0 * 0.3, src], [u * w1 * 0.42, h * (0.8 - 0.12 * Math.abs(u))]], { smooth: false });
+  });
   return pieceLayer(ind, nm, [
-    makeFill([trap(w0 * 0.45, w1 * 0.45)], color, "LuzMiolo", 100),
-    makeFill([trap(w0, w1)], color, "LuzFeixe", 55),
+    makeEllipse(0, src, w0 / 2, src, color, "LuzFonte", 90),
+    makeStroke(raios, 1.4, color, "LuzRaios", { opacity: 65 }),
+    makeFill([cone(0.35)], color, "LuzMiolo", 45),
+    makeFill([cone(0.7)], color, "LuzMeio", 35),
+    makeFill([cone(1)], color, "LuzBorda", 25),
   ], {
-    p: [x, top],
-    s: anim([[0, [100, 0]], [t0, [100, 0], "out"], [t0 + dur, [100, 100]]]),
-    o: anim([...aparecer(t0, dur / 2, { to: peak }), ...onda(peak, -peak * 0.25, t0 + dur, FORMAT.op - 1, { period: 36 })]),
+    p: anim([[0, [x, top]], [t0, [x, top], "out"], [t0 + dur, [x, top + drop]]]),
+    o: anim([...aparecer(t0, dur * 0.75, { to: peak }), ...onda(peak, -peak * 0.2, t0 + dur, FORMAT.op - 1, { period: 36 })]),
   });
 }
 
@@ -689,6 +725,6 @@ module.exports = {
   mainLayer, sparkleLayers, glowLayer, raysLayer, assemble,
   // movimento
   anim, trajeto, pulo, queda, abrir, onda, aparecer, sumir, pop, pulsar, giro,
-  pieceLayer, scaleLayer, luzDescendo, ondulacao, confete, seeded,
+  pieceLayer, scaleLayer, luzSuave, ondulacao, confete, seeded,
   readApprovedIds, writeTrophy,
 };

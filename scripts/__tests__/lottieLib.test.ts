@@ -130,12 +130,60 @@ describe("movimento", () => {
     expect(() => lib.iconShapes(icon, 10, [0, 0], { only: [5] })).toThrow(/inexistentes/);
   });
 
-  it("confete é igual a cada execução e luzDescendo cresce do alto", () => {
+  it("confete é igual a cada execução", () => {
     expect(JSON.stringify(lib.confete(1, [[1, 0, 0, 1]], { seed: 3 }))).toBe(JSON.stringify(lib.confete(1, [[1, 0, 0, 1]], { seed: 3 })));
-    const luz = lib.luzDescendo(1, [1, 1, 1, 1], { t0: 4, dur: 10 });
-    expect(luz.ks.s.a).toBe(1);
-    expect(luz.ks.s.k[0].s).toEqual([100, 0, 100]);
   });
+
+  it("luzSuave acende e desce sem mudar de escala, dentro de top..bottom", () => {
+    const o = { top: 24, bottom: 150, w0: 12, w1: 80, t0: 30, dur: 16, peak: 30, drop: 8 };
+    const luz = lib.luzSuave(1, [1, 1, 1, 1], o);
+    expect(luz.ks.s).toEqual({ a: 0, k: [100, 100, 100] });
+    const ps = luz.ks.p.k.map((kf: any) => kf.s[1]);
+    expect(ps[0]).toBe(o.top);
+    expect(ps[ps.length - 1]).toBe(o.top + o.drop);
+    // acende até peak e respira ±20% em volta dele
+    const aceso = luz.ks.o.k.find((kf: any) => kf.t === o.t0 + o.dur * 0.75);
+    expect(aceso).toBeDefined();
+    expect(aceso.s).toEqual([o.peak]);
+    expect(Math.max(...luz.ks.o.k.map((kf: any) => kf.s[0]))).toBeCloseTo(o.peak * 1.2);
+    // forma de tamanho fixo: de 0 a bottom − top − drop na altura e até w1 na largura,
+    // com elipses pelos cantos e contornos com metade da largura (curvas suaves passam um fio)
+    const pts: number[][] = [];
+    const walk = (items: any[], pad = 0) => {
+      const st = items.find((it: any) => it.ty === "st");
+      const w = st ? st.w.k / 2 : pad;
+      for (const it of items) {
+        if (it.ty === "sh") for (const [x, y] of lib.samplePoints(it.ks.k)) pts.push([x - w, y - w], [x + w, y + w]);
+        if (it.ty === "el") {
+          const [cx, cy] = it.p.k, [ew, eh] = it.s.k;
+          pts.push([cx - ew / 2, cy - eh / 2], [cx + ew / 2, cy + eh / 2]);
+        }
+        if (it.ty === "gr") walk(it.it, w);
+      }
+    };
+    walk(luz.shapes);
+    const tol = 0.5;
+    expect(Math.max(...pts.map((q) => q[1]))).toBeLessThanOrEqual(o.bottom - o.top - o.drop + tol);
+    expect(Math.min(...pts.map((q) => q[1]))).toBeGreaterThanOrEqual(-tol);
+    expect(Math.max(...pts.map((q) => Math.abs(q[0])))).toBeLessThanOrEqual(o.w1 / 2 + tol);
+  });
+
+  it("luzSuave recusa medidas, quadros, raios e peak inválidos", () => {
+    const luz = (extra: any) => () => lib.luzSuave(1, [1, 1, 1, 1], { top: 24, bottom: 150, w0: 12, w1: 80, t0: 30, peak: 30, ...extra });
+    expect(luz({})).not.toThrow();
+    expect(luz({ top: 100, bottom: 104 })).toThrow(/luzSuave: medidas/);
+    expect(luz({ w1: 12 })).toThrow(/luzSuave: medidas.*w1 12/);
+    expect(luz({ w0: 0 })).toThrow(/luzSuave: medidas.*w0 0/);
+    expect(luz({ rays: 1 })).toThrow(/luzSuave: raios/);
+    expect(luz({ rays: 2.5 })).toThrow(/luzSuave: raios/);
+    expect(luz({ top: 100, bottom: 120, w0: 20, w1: 40 })).toThrow(/luzSuave: altura 12 .*w0 20/);
+    expect(luz({ dur: 0 })).toThrow(/luzSuave: dur/);
+    expect(luz({ dur: -4 })).toThrow(/luzSuave: dur/);
+    expect(luz({ t0: 60, dur: 16 })).toThrow(/luzSuave: t0 60 \+ dur 16/);
+    expect(luz({ peak: 90 })).toThrow(/luzSuave: peak 90/);
+    expect(luz({ peak: 0 })).toThrow(/luzSuave: peak 0/);
+  });
+
 });
 
 describe("validação das ajudas", () => {
