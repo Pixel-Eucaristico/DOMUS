@@ -52,7 +52,7 @@
  * a coroa de mártir; crucifixos (com rosas, o do Carmelo visto do alto, o do
  * caranguejo e o da férula); rosas (`rosaShapes`), lírio (`lirioShapes`),
  * pães (`paoShapes`), palmas (`palmaShapes`), estrelas (`estrelaShapes`),
- * asas (`asaShapes`), chamas (`chamaShapes`), livros (`livroAbertoShapes`),
+ * asas (`asaShapes` e as de penas do touro, `asaDePenasShapes`), chamas (`chamaShapes`), livros (`livroAbertoShapes`),
  * o terço próprio do Rosário (`rosarioShapes`, com o laço de `tercoLaco`:
  * contas peroladas e a medalha de Maria), letras de traço
  * (`letrasShapes`: HUMILITAS, Α e Ω, TE DEUM), pássaros, lobo, touro, boi,
@@ -86,11 +86,11 @@ const ICONS = {};
 const DRAWN = {
   "desenho-teresinha-e-rosas": { desc: "Santa Teresinha (busto, hábito marrom, capa branca e véu preto) abraçando o crucifixo coberto de rosas, com a chuva de rosas", uses: [] },
   "desenho-anjo-da-guarda": { desc: "o anjo da guarda (corpo inteiro, asas abertas) com a mão estendida sobre a criança que caminha", uses: [] },
-  "desenho-francisco-e-passaros": { desc: "São Francisco (corpo inteiro, hábito marrom, cordão de três nós) de braços abertos, com os passarinhos pousando nas mãos", uses: [] },
+  "desenho-francisco-e-passaros": { desc: "São Francisco (corpo inteiro, hábito marrom, cordão de três nós) de braços abertos, com os passarinhos pousando nas mãos (e o lobo manso sentado ao lado, na prata)", uses: [] },
   "desenho-terco-que-acende": { desc: "o terço próprio do Rosário (contas peroladas, medalha de Maria, crucifixo e cinco dezenas) que desce e acende dezena por dezena", uses: [] },
   "desenho-imagem-de-aparecida": { desc: "a imagem de Nossa Senhora Aparecida (rosto e mãos escuros, manto azul em triângulo com orla dourada) subindo na rede dos pescadores", uses: [] },
   "desenho-castelo-interior": { desc: "o castelo de cristal do Castelo Interior, que acende morada por morada até a luz do centro", uses: [] },
-  "desenho-touro-alado": { desc: "o touro alado de São Lucas e o livro do Evangelho que se abre", uses: [] },
+  "desenho-touro-alado": { desc: "o touro alado de São Lucas (asas de penas de ave, presas no ombro e abertas para cima e para trás) e o livro do Evangelho que se abre", uses: [] },
   "desenho-papa-e-ferula": { desc: "São João Paulo II (busto, batina branca e solidéu) erguendo a férula com o crucifixo e abençoando", uses: [] },
   "desenho-simao-e-judas": { desc: "São Simão e São Judas Tadeu (dois bustos com barba), a chama sobre Judas e a imagem de Cristo no peito dele", uses: [] },
   "desenho-multidao-de-santos": { desc: "a multidão de santos de vestes brancas em fileiras, com as auréolas acendendo uma a uma", uses: [] },
@@ -101,7 +101,7 @@ const DRAWN = {
   "desenho-capa-partida": { desc: "São Martinho de Tours (corpo inteiro, soldado romano) partindo a capa vermelha com a espada para o mendigo", uses: [] },
   "desenho-paes-em-rosas": { desc: "Santa Isabel da Hungria (busto, manto e tiara) abrindo o avental, com os pães que viram rosas", uses: [] },
   "desenho-menina-no-templo": { desc: "a menina Maria (corpo inteiro, vestido branco e véu azul) subindo os degraus do Templo", uses: [] },
-  "desenho-orgao-de-cecilia": { desc: "Santa Cecília (busto) tocando o pequeno órgão, com as notas que sobem", uses: [] },
+  "desenho-orgao-de-cecilia": { desc: "Santa Cecília sentada de lado diante do pequeno órgão, olhando para o teclado, com as mãos nas teclas e as notas que sobem dos tubos", uses: [] },
   "desenho-maria-das-gracas": { desc: "Nossa Senhora das Graças (corpo inteiro) de pé sobre o globo, com os raios saindo das mãos", uses: [] },
   "desenho-cristo-no-trono": { desc: "Cristo Rei (corpo inteiro, túnica branca, manto vermelho e coroa) diante do trono, com o cetro e a mão que abençoa", uses: [] },
   "desenho-cruz-em-x": { desc: "a cruz em X de Santo André, que se ergue uma diagonal de cada vez", uses: [] },
@@ -334,7 +334,8 @@ function gestoFrancisco(t, c) {
   ], { p: [0, 0] });
   const chao = cena("Chao", [fill([forma([[44, 124], [100, 120], [156, 124], [100, 128]])], "#77B255", "Chao")]);
   const layers = [passaros, braco("G_BracoE", -1), braco("G_BracoD", 1), francisco];
-  if (t >= 2) layers.push(L("T2_Lobo", loboShapes(), { p: anim([[0, [150, 128]], [40, [150, 128], "out"], [56, [136, 128]]]), o: anim(aparecer(40, 6)) }));
+  // o lobo, de um lado só, aparece sentado aos pés dele, sem cruzar o corpo do santo
+  if (t >= 2) layers.push(L("T2_Lobo", loboShapes(), { a: [0, 0], p: LOBO, s: anim([[0, 0], ...pop(40, 12, { over: 94, base: 88 })]), o: anim(aparecer(40, 6)) }));
   layers.push(chao);
   if (t >= 3) {
     const sol = [lib.makeRays(10, 9, 13, 8, hex("#FFAC33"), "Coroa do sol", [0, 0]), lib.makeEllipse(0, 0, 8, 8, hex("#FFCC4D"), "Sol")];
@@ -345,19 +346,31 @@ function gestoFrancisco(t, c) {
   return layers;
 }
 
-/** Lobo cinza deitado, manso, olhando para a esquerda, com a barriga em (0,0). */
+/**
+ * Lobo de Gúbio, manso, sentado de lado e olhando para a esquerda (para
+ * Francisco): orelhas pontudas, focinho, peito claro, patas da frente em pé e
+ * o rabo peludo no chão; as patas em y = 0, do x −11 (focinho) ao 40 (rabo).
+ */
 function loboShapes() {
   return [
-    lib.makeEllipse(-27.4, -7.4, 1.6, 1.3, hex("#292F33"), "Nariz"),
-    stroke([lib.polyline([[-20, -11], [-18.5, -11.6], [-17, -11]])], 0.9, hex("#292F33"), "Olho"),
-    fill([poligono([[-16, -16], [-13, -24], [-10, -15]]), poligono([[-12, -15], [-8, -22], [-7, -13]])], "#66757F", "Orelhas"),
-    fill([forma([[-28, -7], [-24, -10], [-17, -16], [-9, -15], [-6, -8], [-12, -3], [-22, -4]])], "#8899A6", "Cabeca"),
-    fill([forma([[-25, -6], [-18, -5], [-12, -4], [-18, -2]])], "#E1E8ED", "Focinho"),
-    stroke([reta([[-14, 2], [-28, 3]])], 4, hex("#8899A6"), "Patas"),
-    fill([forma([[-12, -6], [4, -8], [16, -6], [20, 2], [10, 4], [-12, 4]])], "#AAB8C2", "Corpo"),
-    fill([forma([[18, 0], [26, -6], [34, -4], [30, 2], [20, 4]])], "#8899A6", "Rabo"),
+    lib.makeEllipse(-10, -25, 1.5, 1.3, hex("#292F33"), "Nariz"),
+    stroke([lib.polyline([[-3, -29.6], [-1.4, -30.4], [0.2, -29.6]])], 0.9, hex("#292F33"), "Olho"),
+    fill([forma([[-10, -24.4], [-4, -22.6], [1, -22.4], [-3, -21]])], "#66757F", "Boca"),
+    fill([poligono([[5, -40], [3.4, -32], [8, -33]])], "#E1E8ED", "Orelha clara"),
+    fill([poligono([[2, -33], [5, -42], [9, -33]]), poligono([[7, -33], [11, -40], [12.6, -31]])], "#66757F", "Orelhas"),
+    fill([forma([[-11, -26.4], [-5, -29], [-3, -27], [-2, -23], [-10, -24]])], "#CCD6DD", "Focinho"),
+    fill([forma([[-4, -30], [2, -34.6], [9, -34], [13, -29], [12, -22], [6, -19.6], [-1, -21.4]])], "#8899A6", "Cabeca"),
+    lib.makeEllipse(2.6, -1.2, 2.8, 1.4, hex("#66757F"), "PataE"), lib.makeEllipse(8.6, -1.2, 2.8, 1.4, hex("#66757F"), "PataD"),
+    stroke([reta([[3, -13], [3, -1.6]]), reta([[8.4, -13], [8.4, -1.6]])], 3.6, hex("#8899A6"), "Patas da frente"),
+    fill([forma([[0, -8], [0.6, -16], [4, -22], [9, -21], [9, -12], [6, -6]])], "#E1E8ED", "Peito"),
+    fill([forma([[18, -2], [16, -10], [20, -16], [27, -15], [30, -8], [28, -1]])], "#8899A6", "Coxa"),
+    fill([forma([[0, -6], [0, -16], [4, -24], [12, -24], [20, -18], [27, -12], [29, -4], [26, 0], [6, 0]])], "#AAB8C2", "Corpo"),
+    fill([forma([[34, -4.6], [40, -4], [42, -1.6], [38, 0.2], [33, -1]])], "#E1E8ED", "Ponta do rabo"),
+    fill([forma([[22, -1], [26, -5], [32, -6.4], [38, -5.4], [41, -2.4], [36, 0.4], [28, 1], [22, 1]])], "#8899A6", "Rabo"),
   ];
 }
+/** Onde o lobo se senta, aos pés de Francisco (à direita de quem olha), sem tocar o corpo dele. */
+const LOBO = [129, 125];
 
 /** Mãos postas e as mangas, num busto (escala k), com a cor da manga. */
 function maosPostas(k, manga, pele = PELE) {
@@ -573,7 +586,53 @@ function gestoTeresaAvila(t, c) {
   return layers;
 }
 
-/** Touro de São Lucas, olhando para a direita, com o meio do corpo em (0,0) e os cascos em y = 31; a asa de trás vai junto. */
+/**
+ * Asa de ave, de penas (como a da águia e a do anjo, não de morcego), com a
+ * raiz em (0,0), abrindo para a direita e para cima até a ponta perto de (w, −w):
+ * a fileira das penas longas (rêmiges), a das médias e a das cobertas, cada
+ * pena com a ponta arredondada, em tons quentes de ave. `espelhar` faz a asa
+ * que abre para a esquerda.
+ */
+function asaDePenasShapes(w, { penas = "#A0522D", medias = "#D4884A", cobertas = "#F2C47E", haste = "#6B3A1E", borda = "#F7DEB0" } = {}) {
+  // o bordo de ataque (o "braço" da asa), que sobe da raiz até o punho; as penas saem dele em leque para fora
+  const bordo = [[0, 0], [0.04, -0.36], [0.14, -0.66], [0.28, -0.82]];
+  const em = (u) => {
+    const n = bordo.length - 1, x = Math.min(n - 1e-9, Math.max(0, u * n)), k = Math.floor(x), f = x - k;
+    return [bordo[k][0] + (bordo[k + 1][0] - bordo[k][0]) * f, bordo[k][1] + (bordo[k + 1][1] - bordo[k][1]) * f];
+  };
+  // cada pena sai do bordo em u, apontando de "para fora e um pouco para baixo" (perto da raiz) a "para fora e para cima" (no punho)
+  const direcao = (u) => ((14 - 56 * u) * Math.PI) / 180;
+  const pena = (u, comp, larg) => {
+    const [bx, by] = em(u), ang = direcao(u);
+    const dx = Math.cos(ang), dy = Math.sin(ang), nx = -dy, ny = dx;
+    const P = (a, b) => [(bx + dx * a + nx * b) * w, (by + dy * a + ny * b) * w];
+    return forma([P(0, -larg * 0.7), P(comp * 0.6, -larg), P(comp, 0), P(comp * 0.6, larg), P(0, larg * 0.7)]);
+  };
+  const comprimento = (u, k) => (0.46 + 0.3 * u) * k;
+  const fileira = (n, k, larg) => Array.from({ length: n }, (_, j) => {
+    const u = j / (n - 1);
+    return pena(u, comprimento(u, k), larg);
+  });
+  const remiges = fileira(9, 1, 0.08);
+  const hastes = Array.from({ length: 9 }, (_, j) => {
+    const u = j / 8, [bx, by] = em(u), ang = direcao(u), comp = comprimento(u, 0.92);
+    return reta([[(bx + Math.cos(ang) * 0.1) * w, (by + Math.sin(ang) * 0.1) * w], [(bx + Math.cos(ang) * comp) * w, (by + Math.sin(ang) * comp) * w]]);
+  });
+  const braco = forma([...bordo, [0.36, -0.74], [0.24, -0.5], [0.16, -0.2], [0.12, 0.04]].map(([x, y]) => [x * w, y * w]));
+  return [
+    fill([braco], cobertas, "Bordo"),
+    fill(fileira(7, 0.36, 0.08), borda, "Cobertas"),
+    fill(fileira(8, 0.66, 0.085), medias, "Penas medias"),
+    stroke(hastes, Math.max(0.6, w * 0.018), hex(haste), "Hastes"),
+    fill(remiges, penas, "Penas longas"),
+  ];
+}
+
+/**
+ * Touro de São Lucas, olhando para a direita, com o meio do corpo em (0,0) e
+ * os cascos em y = 31; o rabo à esquerda. A asa de trás (de penas, a mesma da
+ * frente, mais escura) sai do ombro e abre para cima e para trás (para o rabo).
+ */
 function touroShapes() {
   return [
     lib.makeEllipse(37, -14.5, 1.3, 1.3, hex("#292F33"), "Olho"),
@@ -587,17 +646,20 @@ function touroShapes() {
     fill([forma([[-30, -8], [-20, -16], [0, -17], [18, -16], [27, -10], [28, 6], [18, 12], [-20, 12], [-30, 6]])], "#A0522D", "Corpo"),
     stroke([lib.polyline([[-30, -4], [-35, 6], [-35, 16]])], 1.8, hex("#8A4633"), "Rabo"),
     lib.makeEllipse(-35, 17, 2, 3, hex("#3B2416"), "Tufo"),
-    ...transladar(asaShapes(32, { cor: "#E8DCC0", sombra: "#C9B78F" }), [-10, -16]),
+    ...transladar(espelhar(asaDePenasShapes(34, { penas: "#7A3E1D", medias: "#A8683A", cobertas: "#C99A5E", haste: "#4A2812", borda: "#D9B27A" })), [ASA_DE_TRAS[0], ASA_DE_TRAS[1]]),
   ];
 }
 /** Touro de São Lucas: meio do corpo no fim. */
 const TOURO = [88, 118];
+/** Ombro do touro (no desenho, a partir do meio do corpo): a raiz da asa da frente; a de trás sai um pouco mais adiante e acima. */
+const OMBRO_TOURO = [14, -12], ASA_DE_TRAS = [20, -16];
 
 /** São Lucas Evangelista: o touro alado aparece e o livro do Evangelho se abre. */
 function gestoLucas(t, c) {
   const touro = L("G_Touro", touroShapes(), { a: [0, 31], p: add(TOURO, [0, 31]), s: anim(pop(0, 14, { over: 106 })), o: anim(aparecer(0, 6)) });
-  const asa = L("G_Asa", asaShapes(38, { cor: "#FFF8E7", sombra: "#E1C38F" }), {
-    p: add(TOURO, [-2, -14]), r: anim([[0, 40], [10, 40, "out"], [26, 0], ...onda(0, -8, 26, END, { period: 20 })]), o: anim(aparecer(8, 6)),
+  // a asa da frente, presa no ombro, abre para cima e para trás (para o rabo) e bate devagar
+  const asa = L("G_Asa", espelhar(asaDePenasShapes(40)), {
+    a: [0, 0], p: add(TOURO, OMBRO_TOURO), r: anim([[0, -50], [10, -50, "out"], [26, 0], ...onda(0, 7, 26, END, { period: 20 })]), o: anim(aparecer(8, 6)),
   });
   const livro = L("G_Livro", livroAbertoShapes(50, 30, "#BE1931"), { p: [118, 160], s: anim([[0, [4, 100]], ...abrir(18, 32, { axis: "x", from: 4 })]), o: anim(aparecer(18, 3)) });
   const layers = [livro, asa, touro];
@@ -747,21 +809,50 @@ function gestoTodosSantos(t, c) {
   const layers = [];
   if (t >= 2) layers.push(L("T2_Palmas", MULTIDAO.frente.flatMap(([x, y]) => transladar(palmaShapes(24), [x + 9, y + 30])), { p: [0, 0], o: anim(aparecer(40, 8)) }));
   layers.push(fila("G_FilaFrente", MULTIDAO.frente, 6), aureolas, fila("G_FilaTras", MULTIDAO.tras, 0));
-  if (t >= 3) layers.push(L("T3_Cordeiro", cordeiroDeDeusShapes(), { p: anim([[0, [100, 52]], [46, [100, 52], "out"], [58, [100, 60]], ...flutuar([100, 60], 58, 1.5)]), o: anim(aparecer(46, 8)) }));
+  if (t >= 3) layers.push(L("T3_Cordeiro", cordeiroDeDeusShapes(), { p: anim([[0, [102, 80]], [46, [102, 80], "out"], [58, [102, 86]], ...flutuar([102, 86], 58, 1.5)]), o: anim(aparecer(46, 8)) }));
   if (t >= 3) layers.push(luzDoOuro(c, { w1: 100, bottom: 140 }));
   return layers;
 }
-/** O Cordeiro de Deus, de pé, olhando para a esquerda, com o estandarte da cruz; os cascos em y = 10. */
+/**
+ * O Cordeiro de Deus, de pé nas quatro patas, olhando para a esquerda, com o
+ * estandarte da Ressurreição (branco, com a cruz vermelha) na haste que ele
+ * segura junto ao peito: lã branca em cachos (contorno de nuvem, com a borda
+ * cinza para não sumir no fundo claro), cara e patas escuras, orelhas de lado
+ * e o tufo de lã na cabeça. Os cascos em y = 0; vai de x −22 a 24 e de
+ * y −54 (a cruz da haste) a 0.
+ */
 function cordeiroDeDeusShapes() {
+  const C = [3, -19], RX = 14, RY = 8.6;
+  // cachos em volta do corpo (o contorno de nuvem) e alguns por dentro
+  const cachos = Array.from({ length: 14 }, (_, k) => {
+    const a = (k / 14) * Math.PI * 2;
+    return [C[0] + RX * Math.cos(a), C[1] + RY * Math.sin(a)];
+  });
+  const bolas = (r, cor, nm) => fill([...cachos.map(([x, y]) => lib.polyline(Array.from({ length: 12 }, (_, j) => [x + r * Math.cos((j / 12) * Math.PI * 2), y + r * Math.sin((j / 12) * Math.PI * 2)]), { closed: true })),
+    forma([[C[0] - RX, C[1]], [C[0], C[1] - RY], [C[0] + RX, C[1]], [C[0], C[1] + RY]])], cor, nm);
+  const caracois = [[-3, -21], [4, -24], [10, -19], [1, -15], [-6, -16], [8, -13]].map(([x, y]) => lib.polyline([[x - 2, y + 0.6], [x - 1, y - 1.2], [x + 1, y - 1.2], [x + 2, y + 0.6]]));
+  const ESCURO = "#3D3330";
   return [
-    fill([poligono([[3, -26], [14, -24], [14, -18], [3, -19]])], "#FFFFFF", "Estandarte"),
-    stroke([reta([[6.4, -25], [6.4, -19.6]]), reta([[4, -22.4], [12, -22.4]])], 1.4, hex("#DD2E44"), "Cruz do estandarte"),
-    stroke([reta([[3, -27], [3, 6]])], 1.4, hex("#C99A3C"), "Haste"),
-    lib.makeEllipse(-11.4, -7, 0.9, 0.9, hex("#292F33"), "Olho"),
-    fill([forma([[-7, -11], [-4, -14], [-3, -9]])], "#CCD6DD", "Orelha"),
-    lib.makeEllipse(-10, -6, 4.6, 4, hex("#F5F8FA"), "Cabeca"),
-    lib.makeEllipse(-3, -2, 7, 6, hex("#FFFFFF"), "La1"), lib.makeEllipse(5, -2, 7, 6, hex("#FFFFFF"), "La2"), lib.makeEllipse(1, 2, 10, 5, hex("#E1E8ED"), "La3"),
-    stroke([reta([[-6, 5], [-6, 10]]), reta([[-1, 5], [-1, 10]]), reta([[5, 5], [5, 10]]), reta([[9, 4], [9, 10]])], 2.2, hex("#66757F"), "Pernas"),
+    // o estandarte: a bandeira tremula para a direita, presa no alto da haste
+    stroke([reta([[-9, -50], [-9, -46]]), reta([[-11, -48.6], [-7, -48.6]])], 1.2, hex("#C99A3C"), "Cruz da haste"),
+    stroke([reta([[-2.6, -44], [-2.6, -35]]), reta([[-7, -39.6], [2, -39.6]])], 1.8, hex("#DD2E44"), "Cruz do estandarte"),
+    fill([forma([[-9, -45], [0, -46], [8, -44], [5, -40], [8, -35], [0, -34], [-9, -35]])], "#FFFFFF", "Estandarte"),
+    stroke([forma([[-9, -45], [0, -46], [8, -44], [5, -40], [8, -35], [0, -34], [-9, -35]])], 0.8, hex("#CCD6DD"), "Borda do estandarte"),
+    stroke([reta([[-9, -46], [-9, -10]])], 1.6, hex("#C99A3C"), "Haste"),
+    // a cabeça: tufo de lã, olho, cara escura e orelhas de lado
+    lib.makeEllipse(-15.4, -27.4, 1, 1, hex("#FFFFFF"), "Olho"),
+    fill([forma([[-19, -30], [-17.4, -33.6], [-13, -35.4], [-8.6, -34], [-6.6, -30.6], [-10, -29.4], [-15, -29.4]])], "#FFFFFF", "Tufo"),
+    stroke([forma([[-19, -30], [-17.4, -33.6], [-13, -35.4], [-8.6, -34], [-6.6, -30.6], [-10, -29.4], [-15, -29.4]])], 0.7, hex("#CCD6DD"), "Borda do tufo"),
+    fill([forma([[-10, -29], [-6.4, -27], [-7, -25], [-11, -26]]), forma([[-17, -28], [-22, -27], [-21.4, -25.4], [-17, -26]])], ESCURO, "Orelhas"),
+    fill([forma([[-12, -31], [-8, -28], [-8, -23], [-13, -18], [-18, -17.4], [-21, -20], [-19, -26], [-16, -30]])], ESCURO, "Cara"),
+    stroke(caracois, 0.9, hex("#CCD6DD"), "Cachos"),
+    bolas(4.2, "#FFFFFF", "La"),
+    bolas(5, "#CCD6DD", "Contorno da la"),
+    // as quatro patas escuras (as de trás, um pouco mais claras) e os cascos
+    stroke([reta([[-6, -13], [-6, -1]]), reta([[10, -13], [10, -1]])], 2.8, hex(ESCURO), "Patas da frente"),
+    stroke([reta([[-2, -13], [-2, -1]]), reta([[14, -13], [14, -1]])], 2.6, hex("#66575A"), "Patas de tras"),
+    fill([rect(-7.6, -1.6, -4.4, 0), rect(8.4, -1.6, 11.6, 0), rect(-3.4, -1.6, -0.6, 0), rect(12.6, -1.6, 15.4, 0)], "#1E1A19", "Cascos"),
+    lib.makeEllipse(19.4, -23, 3, 2.6, hex("#FFFFFF"), "Rabo"),
   ];
 }
 
@@ -1130,13 +1221,42 @@ function gestoApresentacaoMaria(t, c) {
 }
 
 /** Pose de Santa Cecília (busto de cabelo solto, parada). */
-const CECILIA = { F: [74, 92], K: 0.66 };
+const CECILIA = { F: [72, 104], K: 0.62 };
+/** Meio da base do órgão (no fim): o teclado fica ao alcance das mãos de Cecília. */
+const ORGAO = [124, 146];
+const VESTE_CECILIA = "#5C913B";
+/**
+ * Santa Cecília sentada de lado num banco, virada para a direita (para o
+ * órgão): rosto de três quartos (olhos baixos, nariz e boca do lado do
+ * teclado), cabelo longo caindo nas costas, tronco de perfil, o colo e a saia
+ * até o chão; os braços vão numa camada à parte. Mesma cabeça do `busto`
+ * (rosto 22 × 28 com k = 1, pele comum), rosto em (0,0), escala k; vai de
+ * y −18 (cabelo) a 91 (pés do banco). Devolve os grupos da frente para trás.
+ */
+function ceciliaSentadaShapes(k) {
+  const P = (pts) => escala(k, pts);
+  const olho = (x) => lib.polyline(P([[x - 2.6, -0.4], [x, 1.6], [x + 2.6, -0.4]]));
+  return [
+    stroke([olho(1), olho(8.4)], 1.3 * k, hex("#662113"), "Olhos"),
+    stroke([lib.polyline(P([[10.2, 0.6], [11.8, 4.6], [9.8, 5.4]]))], 1 * k, hex("#C1694F"), "Nariz"),
+    stroke([lib.polyline(P([[3.6, 8.6], [5.8, 9.6], [8, 8.4]]))], 1.2 * k, hex("#C1694F"), "Boca"),
+    lib.makeEllipse(0.6 * k, 6 * k, 2.6 * k, 1.6 * k, hex("#F4ABBA"), "Face1", 80),
+    lib.makeEllipse(0, 0, 11 * k, 14 * k, hex(PELE), "Rosto"),
+    fill([rect(-5 * k, 8 * k, 3 * k, 20 * k)], PELE, "Pescoco"),
+    fill([forma(P([[-5, 18], [4, 18], [0, 25]]))], PELE, "Decote"),
+    fill([forma(P([[2, -18], [11, -14], [13, -7], [8, -10.6], [1, -11], [-5, -8], [-8, -1], [-9, 10], [-7, 24], [-6, 34], [-15, 36], [-20, 24], [-19, 4], [-16, -9], [-9, -16]]))], "#8A4633", "Cabelo"),
+    fill([forma(P([[-6, 16], [6, 17], [14, 24], [18, 36], [18, 50], [14, 58], [-14, 58], [-18, 44], [-16, 28], [-12, 20]]))], VESTE_CECILIA, "Veste"),
+    fill([forma(P([[-15, 50], [16, 50], [34, 53], [39, 60], [36, 68], [-16, 68], [-18, 60]])), forma(P([[24, 56], [38, 57], [43, 86], [20, 86]]))], "#4A7A2E", "Saia"),
+    lib.makeEllipse(40 * k, 87 * k, 5 * k, 2.4 * k, hex("#5C3A21"), "Sapato"),
+    fill([rect(-22 * k, 68 * k, 22 * k, 73 * k), rect(-20 * k, 73 * k, -16 * k, 91 * k), rect(16 * k, 73 * k, 20 * k, 91 * k)], "#C1694F", "Banco"),
+  ];
+}
 /** Órgão portátil: o meio da base em (0,0), tubos e teclado. */
 function orgaoShapes() {
   const tubos = [[-18, 38], [-11, 46], [-4, 52], [3, 46], [10, 40], [17, 34]];
   return [
-    stroke([reta([[-20, -6], [20, -6]])], 1, hex("#292F33"), "Teclas pretas"),
-    fill([rect(-22, -8, 22, -3)], "#FFFFFF", "Teclado"),
+    stroke([-18, -14, -8, -4, 2, 6, 12, 16].map((x) => reta([[x, -10], [x, -6.4]])), 1.4, hex("#292F33"), "Teclas pretas"),
+    fill([rect(-22, -10, 22, -3)], "#FFFFFF", "Teclado"),
     ...tubos.map(([x, h], k) => fill([rect(x - 2.6, -8 - h, x + 2.6, -8), forma([[x - 2.6, -8 - h], [x, -11 - h], [x + 2.6, -8 - h]])], k % 2 ? "#E1C38F" : "#FFCC4D", `Tubo${k}`)),
     fill([rect(-24, -8, 24, 14)], "#8A4633", "Caixa"),
     stroke([reta([[-20, 4], [20, 4]])], 1.2, hex("#5C3A21"), "Friso"),
@@ -1148,17 +1268,20 @@ const notaShapes = () => [
   lib.makeEllipse(0, 0, 2.8, 2.1, hex("#292F33"), "Cabeca"),
 ];
 
-/** Santa Cecília: toca o pequeno órgão e as notas sobem. */
+/** Santa Cecília: sentada de lado diante do pequeno órgão, olha para o teclado e toca; as notas sobem dos tubos. */
 function gestoCecilia(t, c) {
   const { F, K } = CECILIA;
-  const cecilia = L("G_Cecilia", busto(K, { veste: "#5C913B", cabelo: "longo", corCabelo: "#8A4633" }), { p: anim([[0, add(F, [0, 6])], [12, F, "out"]]), o: anim(aparecer(0, 6)) });
-  const ORGAO = [134, 150];
+  const cecilia = L("G_Cecilia", ceciliaSentadaShapes(K), { p: anim([[0, add(F, [0, 6])], [12, F, "out"]]), o: anim(aparecer(0, 6)) });
   const orgao = L("G_Orgao", orgaoShapes(), { a: [0, 14], p: add(ORGAO, [0, 14]), s: anim(pop(0, 14, { over: 106 })), o: anim(aparecer(0, 6)) });
-  const teclas = add(ORGAO, [-14, -7]);
-  const ombro = add(F, [24 * K, 36 * K]);
+  // os dois braços saem do ombro e estendem-se até o teclado; as mãos ficam sobre as teclas e tocam (sobem e descem)
+  const teclas = add(ORGAO, [-18, -6.5]);
+  const mao1 = teclas, mao2 = add(teclas, [9, 0]);
+  const ombroPerto = add(F, [9 * K, 24 * K]), ombroLonge = add(F, [3 * K, 23 * K]);
   const maos = L("G_Maos", [
-    lib.makeEllipse(teclas[0], teclas[1], 3.2, 2.6, hex(PELE), "Mao1"), lib.makeEllipse(teclas[0] + 9, teclas[1], 3.2, 2.6, hex(PELE), "Mao2"),
-    stroke([lib.polyline([ombro, [ombro[0] + 8, ombro[1] + 14], [teclas[0] - 2, teclas[1] + 1]])], 5.5, hex("#5C913B"), "Manga"),
+    lib.makeEllipse(mao2[0], mao2[1], 3.2, 2.6, hex(PELE), "Mao2"),
+    lib.makeEllipse(mao1[0], mao1[1], 3.2, 2.6, hex(PELE), "Mao1"),
+    stroke([lib.polyline([ombroPerto, add(F, [17 * K, 44 * K]), add(mao1, [-2.4, 0.6])])], 5.5, hex(VESTE_CECILIA), "Manga"),
+    stroke([lib.polyline([ombroLonge, add(F, [14 * K, 47 * K]), add(mao2, [-2.4, 0.6])])], 5.5, hex("#4A7A2E"), "Manga de tras"),
   ], { p: anim([[0, [0, 0]], [16, [0, 0]], ...onda([0, 0], -1.5, 16, END, { period: 8, axis: 1 })]), o: anim(aparecer(10, 6)) });
   const sobe = (x0, t0) => [[0, [x0, 0]], [t0, [x0, 0], "linear"], [t0 + 30, [x0 + 8, -40]]];
   const notas = L("G_Notas", [

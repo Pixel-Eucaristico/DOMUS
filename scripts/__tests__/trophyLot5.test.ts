@@ -15,7 +15,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { ALL_LITURGICAL_TROPHIES } from "../../packages/gamification/src/liturgicalTrophies/data";
-import { checkLot, designFingerprint, guideRows, readLottie, valueAt, OUT, lib, type Entry } from "./trophyLotChecks";
+import { checkLot, designFingerprint, guideRows, layerSamples, readLottie, valueAt, OUT, lib, type Entry } from "./trophyLotChecks";
 
 const require = createRequire(import.meta.url);
 const lot = require("../trophy-lot-5.js");
@@ -512,6 +512,135 @@ describe("Lottie — lote 5", () => {
     expect(ids.length).toBe(ALL_LITURGICAL_TROPHIES.length);
     const faltam = ids.flatMap(niveis).filter((f) => !fs.existsSync(path.join(OUT, f)));
     expect(faltam).toEqual([]);
+  });
+});
+
+describe("Lottie — lote 5, ajustes do dono (Cecília, Francisco, Lucas e Todos os Santos)", () => {
+  /** Ponto do desenho da camada → quadro t (âncora, escala, rotação e posição). */
+  const noQuadro = (ly: any, t: number, [x, y]: number[]): number[] => {
+    const [px, py] = em(ly.ks.p, t), [ax, ay] = em(ly.ks.a, t), [sx, sy] = em(ly.ks.s, t).map((v) => v / 100);
+    const r = (em(ly.ks.r, t)[0] * Math.PI) / 180, lx = (x - ax) * sx, lyy = (y - ay) * sy;
+    return [px + lx * Math.cos(r) - lyy * Math.sin(r), py + lx * Math.sin(r) + lyy * Math.cos(r)];
+  };
+  /** Caixa [x0, y0, x1, y1] da área desenhada da camada no quadro t. */
+  const caixa = (ly: any, t = 89): number[] => {
+    const pts = layerSamples(ly, t);
+    expect(pts.length, ly.nm).toBeGreaterThan(0);
+    const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+    return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  };
+  const seCruzam = (a: number[], b: number[]) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+  const grupoDe = (ly: any, nm: string) => {
+    const g = ly.shapes.find((x: any) => x.nm === nm);
+    expect(g, `${ly.nm}/${nm}`).toBeDefined();
+    return g;
+  };
+  const formas = (g: any) => g.it.filter((it: any) => it.ty === "sh" || it.ty === "el");
+
+  it("Francisco: o lobo é uma camada só, de um lado só, sentado aos pés dele, sem cruzar o corpo do santo no quadro final", () => {
+    for (const f of niveis("lt_francisco_assis").slice(1)) {
+      const lobos = nomes(f).filter((n) => /Lobo/.test(n));
+      expect(lobos, f).toEqual(["T2_Lobo"]);
+      const lobo = caixa(camada(f, "T2_Lobo"));
+      const corpo = caixa(camada(f, "G_Francisco"));
+      for (const nm of ["G_Francisco", "G_BracoE", "G_BracoD"]) expect(seCruzam(lobo, caixa(camada(f, nm))), `${f}: o lobo cruza ${nm}`).toBe(false);
+      // inteiro à direita do santo, e no chão, aos pés dele
+      expect(lobo[0], `${f}: lobo de um lado só`).toBeGreaterThan(corpo[2]);
+      expect(Math.abs(lobo[3] - corpo[3]), `${f}: lobo no chão, aos pés do santo`).toBeLessThan(6);
+      expect(lobo[1], `${f}: lobo sentado, abaixo dos braços erguidos`).toBeGreaterThan(corpo[1] + 20);
+      // um lobo manso: cinza, orelhas pontudas, focinho e rabo peludo
+      const grupos = camada(f, "T2_Lobo").shapes.map((g: any) => g.nm);
+      expect(grupos, f).toEqual(expect.arrayContaining(["Orelhas", "Focinho", "Nariz", "Rabo", "Corpo", "Patas da frente"]));
+      expect(coresDe(grupoDe(camada(f, "T2_Lobo"), "Corpo")), f).toEqual(["#AAB8C2"]);
+    }
+  });
+
+  it("Lucas: as asas são de penas, presas no ombro do touro, e abrem para cima e para trás (para o rabo)", () => {
+    for (const f of niveis("lt_lucas")) {
+      const asa = camada(f, "G_Asa"), touro = camada(f, "G_Touro");
+      const ombro = em(asa.ks.p, 89);
+      expect(em(asa.ks.a, 89).slice(0, 2), f).toEqual([0, 0]);
+      // o rabo do touro fica à esquerda do ombro: "para trás" é para a esquerda
+      const rabo = noQuadro(touro, 89, centroDe(touro, "Tufo"));
+      expect(rabo[0], `${f}: rabo atrás do ombro`).toBeLessThan(ombro[0] - 20);
+      // o ombro é no alto do corpo do touro
+      const corpo = pontosDe([grupoDe(touro, "Corpo")]).map((q) => noQuadro(touro, 89, q));
+      expect(ombro[0], f).toBeGreaterThan(Math.min(...corpo.map((q) => q[0])));
+      expect(ombro[0], f).toBeLessThan(Math.max(...corpo.map((q) => q[0])));
+      expect(Math.abs(ombro[1] - Math.min(...corpo.map((q) => q[1]))), `${f}: asa presa no alto do corpo`).toBeLessThan(6);
+      // a ponta da asa (o ponto mais alto) fica acima e atrás do ombro, e a asa inteira também
+      const pts = layerSamples(asa, 89);
+      const ponta = pts.reduce((m, q) => (q[1] < m[1] ? q : m));
+      expect(ponta[1], `${f}: ponta acima do ombro`).toBeLessThan(ombro[1] - 25);
+      expect(ponta[0], `${f}: ponta atrás do ombro (lado do rabo)`).toBeLessThan(ombro[0]);
+      const meio = [pts.reduce((s, q) => s + q[0], 0) / pts.length, pts.reduce((s, q) => s + q[1], 0) / pts.length];
+      expect(meio[0], `${f}: asa para trás`).toBeLessThan(ombro[0]);
+      expect(meio[1], `${f}: asa para cima`).toBeLessThan(ombro[1]);
+      // de penas, em cor de ave (não a asa clara lisa): fileiras de penas
+      for (const nm of ["Penas longas", "Penas medias", "Cobertas"]) expect(formas(grupoDe(asa, nm)).length, `${f} ${nm}`).toBeGreaterThanOrEqual(6);
+      expect(coresDe(grupoDe(asa, "Penas longas")), f).toEqual(["#A0522D"]);
+      // a asa de trás vai com o touro e também abre para o rabo
+      const tras = pontosDe([grupoDe(touro, "Penas longas")]).map((q) => noQuadro(touro, 89, q));
+      const topo = tras.reduce((m, q) => (q[1] < m[1] ? q : m));
+      expect(topo[0], `${f}: asa de trás para o rabo`).toBeLessThan(ombro[0]);
+      expect(topo[1], `${f}: asa de trás para cima`).toBeLessThan(ombro[1] - 20);
+    }
+  });
+
+  it("Cecília: sentada de lado, com o rosto virado para o órgão e as mãos sobre o teclado", () => {
+    for (const f of niveis("lt_cecilia")) {
+      const cecilia = camada(f, "G_Cecilia"), orgao = camada(f, "G_Orgao"), maos = camada(f, "G_Maos");
+      // rosto de três quartos: olhos, nariz e boca do lado do órgão
+      const rosto = centroDe(cecilia, "Rosto");
+      for (const nm of ["Olhos", "Nariz", "Boca"]) {
+        const xs = pontosDe([grupoDe(cecilia, nm)]).map((q) => q[0]);
+        expect(xs.reduce((s, x) => s + x, 0) / xs.length, `${f} ${nm}: virado para o órgão`).toBeGreaterThan(rosto[0] + 2);
+      }
+      const face = noQuadro(cecilia, 89, rosto);
+      const teclado = pontosDe([grupoDe(orgao, "Teclado")]).map((q) => noQuadro(orgao, 89, q));
+      const [tx0, ty0, tx1, ty1] = [Math.min(...teclado.map((q) => q[0])), Math.min(...teclado.map((q) => q[1])), Math.max(...teclado.map((q) => q[0])), Math.max(...teclado.map((q) => q[1]))];
+      expect(tx0, `${f}: o órgão fica do lado para onde ela olha`).toBeGreaterThan(face[0]);
+      expect(ty0, `${f}: o teclado abaixo do rosto (ela olha para baixo, para as teclas)`).toBeGreaterThan(face[1]);
+      // as mãos sobre as teclas, em todo o toque (o quadro final e o meio da animação)
+      for (const t of [30, 60, 89]) {
+        for (const nm of ["Mao1", "Mao2"]) {
+          const [x, y] = noQuadro(maos, t, centroDe(maos, nm));
+          expect(x >= tx0 && x <= tx1 && y >= ty0 && y <= ty1, `${f} ${nm} quadro ${t}: (${x}, ${y}) fora do teclado`).toBe(true);
+        }
+      }
+      // os braços vão do ombro (no corpo dela) até as mãos
+      const manga = pontosDe([grupoDe(maos, "Manga")]).map((q) => noQuadro(maos, 89, q));
+      const veste = caixa({ ...cecilia, shapes: [grupoDe(cecilia, "Veste")] });
+      expect(manga[0][0] >= veste[0] && manga[0][0] <= veste[2] && manga[0][1] >= veste[1] && manga[0][1] <= veste[3], `${f}: braço sai do ombro`).toBe(true);
+      // sentada: há o banco, e nenhum pé de figura em pé
+      expect(cecilia.shapes.map((g: any) => g.nm), f).toEqual(expect.arrayContaining(["Banco", "Saia", "Cabelo"]));
+    }
+  });
+
+  it("Todos os Santos (ouro): o Cordeiro tem lã em cachos, cara e orelhas escuras, quatro patas e o estandarte com a cruz vermelha, no alto da multidão", () => {
+    const f = "lt_todos_santos_t3.json";
+    const cordeiro = camada(f, "T3_Cordeiro");
+    const g = (nm: string) => grupoDe(cordeiro, nm);
+    expect(formas(g("La")).length, "cachos da lã").toBeGreaterThanOrEqual(12);
+    expect(formas(g("Contorno da la")).length).toBe(formas(g("La")).length);
+    expect(coresDe(g("La"))).toEqual(["#FFFFFF"]);
+    const escura = (cor: string) => parseInt(cor.slice(1, 3), 16) + parseInt(cor.slice(3, 5), 16) + parseInt(cor.slice(5, 7), 16) < 3 * 0x60;
+    for (const nm of ["Cara", "Orelhas"]) expect(coresDe(g(nm)).every(escura), `${nm} escura`).toBe(true);
+    expect(formas(g("Orelhas"))).toHaveLength(2);
+    expect(formas(g("Patas da frente")).length + formas(g("Patas de tras")).length, "quatro patas").toBe(4);
+    expect(formas(g("Cascos"))).toHaveLength(4);
+    expect(coresDe(g("Estandarte"))).toEqual(["#FFFFFF"]);
+    expect(formas(g("Cruz do estandarte"))).toHaveLength(2);
+    expect(hexDe(g("Cruz do estandarte").it.find((it: any) => it.ty === "st").c.k)).toBe("#DD2E44");
+    expect(cordeiro.shapes.map((x: any) => x.nm)).toEqual(expect.arrayContaining(["Haste", "Tufo", "Olho", "Rabo"]));
+    // de pé: os cascos no chão (y = 0) abaixo da lã
+    const la = pontosDe([g("La")]).map((q) => q[1]);
+    expect(Math.max(...pontosDe([g("Cascos")]).map((q) => q[1]))).toBeGreaterThan(Math.max(...la) + 2);
+    // grande e no alto: acima da fileira de trás, com tamanho de peça (não um detalhe)
+    const [x0, y0, x1, y1] = caixa(cordeiro);
+    expect(x1 - x0, "largura do Cordeiro").toBeGreaterThan(30);
+    expect(y1, "acima da multidão").toBeLessThan(caixa(camada(f, "G_FilaTras"))[1]);
+    expect(y0).toBeGreaterThan(lib.VIEW_WINDOW[1]);
   });
 });
 
