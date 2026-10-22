@@ -56,6 +56,20 @@ context:
 
 ## Review Triage Log
 
+| Achado | Veredito | Evidência |
+|---|---|---|
+| Exaltação da Santa Cruz com cor branca | medium | Festa da Cruz usa vermelho. **patch**. |
+| Peças principais de outros troféus nos níveis prata/ouro (palma, coroa, estrela, cordeiro) | medium | Contra a regra do dono de não repetir desenho; o teste só olhava o bronze. **patch**. |
+| Luzes `G_Brilho` fora da regra da `luzSuave` (clarão de Pedro Claver) | medium | Regra da §6/§7. **patch**. |
+| Auréola e lágrimas de Mônica e auréola da Natividade não seguem a cabeça | medium | Desencontro de 4 a 6 px. **patch** + teste. |
+| Maria da Assunção abaixo dos 60 px; teste media a nuvem junto | medium | Medido: 55 px. **patch**. |
+| Estrela de São Domingos fora da "fronte" pedida no guia | low | Correção direta. **patch**. |
+| Testes vazios (`indexOf` −1), pessoas fora das checagens, regra de `SEM_HALO`, corrente de Claver, recorte do guia | medium (gap) | **patch**. |
+| Assinaturas e validação das ajudas novas (`lagrima`, `galero`, `pontas`) | low | Correção direta. **patch**. |
+| Cabeçalho do gerador desatualizado | low | Correção direta. **patch**. |
+
+**Rota:** 9 `patch`. Sem loopback.
+
 ## Verification
 
 **Commands:**
