@@ -2,25 +2,42 @@
 /**
  * trophy-lot-1.js — Story 11.7, lote 1 de Lottie dos troféus sem animação.
  *
- * Lote 1: os 3 sazonais sem Lottie (3 níveis cada: x.json = bronze, x_t2 =
- * prata, x_t3 = ouro) e os 10 litúrgicos de janeiro (um nível só: lt_x.json).
+ * Lote 1: os 3 sazonais sem Lottie e os 10 litúrgicos de janeiro. Todos com 3
+ * níveis (como `getSeasonalTier`): x.json = bronze, x_t2 = prata, x_t3 = ouro.
  *
- * Cada troféu tem o seu próprio elemento (um ícone diferente por troféu). Os
- * litúrgicos usam o símbolo do santo ou da festa (atributo iconográfico) sobre
- * um disco com auréola e raios; os sazonais ficam sobre uma medalha na cor do
- * nível.
+ * Segue `_bmad-output/planning-artifacts/guia-de-movimento-dos-trofeus.md`:
+ * cada troféu tem um gesto próprio (tabela da §4), feito de 2 a 4 peças
+ * animadas em camadas separadas (nome `G_*`), sem medalha nem disco em volta.
+ * A prata acrescenta o que a tabela diz (camadas `T2_*`) e o ouro, o resto
+ * (`T3_*`). A base comum fica discreta: os 5 brilhos e o halo mudam de cor e de
+ * força por nível; a auréola dos litúrgicos é a mesma nos 3 níveis (só onde a
+ * tabela põe a auréola no ouro ela aparece apenas no ouro).
  *
- * Ícones: Twemoji (https://github.com/jdecked/twemoji, v15.1.0),
- * licença CC-BY 4.0 — © Twitter, Inc. e colaboradores. Os caminhos SVG foram
- * copiados para esta tabela; nada é baixado em tempo de execução.
+ * Fontes das peças (copiadas para a tabela ICONS; nada é baixado em tempo de
+ * execução):
+ *  - Twemoji (https://github.com/jdecked/twemoji, v15.1.0), licença CC-BY 4.0
+ *    — © Twitter, Inc. e colaboradores.
+ *  - Bootstrap Icons (https://github.com/twbs/icons, v1.11.3), licença MIT
+ *    — © The Bootstrap Authors.
+ * Formas geométricas simples (mar, ondas, feixe de luz, raios, auréola,
+ * cajado em T, confete, linha da pena) são desenhadas aqui mesmo, sem fonte
+ * externa.
  *
  * Uso: node scripts/trophy-lot-1.js
  * Recusa (e não escreve) qualquer id que já esteja em APPROVED_LOTTIE.
  */
 const lib = require("./lottie-lib");
-const { lighten } = lib;
+const { anim, trajeto, pulo, queda, abrir, onda, aparecer, sumir, pop, pulsar, giro, hex } = lib;
+/** Último quadro do laço (FORMAT.op): as ondas e giros terminam aqui. */
+const END = lib.FORMAT.op;
+/**
+ * Fator com que o desenho (tudo menos brilhos e halo) é encolhido em volta do
+ * centro do quadro, para caber, em todos os quadros, na janela que o
+ * `LottieTrophy` mostra (lib.VIEW_WINDOW, ampliação lib.VIEW_ZOOM).
+ */
+const ART_SCALE = 0.82;
 
-// ── Ícones (fonte e licença por ícone) ───────────────────────────────────────
+// ── Peças (fonte e licença por ícone) ────────────────────────────────────────
 const ICONS = {
   "twemoji-1f4b5": {
     source: "Twemoji 1f4b5.svg (jdecked/twemoji 15.1.0)",
@@ -169,25 +186,6 @@ const ICONS = {
       { fill: "#FFAC33", d: "M26.566 3.803c.417-.417 1.093-.417 1.509 0l4.865 4.866c.417.417.417 1.092 0 1.509-.417.417-1.092.417-1.509 0l-4.865-4.866c-.417-.416-.417-1.092 0-1.509z" },
     ],
   },
-  "twemoji-1f4da": {
-    source: "Twemoji 1f4da.svg (jdecked/twemoji 15.1.0)",
-    license: "CC-BY 4.0",
-    viewBox: 36,
-    elements: [
-      { fill: "#553788", d: "M15 31c0 2.209-.791 4-3 4H5c-4 0-4-14 0-14h7c2.209 0 3 1.791 3 4v6z" },
-      { fill: "#9266CC", d: "M34 33h-1V23h1c.553 0 1-.447 1-1s-.447-1-1-1H10c-4 0-4 14 0 14h24c.553 0 1-.447 1-1s-.447-1-1-1z" },
-      { fill: "#CCD6DD", d: "M34.172 33H11c-2 0-2-10 0-10h23.172c1.104 0 1.104 10 0 10z" },
-      { fill: "#99AAB5", d: "M11.5 25h23.35c-.135-1.175-.36-2-.678-2H11c-1.651 0-1.938 6.808-.863 9.188C9.745 29.229 10.199 25 11.5 25z" },
-      { fill: "#269", d: "M12 8c0 2.209-1.791 4-4 4H4C0 12 0 1 4 1h4c2.209 0 4 1.791 4 4v3z" },
-      { fill: "#55ACEE", d: "M31 10h-1V3h1c.553 0 1-.447 1-1s-.447-1-1-1H7C3 1 3 12 7 12h24c.553 0 1-.447 1-1s-.447-1-1-1z" },
-      { fill: "#CCD6DD", d: "M31.172 10H8c-2 0-2-7 0-7h23.172c1.104 0 1.104 7 0 7z" },
-      { fill: "#99AAB5", d: "M8 5h23.925c-.114-1.125-.364-2-.753-2H8C6.807 3 6.331 5.489 6.562 7.5 6.718 6.142 7.193 5 8 5z" },
-      { fill: "#F4900C", d: "M20 17c0 2.209-1.791 4-4 4H6c-4 0-4-9 0-9h10c2.209 0 4 1.791 4 4v1z" },
-      { fill: "#FFAC33", d: "M35 19h-1v-5h1c.553 0 1-.447 1-1s-.447-1-1-1H15c-4 0-4 9 0 9h20c.553 0 1-.447 1-1s-.447-1-1-1z" },
-      { fill: "#CCD6DD", d: "M35.172 19H16c-2 0-2-5 0-5h19.172c1.104 0 1.104 5 0 5z" },
-      { fill: "#99AAB5", d: "M16 16h19.984c-.065-1.062-.334-2-.812-2H16c-1.274 0-1.733 2.027-1.383 3.5.198-.839.657-1.5 1.383-1.5z" },
-    ],
-  },
   "twemoji-1f9d2": {
     source: "Twemoji 1f9d2.svg (jdecked/twemoji 15.1.0)",
     license: "CC-BY 4.0",
@@ -199,99 +197,748 @@ const ICONS = {
       { fill: "#662113", d: "M14 23c-.552 0-1-.447-1-1v-1c0-.552.448-1 1-1s1 .448 1 1v1c0 .553-.448 1-1 1zm8 0c-.553 0-1-.447-1-1v-1c0-.552.447-1 1-1s1 .448 1 1v1c0 .553-.447 1-1 1z" },
     ],
   },
+  "twemoji-1f4a7": {
+    source: "Twemoji 1f4a7.svg (jdecked/twemoji 15.1.0)",
+    license: "CC-BY 4.0",
+    viewBox: 36,
+    elements: [
+      { fill: "#5DADEC", d: "M28.344 17.768L18.148 1.09 8.7 17.654c-2.2 3.51-2.392 8.074-.081 11.854 3.285 5.373 10.363 7.098 15.811 3.857 5.446-3.24 7.199-10.22 3.914-15.597z" },
+    ],
+  },
+  "twemoji-1f381": {
+    source: "Twemoji 1f381.svg (jdecked/twemoji 15.1.0)",
+    license: "CC-BY 4.0",
+    viewBox: 36,
+    elements: [
+      { fill: "#FDD888", d: "M33 31c0 2.2-1.8 4-4 4H7c-2.2 0-4-1.8-4-4V14c0-2.2 1.8-4 4-4h22c2.2 0 4 1.8 4 4v17z" },
+      { fill: "#FDD888", d: "M36 11c0 2.2-1.8 4-4 4H4c-2.2 0-4-1.8-4-4s1.8-4 4-4h28c2.2 0 4 1.8 4 4z" },
+      { fill: "#FCAB40", d: "M3 15h30v2H3z" },
+      { fill: "#DA2F47", d: "M19 3h-2c-1.657 0-3 1.343-3 3v29h8V6c0-1.656-1.343-3-3-3z" },
+      { fill: "#DA2F47", d: "M16 7c1.1 0 1.263-.516.361-1.147L9.639 1.147c-.902-.631-2.085-.366-2.631.589L4.992 5.264C4.446 6.219 4.9 7 6 7h10zm4 0c-1.1 0-1.263-.516-.361-1.147l6.723-4.706c.901-.631 2.085-.366 2.631.589l2.016 3.527C31.554 6.219 31.1 7 30 7H20z" },
+    ],
+  },
+  "twemoji-1f514": {
+    source: "Twemoji 1f514.svg (jdecked/twemoji 15.1.0)",
+    license: "CC-BY 4.0",
+    viewBox: 36,
+    elements: [
+      { fill: "#FFAC33", d: "M28 13c0 11 5 10 5 15 0 0 0 2-2 2H5c-2 0-2-2-2-2 0-5 5-4 5-15C8 7.478 12.477 3 18 3s10 4.478 10 10z" },
+      { fill: "#FFAC33", circle: [18, 3, 3] },
+      { fill: "#FFAC33", d: "M18 36c2.209 0 4-1.791 4-4h-8c0 2.209 1.791 4 4 4z" },
+    ],
+  },
+  "twemoji-2764": {
+    source: "Twemoji 2764.svg (jdecked/twemoji 15.1.0)",
+    license: "CC-BY 4.0",
+    viewBox: 36,
+    elements: [
+      { fill: "#DD2E44", d: "M35.885 11.833c0-5.45-4.418-9.868-9.867-9.868-3.308 0-6.227 1.633-8.018 4.129-1.791-2.496-4.71-4.129-8.017-4.129-5.45 0-9.868 4.417-9.868 9.868 0 .772.098 1.52.266 2.241C1.751 22.587 11.216 31.568 18 34.034c6.783-2.466 16.249-11.447 17.617-19.959.17-.721.268-1.469.268-2.242z" },
+    ],
+  },
+  "twemoji-1f525": {
+    source: "Twemoji 1f525.svg (jdecked/twemoji 15.1.0)",
+    license: "CC-BY 4.0",
+    viewBox: 36,
+    elements: [
+      { fill: "#F4900C", d: "M35 19c0-2.062-.367-4.039-1.04-5.868-.46 5.389-3.333 8.157-6.335 6.868-2.812-1.208-.917-5.917-.777-8.164.236-3.809-.012-8.169-6.931-11.794 2.875 5.5.333 8.917-2.333 9.125-2.958.231-5.667-2.542-4.667-7.042-3.238 2.386-3.332 6.402-2.333 9 1.042 2.708-.042 4.958-2.583 5.208-2.84.28-4.418-3.041-2.963-8.333C2.52 10.965 1 14.805 1 19c0 9.389 7.611 17 17 17s17-7.611 17-17z" },
+      { fill: "#FFCC4D", d: "M28.394 23.999c.148 3.084-2.561 4.293-4.019 3.709-2.106-.843-1.541-2.291-2.083-5.291s-2.625-5.083-5.708-6c2.25 6.333-1.247 8.667-3.08 9.084-1.872.426-3.753-.001-3.968-4.007C7.352 23.668 6 26.676 6 30c0 .368.023.73.055 1.09C9.125 34.124 13.342 36 18 36s8.875-1.876 11.945-4.91c.032-.36.055-.722.055-1.09 0-2.187-.584-4.236-1.606-6.001z" },
+    ],
+  },
+  "twemoji-26a1": {
+    source: "Twemoji 26a1.svg (jdecked/twemoji 15.1.0)",
+    license: "CC-BY 4.0",
+    viewBox: 36,
+    elements: [
+      { fill: "#FFAC33", d: "M32.938 15.651C32.792 15.26 32.418 15 32 15H19.925L26.89 1.458c.219-.426.106-.947-.271-1.243C26.437.071 26.218 0 26 0c-.233 0-.466.082-.653.243L18 6.588 3.347 19.243c-.316.273-.43.714-.284 1.105S3.582 21 4 21h12.075L9.11 34.542c-.219.426-.106.947.271 1.243.182.144.401.215.619.215.233 0 .466-.082.653-.243L18 29.412l14.653-12.655c.317-.273.43-.714.285-1.106z" },
+    ],
+  },
+  "twemoji-1f4d6": {
+    source: "Twemoji 1f4d6.svg (jdecked/twemoji 15.1.0)",
+    license: "CC-BY 4.0",
+    viewBox: 36,
+    elements: [
+      { fill: "#226699", d: "M32 7H4c-2.209 0-4 1.791-4 4v15c0 2.209 1.791 4 4 4h11.416c.52.596 1.477 1 2.584 1s2.065-.404 2.584-1H32c2.209 0 4-1.791 4-4V11c0-2.209-1.791-4-4-4z" },
+      { fill: "#292F33", d: "M20 27c0 1.104-.896 2-2 2s-2-.896-2-2V9c0-1.104.896-2 2-2s2 .896 2 2v18z" },
+      { fill: "#99AAB5", d: "M18 26c0 1.104-.896 2-2 2H4c-1.104 0-2-.896-2-2V8c0-1.104.896-2 2-2h12c1.104 0 2 .896 2 2v18z" },
+      { fill: "#E1E8ED", d: "M18 26c-.999-1.998-3.657-2-4-2-2 0-5 2-8 2-1 0-2-.896-2-2V8c0-1.104 1-2 2-2 3.255 0 6-2 8-2 3 0 4 1.896 4 3v19z" },
+      { fill: "#99AAB5", d: "M34 26c0 1.104-.896 2-2 2H20c-1.104 0-2-.896-2-2V8c0-1.104.896-2 2-2h12c1.104 0 2 .896 2 2v18z" },
+      { fill: "#CCD6DD", d: "M18 26c.999-1.998 3.657-2 4-2 2 0 5 2 8 2 1 0 2-.896 2-2V8c0-1.104-1-2-2-2-3.256 0-6-2-8-2-3 0-4 1.896-4 3v19z" },
+    ],
+  },
+  "twemoji-269c": {
+    source: "Twemoji 269c.svg (jdecked/twemoji 15.1.0)",
+    license: "CC-BY 4.0",
+    viewBox: 36,
+    elements: [
+      { fill: "#744EAA", d: "M10.582 18c2.075 1.244 2.74 3.559 2.416 6h4.837c.103-.649.165-1.316.165-2 0-6.075-5.001-11.731-10.27-11.731-8.479 0-9.866 9.043-4.567 11.731-1.059-5 4.122-5.975 7.419-4zm14.875 0c-2.075 1.244-2.74 3.559-2.416 6h-4.837c-.104-.649-.165-1.316-.165-2 0-6.075 5.001-11.731 10.269-11.731 8.479 0 9.866 9.043 4.567 11.731 1.061-5-4.121-5.975-7.418-4zm4.334 8.647C29.315 28.014 28.028 29 26.5 29c-1.762 0-3.205-1.307-3.449-3h-2.615c-.271.614-.436 1.285-.436 2 0 2.762 2.238 5 5 5s5-2.238 5-5c0-.472-.086-.92-.209-1.353zM12.949 26c-.244 1.693-1.688 3-3.449 3-1.528 0-2.814-.986-3.291-2.353C6.086 27.08 6 27.528 6 28c0 2.762 2.238 5 5 5s5-2.238 5-5c0-.715-.165-1.386-.436-2h-2.615z" },
+      { fill: "#AA8DD8", d: "M13 10.227C13 3.951 18 0 18 0s5 3.951 5 10.227S20.762 25 18 25s-5-8.497-5-14.773z" },
+      { fill: "#AA8DD8", d: "M14 30c0-3.313 2.344-6 4-6 1.656 0 4 2.687 4 6s-4 6-4 6-4-2.687-4-6z" },
+      { fill: "#9266CC", d: "M25 24.5c0 1.933-1.567 3.5-3.5 3.5h-7c-1.934 0-3.5-1.567-3.5-3.5s1.566-3.5 3.5-3.5h7c1.933 0 3.5 1.567 3.5 3.5z" },
+    ],
+  },
+  "twemoji-2714": {
+    source: "Twemoji 2714.svg (jdecked/twemoji 15.1.0)",
+    license: "CC-BY 4.0",
+    viewBox: 36,
+    elements: [
+      { fill: "#31373D", d: "M34.459 1.375c-1.391-.902-3.248-.506-4.149.884L13.5 28.17l-8.198-7.58c-1.217-1.125-3.114-1.051-4.239.166-1.125 1.216-1.051 3.115.166 4.239l10.764 9.952s.309.266.452.359c.504.328 1.07.484 1.63.484.982 0 1.945-.482 2.52-1.368L35.343 5.524c.902-1.39.506-3.248-.884-4.149z" },
+    ],
+  },
+  "twemoji-1f33f": {
+    source: "Twemoji 1f33f.svg (jdecked/twemoji 15.1.0)",
+    license: "CC-BY 4.0",
+    viewBox: 36,
+    elements: [
+      { fill: "#77B255", d: "M20.917 22.502c-2.706-.331-3.895-1.852-6.273-4.889 3.039-2.376 4.559-3.565 7.266-3.235 2.71.332 5.25 2.016 6.273 4.889-1.683 2.543-4.557 3.563-7.266 3.235zm-5.959 8.814c-2.549-.187-3.733-1.553-6.098-4.288 2.735-2.364 4.102-3.547 6.652-3.364 2.551.185 5.009 1.644 6.098 4.287-1.459 2.458-4.1 3.548-6.652 3.365zm-6.22-15.707c1.338 1.631 1.191 3.117.898 6.088-2.97-.294-4.456-.44-5.795-2.071-1.339-1.634-1.861-3.935-.898-6.088 2.301-.524 4.456.439 5.795 2.071zm21.116-5.448c-2.435 1.02-4.16.314-7.613-1.097 1.411-3.453 2.118-5.18 4.549-6.203 2.434-1.021 5.378-.826 7.612 1.096-.194 2.944-2.117 5.181-4.548 6.204zM17.103 6.608c.874 2.869-.124 4.742-2.119 8.488-3.745-1.996-5.619-2.994-6.494-5.864-.876-2.872-.315-6.18 2.118-8.49 3.308.561 5.619 2.993 6.495 5.866z" },
+      { fill: "#A6D388", d: "M8.49 9.232c.862 2.828 2.702 3.843 6.338 5.781v-.005c-.07-2.521-2.733-10.876-4.267-14.214C8.172 3.102 7.62 6.381 8.49 9.232zm-5.592 4.429c-.89 2.118-.371 4.362.943 5.965 1.34 1.632 2.826 1.777 5.795 2.071-.997-1.937-4.911-6.388-6.738-8.036z" },
+      { fill: "#5C913B", d: "M21.91 14.378c-2.563-.312-4.077.75-6.808 2.879 1.746.105 8.786.745 13.06 2.037.006-.01.015-.017.021-.027-1.023-2.873-3.563-4.557-6.273-4.889zm-.304 13.565c-1.091-2.637-3.545-4.094-6.094-4.279-2.5-.179-3.87.961-6.498 3.232 2.767-.305 7.905-.87 12.592 1.047z" },
+      { fill: "#A6D388", d: "M22.421 9.137c3.327 1.359 5.043 2.024 7.432 1.024 2.419-1.018 4.332-3.239 4.542-6.16-3.922.761-10.391 4.15-11.974 5.136z" },
+      { fill: "#A06253", d: "M4.751 35.061c-.584-.091-1.363-.831-1.273-1.416.546-3.562 2.858-12.168 18.298-24.755.458-.375.976-.659 1.364-.212.391.447-.052.95-.498 1.339C9.354 21.587 7.128 30.751 6.619 34.082c-.091.585-1.283 1.067-1.868.979z" },
+    ],
+  },
+  "twemoji-1f932": {
+    source: "Twemoji 1f932.svg (jdecked/twemoji 15.1.0)",
+    license: "CC-BY 4.0",
+    viewBox: 36,
+    elements: [
+      { fill: "#EF9645", d: "M7.278 29.994c.059.982 1.052 1.262 2.065 1.201 1.016-.059 3.726.768 4.679.77 1.687.003 2.268-.829 2.332-2.319C16.5 26.271 18 26.188 18 22.271V9c0-1.766-1.98-2.61-2.312-1.094-.642 2.925-.598 5.097-.65 6.372l-.516-.129s.47-5.078.983-7.471c.371-1.741-2.718-2.381-3.092-.641-.498 2.308-.611 6.273-.646 7.801l-.639-.057s.221-3.768.981-8.045c.284-1.609-2.802-2.38-3.189-.634-.502 2.257-.87 6.7-.855 9.055l-.629.133s.19-4.353.921-7.436c.319-1.346-2.188-2.174-2.744-.184-1.6 5.688-1.006 10.688-1.017 11.13-.049 1.85-.477 3.986-1.225 3.442-1.131-.824-2.763.239-1.364 2.319 1.577 2.344 4.98 2.093 5.099 4.087.05.858.172 2.346.172 2.346" },
+      { fill: "#FFDC5D", d: "M5.336 31.033c.058.982.946 1.363 1.96 1.305 1.013-.064 5.61-.295 6.56-.354.951-.055 1.92-.879 1.858-1.892-.06-1.016-.196-2.463.643-3.931.458-.798 1.3-3.784 1.08-9.472-.146-3.771.033-6.722.138-8.271.091-1.354-2.143-1.898-2.45-.125-.509 2.942-.644 4.667-.781 6.059l-.518-.128s.474-5.32.935-7.724c.315-1.634-2.287-2.076-2.66-.335-.498 2.31-.995 6.219-1.03 7.747l-.641-.054s.232-4.085.994-8.365c.253-1.428-2.421-1.894-2.809-.148-.5 2.255-1.263 6.533-1.247 8.886l-.626.133s-.033-3.69.92-7.436c.34-1.34-2.188-2.174-2.748-.184-.558 1.985-.809 5.002-.919 6.783-1.364-1.214-2.793-.405-2.746.036.403 3.812-2.43 6.729.426 11.076 1.554 2.364 2.535 2.307 3.529 4.044.522.913.132 2.35.132 2.35" },
+      { fill: "#EF9645", d: "M4.317 19.707c.718.2 1.46.475 2.099.931 1.117.795 1.797 1.679 1.962 1.969.175.298.787.164.525-.345-.256-.494-1.099-1.432-2.093-2.11-.694-.475-1.696-.875-2.597-1.114-.162-.043 1.01-4.132-.22-5.511.469.848-.344 4.548-.344 5.161s.286.912.668 1.019zm24.405 10.287c-.059.982-1.052 1.262-2.065 1.201-1.016-.059-3.726.768-4.679.77-1.687.003-2.268-.829-2.332-2.319C19.5 26.271 18 26.188 18 22.271V9c0-1.766 1.98-2.61 2.312-1.094.642 2.925.597 5.097.65 6.372l.516-.129s-.47-5.078-.983-7.471c-.371-1.741 2.718-2.381 3.092-.641.498 2.308.611 6.273.646 7.801l.639-.057s-.221-3.768-.981-8.045c-.284-1.609 2.802-2.38 3.189-.634.502 2.257.87 6.7.855 9.055l.629.133s-.035-3.623-.986-7.369c-.341-1.341 2.254-2.241 2.81-.251 1.6 5.688 1.006 10.688 1.017 11.13.049 1.85.477 3.986 1.225 3.442 1.131-.824 2.763.239 1.364 2.319-1.577 2.344-4.98 2.093-5.099 4.087-.051.858-.173 2.346-.173 2.346" },
+      { fill: "#FFDC5D", d: "M30.664 31.033c-.058.982-.946 1.363-1.96 1.305-1.013-.064-5.61-.295-6.56-.354-.951-.055-1.92-.879-1.858-1.892.06-1.016.196-2.463-.643-3.931-.458-.798-1.3-3.784-1.08-9.472.146-3.771-.033-6.722-.138-8.271-.091-1.354 2.143-1.898 2.45-.125.509 2.942.644 4.667.781 6.059l.518-.128s-.474-5.32-.935-7.724c-.315-1.634 2.287-2.076 2.66-.335.498 2.31.995 6.219 1.03 7.747l.641-.054s-.232-4.085-.994-8.365c-.253-1.428 2.421-1.894 2.809-.148.499 2.256 1.262 6.534 1.247 8.888l.626.133s.033-3.69-.92-7.436c-.34-1.34 2.188-2.174 2.748-.184.558 1.985.809 5.002.919 6.783 1.364-1.214 2.793-.405 2.746.036-.403 3.812 2.43 6.729-.426 11.076-1.554 2.364-2.535 2.307-3.529 4.044-.522.911-.132 2.348-.132 2.348" },
+      { fill: "#EF9645", d: "M31.683 19.707c-.718.2-1.46.475-2.099.931-1.117.795-1.797 1.679-1.962 1.969-.175.298-.787.164-.525-.345.256-.494 1.099-1.432 2.093-2.11.694-.475 1.696-.875 2.597-1.114.162-.043-1.01-4.132.22-5.511-.469.848.344 4.548.344 5.161s-.286.912-.668 1.019z" },
+    ],
+  },
+  "twemoji-1f466": {
+    source: "Twemoji 1f466.svg (jdecked/twemoji 15.1.0)",
+    license: "CC-BY 4.0",
+    viewBox: 36,
+    elements: [
+      { fill: "#FFDC5D", d: "M6 20c0 2.209-1.119 4-2.5 4S1 22.209 1 20s1.119-4 2.5-4S6 17.791 6 20zm29 0c0 2.209-1.119 4-2.5 4S30 22.209 30 20s1.119-4 2.5-4 2.5 1.791 2.5 4z" },
+      { fill: "#FFDC5D", d: "M4 20.562c0-8.526 6.268-15.438 14-15.438s14 6.912 14 15.438S25.732 35 18 35 4 29.088 4 20.562z" },
+      { fill: "#662113", d: "M12 22c-.552 0-1-.447-1-1v-2c0-.552.448-1 1-1s1 .448 1 1v2c0 .553-.448 1-1 1zm12 0c-.553 0-1-.447-1-1v-2c0-.552.447-1 1-1s1 .448 1 1v2c0 .553-.447 1-1 1z" },
+      { fill: "#C1694F", d: "M18 30c-4.188 0-6.357-1.06-6.447-1.105-.494-.247-.694-.848-.447-1.342.247-.492.843-.692 1.337-.449.051.024 1.925.896 5.557.896 3.665 0 5.54-.888 5.559-.897.496-.241 1.094-.034 1.336.457.243.493.045 1.089-.447 1.335C24.356 28.94 22.188 30 18 30zm1-5h-2c-.552 0-1-.447-1-1s.448-1 1-1h2c.553 0 1 .447 1 1s-.447 1-1 1z" },
+      { fill: "#FFAC33", d: "M18 .354C8.77.354 3 6.816 3 12.2c0 5.385 1.154 7.539 2.308 5.385l2.308-4.308s3.791-.124 6.099-2.278c0 0-1.071 4 6.594.124 0 0-.166 3.876 5.191-.124 0 0 4.039 1.201 5.191 6.586.32 1.494 2.309 0 2.309-5.385C33 6.816 28.385.354 18 .354z" },
+    ],
+  },
+  "twemoji-1f426": {
+    source: "Twemoji 1f426.svg (jdecked/twemoji 15.1.0)",
+    license: "CC-BY 4.0",
+    viewBox: 36,
+    elements: [
+      { fill: "#FFAC33", d: "M8.916 12.88c-.111 1.652 1.768 3.126-.712 2.959-2.48-.167-7.836-2.533-7.768-3.53s3.708-2.757 6.188-2.59c2.48.166 2.404 1.508 2.292 3.161zm20.122 16.049c-.202-.032-.392.015-.564.095-2.325.232-3.225-1.885-3.225-1.885-.439-.336-.981-2.009-1.589-1.215l.187 1.402c.187 1.402 2.57 3.224 2.57 3.224l-1.215 1.589c-.336.439-.252 1.066.187 1.402.439.336 1.066.252 1.402-.187l.673-.88-.039.249c-.087.546.285 1.058.831 1.145.546.087 1.058-.285 1.145-.831l.47-2.963c.085-.546-.287-1.058-.833-1.145zm-6.278.623c-.196-.058-.39-.037-.572.018-2.335-.082-2.944-2.3-2.944-2.3-.39-.392-.703-2.123-1.412-1.417l-.003 1.414c-.003 1.414 2.115 3.539 2.115 3.539l-1.417 1.412c-.392.39-.393 1.023-.003 1.414.39.392 1.023.393 1.414.003l.785-.782-.073.242c-.159.529.141 1.086.67 1.246.529.159 1.087-.141 1.246-.67l.862-2.873c.162-.53-.138-1.087-.668-1.246z" },
+      { fill: "#DD2E44", d: "M35.009 6.729c-.383-.17-.758-.057-1.05.244-.054.056-4.225 6.306-14.532 4.944-.34-.045 3.139 11.968 3.199 11.962.124-.014 3.07-.368 6.14-2.553 2.818-2.005 6.284-5.991 6.797-13.598.028-.418-.171-.828-.554-.999z" },
+      { fill: "#DD2E44", d: "M34.477 21.108c-.204-.336-.59-.56-.979-.471-1.293.295-3.197.543-4.53.453-6.357-.428-9.361-4.129-9.392-4.16-.275-.282.466 11.552.816 11.576 9.194.62 13.862-6.027 14.057-6.31.222-.326.233-.751.028-1.088z" },
+      { fill: "#DD2E44", d: "M24.586 19.016c-.371 5.51 1.316 9.861-4.194 9.489-5.51-.371-10.145-4.92-9.774-10.431s14.34-4.568 13.968.942z" },
+      { fill: "#DD2E44", d: "M23.257 12.412c-.353 5.235-3.922 9.257-9.156 8.904-5.235-.353-9.193-4.882-8.84-10.117.353-5.235 4.832-8.444 10.067-8.091 4.001.269 8.24 4.683 7.929 9.304z" },
+      { fill: "#292F33", circle: [10.67, 8.989, 2] },
+      { fill: "#A0041E", d: "M18.179 16.645s7.63 5.648 12.387-4.459c.396-.842 1.685.793.099 4.162s-8.175 6.44-12.04 1.536c-.815-1.035-.446-1.239-.446-1.239z" },
+      { fill: "#DD2E44", d: "M15.327 3.107s6.246.254 7.798-.477.136 2.932-3.262 3.789-4.536-3.312-4.536-3.312z" },
+      { fill: "#DD2E44", d: "M17.428 5.788s4.501.136 6.054-.594.136 2.932-3.262 3.789c-3.399.857-2.792-3.195-2.792-3.195z" },
+    ],
+  },
+  "bootstrap-piggy-bank-fill": {
+    source: "Bootstrap Icons piggy-bank-fill.svg (twbs/icons 1.11.3)",
+    license: "MIT",
+    viewBox: 16,
+    elements: [
+      { fill: "#000000", d: "M7.964 1.527C4.987 1.527 2.393 3.231 1.644 5.652H1.094A1 1 0 0 0 0.11 6.824L0.364 8.284A1.5 1.5 0 0 0 1.842 9.527H2.105C2.405 10.04 2.793 10.505 3.25 10.909L2.521 13.386A0.5 0.5 0 0 0 3.001 14.027H5.001A0.5 0.5 0 0 0 5.472 13.695L5.954 12.344C6.589 12.517 7.264 12.611 7.965 12.611 8.672 12.611 9.353 12.516 9.993 12.339L10.536 13.711A0.5 0.5 0 0 0 11.001 14.027H13.001A0.5 0.5 0 0 0 13.479 13.382L12.718 10.876C13.81 9.895 14.5 8.559 14.5 7.069 14.5 6.924 14.493 6.78 14.48 6.638 14.741 6.528 14.988 6.372 15.185 6.194 15.5 6.5 16 6.5 16 5.777 16 6 15.5 6 15.539 5.751A1 1 0 0 0 15.629 5.496 0.7 0.7 0 0 0 15.427 4.851 0.58 0.58 0 0 0 14.72 4.753 0.74 0.74 0 0 0 14.345 5.315C14.321 5.558 14.427 5.795 14.665 5.969A2 2 0 0 1 14.406 6.122C13.872 3.458 11.122 1.527 7.964 1.527M15.137 5.403A0.6 0.6 0 0 1 15.039 5.613L14.995 5.588C14.849 5.498 14.838 5.413 14.843 5.365A0.24 0.24 0 0 1 14.96 5.192C15.009 5.165 15.04 5.171 15.073 5.204A0.2 0.2 0 0 1 15.137 5.403M6.138 4.753A0.5 0.5 0 1 1 5.862 3.793 7.6 7.6 0 0 1 7.964 3.5C8.727 3.5 9.461 3.61 10.144 3.815A0.5 0.5 0 1 1 9.857 4.773 6.6 6.6 0 0 0 7.964 4.5C7.324 4.5 6.709 4.59 6.138 4.754ZM5 6.25A0.75 0.75 0 1 1 3.5 6.25 0.75 0.75 0 0 1 5 6.25" }, // curvas q convertidas em C
+    ],
+  },
+  "bootstrap-graph-up-arrow": {
+    source: "Bootstrap Icons graph-up-arrow.svg (twbs/icons 1.11.3)",
+    license: "MIT",
+    viewBox: 16,
+    elements: [
+      { fill: "#000000", rule: "evenodd", d: "M10 3.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V4.9l-3.613 4.417a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61L13.445 4H10.5a.5.5 0 0 1-.5-.5" }, // só a seta: o subcaminho dos eixos (M0 0h1v15h15v1H0z) foi tirado
+    ],
+  },
+  "bootstrap-book-fill": {
+    source: "Bootstrap Icons book-fill.svg (twbs/icons 1.11.3)",
+    license: "MIT",
+    viewBox: 16,
+    elements: [
+      { fill: "#000000", d: "M8 1.783C7.015.936 5.587.81 4.287.94c-1.514.153-3.042.672-3.994 1.105A.5.5 0 0 0 0 2.5v11a.5.5 0 0 0 .707.455c.882-.4 2.303-.881 3.68-1.02 1.409-.142 2.59.087 3.223.877a.5.5 0 0 0 .78 0c.633-.79 1.814-1.019 3.222-.877 1.378.139 2.8.62 3.681 1.02A.5.5 0 0 0 16 13.5v-11a.5.5 0 0 0-.293-.455c-.952-.433-2.48-.952-3.994-1.105C10.413.809 8.985.936 8 1.783" },
+    ],
+  },
 };
 
-// ── Cores ────────────────────────────────────────────────────────────────────
-/** Níveis dos sazonais: x.json = bronze, _t2 = prata, _t3 = ouro. */
-const SEASONAL_TIERS = [
-  { tier: 1, suffix: "",    metal: [0.804, 0.498, 0.196, 1], spark: [1, 0.75, 0.35, 1] },
-  { tier: 2, suffix: "_t2", metal: [0.75, 0.75, 0.78, 1],    spark: [0.85, 0.87, 0.95, 1] },
-  { tier: 3, suffix: "_t3", metal: [1, 0.843, 0, 1],         spark: [1, 0.92, 0.4, 1] },
+// ── Cores e níveis ───────────────────────────────────────────────────────────
+/**
+ * Níveis (sazonais e litúrgicos): x.json = bronze, _t2 = prata, _t3 = ouro.
+ * Bronze tem pouco brilho; a prata, brilho prateado; o ouro, brilho dourado.
+ */
+const TIERS = [
+  { tier: 1, suffix: "",    nome: "bronze", metal: [0.804, 0.498, 0.196, 1], spark: [1, 0.75, 0.35, 1],    sparkPeak: 45, glowPeak: 8 },
+  { tier: 2, suffix: "_t2", nome: "prata",  metal: [0.75, 0.75, 0.78, 1],    spark: [0.85, 0.87, 0.95, 1], sparkPeak: 85, glowPeak: 12 },
+  { tier: 3, suffix: "_t3", nome: "ouro",   metal: [1, 0.843, 0, 1],         spark: [1, 0.92, 0.4, 1],     sparkPeak: 90, glowPeak: 16 },
 ];
 
-/** Cores litúrgicas usadas no disco e no halo dos litúrgicos. */
+/** Cor litúrgica da festa (cor de apoio): halo e luz dos litúrgicos. */
 const LITURGICAL_COLORS = {
-  branco:   { disc: [1, 0.98, 0.92, 1], glow: [1, 0.88, 0.45, 1] },
-  vermelho: { disc: [0.99, 0.88, 0.86, 1], glow: [0.86, 0.16, 0.2, 1] },
+  branco:   { glow: [1, 0.88, 0.45, 1],  luz: [1, 0.97, 0.85, 1] },
+  vermelho: { glow: [0.86, 0.16, 0.2, 1], luz: [1, 0.9, 0.86, 1] },
 };
 const HALO_GOLD = [1, 0.843, 0, 1];
+const RAY_GOLD = hex("#FFD983");
+const CONFETE_OURO = [hex("#FFCC4D"), hex("#FFAC33"), hex("#FFE8B6"), hex("#F4900C")];
 
-// Medidas (px). O ícone é reduzido para caber dentro da face, sem tocar o anel.
-const SEASONAL = { face: 63, ring: 3, rim: 70, maxIcon: 100 };
-const LITURGICAL = { face: 62, ring: 5, maxIcon: 88 };
-const ICON_MARGIN = 3;
-const iconRoom = (m) => m.face - m.ring / 2 - ICON_MARGIN;
-const RAY_GOLD = [1, 0.9, 0.5, 1];
-const LT_SPARK = [1, 0.95, 0.6, 1];
+// ── Ajudas de montagem ───────────────────────────────────────────────────────
+/** Camada de peça (o índice é numerado no fim). */
+const L = (nm, shapes, ks) => lib.pieceLayer(0, nm, shapes, ks);
+
+/** Shapes de um ícone da tabela, centrado em (0,0), com `size` px de largura. */
+function piece(key, size, opts = {}) {
+  const icon = ICONS[key];
+  if (!icon) throw new Error(`Peça desconhecida: ${key}`);
+  return lib.iconShapes(icon, size, [0, 0], { prefix: key, ...opts });
+}
+/** Ponto do viewBox do ícone em coordenadas locais da peça. */
+function pt(key, size, xy) {
+  if (!ICONS[key]) throw new Error(`pt: peça desconhecida: ${key}`);
+  return lib.iconPoint(ICONS[key], size, xy);
+}
+/** O mesmo ícone em vários lugares (coordenadas absolutas). */
+function pieces(key, size, centers, opts = {}) {
+  const icon = ICONS[key];
+  if (!icon) throw new Error(`Peça desconhecida: ${key}`);
+  return centers.flatMap((c, k) => lib.iconShapes(icon, size, c, { prefix: `${key}#${k}`, ...opts }));
+}
+const add = (a, b) => [a[0] + b[0], a[1] + b[1]];
+/** Flutuar suave (sobe e desce `amp` px) de t0 até o fim do laço. */
+const flutuar = (base, t0, amp = 2, period = 30) => onda(base, -amp, t0, END, { period, axis: 1 }, "flutuar");
+/** Desloca as chaves de posição (para uma peça que acompanha outra). */
+const deslocar = (keys, d) => keys.map(([t, v, c]) => [t, add(v, d), c]);
+const stroke = (shapes, width, color, name, opts) => lib.makeStroke(shapes, width, color, name, opts);
+const reta = (pts) => lib.polyline(pts, { smooth: false });
+
+/** Auréola que acende (anel dourado; elíptico quando rx ≠ ry). */
+function aureola({ center, r, rx = r, ry = r, t0 = 30, width = 3, p = null, nm = "Aureola" } = {}) {
+  if (!(rx > 0 && ry > 0)) throw new Error("aureola: falta o raio (r, ou rx e ry)");
+  if (!center && !p) throw new Error("aureola: falta o centro (center ou p)");
+  return L(nm, [lib.makeEllipseRing(0, 0, rx, ry, width, HALO_GOLD, "Aureola")], {
+    p: p || center,
+    s: anim([[0, 80], [t0, 80, "out"], [t0 + 10, 100]]),
+    o: anim([...aparecer(t0, 10, { to: 80 }), ...onda(80, 15, t0 + 10, END, { period: 30 })]),
+  });
+}
+
+/** Raios em volta de um ponto (fixo ou animado), girando sem salto no laço. */
+function raios(nm, p, { count = 12, r1 = 26, r2 = 40, half = 4, t0 = 40, peak = 75, color = RAY_GOLD } = {}) {
+  return L(nm, [lib.makeRays(count, r1, r2, half, color, "Raios", [0, 0])], {
+    p, r: anim(giro(360 / count)), o: anim(aparecer(t0, 12, { to: peak })),
+  });
+}
+
+/** Comprimento acumulado (0..1) de uma linha pelos pontos. */
+function fracoes(points) {
+  const d = [0];
+  for (let k = 1; k < points.length; k++) {
+    d.push(d[k - 1] + Math.hypot(points[k][0] - points[k - 1][0], points[k][1] - points[k - 1][1]));
+  }
+  return d.map((x) => x / d[d.length - 1]);
+}
+
+/** `n` pontos igualmente espaçados (pelo comprimento) sobre uma shape. */
+function pontosAoLongo(shape, n) {
+  const pts = lib.samplePoints(shape, 16);
+  const f = fracoes(pts);
+  return Array.from({ length: n }, (_, k) => {
+    const target = k / (n - 1);
+    let j = f.findIndex((x) => x >= target);
+    if (j <= 0) return pts[Math.max(0, j)];
+    const u = (target - f[j - 1]) / (f[j] - f[j - 1] || 1);
+    return [pts[j - 1][0] + (pts[j][0] - pts[j - 1][0]) * u, pts[j - 1][1] + (pts[j][1] - pts[j - 1][1]) * u];
+  });
+}
+
+// ── Gestos (tabela da §4 do guia) ────────────────────────────────────────────
+// Cada gesto devolve as camadas da frente para trás. `t` = nível (1 bronze,
+// 2 prata, 3 ouro); `c.col` = cor litúrgica.
+
+/** 13º Bem Aplicado: a nota cai e entra no cofrinho, que dá um pulinho. */
+function gestoDecimoTerceiro(t) {
+  const NOTA = "twemoji-1f4b5";
+  const pes = [100, 162];
+  // `fica`: a nota termina metida na fenda, ainda à vista (quadro final do troféu parado)
+  const nota = (nm, x, r0, t0, { size = 40, fica = false } = {}) => L(nm, piece(NOTA, size), {
+    p: anim([[0, [x, 40]], ...queda([x, 40], [100, 104], t0, t0 + 20, { bounce: 0 })]),
+    r: anim([[0, r0], [t0, r0], [t0 + 20, 0]]),
+    s: anim([[0, 100], [t0 + 16, 100, "in"], [t0 + 24, fica ? [70, 45] : [60, 20]]]),
+    o: anim(fica ? [[0, 0], [t0, 0], [t0 + 4, 100]] : [[0, 0], [t0, 0], [t0 + 4, 100], [t0 + 19, 100], [t0 + 25, 0]]),
+  });
+  const saltos = [[0, pes], ...pulo(pes, 28, { h: 8, d: 10 })];
+  if (t >= 2) saltos.push(...pulo(pes, 50, { h: 8, d: 10 }));
+  const cofre = L("G_Cofrinho", piece("bootstrap-piggy-bank-fill", 92, { fill: "#F4ABBA" }), {
+    a: [0, 34], p: anim(saltos),
+    s: anim(pop(0, 12, { over: 108 })),
+    o: anim(aparecer(0, 6)),
+    ...(t >= 2 ? { r: anim([[0, 0], ...onda(0, 6, 62, END, { period: 14 })]) } : {}),
+  });
+
+  const front = [], back = [];
+  if (t >= 3) {
+    front.push(L("T3_Estrela", piece("twemoji-2b50", 24), {
+      p: anim([[0, [100, 104]], [64, [100, 104], "out"], [76, [100, 50]], ...flutuar([100, 50], 76, 2, 24)]),
+      s: anim(pop(64, 10, { over: 125 })),
+      r: anim([[0, 0], [64, 0, "out"], [76, 72]]),
+      o: anim(aparecer(64, 3)),
+    }));
+    back.push(L("T3_BrilhoCofrinho", [lib.makeEllipse(0, 0, 46, 36, hex("#FFE8A3"), "Brilho")], {
+      p: [100, 128], o: anim([...aparecer(40, 8, { to: 30 }), ...onda(30, 12, 48, END, { period: 20 })]),
+    }));
+    // chuva de notas ao fundo
+    [[44, 42, -20], [156, 48, 18], [66, 56, 12]].forEach(([x, t0, r0], k) => {
+      back.push(L(`T3_Chuva${k}`, piece(NOTA, 18), {
+        p: anim([[0, [x, 30]], [t0, [x, 30], "linear"], [t0 + 26, [x + (k % 2 ? -8 : 8), 92]]]),
+        r: anim([[0, r0], [t0, r0, "linear"], [t0 + 26, -r0]]),
+        o: anim([[0, 0], [t0, 0], [t0 + 4, 100], [t0 + 20, 100], [t0 + 26, 0]]),
+      }));
+    });
+  }
+  const notas = [nota("G_Nota", 100, -14, 6)];
+  if (t >= 2) notas.unshift(nota("T2_Nota2", 114, 12, 28, { fica: true }));
+  return [...front, ...notas, cofre, ...back];
+}
+
+/** Verão Planejado: o sol nasce no horizonte e o mar ondula. */
+function gestoFeriasVerao(t) {
+  const solKeys = [[0, [100, 150]], [2, [100, 150], "out"], [34, [100, 92]], ...flutuar([100, 92], 34)];
+  const sol = L("G_Sol", piece("twemoji-2600", 62), { p: anim(solKeys), r: anim(giro(45)), o: anim(aparecer(2, 14)) });
+
+  // mar: faixa com a borda de cima em onda
+  const top = Array.from({ length: 17 }, (_, k) => [28 + k * 9, 128 + (k % 2 ? 2.5 : -2.5)]);
+  const topLine = lib.polyline(top);
+  const corners = [[172, 164], [164, 172], [36, 172], [28, 164]];
+  const mar = {
+    v: [...topLine.v, ...corners], i: [...topLine.i, ...corners.map(() => [0, 0])],
+    o: [...topLine.o, ...corners.map(() => [0, 0])], c: true,
+  };
+  const marLayer = L("G_Mar", [lib.makeFill([mar], hex("#3B88C3"), "Mar")], {
+    p: anim(onda([0, 0], 1.5, 0, END, { period: 30, axis: 1 })), o: anim(aparecer(0, 8)),
+  });
+  const linha = (y, x0, x1) => lib.polyline(Array.from({ length: Math.round((x1 - x0) / 8) + 1 }, (_, k) => [x0 + k * 8, y + (k % 2 ? 2 : -2)]));
+  const onda1 = L("G_Onda1", [stroke([linha(142, 44, 156)], 2.5, hex("#BBDDF5"), "Onda", { opacity: 85 })], {
+    p: anim(onda([0, 0], 6, 0, END, { period: 45, axis: 0 })), o: anim(aparecer(0, 8)),
+  });
+  const onda2 = L("G_Onda2", [stroke([linha(158, 56, 144)], 2.5, hex("#BBDDF5"), "Onda", { opacity: 70 })], {
+    p: anim(onda([0, 0], -6, 0, END, { period: 45, axis: 0 })), o: anim(aparecer(0, 8)),
+  });
+
+  const layers = [onda1, onda2];
+  if (t >= 3) {
+    const faixas = [[136, 36], [146, 26], [156, 16], [164, 8]].map(([y, w]) => reta([[-w / 2, y], [w / 2, y]]));
+    layers.push(L("T3_Reflexo", [stroke(faixas, 3, RAY_GOLD, "Reflexo")], {
+      p: [100, 0], s: anim([[0, 100], ...onda([100, 100], 18, 34, END, { period: 20, axis: 0 })]),
+      o: anim(aparecer(30, 10, { to: 90 })),
+    }));
+  }
+  layers.push(marLayer, sol);
+  if (t >= 3) layers.push(raios("T3_Raios", anim(solKeys), { count: 16, r1: 36, r2: 48, half: 3.5, t0: 30, peak: 85 }));
+  if (t >= 2) {
+    layers.unshift(L("T2_Gaivota", piece("twemoji-1f426", 24, { recolor: { "#DD2E44": "#F5F8FA", "#A0041E": "#AAB8C2" } }), {
+      p: anim(trajeto([[150, 54], [124, 44], [100, 50], [78, 42], [56, 46]], 16, 80)),
+      r: anim([[0, 0], ...onda(0, 8, 16, 80, { period: 12 })]),
+      o: anim([[0, 0], [16, 0], [22, 100]]),
+    }));
+  }
+  return layers;
+}
+
+/** Balanço do Ano: barras sobem uma a uma e aparece um ✓. */
+function gestoBalancoAnual(t) {
+  const B = "twemoji-1f4ca", S = 96, C = [100, 108];
+  const barra = (nm, el, baseX, t0) => {
+    const a = pt(B, S, [baseX, 33]);
+    return L(nm, piece(B, S, { only: [el] }), {
+      a, p: add(C, a),
+      s: anim([[0, [100, 0]], [t0, [100, 0], "out"], [t0 + 10, [100, 108]], [t0 + 14, [100, 100]]]),
+    });
+  };
+  const eixo = L("Eixo", [stroke([reta([[-46, 0], [46, 0]])], 3, hex("#CCD6DD"), "Eixo")], {
+    p: [100, 149.5], o: anim(aparecer(0, 6)),
+  });
+  const check = L("G_Check", piece("twemoji-2714", 34, { recolor: { "#31373D": "#77B255" } }), {
+    p: [100, 52],
+    s: anim([...pop(30, 12, { over: 125 }), ...(t >= 3 ? pulsar(48, END, { amp: 8, period: 21 }) : [])]),
+    o: anim(aparecer(30, 3)),
+  });
+  const layers = [];
+  if (t >= 3) layers.push(...lib.confete(0, CONFETE_OURO, { count: 6, t0: 42, area: [36, 30, 164, 120], nm: "T3_Confete" }));
+  layers.push(check);
+  if (t >= 3) {
+    layers.push(raios("T3_BrilhoCheck", [100, 52], { count: 12, r1: 20, r2: 28, half: 4, t0: 42, peak: 85 }));
+  }
+  if (t >= 2) {
+    layers.push(L("T2_Seta", piece("bootstrap-graph-up-arrow", 70, { fill: "#FFAC33" }), {
+      p: anim([[0, [88, 122]], ...trajeto([[88, 122], [100, 106]], 22, 36)]),
+      s: anim([[0, 70], [22, 70, "out"], [36, 100]]),
+      o: anim(aparecer(22, 6)),
+    }));
+  }
+  layers.push(barra("G_Barra3", 3, 26, 16), barra("G_Barra2", 4, 18, 10), barra("G_Barra1", 2, 10, 4), eixo);
+  return layers;
+}
+
+/** Maria Mãe de Deus: coroa desce devagar sobre o manto azul, auréola acende. */
+function gestoMariaMaeDeus(t, c) {
+  const manto = lib.polyline([[100, 68], [118, 74], [127, 92], [129, 118], [136, 146], [144, 168], [100, 172],
+    [56, 168], [64, 146], [71, 118], [73, 92], [82, 74]], { closed: true });
+  const veste = lib.polyline([[100, 112], [110, 124], [115, 168], [85, 168], [90, 124]], { closed: true });
+  const mantoLayer = L("G_Manto", [
+    lib.makeEllipse(100, 97, 12, 15, hex("#FFDC5D"), "Rosto"),
+    lib.makeFill([veste], hex("#F5F8FA"), "Veste"),
+    lib.makeFill([manto], hex("#3D6FB6"), "Manto"),
+  ], {
+    p: anim([[0, [0, 10], "out"], [14, [0, 0]], ...flutuar([0, 0], 14, 1.5)]),
+    o: anim(aparecer(0, 10)),
+  });
+  const coroa = L("G_Coroa", piece("twemoji-1f451", 34), {
+    p: anim([[0, [100, 38]], [8, [100, 38], "ease"], [44, [100, 60]], ...flutuar([100, 60], 44, 1.5)]),
+    o: anim(aparecer(8, 10)),
+  });
+  const layers = [coroa];
+  if (t >= 3) layers.push(lib.luzDescendo(0, c.col.luz, { nm: "T3_Luz", top: 24, bottom: 130, w0: 12, w1: 84, t0: 30, peak: 30 }));
+  layers.push(mantoLayer);
+  const estrelas = (nm, centers, size, ks) => L(nm, pieces("twemoji-2b50", size, centers), { p: [100, 94], a: [100, 94], ...ks });
+  if (t >= 3) {
+    const doze = Array.from({ length: 12 }, (_, k) => {
+      const a = (k / 12) * Math.PI * 2 - Math.PI / 2;
+      return [100 + 46 * Math.cos(a), 94 + 46 * Math.sin(a)];
+    });
+    layers.push(estrelas("T3_DozeEstrelas", doze, 9, { r: anim(giro(30)), o: anim(aparecer(40, 12)) }));
+  } else if (t >= 2) {
+    layers.push(estrelas("T2_Estrelas", [[54, 62], [146, 62], [46, 112], [154, 112], [100, 34]], 11, {
+      s: anim([[0, 100], ...pulsar(40, END, { amp: 5, period: 30 })]), o: anim(aparecer(36, 10)),
+    }));
+  }
+  return layers;
+}
+
+/** Epifania: a estrela cruza o céu com rastro e para brilhando. */
+function gestoEpifania(t) {
+  const caminho = [[34, 96], [52, 72], [76, 58], [100, 60]];
+  const passos = trajeto(caminho, 0, 34);
+  const f = fracoes(caminho);
+  const fim = passos.map(([tt, , cv], k) => [tt, f[k] * 100, cv]);
+  const rastro = (nm, width, opacity, lag) => L(nm, [stroke([lib.polyline(caminho)], width, hex("#FFE8B6"), "Rastro", {
+    opacity,
+    trim: { e: anim(fim), s: anim([[0, 0], ...fim.map(([tt, v, cv]) => [tt + lag, v, cv])]) },
+  })], { p: [0, 0] });
+  const estrela = L("G_Estrela", piece("twemoji-2b50", 34), {
+    p: anim([...passos, ...flutuar([100, 60], 44, 1.5)]),
+    s: anim([[0, 80], [34, 80, "out"], [40, 125], [48, 100], ...pulsar(48, END, { amp: 6, period: 21 })]),
+    r: anim([[0, -40], [34, 0]]),
+    o: anim(aparecer(0, 4)),
+  });
+  const brilho = L("G_Brilho", [lib.makeRays(8, 20, 30, 6, hex("#FFE8B6"), "Brilho", [0, 0])], {
+    p: [100, 60],
+    s: anim([...pop(34, 10, { over: 120 }), ...pulsar(44, END, { amp: 6, period: 21 })]),
+    r: anim(giro(45)),
+    o: anim([...aparecer(34, 4, { to: 90 }), [50, 70]]),
+  });
+  const layers = [estrela, brilho, rastro("G_Rastro", 4, 85, 10)];
+  if (t >= 2) layers.push(rastro("T2_RastroLongo", 8, 35, 26));
+  if (t >= 3) {
+    const presentes = [
+      [58, 42, { "#FDD888": "#FFCC4D", "#FCAB40": "#F4900C", "#DA2F47": "#FFF1C1" }],  // ouro
+      [100, 48, { "#FDD888": "#E1E8ED", "#FCAB40": "#AAB8C2", "#DA2F47": "#9266CC" }], // incenso
+      [142, 54, { "#FDD888": "#C1694F", "#FCAB40": "#8A4633", "#DA2F47": "#DD2E44" }], // mirra
+    ];
+    presentes.forEach(([x, t0, recolor], k) => {
+      layers.unshift(L(`T3_Presente${k + 1}`, piece("twemoji-1f381", 32, { recolor }), {
+        p: anim([[0, [x, 154]], ...pulo([x, 154], t0 + 10, { h: 6, d: 8 })]),
+        s: anim(pop(t0, 10)), o: anim(aparecer(t0, 3)),
+      }));
+    });
+  }
+  return layers;
+}
+
+/** Batismo do Senhor: a pomba desce em voo; gota cai e faz ondas. */
+function gestoBatismoSenhor(t, c) {
+  const pomba = L("G_Pomba", piece("twemoji-1f54a", 54), {
+    p: anim([...trajeto([[148, 46], [128, 54], [100, 68]], 0, 34), ...flutuar([100, 68], 34)]),
+    r: anim([...onda(0, 6, 0, 30, { period: 10 }), [44, 0]]),
+    o: anim(aparecer(0, 6)),
+  });
+  const gota = L("G_Gota", piece("twemoji-1f4a7", 14), {
+    p: anim([[0, [100, 98]], ...queda([100, 98], [100, 146], 30, 42, { bounce: 0 })]),
+    s: anim([[0, 100], [30, 100, "in"], [42, [85, 120]]]),
+    o: anim([[0, 0], [30, 0], [32, 100], [41, 100], [43, 0]]),
+  });
+  const agua = hex("#BBDDF5");
+  const layers = [pomba, gota];
+  if (t >= 2) layers.push(lib.ondulacao(0, agua, { nm: "T2_OndaMaior", center: [100, 150], rx: 44, ry: 10, width: 2.5, t0: 48, dur: 30, rest: 35 }));
+  layers.push(
+    lib.ondulacao(0, agua, { nm: "G_Onda", center: [100, 150], rx: 26, ry: 6, t0: 42, dur: 26 }),
+    L("Rio", [lib.makeEllipse(0, 0, 46, 9, hex("#3B88C3"), "Rio", 45)], { p: [100, 151], o: anim(aparecer(0, 10)) }),
+  );
+  if (t >= 3) layers.push(lib.luzDescendo(0, c.col.luz, { nm: "T3_Luz", top: 24, bottom: 104, w0: 10, w1: 64, t0: 20, peak: 34 }));
+  return layers;
+}
+
+/** Santo Antônio Abade: o porquinho trota ao centro, cajado em T atrás. */
+function gestoAntonioAbade(t) {
+  const pes = [100, 158];
+  const trote = Array.from({ length: 7 }, (_, k) => [k * 5, [150 - (k * 50) / 6, k % 2 ? 154 : 158], "linear"]);
+  const porco = L("G_Porco", piece("twemoji-1f416", 66), {
+    a: [0, 27], p: anim(trote),
+    r: anim([...onda(0, 4, 0, 30, { period: 10 }), ...onda(0, 2, 34, END, { period: 28 })]),
+    o: anim(aparecer(0, 5)),
+  });
+  const tau = [reta([[-2.5, -94], [2.5, -94], [2.5, 0], [-2.5, 0]]), reta([[-14, -100], [14, -100], [14, -94], [-14, -94]])];
+  tau.forEach((s) => { s.c = true; });
+  const cajado = L("G_Cajado", [lib.makeFill(tau, hex("#C1694F"), "Cajado")], {
+    p: [140, 162],
+    s: anim([[0, [100, 0]], [26, [100, 0], "out"], [38, [100, 100]]]),
+    o: anim(aparecer(26, 4)),
+  });
+  const layers = [porco, cajado];
+  if (t >= 2) {
+    layers.unshift(L("T2_Sino", piece("twemoji-1f514", 16), {
+      a: pt("twemoji-1f514", 16, [18, 0]), p: [132, 68],
+      r: anim([[0, 0], ...onda(0, 18, 40, END, { period: 16 })]),
+      o: anim(aparecer(38, 6)),
+    }));
+  }
+  if (t >= 3) layers.push(aureola({ center: [100, 64], r: 20, t0: 40, nm: "T3_Aureola" }), raios("T3_Raios", [100, 64], { r2: 38, t0: 44 }));
+  return layers;
+}
+
+/** Seta (da peça arco e flecha) que chega na direção da ponta e para tremendo. */
+function flecha(nm, fim, { r = 0, flip = false, t0 = 0, dist = 40 } = {}) {
+  const ICON = "twemoji-1f3f9", S = 56;
+  const rad = (r * Math.PI) / 180;
+  const dx0 = flip ? 1 : -1, dy0 = -1;
+  const dir = [(dx0 * Math.cos(rad) - dy0 * Math.sin(rad)) / Math.SQRT2, (dx0 * Math.sin(rad) + dy0 * Math.cos(rad)) / Math.SQRT2];
+  const inicio = [fim[0] - dir[0] * dist, fim[1] - dir[1] * dist];
+  return L(nm, piece(ICON, S, { only: [2, 3, 4, 5, 6, 7, 8, 9, 10] }), {
+    a: pt(ICON, S, [16, 16]),
+    p: anim([[0, inicio], [t0, inicio, "in"], [t0 + 8, fim]]),
+    r: anim([[0, r], [t0 + 8, r], ...onda(r, 3, t0 + 8, t0 + 20, { period: 6 })]),
+    s: flip ? [-100, 100] : 100,
+    o: anim([[0, 0], [t0, 0], [t0 + 2, 100]]),
+  });
+}
+
+/** Palma do martírio (folhagem) em pé, com o caule embaixo. */
+const palma = (nm, size, ks) => L(nm, piece("twemoji-1f33f", size), { r: -45, ...ks });
+
+/** São Sebastião: flechas chegam e param; palma do martírio sobe. */
+function gestoSebastiao(t) {
+  const layers = [
+    palma("G_Palma", 54, {
+      p: anim([[0, [100, 136]], [24, [100, 136], "out"], [44, [100, 112]], ...flutuar([100, 112], 44)]),
+      o: anim(aparecer(24, 8)),
+    }),
+  ];
+  if (t >= 2) layers.push(flecha("T2_Flecha3", [100, 120], { r: 45, t0: 20, dist: 20 }));
+  layers.push(flecha("G_Flecha2", [86, 116], { flip: true, t0: 12 }), flecha("G_Flecha1", [114, 116], { t0: 4 }));
+  if (t >= 3) {
+    layers.push(L("T3_Coroa", piece("twemoji-1f451", 28), {
+      p: anim([[0, [100, 40]], [48, [100, 40], "ease"], [62, [100, 52]], ...flutuar([100, 52], 62, 1.5)]),
+      o: anim(aparecer(48, 8)),
+    }));
+  }
+  return layers;
+}
+
+/** Santa Inês: o cordeiro deita; a palma se abre por cima. */
+function gestoInes(t, c) {
+  const P = "twemoji-1f33f", PS = 46;
+  const cordeiro = L("G_Cordeiro", piece("twemoji-1f411", 64), {
+    a: [0, 32], p: anim([[0, [128, 160]], [16, [100, 160]]]),
+    s: anim([[0, 100], [20, 100, "ease"], [32, [106, 84]]]),
+    o: anim(aparecer(0, 6)),
+  });
+  const palmaLayer = L("G_Palma", piece(P, PS), {
+    a: pt(P, PS, [4.75, 35]), p: [74, 92], r: anim([[0, 45], [46, 45], ...onda(45, 3, 46, END, { period: 30 })]),
+    s: anim([[0, 0], ...abrir(30, 46, { axis: "xy" })]),
+    o: anim(aparecer(30, 4)),
+  });
+  const layers = [];
+  if (t >= 3) {
+    layers.push(L("T3_Coroa", piece("twemoji-1f451", 26), {
+      p: anim([[0, [100, 42]], [50, [100, 42], "ease"], [64, [100, 52]], ...flutuar([100, 52], 64, 1.5)]),
+      o: anim(aparecer(50, 8)),
+    }));
+  }
+  layers.push(palmaLayer);
+  if (t >= 2) {
+    const L1 = "twemoji-269c";
+    layers.push(L("T2_Lirio", piece(L1, 30, { recolor: { "#744EAA": "#CCD6DD", "#AA8DD8": "#FFFFFF", "#9266CC": "#FFCC4D" } }), {
+      a: pt(L1, 30, [18, 36]), p: [156, 164],
+      s: anim(abrir(40, 54, { axis: "y" })), o: anim(aparecer(40, 4)),
+    }));
+  }
+  layers.push(cordeiro);
+  if (t >= 3) layers.push(lib.luzDescendo(0, c.col.luz, { nm: "T3_Luz", top: 24, bottom: 132, w0: 10, w1: 70, t0: 40, peak: 30 }));
+  return layers;
+}
+
+/** São Francisco de Sales: a pena escreve uma linha que vira coração. */
+function gestoFranciscoSales(t) {
+  const H = "twemoji-2764", HS = 64, HC = [100, 112];
+  const contorno = lib.parsePath(ICONS[H].elements[0].d, 18, 18, HS / 36, HC[0], HC[1]);
+  const passos = pontosAoLongo(contorno[0], 17);
+  const PENA = "twemoji-1fab6", PS = 44;
+  const pena = L("G_Pena", piece(PENA, PS), {
+    a: pt(PENA, PS, [0.6, 35.4]),
+    p: anim([[0, passos[0]], ...passos.map((q, k) => [4 + k * 2, q, "linear"]), [44, [128, 72]]]),
+    o: anim([[0, 0], [2, 0], [4, 100], [38, 100], [46, 0]]),
+  });
+  const linha = L("G_Linha", [stroke(contorno, 3.5, hex("#F4ABBA"), "Linha", { trim: { e: anim([[0, 0], [4, 0, "linear"], [36, 100]]) } })], {
+    p: [0, 0], o: anim([[0, 100], [40, 100], [48, 0]]),
+  });
+  const coracao = L("G_Coracao", piece(H, HS), {
+    p: HC,
+    s: anim([...pop(34, 12, { over: 112 }), ...(t >= 2 ? pulsar(48, END, { amp: 7, period: 15 }) : [])]),
+    o: anim(aparecer(34, 4)),
+  });
+  const layers = [pena, linha, coracao];
+  if (t >= 3) {
+    const F = "twemoji-1f525";
+    layers.push(L("T3_Chamas", piece(F, 28), {
+      a: pt(F, 28, [18, 36]), p: [100, 92],
+      s: anim([...pop(44, 8, { over: 110 }), ...onda([100, 100], 10, 52, END, { period: 10, axis: 1 })]),
+      o: anim(aparecer(44, 4)),
+    }));
+  }
+  if (t >= 2) {
+    layers.push(L("T2_Pulso", [stroke(contorno, 2.5, hex("#F4ABBA"), "Pulso")], {
+      p: HC, a: HC,
+      s: anim([[0, 100], [50, 100, "out"], [64, 135, "linear"], [65, 100, "out"], [END - 1, 125]]),
+      o: anim([[0, 0], [50, 0, "linear"], [51, 70], [64, 0, "linear"], [65, 70], [END - 1, 25]]),
+    }));
+  }
+  return layers;
+}
+
+/** Conversão de São Paulo: clarão de luz desce do alto (⚡ do app) e a espada aparece. */
+function gestoConvPaulo(t, c) {
+  const raio = L("G_Raio", piece("twemoji-26a1", 38), {
+    p: anim([[0, [100, 42]], [2, [100, 42], "in"], [10, [100, 58]], ...onda([100, 58], 2, 10, 22, { period: 4, axis: 0 }), ...flutuar([100, 58], 30, 1.5)]),
+    s: anim([[0, 100], [10, 100, "out"], [14, 118], [20, 100]]),
+    o: anim(aparecer(2, 4)),
+  });
+  const espada = L("G_Espada", piece("twemoji-1f5e1", 50), {
+    p: [100, 112],
+    r: anim([[0, -225], [16, -225, "out"], [30, -45]]),
+    s: anim(pop(16, 14, { over: 110 })),
+    o: anim(aparecer(16, 4)),
+  });
+  const luz = lib.luzDescendo(0, c.col.luz, { nm: "G_Luz", top: 24, bottom: 136, w0: 16, w1: 90, t0: 2, dur: 10, peak: 45 });
+  const layers = [raio, espada];
+  if (t >= 3) {
+    layers.push(L("T3_Livro", piece("bootstrap-book-fill", 36, { fill: "#FFE8B6" }), {
+      p: [100, 162], s: anim(abrir(36, 48, { axis: "x", from: 4 })), o: anim(aparecer(36, 3)),
+    }));
+  }
+  if (t >= 2) layers.push(raios("T2_Raios", [100, 58], { count: 10, r1: 25, r2: 35, half: 5, t0: 10, peak: 80, color: hex("#FFE8A3") }));
+  layers.push(luz);
+  return layers;
+}
+
+/** São Tomás de Aquino: o livro se abre e um sol pequeno nasce das páginas. */
+function gestoTomasAquino(t) {
+  const solKeys = [[0, [100, 128]], [20, [100, 128], "out"], [40, [100, 80]], ...flutuar([100, 80], 40)];
+  const sol = L("G_Sol", piece("twemoji-2600", 30), {
+    p: anim(solKeys), s: anim([[0, 30], [20, 30, "out"], [40, 100]]), r: anim(giro(45)), o: anim(aparecer(20, 6)),
+  });
+  const livro = L("G_Livro", piece("twemoji-1f4d6", 76), {
+    p: [100, 142], s: anim(abrir(4, 18, { axis: "x", from: 6 })), o: anim(aparecer(2, 4)),
+  });
+  const layers = [sol, livro];
+  if (t >= 2) {
+    layers.unshift(L("T2_Pomba", piece("twemoji-1f54a", 26), {
+      p: anim([[0, [162, 74]], [30, [162, 74], "out"], [46, [144, 96]], ...flutuar([144, 96], 46)]),
+      o: anim([[0, 0], [30, 0], [34, 100]]),
+    }));
+  }
+  if (t >= 3) layers.push(raios("T3_Raios", anim(solKeys), { count: 16, r1: 22, r2: 32, half: 3, t0: 40, peak: 85 }));
+  return layers;
+}
+
+/** São João Bosco: a criança pula e duas mãos de acolhimento aparecem. */
+function gestoJoaoBosco(t) {
+  const C = "twemoji-1f9d2", CS = 48;
+  const x = t >= 2 ? 86 : 100;
+  const saltos = [[0, [x, 116]], ...pulo([x, 116], 10, { h: 14, d: 12, n: 2, gap: 4 }), ...flutuar([x, 116], 38, 1.5)];
+  const crianca = L("G_Crianca", piece(C, CS), { a: [0, 21], p: anim(saltos), o: anim(aparecer(0, 6)) });
+  const maos = L("G_Maos", piece("twemoji-1f932", 56), {
+    p: anim([[0, [100, 154]], [28, [100, 154], "out"], [40, [100, 148]]]), o: anim(aparecer(28, 6)),
+  });
+  const layers = [];
+  if (t >= 3) {
+    layers.push(...lib.confete(0, [hex("#FFCC4D"), hex("#55ACEE"), hex("#DD2E44"), hex("#77B255")], {
+      count: 6, t0: 40, area: [36, 30, 164, 110], seed: 11, nm: "T3_Confete",
+    }));
+    layers.push(aureola({ rx: 14, ry: 4.5, t0: 40, p: anim(deslocar(saltos, [0, -50])), nm: "T3_Aureola" }));
+  }
+  layers.push(crianca);
+  if (t >= 2) {
+    const B = "twemoji-1f466";
+    layers.push(L("T2_Crianca2", piece(B, 34), {
+      a: [0, 16], p: anim([[0, [132, 122]], ...pulo([132, 122], 18, { h: 10, d: 10, n: 2, gap: 6 })]), o: anim(aparecer(0, 6)),
+    }));
+  }
+  layers.push(maos);
+  return layers;
+}
 
 // ── Tabela do lote 1 ─────────────────────────────────────────────────────────
 /**
- * kind: "seasonal" (3 níveis) | "liturgical" (1 nível).
- * icon: chave em ICONS. symbol: o que o elemento representa.
+ * kind: "seasonal" | "liturgical" (ambos com 3 níveis).
+ * icon: peça principal do gesto (chave em ICONS; uma diferente por troféu).
+ * gesture: função do gesto. halo: auréola dos litúrgicos que acende (centro e
+ * raio `r`, ou `rx`/`ry` para a auréola elíptica por cima do desenho). Sem halo:
+ * Epifania (festa sem santo: a estrela brilha no lugar) e os troféus em que a
+ * tabela do guia põe a auréola só no ouro (Antônio Abade, João Bosco).
  */
 const TROPHIES = [
   // Sazonais
-  { id: "seasonal_decimo_terceiro", kind: "seasonal", icon: "twemoji-1f4b5", symbol: "cédula de dinheiro (13º salário)" },
-  { id: "seasonal_ferias_verao",    kind: "seasonal", icon: "twemoji-2600",  symbol: "sol de verão" },
-  { id: "seasonal_balanco_anual",   kind: "seasonal", icon: "twemoji-1f4ca", symbol: "gráfico de barras (balanço)" },
+  { id: "seasonal_decimo_terceiro", kind: "seasonal", icon: "bootstrap-piggy-bank-fill", gesture: gestoDecimoTerceiro, symbol: "nota que entra no cofrinho (13º bem aplicado)" },
+  { id: "seasonal_ferias_verao",    kind: "seasonal", icon: "twemoji-2600",  gesture: gestoFeriasVerao,  symbol: "sol nascendo sobre o mar" },
+  { id: "seasonal_balanco_anual",   kind: "seasonal", icon: "twemoji-1f4ca", gesture: gestoBalancoAnual, symbol: "barras do balanço e ✓" },
   // Litúrgicos de janeiro
-  { id: "lt_maria_mae_deus",  kind: "liturgical", icon: "twemoji-1f451", color: "branco",   symbol: "coroa de Maria, Rainha e Mãe de Deus" },
-  { id: "lt_epifania",        kind: "liturgical", icon: "twemoji-2b50",  color: "branco",   symbol: "estrela de Belém que guiou os Magos" },
-  { id: "lt_batismo_senhor",  kind: "liturgical", icon: "twemoji-1f54a", color: "branco",   symbol: "pomba do Espírito Santo no Jordão" },
-  { id: "lt_antonio_abade",   kind: "liturgical", icon: "twemoji-1f416", color: "branco",   symbol: "porco, atributo de Santo Antão" },
-  { id: "lt_sebastiao",       kind: "liturgical", icon: "twemoji-1f3f9", color: "vermelho", symbol: "arco e flechas do martírio" },
-  { id: "lt_ines",            kind: "liturgical", icon: "twemoji-1f411", color: "vermelho", symbol: "cordeiro (Agnes ↔ agnus)" },
-  { id: "lt_francisco_sales", kind: "liturgical", icon: "twemoji-1fab6", color: "branco",   symbol: "pena de escrever, patrono dos escritores" },
-  { id: "lt_conv_paulo",      kind: "liturgical", icon: "twemoji-1f5e1", color: "branco",   symbol: "espada de São Paulo" },
-  { id: "lt_tomas_aquino",    kind: "liturgical", icon: "twemoji-1f4da", color: "branco",   symbol: "livros da Suma Teológica" },
-  { id: "lt_joao_bosco",      kind: "liturgical", icon: "twemoji-1f9d2", color: "branco",   symbol: "criança, patrono dos jovens" },
+  { id: "lt_maria_mae_deus",  kind: "liturgical", icon: "twemoji-1f451", color: "branco",   gesture: gestoMariaMaeDeus,   halo: { center: [100, 94], r: 34, t0: 44 }, symbol: "coroa sobre o manto azul de Maria" },
+  { id: "lt_epifania",        kind: "liturgical", icon: "twemoji-2b50",  color: "branco",   gesture: gestoEpifania,       symbol: "estrela de Belém que guiou os Magos" },
+  { id: "lt_batismo_senhor",  kind: "liturgical", icon: "twemoji-1f54a", color: "branco",   gesture: gestoBatismoSenhor,  halo: { center: [100, 34], rx: 20, ry: 5.5, t0: 34 }, symbol: "pomba do Espírito Santo sobre o Jordão" },
+  { id: "lt_antonio_abade",   kind: "liturgical", icon: "twemoji-1f416", color: "branco",   gesture: gestoAntonioAbade,   symbol: "porco e cajado em T de Santo Antão" },
+  { id: "lt_sebastiao",       kind: "liturgical", icon: "twemoji-1f3f9", color: "vermelho", gesture: gestoSebastiao,      halo: { center: [100, 68], rx: 16, ry: 5, t0: 44 }, symbol: "flechas e palma do martírio" },
+  { id: "lt_ines",            kind: "liturgical", icon: "twemoji-1f411", color: "vermelho", gesture: gestoInes,           halo: { center: [76, 126], r: 13, t0: 36 }, symbol: "cordeiro (Agnes ↔ agnus) e palma" },
+  { id: "lt_francisco_sales", kind: "liturgical", icon: "twemoji-1fab6", color: "branco",   gesture: gestoFranciscoSales, halo: { center: [100, 62], rx: 20, ry: 5.5, t0: 46 }, symbol: "pena que escreve um coração" },
+  { id: "lt_conv_paulo",      kind: "liturgical", icon: "twemoji-26a1",  color: "branco",   gesture: gestoConvPaulo,      halo: { center: [100, 30], rx: 18, ry: 5, t0: 12 }, symbol: "clarão de luz e espada de São Paulo" },
+  { id: "lt_tomas_aquino",    kind: "liturgical", icon: "twemoji-1f4d6", color: "branco",   gesture: gestoTomasAquino,    halo: { center: [100, 40], rx: 16, ry: 4.5, t0: 40 }, symbol: "livro aberto e sol da sabedoria" },
+  { id: "lt_joao_bosco",      kind: "liturgical", icon: "twemoji-1f9d2", color: "branco",   gesture: gestoJoaoBosco,      symbol: "criança acolhida, patrono dos jovens" },
 ];
 
 // ── Montagem ─────────────────────────────────────────────────────────────────
-function buildSeasonal(entry, tier) {
-  const icon = ICONS[entry.icon];
-  const [cx, cy] = lib.CENTER;
-  const m = SEASONAL;
-  const main = lib.mainLayer(1, entry.id, [
-    ...lib.iconShapes(icon, lib.fitIconSize(icon, iconRoom(m), m.maxIcon)),
-    lib.makeRing(cx, cy, m.face, m.ring, lighten(tier.metal, 0.35), "MedalInnerRing"),
-    lib.makeEllipse(cx, cy, m.face, m.face, lighten(tier.metal, 0.8), "MedalFace"),
-    lib.makeEllipse(cx, cy, m.rim, m.rim, tier.metal, "MedalRim"),
-  ]);
-  const layers = [main, ...lib.sparkleLayers(2, tier.spark), lib.glowLayer(7, tier.metal)];
+function buildTier(entry, tier) {
+  const ctx = { col: entry.kind === "liturgical" ? LITURGICAL_COLORS[entry.color] : null };
+  const art = [...entry.gesture(tier.tier, ctx)];
+  if (entry.kind === "liturgical" && entry.halo) art.push(aureola(entry.halo));
+  const layers = art.map((ly) => lib.scaleLayer(ly, ART_SCALE));
+  layers.push(...lib.sparkleLayers(0, tier.spark, undefined, { peak: tier.sparkPeak }));
+  layers.push(lib.glowLayer(0, entry.kind === "liturgical" ? ctx.col.glow : tier.metal, { peak: tier.glowPeak }));
+  layers.forEach((ly, k) => { ly.ind = k + 1; });
   return lib.assemble(`${entry.id}_t${tier.tier}`, layers);
 }
 
-function buildLiturgical(entry) {
-  const icon = ICONS[entry.icon];
-  const col = LITURGICAL_COLORS[entry.color];
-  const [cx, cy] = lib.CENTER;
-  const m = LITURGICAL;
-  const main = lib.mainLayer(1, entry.id, [
-    ...lib.iconShapes(icon, lib.fitIconSize(icon, iconRoom(m), m.maxIcon)),
-    lib.makeRing(cx, cy, m.face, m.ring, HALO_GOLD, "Aureola"),
-    lib.makeEllipse(cx, cy, m.face, m.face, col.disc, "Disc"),
-  ]);
-  const layers = [main, ...lib.sparkleLayers(2, LT_SPARK), lib.raysLayer(7, RAY_GOLD), lib.glowLayer(8, col.glow)];
-  return lib.assemble(entry.id, layers);
-}
-
-/** Arquivos de um troféu: [{ suffix, lottie }]. */
+/** Arquivos de um troféu: [{ suffix, lottie }] (bronze, prata, ouro). */
 function buildTrophy(entry) {
   const id = entry && entry.id;
   if (!ICONS[entry.icon]) throw new Error(`${id}: ícone desconhecido: ${entry.icon}`);
   if (entry.kind === "liturgical" && !LITURGICAL_COLORS[entry.color]) {
     throw new Error(`${id}: cor litúrgica ausente ou desconhecida: ${JSON.stringify(entry.color)} (use ${Object.keys(LITURGICAL_COLORS).join(" | ")})`);
   }
+  if (entry.kind !== "seasonal" && entry.kind !== "liturgical") throw new Error(`${id}: kind desconhecido: ${entry.kind}`);
+  if (typeof entry.gesture !== "function") throw new Error(`${id}: sem gesto`);
   try {
-    if (entry.kind === "seasonal") {
-      return SEASONAL_TIERS.map((t) => ({ suffix: t.suffix, lottie: buildSeasonal(entry, t) }));
-    }
-    if (entry.kind === "liturgical") return [{ suffix: "", lottie: buildLiturgical(entry) }];
+    return TIERS.map((tier) => ({ suffix: tier.suffix, lottie: buildTier(entry, tier) }));
   } catch (err) {
     throw new Error(`${id}: ${err.message}`);
   }
-  throw new Error(`${id}: kind desconhecido: ${entry.kind}`);
 }
 
 function checkUniqueIcons(entries) {
@@ -319,6 +966,6 @@ function main() {
   console.log(`Done: ${outputs.length} arquivos.`);
 }
 
-module.exports = { ICONS, TROPHIES, SEASONAL_TIERS, SEASONAL, LITURGICAL, ICON_MARGIN, buildTrophy, checkUniqueIcons };
+module.exports = { ICONS, TROPHIES, TIERS, LITURGICAL_COLORS, buildTrophy, checkUniqueIcons };
 
 if (require.main === module) main();

@@ -2,7 +2,7 @@
 title: 'Story 11.7: refazer o lote 1 com gesto próprio e níveis'
 type: 'feature'
 created: '2026-10-22'
-status: 'in-review'
+status: 'done'
 baseline_commit: '6bc259cc3fd5b77eb58b977df7d2e3aeb7cb43d7'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -89,3 +89,4 @@ context:
 **Commands:**
 - `node scripts/trophy-lot-1.js` -- expected: 39 arquivos
 - `npx vitest run` e `npx tsc --noEmit` -- expected: sem falhas; tsc exit 0
+- Correções da revisão: todo o desenho foi reduzido por `ART_SCALE = 0.82` para caber na janela visível do app (1,45×); quadro 89 mostra o estado final do gesto e dos extras de cada nível. O dono aprovou os 13 na página (22/10/2026, coleção `aprovacoes`).
