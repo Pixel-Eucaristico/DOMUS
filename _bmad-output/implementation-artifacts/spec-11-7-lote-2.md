@@ -2,7 +2,7 @@
 title: 'Story 11.7: lote 2 de Lottie (fevereiro a abril)'
 type: 'feature'
 created: '2026-10-22'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: '9863515d7717c1edc1e7e0cfdafbb4c9f5a7ab33'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -36,14 +36,19 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `scripts/trophy-lot-2.js` -- tabela e gestos da §5
-- [ ] `assets/lottie/trophies/` -- 63 arquivos
-- [ ] `scripts/__tests__/` -- verificações comuns + teste do lote 2; lote 1 sem mudança de saída
+- [x] `scripts/trophy-lot-2.js` -- tabela e gestos da §5
+- [x] `assets/lottie/trophies/` -- 63 arquivos
+- [x] `scripts/__tests__/` -- verificações comuns + teste do lote 2; lote 1 sem mudança de saída
 
 **Acceptance Criteria:**
 - Given o lote 2, when rodo `node scripts/trophy-lot-2.js`, then 63 arquivos são gerados e todos os testes passam, e o lote 1 continua idêntico
 
 ## Implementation Notes
+
+- `scripts/lottie-lib/trophy-kit.js` (novo): montagem comum tirada do `trophy-lot-1.js` sem mudar a saída (níveis, cores litúrgicas + `roxo`, auréola, raios, `ART_SCALE`, `piece`/`pt`/`pieces`, `buildTrophy`, `checkUniqueIcons`, `main`). `makeLot(ICONS, { DRAWN })` aceita peças principais desenhadas no gerador. `node scripts/trophy-lot-1.js` regrava os 39 arquivos idênticos (`git diff` vazio).
+- `scripts/trophy-lot-2.js`: 21 gestos da §5; peças novas de Twemoji 15.1.0 e Bootstrap Icons 1.11.3 copiadas para `ICONS` com fonte e licença (o `1f495` foi separado em dois elementos, um por coração), e peças reaproveitadas da tabela do lote 1. Desenhadas no gerador e declaradas no cabeçalho: velas de São Brás, véu, cruz de cinza, cálice, lousa/ABC, trevo (folhas = coração 2764), hóstia, tiara, espinhos, gruta, túmulo etc. Cores: vermelho (Águeda, Perpétua e Felicidade, Jorge, Sexta-Feira da Paixão), roxo (Cinzas), branco (demais). Auréola de base só em santos sem auréola no ouro da tabela (Águeda, Valentim, Isidoro, Carlo Acutis, Jorge, Catarina).
+- Testes: as verificações do lote 1 viraram `scripts/__tests__/trophyLotChecks.ts` (`checkLot`), usadas por `trophyLot1.test.ts` e `trophyLot2.test.ts`; acrescentadas: grupos aninhados na verificação de geometria, nenhum id em `APPROVED_LOTTIE`, cabeçalho com fontes e peças desenhadas; o lote 2 confere os 21 ids de `month` 2–4, a cor de cada festa e que nenhum desenho (peça principal e geometria do gesto) se repete entre os lotes. As verificações têm tempo de 60 s (percorrem todos os quadros).
+- Prévia: quadros renderizados fora do repositório (Lottie → SVG → PNG) para composição e janela; a aprovação visual fica com o dono.
 
 ## Spec Change Log
 
