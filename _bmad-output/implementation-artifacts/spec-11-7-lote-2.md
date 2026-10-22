@@ -54,6 +54,22 @@ context:
 
 ## Review Triage Log
 
+| Achado | Veredito | Evidência |
+|---|---|---|
+| Cor litúrgica errada: Brás, Valentim (mártires), Marcos (evangelista e mártir), Ramos | medium | `data.ts` descreve os três como mártires; Ramos é vermelho. **patch**. |
+| Perpétua e Felicidade e São Patrício sem auréola de base, contra a regra do comentário | medium | Sem teste da regra. **patch** + teste. |
+| `checkLot` voltou a exigir que nenhum id do lote esteja aprovado | medium | Quebra os dois lotes quando a 11.8 registrar. **patch** (remover). |
+| Lote 2 depende dos gestos do lote 1; ajudas presas no lote 2; checagem entre lotes só num sentido | medium | Os lotes 3 a 5 teriam de copiar ou importar lotes anteriores. **patch**: ajudas e ícones na biblioteca e registro de lotes. |
+| Id repetido entre lotes e peça reaproveitada que sobrescreve outra sem aviso | low | Proteções diretas. **patch**. |
+| Checagens frágeis (quadro final com escala 0, auréola ausente, pasta temporária, cabeçalho, peças desenhadas órfãs, `chuva`) | low | Correções diretas. **patch**. |
+| Arrumação (JSDoc, tempo limite, testes da biblioteca repetidos, código morto) | low | Correção direta. **patch**. |
+| Palma repetida (Águeda, Perpétua, Sebastião, Inês) e livro que se abre (Isidoro, Tomás) | low | Os gestos vêm do guia de UX e diferem no movimento; o dono decide na página. rejeitado |
+| Fonte única da cor litúrgica em `data.ts` | low | Refatoração do pacote sem dano agora; as cores ficam testadas no lote. rejeitado |
+| Interpolação linear em vez de bezier na janela | low | Aproximação já aceita no lote 1. rejeitado |
+| CI não roda `vitest` | medium | Anterior a esta story. **defer** D27. |
+
+**Rota:** 7 `patch`, 1 `defer` (D27), 3 rejeitados. Sem loopback.
+
 ## Verification
 
 **Commands:**
