@@ -67,6 +67,23 @@ context:
 
 ## Review Triage Log
 
+| Achado | Veredito | Evidência |
+|---|---|---|
+| Quadro parado (89): extras de prata/ouro e partes do gesto já sumiram | medium | `LottieTrophy` usa `play(89, 89)` quando estático; nas listas a prata e o ouro pareceriam bronze. **patch** + teste. |
+| Arte cortada pela janela visível do app (ampliação 1,45× com `overflow: hidden`) e entrada fora do teste | medium | Medido: porco ~182, manto ~183, pomba ~179, mar 172, contra uma janela de ~[31, 169]. **patch** + teste com a janela real. |
+| `frameExtent` não entra em grupos aninhados | medium (gap) | Mediria errado nos próximos lotes. **patch**. |
+| `anim` perde a curva ao juntar chaves no mesmo quadro | low | Correção direta. **patch**. |
+| `onda` trava com período ≤ 0 e gera uma chave só em trecho curto | medium | Trava o gerador; a estrela do 13º ouro não flutua. **patch**. |
+| Ajudas sem validação (`abrir`, `recolor`, `only`, `pt`, `aureola`, `confete`, `ctx.col`) | medium | Os próximos 104 troféus usam essas ajudas; o erro sai sem dizer qual troféu. **patch**. |
+| Testes fracos (regex de medalha, busca por `null`, licenças, auréola e força por nível) | medium (gap) | Falso positivo em "Primavera"; `undefined` passava. **patch**. |
+| Comentário diz que a auréola muda por nível | low | Correção direta. **patch**. |
+| Sebastião prata com uma flecha só; sol de Tomás de Aquino igual no ouro | low | O dono viu e aprovou assim. rejeitado |
+| Desenho some e volta a cada laço | low | Mesmo comportamento do Natal aprovado. rejeitado |
+| Ajudas novas sem teste unitário | low | Cobertas pelo teste do lote e pela validação nova. rejeitado |
+| Interpolação linear no teste em vez de bezier | low | Aproximação conservadora dos limites. rejeitado |
+
+**Rota:** 8 `patch`, 4 rejeitados. Sem loopback.
+
 ## Verification
 
 **Commands:**
