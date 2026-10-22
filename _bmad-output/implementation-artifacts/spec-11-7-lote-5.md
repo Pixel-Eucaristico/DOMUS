@@ -36,13 +36,20 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `scripts/trophy-lot-5.js` e registro em `lots.js`
-- [ ] `assets/lottie/trophies/` -- 96 arquivos
-- [ ] `scripts/__tests__/trophyLot5.test.ts`
+- [x] `scripts/trophy-lot-5.js` e registro em `lots.js`
+- [x] `assets/lottie/trophies/` -- 96 arquivos
+- [x] `scripts/__tests__/trophyLot5.test.ts`
 
 **Acceptance Criteria:**
 - Given o lote 5, when rodo `node scripts/trophy-lot-5.js`, then 96 arquivos são gerados, todos os testes passam e os lotes 1 a 4 continuam idênticos
 - Given os 5 lotes, when conto os `lt_*` de `liturgicalTrophies/data.ts`, then todos têm os 3 níveis em `assets/lottie/trophies/`
+
+## Implementation Notes
+
+- `scripts/trophy-lot-5.js`: os 32 gestos da §8, com prata (`T2_*`) e ouro (`T3_*`). Nenhuma peça de fora: as 32 peças principais e tudo o que a prata e o ouro acrescentam são desenhados (`ICONS` vazio, `uses` vazio), então nenhum nível repete a peça principal de outro troféu.
+- Biblioteca (`lottie-lib/desenhos.js`, só acréscimos): `PELE_ESCURA`, `masculino`/`bustoHomem`/`figuraHomem` (rosto de homem: cabelo curto rente, orelhas, sobrancelhas, nariz, sem bochechas; barba, bigode e tonsura opcionais), `grupo`/`grupoAnimado`, `tercoContas`, `letrasShapes`, `rosaShapes`, `lirioShapes` e `paoShapes`. `lots.js` registra o lote 5.
+- `trophyLotChecks.ts`: o motivo "sem pessoa no desenho" passa a valer no `SEM_HALO` (São João da Cruz: a chama, o monte e o crucifixo).
+- Testes: `trophyLot5.test.ts` (ids e linhas da §8, cores, unicidade nos cinco lotes, pessoas e rostos de homem, pele comum e escura, Maria ≥ 60 px e na frente, luz atrás das pessoas, auréolas e coroas no eixo da cabeça, `SEM_HALO`, luz do ouro, terço que acende por dezena, nada de jogo, sazonais aprovados, Inocentes e Luzia sem violência, aceite dos `lt_*`) e `checkLot`. `lottieLib.test.ts`: registro com o lote 5 e testes das ajudas novas.
 
 ## Spec Change Log
 
