@@ -2,7 +2,7 @@
 title: 'Story 11.7: ajustes do dono no lote 4'
 type: 'bugfix'
 created: '2026-10-22'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '4e4538b'
 route: 'one-shot'
 context:

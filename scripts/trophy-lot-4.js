@@ -17,8 +17,8 @@
  * Mesmo formato, `ART_SCALE`, janela visível, base comum e quadro final dos
  * lotes 1 a 3 (montagem comum em `scripts/lottie-lib/trophy-kit.js`).
  *
- * Fontes das peças: o lote não traz peça nova; as que usa (lírio 269c, pão
- * 1f35e e nuvem 2601, nenhuma delas peça principal de troféu) vêm da tabela
+ * Fontes das peças: o lote não traz peça nova; as que usa (lírio 269c e pão
+ * 1f35e, nenhuma delas peça principal de troféu) vêm da tabela
  * comum `scripts/lottie-lib/icons.js` (REUSED), copiadas de:
  *  - Twemoji (https://github.com/jdecked/twemoji, v15.1.0), licença CC-BY 4.0
  *    — © Twitter, Inc. e colaboradores.
@@ -76,7 +76,7 @@ const { END, L, add, flutuar, deslocar, stroke, reta, aureola, raios } = kit;
 
 // ── Peças (todas da tabela comum, mesma fonte e licença) ─────────────────────
 /** Peças da tabela comum (lottie-lib/icons.js) usadas aqui. */
-const REUSED = ["twemoji-269c", "twemoji-1f35e", "twemoji-2601"];
+const REUSED = ["twemoji-269c", "twemoji-1f35e"];
 
 const ICONS = {};
 for (const key of REUSED) {
@@ -86,14 +86,14 @@ for (const key of REUSED) {
 
 /** Peças principais desenhadas no próprio gerador (sem fonte externa; ver o cabeçalho). */
 const DRAWN = {
-  "desenho-confessionario": { desc: "o Cura d'Ars (busto, batina preta e estola roxa) inclinado para a grade do confessionário", uses: [] },
+  "desenho-confessionario": { desc: "o Cura d'Ars (busto de homem: cabelo curto, colarinho romano, ombros largos de batina preta e estola roxa) inclinado para a grade do confessionário", uses: [] },
   "desenho-transfiguracao": { desc: "Jesus (corpo inteiro) sobre o monte, com a túnica que fica branca e brilhante", uses: [] },
-  "desenho-cao-com-tocha": { desc: "cachorrinho branco e preto que corre com a tocha acesa na boca", uses: [] },
+  "desenho-cao-com-tocha": { desc: "cachorrinho cor de mel (focinho comprido, orelha caída, rabo levantado) que corre com a tocha acesa na boca", uses: [] },
   "desenho-grelha": { desc: "grelha de São Lourenço sobre as brasas", uses: [] },
   "desenho-clara-e-custodia": { desc: "Santa Clara (busto, hábito marrom e véu) erguendo a custódia", uses: [] },
   "desenho-duas-coroas": { desc: "as duas coroas de São Maximiliano Kolbe, a branca e a vermelha", uses: [] },
   "desenho-assuncao": { desc: "Maria (corpo inteiro, manto azul e branco) subindo entre nuvens desenhadas", uses: [] },
-  "desenho-colmeia": { desc: "colmeia de palha e abelhas voando (o Doutor Melífluo)", uses: [] },
+  "desenho-colmeia": { desc: "colmeia tradicional de palha (cúpula de rolos empilhados, entradinha no pé) e abelhas saindo e voando (o Doutor Melífluo)", uses: [] },
   "desenho-maria-rainha": { desc: "Maria (busto, manto azul) e a coroa desenhada que desce", uses: [] },
   "desenho-evangelho-e-faca": { desc: "livro do Evangelho de capa vermelha e a faca do martírio", uses: [] },
   "desenho-monica-em-oracao": { desc: "Santa Mônica (busto, véu escuro, mãos postas) e as lágrimas", uses: [] },
@@ -212,6 +212,39 @@ function cruzShapes(h, { cor = "#A0522D", luz = "#D99E82" } = {}) {
 // Cada gesto devolve as camadas da frente para trás. `t` = nível (1 bronze,
 // 2 prata, 3 ouro); `c.col` = cor litúrgica.
 
+/**
+ * Busto de padre homem (o Cura d'Ars), a partir do `busto` comum (mesmo rosto,
+ * olhos, boca e pele): cabelo curto rente, só no alto da cabeça, com a linha
+ * da testa e as orelhas à mostra; sobrancelhas; sem o rubor das bochechas;
+ * ombros largos e retos de batina preta, com o colarinho romano (gola alta
+ * preta e a tira branca) e a fileira de botões. Rosto em (0,0), escala `k`;
+ * vai de y −17 a 70 e de x −42 a 42 (vezes k). Grupos da frente para trás.
+ */
+function padreShapes(k) {
+  const P_ = (pts) => pts.map(([x, y]) => [x * k, y * k]);
+  const BATINA = "#292F33", CABELO = "#4A2E1A";
+  const base = busto(k, { veste: BATINA, cabelo: "curto", corCabelo: CABELO });
+  const so = (nm) => base.find((g) => g.nm === nm);
+  const botoes = [24, 32, 40, 48, 56, 64].map((y) => lib.makeEllipse(0, y * k, 1.1 * k, 1.1 * k, hex("#66757F"), `Botao${y}`));
+  return [
+    stroke([lib.polyline(P_([[-8.5, -6.5], [-6, -7.5], [-3, -6.8]])), lib.polyline(P_([[3, -6.8], [6, -7.5], [8.5, -6.5]]))], 1.4 * k, hex(CABELO), "Sobrancelhas"),
+    so("Olhos"), so("Boca"),
+    // franja curta: o cabelo acaba na testa (y ≈ −8) e nas têmporas, sem descer pelo rosto
+    fill([forma(P_([[-11.4, -3], [-11, -10], [-6, -14.6], [0, -15.4], [6, -14.6], [11, -10], [11.4, -3], [9.6, -7], [4, -9.6], [-3, -9.2], [-9.6, -7]]))], CABELO, "CabeloFrente"),
+    so("Rosto"),
+    lib.makeEllipse(-11 * k, 1 * k, 2.4 * k, 3.6 * k, hex(PELE), "OrelhaE"),
+    lib.makeEllipse(11 * k, 1 * k, 2.4 * k, 3.6 * k, hex(PELE), "OrelhaD"),
+    fill([rect(-1.8 * k, 13 * k, 1.8 * k, 17.5 * k)], "#FFFFFF", "Colarinho"),
+    fill([rect(-6 * k, 12 * k, 6 * k, 19 * k)], BATINA, "Gola"),
+    so("Pescoco"),
+    ...botoes,
+    stroke([reta(P_([[-26, 42], [-28, 70]])), reta(P_([[26, 42], [28, 70]]))], 1.2 * k, hex("#3B4148"), "Pregas"),
+    // ombros largos e retos da batina (bem mais largos que o rosto)
+    fill([poligono(P_([[0, 17], [16, 18.5], [30, 22], [37, 26], [40.5, 32], [42, 42], [42, 70], [-42, 70], [-42, 42], [-40.5, 32], [-37, 26], [-30, 22], [-16, 18.5]]))], BATINA, "Veste"),
+    fill([forma(P_([[0, -17], [11, -13], [12.6, -4], [-12.6, -4], [-11, -13]]))], CABELO, "Cabelo"),
+  ];
+}
+
 /** São João Maria Vianney: o padre (busto, batina preta e estola roxa) se inclina no confessionário e a grade acende. */
 function gestoVianney(t, c) {
   const K = 0.72, F = [74, 92], A = [0, 70 * K], P = [F[0], F[1] + 70 * K], LEAN = 8;
@@ -220,7 +253,7 @@ function gestoVianney(t, c) {
     fill([poligono(P_([[-11, 52], [-5, 52], [-6, 58], [-10, 58]])), poligono(P_([[5, 52], [11, 52], [10, 58], [6, 58]]))], "#FFCC4D", "Franja"),
     stroke([lib.polyline(P_([[-5, 17], [-8, 34], [-8, 52]])), lib.polyline(P_([[5, 17], [8, 34], [8, 52]]))], 5 * K, hex("#744EAA"), "Estola"),
   ];
-  const padre = L("G_Padre", [...estola, ...busto(K, { veste: "#292F33", cabelo: "curto", corCabelo: "#5C3A21" })], {
+  const padre = L("G_Padre", [...estola, ...padreShapes(K)], {
     a: A, p: P, r: anim([[0, 0], [10, 0, "ease"], [28, LEAN]]), o: anim(aparecer(0, 6)),
   });
   const JAN = [134, 72, 164, 114];
@@ -258,16 +291,25 @@ function gestoTransfiguracao(t, c) {
     fill([forma([[80, 140], [100, 128], [118, 136], [104, 142]])], "#AAB8C2", "Neve"),
     fill([forma([[22, 176], [52, 150], [80, 134], [100, 128], [122, 134], [150, 150], [178, 176]])], "#8899A6", "Monte"),
   ], { p: [0, 0], o: anim(aparecer(0, 6)) });
-  const layers = [];
-  if (t >= 3) layers.push(L("T3_Nuvem", piece("twemoji-2601", 64, { recolor: { "#CCD6DD": "#FFFFFF", "#E1E8ED": "#FFF8D6" } }), {
-    p: anim([[0, [100, 44]], [46, [100, 44], "out"], [60, [100, 50]], ...flutuar([100, 50], 60, 1.5)]), o: anim(aparecer(46, 10, { to: 90 })),
-  }));
-  layers.push(glorioso, jesus);
+  const layers = [glorioso, jesus];
   if (t >= 2) {
     const profeta = (x, tunica, cabelo) => transladar(figura(0.3, { tunica, cabelo: "longo", corCabelo: cabelo, barba: cabelo, bracos: "postas" }), [x, 150 - 106 * 0.3]);
     layers.push(L("T2_MoisesElias", [...profeta(50, "#3B88C3", "#E1E8ED"), ...profeta(150, "#8A4633", "#CCD6DD")], {
       p: anim([[0, [0, 4]], [40, [0, 4], "out"], [52, [0, 0]]]), o: anim(aparecer(40, 8)),
     }));
+  }
+  if (t >= 3) {
+    // a nuvem luminosa fica atrás de Jesus e fora dele, em todos os quadros: uma acima da
+    // cabeça (a base acaba antes do alto do cabelo, y ≈ 59,6) e duas dos lados, longe dos braços
+    const nuvem = (w) => nuvemShapes(w, { cor: "#FFFFFF", sombra: "#FFE8A3" });
+    layers.push(L("T3_Nuvem", nuvem(60), {
+      p: anim([[0, [100, 51]], [46, [100, 51], "out"], [60, [100, 54]], ...flutuar([100, 54], 60, 1.5)]), o: anim(aparecer(46, 10, { to: 95 })),
+    }));
+    for (const [nm, x] of [["T3_NuvemE", 50], ["T3_NuvemD", 150]]) {
+      layers.push(L(nm, nuvem(34), {
+        p: anim([[0, [x, 92]], [50, [x, 92], "out"], [64, [x, 96]], ...flutuar([x, 96], 64, 1.5)]), o: anim(aparecer(50, 10, { to: 95 })),
+      }));
+    }
   }
   layers.push(monte);
   if (t >= 3) layers.push(raios("T3_Raios", [100, ROSTO + 20], { count: 16, r1: 34, r2: 50, half: 3, t0: 50, peak: 80 }));
@@ -275,27 +317,39 @@ function gestoTransfiguracao(t, c) {
   return layers;
 }
 
-/** Cachorrinho branco e preto, olhando para a direita, com a tocha na boca; o meio do corpo em (0,0) e a ponta da tocha em (44, −26). */
+/**
+ * Cachorrinho (perdigueiro de pelo curto, cor de mel, sem manchas), olhando
+ * para a direita, com a tocha na boca: focinho comprido com o nariz preto na
+ * ponta, orelha comprida caída, coleira, peito fundo e barriga recolhida,
+ * patas finas e o rabo levantado. O meio do corpo em (0,0), as patas em
+ * y = 22 e a ponta da tocha em (44, −26).
+ */
 function caoShapes() {
+  const PELO = "#D99A4E", SOMBRA = "#B87835", CLARO = "#F3D3A0";
+  const pata = (pts, cor, nm) => stroke([lib.polyline(pts, { smooth: false })], 2.6, hex(cor), nm);
   return [
-    lib.makeEllipse(35, -12, 1.8, 1.6, hex("#292F33"), "Nariz"),
-    lib.makeEllipse(24, -17, 1.3, 1.3, hex("#292F33"), "Olho"),
-    fill([forma([[15, -20], [19, -25], [22, -17], [18, -9]])], "#292F33", "Orelha"),
+    lib.makeEllipse(37, -17.6, 1.9, 1.6, hex("#292F33"), "Nariz"),
     lib.makeEllipse(44, -25, 3.2, 2, hex("#F4900C"), "Copo"),
-    stroke([reta([[30, -8], [44, -24]])], 3, hex("#8A4633"), "Tocha"),
-    lib.makeEllipse(30, -11, 6, 4, hex("#F5F8FA"), "Focinho"),
-    lib.makeEllipse(22, -14, 9, 8, hex("#F5F8FA"), "Cabeca"),
-    lib.makeEllipse(-8, -4, 6, 4.4, hex("#292F33"), "Mancha1"),
-    lib.makeEllipse(7, 1, 3.6, 3, hex("#292F33"), "Mancha2"),
-    fill([forma([[-22, -6], [-8, -10], [10, -10], [18, -4], [18, 6], [8, 10], [-12, 10], [-22, 6]])], "#F5F8FA", "Corpo"),
-    stroke([reta([[-16, 8], [-19, 22]]), reta([[14, 7], [17, 22]])], 4, hex("#F5F8FA"), "PernasFrente"),
-    stroke([reta([[-8, 9], [-5, 22]]), reta([[8, 8], [5, 22]])], 4, hex("#CCD6DD"), "PernasTras"),
-    stroke([lib.polyline([[-21, -4], [-28, -12], [-30, -20]])], 3, hex("#F5F8FA"), "Rabo"),
+    stroke([reta([[29, -12], [44, -24]])], 3, hex("#8A4633"), "Tocha"),
+    stroke([lib.polyline([[30, -14.4], [35, -15]])], 0.9, hex("#5C3A21"), "Boca"),
+    lib.makeEllipse(23.4, -21.6, 1.3, 1.3, hex("#292F33"), "Olho"),
+    fill([forma([[16, -24], [20.5, -25], [21, -18], [19, -11], [16.2, -9.6], [14.6, -14]])], "#8A4633", "Orelha"),
+    fill([forma([[23, -22.6], [31, -20.4], [37.6, -19], [38, -16], [31, -13.6], [23, -14]])], CLARO, "Focinho"),
+    lib.makeEllipse(20.5, -19, 6.6, 5.6, hex(PELO), "Cabeca"),
+    fill([rect(10.4, -13, 17.4, -10.6)], "#BE1931", "Coleira"),
+    fill([forma([[8, -6], [12, -14], [17, -17], [21, -14], [19, -6], [15, 2]])], PELO, "PescocoCao"),
+    fill([forma([[6, -2], [14, -2], [15, 5], [9, 7]])], CLARO, "Peito"),
+    pata([[13, 4], [14, 13], [14, 21.4], [16.4, 22]], PELO, "PataFrente"),
+    pata([[-15, 2], [-18, 11], [-15, 21.4], [-12.6, 22]], PELO, "PataTras"),
+    fill([forma([[-20, -5], [-13, -9], [2, -9.4], [12, -7], [16, -1], [13, 6], [4, 4.6], [-6, 3.6], [-15, 5], [-20, 1]])], PELO, "Corpo"),
+    pata([[9, 4], [8, 13], [9, 21.4], [11.4, 22]], SOMBRA, "PataFrente2"),
+    pata([[-11, 2], [-13, 11], [-10, 21.4], [-7.6, 22]], SOMBRA, "PataTras2"),
+    stroke([lib.polyline([[-19, -4], [-25, -10], [-27, -18], [-25.4, -24]])], 2.8, hex(PELO), "Rabo"),
   ];
 }
 
 /** Fronte do cachorrinho (no desenho de `caoShapes`), onde fica a estrela do ouro. */
-const CAO_FRONTE = [20, -21];
+const CAO_FRONTE = [20, -22.6];
 
 /** São Domingos de Gusmão: o cachorrinho com a tocha na boca corre e a tocha acende. */
 function gestoDomingos(t, c) {
@@ -453,14 +507,32 @@ function gestoAssuncao(t, c) {
   return layers;
 }
 
-/** Colmeia de palha, com o meio da base em (0,0): faixas de palha, porta e a tábua. */
+/**
+ * Meia largura da cúpula da colmeia de palha na altura y (de 0, a base, a −50,
+ * o alto): a curva do sino, larga embaixo e redonda em cima.
+ */
+const COLMEIA_ALTURA = 50, COLMEIA_LARGURA = 30;
+const colmeiaMeia = (y) => COLMEIA_LARGURA * Math.sqrt(Math.max(0, 1 - (-y / COLMEIA_ALTURA) ** 2.4));
+/** Rolos de palha empilhados da colmeia (a altura de cada costura entre dois rolos). */
+const COLMEIA_COSTURAS = [-8, -16, -24, -31.5, -38.5, -44.5];
+/**
+ * Colmeia tradicional de palha (o cortiço em sino, "skep"), com o meio da base
+ * em (0,0): cúpula de rolos de palha trançada empilhados na horizontal, as
+ * costuras entre os rolos, a entradinha escura em arco no pé e a tábua.
+ */
 function colmeiaShapes() {
-  const faixas = [0, 1, 2, 3, 4].map((k) => lib.makeEllipse(0, -8 - k * 10, 28 - k * 4.6, 6.4, hex(k % 2 ? "#D4893A" : "#E8A84C"), `Palha${k}`));
+  const lado = [];
+  for (let k = 0; k <= 12; k++) { const y = -(COLMEIA_ALTURA * k) / 12; lado.push([colmeiaMeia(y), y]); }
+  const cupula = [...lado.map(([x, y]) => [-x, y]), ...lado.slice(0, -1).reverse()];
+  const costura = (y) => { const w = colmeiaMeia(y) - 0.6; return lib.polyline([[-w, y - 0.6], [-w * 0.5, y + 1.2], [0, y + 1.6], [w * 0.5, y + 1.2], [w, y - 0.6]]); };
+  const brilhoRolo = (y0, y1) => { const y = (y0 + y1) / 2 - 1, w = colmeiaMeia(y) * 0.55; return lib.polyline([[-w, y], [0, y + 0.8], [w * 0.4, y + 0.6]]); };
+  const juntas = [0, ...COLMEIA_COSTURAS];
   return [
-    lib.makeEllipse(0, -7, 6, 5, hex("#5C3A21"), "Porta"),
-    ...faixas,
-    lib.makeEllipse(0, -55, 9, 7, hex("#D4893A"), "Topo"),
-    fill([rect(-32, -2, 32, 3)], "#8A4633", "Tabua"),
+    fill([forma([[-5.5, 0], [-5.5, -4.5], [-3, -7.6], [0, -8.4], [3, -7.6], [5.5, -4.5], [5.5, 0]])], "#3B2416", "Entrada"),
+    stroke(juntas.slice(0, -1).map((y0, k) => brilhoRolo(y0, juntas[k + 1])), 1.2, hex("#F6C878"), "Palha"),
+    stroke(COLMEIA_COSTURAS.map(costura), 1.6, hex("#A8662A"), "Aneis"),
+    fill([lib.polyline(cupula, { closed: true })], "#E2A04C", "Cupula"),
+    fill([rect(-36, -1, 36, 4)], "#8A4633", "Tabua"),
   ];
 }
 /** Abelha desenhada, centrada em (0,0), olhando para a direita. */
@@ -477,10 +549,12 @@ function abelhaShapes() {
 /** São Bernardo de Claraval: a colmeia aparece e as abelhas voam (o "Doutor Melífluo"). */
 function gestoBernardo(t) {
   const colmeia = L("G_Colmeia", colmeiaShapes(), { a: [0, 0], p: [100, 152], s: anim(pop(0, 14, { over: 106 })), o: anim(aparecer(0, 6)) });
+  // a entradinha da colmeia (no pé da cúpula), de onde as abelhas saem
+  const ENTRADA = [100, 148];
   // cada abelha sai da porta e dá voltas em volta da colmeia, fechando o laço sem salto
   const abelha = (nm, fase, rx, ry, cy, t0) => {
     const pos = (u) => [100 + rx * Math.cos(fase + u * Math.PI * 4), cy + ry * Math.sin(fase + u * Math.PI * 4)];
-    const keys = [[0, [100, 146]], [t0, [100, 146], "out"]];
+    const keys = [[0, ENTRADA], [t0, ENTRADA, "out"]];
     const n = 16;
     for (let k = 0; k <= n; k++) {
       const tt = t0 + 10 + ((END - t0 - 10) * k) / n;

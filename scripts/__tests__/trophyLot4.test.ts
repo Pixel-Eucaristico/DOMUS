@@ -389,6 +389,113 @@ describe("Lottie — lote 4", () => {
     }
   });
 
+  it("Transfiguração: Jesus inteiro e na frente; a nuvem fica atrás dele e nunca cobre parte dele, em todo quadro", () => {
+    /** Caixa (no quadro t) dos pontos de uma camada, com `folga` px a mais de cada lado (traços e bordas). */
+    const caixa = (ly: any, t: number, folga = 0) => {
+      const ps = pontosDe(ly.shapes).map((p) => noQuadro(ly, t, p));
+      const xs = ps.map((p) => p[0]), ys = ps.map((p) => p[1]);
+      return [Math.min(...xs) - folga, Math.min(...ys) - folga, Math.max(...xs) + folga, Math.max(...ys) + folga];
+    };
+    const cruzam = (a: number[], b: number[]) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+    let nuvens = 0;
+    for (const f of niveis("lt_transfiguracao")) {
+      const ns = nomes(f);
+      const atras = Math.max(ns.indexOf("G_Jesus"), ns.indexOf("G_Glorioso"));
+      for (const ly of readLottie(f).layers.filter((l: any) => /Nuvem/.test(l.nm))) {
+        nuvens++;
+        expect(ns.indexOf(ly.nm), `${f}: ${ly.nm} atrás de Jesus`).toBeGreaterThan(atras);
+        for (let t = 0; t <= 89; t++) {
+          if (em(ly.ks.o, t)[0] <= 0) continue;
+          for (const nm of ["G_Jesus", "G_Glorioso"]) {
+            const jesus = camada(f, nm);
+            expect(cruzam(caixa(ly, t), caixa(jesus, t, 2)), `${f} quadro ${t}: ${ly.nm} sobre ${nm}`).toBe(false);
+          }
+        }
+      }
+      // Jesus fica inteiro dentro da janela visível (≈ [31, 169] no quadro final, 16..184 antes do ART_SCALE)
+      const [x0, y0, x1, y1] = caixa(camada(f, "G_Glorioso"), 89);
+      expect(Math.min(x0, y0), f).toBeGreaterThan(31);
+      expect(Math.max(x1, y1), f).toBeLessThan(169);
+    }
+    expect(nuvens, "o ouro tem a nuvem luminosa (acima e dos lados)").toBe(3);
+  });
+
+  it("São Bernardo: a colmeia é o cortiço de palha (cúpula de rolos empilhados e a entradinha no pé), e as abelhas saem da entrada", () => {
+    for (const f of niveis("lt_bernardo")) {
+      const colmeia = camada(f, "G_Colmeia");
+      const grupos = colmeia.shapes.map((g: any) => g.nm);
+      expect(grupos, f).toEqual(expect.arrayContaining(["Entrada", "Aneis", "Cupula", "Tabua"]));
+      expect(grupos.some((n: string) => /^(Palha\d|Topo|Porta)$/.test(n)), `${f}: sobrou a colmeia antiga`).toBe(false);
+      const so = (nm: string) => pontosDe([colmeia.shapes.find((g: any) => g.nm === nm)]);
+      // cúpula: mais larga embaixo, redonda em cima, e mais alta que larga não (sino baixo)
+      const cup = so("Cupula"), cx = cup.map((p) => p[0]), cy = cup.map((p) => p[1]);
+      const larg = Math.max(...cx) - Math.min(...cx), alt = Math.max(...cy) - Math.min(...cy);
+      expect(alt / larg, f).toBeGreaterThan(0.6);
+      expect(alt / larg, f).toBeLessThan(1.2);
+      const meiaEm = (y: number) => Math.max(...cup.filter((p) => Math.abs(p[1] - y) < alt / 10).map((p) => Math.abs(p[0])));
+      expect(meiaEm(Math.min(...cy) + alt * 0.2), `${f}: o alto é mais estreito que o pé`).toBeLessThan(meiaEm(Math.max(...cy)));
+      // anéis de palha: ao menos 5 costuras horizontais (as pontas na mesma altura), empilhadas
+      const aneis = colmeia.shapes.find((g: any) => g.nm === "Aneis").it.filter((it: any) => it.ty === "sh").map((it: any) => it.ks.k.v);
+      expect(aneis.length, f).toBeGreaterThanOrEqual(5);
+      for (const v of aneis) expect(Math.abs(v[0][1] - v[v.length - 1][1]), `${f}: anel inclinado`).toBeLessThan(0.5);
+      expect(new Set(aneis.map((v: number[][]) => Math.round(v[0][1]))).size, f).toBe(aneis.length);
+      // a entradinha: pequena, escura, no meio do pé da cúpula
+      const ent = so("Entrada"), ex = ent.map((p) => p[0]), ey = ent.map((p) => p[1]);
+      expect(Math.abs((Math.min(...ex) + Math.max(...ex)) / 2), f).toBeLessThan(0.5);
+      expect(Math.max(...ey), f).toBeGreaterThanOrEqual(Math.max(...cy) - 1);
+      expect(Math.max(...ex) - Math.min(...ex), f).toBeLessThan(larg / 4);
+      expect(corDe(colmeia.shapes.find((g: any) => g.nm === "Entrada")), f).toBe("#3B2416");
+      // as abelhas começam na entrada
+      const abelhas = readLottie(f).layers.filter((l: any) => /^G_Abelha\d$/.test(l.nm));
+      expect(abelhas.length, f).toBeGreaterThanOrEqual(3);
+      for (const ab of abelhas) {
+        const [x, y] = noDesenho(colmeia, 10, em(ab.ks.p, 10)); // no quadro 10 a colmeia já tem tamanho e nenhuma abelha saiu
+        expect(x, `${f} ${ab.nm}`).toBeGreaterThanOrEqual(Math.min(...ex));
+        expect(x, `${f} ${ab.nm}`).toBeLessThanOrEqual(Math.max(...ex));
+        expect(y, `${f} ${ab.nm}`).toBeGreaterThanOrEqual(Math.min(...ey));
+        expect(y, `${f} ${ab.nm}`).toBeLessThanOrEqual(Math.max(...ey));
+      }
+    }
+  });
+
+  it("São João Maria Vianney: o padre é um homem (cabelo curto, sem véu nem rubor, colarinho de batina, ombros largos)", () => {
+    for (const f of niveis("lt_joao_vianney")) {
+      const padre = camada(f, "G_Padre");
+      const grupos = padre.shapes.map((g: any) => g.nm);
+      expect(grupos, f).toEqual(expect.arrayContaining(["Colarinho", "Gola", "Estola", "Cabelo", "CabeloFrente"]));
+      for (const g of ["Face1", "Face2", "Veu", "Manto", "Decote"]) expect(grupos, `${f}: ${g}`).not.toContain(g);
+      const g = (nm: string) => pontosDe([padre.shapes.find((x: any) => x.nm === nm)]);
+      const [, ry] = centroDe(padre, "Rosto");
+      // o cabelo acaba acima do meio do rosto (nada de cabelo comprido descendo pelo rosto)
+      for (const nm of ["Cabelo", "CabeloFrente"]) expect(Math.max(...g(nm).map((p) => p[1])), `${f} ${nm}`).toBeLessThan(ry);
+      const rosto = g("Rosto").map((p) => p[0]), veste = g("Veste").map((p) => p[0]);
+      expect(Math.max(...veste) - Math.min(...veste), `${f}: ombros largos`).toBeGreaterThan(3.5 * (Math.max(...rosto) - Math.min(...rosto)));
+      expect(corDe(padre.shapes.find((x: any) => x.nm === "Veste")), f).toBe("#292F33");
+      expect(corDe(padre.shapes.find((x: any) => x.nm === "Colarinho")), f).toBe("#FFFFFF");
+    }
+  });
+
+  it("São Domingos: o cachorrinho tem cara de cachorro (focinho comprido, orelha caída, rabo levantado, patas finas, sem manchas)", () => {
+    for (const f of niveis("lt_domingos")) {
+      const cao = camada(f, "G_Cao");
+      const grupos = cao.shapes.map((g: any) => g.nm);
+      expect(grupos, f).toEqual(expect.arrayContaining(["Focinho", "Nariz", "Orelha", "Rabo", "Tocha", "Cabeca", "Corpo"]));
+      expect(grupos.some((n: string) => /Mancha/.test(n)), `${f}: manchas de vaca`).toBe(false);
+      const g = (nm: string) => pontosDe([cao.shapes.find((x: any) => x.nm === nm)]);
+      const [hx, hy] = centroDe(cao, "Cabeca");
+      // focinho comprido: a ponta vai bem além da cabeça
+      expect(Math.max(...g("Focinho").map((p) => p[0])) - hx, f).toBeGreaterThan(14);
+      // orelha caída: desce abaixo do meio da cabeça
+      expect(Math.max(...g("Orelha").map((p) => p[1])), f).toBeGreaterThan(hy + 4);
+      // rabo levantado: a ponta acima das costas
+      expect(Math.min(...g("Rabo").map((p) => p[1])), f).toBeLessThan(Math.min(...g("Corpo").map((p) => p[1])) - 8);
+      // patas finas (traço estreito), quatro
+      const patas = cao.shapes.filter((x: any) => /^Pata/.test(x.nm));
+      expect(patas, f).toHaveLength(4);
+      for (const p of patas) expect(p.it.find((it: any) => it.ty === "st").w.k, `${f} ${p.nm}`).toBeLessThanOrEqual(3);
+    }
+  });
+
   it("São Pedro Claver: as duas metades da corrente começam juntas no meio (x = 100) e caem", () => {
     for (const f of niveis("lt_pedro_claver")) {
       const e = camada(f, "G_CorrenteE"), d = camada(f, "G_CorrenteD");
