@@ -7,7 +7,10 @@
  * simples de pessoa (no estilo de Maria Mãe de Deus e de Santa Águeda), a
  * chama e o livro aberto desenhados, o terço católico (antes só no lote 2), a
  * concha de vieira e as ajudas de espelhar e deslocar formas. O lote 4 acrescentou
- * a coroa, a palma, a estrela, a asa, o coração, a lágrima, o galero e a pomba.
+ * a coroa, a palma, a estrela, a asa, o coração, a lágrima, o galero e a pomba. O
+ * lote 5 acrescentou a pele escura, o rosto de homem (`masculino`, `bustoHomem`,
+ * `figuraHomem`), o grupo animado, as contas do terço por dezena, as letras de
+ * traço, a rosa, o lírio e o pão.
  */
 const lib = require("./index");
 const { anim, onda, aparecer, hex, polyline } = lib;
@@ -299,8 +302,11 @@ function livroAbertoShapes(w, h, capa = "#8A4633") {
  * Começou no terço de Nossa Senhora de Lourdes (lote 2); as cores das contas
  * são opção (o padrão é o do lote 2).
  */
+/** Laço do terço de `tercoShapes`: raios RX × RY e o centro em (0, CY) (também usado por `tercoContas`). */
+const TERCO = { RX: 14, RY: 13, CY: 14 };
+
 function tercoShapes({ contaGrande = "#744EAA", contaPequena = "#553788" } = {}) {
-  const RX = 14, RY = 13, CY = 14, BAIXO = CY + RY;
+  const { RX, RY, CY } = TERCO, BAIXO = CY + RY;
   const seq = [];
   for (let d = 0; d < 5; d++) {
     if (d > 0) seq.push("G");
@@ -529,5 +535,190 @@ function pombaShapes(w) {
   ];
 }
 
+// ── Lote 5 (outubro a dezembro) ──────────────────────────────────────────────
+// Pele escura comum (a imagem de Aparecida e São Martinho de Porres), o rosto de
+// homem (para que padres, bispos e santos se leiam como homens), grupo com
+// transformação animada (para acender peças uma a uma numa só camada), as
+// contas do terço por dezena, letras de traço, rosa, lírio e pão desenhados.
+
+/** Tom de pele escuro comum (a imagem de Aparecida e São Martinho de Porres). */
+const PELE_ESCURA = "#8D5A3B";
+
+/** Grupo com vários itens dentro (sem preenchimento próprio), com transformação neutra. */
+function grupo(nm, items) {
+  return { ty: "gr", nm, hd: false, it: [...items, { ty: "tr", p: { a: 0, k: [0, 0] }, a: { a: 0, k: [0, 0] }, s: { a: 0, k: [100, 100] }, r: { a: 0, k: 0 }, o: { a: 0, k: 100 }, hd: false }] };
+}
+
+/**
+ * Grupo com transformação animada: `o` (opacidade), `s` (escala [sx, sy]),
+ * `p` (posição), `r` (rotação) e `a` (âncora), cada um valor fixo ou
+ * `anim(...)`. Serve para acender, uma a uma, peças de uma mesma camada.
+ */
+function grupoAnimado(nm, items, { o = 100, s = [100, 100], p = [0, 0], a = [0, 0], r = 0 } = {}) {
+  // valor já no formato Lottie ({ a: 0 | 1, k }) passa direto; o resto vira valor fixo
+  const prop = (v) => (v && typeof v === "object" && !Array.isArray(v) && (v.a === 0 || v.a === 1) ? v : { a: 0, k: v });
+  return { ty: "gr", nm, hd: false, it: [...items, { ty: "tr", p: prop(p), a: prop(a), s: prop(s), r: prop(r), o: prop(o), hd: false }] };
+}
+
+/**
+ * Deixa um busto ou uma figura (sem manto) com rosto de homem: cabelo curto
+ * rente (com `tonsura`, a coroa raspada dos frades), orelhas, sobrancelhas,
+ * olhos abertos, nariz, sem as bochechas rosadas; `bigode` (cor) opcional.
+ * Recebe os grupos do `busto` ou da `figura` (rosto em (0,0), escala `k`) e
+ * devolve os grupos da frente para trás, com os mesmos nomes (Rosto, Olhos,
+ * Cabelo, Veste…). Lança erro se o desenho não tem rosto ou tem manto.
+ */
+function masculino(groups, k, { pele = null, corCabelo = "#5C3A21", bigode = null, tonsura = false } = {}) {
+  medida("masculino", "escala", k);
+  const nomes = groups.map((g) => g.nm);
+  if (!nomes.includes("Rosto") || !nomes.includes("Boca")) throw new Error("masculino: o desenho não tem rosto (Rosto e Boca)");
+  // sem `pele`, as orelhas e a tonsura usam a cor do próprio rosto
+  if (!pele) {
+    const fl = groups.find((g) => g.nm === "Rosto").it.find((it) => it.ty === "fl");
+    pele = `#${fl.c.k.slice(0, 3).map((v) => Math.round(v * 255).toString(16).padStart(2, "0")).join("").toUpperCase()}`;
+  }
+  if (nomes.includes("Manto")) throw new Error("masculino: o manto cobre o cabelo; use sem manto");
+  const P = (pts) => pts.map(([x, y]) => [x * k, y * k]);
+  const olhos = grupo("Olhos", [lib.makeEllipse(-5 * k, 0, 1.5 * k, 1.6 * k, hex("#3B2416"), "OlhoE"), lib.makeEllipse(5 * k, 0, 1.5 * k, 1.6 * k, hex("#3B2416"), "OlhoD")]);
+  const sobrancelhas = stroke([polyline(P([[-8.5, -4.2], [-5.5, -5.4], [-2.6, -4.8]])), polyline(P([[8.5, -4.2], [5.5, -5.4], [2.6, -4.8]]))], 1.6 * k, hex(corCabelo), "Sobrancelhas");
+  const nariz = stroke([polyline(P([[0.4, 0.5], [1.2, 4.4], [-0.6, 4.8]]), { smooth: false })], 0.9 * k, hex("#C1694F"), "Nariz");
+  const cabelo = fill([forma(P([[-11.8, 1], [-12.4, -7], [-10, -13], [-5, -16.6], [0, -17.4], [5, -16.6], [10, -13], [12.4, -7], [11.8, 1], [10.6, -3], [9.6, -8], [5, -10.4], [0, -10.8], [-5, -10.4], [-9.6, -8], [-10.6, -3]]))], corCabelo, "Cabelo");
+  const coroa = tonsura ? [lib.makeEllipse(0, -12.5 * k, 8.4 * k, 4.6 * k, hex(pele), "Tonsura")] : [];
+  const orelhas = grupo("Orelhas", [lib.makeEllipse(-11.4 * k, 1 * k, 2.4 * k, 3.6 * k, hex(pele), "OrelhaE"), lib.makeEllipse(11.4 * k, 1 * k, 2.4 * k, 3.6 * k, hex(pele), "OrelhaD")]);
+  const out = [];
+  for (const g of groups) {
+    if (["Face1", "Face2", "Cabelo", "Olhos"].includes(g.nm)) continue;
+    if (g.nm === "Boca") {
+      out.push(olhos, sobrancelhas, nariz);
+      if (bigode) out.push(fill([forma(P([[-5, 6.6], [-2, 5.6], [0, 6.2], [2, 5.6], [5, 6.6], [3, 7.6], [0, 7.2], [-3, 7.6]]))], bigode, "Bigode"));
+      out.push(g);
+      continue;
+    }
+    if (g.nm === "Rosto") { out.push(...coroa, cabelo, g, orelhas); continue; }
+    out.push(g);
+  }
+  return out;
+}
+
+/** Busto de homem: o `busto` sem manto com o rosto de `masculino` (opções dos dois). */
+function bustoHomem(k = 1, { pele = PELE, veste = "#BE1931", corCabelo = "#5C3A21", barba = null, bigode = null, tonsura = false } = {}) {
+  return masculino(busto(k, { pele, veste, cabelo: "curto", corCabelo, barba }), k, { pele, corCabelo, bigode, tonsura });
+}
+
+/** Figura de homem: a `figura` sem manto com o rosto de `masculino` (opções das duas). */
+function figuraHomem(k = 1, { pele = PELE, tunica = "#F5F8FA", corCabelo = "#5C3A21", barba = null, bigode = null, tonsura = false, faixa = null, bracos = "baixos", chaga = false } = {}) {
+  return masculino(figura(k, { pele, tunica, cabelo: "curto", corCabelo, barba, faixa, bracos, chaga }), k, { pele, corCabelo, bigode, tonsura });
+}
+
+/**
+ * Centros das contas do laço de um terço com o laço de raios `rx` × `ry` e
+ * centro em (0, `cy`), na mesma distribuição de `tercoShapes`: as cinco
+ * dezenas (10 contas pequenas cada, na ordem do laço) e as 4 contas grandes
+ * entre elas; a junção de baixo (0, cy + ry) fica livre para a medalha (o
+ * lugar de duas contas). O pendente não entra.
+ */
+function tercoLaco({ rx, ry, cy }) {
+  [rx, ry, cy].forEach((v) => { if (!Number.isFinite(v)) throw new Error(`tercoLaco: medida inválida ${v}`); });
+  const vagas = 54 + 2;
+  const dezenas = [[], [], [], [], []], grandes = [];
+  const pos = (k) => { const ang = Math.PI / 2 + ((k + 1.5) / vagas) * Math.PI * 2; return [rx * Math.cos(ang), cy + ry * Math.sin(ang)]; };
+  let k = 0;
+  for (let d = 0; d < 5; d++) {
+    if (d > 0) grandes.push(pos(k++));
+    for (let j = 0; j < 10; j++) dezenas[d].push(pos(k++));
+  }
+  return { dezenas, grandes };
+}
+
+/**
+ * Centros das contas do laço do terço de `tercoShapes` (mesmas medidas,
+ * TERCO): as cinco dezenas e as 4 contas grandes entre elas, sem o pendente.
+ */
+function tercoContas() {
+  return tercoLaco({ rx: TERCO.RX, ry: TERCO.RY, cy: TERCO.CY });
+}
+
+/** Traços das letras (grade 0..4 × 0..6, y para baixo), para `letrasShapes`. */
+const LETRAS = {
+  A: [[[0, 6], [2, 0], [4, 6]], [[0.8, 3.8], [3.2, 3.8]]],
+  D: [[[0, 0], [0, 6], [2.2, 6], [4, 4.4], [4, 1.6], [2.2, 0], [0, 0]]],
+  E: [[[4, 0], [0, 0], [0, 6], [4, 6]], [[0, 3], [3, 3]]],
+  H: [[[0, 0], [0, 6]], [[4, 0], [4, 6]], [[0, 3], [4, 3]]],
+  I: [[[2, 0], [2, 6]], [[0.8, 0], [3.2, 0]], [[0.8, 6], [3.2, 6]]],
+  L: [[[0, 0], [0, 6], [4, 6]]],
+  M: [[[0, 6], [0, 0], [2, 3.4], [4, 0], [4, 6]]],
+  S: [[[4, 0.6], [3, 0], [1, 0], [0, 1], [0, 2.2], [1, 3], [3, 3], [4, 3.8], [4, 5], [3, 6], [1, 6], [0, 5.4]]],
+  T: [[[0, 0], [4, 0]], [[2, 0], [2, 6]]],
+  U: [[[0, 0], [0, 4.6], [1.2, 6], [2.8, 6], [4, 4.6], [4, 0]]],
+  "Α": [[[0, 6], [2, 0], [4, 6]], [[0.8, 3.8], [3.2, 3.8]]],
+  "Ω": [[[0, 6], [1.4, 6], [1.4, 5], [0.2, 3.6], [0.2, 1.6], [1.4, 0.2], [2.6, 0.2], [3.8, 1.6], [3.8, 3.6], [2.6, 5], [2.6, 6], [4, 6]]],
+};
+/**
+ * Texto em letras de traço (sem fonte externa), centrado em (0,0) pela
+ * extensão real dos traços, com `h` de altura. Só as letras de LETRAS (e
+ * espaços); outra letra, texto vazio ou só de espaços lança erro.
+ */
+function letrasShapes(texto, h, { cor = "#FFCC4D", largura = null, nm = "Letras" } = {}) {
+  medida("letrasShapes", "altura", h);
+  const chars = [...String(texto ?? "")];
+  if (!chars.some((ch) => ch.trim())) throw new Error(`letrasShapes: texto vazio ${JSON.stringify(texto)}`);
+  const u = h / 6, passo = 5.4 * u;
+  const tracos = [];
+  chars.forEach((ch, k) => {
+    if (ch === " ") return;
+    const g = LETRAS[ch];
+    if (!g) throw new Error(`letrasShapes: letra sem desenho ${JSON.stringify(ch)}`);
+    for (const tr of g) tracos.push(tr.map(([x, y]) => [k * passo + x * u, -h / 2 + y * u]));
+  });
+  const xs = tracos.flat().map((p) => p[0]), meio = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const linhas = tracos.map((tr) => polyline(tr.map(([x, y]) => [x - meio, y]), { smooth: false }));
+  return [stroke(linhas, largura || Math.max(1, u * 0.9), hex(cor), nm)];
+}
+
+/** Rosa desenhada (vista de cima e de lado), centrada em (0,0), raio `r`, com o cálice verde embaixo. */
+function rosaShapes(r, { cor = "#DD2E44", escuro = "#A0041E", folha = "#5C913B" } = {}) {
+  medida("rosaShapes", "raio", r);
+  const P = (pts) => pts.map(([x, y]) => [x * r, y * r]);
+  return [
+    stroke([polyline(P([[-0.35, -0.1], [0, -0.35], [0.35, -0.1], [0.1, 0.2], [-0.2, 0.05]]))], Math.max(0.7, r * 0.12), hex(escuro), "Espiral"),
+    fill([forma(P([[0, -0.9], [0.6, -0.75], [0.95, -0.2], [0.75, 0.45], [0, 0.75], [-0.75, 0.45], [-0.95, -0.2], [-0.6, -0.75]]))], cor, "Petalas"),
+    fill([pontas(forma(P([[-0.2, 0.6], [-0.95, 0.75], [-0.55, 1.05], [0, 0.85], [0.55, 1.05], [0.95, 0.75], [0.2, 0.6]])), [1, 5])], folha, "Calice"),
+  ];
+}
+
+/**
+ * Lírio branco desenhado, com o pé da haste em (0,0): a haste sobe até
+ * (0, −0,78·h), onde abre a flor de seis pétalas, cuja pétala de cima chega a
+ * y ≈ −1,04·h; folhas na haste.
+ */
+function lirioShapes(h, { cor = "#FFFFFF", sombra = "#E1E8ED", miolo = "#FFCC4D", haste = "#5C913B" } = {}) {
+  medida("lirioShapes", "altura", h);
+  const P = (pts) => pts.map(([x, y]) => [x * h, y * h]);
+  const petala = (ang, comp) => {
+    const a = (ang * Math.PI) / 180, d = [Math.sin(a), -Math.cos(a)], n = [-d[1], d[0]];
+    const c = [0, -0.78], m = [c[0] + d[0] * comp * 0.5, c[1] + d[1] * comp * 0.5];
+    return pontas(forma(P([c, [m[0] + n[0] * 0.07, m[1] + n[1] * 0.07], [c[0] + d[0] * comp, c[1] + d[1] * comp], [m[0] - n[0] * 0.07, m[1] - n[1] * 0.07]])), [2]);
+  };
+  return [
+    stroke([polyline(P([[0, -0.78], [0.05, -0.92]])), polyline(P([[0, -0.78], [-0.06, -0.9]])), polyline(P([[0, -0.78], [0.1, -0.86]]))], Math.max(0.7, h * 0.02), hex(miolo), "Estames"),
+    fill([petala(-50, 0.24), petala(0, 0.26), petala(50, 0.24)], cor, "PetalasFrente"),
+    fill([petala(-100, 0.2), petala(100, 0.2), petala(180, 0.12)], sombra, "PetalasTras"),
+    fill([forma(P([[0, -0.3], [0.14, -0.42], [0.18, -0.36], [0.04, -0.26]])), forma(P([[0, -0.15], [-0.16, -0.3], [-0.2, -0.24], [-0.04, -0.1]]))], haste, "Folhas"),
+    stroke([polyline(P([[0, 0], [0.02, -0.4], [0, -0.78]]))], Math.max(1, h * 0.035), hex(haste), "Haste"),
+  ];
+}
+
+/** Pão redondo desenhado (pão de casa), centrado em (0,0), largura `w`, com os cortes no alto. */
+function paoShapes(w, { cor = "#E8A84C", claro = "#FFD983", corte = "#C1694F" } = {}) {
+  medida("paoShapes", "largura", w);
+  const P = (pts) => pts.map(([x, y]) => [x * w, y * w]);
+  return [
+    stroke([polyline(P([[-0.22, -0.12], [-0.12, -0.22]])), polyline(P([[-0.04, -0.14], [0.06, -0.25]])), polyline(P([[0.14, -0.12], [0.24, -0.21]]))], Math.max(0.8, w * 0.04), hex(corte), "Cortes"),
+    lib.makeEllipse(-0.1 * w, -0.14 * w, 0.2 * w, 0.08 * w, hex(claro), "Reflexo", 70),
+    fill([forma(P([[-0.5, 0.18], [-0.46, -0.08], [-0.28, -0.26], [0, -0.32], [0.28, -0.26], [0.46, -0.08], [0.5, 0.18], [0, 0.22]]))], cor, "Pao"),
+  ];
+}
+
 module.exports = { rect, forma, poligono, fill, hostiaShapes, espinhosShapes, velaComprida, brilho, chuva, petala, PELE, PELE_SOMBRA, busto, figura, OMBRO_E, OMBRO_D, CHAGA, chamaShapes, livroAbertoShapes, tercoShapes, conchaShapes, espelhar, transladar,
-  pontas, coroaShapes, palmaShapes, estrelaShapes, asaShapes, coracaoShapes, lagrimaShapes, galeroShapes, pombaShapes };
+  pontas, coroaShapes, palmaShapes, estrelaShapes, asaShapes, coracaoShapes, lagrimaShapes, galeroShapes, pombaShapes,
+  PELE_ESCURA, grupo, grupoAnimado, masculino, bustoHomem, figuraHomem, TERCO, tercoLaco, tercoContas, LETRAS, letrasShapes, rosaShapes, lirioShapes, paoShapes };

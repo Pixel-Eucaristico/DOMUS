@@ -85,7 +85,8 @@ describe("Lottie — lote 4", () => {
   });
 
   it("nenhum troféu repete id nem desenho dos lotes 1 a 3 (peça principal e geometria do gesto)", () => {
-    const all: Entry[] = registeredLots().flatMap((l: any) => l.TROPHIES);
+    // só os lotes 1 a 4: o teste deste lote não depende dos lotes que vêm depois
+    const all: Entry[] = registeredLots().slice(0, 4).flatMap((l: any) => l.TROPHIES);
     expect(all).toHaveLength(13 + 21 + 27 + 24);
     expect(() => lot.checkUniqueIds(all)).not.toThrow();
     expect(() => lot.checkUniqueIcons(all)).not.toThrow();

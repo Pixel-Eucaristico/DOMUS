@@ -102,48 +102,137 @@ function framesOf(lottie: any, from: number): number[] {
   return [...ts].sort((a, b) => a - b);
 }
 
+/** Ponto `[x, y]` transformado por um item `tr` de grupo (ou pela `ks` de uma camada) no quadro t: âncora, escala, rotação e posição. */
+function transforma(tr: any, t: number, [x, y]: Pt): Pt {
+  const [px, py] = valueAt(tr.p, t), [ax, ay] = valueAt(tr.a, t);
+  const [sx, sy] = valueAt(tr.s, t).map((v) => v / 100);
+  const rad = (valueAt(tr.r, t)[0] * Math.PI) / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+  const lx = (x - ax) * sx, lyy = (y - ay) * sy;
+  return [px + lx * cos - lyy * sin, py + lx * sin + lyy * cos];
+}
+/** Algum grupo (em qualquer nível) tem a transformação ou a opacidade animadas? */
+const grupoAnimado = (items: any[]): boolean => items.some((it: any) => it.ty === "gr"
+  && (it.it.some((x: any) => x.ty === "tr" && ["p", "a", "s", "r", "o"].some((k) => x[k] && x[k].a === 1)) || grupoAnimado(it.it)));
+
+/**
+ * Pontos de uma lista de itens no quadro t, já com a transformação (`tr`) de
+ * cada grupo aninhado; grupos de opacidade zero no quadro não contam. Curvas
+ * amostradas; elipses pelos cantos; contornos com metade da largura (o
+ * contorno vale para o grupo em que está e os de dentro).
+ */
+function pontosNoQuadro(items: any[], t: number, inherited = 0): Pt[] {
+  const st = items.find((it: any) => it.ty === "st");
+  const pad = st ? st.w.k / 2 : inherited;
+  const out: Pt[] = [];
+  const put = (x: number, y: number) => {
+    if (pad) out.push([x - pad, y - pad], [x + pad, y - pad], [x - pad, y + pad], [x + pad, y + pad]);
+    else out.push([x, y]);
+  };
+  for (const it of items) {
+    if (it.ty === "sh") for (const [x, y] of lib.samplePoints(it.ks.k)) put(x, y);
+    if (it.ty === "el") {
+      const [cx, cy] = it.p.k, rx = it.s.k[0] / 2, ry = it.s.k[1] / 2;
+      put(cx - rx, cy - ry); put(cx + rx, cy + ry); put(cx - rx, cy + ry); put(cx + rx, cy - ry);
+    }
+    if (it.ty === "gr") {
+      const tr = it.it.find((x: any) => x.ty === "tr");
+      if (tr && tr.o && valueAt(tr.o, t)[0] <= 0) continue;
+      const pts = pontosNoQuadro(it.it, t, pad);
+      out.push(...(tr ? pts.map((q) => transforma(tr, t, q)) : pts));
+    }
+  }
+  return out;
+}
+
 /**
  * Extensão da arte a partir do quadro `from` (depois da entrada), com as
- * transformações de cada camada (posição, âncora, escala, rotação) e só nos
- * quadros em que a camada está visível. Curvas amostradas; elipses pelos
- * cantos; contornos com metade da largura.
+ * transformações de cada camada (posição, âncora, escala, rotação) e dos
+ * grupos dentro dela, e só nos quadros em que a camada está visível.
  */
 export function frameExtent(lottie: any, from = 16): [number, number, number, number] {
   const b: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
   const frames = framesOf(lottie, from);
-  // pontos de um grupo e dos grupos dentro dele (o contorno vale para o grupo em que está)
-  const collect = (items: any[], local: Pt[], inherited = 0) => {
-    const st = items.find((it: any) => it.ty === "st");
-    const pad = st ? st.w.k / 2 : inherited;
-    const put = (x: number, y: number) => {
-      if (pad) local.push([x - pad, y - pad], [x + pad, y - pad], [x - pad, y + pad], [x + pad, y + pad]);
-      else local.push([x, y]);
-    };
-    for (const it of items) {
-      if (it.ty === "sh") for (const [x, y] of lib.samplePoints(it.ks.k)) put(x, y);
-      if (it.ty === "el") {
-        const [cx, cy] = it.p.k, rx = it.s.k[0] / 2, ry = it.s.k[1] / 2;
-        put(cx - rx, cy - ry); put(cx + rx, cy + ry); put(cx - rx, cy + ry); put(cx + rx, cy - ry);
-      }
-      if (it.ty === "gr") collect(it.it, local, pad);
-    }
-  };
   for (const ly of lottie.layers) {
-    const local: Pt[] = [];
-    collect(ly.shapes, local);
+    const fixos = grupoAnimado(ly.shapes) ? null : pontosNoQuadro(ly.shapes, 0);
     for (const t of frames) {
       if (t < ly.ip || t >= ly.op || valueAt(ly.ks.o, t)[0] <= 0) continue;
-      const [px, py] = valueAt(ly.ks.p, t), [ax, ay] = valueAt(ly.ks.a, t);
-      const [sx, sy] = valueAt(ly.ks.s, t).map((v) => v / 100);
-      const rad = (valueAt(ly.ks.r, t)[0] * Math.PI) / 180, cos = Math.cos(rad), sin = Math.sin(rad);
-      for (const [x, y] of local) {
-        const lx = (x - ax) * sx, lyy = (y - ay) * sy;
-        const X = px + lx * cos - lyy * sin, Y = py + lx * sin + lyy * cos;
+      for (const q of fixos || pontosNoQuadro(ly.shapes, t)) {
+        const [X, Y] = transforma(ly.ks, t, q);
         b[0] = Math.min(b[0], X); b[1] = Math.min(b[1], Y); b[2] = Math.max(b[2], X); b[3] = Math.max(b[3], Y);
       }
     }
   }
   return b;
+}
+
+/**
+ * Polígonos preenchidos e opacos de uma camada no quadro t, em coordenadas do
+ * quadro: cada caminho (amostrado) ou elipse de um grupo com preenchimento de
+ * opacidade 100, com as transformações dos grupos e da camada.
+ */
+export function opaquePolygons(ly: any, t: number): Pt[][] {
+  const polys: Pt[][] = [];
+  const walk = (items: any[], tf: (q: Pt) => Pt) => {
+    const fl = items.find((it: any) => it.ty === "fl");
+    const cheio = fl && fl.o.k === 100;
+    for (const it of items) {
+      if (cheio && it.ty === "sh") polys.push(lib.samplePoints(it.ks.k).map((q: Pt) => tf(q)));
+      if (cheio && it.ty === "el") {
+        const [cx, cy] = it.p.k, rx = it.s.k[0] / 2, ry = it.s.k[1] / 2;
+        polys.push(Array.from({ length: 24 }, (_, k) => tf([cx + rx * Math.cos((k / 24) * Math.PI * 2), cy + ry * Math.sin((k / 24) * Math.PI * 2)])));
+      }
+      if (it.ty === "gr") {
+        const tr = it.it.find((x: any) => x.ty === "tr");
+        if (tr && tr.o && valueAt(tr.o, t)[0] < 100) continue;
+        walk(it.it, tr ? (q: Pt) => tf(transforma(tr, t, q)) : tf);
+      }
+    }
+  };
+  walk(ly.shapes, (q) => transforma(ly.ks, t, q));
+  return polys;
+}
+/**
+ * Amostras da área desenhada de uma camada no quadro t, em coordenadas do
+ * quadro: uma grade de `passo` px dentro de cada preenchimento e pontos ao
+ * longo de cada contorno. Serve para medir quanto dela aparece.
+ */
+export function layerSamples(ly: any, t: number, passo = 1.5): Pt[] {
+  const out: Pt[] = [];
+  const walk = (items: any[], tf: (q: Pt) => Pt) => {
+    const fl = items.find((it: any) => it.ty === "fl"), st = items.find((it: any) => it.ty === "st");
+    for (const it of items) {
+      let contorno: Pt[] | null = null;
+      if (it.ty === "sh") contorno = lib.samplePoints(it.ks.k, 16).map((q: Pt) => tf(q));
+      if (it.ty === "el") {
+        const [cx, cy] = it.p.k, rx = it.s.k[0] / 2, ry = it.s.k[1] / 2;
+        contorno = Array.from({ length: 48 }, (_, k) => tf([cx + rx * Math.cos((k / 48) * Math.PI * 2), cy + ry * Math.sin((k / 48) * Math.PI * 2)]));
+      }
+      if (contorno && st) out.push(...contorno);
+      if (contorno && fl) {
+        const xs = contorno.map((q) => q[0]), ys = contorno.map((q) => q[1]);
+        for (let x = Math.min(...xs); x <= Math.max(...xs); x += passo) {
+          for (let y = Math.min(...ys); y <= Math.max(...ys); y += passo) if (insidePolygon([x, y], contorno)) out.push([x, y]);
+        }
+      }
+      if (it.ty === "gr") {
+        const tr = it.it.find((x: any) => x.ty === "tr");
+        if (tr && tr.o && valueAt(tr.o, t)[0] <= 0) continue;
+        walk(it.it, tr ? (q: Pt) => tf(transforma(tr, t, q)) : tf);
+      }
+    }
+  };
+  walk(ly.shapes, (q) => transforma(ly.ks, t, q));
+  return out;
+}
+
+/** O ponto está dentro do polígono (par-ímpar)? */
+export function insidePolygon([x, y]: Pt, poly: Pt[]): boolean {
+  let dentro = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) dentro = !dentro;
+  }
+  return dentro;
 }
 
 export type LotOptions = {
@@ -156,6 +245,14 @@ export type LotOptions = {
   /** Quantos arquivos o lote gera. */
   files: number;
 };
+
+/**
+ * Fração mínima da área de um acréscimo (T2_/T3_) que precisa aparecer no
+ * quadro final. Os aprovados mais escondidos são luzes e brilhos atrás da peça
+ * (a luz de Fátima mostra 13% da área); um acréscimo atrás de uma parede
+ * mostra perto de 0%.
+ */
+export const ACRESCIMO_VISIVEL = 0.1;
 
 /** Tempo das verificações pesadas, que percorrem todos os valores ou quadros de todos os arquivos. */
 const SLOW = 60_000;
@@ -297,14 +394,28 @@ export function checkLot({ name, lot, generator, files: count }: LotOptions) {
         it.ty === "gr" ? trimsOk(it.it) : it.ty !== "tm" || Math.abs(valueAt(it.e, last)[0] - valueAt(it.s, last)[0]) > 0);
       const visible = (ly: any) => last >= ly.ip && last < ly.op && valueAt(ly.ks.o, last)[0] > 0
         && valueAt(ly.ks.s, last).slice(0, 2).every((v) => Math.abs(v) > 0) && trimsOk(ly.shapes);
+      // camada opaca: visível por inteiro no quadro final, com algum preenchimento opaco, e que não é luz
+      const LUZ = /Luz|Ceu|Brilho|Raios|Glow|^Sp\d$/;
+      const temFillOpaco = (items: any[]): boolean => items.some((it: any) => (it.ty === "fl" && it.o.k === 100) || (it.ty === "gr" && temFillOpaco(it.it)));
+      const opaca = (ly: any) => visible(ly) && valueAt(ly.ks.o, last)[0] >= 100 && !LUZ.test(ly.nm) && temFillOpaco(ly.shapes);
       for (const e of TROPHIES) {
         filesOf(e).forEach((f, k) => {
-          const shown = readLottie(f).layers.filter(visible).map((ly: any) => ly.nm);
+          const l = readLottie(f);
+          const shown = l.layers.filter(visible).map((ly: any) => ly.nm);
           expect(shown.some((n: string) => /^G_/.test(n)), `${f}: ${shown}`).toBe(true);
           if (k > 0) expect(shown.some((n: string) => n.startsWith(`T${k + 1}_`)), `${f}: ${shown}`).toBe(true);
+          // nenhum acréscimo da prata ou do ouro fica escondido atrás das camadas opacas da frente:
+          // ao menos ACRESCIMO_VISIVEL da área dele fica fora de todos os preenchimentos opacos que vêm antes
+          l.layers.forEach((ly: any, i: number) => {
+            if (!/^T[23]_/.test(ly.nm) || !visible(ly)) return;
+            const tampa = l.layers.slice(0, i).filter(opaca).flatMap((fr: any) => opaquePolygons(fr, last));
+            const amostras = layerSamples(ly, last);
+            const vistas = amostras.filter((q) => !tampa.some((poly: Pt[]) => insidePolygon(q, poly))).length;
+            expect(vistas / amostras.length, `${f}: ${ly.nm} quase todo escondido atrás de ${l.layers.slice(0, i).filter(opaca).map((x: any) => x.nm)} (${vistas} de ${amostras.length})`).toBeGreaterThanOrEqual(ACRESCIMO_VISIVEL);
+          });
         });
       }
-    });
+    }, SLOW);
 
     it("luz sem esticar: nenhuma camada de luz, brilho ou raios tem escala não uniforme nem forma animada", () => {
       // camadas de luz: pelo nome (Luz, Ceu, Brilho, Raios) ou pelo conteúdo (os grupos da luzSuave, brilhos e raios)
@@ -362,13 +473,17 @@ export function checkLot({ name, lot, generator, files: count }: LotOptions) {
       expect(() => lot.buildTrophy({ ...base, halo: { r: 5 } })).toThrow(new RegExp(`${base.id}: aureola: falta o centro`));
     });
 
-    it("auréola de base: todo santo tem `halo`, menos os da lista SEM_HALO (festa sem santo ou auréola só no ouro)", () => {
+    it("auréola de base: todo santo tem `halo`, menos os da lista SEM_HALO (festa sem santo, auréola só no ouro ou sem pessoa no desenho)", () => {
       const SEM_HALO: Record<string, string> = lot.SEM_HALO;
       expect(SEM_HALO, "o lote exporta SEM_HALO").toBeDefined();
       for (const e of TROPHIES) {
         if (e.kind !== "liturgical") continue;
         if (e.halo) expect(SEM_HALO[e.id], `${e.id}: tem halo e está em SEM_HALO`).toBeUndefined();
-        else expect(SEM_HALO[e.id], `${e.id}: sem halo e fora de SEM_HALO`).toMatch(/^(festa sem santo|auréola só no ouro)/);
+        else expect(SEM_HALO[e.id], `${e.id}: sem halo e fora de SEM_HALO`).toMatch(/^(festa sem santo|auréola só no ouro|sem pessoa no desenho)/);
+        // "sem pessoa no desenho" só vale se nenhum nível desenha um rosto
+        if (!e.halo && /^sem pessoa no desenho/.test(SEM_HALO[e.id])) {
+          for (const f of filesOf(e)) expect(JSON.stringify(readLottie(f)), `${f}: SEM_HALO diz sem pessoa, mas há rosto`).not.toMatch(/"nm":"Rosto"/);
+        }
       }
       const ids = new Set(TROPHIES.map((e) => e.id));
       for (const id of Object.keys(SEM_HALO)) expect(ids.has(id), `SEM_HALO cita ${id}, que não está no lote`).toBe(true);

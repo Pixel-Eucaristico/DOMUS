@@ -254,7 +254,7 @@ describe("writeTrophy e montagem comum dos lotes (trophy-kit, lots, desenhos)", 
 
   it("o registro tem os lotes, sem id nem peça principal repetidos entre eles", () => {
     const lots = registeredLots();
-    expect(lots.map((l: any) => path.basename(l.file))).toEqual(["trophy-lot-1.js", "trophy-lot-2.js", "trophy-lot-3.js", "trophy-lot-4.js"]);
+    expect(lots.map((l: any) => path.basename(l.file))).toEqual(["trophy-lot-1.js", "trophy-lot-2.js", "trophy-lot-3.js", "trophy-lot-4.js", "trophy-lot-5.js"]);
     expect(LOTS).toHaveLength(lots.length);
     const all = lots.flatMap((l: any) => l.TROPHIES);
     expect(() => kit.checkUniqueIds(all)).not.toThrow();
@@ -505,5 +505,99 @@ describe("desenhos do lote 4 (coroa, palma, estrela, asa, coração, lágrima, g
     expect(sh.i[1]).toEqual([0, 0]); expect(sh.o[1]).toEqual([0, 0]);
     expect(sh.i[2]).not.toEqual([0, 0]);
     for (const k of [-1, 4, 1.5, NaN, Infinity]) expect(() => d.pontas(d.forma([[0, 0], [10, 0], [10, 10], [0, 10]]), [k]), String(k)).toThrow(new RegExp(`pontas: índice inválido ${k}`));
+  });
+});
+
+describe("desenhos do lote 5 (pele escura, rosto de homem, grupo animado, contas do terço, letras, rosa, lírio, pão)", () => {
+  const d = require("../lottie-lib/desenhos");
+  const nomes = (gs: any[]) => gs.map((g: any) => g.nm);
+
+  it("pele escura comum, diferente da pele comum", () => {
+    expect(d.PELE_ESCURA).toMatch(/^#[0-9A-F]{6}$/);
+    expect(d.PELE_ESCURA).not.toBe(d.PELE);
+  });
+
+  it("rosto de homem: cabelo rente na frente do rosto, orelhas atrás, sobrancelhas e nariz, sem bochechas; manto e escala inválida lançam erro", () => {
+    const h = nomes(d.bustoHomem(1));
+    expect(h).toEqual(["Olhos", "Sobrancelhas", "Nariz", "Boca", "Cabelo", "Rosto", "Orelhas", "Pescoco", "Decote", "Veste"]);
+    expect(nomes(d.bustoHomem(1, { barba: "#000000", bigode: "#000000", tonsura: true }))).toEqual(["Olhos", "Sobrancelhas", "Nariz", "Bigode", "Boca", "Barba", "Tonsura", "Cabelo", "Rosto", "Orelhas", "Pescoco", "Decote", "Veste"]);
+    const f = nomes(d.figuraHomem(0.5, { bracos: "abertos" }));
+    expect(f).toEqual(expect.arrayContaining(["PeE", "PeD", "Sobrancelhas", "Orelhas"]));
+    expect(f.filter((n: string) => /^Face/.test(n))).toHaveLength(0);
+    expect(() => d.masculino(d.busto(1, { manto: "#3D6FB6" }), 1)).toThrow(/masculino: o manto/);
+    expect(() => d.masculino([], 1)).toThrow(/masculino: o desenho não tem rosto/);
+    expect(() => d.masculino(d.busto(1), 0)).toThrow(/masculino: escala inválida/);
+    // sem `pele`, as orelhas usam a cor do rosto do próprio desenho
+    const corDe = (g: any): number[] => { const fl = g.it.find((it: any) => it.ty === "fl"); return fl ? fl.c.k : corDe(g.it.find((it: any) => it.ty === "gr")); };
+    const deBusto = d.masculino(d.busto(1, { pele: d.PELE_ESCURA }), 1);
+    expect(corDe(deBusto.find((g: any) => g.nm === "Orelhas"))).toEqual(lib.hex(d.PELE_ESCURA));
+    expect(nomes(d.figuraHomem(1, { chaga: true }))).toContain("Chaga");
+    // a pele escura vale para o rosto, as orelhas e a tonsura
+    const escuro = d.bustoHomem(1, { pele: d.PELE_ESCURA, tonsura: true });
+    const cor = (g: any): number[] => { const fl = g.it.find((it: any) => it.ty === "fl"); return fl ? fl.c.k : cor(g.it.find((it: any) => it.ty === "gr")); };
+    for (const nm of ["Rosto", "Orelhas", "Tonsura"]) expect(cor(escuro.find((g: any) => g.nm === nm)), nm).toEqual(lib.hex(d.PELE_ESCURA));
+  });
+
+  it("grupo animado: a transformação recebe valores fixos ou animados", () => {
+    const g = d.grupoAnimado("G", [], { o: lib.anim([[0, 0], [10, 100]]), s: [50, 50] });
+    const tr = g.it[g.it.length - 1];
+    expect(tr.ty).toBe("tr");
+    expect(tr.o.a).toBe(1);
+    expect(tr.s).toEqual({ a: 0, k: [50, 50] });
+    expect(d.grupo("H", []).it[0].ty).toBe("tr");
+    // valor já no formato Lottie, fixo ou animado, passa direto
+    const fixo = { a: 0, k: [10, 20] };
+    expect(d.grupoAnimado("G", [], { p: fixo }).it[0].p).toBe(fixo);
+  });
+
+  it("contas do terço por dezena: as mesmas posições das contas pequenas e grandes do tercoShapes", () => {
+    const { dezenas, grandes } = d.tercoContas();
+    expect(dezenas.map((x: any[]) => x.length)).toEqual([10, 10, 10, 10, 10]);
+    expect(grandes).toHaveLength(4);
+    const centros = (nm: string) => d.tercoShapes().find((g: any) => g.nm === nm).it.filter((it: any) => it.ty === "gr").map((g: any) => g.it[0].p.k);
+    const iguais = (a: number[][], b: number[][]) => {
+      expect(a).toHaveLength(b.length);
+      a.forEach((p, k) => { expect(p[0]).toBeCloseTo(b[k][0], 3); expect(p[1]).toBeCloseTo(b[k][1], 3); });
+    };
+    iguais(centros("ContasPequenas").slice(0, 50), dezenas.flat());
+    iguais(centros("ContasGrandes").slice(0, 4), grandes);
+    // o mesmo laço, com outras medidas, serve a outro terço; medida não numérica lança erro
+    const maior = d.tercoLaco({ rx: 16, ry: 15, cy: 16 });
+    expect(maior.dezenas.flat()).toHaveLength(50);
+    expect(Math.max(...maior.dezenas.flat().map((p: number[]) => p[1]))).toBeLessThanOrEqual(31);
+    expect(() => d.tercoLaco({ rx: 16, ry: NaN, cy: 16 })).toThrow(/tercoLaco: medida inválida/);
+  });
+
+  it("letras de traço: centradas, com a altura pedida; letra sem desenho e altura inválida lançam erro", () => {
+    const [g] = d.letrasShapes("HUMILITAS", 12);
+    const pts = g.it.filter((it: any) => it.ty === "sh").flatMap((it: any) => it.ks.k.v);
+    const ys = pts.map((p: number[]) => p[1]), xs = pts.map((p: number[]) => p[0]);
+    expect(Math.min(...ys)).toBeCloseTo(-6, 3); expect(Math.max(...ys)).toBeCloseTo(6, 3);
+    expect(Math.min(...xs) + Math.max(...xs)).toBeCloseTo(0, 3);
+    expect(() => d.letrasShapes("Z", 10)).toThrow(/letrasShapes: letra sem desenho "Z"/);
+    expect(() => d.letrasShapes("A", 0)).toThrow(/letrasShapes: altura inválida/);
+    for (const vazio of ["", "   "]) expect(() => d.letrasShapes(vazio, 10), JSON.stringify(vazio)).toThrow(/letrasShapes: texto vazio/);
+    // centrada pela extensão real: o "I" (traços de 0,8 a 3,2 na grade) fica no meio, como o "M"
+    const xsDe = (txt: string) => d.letrasShapes(txt, 6)[0].it.filter((it: any) => it.ty === "sh").flatMap((it: any) => it.ks.k.v.map((p: number[]) => p[0]));
+    for (const txt of ["I", "M", "Α Ω"]) { const xs = xsDe(txt); expect(Math.min(...xs) + Math.max(...xs), txt).toBeCloseTo(0, 3); }
+    for (const ch of ["Α", "Ω", "T", "E", "D"]) expect(() => d.letrasShapes(ch, 10), ch).not.toThrow();
+  });
+
+  it("rosa, lírio e pão desenhados recusam medidas inválidas e ficam onde a documentação diz", () => {
+    for (const [nome, f] of [["rosaShapes", d.rosaShapes], ["lirioShapes", d.lirioShapes], ["paoShapes", d.paoShapes]] as [string, any][]) {
+      for (const v of [0, -2, NaN, Infinity]) expect(() => f(v), `${nome}(${v})`).toThrow(new RegExp(`${nome}: .*inválid`));
+    }
+    expect(nomes(d.rosaShapes(4))).toEqual(["Espiral", "Petalas", "Calice"]);
+    // lírio: o pé da haste em (0,0) e a altura h
+    const haste = d.lirioShapes(40).find((g: any) => g.nm === "Haste").it.find((it: any) => it.ty === "sh").ks.k.v;
+    expect(haste[0]).toEqual([0, 0]);
+    expect(Math.min(...haste.map((p: number[]) => p[1]))).toBeCloseTo(-0.78 * 40, 3);
+    // a flor chega a ≈ −1,04·h
+    const flor = d.lirioShapes(40).flatMap((g: any) => g.it.filter((it: any) => it.ty === "sh").flatMap((it: any) => it.ks.k.v.map((p: number[]) => p[1])));
+    expect(Math.min(...flor)).toBeCloseTo(-1.04 * 40, 0);
+    // a rosa tem o cálice simétrico (as duas pontas de fora sem curva)
+    const calice = d.rosaShapes(10).find((g: any) => g.nm === "Calice").it.find((it: any) => it.ty === "sh").ks.k;
+    expect(calice.i[1]).toEqual([0, 0]); expect(calice.i[5]).toEqual([0, 0]); expect(calice.i[4]).not.toEqual([0, 0]);
+    expect(nomes(d.paoShapes(14))).toEqual(["Cortes", "Reflexo", "Pao"]);
   });
 });
