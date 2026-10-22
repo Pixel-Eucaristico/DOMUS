@@ -254,7 +254,7 @@ describe("writeTrophy e montagem comum dos lotes (trophy-kit, lots, desenhos)", 
 
   it("o registro tem os lotes, sem id nem peça principal repetidos entre eles", () => {
     const lots = registeredLots();
-    expect(lots.map((l: any) => path.basename(l.file))).toEqual(["trophy-lot-1.js", "trophy-lot-2.js"]);
+    expect(lots.map((l: any) => path.basename(l.file))).toEqual(["trophy-lot-1.js", "trophy-lot-2.js", "trophy-lot-3.js"]);
     expect(LOTS).toHaveLength(lots.length);
     const all = lots.flatMap((l: any) => l.TROPHIES);
     expect(() => kit.checkUniqueIds(all)).not.toThrow();
@@ -268,5 +268,73 @@ describe("writeTrophy e montagem comum dos lotes (trophy-kit, lots, desenhos)", 
     expect(() => chuva("C", peca, { t0: 40, dur: 8, fade: false })).not.toThrow();
     expect(() => chuva("C", peca, { t0: 70, dur: 30 })).toThrow(/sobram 9 até o quadro 89/);
     expect(() => chuva("C", peca, { t0: 40, dur: 0 })).toThrow(/duração 0 inválida/);
+  });
+});
+
+describe("desenhos do lote 3 (busto, concha, espelhar, transladar)", () => {
+  const { busto, conchaShapes, espelhar, transladar, forma, fill } = require("../lottie-lib/desenhos");
+  const grupos = () => [fill([forma([[1, 2], [5, 2], [3, 6]])], "#FFFFFF", "Tri"), lib.makeEllipse(4, -3, 2, 2, lib.hex("#000000"), "Bola")];
+  const sh = (g: any) => g.it.find((it: any) => it.ty === "sh").ks.k;
+  const el = (g: any) => g.it.find((it: any) => it.ty === "el");
+
+  it("busto recusa escala inválida, cabelo desconhecido e manto com cabelo", () => {
+    expect(() => busto(0)).toThrow(/escala inválida 0/);
+    expect(() => busto(NaN)).toThrow(/escala inválida NaN/);
+    expect(() => busto(1, { cabelo: "careca" })).toThrow(/cabelo "careca"/);
+    expect(() => busto(1, { manto: "#3D6FB6", cabelo: "longo" })).toThrow(/manto não combina com cabelo/);
+    expect(() => busto(1, { manto: "#3D6FB6", corCabelo: "#000000" })).toThrow(/manto não combina com cabelo/);
+    expect(() => busto(1, { manto: "#3D6FB6" })).not.toThrow();
+  });
+
+  it("busto com barba não tem bochechas (a barba não fica por baixo delas)", () => {
+    const nomes = busto(1, { barba: "#CCD6DD" }).map((g: any) => g.nm);
+    expect(nomes).toContain("Barba");
+    expect(nomes).not.toContain("Face1");
+    expect(busto(1).map((g: any) => g.nm)).toContain("Face1");
+  });
+
+  it("conchaShapes recusa raio inválido", () => {
+    expect(() => conchaShapes(0)).toThrow(/raio inválido 0/);
+  });
+
+  it("espelhar troca o sinal de x em v, i, o e no centro da elipse, sem mexer no original", () => {
+    const g = grupos();
+    const antes = JSON.stringify(g);
+    const [tri, bola] = espelhar(g);
+    const k0 = sh(g[0]), k1 = sh(tri);
+    const neg = (x: number) => (x === 0 ? 0 : -x); // sem −0
+    for (const c of ["v", "i", "o"]) {
+      expect(k0[c].some(([x]: number[]) => x !== 0), c).toBe(true);
+      expect(k1[c].map(([x, y]: number[]) => [x === 0 ? 0 : x, y]), c).toEqual(k0[c].map(([x, y]: number[]) => [neg(x), y]));
+    }
+    expect(k1.v).toEqual([[-1, 2], [-5, 2], [-3, 6]]);
+    expect(el(bola).p.k).toEqual([-4, -3]);
+    expect(JSON.stringify(g)).toBe(antes);
+  });
+
+  it("transladar move v e o centro da elipse, mas não as tangentes i/o, sem mexer no original", () => {
+    const g = grupos();
+    const antes = JSON.stringify(g);
+    const [tri, bola] = transladar(g, [10, -1]);
+    expect(sh(tri).v).toEqual([[11, 1], [15, 1], [13, 5]]);
+    expect(sh(tri).i).toEqual(sh(g[0]).i);
+    expect(sh(tri).o).toEqual(sh(g[0]).o);
+    expect(el(bola).p.k).toEqual([14, -4]);
+    expect(JSON.stringify(g)).toBe(antes);
+  });
+
+  it("espelhar e transladar recusam caminho animado, grupo deslocado, rc/sr e deslocamento inválido", () => {
+    const animado = [{ ty: "gr", nm: "A", it: [{ ty: "sh", ks: { a: 1, k: [] } }] }];
+    const deslocado = [{ ty: "gr", nm: "D", it: [{ ty: "tr", p: { a: 0, k: [3, 0] }, a: { a: 0, k: [0, 0] } }] }];
+    const rc = [{ ty: "gr", nm: "R", it: [{ ty: "rc" }] }];
+    const sr = [{ ty: "gr", nm: "S", it: [{ ty: "sr" }] }];
+    for (const f of [espelhar, (g: any) => transladar(g, [1, 1])]) {
+      expect(() => f(animado)).toThrow(/caminho animado/);
+      expect(() => f(deslocado)).toThrow(/deslocamento na transformação/);
+      expect(() => f(rc)).toThrow(/"rc"/);
+      expect(() => f(sr)).toThrow(/"sr"/);
+    }
+    expect(() => transladar(grupos(), [NaN, 0])).toThrow(/deslocamento inválido/);
+    expect(() => transladar(grupos(), [0, Infinity])).toThrow(/deslocamento inválido/);
   });
 });

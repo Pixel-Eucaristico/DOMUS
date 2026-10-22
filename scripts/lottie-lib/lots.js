@@ -8,7 +8,7 @@
 const path = require("path");
 
 /** Geradores registrados, na ordem dos lotes. */
-const LOTS = ["trophy-lot-1.js", "trophy-lot-2.js"].map((f) => path.join(__dirname, "..", f));
+const LOTS = ["trophy-lot-1.js", "trophy-lot-2.js", "trophy-lot-3.js"].map((f) => path.join(__dirname, "..", f));
 
 /** [{ file, TROPHIES }] de todos os lotes registrados (carregados na hora). */
 function registeredLots() {

@@ -286,9 +286,10 @@ export function checkLot({ name, lot, generator, files: count }: LotOptions) {
       }
     });
 
-    it("luz do alto sem esticar: nenhuma camada de luz tem escala não uniforme nem forma animada", () => {
-      // camadas de luz: pelo nome ou pelo conteúdo (os grupos que luzSuave desenha)
-      const LUZ_GRUPOS = /^Luz(Fonte|Raios|Miolo|Meio|Borda)$/;
+    it("luz sem esticar: nenhuma camada de luz, brilho ou raios tem escala não uniforme nem forma animada", () => {
+      // camadas de luz: pelo nome (Luz, Ceu, Brilho, Raios) ou pelo conteúdo (os grupos da luzSuave, brilhos e raios)
+      const LUZ_NOME = /Luz|Ceu|Brilho|Raios/;
+      const LUZ_GRUPOS = /^(Luz(Fonte|Raios|Miolo|Meio|Borda)|Brilho|Raios)$/;
       const groupsOf = (items: any[]): any[] => items.flatMap((it: any) => (it.ty === "gr" ? [it, ...groupsOf(it.it)] : []));
       const uniforme = (v: number[]) => Math.abs(v[0]) === Math.abs(v[1]);
       const valores = (prop: any): number[][] =>
@@ -297,7 +298,7 @@ export function checkLot({ name, lot, generator, files: count }: LotOptions) {
       for (const f of TROPHIES.flatMap(filesOf)) {
         for (const ly of readLottie(f).layers) {
           const groups = groupsOf(ly.shapes);
-          if (!/Luz|Ceu/.test(ly.nm) && !groups.some((g: any) => LUZ_GRUPOS.test(g.nm))) continue;
+          if (!LUZ_NOME.test(ly.nm) && !groups.some((g: any) => LUZ_GRUPOS.test(g.nm))) continue;
           vistas++;
           for (const v of valores(ly.ks.s)) expect(uniforme(v), `${f} ${ly.nm}: escala ${JSON.stringify(v)}`).toBe(true);
           for (const g of groups) {

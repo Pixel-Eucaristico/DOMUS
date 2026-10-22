@@ -93,8 +93,9 @@ function pontosAoLongo(shape, n) {
 /**
  * Ajudas que dependem da tabela de peças de um lote, e a montagem do lote.
  * `ICONS`: { chave: { source, license, viewBox, elements } }.
- * `DRAWN` (opcional): peças principais desenhadas no próprio gerador, sem
- * fonte externa ({ chave: { desc } }); valem como `icon` de um troféu.
+ * `DRAWN` (opcional): peças principais desenhadas no próprio gerador
+ * ({ chave: { desc, uses? } }); valem como `icon` de um troféu. `uses` lista
+ * as peças da tabela (com fonte) que o desenho embrulha.
  */
 function makeLot(ICONS, { DRAWN = {} } = {}) {
   /** Shapes de um ícone da tabela, centrado em (0,0), com `size` px de largura. */
@@ -147,11 +148,24 @@ function makeLot(ICONS, { DRAWN = {} } = {}) {
     }
   }
 
+  /**
+   * Peça principal repetida lança erro. Uma peça principal desenhada (DRAWN)
+   * que declara em `uses` as peças da tabela que ela embrulha também não pode
+   * embrulhar a peça principal de outro troféu.
+   */
   function checkUniqueIcons(entries) {
     const seen = new Map();
     for (const e of entries) {
       if (seen.has(e.icon)) throw new Error(`Desenho repetido: ${e.id} e ${seen.get(e.icon)} usam ${e.icon}`);
       seen.set(e.icon, e.id);
+    }
+    for (const e of entries) {
+      const uses = DRAWN[e.icon] && DRAWN[e.icon].uses;
+      if (!uses) continue;
+      for (const key of uses) {
+        if (!ICONS[key]) throw new Error(`${e.id}: ${e.icon} declara em uses uma peça que não está na tabela: ${key}`);
+        if (seen.has(key) && seen.get(key) !== e.id) throw new Error(`Desenho repetido: ${e.id} (${e.icon}) embrulha ${key}, peça principal de ${seen.get(key)}`);
+      }
     }
   }
 
