@@ -80,3 +80,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-11-7-lote-2.md`
   summary: D27 — Nenhum workflow da CI roda `vitest` (só `build-android.yml` e `build-ios.yml`): os testes dos lotes de troféus e os demais só rodam à mão.
   evidence: grep por vitest/npm test/tsc em `.github/workflows/` não acha nada; já era assim antes. Ligar um job de testes conversa com a Story 2.8.
+- source_spec: `_bmad-output/implementation-artifacts/spec-11-7-ajustes-do-dono-1.md`
+  summary: D28 — Gravar a lista (com hash) dos Lottie aprovados pelo dono na página de aprovação e testar que eles não mudam sem nova aprovação.
+  evidence: hoje só o `git diff --stat` manual protege os aprovados; o teste "disco = gerador" passa de novo depois de regerar. Fazer junto da Story 11.8, que registra os aprovados no app.

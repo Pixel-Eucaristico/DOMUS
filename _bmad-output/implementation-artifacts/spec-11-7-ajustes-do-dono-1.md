@@ -47,11 +47,27 @@ context:
 
 ## Spec Change Log
 
+- 22/10/2026: o comentário do dono em Lourdes ("revise todos estes efeitos de luz") estende a troca da luz a Batismo do Senhor (ouro) e Apresentação do Senhor (ouro); `luzDescendo` foi removida e o teste de luz sem esticar cobre todos os arquivos.
+- 22/10/2026: novo pedido do dono em Lourdes ("o rosário católico não é este nem terço"): o emoji 📿 da prata e do ouro foi trocado por um terço católico desenhado (5 dezenas, pingente e crucifixo).
+
 ## Review Triage Log
+
+| Achado | Veredito | Evidência |
+|---|---|---|
+| `luzSuave` sem validação (altura curta, quadros, `peak` acima de 100) | medium | Erros genéricos ou luz invertida nos próximos lotes. **patch**. |
+| Páginas de Isidoro dependem da ordem dos subcaminhos do ícone | low | Proteção direta. **patch**. |
+| `ramo` e `rastro` sem proteção; comentário de `fica` impreciso | low | Correções diretas. **patch**. |
+| Checagem de luz só pelo nome e só pela escala da camada | medium (gap) | Um grupo ou caminho animado traria de volta o "estica". **patch**. |
+| Sem teste da ordem palma/véu (Águeda) e das páginas iguais (Isidoro) | medium (gap) | Os pedidos do dono poderiam regredir sem aviso. **patch**. |
+| Testes de `luzSuave` incompletos | low | Correção direta. **patch**. |
+| Cabeçalho do lote 2 ainda cita "páginas do livro"; linha em branco | low | Correção direta. **patch**. |
+| Arquivos aprovados podem mudar sem aviso (sem lista de hashes) | medium | Falta registro do que foi aprovado na página. **defer** D28. |
+| Batismo e Apresentação mudaram sem estar na lista | false | Pedido do dono "revise todos estes efeitos de luz", registrado no Spec Change Log. |
+
+**Rota:** 7 `patch`, 1 `defer` (D28), 1 falso. Sem loopback.
 
 ## Verification
 
 **Commands:**
 - `node scripts/trophy-lot-1.js && node scripts/trophy-lot-2.js && git diff --stat assets/lottie/trophies` -- expected: só arquivos dos 14 troféus e `lt_epifania_t2`
 - `npx vitest run` e `npx tsc --noEmit` -- expected: sem falhas; tsc exit 0
-- 22/10/2026: o comentário do dono em Lourdes ("revise todos estes efeitos de luz") estende a troca da luz a Batismo do Senhor (ouro) e Apresentação do Senhor (ouro); `luzDescendo` foi removida e o teste de luz sem esticar cobre todos os arquivos.
