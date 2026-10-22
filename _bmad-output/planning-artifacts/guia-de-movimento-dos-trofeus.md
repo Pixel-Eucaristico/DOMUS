@@ -104,7 +104,7 @@ Regras vindas da aprovação dos lotes 1 e 2: a luz usa só a `luzSuave` (sem es
 | São Bento de Núrsia | a medalha de São Bento gira e mostra a cruz | o corvo pousa | livro da Regra e luz |
 | Nossa Senhora do Carmo | o escapulário marrom desce | estrela do Carmelo | Maria (busto, manto marrom) e luz |
 | Santa Maria Madalena | o vaso de perfume abre e o aroma sobe | lágrima e coração | luz da manhã de Páscoa |
-| Santa Brígida da Suécia | a vela acende sobre o livro das revelações | cruz de Brígida | auréola e raios |
+| Santa Brígida da Suécia | a vela acende sobre o livro das revelações | bordão de peregrina (ela foi peregrina a Roma e Jerusalém) | auréola e raios |
 | São Charbel Makhlouf | a lamparina do eremita acende na noite | cedro do Líbano | luz e estrelas |
 | São Tiago Maior | a concha de vieira aparece e o bordão de peregrino se ergue | cabaça de peregrino | estrela de Compostela e luz |
 | Sant'Ana e São Joaquim | duas figuras (bustos) com a menina Maria entre eles | livro aberto (Ana ensinando) | auréolas e luz |
