@@ -178,3 +178,47 @@ describe("validação das ajudas", () => {
     expect(sc.ks.s.k).toEqual([50, 50, 100]);
   });
 });
+
+describe("writeTrophy e montagem comum dos lotes (trophy-kit, lots, desenhos)", () => {
+  const kit = require("../lottie-lib/trophy-kit");
+  const { LOTS, registeredLots } = require("../lottie-lib/lots");
+  const { chuva } = require("../lottie-lib/desenhos");
+
+  it("recusa escrever um id já aprovado", () => {
+    const approved: Set<string> = lib.readApprovedIds();
+    expect(approved.size).toBeGreaterThan(0);
+    const id = [...approved][0];
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lot-"));
+    try {
+      expect(() => lib.writeTrophy(id, "", { v: "5.7.4" }, { approved, outDir: dir })).toThrow(/Recusado/);
+      expect(fs.readdirSync(dir)).toHaveLength(0);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("acusa peça principal repetida e id repetido", () => {
+    const { checkUniqueIcons } = kit.makeLot({});
+    const a = { id: "a", kind: "liturgical", icon: "twemoji-2b50" };
+    expect(() => checkUniqueIcons([a, { id: "b", kind: "liturgical", icon: "twemoji-2b50" }])).toThrow(/Desenho repetido/);
+    expect(() => kit.checkUniqueIds([a, { ...a, icon: "twemoji-2764" }])).toThrow(/Id repetido: a/);
+  });
+
+  it("o registro tem os lotes, sem id nem peça principal repetidos entre eles", () => {
+    const lots = registeredLots();
+    expect(lots.map((l: any) => path.basename(l.file))).toEqual(["trophy-lot-1.js", "trophy-lot-2.js"]);
+    expect(LOTS).toHaveLength(lots.length);
+    const all = lots.flatMap((l: any) => l.TROPHIES);
+    expect(() => kit.checkUniqueIds(all)).not.toThrow();
+    expect(() => kit.makeLot({}).checkUniqueIcons(all)).not.toThrow();
+  });
+
+  it("chuva recusa duração sem espaço para aparecer e sumir", () => {
+    const peca = () => [];
+    expect(() => chuva("C", peca, { t0: 40, dur: 36 })).not.toThrow();
+    expect(() => chuva("C", peca, { t0: 40, dur: 10 })).toThrow(/mais de 10 quadros.*duração 10 sobram 10/);
+    expect(() => chuva("C", peca, { t0: 40, dur: 8, fade: false })).not.toThrow();
+    expect(() => chuva("C", peca, { t0: 70, dur: 30 })).toThrow(/sobram 9 até o quadro 89/);
+    expect(() => chuva("C", peca, { t0: 40, dur: 0 })).toThrow(/duração 0 inválida/);
+  });
+});
