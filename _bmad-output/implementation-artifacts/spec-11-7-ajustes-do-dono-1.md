@@ -2,7 +2,7 @@
 title: 'Story 11.7: ajustes pedidos pelo dono na página de aprovação (rodada 1)'
 type: 'bugfix'
 created: '2026-10-22'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: 'eb27f370d65d8e6a2975cf675320f5e63ed47578'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -54,3 +54,4 @@ context:
 **Commands:**
 - `node scripts/trophy-lot-1.js && node scripts/trophy-lot-2.js && git diff --stat assets/lottie/trophies` -- expected: só arquivos dos 14 troféus e `lt_epifania_t2`
 - `npx vitest run` e `npx tsc --noEmit` -- expected: sem falhas; tsc exit 0
+- 22/10/2026: o comentário do dono em Lourdes ("revise todos estes efeitos de luz") estende a troca da luz a Batismo do Senhor (ouro) e Apresentação do Senhor (ouro); `luzDescendo` foi removida e o teste de luz sem esticar cobre todos os arquivos.
