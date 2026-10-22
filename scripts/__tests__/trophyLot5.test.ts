@@ -129,9 +129,9 @@ describe("Lottie — lote 5", () => {
     }
   });
 
-  it("nenhum id do lote 5 está em APPROVED_LOTTIE", () => {
+  it("todo id do lote 5 está em APPROVED_LOTTIE (aprovados na Story 11.8): o gerador recusa sobrescrevê-los", () => {
     const aprovados: Set<string> = lib.readApprovedIds();
-    for (const e of TROPHIES) expect(aprovados.has(e.id), e.id).toBe(false);
+    for (const e of TROPHIES) expect(aprovados.has(e.id), e.id).toBe(true);
   });
 
   it("todas as peças são desenhadas: nenhum nível usa peça da tabela (Twemoji ou Bootstrap), muito menos a peça principal de outro troféu", () => {

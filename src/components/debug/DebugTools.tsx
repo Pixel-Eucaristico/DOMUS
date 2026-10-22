@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
-import { ALL_SEASONAL_TROPHIES, getTierColor } from "@packages/gamification/src/seasonalTrophies";
+import { ALL_SEASONAL_TROPHIES, getTierColor, getTierLabel } from "@packages/gamification/src/seasonalTrophies";
 import { ALL_LITURGICAL_TROPHIES } from "@packages/gamification/src/liturgicalTrophies";
 import { ALL_ACHIEVEMENTS, MONTHLY_TROPHIES } from "@packages/gamification/src/achievements";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -23,7 +23,7 @@ import { FlashList } from "@shopify/flash-list";
 import type { ArchetypeType } from "@packages/personality/src/types";
 import { getArchetypeDescription } from "@packages/personality/src/archetypeEngine";
 import { LottieTrophy } from "@/src/components/gamification/LottieTrophy";
-import { AnimatedSeasonalTrophy } from "@/src/components/gamification/AnimatedSeasonalTrophy";
+import { clampTier, type TrophyTier } from "@/src/components/gamification/lottieTierSelection";
 import { LinearGradient } from "expo-linear-gradient";
 
 const ARCHETYPES: ArchetypeType[] = [
@@ -126,16 +126,20 @@ export function DebugTools() {
     </TouchableOpacity>
   ), [theme]);
 
-  const renderTrophyPreview = (t: any, size = 120, isStatic = false) => {
-    if (t._debugType === "Sazonal" || t._debugType === "Litúrgico" || t._debugType === "Mensal") {
-      const color = t._debugType === "Mensal" ? theme.primaryColor : getTierColor(debugTier);
+  const isSeasonalLike = (t: any) => t._debugType === "Sazonal" || t._debugType === "Litúrgico";
+
+  const renderTrophyPreview = (t: any, size = 120, isStatic = false, tierOverride?: TrophyTier) => {
+    if (isSeasonalLike(t) || t._debugType === "Mensal") {
+      const tier = tierOverride ?? clampTier(debugTier);
+      const color = t._debugType === "Mensal" ? theme.primaryColor : getTierColor(tierOverride ?? debugTier);
       return (
-        <AnimatedSeasonalTrophy 
-          icon={t.icon} 
-          id={t.id} 
-          size={size} 
-          color={color} 
-          isLiturgical={t._debugType === "Litúrgico"}
+        <LottieTrophy
+          trophyId={t.id}
+          type={t._debugType === "Mensal" ? "monthly" : t._debugType === "Litúrgico" ? "liturgical" : "seasonal"}
+          tier={t._debugType === "Mensal" ? undefined : tier}
+          icon={t.icon}
+          size={size}
+          color={color}
           isStatic={isStatic}
         />
       );
@@ -408,6 +412,17 @@ export function DebugTools() {
                   <View style={st.detailAnimWrapper}>
                     {renderTrophyPreview(selectedTrophy, 140, false)}
                   </View>
+
+                  {isSeasonalLike(selectedTrophy) && (
+                    <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginBottom: 8 }}>
+                      {([1, 2, 3] as const).map(tier => (
+                        <View key={tier} style={{ alignItems: 'center', gap: 2 }}>
+                          {renderTrophyPreview(selectedTrophy, 64, false, tier)}
+                          <Text style={{ color: getTierColor(tier), fontWeight: '700', fontSize: 10 }}>{getTierLabel(tier)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
 
                   <Text style={[st.detailName, { color: theme.textColor }]}>{selectedTrophy.name}</Text>
                   <Text style={[st.detailId, { color: theme.secondaryText }]}>{selectedTrophy.id}</Text>

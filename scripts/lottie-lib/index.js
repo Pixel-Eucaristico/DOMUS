@@ -18,7 +18,10 @@ const svgpath = require("svgpath");
 
 const ROOT = path.join(__dirname, "../..");
 const OUT_DIR = path.join(ROOT, "assets/lottie/trophies");
-const LOTTIE_TROPHY_TSX = path.join(ROOT, "src/components/gamification/LottieTrophy.tsx");
+/** Registro dos Lottie aprovados (`APPROVED_LOTTIE`), lido por readApprovedIds/readApprovedFiles. */
+const APPROVED_LOTTIE_TS = path.join(ROOT, "src/components/gamification/approvedLottie.ts");
+/** Lista com o sha256 de cada arquivo aprovado (D28). */
+const APPROVED_HASHES = path.join(OUT_DIR, "aprovados.sha256.json");
 
 const FORMAT = { v: "5.7.4", fr: 30, ip: 0, op: 90, w: 200, h: 200 };
 const CENTER = [100, 105];
@@ -689,18 +692,104 @@ function assemble(nm, layers) {
 
 // ── Escrita com recusa de id aprovado ────────────────────────────────────────
 
-/** Lê os ids de `APPROVED_LOTTIE` em LottieTrophy.tsx. */
-function readApprovedIds(file = LOTTIE_TROPHY_TSX) {
+/** Trecho do arquivo entre `const APPROVED_LOTTIE` e o `};` que fecha o mapa. */
+function approvedBlock(file) {
   const src = fs.readFileSync(file, "utf8");
   const start = src.indexOf("const APPROVED_LOTTIE");
   if (start < 0) throw new Error(`APPROVED_LOTTIE não encontrado em ${file}`);
   const end = src.indexOf("\n};", start);
   if (end < 0) throw new Error(`Fim de APPROVED_LOTTIE ("};") não encontrado em ${file}`);
-  const body = src.slice(start, end);
+  return src.slice(start, end);
+}
+
+const ID_LINE = /^(\s*)(?:"([A-Za-z0-9_]+)"|'([A-Za-z0-9_]+)'|([A-Za-z_][A-Za-z0-9_]*))\s*:\s*\{/;
+// `nível: require("…")` (formato antigo) ou `nível: () => require("…")` (getter)
+const TIER_LINE = /^\s*(base|t[1-4])\s*:\s*(?:\(\)\s*=>\s*)?require\(\s*["']([^"']+)["']\s*\)/;
+
+/**
+ * Linhas do bloco com o id de troféu quando a linha abre uma entrada de
+ * primeiro nível (`"id": {` na menor indentação entre as linhas desse tipo);
+ * objetos aninhados dentro de uma entrada (indentação maior) não viram id.
+ */
+function approvedLines(file) {
+  const lines = approvedBlock(file).split("\n");
+  const matches = lines.map((line) => line.match(ID_LINE));
+  const indents = matches.filter(Boolean).map((m) => m[1].length);
+  const top = indents.length ? Math.min(...indents) : -1;
+  return lines.map((line, i) => {
+    const m = matches[i];
+    return { line, id: m && m[1].length === top ? m[2] || m[3] || m[4] : null };
+  });
+}
+
+/** Lê os ids de `APPROVED_LOTTIE` (src/components/gamification/approvedLottie.ts). */
+function readApprovedIds(file = APPROVED_LOTTIE_TS) {
   const ids = new Set();
-  const re = /^\s*(?:"([A-Za-z0-9_]+)"|'([A-Za-z0-9_]+)'|([A-Za-z_][A-Za-z0-9_]*))\s*:\s*\{/gm;
-  for (const m of body.matchAll(re)) ids.add(m[1] || m[2] || m[3]);
+  for (const { id } of approvedLines(file)) if (id) ids.add(id);
   return ids;
+}
+
+/**
+ * Lê `APPROVED_LOTTIE` como Map id → { base, t1…t4 } com o nome de cada
+ * arquivo em assets/lottie/trophies (ex.: "lt_tome_t2.json"). Lança erro se
+ * um nível aponta para fora dessa pasta.
+ */
+function readApprovedFiles(file = APPROVED_LOTTIE_TS) {
+  const out = new Map();
+  let current = null;
+  for (const { line, id } of approvedLines(file)) {
+    if (id) {
+      current = id;
+      out.set(current, {});
+      continue;
+    }
+    const tier = line.match(TIER_LINE);
+    if (!tier) continue;
+    if (!current) throw new Error(`Nível fora de um troféu em APPROVED_LOTTIE: ${line.trim()}`);
+    const m = tier[2].match(/^@\/assets\/lottie\/trophies\/([A-Za-z0-9_]+\.json)$/);
+    if (!m) throw new Error(`Arquivo fora de assets/lottie/trophies em APPROVED_LOTTIE (${current}.${tier[1]}): ${tier[2]}`);
+    out.get(current)[tier[1]] = m[1];
+  }
+  return out;
+}
+
+/** Todos os arquivos referenciados por APPROVED_LOTTIE, em ordem alfabética. */
+function approvedFileList(file = APPROVED_LOTTIE_TS) {
+  const files = new Set();
+  for (const tiers of readApprovedFiles(file).values()) for (const f of Object.values(tiers)) files.add(f);
+  return [...files].sort();
+}
+
+/**
+ * sha256 (hex) de cada arquivo aprovado: { "<arquivo>.json": "<hash>" }.
+ * CRLF vira LF antes do hash, para um checkout com autocrlf (Windows) não
+ * acusar mudança.
+ */
+function computeApprovedHashes({ file = APPROVED_LOTTIE_TS, outDir = OUT_DIR } = {}) {
+  const crypto = require("crypto");
+  const hashes = {};
+  for (const f of approvedFileList(file)) {
+    const text = fs.readFileSync(path.join(outDir, f), "utf8").replace(/\r\n/g, "\n");
+    hashes[f] = crypto.createHash("sha256").update(text, "utf8").digest("hex");
+  }
+  return hashes;
+}
+
+/**
+ * Compara a lista gravada com a calculada agora: { changed, missing, extra }
+ * (arquivos com hash diferente, que faltam na lista atual, ou que sobram).
+ * Tudo vazio = confere.
+ */
+function compareApprovedHashes(recorded, current) {
+  const changed = [];
+  const missing = [];
+  const extra = [];
+  for (const [f, hash] of Object.entries(recorded)) {
+    if (!(f in current)) missing.push(f);
+    else if (current[f] !== hash) changed.push(f);
+  }
+  for (const f of Object.keys(current)) if (!(f in recorded)) extra.push(f);
+  return { changed: changed.sort(), missing: missing.sort(), extra: extra.sort() };
 }
 
 /**
@@ -726,5 +815,6 @@ module.exports = {
   // movimento
   anim, trajeto, pulo, queda, abrir, onda, aparecer, sumir, pop, pulsar, giro,
   pieceLayer, scaleLayer, luzSuave, ondulacao, confete, seeded,
-  readApprovedIds, writeTrophy,
+  readApprovedIds, readApprovedFiles, approvedFileList, computeApprovedHashes, compareApprovedHashes, writeTrophy,
+  APPROVED_LOTTIE_TS, APPROVED_HASHES,
 };

@@ -7,7 +7,8 @@ import * as Haptics from "expo-haptics";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { soundManager } from "@/src/services/SoundManager";
-import { AnimatedSeasonalTrophy } from "./AnimatedSeasonalTrophy";
+import { LottieTrophy } from "./LottieTrophy";
+import { currentMonthLottieTier } from "./lottieTierSelection";
 import {
   ALL_SEASONAL_TROPHIES,
   getTierColor,
@@ -188,9 +189,12 @@ export const SurpriseTrophyCard: React.FC<SurpriseTrophyCardProps> = ({
             ]}
           >
             <View style={[s.surpriseTrophyIconWrapper, { backgroundColor: tierColor + "0F" }]}>
-              <AnimatedSeasonalTrophy
+              <LottieTrophy
+                trophyId={trophy?.id ?? ""}
+                type={isLiturgical ? "liturgical" : "seasonal"}
+                // mês atual: nível conquistado ou, se ainda não concluído, o nível em jogo
+                tier={selectedEntry ? currentMonthLottieTier(gamification, selectedEntry.trophyId, monthKey) : 1}
                 icon={trophy?.icon}
-                id={trophy?.id}
                 size={80}
                 color={tierColor}
                 isLiturgical={isLiturgical}

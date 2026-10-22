@@ -118,6 +118,9 @@ export default function AboutScreen() {
             <FeatureRow icon="database" color={theme.primaryColor} theme={theme} label="Arquitetura baseada em eventos" description="Histórico imutável e rastreável de transações." />
             <FeatureRow icon="hard-drive" color={theme.warning} theme={theme} label="Armazenamento local" description="SQLite no seu dispositivo, protegido pelo isolamento do sistema; o DOMUS não cifra o banco." />
             <FeatureRow icon="download" color={theme.accentColor} theme={theme} label="Backup manual e cifrado" description="AES-256-GCM com senha sua. Você controla tudo." />
+            <TText variant="label" secondary lineHeight={20}>
+              Ilustrações dos troféus com elementos do Twemoji (CC-BY 4.0) e do Bootstrap Icons (MIT).
+            </TText>
           </SectionCard>
 
           {/* ── SUPPORT ─────────────────────────────────────────────────── */}

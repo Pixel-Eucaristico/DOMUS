@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { LottieTrophy } from "@/src/components/gamification/LottieTrophy";
+import { widgetLottieProps } from "@/src/components/gamification/lottieTierSelection";
 import { AnimatedCard } from "@/src/components/shared/AnimatedCard";
 import type { AchievementRarity } from "@packages/gamification/src/achievements";
 import { soundManager } from "@/src/services/SoundManager";
@@ -49,7 +50,8 @@ export function GamificationWidget({
               <>
                 <LottieTrophy
                   trophyId={currentTrophy.id}
-                  type="seasonal"
+                  // nível sorteado do mês atual (nível em jogo); lt_* → litúrgico
+                  {...widgetLottieProps(currentTrophy)}
                   icon={currentTrophy.icon}
                   size={60}
                   color={theme.primaryColor}

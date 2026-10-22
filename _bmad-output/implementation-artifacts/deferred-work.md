@@ -76,10 +76,13 @@
   evidence: mesma falta de infraestrutura de teste de hook/componente (D21, D23); extrair a decisão do diário para módulo puro e testar.
 - source_spec: `_bmad-output/implementation-artifacts/spec-11-7-gerar-lottie-dos-trofeus-sem-animacao.md`
   summary: D26 — Os Lottie novos usam ícones do Twemoji (CC-BY 4.0), que exige atribuição onde a arte é distribuída: antes de a Story 11.8 registrar esses troféus no app, incluir o crédito ao Twemoji (ex.: tela Sobre ou arquivo de licenças).
-  evidence: a licença está citada só nos comentários de `scripts/trophy-lot-1.js`; os JSONs ainda não entram no app (não estão em `APPROVED_LOTTIE`).
+  evidence: a licença está citada só nos comentários de `scripts/trophy-lot-1.js`; os JSONs ainda não entram no app (não estão em `APPROVED_LOTTIE`). **Resolvido (22/10/2026, Story 11.8):** crédito na tela Sobre (`app/about.tsx`): "Ilustrações dos troféus com elementos do Twemoji (CC-BY 4.0) e do Bootstrap Icons (MIT)."; ver `spec-11-8-registrar-lottie-aprovados.md`.
 - source_spec: `_bmad-output/implementation-artifacts/spec-11-7-lote-2.md`
   summary: D27 — Nenhum workflow da CI roda `vitest` (só `build-android.yml` e `build-ios.yml`): os testes dos lotes de troféus e os demais só rodam à mão.
   evidence: grep por vitest/npm test/tsc em `.github/workflows/` não acha nada; já era assim antes. Ligar um job de testes conversa com a Story 2.8.
 - source_spec: `_bmad-output/implementation-artifacts/spec-11-7-ajustes-do-dono-1.md`
   summary: D28 — Gravar a lista (com hash) dos Lottie aprovados pelo dono na página de aprovação e testar que eles não mudam sem nova aprovação.
-  evidence: hoje só o `git diff --stat` manual protege os aprovados; o teste "disco = gerador" passa de novo depois de regerar. Fazer junto da Story 11.8, que registra os aprovados no app.
+  evidence: hoje só o `git diff --stat` manual protege os aprovados; o teste "disco = gerador" passa de novo depois de regerar. Fazer junto da Story 11.8, que registra os aprovados no app. **Resolvido (22/10/2026, Story 11.8):** `assets/lottie/trophies/aprovados.sha256.json` (sha256 dos 637 arquivos de `APPROVED_LOTTIE`), regerado por `node scripts/lottie-approved-hashes.js` (`--check` só confere); `scripts/__tests__/lottieApprovedHashes.test.ts` falha se um arquivo aprovado mudar ou se a lista não cobrir o registro.
+- source_spec: `_bmad-output/implementation-artifacts/spec-11-8-registrar-lottie-aprovados.md`
+  summary: D29 — Os geradores antigos (`scripts/gen_seasonal_tiers.js`, `scripts/gen_trophy_*.js`) gravam direto com `fs.writeFileSync` e sobrescrevem Lottie já aprovados, sem a recusa do `writeTrophy`.
+  evidence: só os lotes (`trophy-kit.main` → `writeTrophy`) recusam ids aprovados; o teste de hash do D28 acusa a mudança depois, mas não impede.

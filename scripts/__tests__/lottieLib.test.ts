@@ -73,17 +73,61 @@ describe("readApprovedIds", () => {
     expect([...lib.readApprovedIds(file)].sort()).toEqual(["dupla", "sem_aspas", "simples"]);
   });
 
+  it("só registra entradas de primeiro nível: objeto aninhado numa entrada não vira id", () => {
+    const file = tmpFile([
+      "export const APPROVED_LOTTIE = {",
+      '  "a": {',
+      '    base: () => require("@/assets/lottie/trophies/a.json"),',
+      "    meta: {",
+      '      "aninhado": { x: 1 },',
+      "    },",
+      '    t2: () => require("@/assets/lottie/trophies/a_t2.json"),',
+      "  },",
+      "  b: {",
+      '    base: () => require("@/assets/lottie/trophies/b.json"),',
+      "  },",
+      "};",
+    ].join("\n"));
+    expect([...lib.readApprovedIds(file)].sort()).toEqual(["a", "b"]);
+    expect(Object.fromEntries(lib.readApprovedFiles(file))).toEqual({
+      a: { base: "a.json", t2: "a_t2.json" },
+      b: { base: "b.json" },
+    });
+  });
+
   it("lança erro sem o início ou sem o fim do bloco", () => {
     expect(() => lib.readApprovedIds(tmpFile("const OUTRO = {};\n"))).toThrow(/APPROVED_LOTTIE não encontrado/);
     expect(() => lib.readApprovedIds(tmpFile('const APPROVED_LOTTIE = {\n  "a": {\n    base: 1,\n  },\n'))).toThrow(/Fim de APPROVED_LOTTIE/);
   });
 
-  it("no arquivo real, conta tantos ids quanto linhas `base: require(`", () => {
-    const real = path.resolve(__dirname, "../../src/components/gamification/LottieTrophy.tsx");
+  it("no arquivo real (approvedLottie.ts, padrão), conta tantos ids quanto linhas `base: () => require(`", () => {
+    const real = path.resolve(__dirname, "../../src/components/gamification/approvedLottie.ts");
     const src = fs.readFileSync(real, "utf8");
-    const bases = src.split("\n").filter((l) => /^\s*base:\s*require\(/.test(l)).length;
+    const bases = src.split("\n").filter((l) => /^\s*base:\s*\(\)\s*=>\s*require\(/.test(l)).length;
     expect(bases).toBeGreaterThan(0);
     expect(lib.readApprovedIds(real).size).toBe(bases);
+    expect(lib.readApprovedIds()).toEqual(lib.readApprovedIds(real));
+  });
+
+  it("readApprovedFiles lê o arquivo de cada nível, nos formatos com e sem getter, e recusa caminho fora da pasta", () => {
+    const file = tmpFile([
+      "export const APPROVED_LOTTIE: Record<string, ApprovedLottieEntry> = {",
+      '  "getter": {',
+      '    base: () => require("@/assets/lottie/trophies/getter.json"),',
+      '    t2: () => require("@/assets/lottie/trophies/getter_t2.json"),',
+      "  },",
+      "  antigo: {",
+      '    base: require("@/assets/lottie/trophies/antigo.json"),',
+      "  },",
+      "};",
+    ].join("\n"));
+    expect(Object.fromEntries(lib.readApprovedFiles(file))).toEqual({
+      getter: { base: "getter.json", t2: "getter_t2.json" },
+      antigo: { base: "antigo.json" },
+    });
+    expect(lib.approvedFileList(file)).toEqual(["antigo.json", "getter.json", "getter_t2.json"]);
+    const fora = tmpFile('const APPROVED_LOTTIE = {\n  "x": {\n    base: () => require("@/assets/outro/x.json"),\n  },\n};\n');
+    expect(() => lib.readApprovedFiles(fora)).toThrow(/fora de assets\/lottie\/trophies/);
   });
 });
 

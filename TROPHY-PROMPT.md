@@ -23,7 +23,7 @@ Leia o arquivo `TROPHY-ANIMATION-GUIDE.md` na raiz do projeto para entender a ar
 5. **Rodar** script e copiar para preview (`DOMUS-Rive-Preview/public/assets/lottie/trophies/`)
 6. **Abrir preview** (`cd DOMUS-Rive-Preview && node node_modules/vite/bin/vite.js`)
 7. **Eu aprovo** ou peço ajustes
-8. **Após aprovação:** registrar no `LottieTrophy.tsx` → `APPROVED_LOTTIE`, atualizar preview `App.tsx`, atualizar `ROADMAP.md`
+8. **Após aprovação:** registrar em `src/components/gamification/approvedLottie.ts` → `APPROVED_LOTTIE` (getter `() => require(...)`) e rodar `node scripts/lottie-approved-hashes.js`, atualizar preview `App.tsx`, atualizar `ROADMAP.md`
 
 ## Regras:
 - Troféus mensais/sazonais/litúrgicos: **1 arquivo** (sem tiers _t1-_t4), o app conta repetições

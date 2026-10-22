@@ -22,7 +22,8 @@
 ### Projeto Principal DOMUS
 - **Assets Lottie:** `assets/lottie/trophies/*.json`
 - **Componente:** `src/components/gamification/LottieTrophy.tsx`
-  - `APPROVED_LOTTIE` = registry de troféus com Lottie (require() estáticos)
+  - `APPROVED_LOTTIE` (em `approvedLottie.ts`) = registry de troféus com Lottie: getters `() => require(...)` estáticos, carregados só quando o troféu aparece
+  - Nível: conquistas pela `rarity` (t1..t4); sazonais e litúrgicos pela prop `tier` (1 = base/bronze, 2 = t2/prata, 3 = t3/ouro) — escolha em `lottieTierSelection.ts`
   - Fallback: LottieTrophy → AnimatedTrophy (SVG) → AnimatedSeasonalTrophy
 - **Grid:** `src/components/gamification/AchievementGrid.tsx`
 - **Modal:** `src/components/gamification/TrophyDetailModal.tsx`
@@ -75,7 +76,8 @@ const SvgPath = require('svgpath');
 ### 6. Aprovar e integrar
 Após aprovação:
 - Mudar status para "approved" no preview
-- Adicionar no `LottieTrophy.tsx` → `APPROVED_LOTTIE`
+- Adicionar em `src/components/gamification/approvedLottie.ts` → `APPROVED_LOTTIE`
+- Regravar a lista de hash: `node scripts/lottie-approved-hashes.js`
 - Atualizar `ROADMAP.md`
 
 ## Padrão de Animação Lottie JSON
