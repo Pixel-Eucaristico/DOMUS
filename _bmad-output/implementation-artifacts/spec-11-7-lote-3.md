@@ -58,6 +58,21 @@ context:
 
 ## Review Triage Log
 
+| Achado | Veredito | Evidência |
+|---|---|---|
+| Rede de São Pedro e São Paulo sem as diagonais do outro sentido | high | `corta` troca t0/t1 com dx negativo; confirmado em `lt_pedro_paulo_t2.json`. **patch** + teste. |
+| Peça principal repetida por baixo de `desenho-*` (rosa de Rita = Lourdes; livro de Barnabé e Antônio = Tomás; fogo da fogueira e do Sagrado Coração = Pentecostes) | medium | O dono pediu um desenho para cada troféu. **patch**: peças distintas, `uses` e checagem. |
+| Luzes feitas à mão fora da `luzSuave` (Ascensão, Tomé, Corpus, `brilho()`) | medium | Regra da §6 vinda da reclamação do dono. **patch** + teste mais amplo. |
+| Bochechas sobre a barba de São Joaquim | low | Visível no ouro. **patch**. |
+| Mão de São Tomé amarela de emoji | low | Diverge do tom de pele dos bustos. **patch**. |
+| `busto` aceita manto com cabelo e doc com medidas erradas | low | Correção direta. **patch**. |
+| `espelhar`/`transladar` sem validação e ajudas novas sem teste | medium (gap) | Os lotes 4 e 5 vão usá-las. **patch**. |
+| Cópias de 8 ícones e do terço no lote 2 | low | Podem divergir sem aviso. **patch**: lote 2 importa da biblioteca. |
+| Cabeçalho com lista feita à mão; lista `VERMELHO` e `BUSTOS` fixas no teste; `--help` regenera | low | Sem dano agora. rejeitado |
+| JSON gerados fora do índice | false | O commit inclui `assets/` (`git add -A`). |
+
+**Rota:** 8 `patch`, 3 rejeitados, 1 falso. Sem loopback.
+
 ## Verification
 
 **Commands:**
