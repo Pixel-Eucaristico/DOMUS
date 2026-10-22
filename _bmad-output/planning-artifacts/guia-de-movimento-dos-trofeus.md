@@ -76,3 +76,37 @@ Arquivos: `x.json` (bronze), `x_t2` (prata), `x_t3` (ouro); conquistas `x_t1` a 
 | São Jorge | o escudo com a cruz vermelha desce e a lança aparece | o dragão vencido (cauda) embaixo | luz e cavalo branco ao fundo |
 | São Marcos Evangelista | o leão alado aparece e o livro se abre | asas batem | auréola e raios |
 | Santa Catarina de Sena | o lírio sobe com um livro e um coração | o coração brilha | coroa de espinhos e luz |
+
+## 6. Gestos do lote 3 (maio a julho)
+
+Regras vindas da aprovação dos lotes 1 e 2: a luz usa só a `luzSuave` (sem esticar); santo representado por pessoa usa o busto simples (como Maria e Águeda), não um objeto solto; nada de emoji que não seja fiel à tradição católica (ex.: terço desenhado, não 📿).
+
+| Troféu | Gesto | Prata acrescenta | Ouro acrescenta |
+|---|---|---|---|
+| São José Operário | a plaina corre sobre a tábua e soltam-se lascas | martelo bate | auréola e raios dourados |
+| Nossa Senhora de Fátima | Maria (busto, manto branco) aparece sobre a azinheira | três pastorinhos pequenos | o sol dança girando e luz |
+| São Matias | o dado de sorteio rola e para; uma auréola acende | machado (martírio) ao lado | luz e palma |
+| São Isidoro Lavrador | o arado abre um sulco e brotos nascem | anjo (asas) arando ao lado | trigo maduro dourado |
+| Santa Rita de Cássia | uma rosa floresce no meio da neve | espinho na fronte (pequena estrela) | figos e luz |
+| Visitação de Maria | duas figuras (bustos) se aproximam e se abraçam | estrela entre elas | luz e confete de flores |
+| Ascensão do Senhor | nuvem sobe levando a luz para o alto | pegadas na pedra | céu se abre com raios |
+| Pentecostes | línguas de fogo descem e acendem | pomba no alto | doze chamas e luz |
+| Corpus Christi | a custódia aparece e a hóstia brilha no centro | pétalas caindo | raios dourados da custódia |
+| Sagrado Coração de Jesus | o coração com chamas e a cruz pulsa | coroa de espinhos em volta | raios de luz do coração |
+| São Barnabé | o livro do Evangelho abre sobre uma pedra | ramo de oliveira | auréola e raios |
+| Santo Antônio de Lisboa e Pádua | o Menino Jesus (pequeno) aparece sobre o livro aberto | lírio | pães e luz |
+| São Luís Gonzaga | o lírio sobe e se abre ao lado do crucifixo | terço católico desenhado | auréola e raios |
+| São João Fisher e São Tomás Moro | dois chapéus (cardeal e chanceler) se encontram sobre um livro | palma de mártir | coroa de mártir e luz |
+| Natividade de João Batista | a fogueira de São João acende | cordeiro | concha de batismo e água |
+| São Ireneu de Lyon | o báculo de bispo se ergue e o livro abre | mitra | auréola e raios |
+| São Pedro e São Paulo | as chaves e a espada se cruzam em X | rede de pesca | dupla auréola e luz |
+| São Tomé Apóstolo | a mão se estende e a luz das chagas acende | esquadro de construtor | auréola e raios |
+| São Bento de Núrsia | a medalha de São Bento gira e mostra a cruz | o corvo pousa | livro da Regra e luz |
+| Nossa Senhora do Carmo | o escapulário marrom desce | estrela do Carmelo | Maria (busto, manto marrom) e luz |
+| Santa Maria Madalena | o vaso de perfume abre e o aroma sobe | lágrima e coração | luz da manhã de Páscoa |
+| Santa Brígida da Suécia | a vela acende sobre o livro das revelações | cruz de Brígida | auréola e raios |
+| São Charbel Makhlouf | a lamparina do eremita acende na noite | cedro do Líbano | luz e estrelas |
+| São Tiago Maior | a concha de vieira aparece e o bordão de peregrino se ergue | cabaça de peregrino | estrela de Compostela e luz |
+| Sant'Ana e São Joaquim | duas figuras (bustos) com a menina Maria entre eles | livro aberto (Ana ensinando) | auréolas e luz |
+| Santa Marta | a vassoura varre e um dragão pequeno foge | jarro e prato | auréola e luz |
+| São Inácio de Loyola | o monograma IHS acende num sol | livro dos Exercícios | raios e chama |
