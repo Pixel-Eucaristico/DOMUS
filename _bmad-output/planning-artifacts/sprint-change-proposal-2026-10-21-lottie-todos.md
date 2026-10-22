@@ -42,3 +42,12 @@ scope: minor
 ## 5. Entrega
 
 - **Escopo:** pequeno no plano; grande em trabalho (117 animações), feito em lotes com aprovação a cada lote.
+
+## 6. Emenda (22/10/2026)
+
+Revisão de UX (Sally) do lote 1: os 13 troféus tinham a mesma coreografia, com ícone parado num disco, e os níveis só trocavam a cor. Aprovado pelo dono:
+
+- **Gesto próprio por troféu** e **níveis que aumentam o gesto**, registrados em `guia-de-movimento-dos-trofeus.md`.
+- **Litúrgicos com 3 níveis** (bronze, prata, ouro), como os sazonais: o app já calcula o nível deles por `getSeasonalTier`; só faltava a animação.
+- Sem medalha em volta, como o `seasonal_natal` aprovado.
+- O lote 1 é refeito com essa regra (13 troféus × 3 níveis = 39 animações) antes dos demais lotes.

@@ -1737,8 +1737,9 @@ So that todos os troféus tenham uma animação própria no mesmo estilo.
 
 **Given** os troféus sem Lottie aprovado (114 litúrgicos e 3 sazonais)
 **When** rodo o gerador de um lote (ex.: um mês litúrgico)
-**Then** cada troféu do lote ganha o seu JSON em `assets/lottie/trophies/`, com os níveis de raridade, no padrão de `scripts/gen_trophy_*.js`
-**And** cada animação usa um elemento próprio do troféu (ícone de licença aberta, com a fonte citada no gerador)
+**Then** cada troféu do lote ganha os seus JSON em `assets/lottie/trophies/`, um por nível (bronze, prata e ouro, também nos litúrgicos), conforme `guia-de-movimento-dos-trofeus.md`
+**And** cada troféu tem um gesto próprio que conta o que ele significa, feito de peças de licença aberta citadas no gerador, sem medalha em volta
+**And** cada nível aumenta o gesto (elementos e efeitos), não só a cor
 **And** nenhum troféu fica com animação igual à de outro.
 
 ### Story 11.8: Aprovar os novos Lottie e registrar no app
