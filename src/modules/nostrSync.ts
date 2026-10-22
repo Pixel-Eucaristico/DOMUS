@@ -1,6 +1,13 @@
 import { finalizeEvent, type UnsignedEvent, getPublicKey } from "nostr-tools/pure";
 import { SimplePool, type SubCloser } from "nostr-tools/pool";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
+import { describeRejection, partitionEnvelopes } from "@packages/events/src/validateEnvelope";
+import {
+  createWarnOnce,
+  describePullDiscards,
+  parseSyncPayloadDetailed,
+  type ParsedSyncPayload,
+} from "./syncPayload";
 
 const DOMUS_KIND = 30333;
 const DOMUS_APP_TAG = "domus-sync";
@@ -393,6 +400,14 @@ export async function publishSyncEvents(
 ): Promise<number> {
   if (events.length === 0) return 0;
 
+  // Story 3.1: não publicar envelope que os outros aparelhos recusariam.
+  const { valid: publishable, rejected } = partitionEnvelopes(events);
+  for (const r of rejected) {
+    console.warn(`[NostrSync] Envelope inválido não publicado: ${describeRejection(r)}`);
+  }
+  events = publishable;
+  if (events.length === 0) return 0;
+
   const pool = getPool();
   const relays = getRelays();
   let published = 0;
@@ -446,28 +461,26 @@ export async function publishSyncEvents(
   return published;
 }
 
-function parseSyncPayload(decrypted: string): SyncEvent[] {
-  const parsed = JSON.parse(decrypted);
-  if (Array.isArray(parsed)) {
-    return parsed.map((p: any) => ({
-      id: p.id,
-      type: p.type,
-      payload: p.payload,
-      timestamp: p.timestamp,
-      deviceId: p.deviceId,
-      signature: p.signature || "",
-    }));
+// Avisa uma vez por evento do relay na sessão (o pull se repete a cada poucos segundos).
+const warnOncePerRelayEvent = createWarnOnce(1000);
+
+function parseAndReport(decrypted: string, relayEventId?: string): ParsedSyncPayload {
+  const parsed = parseSyncPayloadDetailed(decrypted);
+  const hasProblem = parsed.malformedJson || parsed.rejected.length > 0;
+  if (hasProblem && (relayEventId === undefined || warnOncePerRelayEvent(relayEventId))) {
+    if (parsed.malformedJson) {
+      console.warn("[NostrSync] Ignorando evento do relay com JSON malformado.");
+    }
+    for (const r of parsed.rejected) {
+      console.warn(`[NostrSync] Envelope descartado: ${describeRejection(r)}`);
+    }
   }
-  return [
-    {
-      id: parsed.id,
-      type: parsed.type,
-      payload: parsed.payload,
-      timestamp: parsed.timestamp,
-      deviceId: parsed.deviceId,
-      signature: parsed.signature || "",
-    },
-  ];
+  return parsed;
+}
+
+/** Valida cada item sozinho; JSON malformado vira lista vazia. Exportado para teste. */
+export function parseSyncPayload(decrypted: string, relayEventId?: string): SyncEvent[] {
+  return parseAndReport(decrypted, relayEventId).events;
 }
 
 export async function pullSyncEvents(
@@ -487,6 +500,9 @@ export async function pullSyncEvents(
 
   const seenIds = new Set<string>();
   const syncEvents: SyncEvent[] = [];
+  let discarded = 0;
+  let total = 0;
+  let malformedRelayEvents = 0;
 
   const relayResults = await Promise.all(
     relays.map(async (relay) => {
@@ -516,13 +532,19 @@ export async function pullSyncEvents(
 
       try {
         const decrypted = await decryptPayload(ne.content, keys.encryptionKey);
-        const events = parseSyncPayload(decrypted);
-        syncEvents.push(...events);
+        const parsed = parseAndReport(decrypted, ne.id);
+        if (parsed.malformedJson) malformedRelayEvents++;
+        discarded += parsed.rejected.length;
+        total += parsed.events.length + parsed.rejected.length;
+        syncEvents.push(...parsed.events);
       } catch {
         // Ignorar falhas de decriptação (eventos de outros grupos)
       }
     }
   }
+
+  const summary = describePullDiscards({ discarded, total, malformedRelayEvents });
+  if (summary) console.warn(summary);
 
   return syncEvents;
 }
@@ -550,7 +572,7 @@ export function subscribeToSyncEvents(
     onevent(nostrEvent: any) {
       decryptPayload(nostrEvent.content, keys.encryptionKey)
         .then((decrypted) => {
-          const events = parseSyncPayload(decrypted);
+          const events = parseSyncPayload(decrypted, nostrEvent.id);
           for (const evt of events) {
             onEvent(evt);
           }

@@ -58,7 +58,7 @@ development_status:
   epic-2-retrospective: optional
 
   epic-3: in-progress
-  3-1-validar-o-envelope-e-o-tipo-na-importação: in-progress
+  3-1-validar-o-envelope-e-o-tipo-na-importação: done
   3-2-isolar-cada-evento-no-replay-e-registrar-a-quarentena: in-progress
   3-3-reprocessar-eventos-desconhecidos-depois-de-atualizar-o-app: backlog
   3-4-ordem-total-do-replay-em-memória-e-no-sqlite: backlog

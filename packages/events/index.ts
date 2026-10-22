@@ -25,3 +25,18 @@ export {
 } from "./src/types";
 
 export { createEvent, generateId } from "./src/factory";
+
+export {
+  validateEnvelope,
+  partitionEnvelopes,
+  describeRejection,
+  MIN_ENVELOPE_TIMESTAMP_MS,
+  MAX_ENVELOPE_TIMESTAMP_MS,
+} from "./src/validateEnvelope";
+export type {
+  EnvelopeRejectionReason,
+  EnvelopeRejection,
+  EnvelopeAccepted,
+  EnvelopeValidationResult,
+  EnvelopePartition,
+} from "./src/validateEnvelope";

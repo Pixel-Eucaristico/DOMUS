@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { SQLiteEventStore } from "@packages/storage/src/eventStore";
+import { selectEventsToImport } from "@/src/modules/syncPayload";
 
 const DEVICE_ID_KEY = "domus_device_id";
 const EVENTS_BACKUP_KEY = "domus_events_v1";
@@ -170,14 +171,10 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
       if (isDemoActive) return 0;
       const store = await getEventStore();
       const existingIds = new Set(allEventsRef.current.map((e) => e.id));
-      const newEvents: SyncEvent[] = [];
-
-      for (const evt of events) {
-        if (!existingIds.has(evt.id)) {
-          store?.appendEvent(evt);
-          newEvents.push(evt);
-          existingIds.add(evt.id);
-        }
+      // Story 3.1: revalida o envelope antes de gravar; malformados são descartados.
+      const { toAppend: newEvents } = selectEventsToImport(events, existingIds);
+      for (const evt of newEvents) {
+        store?.appendEvent(evt);
       }
 
       if (newEvents.length > 0) {
