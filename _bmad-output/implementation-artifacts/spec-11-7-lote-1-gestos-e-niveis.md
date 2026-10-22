@@ -2,7 +2,7 @@
 title: 'Story 11.7: refazer o lote 1 com gesto próprio e níveis'
 type: 'feature'
 created: '2026-10-22'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: '6bc259cc3fd5b77eb58b977df7d2e3aeb7cb43d7'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -47,15 +47,21 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `scripts/lottie-lib/index.js` -- ajudas de movimento
-- [ ] `scripts/trophy-lot-1.js` -- gestos e níveis da §4 do guia
-- [ ] `assets/lottie/trophies/` -- 39 arquivos
-- [ ] testes -- matriz
+- [x] `scripts/lottie-lib/index.js` -- ajudas de movimento
+- [x] `scripts/trophy-lot-1.js` -- gestos e níveis da §4 do guia
+- [x] `assets/lottie/trophies/` -- 39 arquivos
+- [x] testes -- matriz
 
 **Acceptance Criteria:**
 - Given o lote 1 regerado, when abro cada troféu num player Lottie, then vejo o gesto da tabela do guia, e o ouro mostra mais que a prata, que mostra mais que o bronze
 
 ## Implementation Notes
+
+- `scripts/lottie-lib/index.js`: novas ajudas de movimento — `anim` (chaves `[quadro, valor, curva]` → formato s/e atual, junta emendas iguais, recusa quadros fora de ordem), `trajeto`, `pulo`, `queda`, `abrir`, `onda`, `aparecer`, `sumir`, `pop`, `pulsar`, `giro`; camadas `pieceLayer` (peça centrada em (0,0) com posição/âncora/escala/rotação/opacidade), `luzDescendo`, `ondulacao`, `confete` (pseudoaleatório com semente fixa); shapes `polyline`, `makeStroke` (com corte animado `tm`), `makeEllipseRing`; `iconShapes` ganhou `only`/`recolor`/`fill`/`rule: "evenodd"`, e `iconPoint`. `sparkleLayers` e `glowLayer` aceitam a força (`peak`) com o padrão de antes; o resto não mudou.
+- `scripts/trophy-lot-1.js`: um gesto por troféu (funções `gesto*`, tabela da §4), peças em camadas `G_*`, acréscimos da prata `T2_*` e do ouro `T3_*`; 3 níveis para todos (litúrgicos inclusive). Base comum: 5 brilhos (força por nível: bronze 45, prata 85, ouro 90, nas cores bronze/prata/ouro) e halo (8/12/16 %, nunca acima dos 16 % do natal; cor do nível nos sazonais e cor litúrgica nos litúrgicos). Litúrgicos com auréola dourada que acende atrás da cabeça (Maria, Inês) ou elíptica por cima do desenho; sem auréola de base na Epifania (festa sem santo: a estrela brilha com raios curtos) e em Antônio Abade e João Bosco, em que a tabela põe a auréola só no ouro.
+- Peças: Twemoji 15.1.0 (CC-BY 4.0) e Bootstrap Icons 1.11.3 (MIT), copiadas para `ICONS` com fonte e licença; o cofrinho do Bootstrap teve as curvas `q` convertidas em `C` (o parser recusa Q/T) e da seta do `graph-up-arrow` só ficou o subcaminho da seta. Formas geométricas desenhadas no próprio gerador, sem fonte externa: mar e ondas, feixe de luz, raios, auréola, cajado em T, confete, linha da pena (o contorno do coração do Twemoji) e o manto de Maria (silhueta simples).
+- Margem: além do teste antigo (dentro do halo do natal), um teste novo confere, quadro a quadro e com as transformações das camadas, que o desenho sem brilhos e halo fica na margem da arte do `seasonal_natal` (22,5 px em cada lado), porque o `LottieTrophy` amplia 1,45×.
+- Prévia: quadros renderizados com um renderizador próprio (Lottie → SVG → PNG, fora do repositório) para conferir composição e tempo; não é um player Lottie de verdade, então a aprovação visual fica com o dono na Story 11.8.
 
 ## Spec Change Log
 
