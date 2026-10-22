@@ -53,6 +53,34 @@ context:
 
 ## Spec Change Log
 
+- **Terço (revisão):** o terço já é acréscimo de prata aprovado em 6 troféus dos lotes 2 a 4, que não podem mudar. No Rosário ele continua como gesto principal, mas com desenho próprio (contas peroladas e medalha de Maria no centro), diferente do `T2_Terco` comum. Em Fiéis Defuntos, a prata troca o terço pelo aspersório de água benta. Guia §8 atualizado.
+
+## Review Triage Log
+
+| Achado | Veredito | Evidência |
+|---|---|---|
+| Terço do Rosário igual ao `T2_Terco` de 7 troféus | high | Fingerprint idêntico. **patch** (ver Change Log) + teste que compara os `T2_`/`T3_` com os `G_` de todos os lotes. |
+| Nicolau: auréola e luz do ouro atrás da parede | high | 0 px visíveis no quadro 89. **patch**. |
+| Apresentação: luz do ouro atrás do Templo; destaques dos degraus escondidos (`.reverse()`) | high | 24 px visíveis; ordem invertida. **patch**. |
+| Teresa: raios do ouro atrás do castelo | medium | 3 px visíveis. **patch**. |
+| Luzia, Estêvão, Simão e Judas, Inocentes sem auréola; razão "auréola só no ouro" falsa (André) | medium | Nenhuma camada de auréola. **patch**. |
+| Pássaros de Francisco saem da janela; `frameExtent` ignora o `tr` dos grupos | medium | 10 px fora nos quadros 27–36. **patch** + checagem com o `tr`. |
+| Quadro final não confere se o acréscimo está escondido atrás de camada opaca | medium (gap) | **patch** (caixa do acréscimo não pode ficar inteira dentro de camada opaca da frente). |
+| Cristo Rei em pé diante do trono; guia pede sentado | medium | **patch**. |
+| Rosas com base torta (`pontas [1,4]`) | medium | **patch**. |
+| `G_Luz` com posição 2D | medium | **patch**. |
+| Acréscimos de prata/ouro só conferidos para "luz" | medium (gap) | **patch** (mapa raios/estrelas/palma/coroa pela §8). |
+| Imaculada não pisa a serpente; Graças e Imaculada parecidas | low | **patch**. |
+| Xavier: auréola fora da cabeça do Cristo; Cecília: coroa de flores sobre a auréola e coroa de mártir solta | low | **patch**. |
+| Inocentes: palmas na frente do corpo; Ambrósio: ferrão e abelha cobrindo a boca; Borromeu: letras sem contraste | low | **patch**. |
+| `G_Noite` muda no ouro | low | Nível só acrescenta. **patch** (o clarear vira camada `T3_`). |
+| Ajudas novas: doc de `lirio`/`tercoContas`, centragem e texto vazio em `letrasShapes`, `chaga` em `figuraHomem`, `prop` de `grupoAnimado` | low | **patch**. |
+| Testes: altura da auréola, comentário da luz, "sem pessoa no desenho" conferido em todos os lotes, coroinhas e dezenas presas à pose, `APPROVED_LOTTIE` sem o lote 5, `G_Centro` como luz, contagem do lote 4 sem depender do lote 5 | low (gap) | **patch**. |
+| Código morto e marcadores `//@@…@@` | low | **patch**. |
+| `T2_Maria` do Rosário com a mesma geometria da Maria Rainha | — | **reject**: é a pessoa (`busto`), não peça. |
+| Lista de hash dos lotes aprovados | — | **defer**: já é o D28. |
+
+
 ## Verification
 
 **Commands:**

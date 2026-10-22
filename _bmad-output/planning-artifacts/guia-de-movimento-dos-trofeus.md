@@ -158,7 +158,7 @@ Regras do dono que valem para este lote: um gesto por troféu, que conta a hist�
 | São João Paulo II | o Papa (busto, batina branca e solidéu) ergue a férula, a cruz papal com o crucifixo, e abençoa | o brasão azul com a cruz e o M de Maria ("Totus Tuus") | auréola e luz |
 | São Simão e São Judas Tadeu | os dois apóstolos (bustos) lado a lado; a chama de Pentecostes acende sobre Judas Tadeu, que traz a imagem de Cristo no peito | a serra (Simão) e a clava (Judas) junto deles | palmas e coroas de mártir e luz |
 | Todos os Santos | a multidão de santos (vestes brancas) aparece em fileiras e as auréolas acendem uma a uma | palmas nas mãos da multidão | o Cordeiro no alto e luz descendo |
-| Fiéis Defuntos | mãos postas rezando pelos mortos e um ramo de crisântemos brancos depositado; uma luz sobe devagar | terço católico desenhado entre as mãos | luz descendo do alto (a luz perpétua) |
+| Fiéis Defuntos | mãos postas rezando pelos mortos e um ramo de crisântemos brancos depositado; uma luz sobe devagar | o aspersório de água benta ao lado | luz descendo do alto (a luz perpétua) |
 | São Martinho de Porres | o cão, o gato e o rato comem juntos do mesmo prato, sem brigar | Martinho (busto, pele escura, hábito dominicano branco e capa preta) com a vassoura | auréola e luz |
 | São Carlos Borromeu | Carlos (busto, mozeta e solidéu vermelhos de cardeal, corda penitente no pescoço) ergue o rosto e a palavra HUMILITAS (lema do brasão) acende acima | pães para os pobres da fome de Milão | auréola e luz |
 | Dedicação da Basílica de Latrão | a fachada da basílica se ergue coluna por coluna, com as estátuas no alto e a cruz | as doze cruzes da consagração acendem nas colunas | raios e luz descendo |
