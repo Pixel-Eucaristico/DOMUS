@@ -2,7 +2,7 @@
 title: 'Story 3.2: isolar cada evento no replay e registrar a Quarentena'
 type: 'bugfix'
 created: '2026-10-22'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'b3e5acd'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -64,15 +64,15 @@ context:
 
 | Achado | Veredito | Evidência |
 |---|---|---|
-| Relógio antes de 2020 manda eventos locais para a Quarentena e somem do app | high | **patch** (Change Log): conferência local só de forma, com normalização. |
-| Categorias padrão recriadas sem fim quando os eventos não aplicam | high | **patch**: o efeito só cria se não há nenhum `CATEGORY_CREATED` no log, e uma vez por sessão. Mesmo cuidado nos efeitos de troféu. |
-| Payload sem campo não lança erro: `TRANSACTION_CREATED {}` derruba o `budget`, `XP_GAINED {}` deixa XP `NaN` e trava em `getLevelInfo` | high | **patch**: conferência de payload por tipo (os 37 tipos) antes do reducer; `getLevelInfo` protegido contra valor não finito; teste com `{}` para cada tipo. |
-| Eventos do sync antigo (antes da 3.1) com timestamp texto/segundos ou `deviceId` em branco | medium | **patch** pela mesma normalização. |
-| `restoreFromBackup` não migra `deviceId`/payload texto como a hidratação | low | **patch**: mesma migração. |
-| Item que não é objeto no backup da web apaga o log inteiro na hidratação; `e.id?.startsWith` com id não texto | medium | **patch**: item ruim é pulado (vai para a Quarentena), o resto carrega. |
-| Teste com eventos do `createEvent` (inclusive `deviceId "local"`) | medium (gap) | **patch**. |
-| Corte e escape do motivo sem teste; escape diferente entre 3.1 e replay | low | **patch**. |
-| Lista da Quarentena sem limite no DebugTools | low | **patch**: mostra as 50 primeiras e o total. |
+| Relógio antes de 2020 manda eventos locais para a Quarentena e somem do app | high | **patch** (aplicado) (Change Log): conferência local só de forma, com normalização. |
+| Categorias padrão recriadas sem fim quando os eventos não aplicam | high | **patch** (aplicado): o efeito só cria se não há nenhum `CATEGORY_CREATED` no log, e uma vez por sessão. Mesmo cuidado nos efeitos de troféu. |
+| Payload sem campo não lança erro: `TRANSACTION_CREATED {}` derruba o `budget`, `XP_GAINED {}` deixa XP `NaN` e trava em `getLevelInfo` | high | **patch** (aplicado): conferência de payload por tipo (os 37 tipos) antes do reducer; `getLevelInfo` protegido contra valor não finito; teste com `{}` para cada tipo. |
+| Eventos do sync antigo (antes da 3.1) com timestamp texto/segundos ou `deviceId` em branco | medium | **patch** (aplicado) pela mesma normalização. |
+| `restoreFromBackup` não migra `deviceId`/payload texto como a hidratação | low | **patch** (aplicado): mesma migração. |
+| Item que não é objeto no backup da web apaga o log inteiro na hidratação; `e.id?.startsWith` com id não texto | medium | **patch** (aplicado): item ruim é pulado (vai para a Quarentena), o resto carrega. |
+| Teste com eventos do `createEvent` (inclusive `deviceId "local"`) | medium (gap) | **patch** (aplicado). |
+| Corte e escape do motivo sem teste; escape diferente entre 3.1 e replay | low | **patch** (aplicado). |
+| Lista da Quarentena sem limite no DebugTools | low | **patch** (aplicado): mostra as 50 primeiras e o total. |
 | "Sem efeito parcial" sem caso real (nenhum tipo em dois mapas) | low | **defer**: testar quando um tipo for compartilhado. |
 | Quarentena não persistida; ligação no `AppStateProvider` e DebugTools sem teste | low (gap) | **defer**: precisa de render com `react-native`; conferido no DebugTools. |
 | Em release o usuário não vê a Quarentena | low | **defer** (D30): aviso ao usuário fica para outra story. |
@@ -83,10 +83,18 @@ context:
 
 ## Implementation Notes
 
-- **Módulo puro:** `src/context/replay.ts` (sem `react-native`) exporta `replayAllEvents(events)` → `{ domain, gamification, onboarding, season, wishlist, quarantine }`, `KNOWN_EVENT_TYPES`, `UNKNOWN_TYPE_REASON` e o tipo `QuarantineEntry` (`id`, `type`, `kind`, `reason`). `kind` ∈ `invalid_envelope` | `unknown_type` | `reducer_error` — facilita a Story 3.3 reprocessar só os de tipo desconhecido.
-- **Por evento, na ordem do log:** (1) `validateEnvelope` da 3.1 — recusado vai para a Quarentena com motivo em pt-BR derivado do `reason` (ex.: "envelope inválido: payload ausente ou não é objeto"); `id`/`type` vêm do diagnóstico da 3.1 ou `"?"`. (2) Tipo fora da união `EVENT_TYPES ∪ GAMIFICATION_EVENTS ∪ ONBOARDING_EVENTS ∪ SEASON_EVENTS ∪ WISHLIST_EVENTS ∪ PERSONALITY_EVENTS` → "tipo desconhecido". (3) Todos os reducers que casam o tipo calculam o próximo estado dentro de um `try`; os cinco estados só são confirmados juntos se nenhum lançar (sem efeito parcial — os reducers já são imutáveis). Erro → motivo `erro no reducer: <Nome>: <mensagem>`, cortado em 160 code points e com caracteres de controle escapados; o payload nunca é lido para montar o motivo. `ARCHETYPE_UPDATED` (personalidade, sem reducer aqui) continua ignorado e fora da Quarentena.
-- **Mudança de comportamento intencional:** eventos que antes eram aplicados apesar de envelope inválido (ex.: timestamp em segundos ou fora de 2020–2100, `deviceId` vazio, payload não objeto) agora vão para a Quarentena. Eventos locais (`Date.now()`, `deviceId` real ou `"local"`) e o seed do demo passam.
-- **Provider:** `AppStateProvider` chama o módulo no mesmo `useMemo` (log real ou eventos do demo) e expõe `quarantine` no contexto — derivado, só em memória, nunca persistido; o log não é alterado.
-- **DebugTools:** aba "state" ganhou a seção "Quarentena (N)" com a lista (`tipo`, `id`, `motivo`) ou "Nenhum evento em quarentena.".
-- **Testes:** `src/context/__tests__/replay.test.ts` (9 casos) cobre todas as linhas da matriz, comparando com uma cópia da implementação anterior (`legacyReplay`) no log saudável e em `DEMO_SEED_EVENTS`; inclui demo com evento defeituoso, item que não é objeto, e garante que o motivo não contém o conteúdo do payload.
-- **Verificação:** `npx vitest run` → 60 arquivos, 1161 testes passando; `npx tsc --noEmit` → sem erros (exit 0).
+- **Módulo puro:** `src/context/replay.ts` (sem `react-native`) exporta `replayAllEvents(events)` → `{ domain, gamification, onboarding, season, wishlist, quarantine }`, `KNOWN_EVENT_TYPES`, `UNKNOWN_TYPE_REASON`, `MAX_REASON_LENGTH` e `QuarantineEntry` (`id`, `type`, `kind`, `reason`). `kind` ∈ `invalid_envelope` | `unknown_type` | `invalid_payload` | `reducer_error` (a Story 3.3 pode reprocessar só `unknown_type`).
+- **Por evento, na ordem do log:**
+  1. `validateLocalEvent` (`src/context/replayValidation.ts`): só forma — `id` e `type` texto não vazio (com `trim`), `payload` objeto. Antes normaliza: payload em texto JSON → objeto; timestamp em texto → número quando finito. Timestamp antes de 2020, em segundos ou não finito e `deviceId` vazio **não** recusam. O `validateEnvelope` estrito da 3.1 continua só no sync (não foi afrouxado).
+  2. Tipo fora da união dos 6 mapas (37 tipos) → "tipo desconhecido".
+  3. `validatePayload` (`PAYLOAD_SPECS`): para cada tipo, os campos que o reducer e as derivações do provider (`calculate503020`, `getLevelInfo`, saldo total) leem, com o tipo primitivo certo (número = finito; aninhados como `item.listId`, `items[i].amount`). Falha → `invalid_payload` com motivo `payload inválido: campo "<caminho>" ausente ou com tipo errado` — nomeia o campo, nunca o valor. `ONBOARDING_FINISHED`, `SEASON_ENDED` e `ARCHETYPE_UPDATED` não leem payload e seguem válidos com `{}`.
+  4. Reducers no `try`; os cinco estados só são confirmados juntos. Erro → `reducer_error` com `erro no reducer: <Nome>: <mensagem>`.
+- **Texto do diagnóstico:** `id`, `type` e motivos usam o `diagnosticString` da 3.1 (agora exportado, com limite opcional): corte por code points com "…" e mesmo escape (`\n`, `\uXXXX`). `id`/`type` em 64, motivo em 160.
+- **`getLevelInfo` / `calculateLevel`:** XP não finito ou negativo vale 0 (antes `NaN` travava num laço infinito).
+- **Efeitos (`useGamificationEffects`):** categorias padrão só se o log não tem nenhum `CATEGORY_CREATED` (`hasCategoryEvents`, calculado no provider sobre `allEvents`, inclusive os em Quarentena) e no máximo uma vez por sessão (ref). Troféu mensal, seleção sazonal e conclusão sazonal guardam numa ref o que já despacharam (por modo demo/real + troféu + mês) e não repetem. As guardas são zeradas quando o log fica vazio (ex.: "resetar app"). Fora isso, o comportamento é o mesmo.
+- **Hidratação e backup (`useEventStore` + `src/context/localEventLog.ts`):** `normalizeStoredEvents` pula item que não é objeto (registra só os índices) em vez de zerar o log; migra `deviceId` `"local"`/vazio/espaços para o id do aparelho; payload em texto JSON vira objeto. `restoreFromBackup` aplica a mesma normalização em memória; grava os itens (objetos) como vieram do backup, sem reescrever conteúdo, ordenados por `eventSortKey` (texto → número, não finito = 0). `AppStateProvider` confere `typeof e.id === "string"` antes de `startsWith`.
+- **Divergência com o Triage Log:** item que não é objeto na hidratação é **pulado** (com log do índice), não colocado na Quarentena: sem `id`/`type` não há o que diagnosticar e manter `null` em `allEvents` quebraria ordenação e outros consumidores.
+- **Provider / DebugTools:** `quarantine` exposto no contexto (derivado, só memória). DebugTools, aba "state": "Quarentena (N)" com as 50 primeiras (`tipo`, `id`, `motivo`) e "Mostrando 50 de N eventos." quando passa disso.
+- **Limitação conhecida:** as guardas de troféu por sessão no modo demo valem até reiniciar o app (refazer o tour na mesma sessão não redespacha um troféu de demo já despachado).
+- **Testes:** `src/context/__tests__/replay.test.ts` (57: matriz, comparação com a implementação anterior em log saudável, `DEMO_SEED_EVENTS` e eventos do `createEvent`; relógio 2019/5e6/texto/NaN; payload `{}` para cada um dos 37 tipos com checagem de `NaN` e das derivações; tipos errados; caminhos aninhados; escape e corte), `replay.reducerError.test.ts` (2, reducer simulado com `vi.mock`: sem efeito parcial e mensagem longa), `localEventLog.test.ts` (6), `packages/gamification/__tests__/levelEngineGuard.test.ts` (5).
+- **Verificação:** `npx vitest run` → 63 arquivos, 1222 testes passando; `npx tsc --noEmit` → sem erros (exit 0).

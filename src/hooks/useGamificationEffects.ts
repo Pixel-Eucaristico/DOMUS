@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { soundManager } from "@/src/services/SoundManager";
 import type { DomainEvent } from "@packages/events/src/types";
 import { EVENT_TYPES } from "@packages/events/src/types";
@@ -38,6 +38,8 @@ export interface GamificationEffectsInput {
   debugXp: number | null;
   isCatholic: boolean | null;
   allEventsLength: number;
+  /** Há algum CATEGORY_CREATED no log (aplicado ou não)? */
+  hasCategoryEvents: boolean;
   dispatch: (syncEvt: SyncEvent) => void;
   setLocalEventCount: React.Dispatch<React.SetStateAction<number>>;
   setAllEvents: React.Dispatch<React.SetStateAction<SyncEvent[]>>;
@@ -60,7 +62,7 @@ function createSyncEvent(event: GamificationEvent | DomainEvent, deviceId: strin
 export function useGamificationEffects(input: GamificationEffectsInput) {
   const {
     domain, gamification, budget, deviceId, loading, isDemoActive,
-    debugXp, isCatholic, allEventsLength,
+    debugXp, isCatholic, allEventsLength, hasCategoryEvents,
     dispatch, setLocalEventCount, setAllEvents,
     setPendingToast, setPendingMonthlyToast, setPendingSeasonalToast,
   } = input;
@@ -82,10 +84,30 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
     }
   }, [isDemoActive, loading, allEventsLength, domain.transactions, gamification.totalXp, deviceId, debugXp]);
 
+  // Story 3.2: guardas por sessão contra laço de autoalimentação — se o evento
+  // gerado não chegar ao estado (ex.: Quarentena), o efeito não o recria sem fim.
+  const defaultCategoriesCreatedRef = useRef(false);
+  const dispatchedMonthlyRef = useRef(new Set<string>());
+  const dispatchedSeasonalSelectionRef = useRef(new Set<string>());
+  const dispatchedSeasonalCompletionRef = useRef(new Set<string>());
+  // O demo tem estado próprio: o que foi gerado nele não bloqueia o app real.
+  const modeKey = isDemoActive ? "demo" : "real";
+
+  // Log vazio (ex.: depois de "resetar app"): não há eventos gerados para esperar.
+  useEffect(() => {
+    if (loading || allEventsLength > 0) return;
+    defaultCategoriesCreatedRef.current = false;
+    dispatchedMonthlyRef.current.clear();
+    dispatchedSeasonalSelectionRef.current.clear();
+    dispatchedSeasonalCompletionRef.current.clear();
+  }, [loading, allEventsLength]);
+
   // ── Initialize default categories if none exist ─────────────────────
   useEffect(() => {
     if (isDemoActive) return;
+    if (defaultCategoriesCreatedRef.current || hasCategoryEvents) return;
     if (!loading && deviceId && Object.keys(domain.categories).length === 0) {
+      defaultCategoriesCreatedRef.current = true;
       const categoryEvents = createDefaultCategories();
       const syncEvents: SyncEvent[] = categoryEvents.map(evt => ({
         id: evt.id,
@@ -107,19 +129,21 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
       });
       setLocalEventCount((c) => c + syncEvents.length);
     }
-  }, [isDemoActive, loading, domain.categories, deviceId, setAllEvents, setLocalEventCount]);
+  }, [isDemoActive, loading, domain.categories, deviceId, hasCategoryEvents, setAllEvents, setLocalEventCount]);
 
   // ── Monthly Trophy checker ──────────────────────────────────────────
   useEffect(() => {
     if (loading || !deviceId) return;
     const alreadyCompleted = gamification.completedMonthlyTrophies ?? [];
-    const newTrophies = checkNewMonthlyTrophies(domain, budget, alreadyCompleted);
-    if (newTrophies.length === 0) return;
-
     const now = new Date();
     const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const newTrophies = checkNewMonthlyTrophies(domain, budget, alreadyCompleted).filter(
+      (t) => !dispatchedMonthlyRef.current.has(`${modeKey}|${t.id}|${monthKey}`),
+    );
+    if (newTrophies.length === 0) return;
 
     for (const trophy of newTrophies) {
+      dispatchedMonthlyRef.current.add(`${modeKey}|${trophy.id}|${monthKey}`);
       const evt: GamificationEvent = {
         id: generateId(),
         type: GAMIFICATION_EVENTS.MONTHLY_TROPHY_COMPLETED,
@@ -143,7 +167,7 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
         xpReward: trophy.xpReward,
       });
     }
-  }, [loading, budget, domain, gamification.completedMonthlyTrophies, deviceId, dispatchGamEvent, setPendingMonthlyToast]);
+  }, [loading, budget, domain, gamification.completedMonthlyTrophies, deviceId, modeKey, dispatchGamEvent, setPendingMonthlyToast]);
 
   // ── Seasonal Trophy: pick one per month ─────────────────────────────
   useEffect(() => {
@@ -153,7 +177,7 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
     const alreadySelected = (gamification.selectedSeasonalTrophies ?? []).some(
       s => s.monthKey === monthKey,
     );
-    if (alreadySelected) return;
+    if (alreadySelected || dispatchedSeasonalSelectionRef.current.has(`${modeKey}|${monthKey}`)) return;
 
     const month = parseInt(monthKey.split("-")[1]!);
     const liturgicalPool: LiturgicalTrophy[] = isCatholic
@@ -181,9 +205,10 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
       deviceId,
       signature: "",
     } as GamificationEvent;
+    dispatchedSeasonalSelectionRef.current.add(`${modeKey}|${monthKey}`);
     dispatchGamEvent(evt);
     soundManager.play("reveal");
-  }, [loading, deviceId, isCatholic, gamification.selectedSeasonalTrophies, gamification.completedSeasonalTrophies, dispatchGamEvent]);
+  }, [loading, deviceId, isCatholic, gamification.selectedSeasonalTrophies, gamification.completedSeasonalTrophies, modeKey, dispatchGamEvent]);
 
   // ── Seasonal Trophy: check completion ───────────────────────────────
   useEffect(() => {
@@ -199,7 +224,8 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
     const alreadyCompleted = (gamification.completedSeasonalTrophies ?? []).some(
       c => c.trophyId === selectedEntry.trophyId && c.monthKey === monthKey,
     );
-    if (alreadyCompleted) return;
+    const completionKey = `${modeKey}|${selectedEntry.trophyId}|${monthKey}`;
+    if (alreadyCompleted || dispatchedSeasonalCompletionRef.current.has(completionKey)) return;
 
     const trophy =
       ALL_SEASONAL_TROPHIES.find(t => t.id === selectedEntry.trophyId) ??
@@ -226,9 +252,10 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
       deviceId,
       signature: "",
     } as GamificationEvent;
+    dispatchedSeasonalCompletionRef.current.add(completionKey);
     dispatchGamEvent(evt);
     setPendingSeasonalToast(payload);
-  }, [loading, budget, domain, gamification.selectedSeasonalTrophies, gamification.completedSeasonalTrophies, deviceId, dispatchGamEvent, setPendingSeasonalToast]);
+  }, [loading, budget, domain, gamification.selectedSeasonalTrophies, gamification.completedSeasonalTrophies, deviceId, modeKey, dispatchGamEvent, setPendingSeasonalToast]);
 
   // ── dispatchDomainEvent: create domain event + gamification side-effects ──
   const dispatchDomainEvent = useCallback(

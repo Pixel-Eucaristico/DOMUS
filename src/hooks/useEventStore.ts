@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { SQLiteEventStore } from "@packages/storage/src/eventStore";
 import { selectEventsToImport } from "@/src/modules/syncPayload";
+import { normalizeStoredEvents, eventSortKey } from "@/src/context/localEventLog";
 
 const DEVICE_ID_KEY = "domus_device_id";
 const EVENTS_BACKUP_KEY = "domus_events_v1";
@@ -103,7 +104,7 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
         }
         if (mounted) setDeviceId(did);
 
-        let events: SyncEvent[] = [];
+        let events: unknown = [];
         if (Platform.OS === "web") {
           const backup = await AsyncStorage.getItem(EVENTS_BACKUP_KEY);
           if (backup) {
@@ -115,12 +116,11 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
         }
 
         if (mounted) {
-          const migratedEvents = events.map((e) => {
-            if (e.deviceId === "local" || !e.deviceId) {
-              return { ...e, deviceId: did || "local" };
-            }
-            return e;
-          });
+          // Story 3.2: item que não é objeto é pulado (não derruba o log inteiro).
+          const { events: migratedEvents, skippedIndexes } = normalizeStoredEvents(events, did);
+          if (skippedIndexes.length > 0) {
+            console.warn(`[EventStore] Itens ignorados na hidratação (não são objeto), índices: ${skippedIndexes.join(", ")}`);
+          }
           setAllEvents(migratedEvents);
           setLoading(false);
           clearTimeout(safetyTimeout);
@@ -191,7 +191,18 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
 
   const restoreFromBackup = useCallback(async (events: SyncEvent[]): Promise<void> => {
     if (isDemoActive) return;
-    const sorted = [...events].sort((a, b) => a.timestamp - b.timestamp);
+    // Story 3.2: item que não é objeto é pulado; o resto é gravado como veio do backup
+    // e, em memória, recebe a mesma normalização da hidratação (deviceId, payload em texto).
+    const skipped: number[] = [];
+    const objects = events.filter((e, i) => {
+      const ok = typeof e === "object" && e !== null && !Array.isArray(e);
+      if (!ok) skipped.push(i);
+      return ok;
+    });
+    if (skipped.length > 0) {
+      console.warn(`[EventStore] Itens ignorados na restauração (não são objeto), índices: ${skipped.join(", ")}`);
+    }
+    const sorted = [...objects].sort((a, b) => eventSortKey(a) - eventSortKey(b));
     if (Platform.OS === "web") {
       await AsyncStorage.setItem(EVENTS_BACKUP_KEY, JSON.stringify(sorted));
     } else {
@@ -201,8 +212,8 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
         for (const evt of sorted) store.appendEvent(evt);
       }
     }
-    setAllEvents(sorted);
-  }, [isDemoActive]);
+    setAllEvents(normalizeStoredEvents(sorted, deviceId).events);
+  }, [isDemoActive, deviceId]);
 
   const resetApp = useCallback(async (): Promise<void> => {
     await restoreFromBackup([]);

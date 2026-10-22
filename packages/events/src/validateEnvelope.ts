@@ -64,13 +64,14 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 const MAX_DIAGNOSTIC_LENGTH = 64;
 
 /**
- * Versão segura para log: corta em 64 code points (sem partir emoji) e escapa
- * quebras de linha e outros caracteres de controle.
+ * Versão segura para log: corta em `max` code points (padrão 64, sem partir emoji)
+ * e escapa quebras de linha e outros caracteres de controle. Exportada para o
+ * replay (Story 3.2) usar o mesmo escape nos motivos da Quarentena.
  */
-function diagnosticString(value: unknown): string | undefined {
+export function diagnosticString(value: unknown, max: number = MAX_DIAGNOSTIC_LENGTH): string | undefined {
   if (typeof value !== "string") return undefined;
   const points = Array.from(value);
-  const cut = points.length > MAX_DIAGNOSTIC_LENGTH ? points.slice(0, MAX_DIAGNOSTIC_LENGTH).join("") + "…" : value;
+  const cut = points.length > max ? points.slice(0, max).join("") + "…" : value;
   // eslint-disable-next-line no-control-regex
   return cut.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, (c) => {
     const code = c.charCodeAt(0);

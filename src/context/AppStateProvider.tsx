@@ -6,32 +6,20 @@ import React, {
   useMemo,
   type ReactNode,
 } from "react";
-import type { DomainEvent } from "@packages/events/src/types";
-import { EVENT_TYPES } from "@packages/events/src/types";
-import { domainReducer } from "@packages/domain/src/reducer";
-import { createInitialState, type AppState } from "@packages/domain/src/state";
+import { EVENT_TYPES, type DomainEvent } from "@packages/events/src/types";
+import type { AppState } from "@packages/domain/src/state";
 import { calculate503020, type BudgetBreakdown } from "@packages/domain/src/transactions";
 import type { GamificationEvent, GamificationState, AchievementUnlockedPayload, MonthlyTrophyCompletedPayload , SeasonalTrophyCompletedPayload } from "@packages/gamification/src/types";
 import { GAMIFICATION_EVENTS } from "@packages/gamification/src/types";
-import { gamificationReducer, createInitialGamificationState } from "@packages/gamification/src/reducer";
 import { getLevelInfo, type LevelInfo } from "@packages/gamification/src/levelEngine";
 import type { OnboardingEvent, OnboardingState } from "@packages/onboarding/src/types";
-import { ONBOARDING_EVENTS } from "@packages/onboarding/src/types";
-import { onboardingReducer, createInitialOnboardingState } from "@packages/onboarding/src/reducer";
 import type { SeasonState , SeasonEvent } from "@packages/season/src/types";
-import { SEASON_EVENTS } from "@packages/season/src/types";
-import { seasonReducer, createInitialSeasonState } from "@packages/season/src/reducer";
 import type { ThemeColors, ThemeMode } from "@packages/theme";
 import type { ArchetypeType } from "@packages/personality/src/types";
 import { generateId } from "@packages/events/src/factory";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
-import {
-  WISHLIST_EVENTS,
-  wishlistReducer,
-  createInitialWishlistState,
-  type WishlistEvent,
-  type WishlistState,
-} from "@packages/wishlist";
+import type { WishlistEvent, WishlistState } from "@packages/wishlist";
+import { replayAllEvents, type QuarantineEntry } from "@/src/context/replay";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 
 // Extracted hooks
@@ -50,6 +38,8 @@ interface AppStateContextValue {
   onboarding: OnboardingState;
   season: SeasonState;
   wishlist: WishlistState;
+  /** Eventos isolados no replay (Story 3.2) — derivado, só em memória. */
+  quarantine: QuarantineEntry[];
   archetype: ArchetypeType;
   themeMode: ThemeMode;
   soundEnabled: boolean;
@@ -90,44 +80,6 @@ const AppStateContext = createContext<AppStateContextValue | null>(null);
 const THEME_MODE_KEY = "domus_theme_mode_v1";
 const SOUND_ENABLED_KEY = "domus_sound_enabled_v1";
 
-// ── Pure replay function ──────────────────────────────────────────────
-function replayAllEvents(events: SyncEvent[]): {
-  domain: AppState;
-  gamification: GamificationState;
-  onboarding: OnboardingState;
-  season: SeasonState;
-  wishlist: WishlistState;
-} {
-  let domain = createInitialState();
-  let gamification = createInitialGamificationState();
-  let onboarding = createInitialOnboardingState();
-  let season = createInitialSeasonState();
-  let wishlist = createInitialWishlistState();
-
-  for (const raw of events) {
-    const evt = raw as unknown as AnyEvent;
-    const t = evt.type as string;
-
-    if (Object.values(EVENT_TYPES).includes(t as any)) {
-      domain = domainReducer(domain, evt as DomainEvent);
-    }
-    if (Object.values(GAMIFICATION_EVENTS).includes(t as any)) {
-      gamification = gamificationReducer(gamification, evt as GamificationEvent);
-    }
-    if (Object.values(ONBOARDING_EVENTS).includes(t as any)) {
-      onboarding = onboardingReducer(onboarding, evt as OnboardingEvent);
-    }
-    if (Object.values(SEASON_EVENTS).includes(t as any)) {
-      season = seasonReducer(season, evt as SeasonEvent);
-    }
-    if (Object.values(WISHLIST_EVENTS).includes(t as any)) {
-      wishlist = wishlistReducer(wishlist, evt as WishlistEvent);
-    }
-  }
-
-  return { domain, gamification, onboarding, season, wishlist };
-}
-
 // ── Provider Component ────────────────────────────────────────────────
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const { isDemoActive, demoEvents, dispatchDemoEvent } = useDemoMode();
@@ -138,7 +90,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const eventStore = useEventStore({ isDemoActive, dispatchDemoEvent });
 
   // Replay all events to derive state
-  const { domain, gamification: baseGamification, onboarding, season, wishlist } = useMemo(
+  const { domain, gamification: baseGamification, onboarding, season, wishlist, quarantine } = useMemo(
     () => replayAllEvents(isDemoActive ? demoEvents : eventStore.allEvents),
     [isDemoActive, demoEvents, eventStore.allEvents],
   );
@@ -190,7 +142,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (!eventStore.loading && eventStore.allEvents.length > 0 && eventStore.deviceId) {
       const txCount = Object.keys(domain.transactions).length;
       const currentXp = gamification.totalXp;
-      const hasRecovery = eventStore.allEvents.some(e => e.id?.startsWith("xp-recovery-"));
+      const hasRecovery = eventStore.allEvents.some(e => typeof e?.id === "string" && e.id.startsWith("xp-recovery-"));
 
       if (txCount > 0 && currentXp <= 5 && !hasRecovery) {
         const recoveryAmount = Math.max(30, txCount * 15);
@@ -222,6 +174,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- eventStore é recriado a cada render; os campos realmente usados já estão nas deps e reexecutar dispararia o evento de recuperação de novo
   }, [isDemoActive, eventStore.loading, eventStore.allEvents.length, domain.transactions, gamification.totalXp, eventStore.deviceId, debug.debugXp]);
 
+  // Story 3.2: categorias padrão só quando o log não tem nenhum CATEGORY_CREATED
+  // (mesmo que esses eventos estejam na Quarentena e não apareçam no estado).
+  const hasCategoryEvents = useMemo(
+    () => eventStore.allEvents.some((e) => e?.type === EVENT_TYPES.CATEGORY_CREATED),
+    [eventStore.allEvents],
+  );
+
   // Gamification side-effects (trophy checks, dispatchDomainEvent)
   const gamEffects = useGamificationEffects({
     domain,
@@ -233,6 +192,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     debugXp: debug.debugXp,
     isCatholic: themePrefs.isCatholic,
     allEventsLength: eventStore.allEvents.length,
+    hasCategoryEvents,
     dispatch: eventStore.dispatch,
     setLocalEventCount: eventStore.setLocalEventCount,
     setAllEvents: eventStore.setAllEvents,
@@ -276,6 +236,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       onboarding,
       season,
       wishlist,
+      quarantine,
       archetype: themePrefs.archetype,
       themeMode: themePrefs.themeMode,
       soundEnabled: themePrefs.soundEnabled,
@@ -310,7 +271,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       debugBalance: debug.debugBalance,
       setDebugBalance: debug.setDebugBalance,
     }),
-    [domain, gamification, onboarding, season, wishlist, themePrefs, levelInfo, budget, totalBalance, eventStore, dispatchAny, gamEffects.dispatchDomainEvent, resetApp, toast, debug],
+    [domain, gamification, onboarding, season, wishlist, quarantine, themePrefs, levelInfo, budget, totalBalance, eventStore, dispatchAny, gamEffects.dispatchDomainEvent, resetApp, toast, debug],
   );
 
   return (

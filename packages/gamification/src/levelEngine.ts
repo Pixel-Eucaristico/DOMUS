@@ -10,7 +10,13 @@ function xpRequiredForLevel(level: number): number {
   return Math.floor(100 * Math.pow(1.5, level - 1));
 }
 
-export function calculateLevel(totalXp: number): number {
+/** XP não finito (NaN/Infinity) ou negativo vira 0 — evita laço infinito no cálculo de nível. */
+function sanitizeXp(totalXp: number): number {
+  return typeof totalXp === "number" && Number.isFinite(totalXp) && totalXp > 0 ? totalXp : 0;
+}
+
+export function calculateLevel(rawTotalXp: number): number {
+  const totalXp = sanitizeXp(rawTotalXp);
   let level = 1;
   let accumulated = 0;
 
@@ -24,7 +30,8 @@ export function calculateLevel(totalXp: number): number {
   return level;
 }
 
-export function getLevelInfo(totalXp: number): LevelInfo {
+export function getLevelInfo(rawTotalXp: number): LevelInfo {
+  const totalXp = sanitizeXp(rawTotalXp);
   let level = 1;
   let accumulated = 0;
 

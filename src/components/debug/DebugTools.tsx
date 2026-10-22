@@ -44,6 +44,9 @@ const TYPE_ICONS: Record<string, string> = {
   "Mensal": "calendar",
 };
 
+/** Quantos itens da Quarentena listar (o total aparece no título). */
+const QUARANTINE_DISPLAY_LIMIT = 50;
+
 export function DebugTools() {
   const [visible, setVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("archetypes");
@@ -66,7 +69,8 @@ export function DebugTools() {
     totalBalance,
     dispatch,
     deviceId,
-    resetApp
+    resetApp,
+    quarantine,
   } = useAppState();
 
   // ─── Draggable button ────────────────────────────────────────────────
@@ -311,6 +315,35 @@ export function DebugTools() {
                   >
                     <Text style={{ color: theme.danger, fontWeight: '700' }}>Resetar Modificações</Text>
                   </TouchableOpacity>
+                </View>
+              )}
+
+              {activeTab === "state" && (
+                <View style={st.section}>
+                  <Text style={[st.sectionTitle, { color: theme.textColor }]}>
+                    Quarentena ({quarantine.length})
+                  </Text>
+                  <Text style={[st.sectionDesc, { color: theme.secondaryText }]}>
+                    Eventos do log que não foram aplicados no replay. Continuam no log; nada é apagado.
+                  </Text>
+                  {quarantine.length === 0 ? (
+                    <Text style={[st.subLabel, { color: theme.secondaryText }]}>Nenhum evento em quarentena.</Text>
+                  ) : (
+                    quarantine.slice(0, QUARANTINE_DISPLAY_LIMIT).map((q, idx) => (
+                      <View key={`${q.id}-${idx}`} style={[st.editorRow, { borderBottomColor: theme.border }]}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[st.label, { color: theme.textColor }]}>{q.type}</Text>
+                          <Text style={[st.subLabel, { color: theme.secondaryText }]}>id: {q.id}</Text>
+                          <Text style={[st.subLabel, { color: theme.danger }]}>motivo: {q.reason}</Text>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                  {quarantine.length > QUARANTINE_DISPLAY_LIMIT && (
+                    <Text style={[st.subLabel, { color: theme.secondaryText, marginTop: 8 }]}>
+                      Mostrando {QUARANTINE_DISPLAY_LIMIT} de {quarantine.length} eventos.
+                    </Text>
+                  )}
                 </View>
               )}
 
