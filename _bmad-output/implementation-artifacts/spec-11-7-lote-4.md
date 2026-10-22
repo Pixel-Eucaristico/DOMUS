@@ -2,7 +2,7 @@
 title: 'Story 11.7: lote 4 de Lottie (agosto e setembro)'
 type: 'feature'
 created: '2026-10-22'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: '3dbaa3597c3f9ee3915554ec700953e6964ed454'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -37,14 +37,20 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `scripts/trophy-lot-4.js` e registro em `lots.js`
-- [ ] `assets/lottie/trophies/` -- 72 arquivos
-- [ ] `scripts/__tests__/trophyLot4.test.ts`
+- [x] `scripts/trophy-lot-4.js` e registro em `lots.js`
+- [x] `assets/lottie/trophies/` -- 72 arquivos
+- [x] `scripts/__tests__/trophyLot4.test.ts`
 
 **Acceptance Criteria:**
 - Given o lote 4, when rodo `node scripts/trophy-lot-4.js`, then 72 arquivos são gerados, todos os testes passam e os lotes 1 a 3 continuam idênticos
 
 ## Implementation Notes
+
+- `scripts/trophy-lot-4.js`: os 24 gestos da §7, com prata (`T2_*`) e ouro (`T3_*`). Nenhuma peça nova: as do Twemoji 15.1.0 (palma 1f33f, lírio 269c, coroa 1f451, cordeiro 1f411, pão 1f35e, nuvem 2601, estrela 2b50) vêm da tabela comum `lottie-lib/icons.js`. As 24 peças principais são desenhadas (`DRAWN`, citadas no cabeçalho); só `desenho-tres-arcanjos` embrulha uma peça (o lírio 269c, que não é peça principal de ninguém). Nos gestos (`G_*`), a coroa, a palma, a estrela, a asa, a pomba, o leão, o livro e a cruz são desenhados, para não repetir a peça principal de outro troféu (Maria Mãe de Deus, Perpétua e Felicidade, Epifania, Anunciação, Batismo, São Marcos, Tomás de Aquino e Sexta-Feira).
+- Biblioteca (`lottie-lib/desenhos.js`, só acréscimos): `coroaShapes`, `palmaShapes`, `estrelaShapes`, `asaShapes`, `coracaoShapes`, `lagrimaShapes`, `galeroShapes`, `pombaShapes` e `pontas`. `lots.js` registra o lote 4.
+- Regras das §6 e §7: pessoas como `busto` (Vianney, Clara, Maria Rainha, Mônica, Gregório, Sant'Ana, o anjo de Mateus, Padre Pio, Cosme e Damião, Vicente e a criança) ou `figura` (Jesus, Moisés e Elias na Transfiguração; Maria na Assunção), com rosto e mãos em `PELE`. Maria fica sempre na frente (só a coroa e as estrelas passam por cima). Toda luz é `luzSuave`; na Transfiguração e na Assunção ela faz parte do gesto desde o bronze (`G_Luz`). Os brilhos são fracos e o clarão de Pedro Claver some, para nenhum deles virar disco parado. O terço é desenhado (Vianney, Domingos, Mônica e Pio). O Martírio de João Batista tem só a palma na bandeja. Cores: vermelho para Lourenço, Kolbe, Bartolomeu, Martírio de João Batista, Mateus e Cosme e Damião; branco para os demais. `SEM_HALO`: festas sem santo (Transfiguração, Exaltação) e os que têm a auréola só no ouro.
+- Testes: `trophyLot4.test.ts` cobre os ids dos meses 8 e 9, as cores, a unicidade nos quatro lotes, as pessoas (busto ou figura, pele comum, atrás do que fica na frente), Maria na frente, os objetos desenhados, nada de jogo, o `uses`, a bandeja sem cabeça, a luz do ouro conforme a §7, a Transfiguração e as correntes, além do `checkLot`. Em `lottieLib.test.ts`, o registro passa a esperar o lote 4 e há testes dos desenhos novos. `trophyLot3.test.ts` mudou numa linha: a §6 do guia agora termina antes da §7. A mudança veio do commit do guia (a0d3bc9), que tinha quebrado esse teste; nenhum gerador nem JSON dos lotes 1 a 3 mudou.
+- Verificação: `for n in 1 2 3 4; do node scripts/trophy-lot-$n.js; done` mostra só os 72 arquivos novos; os arquivos que já existiam continuam com o mesmo md5. `npx vitest run` passa: 52 arquivos, 927 testes. `npx tsc --noEmit` sai com 0. Renderizei fora do repositório os quadros 4 a 89 do bronze e o quadro final da prata e do ouro dos 24 troféus. A aprovação visual fica com o dono.
 
 ## Spec Change Log
 
