@@ -6,7 +6,8 @@
  * (`scripts/trophy-lot-2.js`). O lote 3 acrescentou a cor de pele comum, o busto
  * simples de pessoa (no estilo de Maria Mãe de Deus e de Santa Águeda), a
  * chama e o livro aberto desenhados, o terço católico (antes só no lote 2), a
- * concha de vieira e as ajudas de espelhar e deslocar formas.
+ * concha de vieira e as ajudas de espelhar e deslocar formas. O lote 4 acrescentou
+ * a coroa, a palma, a estrela, a asa, o coração, a lágrima, o galero e a pomba.
  */
 const lib = require("./index");
 const { anim, onda, aparecer, hex, polyline } = lib;
@@ -392,4 +393,141 @@ function transladar(groups, d) {
   return groups.map(walk);
 }
 
-module.exports = { rect, forma, poligono, fill, hostiaShapes, espinhosShapes, velaComprida, brilho, chuva, petala, PELE, PELE_SOMBRA, busto, figura, OMBRO_E, OMBRO_D, CHAGA, chamaShapes, livroAbertoShapes, tercoShapes, conchaShapes, espelhar, transladar };
+// ── Lote 4 (agosto e setembro) ───────────────────────────────────────────────
+// Desenhos próprios que substituem, nos gestos, peças do Twemoji que já são a
+// peça principal de outro troféu (coroa 1f451, palma 1f33f, estrela 2b50,
+// asa 1fabd, pomba 1f54a), e outros reaproveitáveis (coração, lágrima, galero).
+
+/** Deixa pontas (sem curva) nos vértices `idxs` de uma forma suave; índice que não é inteiro entre 0 e o último vértice lança erro. */
+function pontas(sh, idxs) {
+  for (const k of idxs) {
+    if (!(Number.isInteger(k) && k >= 0 && k < sh.v.length)) throw new Error(`pontas: índice inválido ${k} (a forma tem ${sh.v.length} vértices)`);
+  }
+  for (const k of idxs) { sh.i[k] = [0, 0]; sh.o[k] = [0, 0]; }
+  return sh;
+}
+
+/** Confere uma medida (largura, altura, raio) finita e positiva. */
+function medida(quem, nome, v) {
+  if (!(Number.isFinite(v) && v > 0)) throw new Error(`${quem}: ${nome} inválid${["raio", "comprimento"].includes(nome) ? "o" : "a"} ${v}`);
+}
+
+/**
+ * Coroa desenhada, com o meio da base em (0,0): `w` de largura e 0,7·w de
+ * altura, `n` pontas com bolinhas e pedras na faixa da base.
+ */
+function coroaShapes(w, { cor = "#FFCC4D", faixa = "#F4900C", joia = "#DD2E44", bola = "#FFE8B6", n = 5 } = {}) {
+  medida("coroaShapes", "largura", w);
+  if (!(Number.isInteger(n) && n >= 3)) throw new Error(`coroaShapes: pontas inválidas ${n}`);
+  const h = w * 0.7, W = w / 2;
+  const topo = [[-W, 0], [-W, -h]];
+  for (let k = 1; k < n; k++) {
+    const x = -W + (k * w) / (n - 1);
+    topo.push([x - w / (2 * (n - 1)), -h * 0.45], [x, -h]);
+  }
+  topo.push([W, 0]);
+  const picos = Array.from({ length: n }, (_, k) => [-W + (k * w) / (n - 1), -h]);
+  return [
+    ...[-0.5, 0, 0.5].map((f, k) => lib.makeEllipse(f * W, -h * 0.15, w * 0.06, w * 0.05, hex(joia), `Pedra${k}`)),
+    ...picos.map(([x, y], k) => lib.makeEllipse(x, y, w * 0.055, w * 0.055, hex(bola), `Bola${k}`)),
+    fill([rect(-W, -h * 0.3, W, 0)], faixa, "Faixa"),
+    fill([poligono(topo)], cor, "Coroa"),
+  ];
+}
+
+/**
+ * Palma do martírio desenhada (sem emoji), com o pé do talo em (0,0) e altura
+ * `h`: talo levemente curvo e folíolos estreitos dos dois lados.
+ */
+function palmaShapes(h, { cor = "#5C913B", claro = "#77B255", talo = "#3E721D" } = {}) {
+  medida("palmaShapes", "altura", h);
+  const at = (u) => [h * 0.14 * u * u, -h * u];
+  const foliolo = (u, lado) => {
+    const [x, y] = at(u);
+    const comp = h * (0.34 - 0.24 * u) + h * 0.06, larg = h * 0.035;
+    const d = [lado * 0.82, -0.57];
+    const meio = [x + d[0] * comp * 0.5, y + d[1] * comp * 0.5], nl = [-d[1] * larg, d[0] * larg];
+    return forma([[x, y], [meio[0] + nl[0], meio[1] + nl[1]], [x + d[0] * comp, y + d[1] * comp], [meio[0] - nl[0], meio[1] - nl[1]]]);
+  };
+  const us = Array.from({ length: 9 }, (_, k) => 0.2 + k * 0.09);
+  return [
+    fill([...us.map((u) => foliolo(u, 1)), foliolo(1, 0.2)], claro, "FoliolosD"),
+    fill(us.map((u) => foliolo(u, -1)), cor, "FoliolosE"),
+    stroke([polyline(Array.from({ length: 7 }, (_, k) => at(k / 6)))], Math.max(1, h * 0.035), hex(talo), "Talo"),
+  ];
+}
+
+/** Estrela de cinco pontas desenhada, centrada em (0,0), raio `r` (ponta para cima). */
+function estrelaShapes(r, { cor = "#FFCC4D", miolo = null } = {}) {
+  medida("estrelaShapes", "raio", r);
+  const pts = Array.from({ length: 10 }, (_, k) => {
+    const a = -Math.PI / 2 + (k * Math.PI) / 5, rr = k % 2 ? r * 0.45 : r;
+    return [rr * Math.cos(a), rr * Math.sin(a)];
+  });
+  return [...(miolo ? [lib.makeEllipse(0, 0, r * 0.28, r * 0.28, hex(miolo), "Miolo")] : []), fill([poligono(pts)], cor, "Estrela")];
+}
+
+/**
+ * Asa desenhada (sem emoji), com a raiz em (0,0), abrindo para a direita e
+ * para cima até (w, −w); `espelhar` faz a outra asa do par.
+ */
+function asaShapes(w, { cor = "#F5F8FA", sombra = "#CCD6DD" } = {}) {
+  medida("asaShapes", "largura", w);
+  const P = (pts) => pts.map(([x, y]) => [x * w, y * w]);
+  const contorno = pontas(forma(P([[0, 0], [0.12, -0.42], [0.42, -0.78], [0.98, -1], [0.82, -0.66], [1, -0.56], [0.74, -0.34], [0.86, -0.2], [0.52, -0.06], [0.58, 0.08], [0.2, 0.1]])), [3, 5, 7, 9]);
+  return [
+    stroke([lib.polyline(P([[0.2, -0.2], [0.5, -0.5], [0.8, -0.78]])), lib.polyline(P([[0.2, -0.08], [0.5, -0.25], [0.74, -0.44]])), lib.polyline(P([[0.18, 0.02], [0.4, -0.06], [0.6, -0.14]]))], Math.max(0.8, w * 0.035), hex(sombra), "Penas"),
+    fill([contorno], cor, "Asa"),
+  ];
+}
+
+/** Coração desenhado (sem emoji), centrado em (0,0), largura `w` (altura ≈ 0,9·w). */
+function coracaoShapes(w, { cor = "#DD2E44", brilho = "#F4ABBA" } = {}) {
+  medida("coracaoShapes", "largura", w);
+  const P = (pts) => pts.map(([x, y]) => [x * w, y * w]);
+  const c = pontas(forma(P([[0, -0.24], [0.14, -0.42], [0.36, -0.44], [0.5, -0.24], [0.44, 0.04], [0.22, 0.26], [0, 0.46], [-0.22, 0.26], [-0.44, 0.04], [-0.5, -0.24], [-0.36, -0.44], [-0.14, -0.42]])), [0, 6]);
+  return [
+    lib.makeEllipse(-0.25 * w, -0.24 * w, 0.08 * w, 0.06 * w, hex(brilho), "Reflexo", 80),
+    fill([c], cor, "Coracao"),
+  ];
+}
+
+/** Lágrima (gota) desenhada, com o meio da parte redonda em (0,0), raio `r` e a ponta para cima. */
+function lagrimaShapes(r, { cor = "#5DADEC" } = {}) {
+  medida("lagrimaShapes", "raio", r);
+  return [fill([pontas(forma([[0, -2.2 * r], [0.55 * r, -0.95 * r], [r, 0.05 * r], [0.7 * r, 0.75 * r], [0, r], [-0.7 * r, 0.75 * r], [-r, 0.05 * r], [-0.55 * r, -0.95 * r]]), [0])], cor, "Lagrima")];
+}
+
+/** Chapéu de cardeal (galero), com o meio das abas em (0,0) e `w` de largura das abas (48 = o do lote 3): copa, abas, cordões e borlas. */
+function galeroShapes(w, { copa = "#DD2E44", abas = "#BE1931", cordao = "#A0041E" } = {}) {
+  medida("galeroShapes", "largura", w);
+  const k = w / 48;
+  const P = (pts) => pts.map(([x, y]) => [x * k, y * k]);
+  return [
+    stroke([reta(P([[-21, 1], [-25, 16]])), reta(P([[21, 1], [25, 16]]))], 1.2 * k, hex(cordao), "Cordoes"),
+    fill([poligono(P([[-25, 15], [-28, 21], [-22, 21]])), poligono(P([[25, 15], [22, 21], [28, 21]]))], cordao, "Borlas"),
+    fill([forma(P([[-10, 0], [-9, -8], [0, -11], [9, -8], [10, 0]]))], copa, "Copa"),
+    lib.makeEllipse(0, 0, 24 * k, 5 * k, hex(abas), "Abas"),
+  ];
+}
+
+/**
+ * Pomba branca desenhada (sem emoji), pousada e olhando para a direita, com o
+ * meio do corpo em (0,0) e `w` de comprimento (do rabo ao bico); os pés em
+ * (0, 0,22·w).
+ */
+function pombaShapes(w) {
+  medida("pombaShapes", "comprimento", w);
+  const P = (pts) => pts.map(([x, y]) => [x * w, y * w]);
+  return [
+    lib.makeEllipse(0.33 * w, -0.24 * w, 0.025 * w, 0.025 * w, hex("#292F33"), "Olho"),
+    fill([poligono(P([[0.4, -0.24], [0.5, -0.2], [0.4, -0.17]]))], "#F4900C", "Bico"),
+    fill([forma(P([[-0.2, -0.08], [0.05, -0.14], [0.2, -0.06], [0.06, 0.06], [-0.24, 0.06], [-0.4, 0.02]]))], "#CCD6DD", "AsaFechada"),
+    lib.makeEllipse(0.3 * w, -0.2 * w, 0.11 * w, 0.1 * w, hex("#FFFFFF"), "Cabeca"),
+    fill([forma(P([[-0.5, -0.04], [-0.2, -0.1], [0.1, -0.14], [0.28, -0.1], [0.26, 0.06], [0.1, 0.16], [-0.16, 0.14], [-0.5, 0.06]]))], "#F5F8FA", "Corpo"),
+    stroke([reta(P([[-0.02, 0.14], [-0.04, 0.22]])), reta(P([[0.06, 0.14], [0.06, 0.22]]))], Math.max(0.8, w * 0.03), hex("#F4900C"), "Pes"),
+  ];
+}
+
+module.exports = { rect, forma, poligono, fill, hostiaShapes, espinhosShapes, velaComprida, brilho, chuva, petala, PELE, PELE_SOMBRA, busto, figura, OMBRO_E, OMBRO_D, CHAGA, chamaShapes, livroAbertoShapes, tercoShapes, conchaShapes, espelhar, transladar,
+  pontas, coroaShapes, palmaShapes, estrelaShapes, asaShapes, coracaoShapes, lagrimaShapes, galeroShapes, pombaShapes };

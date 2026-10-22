@@ -6,11 +6,10 @@
  * (busto de pessoa atrás do que fica na frente dela).
  */
 import { describe, it, expect } from "vitest";
-import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { ALL_LITURGICAL_TROPHIES } from "../../packages/gamification/src/liturgicalTrophies/data";
-import { checkLot, designFingerprint, readLottie, valueAt, type Entry } from "./trophyLotChecks";
+import { checkLot, designFingerprint, guideRows, readLottie, valueAt, type Entry } from "./trophyLotChecks";
 
 const require = createRequire(import.meta.url);
 const lot = require("../trophy-lot-3.js");
@@ -163,15 +162,12 @@ describe("Lottie — lote 3", () => {
   });
 
   it("todo ouro cuja coluna de ouro do guia (§6) fala em luz tem uma luzSuave", () => {
-    const guia = fs.readFileSync(path.resolve(__dirname, "../../_bmad-output/planning-artifacts/guia-de-movimento-dos-trofeus.md"), "utf8");
-    const secao = guia.slice(guia.indexOf("## 6."));
-    const linhas = secao.split("\n").filter((l) => /^\| /.test(l) && !/^\| (Troféu|---)/.test(l));
+    const linhas = guideRows(6);
     expect(linhas).toHaveLength(27);
     const porNome = new Map(ALL_LITURGICAL_TROPHIES.map((t) => [t.name, t.id]));
     const ids = new Set(TROPHIES.map((e) => e.id));
     const comLuz: string[] = [];
-    for (const l of linhas) {
-      const [nome, , , ouro] = l.split("|").slice(1).map((c) => c.trim());
+    for (const { nome, ouro } of linhas) {
       const id = porNome.get(nome);
       expect(id && ids.has(id), `linha do guia sem troféu no lote: ${nome}`).toBe(true);
       if (/\bluz\b/i.test(ouro)) comLuz.push(id!);

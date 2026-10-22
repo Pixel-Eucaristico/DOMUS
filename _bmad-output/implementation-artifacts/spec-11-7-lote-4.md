@@ -2,7 +2,7 @@
 title: 'Story 11.7: lote 4 de Lottie (agosto e setembro)'
 type: 'feature'
 created: '2026-10-22'
-status: 'in-review'
+status: 'done'
 baseline_commit: '3dbaa3597c3f9ee3915554ec700953e6964ed454'
 route: 'dispatch'
 review_loop_iteration: 0

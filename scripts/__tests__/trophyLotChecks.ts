@@ -26,6 +26,26 @@ export function readLottie(file: string) {
   return JSON.parse(fs.readFileSync(path.join(OUT, file), "utf8"));
 }
 
+/** Linha da tabela de gestos de uma seção do guia: nome do troféu e as colunas de gesto, prata e ouro. */
+export type GuideRow = { nome: string; gesto: string; prata: string; ouro: string };
+
+/**
+ * As linhas da tabela da seção `secao` (o "## N." do guia de movimento), só
+ * até a seção seguinte: os lotes leem cada um a sua (§6 o lote 3, §7 o lote 4).
+ */
+export function guideRows(secao: number): GuideRow[] {
+  const guia = fs.readFileSync(path.resolve(__dirname, "../../_bmad-output/planning-artifacts/guia-de-movimento-dos-trofeus.md"), "utf8");
+  const inicio = guia.indexOf(`## ${secao}.`);
+  if (inicio < 0) throw new Error(`guideRows: seção ${secao} não encontrada no guia`);
+  const fim = guia.indexOf("\n## ", inicio + 1);
+  return guia.slice(inicio, fim < 0 ? undefined : fim).split("\n")
+    .filter((l) => /^\| /.test(l) && !/^\| (Troféu|---)/.test(l))
+    .map((l) => {
+      const [nome, gesto, prata, ouro] = l.split("|").slice(1).map((c) => c.trim());
+      return { nome, gesto, prata, ouro };
+    });
+}
+
 type Pt = [number, number];
 /** Nomes de medalha/disco/aro como palavra (MedalFace, Disc, Aro), não dentro de outras ("Primavera"). */
 export const MEDAL_NAME = /(?:(?:^|[^A-Za-z])(?:[Mm]edal|[Dd]isco?|[Rr]im|[Aa]ro)|(?<=[a-z0-9])(?:Medal|Disco?|Rim|Aro))(?![a-z])/;

@@ -254,7 +254,7 @@ describe("writeTrophy e montagem comum dos lotes (trophy-kit, lots, desenhos)", 
 
   it("o registro tem os lotes, sem id nem peça principal repetidos entre eles", () => {
     const lots = registeredLots();
-    expect(lots.map((l: any) => path.basename(l.file))).toEqual(["trophy-lot-1.js", "trophy-lot-2.js", "trophy-lot-3.js"]);
+    expect(lots.map((l: any) => path.basename(l.file))).toEqual(["trophy-lot-1.js", "trophy-lot-2.js", "trophy-lot-3.js", "trophy-lot-4.js"]);
     expect(LOTS).toHaveLength(lots.length);
     const all = lots.flatMap((l: any) => l.TROPHIES);
     expect(() => kit.checkUniqueIds(all)).not.toThrow();
@@ -427,5 +427,83 @@ describe("desenhos do lote 3 (busto, concha, espelhar, transladar)", () => {
     }
     expect(() => transladar(grupos(), [NaN, 0])).toThrow(/deslocamento inválido/);
     expect(() => transladar(grupos(), [0, Infinity])).toThrow(/deslocamento inválido/);
+  });
+});
+
+describe("desenhos do lote 4 (coroa, palma, estrela, asa, coração, lágrima, galero, pomba)", () => {
+  const d = require("../lottie-lib/desenhos");
+  /** Todos os vértices e cantos de elipse dos grupos (grupos aninhados inclusive). */
+  const pontos = (groups: any[]): number[][] => groups.flatMap((g: any) => g.it.flatMap((it: any) => {
+    if (it.ty === "sh") return it.ks.k.v;
+    if (it.ty === "el") return [[it.p.k[0] - it.s.k[0] / 2, it.p.k[1] - it.s.k[1] / 2], [it.p.k[0] + it.s.k[0] / 2, it.p.k[1] + it.s.k[1] / 2]];
+    if (it.ty === "gr") return pontos([it]);
+    return [];
+  }));
+  const caixa = (groups: any[]) => {
+    const ps = pontos(groups);
+    return [Math.min(...ps.map((p) => p[0])), Math.min(...ps.map((p) => p[1])), Math.max(...ps.map((p) => p[0])), Math.max(...ps.map((p) => p[1]))];
+  };
+
+  it("recusam medidas inválidas (zero, negativa, NaN, infinita)", () => {
+    for (const [nome, f] of [["coroaShapes", d.coroaShapes], ["palmaShapes", d.palmaShapes], ["estrelaShapes", d.estrelaShapes], ["asaShapes", d.asaShapes],
+      ["coracaoShapes", d.coracaoShapes], ["lagrimaShapes", d.lagrimaShapes], ["galeroShapes", d.galeroShapes], ["pombaShapes", d.pombaShapes]] as [string, any][]) {
+      for (const v of [0, -5, NaN, Infinity, -Infinity, undefined]) expect(() => f(v), `${nome}(${v})`).toThrow(new RegExp(`${nome}: .*inválid`));
+      expect(() => f(10), nome).not.toThrow();
+    }
+    expect(() => d.coroaShapes(20, { n: 2 })).toThrow(/pontas inválidas 2/);
+    expect(() => d.coroaShapes(20, { n: 4.5 })).toThrow(/pontas inválidas 4.5/);
+  });
+
+  it("opções: coroa com outro número de pontas, estrela com miolo, lágrima e galero com cores", () => {
+    const nomes = (gs: any[]) => gs.map((g: any) => g.nm);
+    const coroa3 = d.coroaShapes(30, { n: 3 }), coroa7 = d.coroaShapes(30, { n: 7 });
+    expect(nomes(coroa3).filter((n: string) => /^Bola\d$/.test(n))).toHaveLength(3);
+    expect(nomes(coroa7).filter((n: string) => /^Bola\d$/.test(n))).toHaveLength(7);
+    // contorno: os dois cantos da base, a primeira ponta e, para cada uma das outras 6, o vale e a ponta
+    expect(coroa7.find((g: any) => g.nm === "Coroa").it.find((it: any) => it.ty === "sh").ks.k.v).toHaveLength(2 + 1 + 2 * 6);
+    expect(nomes(d.estrelaShapes(10))).toEqual(["Estrela"]);
+    expect(nomes(d.estrelaShapes(10, { miolo: "#FFFFFF" }))).toEqual(["Miolo", "Estrela"]);
+    const corDe = (g: any) => g.it.find((it: any) => it.ty === "fl" || it.ty === "st").c.k;
+    expect(corDe(d.lagrimaShapes(2, { cor: "#FF0000" })[0])).toEqual(lib.hex("#FF0000"));
+    expect(corDe(d.galeroShapes(48, { copa: "#00FF00" }).find((g: any) => g.nm === "Copa"))).toEqual(lib.hex("#00FF00"));
+    // o galero de 48 px é o do lote 3; com 24 px, tudo pela metade
+    const abas = (w: number) => d.galeroShapes(w).find((g: any) => g.nm === "Abas").it.find((it: any) => it.ty === "el").s.k;
+    expect(abas(48)).toEqual([48, 10]);
+    expect(abas(24)).toEqual([24, 5]);
+  });
+
+  it("ficam onde a documentação diz (pé, base ou centro e medidas)", () => {
+    // coroa: base em y = 0, altura 0,7·w, largura w
+    const [cx0, cy0, cx1, cy1] = caixa(d.coroaShapes(30));
+    expect(cx0).toBeLessThanOrEqual(-15); expect(cx1).toBeGreaterThanOrEqual(15);
+    expect(cy1).toBeCloseTo(0, 3); expect(cy0).toBeLessThan(-0.7 * 30 + 0.1);
+    // palma: pé em (0,0) e altura h
+    const [, py0, , py1] = caixa(d.palmaShapes(60));
+    expect(py1).toBeLessThan(3); expect(py0).toBeLessThan(-58); expect(py0).toBeGreaterThan(-70);
+    // estrela: raio r em volta de (0,0), ponta para cima
+    const [, sy0, , sy1] = caixa(d.estrelaShapes(10));
+    expect(sy0).toBeCloseTo(-10, 3); expect(sy1).toBeLessThan(10);
+    // asa: raiz em (0,0), abrindo para a direita e para cima até (w, −w); espelhar faz a outra
+    const [ax0, ay0, ax1] = caixa(d.asaShapes(20));
+    expect(ax0).toBeCloseTo(0, 3); expect(ax1).toBeCloseTo(20, 3); expect(ay0).toBeCloseTo(-20, 3);
+    const [ex0, , ex1] = caixa(d.espelhar(d.asaShapes(20)));
+    expect(ex0).toBeCloseTo(-20, 3); expect(ex1).toBeCloseTo(0, 3);
+    // coração e lágrima: centrados; a ponta do coração embaixo e a da lágrima em cima, sem curva
+    const coracao = d.coracaoShapes(40).find((g: any) => g.nm === "Coracao").it.find((it: any) => it.ty === "sh").ks.k;
+    expect(coracao.v[6]).toEqual([0, 18.4]);
+    expect(coracao.i[6]).toEqual([0, 0]); expect(coracao.o[6]).toEqual([0, 0]);
+    const gota = d.lagrimaShapes(2)[0].it.find((it: any) => it.ty === "sh").ks.k;
+    expect(gota.v[0]).toEqual([0, -4.4]); expect(gota.i[0]).toEqual([0, 0]);
+    // pomba: os pés em (0, 0,22·w)
+    const pes = d.pombaShapes(30).find((g: any) => g.nm === "Pes");
+    expect(Math.max(...pontos([pes]).map((p) => p[1]))).toBeCloseTo(0.22 * 30, 3);
+    expect(d.galeroShapes(48).map((g: any) => g.nm)).toEqual(["Cordoes", "Borlas", "Copa", "Abas"]);
+  });
+
+  it("pontas zera as tangentes só nos vértices pedidos", () => {
+    const sh = d.pontas(d.forma([[0, 0], [10, 0], [10, 10], [0, 10]]), [1]);
+    expect(sh.i[1]).toEqual([0, 0]); expect(sh.o[1]).toEqual([0, 0]);
+    expect(sh.i[2]).not.toEqual([0, 0]);
+    for (const k of [-1, 4, 1.5, NaN, Infinity]) expect(() => d.pontas(d.forma([[0, 0], [10, 0], [10, 10], [0, 10]]), [k]), String(k)).toThrow(new RegExp(`pontas: índice inválido ${k}`));
   });
 });
