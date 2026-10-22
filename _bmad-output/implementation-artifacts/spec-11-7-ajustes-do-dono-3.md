@@ -48,3 +48,18 @@ Figuras de corpo inteiro seguem o estilo simples dos bustos (`busto` em `desenho
   - Fátima: Maria de corpo inteiro e mãos postas, na frente da copa e sem nuvem.
   - `lottieLib.test.ts`: testes de `figura` e de `metade`.
 - Verificação: depois de `node scripts/trophy-lot-1.js && node scripts/trophy-lot-2.js && node scripts/trophy-lot-3.js`, `git status --short` mostra só 17 arquivos de assets mudados. O `lt_sagrado_coracao.json` (bronze) não muda, porque a coroa só existe na prata e no ouro. Os lotes 1 e 2 e os outros 21 troféus do lote 3 ficam idênticos. `npx vitest run scripts/__tests__` passa: 4 arquivos, 107 testes. Renderizei os quadros 10, 30, 50 e 89 dos seis ouros.
+
+## Review Triage Log
+
+| Achado | Veredito | Evidência |
+|---|---|---|
+| Mãos da Visitação não seguem a inclinação das figuras e quase não se tocam | medium | Camada fixa que aparece durante a inclinação; sobreposição de ~1,2 px. **patch** + teste. |
+| Pés de Maria (Fátima) afundam e depois flutuam na copa | medium | Flutuação de ±1,2 px e o salto da copa. **patch** + teste. |
+| Teste da Ascensão não garante que Jesus sobe com a nuvem; ícone sem `DRAWN` | medium (gap) | O teste só checa que as posições diferem. **patch**. |
+| Teste de São Matias não confere o lugar e a hora da 12ª chama | low | Correção direta. **patch**. |
+| `figura`: regras e números repetidos em `gestoTome`; sem testes de forma | medium (gap) | Braço e chaga podem se separar. **patch**. |
+| `espinhosShapes`: pontas da frente invadem a metade de trás; `opts` nulo | low | Correção direta. **patch**. |
+| Nome do teste de bustos não cobre as figuras de corpo inteiro | low | Correção direta. **patch**. |
+| JSON gerados fora do diff | false | Entram no commit com `git add -A`. |
+
+**Rota:** 7 `patch`, 1 falso. Sem loopback.
