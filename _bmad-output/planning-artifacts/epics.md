@@ -500,7 +500,8 @@ So that um dado ruim de outro aparelho não entre no meu log.
 
 **Given** `parseSyncPayload` (`src/modules/nostrSync.ts`) mapeia qualquer JSON sem validar
 **When** crio uma função pura de validação do envelope (`id`, `type`, `timestamp`, `deviceId` e `payload` presentes e do tipo certo) e a aplico antes de gravar
-**Then** um evento com payload nulo, `id` ausente ou `type` fora dos tipos conhecidos não é gravado no SQLite
+**Then** um evento com payload nulo, `id` ausente ou `type` ausente, vazio ou que não é texto não é gravado no SQLite
+**And** um `type` bem formado e desconhecido (de uma versão mais nova) é gravado, para a Story 3.3 reprocessar
 **And** um JSON malformado não lança erro para o resto do lote
 **And** a validação roda no vitest sem importar `react-native`.
 
