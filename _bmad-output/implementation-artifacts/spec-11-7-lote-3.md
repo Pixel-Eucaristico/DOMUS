@@ -2,7 +2,7 @@
 title: 'Story 11.7: lote 3 de Lottie (maio a julho)'
 type: 'feature'
 created: '2026-10-22'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: 'e1a353b0c9d76db9e2b650937e4aeaff7d473f5f'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -38,14 +38,21 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `scripts/trophy-lot-3.js` e registro em `lots.js`
-- [ ] `assets/lottie/trophies/` -- 81 arquivos
-- [ ] `scripts/__tests__/trophyLot3.test.ts`
+- [x] `scripts/trophy-lot-3.js` e registro em `lots.js`
+- [x] `assets/lottie/trophies/` -- 81 arquivos
+- [x] `scripts/__tests__/trophyLot3.test.ts`
 
 **Acceptance Criteria:**
 - Given o lote 3, when rodo `node scripts/trophy-lot-3.js`, then 81 arquivos são gerados, todos os testes passam e os lotes 1 e 2 continuam idênticos
 
 ## Implementation Notes
+
+- `scripts/trophy-lot-3.js`: os 27 gestos da §6, com prata (`T2_*`) e ouro (`T3_*`). Peças novas do Twemoji 15.1.0 em `NEW_ICONS` (1f3b2 dado, 1fa93 machado, 1f331 broto, 1f33e trigo, 2744 floco, 1faf1 mão, 1f319 lua, 1f409 dragão, 1f3fa jarro; a elipse do 1f3b2 virou caminho). As peças do lote 2 que o lote 3 também usa (2601, 1f5dd, 1f528, 1faa8, 1f35e, 1fabd, 1f31f, 1f339) foram copiadas, idênticas, para a tabela comum `lottie-lib/icons.js`; o lote 2 mantém a sua cópia e não muda. Peças principais: 23 desenhadas (tabela `DRAWN`, citadas no cabeçalho) e 4 do Twemoji (1f3b2, 2601, 1f525, 1faf1), nenhuma repetida entre os três lotes.
+- Biblioteca (`lottie-lib/desenhos.js`): `busto` (busto simples no estilo de Maria e Águeda, com manto de capuz ou cabelo, barba opcional), `tercoShapes` (o terço de Lourdes, com as cores como opção; o lote 2 mantém a cópia dele), `conchaShapes` (vieira), `espelhar` e `transladar`. `lots.js` registra o lote 3.
+- Regras da §6: toda luz é `luzSuave` (`T3_Luz`); pessoas são bustos (Maria de Fátima, pastorinhos, Maria e Isabel, Menino Jesus, Maria do Carmo, Sant'Ana, São Joaquim e a menina Maria); terço, escapulário, custódia, medalha de São Bento e crucifixo desenhados. Cores: vermelho para Matias, Pentecostes, Barnabé, Fisher e Moro, Ireneu, Pedro e Paulo, Tomé e Tiago; branco para os demais. `SEM_HALO`: festas sem santo (Ascensão, Pentecostes, Corpus Christi, Sagrado Coração) e os que têm a auréola só no ouro.
+- Santa Brígida da Suécia: a "cruz de Brígida" (que é de Santa Brígida da Irlanda) saiu do guia; a prata agora é o bordão de peregrina desenhado (cajado reto com pomo, fita e bolsa de peregrino na alça), diferente do bordão com cabaça de São Tiago.
+- Testes: `trophyLot3.test.ts` (ids dos meses 5 a 7, cores, ids e desenhos únicos nos três lotes, bustos com rosto/olhos/veste e atrás do que fica na frente, peças católicas desenhadas, luz do ouro = `luzSuave`) + `checkLot`; `lottieLib.test.ts` passou a esperar o lote 3 no registro.
+- Verificação: `node scripts/trophy-lot-1.js && node scripts/trophy-lot-2.js && node scripts/trophy-lot-3.js && git status --short assets/lottie/trophies` mostra só os 81 arquivos novos; `npx vitest run` 51 arquivos, 869 testes passando; `npx tsc --noEmit` exit 0. Prévia renderizada fora do repositório (quadros 10 a 89 dos três níveis); a aprovação visual fica com o dono.
 
 ## Spec Change Log
 
