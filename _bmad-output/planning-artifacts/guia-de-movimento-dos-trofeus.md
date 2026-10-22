@@ -141,3 +141,50 @@ Regras vindas da aprovação do lote 3: quando a cena tem uma pessoa fazendo alg
 | São Vicente de Paulo | Vicente (busto) acolhe uma criança | pão | auréola e luz |
 | Santos Arcanjos Miguel, Gabriel e Rafael | três pares de asas aparecem: a espada (Miguel), o lírio (Gabriel) e o peixe (Rafael) | escudo de Miguel | luz e raios |
 | São Jerônimo | o leão deita ao lado do livro aberto da Vulgata | chapéu de cardeal | auréola e luz |
+
+## 8. Gestos do lote 5 (outubro a dezembro)
+
+Regras do dono que valem para este lote: um gesto por troféu, que conta a história dele (o atributo tradicional do santo ou o mistério da festa); prata e ouro acrescentam ao gesto, não só trocam a cor; nada de medalha ou disco em volta do desenho; a luz usa só a `luzSuave`, sem esticar; pessoa fazendo algo é a figura de corpo inteiro (`figura`) ou o busto (`busto`), com o tom de pele comum; Maria grande e visível, nunca escondida; nada que lembre jogo ou aposta (dados, cartas, moedas jogadas, roleta); objetos católicos desenhados com fidelidade (terço de verdade, com crucifixo e 5 dezenas, nunca o 📿); peça principal nunca repetida entre troféus, contando os lotes 1 a 4 e os sazonais já aprovados (o `lt_natal` não usa o Papai Noel do `seasonal_natal` nem a árvore do `seasonal_prep_natal`; o `lt_fieis_defuntos` não usa a lápide nem a vela do `seasonal_finados`). As festas móveis (Cristo Rei e 1º Domingo do Advento) ficam no fim de novembro.
+
+| Troféu | Gesto | Prata acrescenta | Ouro acrescenta |
+|---|---|---|---|
+| Santa Teresinha do Menino Jesus | Teresinha (busto, hábito marrom, capa branca e véu preto) abraça o crucifixo coberto de rosas, e rosas caem do alto ("chuva de rosas") | mais rosas caindo e o livro "História de uma Alma" | luz descendo e pétalas em toda a cena |
+| Santos Anjos da Guarda | o anjo da guarda (figura, asas abertas) estende a mão sobre a criança (figura pequena) que caminha | a ponte estreita sob os pés da criança | estrelas e luz descendo |
+| São Francisco de Assis | Francisco (figura, hábito marrom com cordão de três nós) abre os braços e os passarinhos pousam nas mãos | o lobo de Gúbio, manso, a seus pés | o sol e a lua do Cântico das Criaturas e luz |
+| Nossa Senhora do Rosário | o terço católico desenhado (crucifixo e 5 dezenas) desce e as contas acendem dezena por dezena | Maria (busto grande, manto azul) aparece no alto segurando o terço | coroa de rosas brancas em volta de Maria e luz |
+| Nossa Senhora Aparecida | a rede dos pescadores sobe das águas do Paraíba trazendo a imagem de Aparecida, grande e no centro: rosto e mãos escuros, mãos postas, manto azul em triângulo com orla dourada; a água escorre | o barco dos três pescadores e peixes enchendo a rede | a coroa dourada sobre a imagem e luz descendo |
+| Santa Teresa de Ávila | o castelo de cristal (o "Castelo Interior") acende de fora para dentro, morada por morada, até a luz do centro | Teresa (busto, hábito carmelita) com a pena ao lado | raios do centro do castelo e luz |
+| São Lucas Evangelista | o touro alado aparece e o livro do Evangelho se abre | paleta e pincel (a tradição do Lucas pintor) | auréola e raios |
+| São João Paulo II | o Papa (busto, batina branca e solidéu) ergue a férula, a cruz papal com o crucifixo, e abençoa | o brasão azul com a cruz e o M de Maria ("Totus Tuus") | auréola e luz |
+| São Simão e São Judas Tadeu | os dois apóstolos (bustos) lado a lado; a chama de Pentecostes acende sobre Judas Tadeu, que traz a imagem de Cristo no peito | a serra (Simão) e a clava (Judas) junto deles | palmas e coroas de mártir e luz |
+| Todos os Santos | a multidão de santos (vestes brancas) aparece em fileiras e as auréolas acendem uma a uma | palmas nas mãos da multidão | o Cordeiro no alto e luz descendo |
+| Fiéis Defuntos | mãos postas rezando pelos mortos e um ramo de crisântemos brancos depositado; uma luz sobe devagar | terço católico desenhado entre as mãos | luz descendo do alto (a luz perpétua) |
+| São Martinho de Porres | o cão, o gato e o rato comem juntos do mesmo prato, sem brigar | Martinho (busto, pele escura, hábito dominicano branco e capa preta) com a vassoura | auréola e luz |
+| São Carlos Borromeu | Carlos (busto, mozeta e solidéu vermelhos de cardeal, corda penitente no pescoço) ergue o rosto e a palavra HUMILITAS (lema do brasão) acende acima | pães para os pobres da fome de Milão | auréola e luz |
+| Dedicação da Basílica de Latrão | a fachada da basílica se ergue coluna por coluna, com as estátuas no alto e a cruz | as doze cruzes da consagração acendem nas colunas | raios e luz descendo |
+| São Martinho de Tours | Martinho (figura, soldado romano) corta a capa vermelha com a espada e dá a metade ao mendigo (figura) | o cavalo branco atrás de Martinho | Cristo (busto) vestido com a meia capa aparece na luz |
+| Santa Isabel da Hungria | Isabel (busto, manto e tiara de princesa) abre o avental e os pães viram rosas vermelhas | a coroa de princesa deposta a seus pés | auréola e luz |
+| Apresentação de Maria | a menina Maria (figura, grande no centro, vestido branco e véu azul) sobe sozinha os degraus do Templo | Joaquim e Ana (bustos) embaixo, olhando | a porta do Templo se abre com luz |
+| Santa Cecília | Cecília (busto) toca o pequeno órgão e as notas sobem | a coroa de rosas e lírios que o anjo traz desce sobre ela | palma e coroa de mártir e luz |
+| Nossa Senhora das Graças | Maria (figura, túnica branca e manto azul) de pé sobre o globo, com as mãos abertas das quais saem raios de luz (as graças) | a Medalha Milagrosa, oval, pendurada numa fita azul, com o M e os dois corações (objeto ao lado, nunca moldura) | luz descendo sobre o globo e estrelas |
+| Cristo Rei do Universo | Cristo (figura, túnica branca, manto vermelho e coroa) sentado no trono, ergue o cetro e abençoa | Α e Ω acendem dos lados | o globo com a cruz na mão e raios |
+| São André Apóstolo | a cruz em X (de Santo André) se ergue, uma diagonal de cada vez | a rede de pesca com peixes (o pescador, irmão de Pedro) | palma e coroa de mártir e luz |
+| 1º Domingo do Advento | a coroa de Advento (ramos verdes em roda) aparece e as três velas roxas acendem uma a uma | a vela rosa (Gaudete) acende | a vela branca do Natal no centro e luz descendo |
+| São Francisco Xavier | o caranguejo sai do mar trazendo o crucifixo perdido na tempestade | o navio das missões ao fundo | auréola e raios |
+| São Nicolau de Mira | à noite, a mão do bispo (manga vermelha) deixa três bolsinhas de ouro, fechadas, uma a uma na janela (sem moedas à mostra e sem Papai Noel) | a âncora (patrono dos navegantes) | auréola, estrelas da noite e luz |
+| Santo Ambrósio de Milão | Ambrósio (busto, mitra e pluvial) prega e uma abelha pousa nos lábios ("boca de mel"; sem a colmeia, que é de São Bernardo) | livro aberto do hino "Te Deum" | auréola e raios |
+| Imaculada Conceição | Maria (figura, túnica branca e manto azul) de pé sobre a lua crescente pisa a serpente | o lírio branco se abre | coroa de 12 estrelas e luz |
+| Santa Luzia | Luzia (busto, véu vermelho) ergue o pratinho com os dois olhos e a luz acende sobre ele ("lux") | palma de mártir | coroa de mártir e luz |
+| São João da Cruz | a noite escurece e a "chama viva de amor" acende no alto do Monte Carmelo | o crucifixo que ele desenhou (o Cristo visto do alto) | estrelas e a noite clareando com luz |
+| Natal do Senhor | o Menino Jesus aparece na manjedoura e Maria (busto grande, manto azul) e José (busto) se inclinam sobre ele | o boi e o burrinho | anjos do "Glória" e luz descendo |
+| São Estêvão | Estêvão (busto, dalmática vermelha de diácono) ergue os olhos e o céu se abre em luz; três pedras repousam a seus pés | palma de mártir | coroa de mártir ("Stephanos" é coroa) e luz |
+| São João Evangelista | a águia abre as asas e pousa sobre o livro aberto | o cálice com a serpente que sai (o veneno vencido) | auréola e luz |
+| Santos Inocentes | pequenos inocentes (bustos de bebê, como anjinhos) sobem com palmas nas mãos, sem nenhuma cena de violência | coroinhas de flores sobre eles | coroa de mártir e luz descendo |
+
+Cores litúrgicas (`LITURGICAL_COLORS` em `scripts/lottie-lib/trophy-kit.js`, que só tem `branco`, `vermelho` e `roxo`):
+
+- `vermelho`: São Lucas (evangelista, como Marcos e Mateus), São Simão e São Judas Tadeu, Santa Cecília, São André, Santa Luzia, São Estêvão e Santos Inocentes.
+- `roxo`: 1º Domingo do Advento e Fiéis Defuntos (não há `preto` no kit; o roxo é a cor litúrgica permitida para Finados).
+- `branco`: todos os demais, inclusive São João Evangelista (apóstolo, mas não mártir).
+
+Tom de pele: a imagem de Aparecida e São Martinho de Porres (mestiço, filho de mãe negra) usam o tom escuro comum (`PELE_ESCURA`), por fidelidade; os demais usam `PELE`.
