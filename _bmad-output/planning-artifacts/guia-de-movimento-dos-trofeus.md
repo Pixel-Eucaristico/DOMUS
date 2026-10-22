@@ -110,3 +110,34 @@ Regras vindas da aprovação dos lotes 1 e 2: a luz usa só a `luzSuave` (sem es
 | Sant'Ana e São Joaquim | duas figuras (bustos) com a menina Maria entre eles | livro aberto (Ana ensinando) | auréolas e luz |
 | Santa Marta | a vassoura varre e um dragão pequeno foge | jarro e prato | auréola e luz |
 | São Inácio de Loyola | o monograma IHS acende num sol | livro dos Exercícios | raios e chama |
+
+## 7. Gestos do lote 4 (agosto e setembro)
+
+Regras vindas da aprovação do lote 3: quando a cena tem uma pessoa fazendo algo, usar a figura de corpo inteiro (`figura`) ou o busto (`busto`), com o mesmo tom de pele; Maria grande e visível, nunca escondida; nada que lembre jogo ou aposta; peça principal nunca repetida entre troféus.
+
+| Troféu | Gesto | Prata acrescenta | Ouro acrescenta |
+|---|---|---|---|
+| São João Maria Vianney | o padre (busto, batina preta e estola roxa) se inclina no confessionário e a grade acende | terço católico desenhado | auréola e luz |
+| Transfiguração do Senhor | Jesus (figura, túnica que fica branca e brilhante) sobre o monte, a luz acende | Moisés e Elias pequenos ao lado | nuvem luminosa e raios |
+| São Domingos de Gusmão | o cachorrinho com a tocha na boca corre e a tocha acende | terço católico desenhado | estrela na fronte e luz |
+| São Lourenço | a grelha aparece e as brasas acendem embaixo | palma de mártir | coroa de mártir e luz |
+| Santa Clara de Assis | Clara (busto, hábito marrom e véu) ergue a custódia | lírio | luz e raios da custódia |
+| São Maximiliano Kolbe | as duas coroas (branca e vermelha) descem | palma de mártir | auréola e luz |
+| Assunção de Nossa Senhora | Maria (figura, manto azul e branco) sobe entre nuvens com a luz | anjos pequenos em volta | coroa de 12 estrelas |
+| São Bernardo de Claraval | a colmeia aparece e as abelhas voam (o "Doutor Melífluo") | livro aberto | auréola e raios |
+| Maria Rainha | Maria (busto, manto azul) recebe a coroa que desce | cetro | estrelas e luz |
+| São Bartolomeu Apóstolo | o livro do Evangelho e a faca do martírio aparecem | palma de mártir | auréola e luz |
+| Santa Mônica | Mônica (busto, véu escuro) reza e lágrimas caem | terço católico desenhado | luz da conversão do filho |
+| Santo Agostinho | o coração em chamas atravessado pela seta acende | livro das Confissões | mitra e luz |
+| Martírio de João Batista | a bandeja aparece com uma palma de mártir (sem cabeça) | cordeiro | luz e coroa de mártir |
+| São Gregório Magno | a pomba pousa no ombro do papa (busto, tiara) | partitura do canto gregoriano | auréola e luz |
+| Natividade de Nossa Senhora | o berço balança e uma estrela acende sobre ele | Sant'Ana (busto) ao lado | luz e flores |
+| São Pedro Claver | as correntes se partem e caem | cruz | auréola e luz |
+| Exaltação da Santa Cruz | a cruz se ergue e brilha | coroa de louros | raios e luz |
+| Nossa Senhora das Dores | o coração de Maria com as sete espadas acende | lágrimas | luz e estrelas |
+| São Mateus Apóstolo | o anjo (asas) aparece sobre o livro aberto | moedas deixadas (cobrador de impostos) | auréola e luz |
+| São Pio de Pietrelcina | Padre Pio (busto, hábito marrom e barba) ergue as mãos com luvas | terço católico desenhado | auréola e luz |
+| Santos Cosme e Damião | dois médicos (bustos) com a caixa de remédios e o almofariz | palmas de mártir | auréolas e luz |
+| São Vicente de Paulo | Vicente (busto) acolhe uma criança | pão | auréola e luz |
+| Santos Arcanjos Miguel, Gabriel e Rafael | três pares de asas aparecem: a espada (Miguel), o lírio (Gabriel) e o peixe (Rafael) | escudo de Miguel | luz e raios |
+| São Jerônimo | o leão deita ao lado do livro aberto da Vulgata | chapéu de cardeal | auréola e luz |
