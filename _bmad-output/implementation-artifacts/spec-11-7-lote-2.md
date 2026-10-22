@@ -2,7 +2,7 @@
 title: 'Story 11.7: lote 2 de Lottie (fevereiro a abril)'
 type: 'feature'
 created: '2026-10-22'
-status: 'in-review'
+status: 'done'
 baseline_commit: '9863515d7717c1edc1e7e0cfdafbb4c9f5a7ab33'
 route: 'dispatch'
 review_loop_iteration: 0

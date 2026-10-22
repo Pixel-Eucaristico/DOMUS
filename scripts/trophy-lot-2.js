@@ -23,15 +23,16 @@
  *
  * Desenhadas aqui mesmo ou em `scripts/lottie-lib/desenhos.js`, sem fonte
  * externa. Peças principais (tabela DRAWN): desenho-velas-cruzadas,
- * desenho-veu, desenho-cruz-de-cinza, desenho-trevo, desenho-ramo-de-palmeira,
- * desenho-calice e desenho-lousa. Todas as desenhadas: velas cruzadas de São
- * Brás, véu de Santa Águeda, ramos de palmeira do Domingo de Ramos, terço
- * católico de Lourdes (cinco dezenas, pendente e crucifixo), cruz de cinza,
- * cálice, lousa e letras "ABC", trevo (três folhas com o coração do Twemoji
- * 2764), hóstia, tiara, coroa de espinhos, gruta de Lourdes, fio de
- * água, tábua de madeira, cruz celta, túmulo, estandarte do cordeiro, monte do
- * Calvário, tampa e base do notebook, cruz do escudo, lança, cauda do dragão,
- * mantos, poeira, pétalas, lascas, pixels e traços de vento.
+ * desenho-jovem-veu, desenho-cruz-de-cinza, desenho-trevo,
+ * desenho-ramo-de-palmeira, desenho-calice e desenho-lousa. Todas as
+ * desenhadas: velas cruzadas de São Brás, véu e busto da jovem de Santa
+ * Águeda, ramos de palmeira do Domingo de Ramos, terço católico de Lourdes
+ * (cinco dezenas, pendente e crucifixo), cruz de cinza, cálice, lousa e
+ * letras "ABC", trevo (três folhas com o coração do Twemoji 2764), hóstia,
+ * tiara, coroa de espinhos, gruta de Lourdes, fio de água, tábua de madeira,
+ * cruz celta, túmulo, estandarte do cordeiro, monte do Calvário, tampa e base
+ * do notebook, cruz do escudo, lança, cauda do dragão, mantos, poeira,
+ * pétalas, lascas, pixels e traços de vento.
  *
  * Uso: node scripts/trophy-lot-2.js
  * Recusa (e não escreve) qualquer id que já esteja em APPROVED_LOTTIE.
@@ -305,7 +306,7 @@ for (const key of REUSED) {
 /** Peças principais desenhadas no próprio gerador (sem fonte externa; ver o cabeçalho). */
 const DRAWN = {
   "desenho-velas-cruzadas": { desc: "duas velas compridas cruzadas, com fita (bênção de São Brás)" },
-  "desenho-veu": { desc: "véu branco de Santa Águeda, de tecido ondulando" },
+  "desenho-jovem-veu": { desc: "véu branco de Santa Águeda caindo sobre a cabeça e os ombros da jovem (busto desenhado)" },
   "desenho-cruz-de-cinza": { desc: "cruz traçada com cinza" },
   "desenho-trevo": { desc: "trevo de três folhas (folhas com o coração do Twemoji 2764)" },
   "desenho-ramo-de-palmeira": { desc: "folha de palmeira solta, sem tronco (ramo da procissão)" },
@@ -401,7 +402,11 @@ function palmaEmPe(nm, size, base, ks = {}, { mirror = false } = {}) {
   return L(nm, piece(PALMA, size), { a, p: base, r: mirror ? 45 : -45, ...(mirror ? { s: [-100, 100] } : {}), ...ks });
 }
 
-/** Santa Águeda: uma palma sobe e se abre; um véu de tecido desce e cai atrás dela. */
+/**
+ * Santa Águeda: o busto de uma jovem (rosto, cabelo e ombros, com a veste
+ * vermelha de mártir); um véu de tecido desce, cobre a cabeça dela e cai em
+ * dobras sobre os ombros, e a palma do martírio sobe à frente.
+ */
 function gestoAgueda(t) {
   const palmaLayer = palmaEmPe("G_Palma", 52, [80, 156], {
     p: anim([[0, [80, 172]], [4, [80, 172], "out"], [22, [80, 156]]]),
@@ -409,49 +414,74 @@ function gestoAgueda(t) {
     r: anim([[0, -45], [24, -45], ...onda(-45, 3, 24, END, { period: 30 })]),
     o: anim(aparecer(4, 4)),
   });
-  // Véu de tecido (não um vulto): pano que pende de um ponto franzido no alto
-  // e cai ondulando, como ao vento, cada vez mais largo, com a barra cortada
-  // em viés e dobras que seguem a onda. Cai e pousa atrás da palma. O ponto de
-  // cima fica em (0,0).
-  const H = 70;
-  const meio = (u) => [9 * Math.sin(Math.PI * 1.6 * u) - 4 * u, H * u];
-  const larg = (u) => 4 + 22 * Math.pow(u, 0.8);
-  const borda = (sx) => Array.from({ length: 9 }, (_, k) => {
-    const u = k / 8, [x, y] = meio(u);
-    return [x + sx * larg(u), y + (k === 8 ? sx * 6 : 0)];
+  // Busto da jovem (como o manto de Maria Mãe de Deus, noutra paleta): rosto,
+  // cabelo castanho solto até os ombros, pescoço e veste vermelha. Rosto em
+  // (108, 88); fica parado depois de entrar.
+  const CX = 108, CY = 88;
+  const veste = forma([[CX, 104], [CX + 14, 108], [CX + 28, 120], [CX + 34, 144], [CX + 36, 166], [CX - 36, 166], [CX - 34, 144], [CX - 28, 120], [CX - 14, 108]]);
+  const decote = forma([[CX - 7, 106], [CX + 7, 106], [CX, 116]]);
+  const cabelo = forma([[CX, 70], [CX + 13, 76], [CX + 16, 92], [CX + 17, 116], [CX + 8, 122], [CX - 8, 122], [CX - 17, 116], [CX - 16, 92], [CX - 13, 76]]);
+  const olho = (sx) => lib.polyline([[CX + sx * 6 - 3, CY - 1], [CX + sx * 6, CY + 1], [CX + sx * 6 + 3, CY - 1]]);
+  const bustoLayer = L("G_Busto", [
+    stroke([olho(-1), olho(1)], 1.3, hex("#662113"), "Olhos"),
+    lib.makeEllipse(CX - 7, CY + 6, 2.6, 1.6, hex("#F4ABBA"), "Face1", 80),
+    lib.makeEllipse(CX + 7, CY + 6, 2.6, 1.6, hex("#F4ABBA"), "Face2", 80),
+    stroke([lib.polyline([[CX - 2.5, CY + 8], [CX, CY + 9], [CX + 2.5, CY + 8]])], 1.2, hex("#C1694F"), "Boca"),
+    lib.makeEllipse(CX, CY, 11, 14, hex("#F7DECE"), "Rosto"),
+    fill([rect(CX - 4, CY + 8, CX + 4, 108)], "#EDC0A2", "Pescoco"),
+    fill([decote], "#EDC0A2", "Decote"),
+    fill([veste], "#BE1931", "Veste"),
+    fill([cabelo], "#963B22", "Cabelo"),
+  ], {
+    p: anim([[0, [0, 8], "out"], [14, [0, 0]]]),
+    o: anim(aparecer(0, 10)),
   });
-  const veu = forma([[0, -1], ...borda(1).slice(1), ...borda(-1).slice(1).reverse()]);
-  const dobra = (f) => lib.polyline(Array.from({ length: 7 }, (_, k) => {
-    const u = 0.08 + (0.84 * k) / 6, [x, y] = meio(u);
-    return [x + f * larg(u), y + f * 4 * u];
-  }));
-  const pregas = [forma([...[0.1, 0.5, 0.92].map((u) => add(meio(u), [-0.45 * larg(u), 0])), ...[0.92, 0.5, 0.1].map((u) => add(meio(u), [-0.2 * larg(u), 0]))])];
-  const dobras = [dobra(-0.55), dobra(0.1), dobra(0.6)];
+  // Véu de tecido: cobre o alto da cabeça, contorna o rosto (abertura em
+  // volta dele) e cai pelos dois lados sobre os ombros, deixando à vista o
+  // meio da veste. Desenhado na posição final; o alto do véu (CX, 61) é a
+  // âncora. Desce de cima, abrindo, e pousa na cabeça.
+  const fora = [[CX - 38, 162], [CX - 34, 140], [CX - 26, 118], [CX - 22, 98], [CX - 20, 80], [CX - 12, 66], [CX, 61],
+    [CX + 12, 66], [CX + 20, 80], [CX + 22, 98], [CX + 26, 118], [CX + 34, 140], [CX + 38, 162]];
+  const barraDir = [[CX + 30, 158], [CX + 24, 163], [CX + 17, 156]];
+  const dentro = [[CX + 17, 140], [CX + 15, 118], [CX + 13, 98], [CX + 13, 82], [CX + 7, 72], [CX, 70],
+    [CX - 7, 72], [CX - 13, 82], [CX - 13, 98], [CX - 15, 118], [CX - 17, 140]];
+  const barraEsq = [[CX - 17, 156], [CX - 24, 163], [CX - 30, 158]];
+  const veu = forma([...fora, ...barraDir, ...dentro, ...barraEsq]);
+  // sombra da borda que contorna o rosto (o avesso do pano)
+  const avesso = forma([...dentro.map(([x, y]) => [x + Math.sign(x - CX) * 4, y - (y < 84 ? 3 : 0)]), ...dentro.slice().reverse()]);
+  const dobras = [
+    lib.polyline([[CX - 17, 78], [CX - 21, 110], [CX - 28, 140], [CX - 30, 156]]),
+    lib.polyline([[CX - 18, 104], [CX - 22, 132], [CX - 22, 158]]),
+    lib.polyline([[CX + 17, 78], [CX + 21, 110], [CX + 28, 140], [CX + 30, 156]]),
+    lib.polyline([[CX + 18, 104], [CX + 22, 132], [CX + 22, 158]]),
+  ];
   const veuLayer = L("G_Veu", [
     stroke(dobras, 1.2, hex("#CCD6DD"), "Dobras"),
-    fill(pregas, "#E1E8ED", "Pregas"),
-    lib.makeEllipse(0, 0, 4, 3, hex("#E1E8ED"), "Franzido"),
-    fill([veu], "#F5F8FA", "Veu", 92),
+    fill([avesso], "#E1E8ED", "Avesso"),
+    fill([veu], "#F5F8FA", "Veu"),
   ], {
-    p: anim([[0, [112, 30]], [18, [112, 30], "in"], [40, [112, 74], "out"], [46, [112, 72]]]),
-    r: anim([[0, -8], [18, -8], [40, 4], ...onda(0, 3, 46, END, { period: 30 })]),
+    a: [CX, 61],
+    p: anim([[0, [CX, 36]], [18, [CX, 36], "in"], [40, [CX, 63], "out"], [46, [CX, 61]]]),
+    s: anim([[0, [84, 76]], [18, [84, 76], "in"], [40, [100, 100]]]),
+    r: anim([[0, -6], [18, -6], [40, 1], ...onda(0, 1.2, 46, END, { period: 30 })]),
     o: anim(aparecer(18, 8)),
   });
   const layers = [];
   if (t >= 3) {
-    layers.push(L("T3_Coroa", piece("twemoji-1f451", 26), {
-      p: anim([[0, [100, 36]], [50, [100, 36], "ease"], [64, [100, 46]], ...flutuar([100, 46], 64, 1.5)]),
+    layers.push(L("T3_Coroa", piece("twemoji-1f451", 24), {
+      p: anim([[0, [CX, 36]], [50, [CX, 36], "ease"], [64, [CX, 52]], ...flutuar([CX, 52], 64, 1.5)]),
       o: anim(aparecer(50, 8)),
     }));
   }
-  layers.push(palmaLayer, veuLayer);
+  layers.push(palmaLayer);
   if (t >= 2) {
     const LI = "twemoji-269c";
     layers.push(L("T2_Lirio", piece(LI, 28, { recolor: { "#744EAA": "#CCD6DD", "#AA8DD8": "#FFFFFF", "#9266CC": "#FFCC4D" } }), {
-      a: pt(LI, 28, [18, 36]), p: [150, 168],
+      a: pt(LI, 28, [18, 36]), p: [152, 168],
       s: anim(abrir(44, 58, { axis: "y" })), o: anim(aparecer(44, 4)),
     }));
   }
+  layers.push(veuLayer, bustoLayer);
   return layers;
 }
 
@@ -1149,7 +1179,7 @@ const TROPHIES = [
   // Fevereiro
   { id: "lt_apresentacao",        kind: "liturgical", icon: "twemoji-1f56f",          color: "branco",   gesture: gestoApresentacao, symbol: "vela da festa das candeias" },
   { id: "lt_bras",                kind: "liturgical", icon: "desenho-velas-cruzadas", color: "vermelho", gesture: gestoBras,         symbol: "velas cruzadas da bênção da garganta" },
-  { id: "lt_agueda",              kind: "liturgical", icon: "desenho-veu",            color: "vermelho", gesture: gestoAgueda,       halo: { center: [112, 62], rx: 13, ry: 4, t0: 46 }, symbol: "palma do martírio e véu" },
+  { id: "lt_agueda",              kind: "liturgical", icon: "desenho-jovem-veu",      color: "vermelho", gesture: gestoAgueda,       halo: { center: [108, 57], rx: 15, ry: 4, t0: 46 }, symbol: "jovem sob o véu, com a palma do martírio" },
   { id: "lt_lourdes",             kind: "liturgical", icon: "twemoji-1f339",          color: "branco",   gesture: gestoLourdes,      symbol: "fonte da gruta e rosa amarela" },
   { id: "lt_valentim",            kind: "liturgical", icon: "twemoji-1f495",          color: "vermelho", gesture: gestoValentim,     halo: { center: [104, 62], rx: 16, ry: 4.5, t0: 44 }, symbol: "dois corações que se encontram" },
   { id: "lt_cathedra_pedro",      kind: "liturgical", icon: "twemoji-1fa91",          color: "branco",   gesture: gestoCathedra,     symbol: "cátedra e chaves de Pedro" },

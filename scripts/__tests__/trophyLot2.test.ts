@@ -41,14 +41,21 @@ describe("Lottie — lote 2", () => {
     expect(new Set(prints).size).toBe(prints.length);
   });
 
-  it("Santa Águeda: a palma é desenhada por cima do véu, nos três níveis", () => {
-    for (const f of ["lt_agueda.json", "lt_agueda_t2.json", "lt_agueda_t3.json"]) {
+  it("Santa Águeda: palma, lírio e coroa na frente do véu; o busto da jovem atrás dele, nos três níveis", () => {
+    const files = ["lt_agueda.json", "lt_agueda_t2.json", "lt_agueda_t3.json"];
+    files.forEach((f, k) => {
       const nomes = readLottie(f).layers.map((ly: any) => ly.nm);
-      expect(nomes, f).toContain("G_Palma");
-      expect(nomes, f).toContain("G_Veu");
-      // camadas da frente para trás: a palma vem antes do véu
-      expect(nomes.indexOf("G_Palma"), f).toBeLessThan(nomes.indexOf("G_Veu"));
-    }
+      // camadas da frente para trás: o que vem antes fica na frente
+      const pos = (nm: string) => {
+        expect(nomes, f).toContain(nm);
+        return nomes.indexOf(nm);
+      };
+      const veu = pos("G_Veu");
+      expect(pos("G_Palma"), f).toBeLessThan(veu);
+      expect(pos("G_Busto"), f).toBeGreaterThan(veu);
+      if (k === 1) expect(pos("T2_Lirio"), f).toBeLessThan(veu);
+      if (k === 2) expect(pos("T3_Coroa"), f).toBeLessThan(veu);
+    });
   });
 
   it("São Isidoro: as páginas que viram têm a mesma forma da página da direita do livro", () => {
