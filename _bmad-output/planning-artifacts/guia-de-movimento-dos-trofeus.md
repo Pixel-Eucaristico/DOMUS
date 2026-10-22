@@ -84,15 +84,15 @@ Regras vindas da aprovação dos lotes 1 e 2: a luz usa só a `luzSuave` (sem es
 | Troféu | Gesto | Prata acrescenta | Ouro acrescenta |
 |---|---|---|---|
 | São José Operário | a plaina corre sobre a tábua e soltam-se lascas | martelo bate | auréola e raios dourados |
-| Nossa Senhora de Fátima | Maria (busto, manto branco) aparece sobre a azinheira | três pastorinhos pequenos | o sol dança girando e luz |
-| São Matias | o dado de sorteio rola e para; uma auréola acende | machado (martírio) ao lado | luz e palma |
+| Nossa Senhora de Fátima | Maria grande e central, manto branco com orla dourada e mãos postas, de pé sobre a azinheira | três pastorinhos pequenos | o sol dança girando e luz |
+| São Matias | um círculo de 11 chamas acende a 12ª, completando os Doze | livro aberto | machado do martírio e luz |
 | São Isidoro Lavrador | o arado abre um sulco e brotos nascem | anjo (asas) arando ao lado | trigo maduro dourado |
 | Santa Rita de Cássia | uma rosa floresce no meio da neve | espinho na fronte (pequena estrela) | figos e luz |
-| Visitação de Maria | duas figuras (bustos) se aproximam e se abraçam | estrela entre elas | luz e confete de flores |
-| Ascensão do Senhor | nuvem sobe levando a luz para o alto | pegadas na pedra | céu se abre com raios |
+| Visitação de Maria | Maria e Isabel se inclinam uma para a outra; a mão de Isabel pousa sobre a de Maria | estrela entre elas | luz e confete de flores |
+| Ascensão do Senhor | Jesus glorioso (corpo inteiro, túnica branca, braços abertos) sobe sobre a nuvem e a luz acende | pegadas na pedra | céu se abre com raios |
 | Pentecostes | línguas de fogo descem e acendem | pomba no alto | doze chamas e luz |
 | Corpus Christi | a custódia aparece e a hóstia brilha no centro | pétalas caindo | raios dourados da custódia |
-| Sagrado Coração de Jesus | o coração com chamas e a cruz pulsa | coroa de espinhos em volta | raios de luz do coração |
+| Sagrado Coração de Jesus | o coração com chamas e a cruz pulsa | coroa de espinhos envolvendo o coração (não por cima) | raios de luz do coração |
 | São Barnabé | o livro do Evangelho abre sobre uma pedra | ramo de oliveira | auréola e raios |
 | Santo Antônio de Lisboa e Pádua | o Menino Jesus (pequeno) aparece sobre o livro aberto | lírio | pães e luz |
 | São Luís Gonzaga | o lírio sobe e se abre ao lado do crucifixo | terço católico desenhado | auréola e raios |
@@ -100,7 +100,7 @@ Regras vindas da aprovação dos lotes 1 e 2: a luz usa só a `luzSuave` (sem es
 | Natividade de João Batista | a fogueira de São João acende | cordeiro | concha de batismo e água |
 | São Ireneu de Lyon | o báculo de bispo se ergue e o livro abre | mitra | auréola e raios |
 | São Pedro e São Paulo | as chaves e a espada se cruzam em X | rede de pesca | dupla auréola e luz |
-| São Tomé Apóstolo | a mão se estende e a luz das chagas acende | esquadro de construtor | auréola e raios |
+| São Tomé Apóstolo | Jesus ressuscitado e Tomé, de corpo inteiro; a mão de Tomé entra na chaga do lado | esquadro de construtor | auréolas e raios |
 | São Bento de Núrsia | a medalha de São Bento gira e mostra a cruz | o corvo pousa | livro da Regra e luz |
 | Nossa Senhora do Carmo | o escapulário marrom desce | estrela do Carmelo | Maria (busto, manto marrom) e luz |
 | Santa Maria Madalena | o vaso de perfume abre e o aroma sobe | lágrima e coração | luz da manhã de Páscoa |
