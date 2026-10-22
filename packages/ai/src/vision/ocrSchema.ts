@@ -33,7 +33,6 @@ export const PayslipDeductionSchema = z.object({
 export const PayslipOCRSchema = z.object({
   company: z.string(),
   cnpj: z.string().optional(),
-  employee: z.string().optional(),
   period: z.string(),
   grossSalary: z.number(),
   deductions: z.array(PayslipDeductionSchema),

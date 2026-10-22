@@ -18,7 +18,7 @@ Para cada item, inclua o codigo EAN/GTIN (codigo de barras) e NCM (8 digitos) se
 Se EAN ou NCM nao estiverem visiveis, omita esses campos do item.`;
 
 const PAYSLIP_USER_PROMPT = `Extraia os dados deste holerite/contracheque no formato JSON:
-{"company":"nome empresa","cnpj":"XX.XXX.XXX/XXXX-XX","employee":"nome","period":"MM/YYYY","grossSalary":0.00,"deductions":[{"name":"INSS","value":0.00}],"netSalary":0.00}`;
+{"company":"nome empresa","cnpj":"XX.XXX.XXX/XXXX-XX","period":"MM/YYYY","grossSalary":0.00,"deductions":[{"name":"INSS","value":0.00}],"netSalary":0.00}`;
 
 /** Vision-capable providers */
 const VISION_PROVIDERS: AIProvider[] = ["openai", "gemini", "claude", "qwen"];
