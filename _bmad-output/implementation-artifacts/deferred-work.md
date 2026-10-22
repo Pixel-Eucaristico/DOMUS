@@ -86,3 +86,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-11-8-registrar-lottie-aprovados.md`
   summary: D29 — Os geradores antigos (`scripts/gen_seasonal_tiers.js`, `scripts/gen_trophy_*.js`) gravam direto com `fs.writeFileSync` e sobrescrevem Lottie já aprovados, sem a recusa do `writeTrophy`.
   evidence: só os lotes (`trophy-kit.main` → `writeTrophy`) recusam ids aprovados; o teste de hash do D28 acusa a mudança depois, mas não impede.
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-2-quarentena-no-replay.md`
+  summary: D30 — Em release, o usuário não vê a Quarentena: um evento descartado no replay some do app sem aviso (só o DebugTools, que é de desenvolvimento, mostra).
+  evidence: `DebugTools` só aparece com `__DEV__`. Avisar com contagem e opção de reportar, numa story própria.
