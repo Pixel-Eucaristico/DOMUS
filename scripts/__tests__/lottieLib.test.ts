@@ -293,6 +293,97 @@ describe("desenhos do lote 3 (busto, concha, espelhar, transladar)", () => {
     expect(busto(1).map((g: any) => g.nm)).toContain("Face1");
   });
 
+  it("figura recusa escala e braços inválidos; espinhosShapes recusa metade desconhecida e divide a coroa", () => {
+    const { figura, espinhosShapes } = require("../lottie-lib/desenhos");
+    expect(() => figura(0)).toThrow(/escala inválida 0/);
+    expect(() => figura(1, { bracos: "cruzados" })).toThrow(/bracos "cruzados"/);
+    expect(() => figura(1, { manto: "#FFFFFF", cabelo: "longo" })).toThrow(/manto não combina com cabelo/);
+    expect(() => espinhosShapes(10, 4, "#8A4633", { metade: "lado" })).toThrow(/metade "lado"/);
+    const ys = (metade: string) => espinhosShapes(10, 4, "#8A4633", { metade })[1].it.find((it: any) => it.ty === "sh").ks.k.v.map(([, y]: number[]) => y);
+    expect(ys("frente").every((y: number) => y >= -1e-9)).toBe(true);
+    expect(ys("tras").every((y: number) => y <= 1e-9)).toBe(true);
+  });
+
+  describe("figura (corpo inteiro)", () => {
+    const { figura, OMBRO_E, OMBRO_D, CHAGA } = require("../lottie-lib/desenhos");
+    const grupo = (gs: any[], nm: string) => gs.find((g: any) => g.nm === nm);
+    const centroEl = (g: any) => g.it.find((it: any) => it.ty === "el").p.k;
+    const vs = (g: any) => g.it.filter((it: any) => it.ty === "sh").flatMap((it: any) => it.ks.k.v);
+
+    it("recusa orla sem manto e manto com cabelo, com o nome da ajuda", () => {
+      expect(() => figura(1, { orla: "#FFCC4D" })).toThrow(/^figura: orla só vale com manto/);
+      expect(() => figura(1, { manto: "#FFFFFF", corCabelo: "#000000" })).toThrow(/^figura: manto não combina/);
+    });
+
+    it("geometria documentada (k = 1 e k = 0,5): rosto 22 × 28, corpo x ±32 de y 16 a 104, pés em y 106, manto de −29 a 106", () => {
+      for (const k of [1, 0.5]) {
+        const gs = figura(k);
+        expect(grupo(gs, "Rosto").it.find((it: any) => it.ty === "el").s.k).toEqual([22 * k, 28 * k]);
+        const corpo = vs(grupo(gs, "Veste"));
+        expect(Math.min(...corpo.map(([x]: number[]) => x))).toBeCloseTo(-32 * k);
+        expect(Math.max(...corpo.map(([x]: number[]) => x))).toBeCloseTo(32 * k);
+        expect(Math.min(...corpo.map(([, y]: number[]) => y))).toBeCloseTo(16 * k);
+        expect(Math.max(...corpo.map(([, y]: number[]) => y))).toBeCloseTo(104 * k);
+        expect(centroEl(grupo(gs, "PeE"))).toEqual([-9 * k, 106 * k]);
+        expect(centroEl(grupo(gs, "PeD"))).toEqual([9 * k, 106 * k]);
+        const capa = vs(grupo(figura(k, { manto: "#FFFFFF" }), "Manto"));
+        expect(Math.min(...capa.map(([, y]: number[]) => y))).toBeCloseTo(-29 * k);
+        expect(Math.max(...capa.map(([, y]: number[]) => y))).toBeCloseTo(106 * k);
+      }
+    });
+
+    it("braços: abertos chegam a ±44; mostrando ergue só o da esquerda; esquerdo só desenha esse; postas junta as mãos no peito", () => {
+      const abertos = figura(1, { bracos: "abertos" });
+      expect(centroEl(grupo(abertos, "MaoE"))).toEqual([-44, 2]);
+      expect(centroEl(grupo(abertos, "MaoD"))).toEqual([44, 2]);
+      const mostrando = figura(1, { bracos: "mostrando" });
+      expect(centroEl(grupo(mostrando, "MaoE"))).toEqual([-44, 12]);
+      expect(centroEl(grupo(mostrando, "MaoD"))).toEqual([27, 62]);
+      const esquerdo = figura(1, { bracos: "esquerdo" });
+      expect(grupo(esquerdo, "MaoE")).toBeDefined();
+      expect(grupo(esquerdo, "MaoD")).toBeUndefined();
+      expect(grupo(esquerdo, "BracoD")).toBeUndefined();
+      const postas = figura(1, { bracos: "postas" });
+      expect(grupo(postas, "MaosPostas")).toBeDefined();
+      expect(grupo(postas, "MaoE")).toBeUndefined();
+      // os braços começam nos ombros exportados
+      expect(vs(grupo(abertos, "BracoE"))[0]).toEqual(OMBRO_E);
+      expect(vs(grupo(abertos, "BracoD"))[0]).toEqual(OMBRO_D);
+    });
+
+    it("chaga (em CHAGA·k) e faixa ficam na frente do corpo e do manto", () => {
+      const gs = figura(0.5, { manto: "#FFFFFF", chaga: true, faixa: "#FFCC4D" });
+      const ix = (nm: string) => gs.findIndex((g: any) => g.nm === nm);
+      expect(centroEl(grupo(gs, "Chaga"))).toEqual([CHAGA[0] * 0.5, CHAGA[1] * 0.5]);
+      for (const nm of ["Chaga", "Faixa"]) {
+        expect(ix(nm), nm).toBeGreaterThan(-1);
+        expect(ix(nm), nm).toBeLessThan(ix("Manto"));
+        expect(ix(nm), nm).toBeLessThan(ix("Veste"));
+      }
+    });
+  });
+
+  it("espinhosShapes: frente + trás = a coroa inteira, e nenhuma ponta passa para a outra metade", () => {
+    const { espinhosShapes } = require("../lottie-lib/desenhos");
+    expect(() => espinhosShapes(10, 4, "#8A4633", null)).not.toThrow();
+    const partes = (metade: string | null) => {
+      const [pontas, trama] = espinhosShapes(26, 4, "#8A4633", { metade });
+      return {
+        pontas: pontas.it.filter((it: any) => it.ty === "sh").map((it: any) => it.ks.k.v),
+        anel: trama.it.find((it: any) => it.ty === "sh").ks.k.v,
+      };
+    };
+    const toda = partes(null), frente = partes("frente"), tras = partes("tras");
+    const chave = (pts: number[][]) => pts.map((p) => p.join(",")).sort();
+    // as mesmas pontas (pela base) e os mesmos pontos do anel
+    expect(chave([...frente.pontas, ...tras.pontas].map((v: number[][]) => v[0]))).toEqual(chave(toda.pontas.map((v: number[][]) => v[0])));
+    expect(new Set([...frente.anel, ...tras.anel].map((p: number[]) => p.join(",")))).toEqual(new Set(toda.anel.map((p: number[]) => p.join(","))));
+    for (const v of frente.pontas) for (const [, y] of v) expect(y).toBeGreaterThanOrEqual(0);
+    for (const v of tras.pontas) for (const [, y] of v) expect(y).toBeLessThanOrEqual(0);
+    // a coroa inteira (lote 2) não muda: com ry = 4 alguma ponta da frente cruzaria y = 0
+    expect(toda.pontas.some((v: number[][]) => v[0][1] >= 0 && v[1][1] < 0)).toBe(true);
+  });
+
   it("conchaShapes recusa raio inválido", () => {
     expect(() => conchaShapes(0)).toThrow(/raio inválido 0/);
   });

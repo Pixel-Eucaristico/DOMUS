@@ -2,7 +2,7 @@
 title: 'Story 11.7: ajustes do dono no lote 3 (rodada 3)'
 type: 'bugfix'
 created: '2026-10-22'
-status: 'in-review'
+status: 'done'
 baseline_commit: '35f8088688a323b9bc7eb5096e4054aa55b029b3'
 route: 'dispatch'
 review_loop_iteration: 0

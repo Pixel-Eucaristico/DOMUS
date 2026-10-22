@@ -22,7 +22,7 @@
  * de execução). Além das peças novas abaixo, o lote reaproveita peças da tabela
  * comum `scripts/lottie-lib/icons.js` (REUSED), das mesmas fontes:
  *  - Twemoji (https://github.com/jdecked/twemoji, v15.1.0), licença CC-BY 4.0
- *    — © Twitter, Inc. e colaboradores. (A elipse do 1f3b2 virou caminho.)
+ *    — © Twitter, Inc. e colaboradores.
  *  - Bootstrap Icons (https://github.com/twbs/icons, v1.11.3), licença MIT
  *    — © The Bootstrap Authors.
  *
@@ -36,10 +36,13 @@
  * desenho-chapeus, desenho-fogueira, desenho-baculo, desenho-chaves-e-espada,
  * desenho-medalha-sao-bento, desenho-escapulario, desenho-vaso-de-perfume,
  * desenho-vela-e-livro, desenho-lamparina, desenho-concha-de-vieira,
- * desenho-sant-ana-e-joaquim, desenho-vassoura e desenho-ihs. Todas as
- * desenhadas: bustos (Maria de Fátima, pastorinhos, Maria e Isabel, Menino
- * Jesus, Maria do Carmo, Sant'Ana, São Joaquim e a menina Maria), plaina,
- * tábua, lascas, azinheira, arado, sulco, campo, neve, figos, braço do abraço,
+ * desenho-sant-ana-e-joaquim, desenho-vassoura, desenho-ihs,
+ * desenho-doze-chamas, desenho-tome-e-jesus e desenho-jesus-glorioso. Todas as desenhadas: figuras de
+ * corpo inteiro no estilo dos bustos (`figura`: Maria de Fátima, Jesus
+ * glorioso, Jesus ressuscitado e São Tomé, com o braço e a mão de Tomé),
+ * bustos (pastorinhos, Maria e Isabel, Menino Jesus, Maria do Carmo,
+ * Sant'Ana, São Joaquim e a menina Maria), mãos de Maria e Isabel, plaina,
+ * tábua, lascas, azinheira, arado, sulco, campo, neve, figos, círculo de chamas,
  * monte, pegadas, custódia, cruz do Sagrado Coração, ramo de oliveira,
  * crucifixo, terço católico, chapéu de cardeal (galero), chapéu de chanceler,
  * lenha da fogueira, fio de água, concha de vieira, báculo, mitra, rede de
@@ -56,25 +59,12 @@
 const lib = require("./lottie-lib");
 const kit = require("./lottie-lib/trophy-kit");
 const { ICONS: SHARED_ICONS } = require("./lottie-lib/icons");
-const { rect, forma, poligono, fill, hostiaShapes, espinhosShapes, velaComprida, brilho, chuva, petala, PELE, PELE_SOMBRA, busto, chamaShapes, livroAbertoShapes, tercoShapes, conchaShapes, espelhar, transladar } = require("./lottie-lib/desenhos");
+const { rect, forma, poligono, fill, hostiaShapes, espinhosShapes, velaComprida, brilho, chuva, petala, PELE, busto, figura, OMBRO_D, CHAGA, chamaShapes, livroAbertoShapes, tercoShapes, conchaShapes, espelhar, transladar } = require("./lottie-lib/desenhos");
 const { anim, trajeto, pulo, abrir, onda, aparecer, pop, pulsar, giro, hex } = lib;
 const { END, L, add, flutuar, deslocar, stroke, reta, aureola, raios } = kit;
 
 // ── Peças novas (fonte e licença por ícone) ──────────────────────────────────
 const NEW_ICONS = {
-  "twemoji-1f3b2": {
-    source: "Twemoji 1f3b2.svg (jdecked/twemoji 15.1.0)",
-    license: "CC-BY 4.0",
-    viewBox: 36,
-    elements: [
-      { fill: "#A0041E", d: "M4 11v.137c0-.042.011-.084.015-.126L4 11zm13 11.137c-.146-.067-.287-.145-.412-.246L4.565 12.245C4.188 11.94 4 11.539 4 11.137v12.238c0 2.042 1.093 2.484 1.093 2.484l11.574 9.099c.205.161.377.259.528.318-.114-.174-.195-.375-.195-.604V22.137zm-8.773.363c-.994 0-2.033-1.007-2.319-2.25-.287-1.242.287-2.249 1.28-2.249.994 0 2.033 1.007 2.319 2.249.287 1.243-.286 2.25-1.28 2.25zM13.81 30c-.994 0-2.033-1.008-2.319-2.25-.287-1.243.287-2.25 1.281-2.25s2.033 1.007 2.319 2.25c.286 1.242-.287 2.25-1.281 2.25z" },
-      { fill: "#DD2E44", d: "M31.435 12.161l-12.104 9.73c-.102.083-.214.152-.331.212v12.569c0 .233-.083.437-.2.614.155-.058.335-.16.548-.328 1.821-1.432 11.588-9.099 11.588-9.099S32 25.417 32 23.375V11.053c0 .402-.188.803-.565 1.108zm-7.457 16.731c-.242 1.137-1.119 2.058-1.958 2.058-.838 0-1.322-.921-1.08-2.058.242-1.137 1.118-2.058 1.957-2.058s1.322.921 1.081 2.058zm3.538-5.271c-.254 1.172-1.178 2.121-2.062 2.121-.883 0-1.392-.949-1.138-2.121.255-1.172 1.179-2.121 2.061-2.121.885 0 1.394.949 1.139 2.121zm3.063-5.105c-.251 1.115-1.163 2.017-2.035 2.017-.872 0-1.375-.902-1.123-2.017.251-1.113 1.162-2.016 2.034-2.016.873 0 1.376.903 1.124 2.016zm1.415-7.511c.001.016.006.032.006.048V11l-.006.005z" },
-      { fill: "#EA596E", d: "M31.435 9.945L19.289.5c-.753-.61-1.988-.61-2.742 0L4.565 10.029c-.338.273-.515.624-.551.983-.003.042-.014.083-.014.125 0 .402.188.803.565 1.108l12.023 9.646c.125.101.265.178.412.246v12.535c0 .229.081.43.194.604.181.28.466.474.806.474.336 0 .619-.19.8-.464.117-.176.2-.38.2-.614V22.103c.117-.06.229-.129.331-.212l12.104-9.73c.377-.305.565-.706.565-1.108 0-.016-.005-.032-.006-.049-.014-.385-.198-.767-.559-1.059zM18.5 8.667c1.61 0 2.916 1.044 2.916 2.333 0 1.289-1.306 2.333-2.916 2.333-1.611 0-2.916-1.044-2.916-2.333 0-1.289 1.305-2.333 2.916-2.333z" },
-      { fill: "#FFFFFF", d: "M15.584 11a2.916 2.333 0 1 0 5.832 0a2.916 2.333 0 1 0 -5.832 0z" },
-      { fill: "#FFFFFF", d: "M29.455 16.5c-.872 0-1.783.903-2.034 2.016-.252 1.115.251 2.017 1.123 2.017s1.784-.902 2.035-2.017c.252-1.113-.251-2.016-1.124-2.016zm-3.077 5c-.883 0-1.807.949-2.061 2.121-.254 1.172.255 2.121 1.138 2.121.884 0 1.808-.949 2.062-2.121.254-1.172-.255-2.121-1.139-2.121zm-3.482 5.334c-.839 0-1.715.921-1.957 2.058-.242 1.137.242 2.058 1.08 2.058.839 0 1.716-.921 1.958-2.058.242-1.137-.242-2.058-1.081-2.058z" },
-      { fill: "#E1E8ED", d: "M7.188 18.001c-.994 0-1.567 1.007-1.28 2.249.287 1.243 1.325 2.25 2.319 2.25s1.567-1.007 1.28-2.25c-.286-1.242-1.325-2.249-2.319-2.249zm5.583 7.499c-.994 0-1.567 1.007-1.281 2.25.287 1.242 1.326 2.25 2.32 2.25.994 0 1.567-1.008 1.281-2.25-.287-1.243-1.326-2.25-2.32-2.25z" },
-    ],
-  },
   "twemoji-1fa93": {
     source: "Twemoji 1fa93.svg (jdecked/twemoji 15.1.0)",
     license: "CC-BY 4.0",
@@ -110,15 +100,6 @@ const NEW_ICONS = {
       { fill: "#88C9F9", d: "M19 27.586V8.415l4.828-4.829s.707-.707 0-1.415c-.707-.707-1.414 0-1.414 0L19 5.586V1s0-1-1-1-1 1-1 1v4.586l-3.414-3.415s-.707-.707-1.414 0c-.707.708 0 1.415 0 1.415L17 8.415v19.171l-4.828 4.828s-.707.707 0 1.414 1.414 0 1.414 0L17 30.414V35s0 1 1 1 1-1 1-1v-4.586l3.414 3.414s.707.707 1.414 0 0-1.414 0-1.414L19 27.586z" },
       { fill: "#88C9F9", d: "M34.622 20.866c-.259-.966-1.225-.707-1.225-.707l-6.595 1.767-16.603-9.586-1.767-6.595s-.259-.966-1.225-.707C6.24 5.297 6.5 6.263 6.5 6.263l1.25 4.664-3.972-2.294s-.866-.5-1.366.366c-.5.866.366 1.366.366 1.366l3.971 2.293-4.664 1.249s-.967.259-.707 1.225c.259.967 1.225.708 1.225.708l6.596-1.767 16.603 9.586 1.767 6.596s.259.966 1.225.707c.966-.26.707-1.225.707-1.225l-1.25-4.664 3.972 2.293s.867.5 1.367-.365c.5-.867-.367-1.367-.367-1.367l-3.971-2.293 4.663-1.249c0-.001.966-.26.707-1.226z" },
       { fill: "#88C9F9", d: "M33.915 13.907l-4.664-1.25 3.972-2.293s.867-.501.367-1.367c-.501-.867-1.367-.366-1.367-.366l-3.971 2.292 1.249-4.663s.259-.966-.707-1.225c-.966-.259-1.225.707-1.225.707l-1.767 6.595-16.604 9.589-6.594-1.768s-.966-.259-1.225.707c-.26.967.707 1.225.707 1.225l4.663 1.249-3.971 2.293s-.865.501-.365 1.367c.5.865 1.365.365 1.365.365l3.972-2.293-1.25 4.663s-.259.967.707 1.225c.967.26 1.226-.706 1.226-.706l1.768-6.597 16.604-9.585 6.595 1.768s.966.259 1.225-.707c.255-.967-.71-1.225-.71-1.225z" },
-    ],
-  },
-  "twemoji-1faf1": {
-    source: "Twemoji 1faf1.svg (jdecked/twemoji 15.1.0)",
-    license: "CC-BY 4.0",
-    viewBox: 36,
-    elements: [
-      { fill: "#EF9645", d: "M33.035 15.5a2.5 2.5 0 0 1-2.5 2.5h-.005l5.005 2.5a2.5 2.5 0 0 1-2.5 2.5H31.75l1.535 2.5a2.5 2.5 0 0 1-2.5 2.5H27.25L18 29V15.458l15.035.042z" },
-      { fill: "#FFDC5D", d: "M19.781 4.625c.611 1.381-.208 3.354-2.188 4.75-1.3.917-3.151 1.187-3.344 2.391-.073.46.313 1.234 1.397 1.234H31.5s2 0 2 2-2 2-2 2H19.867c.029 0 .064 1 .082 1H34s2 0 2 2-2 2-2 2H19.947c-.017 0-.041 1-.069 1H31.75s2 0 2 2-2 2-2 2H19.112c-.118 0-.251 1-.398 1h8.536s2 0 2 2-2 2-2 2H12C5.373 32 0 26.627 0 20c0-4.775 2.598-8.06 5.292-9.896C7.577 8.547 9.949 8.096 10.666 8c0 0 1.479-.123 2.865-1.156a57.846 57.846 0 0 0 3.866-3.125c.359-.317 1.707-.625 2.384.906z" },
     ],
   },
   "twemoji-1f319": {
@@ -174,10 +155,10 @@ for (const key of REUSED) {
 /** Peças principais desenhadas no próprio gerador (sem fonte externa; ver o cabeçalho). */
 const DRAWN = {
   "desenho-plaina": { desc: "plaina de carpinteiro correndo sobre a tábua", uses: [] },
-  "desenho-maria-azinheira": { desc: "Maria (busto, manto branco) sobre a nuvem e a azinheira de Fátima", uses: [] },
+  "desenho-maria-azinheira": { desc: "Maria (corpo inteiro, manto branco, mãos postas) de pé sobre a azinheira de Fátima", uses: [] },
   "desenho-arado": { desc: "arado de São Isidoro abrindo o sulco, e os brotos", uses: ["twemoji-1f331"] },
   "desenho-rosa-na-neve": { desc: "rosa desenhada que floresce na neve, com flocos", uses: ["twemoji-2744"] },
-  "desenho-visitacao": { desc: "Maria e Isabel (dois bustos) que se abraçam", uses: [] },
+  "desenho-visitacao": { desc: "Maria e Isabel (dois bustos) inclinadas uma para a outra, mão sobre mão", uses: [] },
   "desenho-custodia": { desc: "custódia dourada com a hóstia", uses: [] },
   "desenho-sagrado-coracao": { desc: "coração com chamas desenhadas e a cruz", uses: ["twemoji-2764"] },
   "desenho-evangelho-na-pedra": { desc: "livro do Evangelho aberto sobre a pedra (ambos desenhados)", uses: [] },
@@ -196,6 +177,9 @@ const DRAWN = {
   "desenho-sant-ana-e-joaquim": { desc: "Sant'Ana, São Joaquim e a menina Maria (três bustos)", uses: [] },
   "desenho-vassoura": { desc: "vassoura de Santa Marta e o dragão que foge", uses: ["twemoji-1f409"] },
   "desenho-ihs": { desc: "monograma IHS num sol", uses: [] },
+  "desenho-jesus-glorioso": { desc: "Jesus glorioso (corpo inteiro, braços abertos) sobre a nuvem do Twemoji 2601", uses: ["twemoji-2601"] },
+  "desenho-doze-chamas": { desc: "círculo de 11 chamas desenhadas que acende a 12ª (os Doze)", uses: [] },
+  "desenho-tome-e-jesus": { desc: "Jesus ressuscitado e Tomé de corpo inteiro, a mão de Tomé na chaga", uses: [] },
 };
 
 const { piece, pt, pieces, pieceAt, buildTrophy, checkUniqueIcons, checkUniqueIds, main } = kit.makeLot(ICONS, { DRAWN });
@@ -286,29 +270,26 @@ function gestoJoseOperario(t) {
   return layers;
 }
 
-/** Nossa Senhora de Fátima: Maria (busto, manto branco) aparece sobre a azinheira. */
+/** Altura do rosto de Maria em Fátima, com os pés (rosto + 106·0,7) no alto da copa da azinheira (y 132). */
+const MARIA_FATIMA_Y = 132 - 106 * 0.7;
+
+/** Nossa Senhora de Fátima: Maria (corpo inteiro, manto branco, mãos postas) de pé sobre a copa da azinheira. */
 function gestoFatima(t, c) {
   const copa = L("G_Copa", [
-    lib.makeEllipse(82, 126, 16, 9, hex("#77B255"), "Folhas1"),
-    lib.makeEllipse(120, 125, 16, 9, hex("#77B255"), "Folhas2"),
-    lib.makeEllipse(100, 134, 38, 14, hex("#5C913B"), "Folhas3"),
-    lib.makeEllipse(68, 140, 16, 10, hex("#3E721D"), "Folhas4"),
-    lib.makeEllipse(132, 140, 16, 10, hex("#3E721D"), "Folhas5"),
-  ], { a: [100, 168], p: [100, 168], s: anim(pop(0, 14, { over: 104 })), o: anim(aparecer(0, 6)) });
-  const tronco = L("Tronco", [fill([forma([[95, 170], [97, 148], [90, 140], [96, 138], [100, 144], [104, 136], [110, 140], [103, 148], [105, 170]])], "#8A4633", "Tronco")], {
+    lib.makeEllipse(82, 138, 16, 9, hex("#77B255"), "Folhas1"),
+    lib.makeEllipse(120, 137, 16, 9, hex("#77B255"), "Folhas2"),
+    lib.makeEllipse(100, 146, 38, 14, hex("#5C913B"), "Folhas3"),
+    lib.makeEllipse(68, 152, 16, 10, hex("#3E721D"), "Folhas4"),
+    lib.makeEllipse(132, 152, 16, 10, hex("#3E721D"), "Folhas5"),
+  ], { a: [100, 178], p: [100, 178], s: anim(pop(0, 14, { over: 104 })), o: anim(aparecer(0, 6)) });
+  const tronco = L("Tronco", [fill([forma([[95, 178], [97, 156], [90, 148], [96, 146], [100, 152], [104, 144], [110, 148], [103, 156], [105, 178]])], "#8A4633", "Tronco")], {
     p: [0, 0], o: anim(aparecer(0, 6)),
   });
-  const nuvem = L("G_Nuvem", [
-    lib.makeEllipse(-9, -4, 9, 8, hex("#FFFFFF"), "Bola1"),
-    lib.makeEllipse(5, -6, 10, 9, hex("#FFFFFF"), "Bola2"),
-    fill([forma([[-22, 4], [-16, -2], [16, -2], [22, 4], [16, 8], [-16, 8]])], "#F5F8FA", "Base"),
-    fill([forma([[-20, 7], [20, 7], [14, 10], [-14, 10]])], "#E1E8ED", "Sombra"),
-  ], {
-    p: anim([[0, [100, 124]], [6, [100, 124], "out"], [18, [100, 118]], ...flutuar([100, 118], 18, 1.5)]), o: anim(aparecer(6, 8)),
-  });
-  const maria = L("G_Maria", busto(0.78, { manto: "#F5F8FA", veste: "#E1E8ED", orla: "#FFCC4D" }), {
-    p: anim([[0, [100, 98]], [12, [100, 98], "out"], [34, [100, 78]], ...flutuar([100, 78], 34, 1.5)]),
-    o: anim(aparecer(12, 10)),
+  // Maria grande e no centro, de pé sobre a copa, sempre na frente da árvore
+  const maria = L("G_Maria", figura(0.7, { manto: "#F5F8FA", tunica: "#E1E8ED", orla: "#FFCC4D", bracos: "postas" }), {
+    // pousa em 30 e fica parada: os pés (rosto + 106·0,7) ficam no alto da copa (y 132)
+    p: anim([[0, [100, 70]], [10, [100, 70], "out"], [30, [100, MARIA_FATIMA_Y]]]),
+    o: anim(aparecer(10, 10)),
   });
   const layers = [];
   if (t >= 3) {
@@ -317,37 +298,43 @@ function gestoFatima(t, c) {
       r: anim(giro(90)), o: anim(aparecer(44, 6)),
     }));
   }
-  layers.push(nuvem, copa, maria);
   if (t >= 2) {
     const crianca = (pos, veste, cabelo, corCabelo) => transladar(busto(0.3, { veste, cabelo, corCabelo }), pos);
     layers.push(L("T2_Pastorinhos", [
-      ...crianca([34, 148], "#7A4A2A", "longo", "#3B2416"),
-      ...crianca([54, 154], "#3B88C3", "curto", "#662113"),
-      ...crianca([164, 150], "#DD2E44", "longo", "#3B2416"),
-    ], { p: anim([[0, [0, 6]], [40, [0, 6], "out"], [52, [0, 0]]]), o: anim(aparecer(40, 6)) }));
+      ...crianca([31, 150], "#7A4A2A", "longo", "#3B2416"),
+      ...crianca([49, 154], "#3B88C3", "curto", "#662113"),
+      ...crianca([168, 152], "#DD2E44", "longo", "#3B2416"),
+    ], { p: anim([[0, [0, 3]], [40, [0, 3], "out"], [52, [0, 0]]]), o: anim(aparecer(40, 6)) }));
   }
-  layers.push(tronco);
+  layers.push(maria, copa, tronco);
   if (t >= 3) layers.push(luzDoOuro(c, { bottom: 140, w1: 76 }));
   return layers;
 }
 
-/** São Matias: o dado de sorteio rola e para; uma auréola acende. */
+/**
+ * São Matias: um círculo de 11 chamas (os Onze) acende a 12ª, no alto do
+ * círculo, completando os Doze.
+ */
 function gestoMatias(t, c) {
-  const D = "twemoji-1f3b2";
-  const dado1 = L("G_Dado1", piece(D, 36), {
-    p: anim(trajeto([[50, 96], [66, 146], [82, 134], [96, 146]], 0, 30)),
-    r: anim([[0, -270, "out"], [30, 0]]), o: anim(aparecer(0, 4)),
+  const C = [100, 114], R = 40, H = 16;
+  const lugar = (k) => {
+    const a = (k / 12) * Math.PI * 2 - Math.PI / 2;
+    return [R * Math.cos(a), R * Math.sin(a)];
+  };
+  const onze = L("G_Onze", Array.from({ length: 11 }, (_, j) => transladar(chamaShapes(H), lugar(j + 1))).flat(), {
+    p: C, s: anim([[0, 0], ...pop(0, 14, { over: 108 }), ...pulsar(30, END, { amp: 4, period: 12 })]), o: anim(aparecer(0, 6)),
   });
-  const dado2 = L("G_Dado2", piece(D, 28), {
-    p: anim([[0, [156, 92]], ...trajeto([[156, 92], [140, 148], [128, 138], [118, 148]], 8, 36)]),
-    r: anim([[0, 240], [8, 240, "out"], [36, 12]]), o: anim(aparecer(8, 4)),
-  });
+  const doze = chama("G_Chama12", H, add(C, lugar(0)), 26, { period: 12 });
   const layers = [];
-  if (t >= 3) layers.push(palmaEmPe("T3_Palma", 50, [50, 160], { p: anim([[0, [50, 174]], [46, [50, 174], "out"], [62, [50, 160]]]), o: anim(aparecer(46, 4)) }));
-  layers.push(dado1, dado2);
+  if (t >= 3) {
+    layers.push(L("T3_Machado", piece("twemoji-1fa93", 34), {
+      p: [158, 150], r: -20, s: anim([[0, 0], ...pop(46, 10, { over: 112 })]), o: anim(aparecer(46, 3)),
+    }));
+  }
+  layers.push(doze, onze);
   if (t >= 2) {
-    layers.push(L("T2_Machado", piece("twemoji-1fa93", 38), {
-      p: [152, 104], r: -20, s: anim([[0, 0], ...pop(44, 10, { over: 112 })]), o: anim(aparecer(44, 3)),
+    layers.push(L("T2_Livro", livroAbertoShapes(40, 24, "#BE1931"), {
+      p: add(C, [0, 6]), s: anim([[0, [4, 100]], ...abrir(40, 54, { axis: "x", from: 4 })]), o: anim(aparecer(40, 3)),
     }));
   }
   if (t >= 3) layers.push(luzDoOuro(c, { w1: 84 }));
@@ -442,20 +429,41 @@ function gestoRita(t, c) {
   return layers;
 }
 
-/** Visitação de Maria: duas figuras (bustos) se aproximam e se abraçam. */
+/**
+ * Visitação de Maria: Maria e Isabel (bustos) se aproximam e se inclinam uma
+ * para a outra, com as cabeças próximas; a mão de Isabel pousa sobre a de Maria.
+ */
 function gestoVisitacao(t, c) {
   const K = 0.72, base = [0, 75 * K];
-  const figura = (nm, opts, x0, x1, lean, t0) => L(nm, busto(K, opts), {
+  const pessoa = (nm, opts, x0, x1, lean, t0) => L(nm, busto(K, opts), {
     a: base, p: anim([[0, [x0, 90 + base[1]]], [t0, [x0, 90 + base[1]], "ease"], [t0 + 26, [x1, 90 + base[1]]]]),
     r: anim([[0, 0], [t0 + 26, 0, "ease"], [t0 + 36, lean]]), o: anim(aparecer(t0, 6)),
   });
-  const maria = figura("G_Maria", { manto: "#3D6FB6", veste: "#F5F8FA" }, 54, 84, 7, 4);
-  const isabel = figura("G_Isabel", { manto: "#A0785A", veste: "#FFE8B6" }, 146, 116, -7, 4);
-  const braco = lib.polyline([[94, 120], [106, 114], [118, 116], [126, 124]]);
-  const abraco = L("G_Abraco", [
-    lib.makeEllipse(127, 125, 3.2, 3.2, hex(PELE), "Mao"),
-    stroke([braco], 6, hex("#3D6FB6"), "Braco", { trim: { e: anim([[0, 0], [36, 0, "out"], [48, 100]]) } }),
-  ], { p: [0, 0], o: anim(aparecer(36, 4)) });
+  const LEAN = 9, FIM_M = [80, 90 + base[1]], FIM_I = [120, 90 + base[1]], PARADA = 4 + 36;
+  const maria = pessoa("G_Maria", { manto: "#3D6FB6", veste: "#F5F8FA" }, 54, FIM_M[0], LEAN, 4);
+  const isabel = pessoa("G_Isabel", { manto: "#A0785A", veste: "#FFE8B6" }, 146, FIM_I[0], -LEAN, 4);
+  // ponto do desenho do busto (rosto em (0,0)) na pose final de cada uma (posição, âncora e inclinação)
+  const naPose = (p, r, [x, y]) => {
+    const a = (r * Math.PI) / 180, lx = x - base[0], ly = y - base[1];
+    return [p[0] + lx * Math.cos(a) - ly * Math.sin(a), p[1] + lx * Math.sin(a) + ly * Math.cos(a)];
+  };
+  // a mão de Maria na frente do peito dela; a de Isabel pousa por cima, um pouco à direita
+  const maoM = naPose(FIM_M, LEAN, [11, 36]), maoI = add(maoM, [2.4, -1.6]);
+  const mangaM = naPose(FIM_M, LEAN, [3, 38]), mangaI = naPose(FIM_I, -LEAN, [-6, 34]);
+  const manga = (de, ate, cor, nm) => {
+    // só o punho: os últimos 7 px antes da mão, na direção do corpo
+    const d = Math.hypot(ate[0] - de[0], ate[1] - de[1]), u = [(de[0] - ate[0]) / d, (de[1] - ate[1]) / d];
+    return stroke([reta([add(ate, [u[0] * 2.5, u[1] * 2.5]), add(ate, [u[0] * 9, u[1] * 9])])], 5.5, hex(cor), nm);
+  };
+  const maos = L("G_Maos", [
+    lib.makeEllipse(maoI[0], maoI[1], 3.6, 3, hex(PELE), "MaoIsabel"),
+    manga(mangaI, maoI, "#A0785A", "MangaIsabel"),
+    lib.makeEllipse(maoM[0], maoM[1], 3.6, 3, hex(PELE), "MaoMaria"),
+    manga(mangaM, maoM, "#3D6FB6", "MangaMaria"),
+  ], {
+    // só depois que as duas terminam de se inclinar
+    p: anim([[0, [0, 3]], [PARADA, [0, 3], "out"], [PARADA + 8, [0, 0]]]), o: anim(aparecer(PARADA, 6)),
+  });
   const layers = [];
   if (t >= 2) {
     layers.push(L("T2_Estrela", piece("twemoji-2b50", 16), {
@@ -466,25 +474,25 @@ function gestoVisitacao(t, c) {
     const cores = ["#F4ABBA", "#FFFFFF", "#FFCC4D"];
     layers.push(...chuva("T3_Flores", (k) => petala(cores[k % 3]), { count: 7, t0: 44, area: [36, 30, 164, 150], seed: 33 }));
   }
-  layers.push(abraco, maria, isabel);
+  layers.push(maos, maria, isabel);
   if (t >= 3) layers.push(luzDoOuro(c, { w1: 84, peak: 26 }));
   return layers;
 }
 
-/** Ascensão do Senhor: a nuvem sobe levando a luz para o alto. */
+/** Ascensão do Senhor: Jesus glorioso (corpo inteiro, braços abertos) sobe sobre a nuvem e a luz acende. */
 function gestoAscensao(t, c) {
   const N = "twemoji-2601";
-  const sobe = [[0, [100, 136]], [8, [100, 136], "in"], [48, [100, 66], "out"], ...flutuar([100, 66], 48, 2)];
+  const sobe = [[0, [100, 140]], [8, [100, 140], "in"], [48, [100, 112], "out"], ...flutuar([100, 112], 48, 2)];
   const nuvem = L("G_Nuvem", piece(N, 60, { recolor: { "#CCD6DD": "#E1E8ED", "#E1E8ED": "#FFFFFF" } }), { p: anim(sobe), o: anim(aparecer(4, 8)) });
-  const luz = L("G_Brilho", [
-    lib.makeRays(10, 14, 26, 5, hex("#FFE8A3"), "Raios", [0, 0]),
-    lib.makeEllipse(0, 0, 12, 12, hex("#FFF8D6"), "Miolo", 70),
-  ], {
-    p: anim(deslocar(sobe, [0, -12])), r: anim(giro(36)),
-    o: anim([...aparecer(8, 10, { to: 85 }), ...onda(85, -20, 18, END, { period: 24 })]),
+  // os pés de Jesus sobre a nuvem: o rosto 62 px acima do centro dela
+  const jesus = L("G_Jesus", figura(0.5, { tunica: "#F5F8FA", faixa: "#FFCC4D", cabelo: "longo", corCabelo: "#8A4633", barba: "#8A4633", bracos: "abertos" }), {
+    p: anim(deslocar(sobe, [0, -62])), o: anim(aparecer(4, 8)),
   });
+  // a luz faz parte do gesto do bronze ("sobe sobre a nuvem enquanto a luz acende", ajuste do dono, rodada 3),
+  // por isso é uma camada G_ desde o bronze e não a luzDoOuro, que só o ouro acrescenta
+  const luz = lib.luzSuave(0, c.col.luz, { nm: "G_Luz", top: 24, bottom: 130, w0: 16, w1: 90, t0: 20, peak: 30 });
   const monte = L("Monte", [fill([forma([[30, 172], [56, 156], [100, 150], [144, 156], [170, 172]])], "#8899A6", "Monte")], { p: [0, 0], o: anim(aparecer(0, 6)) });
-  const layers = [nuvem, luz];
+  const layers = [jesus, nuvem];
   if (t >= 2) {
     const pe = (x, y) => [
       lib.makeEllipse(x, y, 2.6, 4.6, hex("#4A5560"), "Sola"),
@@ -495,10 +503,8 @@ function gestoAscensao(t, c) {
     }));
   }
   layers.push(monte);
-  if (t >= 3) {
-    layers.push(raios("T3_Raios", [100, 64], { count: 16, r1: 30, r2: 44, half: 3, t0: 50, peak: 80 }));
-    layers.push(luzDoOuro(c, { bottom: 130, w0: 16, w1: 90, t0: 46, peak: 30 }));
-  }
+  if (t >= 3) layers.push(raios("T3_Raios", [100, 70], { count: 16, r1: 34, r2: 48, half: 3, t0: 50, peak: 80 }));
+  layers.push(luz);
   return layers;
 }
 
@@ -571,12 +577,14 @@ function gestoSagradoCoracao(t, c) {
   const cruz = L("G_Cruz", [stroke([reta([[0, -9], [0, 9]]), reta([[-5, -4], [5, -4]])], 3, hex("#FFAC33"), "Cruz")], {
     a: [0, 9], p: [100, 84], s: anim(bate(14)), o: anim(aparecer(14, 3)),
   });
-  const layers = [cruz, chamas, coracao];
-  if (t >= 2) {
-    layers.unshift(L("T2_Espinhos", espinhosShapes(26, 8), {
-      p: add(C, [0, 2]), s: anim([[0, 0], ...pop(40, 10, { over: 112 })]), o: anim(aparecer(40, 4)),
-    }));
-  }
+  // a coroa de espinhos envolve o coração: o arco de baixo passa na frente dele e o de cima, atrás
+  const coroa = (nm, metade) => L(nm, espinhosShapes(32, 9, "#8A4633", { metade }), {
+    p: add(C, [0, 4]), s: anim([[0, 0], ...pop(40, 10, { over: 112 })]), o: anim(aparecer(40, 4)),
+  });
+  const layers = [cruz, chamas];
+  if (t >= 2) layers.push(coroa("T2_EspinhosFrente", "frente"));
+  layers.push(coracao);
+  if (t >= 2) layers.push(coroa("T2_EspinhosTras", "tras"));
   if (t >= 3) layers.push(raios("T3_Raios", C, { count: 16, r1: 36, r2: 56, half: 3, t0: 50, peak: 80 }), luzDoOuro(c, { bottom: 130, w1: 76, t0: 44, peak: 24 }));
   return layers;
 }
@@ -822,31 +830,46 @@ function gestoPedroPaulo(t, c) {
   return layers;
 }
 
-/** São Tomé Apóstolo: a mão se estende e a luz das chagas acende. */
+/**
+ * São Tomé Apóstolo: Jesus ressuscitado (corpo inteiro, túnica branca, a
+ * chaga do lado à vista) e Tomé ao lado, de corpo inteiro; o braço de Tomé se
+ * estende e a mão entra na chaga.
+ */
 function gestoTome(t) {
-  const H = "twemoji-1faf1", CH = [126, 108];
-  const mao = L("G_Mao", piece(H, 50, { recolor: { "#FFDC5D": PELE, "#EF9645": PELE_SOMBRA } }), {
-    p: anim([[0, [50, 112]], [4, [50, 112], "ease"], [28, [82, 112], "out"], [32, [80, 112]]]), o: anim(aparecer(4, 6)),
+  const K = 0.6, J = [124, 84], T = [72, 88];
+  const jesus = L("G_Jesus", figura(K, { tunica: "#F5F8FA", cabelo: "longo", corCabelo: "#8A4633", barba: "#8A4633", bracos: "mostrando", chaga: true }), {
+    p: J, o: anim(aparecer(0, 8)),
   });
-  const chaga = L("G_Chaga", [
-    lib.makeEllipse(0, 0, 2, 5, hex("#BE1931"), "Chaga"),
-    lib.makeEllipse(0, 0, 3.6, 6.8, hex("#F4ABBA"), "Borda"),
-  ], { p: CH, s: anim([[0, 0], ...pop(26, 8, { over: 120 })]), o: anim(aparecer(26, 3)) });
-  const luz = L("G_Brilho", [
-    lib.makeRays(8, 10, 20, 6, hex("#FFE8A3"), "Raios", [0, 0]),
-    lib.makeEllipse(0, 0, 14, 14, hex("#FFF1C1"), "Brilho", 60),
+  const TUNICA_TOME = "#C1694F";
+  const tome = L("G_Tome", figura(K, { tunica: TUNICA_TOME, faixa: "#DD2E44", cabelo: "curto", corCabelo: "#3B2416", barba: "#3B2416", bracos: "esquerdo" }), {
+    p: anim([[0, [T[0] - 10, T[1]]], [4, [T[0] - 10, T[1]], "out"], [20, T]]), o: anim(aparecer(4, 6)),
+  });
+  // braço de Tomé: do ombro direito dele (OMBRO_D·K) até a chaga de Jesus (CHAGA·K)
+  const ombro = add(T, [OMBRO_D[0] * K, OMBRO_D[1] * K]), chaga = add(J, [CHAGA[0] * K, CHAGA[1] * K]);
+  const alcance = Math.hypot(chaga[0] - ombro[0], chaga[1] - ombro[1]);
+  const angulo = (Math.atan2(chaga[1] - ombro[1], chaga[0] - ombro[0]) * 180) / Math.PI;
+  const braco = L("G_Braco", [
+    lib.makeEllipse(alcance, 0, 4.2 * K, 3.4 * K, hex(PELE), "Mao"),
+    stroke([lib.polyline([[0, 0], [alcance * 0.5, 2], [alcance - 3, 0]])], 8 * K, hex(TUNICA_TOME), "Manga"),
   ], {
-    p: CH, s: anim([[0, 0], ...pop(30, 10, { over: 115 }), ...pulsar(44, END, { amp: 8, period: 20 })]), o: anim(aparecer(30, 6, { to: 85 })),
+    p: anim([[0, add(ombro, [-10, 0])], [4, add(ombro, [-10, 0]), "out"], [20, ombro]]),
+    r: anim([[0, 75], [20, 75, "ease"], [44, angulo - 4], [50, angulo]]), o: anim(aparecer(4, 6)),
   });
-  const layers = [mao, chaga, luz];
+  const layers = [braco, jesus, tome];
   if (t >= 2) {
     const marcas = [8, 14, 20, 26].map((x) => reta([[x, 0], [x, 2.5]]));
     layers.unshift(L("T2_Esquadro", [
       stroke([...marcas, ...[8, 14, 20].map((y) => reta([[0, y], [2.5, y]]))], 0.9, hex("#66757F"), "Marcas"),
       fill([poligono([[0, 0], [34, 0], [34, 5], [5, 5], [5, 30], [0, 30]])], "#AAB8C2", "Esquadro"),
-    ], { p: [132, 136], r: -10, s: anim([[0, 0], ...pop(42, 10)]), o: anim(aparecer(42, 3)) }));
+    ], { p: [22, 142], r: -10, s: anim([[0, 0], ...pop(42, 10, { over: 88, base: 80 })]), o: anim(aparecer(42, 3)) }));
   }
-  if (t >= 3) layers.push(...aureolaERaios([100, 62], { t0: 54 }));
+  if (t >= 3) {
+    layers.push(
+      aureola({ center: [J[0], J[1] - 15], rx: 10, ry: 3, t0: 52, nm: "T3_Aureola1" }),
+      aureola({ center: [T[0], T[1] - 15], rx: 9, ry: 2.7, t0: 56, nm: "T3_Aureola2" }),
+      raios("T3_Raios", J, { count: 12, r1: 16, r2: 26, half: 4, t0: 56 }),
+    );
+  }
   return layers;
 }
 
@@ -1201,12 +1224,12 @@ function gestoInacio(t) {
 const TROPHIES = [
   // Maio
   { id: "lt_jose_operario",      kind: "liturgical", icon: "desenho-plaina",             color: "branco",   gesture: gestoJoseOperario,    symbol: "plaina sobre a tábua, com lascas" },
-  { id: "lt_fatima",             kind: "liturgical", icon: "desenho-maria-azinheira",    color: "branco",   gesture: gestoFatima,          halo: { center: [100, 50], rx: 12, ry: 3.5, t0: 34 }, symbol: "Maria de manto branco sobre a azinheira" },
-  { id: "lt_matias",             kind: "liturgical", icon: "twemoji-1f3b2",              color: "vermelho", gesture: gestoMatias,          halo: { center: [106, 104], rx: 22, ry: 6, t0: 36 }, symbol: "dados do sorteio e auréola" },
+  { id: "lt_fatima",             kind: "liturgical", icon: "desenho-maria-azinheira",    color: "branco",   gesture: gestoFatima,          halo: { center: [100, 33], rx: 12, ry: 3.5, t0: 30 }, symbol: "Maria de manto branco de pé sobre a azinheira" },
+  { id: "lt_matias",             kind: "liturgical", icon: "desenho-doze-chamas",        color: "vermelho", gesture: gestoMatias,          halo: { center: [100, 48], rx: 14, ry: 4, t0: 40 }, symbol: "a 12ª chama que completa os Doze" },
   { id: "lt_isidoro_lavrador",   kind: "liturgical", icon: "desenho-arado",              color: "branco",   gesture: gestoIsidoroLavrador, halo: { center: [100, 70], rx: 16, ry: 4.5, t0: 44 }, symbol: "arado, sulco e brotos" },
   { id: "lt_rita_cassia",        kind: "liturgical", icon: "desenho-rosa-na-neve",       color: "branco",   gesture: gestoRita,            halo: { center: [100, 98], rx: 14, ry: 4, t0: 34 }, symbol: "rosa que floresce na neve" },
-  { id: "lt_visitacao",          kind: "liturgical", icon: "desenho-visitacao",          color: "branco",   gesture: gestoVisitacao,       halo: { center: [94, 66], rx: 10, ry: 3, t0: 44 }, symbol: "Maria e Isabel se abraçam" },
-  { id: "lt_ascensao",           kind: "liturgical", icon: "twemoji-2601",               color: "branco",   gesture: gestoAscensao,        symbol: "nuvem que sobe levando a luz" },
+  { id: "lt_visitacao",          kind: "liturgical", icon: "desenho-visitacao",          color: "branco",   gesture: gestoVisitacao,       halo: { center: [92, 66], rx: 10, ry: 3, t0: 44 }, symbol: "Maria e Isabel inclinadas uma para a outra" },
+  { id: "lt_ascensao",           kind: "liturgical", icon: "desenho-jesus-glorioso",     color: "branco",   gesture: gestoAscensao,        symbol: "Jesus glorioso sobe sobre a nuvem" },
   // Junho
   { id: "lt_pentecostes",        kind: "liturgical", icon: "twemoji-1f525",              color: "vermelho", gesture: gestoPentecostes,     symbol: "línguas de fogo que descem" },
   { id: "lt_corpus_christi",     kind: "liturgical", icon: "desenho-custodia",           color: "branco",   gesture: gestoCorpusChristi,   symbol: "custódia com a hóstia" },
@@ -1219,7 +1242,7 @@ const TROPHIES = [
   { id: "lt_ireneu",             kind: "liturgical", icon: "desenho-baculo",             color: "vermelho", gesture: gestoIreneu,          symbol: "báculo de bispo e livro" },
   { id: "lt_pedro_paulo",        kind: "liturgical", icon: "desenho-chaves-e-espada",    color: "vermelho", gesture: gestoPedroPaulo,      symbol: "chaves e espada cruzadas" },
   // Julho
-  { id: "lt_tome",               kind: "liturgical", icon: "twemoji-1faf1",              color: "vermelho", gesture: gestoTome,            symbol: "mão estendida e a luz das chagas" },
+  { id: "lt_tome",               kind: "liturgical", icon: "desenho-tome-e-jesus",       color: "vermelho", gesture: gestoTome,            symbol: "a mão de Tomé na chaga de Jesus" },
   { id: "lt_bento",              kind: "liturgical", icon: "desenho-medalha-sao-bento",  color: "branco",   gesture: gestoBento,           halo: { center: [100, 56], rx: 14, ry: 4, t0: 34 }, symbol: "medalha de São Bento" },
   { id: "lt_carmo",              kind: "liturgical", icon: "desenho-escapulario",        color: "branco",   gesture: gestoCarmo,           symbol: "escapulário marrom" },
   { id: "lt_magdalena",          kind: "liturgical", icon: "desenho-vaso-de-perfume",    color: "branco",   gesture: gestoMagdalena,       halo: { center: [100, 46], rx: 16, ry: 4.5, t0: 44 }, symbol: "vaso de perfume que se abre" },

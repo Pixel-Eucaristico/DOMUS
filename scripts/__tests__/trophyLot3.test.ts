@@ -10,10 +10,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { ALL_LITURGICAL_TROPHIES } from "../../packages/gamification/src/liturgicalTrophies/data";
-import { checkLot, designFingerprint, readLottie, type Entry } from "./trophyLotChecks";
+import { checkLot, designFingerprint, readLottie, valueAt, type Entry } from "./trophyLotChecks";
 
 const require = createRequire(import.meta.url);
 const lot = require("../trophy-lot-3.js");
+const { ART_SCALE } = require("../lottie-lib/trophy-kit");
 const lot1 = require("../trophy-lot-1.js");
 const lot2 = require("../trophy-lot-2.js");
 const TROPHIES: Entry[] = lot.TROPHIES;
@@ -47,31 +48,45 @@ describe("Lottie — lote 3", () => {
     expect(new Set(prints).size).toBe(prints.length);
   });
 
-  it("santo como pessoa é o busto simples (rosto, olhos, veste), como Maria e Águeda", () => {
-    const BUSTOS: Record<string, string[][]> = {
-      lt_fatima: [["G_Maria"], ["G_Maria", "T2_Pastorinhos"], ["G_Maria", "T2_Pastorinhos"]],
-      lt_visitacao: [["G_Maria", "G_Isabel"], ["G_Maria", "G_Isabel"], ["G_Maria", "G_Isabel"]],
-      lt_antonio: [["G_Menino"], ["G_Menino"], ["G_Menino"]],
-      lt_santana: [["G_Ana", "G_Joaquim", "G_Menina"], ["G_Ana", "G_Joaquim", "G_Menina"], ["G_Ana", "G_Joaquim", "G_Menina"]],
-      lt_carmo: [[], [], ["T3_Maria"]],
-    };
-    for (const [id, porNivel] of Object.entries(BUSTOS)) {
+  /** Confere as camadas de pessoa: os grupos do rosto e da veste, com ou sem pés. */
+  const confereGente = (porTrofeu: Record<string, string[][]>, corpoInteiro: boolean) => {
+    for (const [id, porNivel] of Object.entries(porTrofeu)) {
       niveis(id).forEach((f, k) => {
         for (const nm of porNivel[k]) {
           const ly = readLottie(f).layers.find((l: any) => l.nm === nm);
           expect(ly, `${f} ${nm}`).toBeDefined();
           const grupos = ly.shapes.map((g: any) => g.nm);
           for (const g of ["Rosto", "Olhos", "Veste"]) expect(grupos, `${f} ${nm}`).toContain(g);
+          for (const g of ["PeE", "PeD"]) expect(grupos.includes(g), `${f} ${nm}: ${g}`).toBe(corpoInteiro);
         }
       });
     }
+  };
+
+  it("santo como pessoa, em busto: o busto simples (rosto, olhos, veste, sem pés), como Maria e Águeda", () => {
+    confereGente({
+      lt_fatima: [[], ["T2_Pastorinhos"], ["T2_Pastorinhos"]],
+      lt_visitacao: [["G_Maria", "G_Isabel"], ["G_Maria", "G_Isabel"], ["G_Maria", "G_Isabel"]],
+      lt_antonio: [["G_Menino"], ["G_Menino"], ["G_Menino"]],
+      lt_santana: [["G_Ana", "G_Joaquim", "G_Menina"], ["G_Ana", "G_Joaquim", "G_Menina"], ["G_Ana", "G_Joaquim", "G_Menina"]],
+      lt_carmo: [[], [], ["T3_Maria"]],
+    }, false);
+  });
+
+  it("santo como pessoa, de corpo inteiro: a `figura` no estilo do busto (com pés), em Fátima, Ascensão e São Tomé", () => {
+    confereGente({
+      lt_fatima: [["G_Maria"], ["G_Maria"], ["G_Maria"]],
+      lt_ascensao: [["G_Jesus"], ["G_Jesus"], ["G_Jesus"]],
+      lt_tome: [["G_Jesus", "G_Tome"], ["G_Jesus", "G_Tome"], ["G_Jesus", "G_Tome"]],
+    }, true);
   });
 
   it("o busto fica atrás do que está na frente dele, nos três níveis", () => {
     // [na frente, atrás]: as camadas vão da frente para trás, então a da frente vem antes
     const ORDEM: Record<string, [string, string][]> = {
-      lt_fatima: [["G_Nuvem", "G_Maria"], ["G_Copa", "G_Maria"]],
-      lt_visitacao: [["G_Abraco", "G_Maria"], ["G_Maria", "G_Isabel"]],
+      // Fátima: Maria de pé sobre a azinheira, sempre na frente dela (ajuste do dono, rodada 3)
+      lt_fatima: [["G_Maria", "G_Copa"]],
+      lt_visitacao: [["G_Maos", "G_Maria"], ["G_Maria", "G_Isabel"]],
       lt_antonio: [["G_Livro", "G_Menino"]],
       lt_santana: [["G_Menina", "G_Ana"], ["G_Menina", "G_Joaquim"]],
     };
@@ -167,6 +182,132 @@ describe("Lottie — lote 3", () => {
       const tem = readLottie(`${id}_t3.json`).layers.some((ly: any) => JSON.stringify(ly.shapes.map((g: any) => g.nm)) === JSON.stringify(LUZ_SUAVE));
       expect(tem, `${id}_t3: o guia pede luz no ouro`).toBe(true);
     }
+  });
+
+  describe("ajustes do dono (rodada 3)", () => {
+    const camada = (f: string, nm: string) => {
+      const ly = readLottie(f).layers.find((l: any) => l.nm === nm);
+      expect(ly, `${f} ${nm}`).toBeDefined();
+      return ly;
+    };
+    /** Valor final (quadro 89) de uma propriedade. */
+    const fim = (prop: any): number[] => (prop.a === 1 ? prop.k[prop.k.length - 1].s : Array.isArray(prop.k) ? prop.k : [prop.k]);
+    /** Centro de uma elipse (grupo `nm`) no quadro final, em coordenadas do quadro (transformação da camada, sem o ART_SCALE comum). */
+    const centro = (ly: any, nm: string): number[] => {
+      const g = ly.shapes.find((x: any) => x.nm === nm);
+      expect(g, `${ly.nm}/${nm}`).toBeDefined();
+      const [cx, cy] = g.it.find((it: any) => it.ty === "el").p.k;
+      const [px, py] = fim(ly.ks.p), [ax, ay] = fim(ly.ks.a), [sx, sy] = fim(ly.ks.s).map((v) => v / 100);
+      const r = (fim(ly.ks.r)[0] * Math.PI) / 180;
+      const lx = (cx - ax) * sx, lyy = (cy - ay) * sy;
+      return [px + lx * Math.cos(r) - lyy * Math.sin(r), py + lx * Math.sin(r) + lyy * Math.cos(r)];
+    };
+    const todas = (id: string) => niveis(id).map((f) => readLottie(f));
+
+    it("São Matias: doze chamas (onze em círculo e a 12ª que acende) e nenhum dado", () => {
+      for (const [k, l] of todas("lt_matias").entries()) {
+        expect(JSON.stringify(l), `nível ${k + 1}`).not.toMatch(/1f3b2|Dado/);
+        const chamas = l.layers.filter((ly: any) => /^G_/.test(ly.nm)).flatMap((ly: any) => ly.shapes).filter((g: any) => g.nm === "Chama");
+        expect(chamas, `nível ${k + 1}`).toHaveLength(12);
+      }
+      expect(lot.ICONS["twemoji-1f3b2"]).toBeUndefined();
+    });
+
+    it("São Matias: a 12ª chama fica no lugar vago do alto do círculo e acende depois das onze", () => {
+      for (const f of niveis("lt_matias")) {
+        const onze = camada(f, "G_Onze"), doze = camada(f, "G_Chama12");
+        const [cx, cy] = fim(onze.ks.p);
+        // o pé de cada chama é o 5º vértice do contorno "Chama" (o ponto (0,0) da chamaShapes)
+        const pes = onze.shapes.filter((g: any) => g.nm === "Chama").map((g: any) => g.it.find((it: any) => it.ty === "sh").ks.k.v[4]);
+        expect(pes, f).toHaveLength(11);
+        const raio = Math.hypot(pes[0][0], pes[0][1]) * (fim(onze.ks.s)[1] / 100); // o círculo na escala final da camada
+        const angulos = pes.map(([x, y]: number[]) => Math.round(((Math.atan2(y, x) * 180) / Math.PI + 450) % 360)).sort((a: number, b: number) => a - b);
+        // 12 lugares de 30° a partir do alto (0° = alto); o alto fica vago
+        expect(angulos, f).toEqual([30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330]);
+        const [px, py] = fim(doze.ks.p);
+        expect(px, f).toBeCloseTo(cx, 3);
+        expect(py, f).toBeCloseTo(cy - raio, 3);
+        const primeiro = (ly: any) => Array.from({ length: 90 }, (_, t) => t).find((t) => valueAt(ly.ks.o, t)[0] > 0 && valueAt(ly.ks.s, t)[0] > 0)!;
+        const ultimaChaveOnze = Math.max(...[onze.ks.s, onze.ks.o].map((pr: any) => pr.k.find((kf: any) => kf.t > 0 && kf.s[0] >= 100)?.t ?? 0));
+        expect(primeiro(doze), f).toBeGreaterThan(ultimaChaveOnze);
+      }
+    });
+
+    it("Sagrado Coração: a coroa de espinhos tem uma parte na frente do coração e outra atrás", () => {
+      expect(nomes("lt_sagrado_coracao.json").some((n) => /Espinhos/.test(n))).toBe(false);
+      for (const f of ["lt_sagrado_coracao_t2.json", "lt_sagrado_coracao_t3.json"]) {
+        const ns = nomes(f), coracao = ns.indexOf("G_Coracao");
+        expect(ns.indexOf("T2_EspinhosFrente"), f).toBeGreaterThan(-1);
+        expect(ns.indexOf("T2_EspinhosFrente"), f).toBeLessThan(coracao);
+        expect(ns.indexOf("T2_EspinhosTras"), f).toBeGreaterThan(coracao);
+      }
+    });
+
+    it("São Tomé: Jesus e Tomé de corpo inteiro, e a mão de Tomé na chaga de Jesus", () => {
+      for (const f of niveis("lt_tome")) {
+        for (const nm of ["G_Jesus", "G_Tome"]) {
+          const grupos = camada(f, nm).shapes.map((g: any) => g.nm);
+          for (const g of ["Rosto", "Veste", "PeE", "PeD"]) expect(grupos, `${f} ${nm}`).toContain(g);
+        }
+        const mao = centro(camada(f, "G_Braco"), "Mao"), chaga = centro(camada(f, "G_Jesus"), "Chaga");
+        expect(Math.hypot(mao[0] - chaga[0], mao[1] - chaga[1]), `${f}: mão ${mao} × chaga ${chaga}`).toBeLessThan(2.5);
+        expect(nomes(f).indexOf("G_Braco"), f).toBeLessThan(nomes(f).indexOf("G_Jesus"));
+      }
+    });
+
+    it("Ascensão: Jesus glorioso de corpo inteiro sobe com a nuvem e a luzSuave acende", () => {
+      for (const f of niveis("lt_ascensao")) {
+        const grupos = camada(f, "G_Jesus").shapes.map((g: any) => g.nm);
+        for (const g of ["Rosto", "Veste", "MaoE", "MaoD", "PeE"]) expect(grupos, f).toContain(g);
+        expect(camada(f, "G_Luz").shapes.map((g: any) => g.nm), f).toEqual(["LuzFonte", "LuzRaios", "LuzMiolo", "LuzMeio", "LuzBorda"]);
+        // Jesus acompanha a nuvem: cada chave de posição é a da nuvem deslocada de [0, −62] (no arquivo, já na ART_SCALE)
+        const pj = camada(f, "G_Jesus").ks.p.k, pn = camada(f, "G_Nuvem").ks.p.k, dy = -62 * ART_SCALE;
+        expect(pj.length, f).toBe(pn.length);
+        pj.forEach((kf: any, n: number) => {
+          expect(kf.t, f).toBe(pn[n].t);
+          expect(kf.s[0], f).toBe(pn[n].s[0]);
+          expect(kf.s[1], f).toBeCloseTo(pn[n].s[1] + dy, 2);
+          if (kf.e) expect(kf.e[1], f).toBeCloseTo(pn[n].e[1] + dy, 2);
+        });
+        expect(TROPHIES.find((e) => e.id === "lt_ascensao")!.icon).toBe("desenho-jesus-glorioso");
+      }
+    });
+
+    it("Visitação: sem braço solto; a mão de Isabel pousa sobre a de Maria", () => {
+      for (const f of niveis("lt_visitacao")) {
+        expect(nomes(f).some((n) => /Abraco|Braco/.test(n)), f).toBe(false);
+        const maos = camada(f, "G_Maos").shapes.map((g: any) => g.nm);
+        expect(maos.indexOf("MaoIsabel"), f).toBeGreaterThan(-1);
+        expect(maos.indexOf("MaoIsabel"), f).toBeLessThan(maos.indexOf("MaoMaria"));
+        // no quadro final as mãos se sobrepõem bem (a distância entre os centros fica 3 px abaixo da soma dos raios)
+        const ly = camada(f, "G_Maos");
+        const mi = centro(ly, "MaoIsabel"), mm = centro(ly, "MaoMaria");
+        expect(Math.hypot(mi[0] - mm[0], mi[1] - mm[1]), f).toBeLessThan(3.6 + 3.6 - 3);
+        // as mãos só aparecem depois que Maria e Isabel terminam de se inclinar
+        const parada = (nm: string) => camada(f, nm).ks.r.k.at(-1).t;
+        const aparece = Array.from({ length: 90 }, (_, t) => t).find((t) => valueAt(ly.ks.o, t)[0] > 0)!;
+        expect(aparece, f).toBeGreaterThanOrEqual(Math.max(parada("G_Maria"), parada("G_Isabel")));
+      }
+    });
+
+    it("Fátima: Maria de corpo inteiro e mãos postas, de pé sobre a copa", () => {
+      for (const f of niveis("lt_fatima")) {
+        const grupos = camada(f, "G_Maria").shapes.map((g: any) => g.nm);
+        for (const g of ["MaosPostas", "Manto", "Orla", "PeE"]) expect(grupos, f).toContain(g);
+        expect(nomes(f).some((n) => /Nuvem/.test(n)), f).toBe(false);
+        // os pés de Maria ficam no alto da copa em todo quadro depois do pouso (sem afundar nem flutuar)
+        const maria = camada(f, "G_Maria"), copa = camada(f, "G_Copa");
+        const pe = maria.shapes.find((g: any) => g.nm === "PeE").it.find((it: any) => it.ty === "el");
+        const folhas = copa.shapes.find((g: any) => g.nm === "Folhas3").it.find((it: any) => it.ty === "el");
+        const pouso = maria.ks.p.k.at(-1).t;
+        for (let t = pouso; t < 90; t++) {
+          const peY = valueAt(maria.ks.p, t)[1] + (pe.p.k[1] - valueAt(maria.ks.a, t)[1]) * (valueAt(maria.ks.s, t)[1] / 100);
+          const [, ay] = valueAt(copa.ks.a, t), [, py] = valueAt(copa.ks.p, t), sy = valueAt(copa.ks.s, t)[1] / 100;
+          const topo = py + (folhas.p.k[1] - folhas.s.k[1] / 2 - ay) * sy;
+          expect(Math.abs(peY - topo), `${f} quadro ${t}: pé ${peY}, copa ${topo}`).toBeLessThan(0.5);
+        }
+      }
+    });
   });
 
   it("a luz do ouro é a luzSuave (nenhuma camada de luz com outro desenho)", () => {

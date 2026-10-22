@@ -30,21 +30,36 @@ function hostiaShapes(r) {
   ];
 }
 
-/** Coroa de espinhos: anel trançado com pontas, centrado em (0,0). */
-function espinhosShapes(rx, ry, color = "#8A4633") {
-  const ring = Array.from({ length: 24 }, (_, k) => {
+/**
+ * Coroa de espinhos: anel trançado com pontas, centrado em (0,0). Com
+ * `metade` ("frente" = arco de baixo, y > 0; "tras" = arco de cima) devolve só
+ * aquela metade, para a coroa envolver uma peça: a frente numa camada na
+ * frente dela e o resto numa camada atrás.
+ */
+function espinhosShapes(rx, ry, color = "#8A4633", opts = {}) {
+  const { metade = null } = opts || {};
+  if (metade !== null && metade !== "frente" && metade !== "tras") throw new Error(`espinhosShapes: metade ${JSON.stringify(metade)} (use "frente" ou "tras")`);
+  const pontoAnel = (k) => {
     const a = (k / 24) * Math.PI * 2;
     const w = k % 2 ? 0.88 : 1.12;
     return [rx * w * Math.cos(a), ry * w * Math.sin(a)];
-  });
-  const spikes = Array.from({ length: 10 }, (_, k) => {
-    const a = (k / 10) * Math.PI * 2 + 0.3;
+  };
+  const naMetade = (a) => metade === null || (metade === "frente" ? Math.sin(a) >= 0 : Math.sin(a) < 0);
+  // cada ponta guarda o próprio índice (a paridade decide para que lado ela entorta)
+  const spikes = Array.from({ length: 10 }, (_, k) => ({ k, a: (k / 10) * Math.PI * 2 + 0.3 })).filter(({ a }) => naMetade(a)).map(({ k, a }) => {
     const [x, y] = [rx * Math.cos(a), ry * Math.sin(a)];
-    return reta([[x, y], [x * 1.28 + (k % 2 ? 2 : -2), y * 1.5 - 2]]);
+    let ty = y * 1.5 - 2;
+    // numa metade, a ponta não passa para a outra metade
+    if (metade === "frente") ty = Math.max(ty, 0);
+    if (metade === "tras") ty = Math.min(ty, 0);
+    return reta([[x, y], [x * 1.28 + (k % 2 ? 2 : -2), ty]]);
   });
+  const anel = metade === null
+    ? polyline(Array.from({ length: 24 }, (_, k) => pontoAnel(k)), { closed: true })
+    : polyline(Array.from({ length: 13 }, (_, j) => pontoAnel(metade === "frente" ? j : 12 + j)));
   return [
     stroke(spikes, 1.6, hex(color), "Pontas"),
-    stroke([polyline(ring, { closed: true })], 2.6, hex(color), "Trama"),
+    stroke([anel], 2.6, hex(color), "Trama"),
   ];
 }
 
@@ -166,6 +181,77 @@ function busto(k = 1, { pele = PELE, veste = "#BE1931", manto = null, orla = nul
     ? forma(P([[0, -18], [13, -12], [16, 4], [17, 28], [8, 34], [-8, 34], [-17, 28], [-16, 4], [-13, -12]]))
     : forma(P([[0, -17.5], [12, -13], [14, -2], [12, 4], [-12, 4], [-14, -2], [-12, -13]]));
   return [...frente, rosto, pescoco, fill([decote], pele, "Decote"), fill([ombros], veste, "Veste"), fill([fios], corCabelo, "Cabelo")];
+}
+
+/**
+ * Figura de corpo inteiro no estilo simples do `busto` (mesma cabeça, mesmo
+ * tom de pele): rosto em (0,0), escala `k`; com k = 1 vai da cabeça (y −18;
+ * −29 com manto) aos pés (y 108) e de x −34 a 34 no corpo (os braços abertos
+ * chegam a ±46). Opções: `pele`; `tunica` (cor da túnica longa); `manto`
+ * (manto de capuz até os pés, aberto na frente, com `orla` opcional; não
+ * combina com cabelo); sem manto, `cabelo` ("curto" ou "longo"), `corCabelo`
+ * e `barba`; `faixa` (cor de uma faixa que cruza o peito); `bracos`:
+ * "abertos" (erguidos para os lados), "baixos", "postas" (mãos postas no
+ * peito), "mostrando" (o direito, à esquerda de quem olha, aberto e o outro
+ * baixo), "esquerdo" (só o braço à esquerda de quem olha, baixo; o outro vai
+ * numa camada à parte) ou "nenhum"; `chaga` (desenha a
+ * chaga do lado, em CHAGA·k, à esquerda de quem olha). Os ombros ficam em
+ * OMBRO_E·k e OMBRO_D·k. `orla` sem `manto` e `manto` com cabelo lançam erro.
+ * Devolve os grupos da frente para trás (braços, mãos, chaga e faixa na frente
+ * do corpo e do manto).
+ */
+/** Pontos da figura com k = 1 (rosto em (0,0)): ombros e a chaga do lado (multiplique por k). */
+const OMBRO_E = [-20, 26], OMBRO_D = [20, 26], CHAGA = [-11, 44];
+
+function figura(k = 1, { pele = PELE, tunica = "#F5F8FA", manto = null, orla = null, cabelo, corCabelo, barba = null, faixa = null, bracos = "baixos", chaga = false } = {}) {
+  if (!(Number.isFinite(k) && k > 0)) throw new Error(`figura: escala inválida ${k}`);
+  if (manto && (cabelo !== undefined || corCabelo !== undefined)) throw new Error("figura: manto não combina com cabelo/corCabelo (o capuz cobre o cabelo)");
+  if (!manto && orla) throw new Error("figura: orla só vale com manto");
+  if (!["abertos", "baixos", "postas", "mostrando", "esquerdo", "nenhum"].includes(bracos)) throw new Error(`figura: bracos ${JSON.stringify(bracos)} desconhecido`);
+  const P = (pts) => pts.map(([x, y]) => [x * k, y * k]);
+  // a cabeça é a do busto, sem os ombros (o busto devolve rosto, pescoço, decote, veste e cabelo)
+  const cabeca = busto(k, { pele, veste: tunica, manto, orla: null, cabelo, corCabelo, barba })
+    .filter((g) => !["Veste", "Decote", "Manto", "Orla"].includes(g.nm));
+  const corpo = forma(P([[0, 16], [14, 19], [24, 30], [26, 60], [32, 104], [-32, 104], [-26, 60], [-24, 30], [-14, 19]]));
+  const manga = manto || tunica;
+  const braco = (pts, nm) => {
+    const fim = pts[pts.length - 1];
+    return [lib.makeEllipse(fim[0] * k, fim[1] * k, 4.2 * k, 4.2 * k, hex(pele), `Mao${nm}`), stroke([polyline(P(pts))], 8 * k, hex(manga), `Braco${nm}`)];
+  };
+  const bracoPos = {
+    abertos: [[OMBRO_E, [-34, 16], [-44, 2]], [OMBRO_D, [34, 16], [44, 2]]],
+    baixos: [[OMBRO_E, [-26, 44], [-27, 62]], [OMBRO_D, [26, 44], [27, 62]]],
+    mostrando: [[OMBRO_E, [-34, 22], [-44, 12]], [OMBRO_D, [26, 44], [27, 62]]],
+    esquerdo: [[OMBRO_E, [-26, 44], [-27, 62]]],
+  };
+  const frente = [];
+  if (bracos === "postas") {
+    frente.push(
+      fill([forma(P([[0, 30], [3.5, 38], [3, 46], [-3, 46], [-3.5, 38]]))], pele, "MaosPostas"),
+      stroke([polyline(P([OMBRO_E, [-16, 44], [-4, 46]])), polyline(P([OMBRO_D, [16, 44], [4, 46]]))], 8 * k, hex(manga), "Bracos"),
+    );
+  } else if (bracos !== "nenhum") {
+    const [esq, dir] = bracoPos[bracos];
+    frente.push(...braco(esq, "E"), ...(dir ? braco(dir, "D") : []));
+  }
+  if (chaga) frente.push(lib.makeEllipse(CHAGA[0] * k, CHAGA[1] * k, 1.6 * k, 4 * k, hex("#BE1931"), "Chaga"));
+  if (faixa) frente.push(stroke([reta(P([[18, 20], [-20, 70]]))], 6 * k, hex(faixa), "Faixa"));
+  const pes = [lib.makeEllipse(-9 * k, 106 * k, 6 * k, 3 * k, hex(pele), "PeE"), lib.makeEllipse(9 * k, 106 * k, 6 * k, 3 * k, hex(pele), "PeD")];
+  const pescoco = fill([rect(-4 * k, 8 * k, 4 * k, 20 * k)], pele, "Pescoco");
+  if (manto) {
+    const capa = forma(P([[0, -29], [18, -23], [27, -5], [29, 21], [32, 60], [38, 106], [-38, 106], [-32, 60], [-29, 21], [-27, -5], [-18, -23]]));
+    const abertura = forma(P([[0, 15], [10, 27], [13, 104], [-13, 104], [-10, 27]]));
+    return [
+      ...frente, ...cabeca.filter((g) => g.nm !== "Pescoco"),
+      fill([abertura], tunica, "Veste"),
+      ...(orla ? [stroke([capa], 1.8 * k, hex(orla), "Orla")] : []),
+      fill([capa], manto, "Manto"),
+      ...pes,
+    ];
+  }
+  const semPescoco = cabeca.filter((g) => g.nm !== "Pescoco" && g.nm !== "Cabelo");
+  const cabelos = cabeca.filter((g) => g.nm === "Cabelo");
+  return [...frente, ...semPescoco, pescoco, fill([corpo], tunica, "Veste"), ...cabelos, ...pes];
 }
 
 /**
@@ -306,4 +392,4 @@ function transladar(groups, d) {
   return groups.map(walk);
 }
 
-module.exports = { rect, forma, poligono, fill, hostiaShapes, espinhosShapes, velaComprida, brilho, chuva, petala, PELE, PELE_SOMBRA, busto, chamaShapes, livroAbertoShapes, tercoShapes, conchaShapes, espelhar, transladar };
+module.exports = { rect, forma, poligono, fill, hostiaShapes, espinhosShapes, velaComprida, brilho, chuva, petala, PELE, PELE_SOMBRA, busto, figura, OMBRO_E, OMBRO_D, CHAGA, chamaShapes, livroAbertoShapes, tercoShapes, conchaShapes, espelhar, transladar };

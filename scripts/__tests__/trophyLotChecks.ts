@@ -52,7 +52,7 @@ function allShapes(lottie: any): { layer: string; group: string; k: any }[] {
 }
 
 /** Valor de uma propriedade no quadro t (interpolação linear entre as chaves s/e). */
-function valueAt(prop: any, t: number): number[] {
+export function valueAt(prop: any, t: number): number[] {
   const arr = (v: any) => (Array.isArray(v) ? v : [v]);
   if (prop.a !== 1) return arr(prop.k);
   const ks = prop.k;
