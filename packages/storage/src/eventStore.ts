@@ -25,17 +25,24 @@ const INSERT_EVENT_SQL = `
   VALUES (?, ?, ?, ?, ?, ?)
 `;
 
-const SELECT_ALL_SQL = `
+// Story 3.4: mesmos campos do `compareEvents` (timestamp, deviceId, id), mas NÃO é
+// garantida a mesma ordem em todo caso. Coincide para timestamps inteiros finitos e
+// texto ASCII. Diverge quando: timestamp é texto não numérico (fica TEXT e o SQLite o
+// põe depois de todo número; a memória o trata como 0), `Infinity`/`NaN` (o driver
+// grava valor ou NULL diferente do 0 da memória), e texto fora do BMP contra
+// U+E000–U+FFFF (BINARY compara bytes UTF-8 = code point; o JS compara unidades
+// UTF-16). Por isso a memória sempre reordena com `compareEvents` depois de carregar.
+export const SELECT_ALL_SQL = `
   SELECT id, type, payload, timestamp, deviceId, signature
   FROM events
-  ORDER BY timestamp ASC
+  ORDER BY timestamp ASC, deviceId ASC, id ASC
 `;
 
-const SELECT_SINCE_SQL = `
+export const SELECT_SINCE_SQL = `
   SELECT id, type, payload, timestamp, deviceId, signature
   FROM events
   WHERE timestamp > ?
-  ORDER BY timestamp ASC
+  ORDER BY timestamp ASC, deviceId ASC, id ASC
 `;
 
 const SELECT_EXISTS_SQL = `

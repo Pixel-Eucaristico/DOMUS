@@ -22,6 +22,7 @@ import { generateId } from "@packages/events/src/factory";
 import { createDefaultCategories } from "@packages/domain/src/categories";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { getEventStore } from "./useEventStore";
+import { compareEvents } from "@/src/context/localEventLog";
 
 function todayStr(): string {
   const d = new Date();
@@ -124,7 +125,7 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
 
       setAllEvents((prev) => {
         const next = [...prev, ...syncEvents];
-        next.sort((a, b) => a.timestamp - b.timestamp);
+        next.sort(compareEvents);
         return next;
       });
       setLocalEventCount((c) => c + syncEvents.length);

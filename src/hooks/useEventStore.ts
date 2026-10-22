@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { SQLiteEventStore } from "@packages/storage/src/eventStore";
 import { selectEventsToImport } from "@/src/modules/syncPayload";
-import { normalizeStoredEvents, eventSortKey } from "@/src/context/localEventLog";
+import { isBlankDeviceId, prepareBackupForStorage, prepareLocalLog } from "@/src/context/localEventLog";
 
 const DEVICE_ID_KEY = "domus_device_id";
 const EVENTS_BACKUP_KEY = "domus_events_v1";
@@ -117,11 +117,15 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
 
         if (mounted) {
           // Story 3.2: item que não é objeto é pulado (não derruba o log inteiro).
-          const { events: migratedEvents, skippedIndexes } = normalizeStoredEvents(events, did);
-          if (skippedIndexes.length > 0) {
-            console.warn(`[EventStore] Itens ignorados na hidratação (não são objeto), índices: ${skippedIndexes.join(", ")}`);
+          // Story 3.4: normaliza, deduplica e reordena ("local" → id do aparelho muda o
+          // desempate); eventos despachados antes do fim da hidratação são mantidos.
+          const prepared = prepareLocalLog(events, did);
+          if (prepared.skippedIndexes.length > 0) {
+            console.warn(`[EventStore] Itens ignorados na hidratação (não são objeto), índices: ${prepared.skippedIndexes.join(", ")}`);
           }
-          setAllEvents(migratedEvents);
+          setAllEvents((prev) =>
+            prev.length === 0 ? prepared.events : prepareLocalLog([...prepared.events, ...prev], did).events,
+          );
           setLoading(false);
           clearTimeout(safetyTimeout);
         }
@@ -152,18 +156,18 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
         return;
       }
 
+      // Story 3.4: carimba o id do aparelho já na criação (quando conhecido), para que
+      // o evento não mude de posição ao reabrir o app nem saia como "local".
+      const evt = deviceId && isBlankDeviceId(syncEvt.deviceId) ? { ...syncEvt, deviceId } : syncEvt;
+
       getEventStore().then((store) => {
-        store?.appendEvent(syncEvt);
+        store?.appendEvent(evt);
       });
 
-      setAllEvents((prev) => {
-        const next = [...prev, syncEvt];
-        next.sort((a, b) => a.timestamp - b.timestamp);
-        return next;
-      });
+      setAllEvents((prev) => prepareLocalLog([...prev, evt], deviceId).events);
       setLocalEventCount((c) => c + 1);
     },
-    [isDemoActive, dispatchDemoEvent],
+    [isDemoActive, dispatchDemoEvent, deviceId],
   );
 
   const importEvents = useCallback(
@@ -178,31 +182,27 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
       }
 
       if (newEvents.length > 0) {
-        setAllEvents((prev) => {
-          const merged = [...prev, ...newEvents];
-          merged.sort((a, b) => a.timestamp - b.timestamp);
-          return merged;
-        });
+        // Story 3.4: mesma normalização, deduplicação e ordem da hidratação.
+        setAllEvents((prev) => prepareLocalLog([...prev, ...newEvents], deviceId).events);
       }
       return newEvents.length;
     },
-    [isDemoActive],
+    [isDemoActive, deviceId],
   );
 
   const restoreFromBackup = useCallback(async (events: SyncEvent[]): Promise<void> => {
     if (isDemoActive) return;
     // Story 3.2: item que não é objeto é pulado; o resto é gravado como veio do backup
     // e, em memória, recebe a mesma normalização da hidratação (deviceId, payload em texto).
-    const skipped: number[] = [];
-    const objects = events.filter((e, i) => {
-      const ok = typeof e === "object" && e !== null && !Array.isArray(e);
-      if (!ok) skipped.push(i);
-      return ok;
-    });
+    // Story 3.4: sem ids repetidos (fica o primeiro, como o INSERT OR IGNORE), timestamp
+    // em texto numérico como número, na ordem total.
+    const { events: sorted, skippedIndexes: skipped, duplicateIds } = prepareBackupForStorage(events);
     if (skipped.length > 0) {
       console.warn(`[EventStore] Itens ignorados na restauração (não são objeto), índices: ${skipped.join(", ")}`);
     }
-    const sorted = [...objects].sort((a, b) => eventSortKey(a) - eventSortKey(b));
+    if (duplicateIds.length > 0) {
+      console.warn(`[EventStore] Ids repetidos ignorados na restauração: ${duplicateIds.length}`);
+    }
     if (Platform.OS === "web") {
       await AsyncStorage.setItem(EVENTS_BACKUP_KEY, JSON.stringify(sorted));
     } else {
@@ -212,7 +212,8 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
         for (const evt of sorted) store.appendEvent(evt);
       }
     }
-    setAllEvents(normalizeStoredEvents(sorted, deviceId).events);
+    // Story 3.4: reordena depois de normalizar ("local" → id do aparelho muda o desempate).
+    setAllEvents(prepareLocalLog(sorted, deviceId).events);
   }, [isDemoActive, deviceId]);
 
   const resetApp = useCallback(async (): Promise<void> => {

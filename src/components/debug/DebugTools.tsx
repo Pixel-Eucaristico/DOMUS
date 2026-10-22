@@ -21,6 +21,7 @@ import { ALL_ACHIEVEMENTS, MONTHLY_TROPHIES } from "@packages/gamification/src/a
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import type { ArchetypeType } from "@packages/personality/src/types";
+import { generateId } from "@packages/events/src/factory";
 import { getArchetypeDescription } from "@packages/personality/src/archetypeEngine";
 import { LottieTrophy } from "@/src/components/gamification/LottieTrophy";
 import { clampTier, type TrophyTier } from "@/src/components/gamification/lottieTierSelection";
@@ -372,7 +373,7 @@ export function DebugTools() {
                     style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
                     onPress={() => {
                       dispatch({
-                        id: `debug-lvl-${Date.now()}`,
+                        id: `debug-lvl-${generateId()}`,
                         type: "LEVEL_UP",
                         payload: { previousLevel: gamification.level, newLevel: gamification.level + 1, totalXp: gamification.totalXp },
                         timestamp: Date.now(),
@@ -510,7 +511,7 @@ export function DebugTools() {
                       }
                       
                       dispatch({
-                        id: `debug-${selectedTrophy.id}-${Date.now()}`,
+                        id: `debug-${selectedTrophy.id}-${generateId()}`,
                         type: eventType,
                         payload,
                         timestamp: Date.now(),

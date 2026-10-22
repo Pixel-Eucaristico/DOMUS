@@ -84,6 +84,11 @@ describe("validateEnvelope", () => {
     expect(validateEnvelope(omit("deviceId"))).toMatchObject({ ok: false, reason: "invalid_device_id" });
     expect(validateEnvelope(valid({ deviceId: "" }))).toMatchObject({ ok: false, reason: "invalid_device_id" });
     expect(validateEnvelope(valid({ deviceId: 1 }))).toMatchObject({ ok: false, reason: "invalid_device_id" });
+    // Story 3.4: o marcador "local" não pode vir de fora (cada aparelho o trocaria pelo próprio id).
+    for (const deviceId of ["local", "LOCAL", " Local ", "\tlocal\n"]) {
+      expect(validateEnvelope(valid({ deviceId }))).toMatchObject({ ok: false, reason: "invalid_device_id" });
+    }
+    expect(validateEnvelope(valid({ deviceId: "local-dev" }))).toMatchObject({ ok: true });
   });
 
   it("signature ausente (ou não texto) vira string vazia", () => {

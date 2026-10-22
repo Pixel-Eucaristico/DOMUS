@@ -82,9 +82,16 @@ export function diagnosticString(value: unknown, max: number = MAX_DIAGNOSTIC_LE
   });
 }
 
+/** `"local"` (sem diferenciar maiúsculas, ignorando espaços) é o marcador de "este aparelho". */
+function isPlaceholderDeviceId(value: string): boolean {
+  return value.trim().toLowerCase() === "local";
+}
+
 /**
  * Valida um item recebido e devolve o `SyncEvent` normalizado ou o motivo da recusa.
- * Regras: `id`, `type`, `deviceId` texto não vazio (nem só espaços); `timestamp` inteiro
+ * Regras: `id`, `type`, `deviceId` texto não vazio (nem só espaços); `deviceId` não pode
+ * ser o marcador `"local"` (Story 3.4: cada aparelho o trocaria pelo próprio id e a ordem
+ * do replay divergiria); `timestamp` inteiro
  * seguro em ms entre 2020-01-01 e 2100-01-01;
  * `payload` objeto (não nulo, não array); `signature` ausente (ou não texto) vira `""`.
  */
@@ -98,7 +105,7 @@ export function validateEnvelope(raw: unknown): EnvelopeValidationResult {
   if (!isNonEmptyString(raw.id)) return reject("invalid_id");
   if (!isNonEmptyString(raw.type)) return reject("invalid_type");
   if (!isValidTimestamp(raw.timestamp)) return reject("invalid_timestamp");
-  if (!isNonEmptyString(raw.deviceId)) return reject("invalid_device_id");
+  if (!isNonEmptyString(raw.deviceId) || isPlaceholderDeviceId(raw.deviceId)) return reject("invalid_device_id");
   if (!isPlainObject(raw.payload)) return reject("invalid_payload");
 
   return {

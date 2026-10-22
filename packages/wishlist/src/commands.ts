@@ -17,9 +17,7 @@ import type {
   SavingsGoalConfig,
 } from "./types";
 
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
-}
+import { generateId } from "../../events/src/factory";
 
 function makeMetadata(deviceId: string): WishlistEventMetadata {
   return {
@@ -35,9 +33,12 @@ function baseEvent(deviceId: string): {
   deviceId: string;
   signature: string;
 } {
+  // Story 3.4: id e timestamp do mesmo instante; o contador do generateId
+  // mantém a ordem de criação no mesmo milissegundo.
+  const now = Date.now();
   return {
-    id: generateId(),
-    timestamp: Date.now(),
+    id: generateId(now),
+    timestamp: now,
     deviceId,
     signature: "",
   };

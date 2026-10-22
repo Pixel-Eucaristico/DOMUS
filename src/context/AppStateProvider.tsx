@@ -20,6 +20,7 @@ import { generateId } from "@packages/events/src/factory";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { WishlistEvent, WishlistState } from "@packages/wishlist";
 import { replayAllEvents, type QuarantineEntry } from "@/src/context/replay";
+import { compareEvents } from "@/src/context/localEventLog";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 
 // Extracted hooks
@@ -165,7 +166,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
         eventStore.setAllEvents((prev) => {
           const next = [...prev, recoveryEvent];
-          next.sort((a, b) => a.timestamp - b.timestamp);
+          next.sort(compareEvents);
           return next;
         });
         eventStore.setLocalEventCount((c) => c + 1);

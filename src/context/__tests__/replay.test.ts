@@ -20,6 +20,7 @@ import { createTransactionEvent } from "@packages/domain/src/transactions";
 import { createDefaultCategories } from "@packages/domain/src/categories";
 import { diagnosticString } from "@packages/events/src/validateEnvelope";
 import { PAYLOAD_SPECS, validatePayload } from "../replayValidation";
+import { sortEvents } from "@packages/storage/src/eventOrder";
 
 // ─── Implementação anterior (AppStateProvider antes da Story 3.2), para comparação ──
 function legacyReplay(events: SyncEvent[]) {
@@ -204,7 +205,8 @@ describe("replayAllEvents — conferência local tolerante", () => {
   it("relógio antes de 2020 e timestamp em segundos não vão para a Quarentena", () => {
     const result = replayAllEvents([at(1_546_300_800_000), at(5e6)]);
     expect(result.quarantine).toEqual([]);
-    expect(Object.keys(result.domain.accounts)).toEqual(["acc-1546300800000", "acc-5000000"]);
+    // Story 3.4: o replay aplica na ordem total — 5e6 vem antes de 1.546.300.800.000.
+    expect(Object.keys(result.domain.accounts)).toEqual(["acc-5000000", "acc-1546300800000"]);
   });
 
   it("timestamp em texto é aplicado e normalizado para número", () => {
@@ -242,7 +244,8 @@ describe("replayAllEvents — conferência local tolerante", () => {
     expect(log.filter((e) => e.deviceId === "local").length).toBeGreaterThan(0);
     const result = replayAllEvents(log);
     expect(result.quarantine).toEqual([]);
-    expect(stateOf(result)).toEqual(legacyReplay(log));
+    // Story 3.4: o replay ordena pela ordem total; o anterior aplicava o array como veio.
+    expect(stateOf(result)).toEqual(legacyReplay(sortEvents(log)));
   });
 });
 
@@ -299,9 +302,10 @@ describe("replayAllEvents — payload por tipo", () => {
       id: "tx-i", accountId: "acc-1", type: "expense", amount: 10, date: "2026-10-05", items: [{ amount: "x" }],
     }, "ti");
     const result = replayAllEvents([itemNoList, badItems]);
+    // Story 3.4: mesmo horário e aparelho — o id desempata ("ti" antes de "wi").
     expect(result.quarantine.map((q) => q.reason)).toEqual([
-      'payload inválido: campo "item.listId" ausente ou com tipo errado',
       'payload inválido: campo "items[0].amount" ausente ou com tipo errado',
+      'payload inválido: campo "item.listId" ausente ou com tipo errado',
     ]);
   });
 

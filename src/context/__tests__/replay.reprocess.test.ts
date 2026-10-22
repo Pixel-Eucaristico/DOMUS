@@ -140,13 +140,14 @@ describe("reprocessar eventos desconhecidos (Story 3.3) — matriz", () => {
     const envEntry = { id: "env-ruim", type: "TRANSACTION_CREATED", kind: "invalid_envelope" };
 
     const old = replayOld(log);
-    expect(old.quarantine.map((q) => q.kind)).toEqual(["invalid_envelope", "unknown_type"]);
-    expect(old.quarantine[0]).toMatchObject(envEntry);
+    // Story 3.4: a Quarentena segue a ordem total do log (priceX é anterior ao badEnvelope).
+    expect(old.quarantine.map((q) => q.kind)).toEqual(["unknown_type", "invalid_envelope"]);
+    expect(old.quarantine[1]).toMatchObject(envEntry);
 
     const updated = replayNew(log);
     expect(updated.quarantine).toHaveLength(1);
     expect(updated.quarantine[0]).toMatchObject(envEntry);
-    expect(updated.quarantine[0].reason).toBe(old.quarantine[0].reason);
+    expect(updated.quarantine[0].reason).toBe(old.quarantine[1].reason);
     expect(log).toEqual(before);
   });
 

@@ -2,7 +2,7 @@
 title: 'Story 3.4: ordem total do replay em memória e no SQLite'
 type: 'bugfix'
 created: '2026-10-22'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'd393bc8'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -58,14 +58,14 @@ context:
 
 | Achado | Veredito | Evidência |
 |---|---|---|
-| Eventos do mesmo aparelho no mesmo milissegundo ficam em ordem aleatória (o `id` desempata pelo sufixo aleatório de `generateId`) | medium | 5.079 de 10.000 pares invertidos; categorias padrão e rajadas de gamificação embaralham. **patch**: `generateId` com contador monotônico de largura fixa logo após o prefixo de tempo, para ids novos ordenarem na ordem de criação; ids antigos mantêm o desempate atual (determinístico). |
-| Evento com `deviceId` "local"/vazio vindo de fora (relay ou backup de outro aparelho) vira o id de cada aparelho e a ordem diverge | high | Sonda: saldos 4.900 × 5.000. **patch**: o sync recusa `deviceId` "local" (e vazio, já recusado); o backup exportado leva os eventos normalizados (id real). |
-| No mesmo aparelho, evento "local" muda de posição ao reabrir | medium | **patch**: `dispatch` e `importEvents` normalizam antes de ordenar, como a hidratação. |
-| Eventos criados com `deviceId` nulo ficam "local" a sessão inteira | low-medium | **patch**: `dispatch` carimba o id do aparelho quando já conhecido. |
-| Backup com ids repetidos: memória com dois, SQLite com um | medium | **patch**: `restoreFromBackup` deduplica por id (fica o primeiro, como o `INSERT OR IGNORE`). |
-| Horário texto/não inteiro vindo de backup vale aqui mas não é publicado | low | **patch**: texto numérico vira número na restauração. |
-| SQL ≠ `compareEvents` para texto não numérico, `Infinity`, `NaN` e caracteres fora do BMP | low | A memória sempre reordena. **patch**: corrigir o comentário do SQL. |
-| Testes "SQLite × memória" não falham por ordem do SQL; dublê compara o comparador com ele mesmo | low (gap) | **patch**: teste de ordem de criação no mesmo milissegundo; o resto **defer** (precisa de SQLite real no Node 20). |
+| Eventos do mesmo aparelho no mesmo milissegundo ficam em ordem aleatória (o `id` desempata pelo sufixo aleatório de `generateId`) | medium | 5.079 de 10.000 pares invertidos; categorias padrão e rajadas de gamificação embaralham. **patch — aplicado**: `generateId` com contador monotônico de largura fixa logo após o prefixo de tempo, para ids novos ordenarem na ordem de criação; ids antigos mantêm o desempate atual (determinístico). |
+| Evento com `deviceId` "local"/vazio vindo de fora (relay ou backup de outro aparelho) vira o id de cada aparelho e a ordem diverge | high | Sonda: saldos 4.900 × 5.000. **patch — aplicado**: o sync recusa `deviceId` "local" (e vazio, já recusado); o backup exportado leva os eventos normalizados (id real). |
+| No mesmo aparelho, evento "local" muda de posição ao reabrir | medium | **patch — aplicado**: `dispatch` e `importEvents` normalizam antes de ordenar, como a hidratação. |
+| Eventos criados com `deviceId` nulo ficam "local" a sessão inteira | low-medium | **patch — aplicado**: `dispatch` carimba o id do aparelho quando já conhecido. |
+| Backup com ids repetidos: memória com dois, SQLite com um | medium | **patch — aplicado**: `restoreFromBackup` deduplica por id (fica o primeiro, como o `INSERT OR IGNORE`). |
+| Horário texto/não inteiro vindo de backup vale aqui mas não é publicado | low | **patch — aplicado**: texto numérico vira número na restauração. |
+| SQL ≠ `compareEvents` para texto não numérico, `Infinity`, `NaN` e caracteres fora do BMP | low | A memória sempre reordena. **patch — aplicado**: corrigir o comentário do SQL. |
+| Testes "SQLite × memória" não falham por ordem do SQL; dublê compara o comparador com ele mesmo | low (gap) | **patch — aplicado**: teste de ordem de criação no mesmo milissegundo; o resto **defer** (precisa de SQLite real no Node 20). |
 | Ligação dos `sort` nos hooks sem teste | low (gap) | **defer**: `react-native`; o replay ordena sozinho e é testado. |
 
 ## Verification
@@ -79,5 +79,14 @@ context:
 - **SQLite:** `SELECT_ALL_SQL` e `SELECT_SINCE_SQL` (agora exportados) usam `ORDER BY timestamp ASC, deviceId ASC, id ASC`, sem `COLLATE` (BINARY = `memcmp` dos bytes UTF-8). Para ASCII é idêntico à comparação por unidade de código do JS. Diferenças conhecidas, fora do caso real (ids e deviceIds do app são ASCII): (1) com caracteres não-BMP (emoji, U+10000+) contra caracteres em U+E000–U+FFFF, UTF-8 ordena por code point e o JS por unidade UTF-16 (surrogates D800–DFFF vêm antes de E000); (2) timestamp em texto não numérico fica como TEXT na coluna INTEGER e o SQLite o põe depois de todos os números, enquanto a memória o trata como 0. Por isso a memória sempre reordena com `compareEvents` depois de carregar — o estado nunca depende só da ordem do SELECT.
 - **Testes:** `packages/storage/__tests__/eventOrder.test.ts` (desempates, código × idioma, timestamp texto/NaN, valores estranhos, estabilidade, não mutação, `ORDER BY` exato das duas queries, `memoryAdapter`, e o SQL real num SQLite em memória) e `src/context/__tests__/replay.order.test.ts` (log com `ACCOUNT_UPDATED` × `TRANSACTION_CREATED` no mesmo horário em aparelhos diferentes e dois `TRANSACTION_UPDATED` na mesma transação; 3 ordens de chegada → estado deep-equal; entrada não alterada; opções da 3.3; recarregamento pelo dublê e pelo SQLite real → mesmo estado da memória). Não há `better-sqlite3` nem `sql.js`; o SQLite real é o `node:sqlite` embutido do Node ≥ 22.5 (nenhuma dependência nova) — o teste usa `it.skipIf` e é pulado na CI (Node 20), onde vale a checagem da string do SQL e o `memoryAdapter`.
 - **Testes existentes ajustados** (a ordem passou a ser a total, não a do array): `replay.test.ts` (ordem das contas com timestamps 5e6 × 1,5e12; comparação com o replay anterior sobre `sortEvents(log)`; ordem da Quarentena desempatada por id) e `replay.reprocess.test.ts` (ordem da Quarentena segue o timestamp).
-- **Verificação:** `npx vitest run` → 66 arquivos / 1247 testes, todos passando (baseline 64 / 1229); `npx tsc --noEmit` → sem erros.
+- **Correções da revisão (Review Triage Log):**
+  - `generateId` (`packages/events/src/factory.ts`): `Date.now()` em base36 + contador monotônico de 4 dígitos base36 (zera a cada milissegundo; acima de 1.679.615 no mesmo ms fica no máximo e o id continua único pelo sufixo aleatório) + sufixo aleatório. `createEvent` usa o mesmo instante no id e no `timestamp`. O `generateId` local de `packages/wishlist/src/commands.ts` passou a ser o da fábrica (com o mesmo instante no id e no timestamp), e os ids de evento do `DebugTools` (`debug-lvl-…`, `debug-<troféu>-…`), que eram `Date.now()` e podiam repetir no mesmo ms, agora usam `generateId()`. `xp-recovery-…` e os eventos da gamificação já usavam o `generateId` da fábrica. Não alterados (não geram id de evento): `packages/core/src/id.ts` (pacote sem uso no app), `generateDeviceId`, `invoiceId` dos parsers. Ids antigos sem contador mantêm o desempate atual (determinístico).
+  - `validateEnvelope` recusa `deviceId` `"local"` (sem diferenciar maiúsculas, com espaços) como `invalid_device_id` — vale para o import do sync e para a publicação no relay. Backup manual (`useBackupRestore`) e automático (`useAutoBackup`) exportam `eventsForExport(getAllEvents(), deviceId)`: `"local"`/vazio vira o id real.
+  - `dispatch` carimba o id do aparelho (quando conhecido) no evento antes de gravar no SQLite e na memória — é a criação do evento, não reescrita de evento gravado. `dispatch`, `importEvents`, hidratação e `restoreFromBackup` usam o helper puro `prepareLocalLog` (normaliza, deduplica por id ficando o primeiro, ordena com `compareEvents`). A hidratação passou a juntar o log carregado com eventos despachados antes do fim da hidratação (antes eram sobrescritos), deduplicando.
+  - `restoreFromBackup` usa `prepareBackupForStorage`: só objetos, sem ids repetidos (fica o primeiro, como o `INSERT OR IGNORE`), timestamp em texto numérico vira número; o resto é gravado como veio. A memória aplica `prepareLocalLog` sobre o que foi gravado, então memória e banco têm o mesmo conjunto.
+  - `normalizeStoredEvents` também trata `"LOCAL"`/`" local "` como marcador e converte timestamp em texto numérico para número (só na memória).
+  - Comentário do SQL em `eventStore.ts` corrigido: mesmos campos, mas não a mesma ordem em todo caso (texto não numérico, `Infinity`/`NaN`, fora do BMP); a memória sempre reordena.
+  - Testes novos: `packages/events/__tests__/generateId.test.ts` (formato e reinício do contador; 10.000 `createEvent` seguidos mantêm a ordem de criação com `compareEvents`; categorias padrão aplicadas na ordem de criação), casos de `"local"` em `validateEnvelope.test.ts`, e `prepareLocalLog`/`dedupeById`/`prepareBackupForStorage`/`eventsForExport`/`isBlankDeviceId` em `localEventLog.test.ts`. Sondas da revisão: `p2` → 0 de 9.992 pares invertidos; `rev34e/probe.ts` → evento "local" do relay recusado.
+  - **Defer** (como na triagem): SQLite real na CI (Node 20 sem `node:sqlite`) e teste da ligação dos `sort` nos hooks (`react-native`).
+- **Verificação:** `npx vitest run` → 67 arquivos / 1258 testes, todos passando (baseline 64 / 1229); `npx tsc --noEmit` → sem erros.
 

@@ -13,6 +13,7 @@ import { WISHLIST_EVENTS, type WishlistEvent, type WishlistState } from "@packag
 import { wishlistReducer, createInitialWishlistState } from "@packages/wishlist/src/reducer";
 import { PERSONALITY_EVENTS } from "@packages/personality/src/types";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
+import { sortEvents } from "@packages/storage/src/eventOrder";
 
 /**
  * Replay puro do log de eventos (Story 3.2) — sem `react-native`, testável no vitest.
@@ -123,7 +124,9 @@ export function replayAllEvents(events: readonly SyncEvent[], options: ReplayOpt
   let wishlist = createInitialWishlistState();
   const quarantine: QuarantineEntry[] = [];
 
-  for (const raw of events) {
+  // Story 3.4: ordem total (timestamp, deviceId, id) numa cópia — o estado não
+  // depende da ordem de chegada e o array recebido nunca é alterado.
+  for (const raw of sortEvents(events)) {
     const checked = validateLocalEvent(raw);
     if (!checked.ok) {
       const item = raw as unknown as Record<string, unknown> | null;

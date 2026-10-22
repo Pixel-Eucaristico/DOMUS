@@ -1,4 +1,5 @@
 import type { DatabaseAdapter, EventRow } from "./types";
+import { compareEvents } from "./eventOrder";
 
 export function createMemoryAdapter(): DatabaseAdapter {
   const tables: Map<string, EventRow[]> = new Map();
@@ -51,7 +52,7 @@ export function createMemoryAdapter(): DatabaseAdapter {
         const ts = (params?.[0] ?? 0) as number;
         const filtered = table
           .filter((row) => row.timestamp > ts)
-          .sort((a, b) => a.timestamp - b.timestamp);
+          .sort(compareEvents);
         return filtered as unknown as T[];
       }
 
@@ -61,7 +62,7 @@ export function createMemoryAdapter(): DatabaseAdapter {
         return found as unknown as T[];
       }
 
-      const sorted = [...table].sort((a, b) => a.timestamp - b.timestamp);
+      const sorted = [...table].sort(compareEvents);
       return sorted as unknown as T[];
     },
 
