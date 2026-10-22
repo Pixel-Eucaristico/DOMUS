@@ -50,3 +50,29 @@ Arquivos: `x.json` (bronze), `x_t2` (prata), `x_t3` (ouro); conquistas `x_t1` a 
 | Conversão de São Paulo | clarão de luz desce do alto (⚡ do app) e a espada aparece | raios do clarão | livro das cartas se abre |
 | São Tomás de Aquino | o livro se abre e um sol pequeno nasce das páginas | pomba sobre o livro | sol completo com raios |
 | São João Bosco | a criança pula e duas mãos de acolhimento aparecem | segunda criança | auréola e confete |
+
+## 5. Gestos do lote 2 (fevereiro a abril)
+
+| Troféu | Gesto | Prata acrescenta | Ouro acrescenta |
+|---|---|---|---|
+| Apresentação do Senhor | uma vela se acende e a chama cresce (festa das candeias) | segunda vela | luz descendo e duas pombinhas |
+| São Brás | duas velas cruzadas descem e se tocam em X | chamas acendem nas velas | auréola com raios |
+| Santa Águeda | uma palma sobe e se abre; um véu desce ao lado | lírio | coroa de mártir |
+| Nossa Senhora de Lourdes | a água da fonte brota e corre; a rosa amarela aparece | terço surge ao lado | luz na gruta e estrelas |
+| São Valentim | dois corações se aproximam e se encontram | o par de corações pulsa | rosas e confete de corações |
+| Cátedra de São Pedro | a cadeira (cátedra) aparece e duas chaves cruzadas descem sobre ela | as chaves brilham | tiara e raios |
+| Quarta-Feira de Cinzas | uma cruz de cinza se forma traço a traço e a poeira cai | ramo seco ao lado | luz suave de cima |
+| Santas Perpétua e Felicidade | duas palmas sobem lado a lado e se cruzam | duas coroas pequenas | luz e pétalas caindo |
+| São Patrício | o trevo de três folhas abre folha por folha | o trevo gira devagar | cruz celta e raios verdes |
+| São José Esposo de Maria | o lírio floresce e o martelo de carpinteiro bate na madeira | serra ao lado | auréola e lascas de madeira |
+| Anunciação do Senhor | o anjo (asas) desce e o lírio se abre | estrela pequena acende | luz descendo com pomba |
+| Domingo de Ramos | ramos de palmeira se agitam de um lado para o outro | mais ramos | mantos no chão e luz |
+| Quinta-Feira Santa | o cálice aparece e a hóstia sobe brilhando sobre ele | pão partido ao lado | raios da hóstia |
+| Sexta-Feira da Paixão | a cruz se ergue devagar, com o céu escurecendo | coroa de espinhos | o céu clareia atrás da cruz |
+| Páscoa da Ressurreição | a pedra do túmulo rola e sai luz | cordeiro com estandarte | sol nascendo e lírios |
+| São Isidoro de Sevilha | o livro se abre e as páginas viram | pena escrevendo | estrela do saber e raios |
+| São João de La Salle | a lousa escreve "ABC" | maçã sobre a mesa | auréola e confete |
+| Carlo Acutis | o notebook abre e a hóstia aparece na tela | cursor de mouse clica | raios e confete de pixels |
+| São Jorge | o escudo com a cruz vermelha desce e a lança aparece | o dragão vencido (cauda) embaixo | luz e cavalo branco ao fundo |
+| São Marcos Evangelista | o leão alado aparece e o livro se abre | asas batem | auréola e raios |
+| Santa Catarina de Sena | o lírio sobe com um livro e um coração | o coração brilha | coroa de espinhos e luz |
