@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { router, useFocusEffect } from "expo-router";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { GiftedChat, Bubble } from "react-native-gifted-chat";
@@ -637,181 +636,179 @@ export default function AIChatScreen() {
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
-    <KeyboardProvider>
-      <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={["top", "bottom"]}>
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.background }]}>
-          <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }} style={styles.backBtn}>
-            <Feather name="arrow-left" size={22} color={theme.textColor} />
-          </TouchableOpacity>
-          <View style={styles.headerCenter}>
-            <TText variant="subtitle" bold color={theme.textColor} fontSize={17}>DOMUS IA</TText>
-            <TText variant="caption" color={theme.secondaryText}>Consultor financeiro</TText>
-          </View>
-          <TouchableOpacity onPress={() => { soundManager.play("trash"); clearHistory(); audioUriMap.current = {}; msgProviderMap.current = {}; }} style={styles.headerBtn}>
-            <Feather name="trash-2" size={18} color={theme.secondaryText} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }} style={styles.headerBtn}>
-            <Feather name="settings" size={18} color={theme.secondaryText} />
-          </TouchableOpacity>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={["top", "bottom"]}>
+      {/* Header */}
+      <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.background }]}>
+        <TouchableOpacity onPress={() => { soundManager.play("tap"); router.back(); }} style={styles.backBtn}>
+          <Feather name="arrow-left" size={22} color={theme.textColor} />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <TText variant="subtitle" bold color={theme.textColor} fontSize={17}>DOMUS IA</TText>
+          <TText variant="caption" color={theme.secondaryText}>Consultor financeiro</TText>
         </View>
+        <TouchableOpacity onPress={() => { soundManager.play("trash"); clearHistory(); audioUriMap.current = {}; msgProviderMap.current = {}; }} style={styles.headerBtn}>
+          <Feather name="trash-2" size={18} color={theme.secondaryText} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }} style={styles.headerBtn}>
+          <Feather name="settings" size={18} color={theme.secondaryText} />
+        </TouchableOpacity>
+      </View>
 
-        {/* Banner: IA desabilitada */}
-        {!settings.isEnabled && (
-          <View style={[styles.banner, { backgroundColor: `${theme.warning}20`, borderColor: theme.warning }]}>
-            <Feather name="info" size={14} color={theme.warning} />
-            <TText variant="caption" color={theme.warning} lineHeight={18} flex={1}>
-              Configure sua chave de API em{" "}
-              <TText variant="caption" bold color={theme.warning} onPress={() => router.push("/ai-settings")}>Configuracoes</TText>
-              {" "}para ativar a IA. Analise local disponivel.
-            </TText>
-          </View>
-        )}
+      {/* Banner: IA desabilitada */}
+      {!settings.isEnabled && (
+        <View style={[styles.banner, { backgroundColor: `${theme.warning}20`, borderColor: theme.warning }]}>
+          <Feather name="info" size={14} color={theme.warning} />
+          <TText variant="caption" color={theme.warning} lineHeight={18} flex={1}>
+            Configure sua chave de API em{" "}
+            <TText variant="caption" bold color={theme.warning} onPress={() => router.push("/ai-settings")}>Configuracoes</TText>
+            {" "}para ativar a IA. Analise local disponivel.
+          </TText>
+        </View>
+      )}
 
-        {/* Vision loading banner */}
-        {visionLoading && (
-          <View style={s.visionBanner}>
-            <ActivityIndicator size="small" color="#FFF" />
-            <Text style={s.visionBannerText}>Escaneando com IA Vision...</Text>
-          </View>
-        )}
+      {/* Vision loading banner */}
+      {visionLoading && (
+        <View style={s.visionBanner}>
+          <ActivityIndicator size="small" color="#FFF" />
+          <Text style={s.visionBannerText}>Escaneando com IA Vision...</Text>
+        </View>
+      )}
 
-        {/* Usage bar */}
-        <AIUsageBar
-          provider={settings.provider}
-          audioProvider={settings.audioProvider}
-          voiceEnabled={settings.voiceEnabled}
-          modelTier={settings.modelTier}
-          customBudgets={settings.customBudgets}
-          budgetMode={settings.budgetMode}
-          monthlyBudgets={settings.monthlyBudgets}
-          billingDay={settings.billingDay}
-          refreshKey={messages.length}
-        />
+      {/* Usage bar */}
+      <AIUsageBar
+        provider={settings.provider}
+        audioProvider={settings.audioProvider}
+        voiceEnabled={settings.voiceEnabled}
+        modelTier={settings.modelTier}
+        customBudgets={settings.customBudgets}
+        budgetMode={settings.budgetMode}
+        monthlyBudgets={settings.monthlyBudgets}
+        billingDay={settings.billingDay}
+        refreshKey={messages.length}
+      />
 
-        {/* ═══════════════════ GiftedChat (FULL FEATURES) ═══════════════════ */}
-        <GiftedChat
-          messages={giftedMessages}
-          onSend={handleSend}
-          user={HUMAN_USER}
-          /* ── Typing indicator ── */
-          isTyping={isLoading || welcomeLoading}
-          /* ── Custom renderers ── */
-          renderBubble={renderBubble}
-          renderCustomView={renderCustomView}
-          renderInputToolbar={renderInputToolbar}
-          text={inputText}
-          textInputProps={{ onChangeText: setInputText }}
-          /* ── Avatars ── */
-          isAvatarVisibleForEveryMessage={false}
-          renderAvatar={(props) => {
-            const user = props.currentMessage?.user;
-            if (!user || user._id === HUMAN_USER._id) return null;
-            const msgId = String(props.currentMessage?._id ?? "");
-            const msgProv = msgProviderMap.current[msgId] ?? settings.provider;
-            const pTheme = PROVIDER_THEME[msgProv as keyof typeof PROVIDER_THEME] ?? PROVIDER_THEME.openai;
-            return (
-              <View style={[styles.avatar, { backgroundColor: pTheme.color }]}>
-                <MaterialCommunityIcons
-                  name={pTheme.icon as keyof typeof MaterialCommunityIcons.glyphMap}
-                  size={18}
-                  color="#fff"
-                />
-              </View>
-            );
-          }}
-          /* ── Long press to copy ── */
-          onLongPressMessage={(_context: any, message: IMessage) => {
-            if (message.text) {
-              Clipboard.setStringAsync(message.text);
-              soundManager.play("pop");
-            }
-          }}
-          /* ── Link parsing (URLs, emails, phones) ── */
-          messageTextProps={{
-            url: true,
-            email: true,
-            phone: true,
-            hashtag: false,
-            mention: false,
-            linkStyle: {
-              left: { color: theme.primaryColor, textDecorationLine: "underline" as any },
-              right: { color: "#E0E0FF", textDecorationLine: "underline" as any },
-            },
-          }}
-          /* ── Scroll to bottom ── */
-          isScrollToBottomEnabled
-          scrollToBottomComponent={scrollToBottomComponent}
-          scrollToBottomOffset={200}
-          scrollToBottomStyle={{ backgroundColor: theme.cardBackground, borderColor: theme.border, borderWidth: 1, borderRadius: 20 }}
-          /* ── Quick suggestions as chat footer ── */
-          renderChatFooter={settings.isEnabled ? () => (
-            <QuickSuggestions onSelect={handleQuickSuggestion} hasMessages={messages.length > 0} />
-          ) : undefined}
-          /* ── Reply to messages (swipe) ── */
-          reply={{
-            swipe: {
-              isEnabled: true,
-              direction: "left" as const,
-            },
-          }}
-          /* ── Keyboard & layout ── */
-          /* ── Styles ── */
-          messagesContainerStyle={{ backgroundColor: theme.background }}
-          timeTextStyle={{
-            left: { color: theme.secondaryText, fontSize: 11 },
-            right: { color: "rgba(255,255,255,0.6)", fontSize: 11 },
-          }}
-          /* ── Localization ── */
-          dateFormat="DD/MM/YYYY"
-          timeFormat="HH:mm"
-          locale="pt-br"
-        />
-
-        {/* Provider switch suggestion modal */}
-        <ProviderSwitchModal
-          visible={switchModal !== null}
-          currentProvider={settings.provider}
-          availableProviders={
-            (Object.keys(settings.apiKeyStatus) as import("@packages/ai").AIProvider[])
-              .filter((p) => settings.apiKeyStatus[p] === true)
+      {/* ═══════════════════ GiftedChat (FULL FEATURES) ═══════════════════ */}
+      <GiftedChat
+        messages={giftedMessages}
+        onSend={handleSend}
+        user={HUMAN_USER}
+        /* ── Typing indicator ── */
+        isTyping={isLoading || welcomeLoading}
+        /* ── Custom renderers ── */
+        renderBubble={renderBubble}
+        renderCustomView={renderCustomView}
+        renderInputToolbar={renderInputToolbar}
+        text={inputText}
+        textInputProps={{ onChangeText: setInputText }}
+        /* ── Avatars ── */
+        isAvatarVisibleForEveryMessage={false}
+        renderAvatar={(props) => {
+          const user = props.currentMessage?.user;
+          if (!user || user._id === HUMAN_USER._id) return null;
+          const msgId = String(props.currentMessage?._id ?? "");
+          const msgProv = msgProviderMap.current[msgId] ?? settings.provider;
+          const pTheme = PROVIDER_THEME[msgProv as keyof typeof PROVIDER_THEME] ?? PROVIDER_THEME.openai;
+          return (
+            <View style={[styles.avatar, { backgroundColor: pTheme.color }]}>
+              <MaterialCommunityIcons
+                name={pTheme.icon as keyof typeof MaterialCommunityIcons.glyphMap}
+                size={18}
+                color="#fff"
+              />
+            </View>
+          );
+        }}
+        /* ── Long press to copy ── */
+        onLongPressMessage={(_context: any, message: IMessage) => {
+          if (message.text) {
+            Clipboard.setStringAsync(message.text);
+            soundManager.play("pop");
           }
-          reason={switchModal?.reason ?? ""}
-          onSwitch={(provider) => {
-            setSwitchModal(null);
-            updateSettings({ provider, systemPromptSent: false });
-          }}
-          onDismiss={() => setSwitchModal(null)}
-        />
+        }}
+        /* ── Link parsing (URLs, emails, phones) ── */
+        messageTextProps={{
+          url: true,
+          email: true,
+          phone: true,
+          hashtag: false,
+          mention: false,
+          linkStyle: {
+            left: { color: theme.primaryColor, textDecorationLine: "underline" as any },
+            right: { color: "#E0E0FF", textDecorationLine: "underline" as any },
+          },
+        }}
+        /* ── Scroll to bottom ── */
+        isScrollToBottomEnabled
+        scrollToBottomComponent={scrollToBottomComponent}
+        scrollToBottomOffset={200}
+        scrollToBottomStyle={{ backgroundColor: theme.cardBackground, borderColor: theme.border, borderWidth: 1, borderRadius: 20 }}
+        /* ── Quick suggestions as chat footer ── */
+        renderChatFooter={settings.isEnabled ? () => (
+          <QuickSuggestions onSelect={handleQuickSuggestion} hasMessages={messages.length > 0} />
+        ) : undefined}
+        /* ── Reply to messages (swipe) ── */
+        reply={{
+          swipe: {
+            isEnabled: true,
+            direction: "left" as const,
+          },
+        }}
+        /* ── Keyboard & layout ── */
+        /* ── Styles ── */
+        messagesContainerStyle={{ backgroundColor: theme.background }}
+        timeTextStyle={{
+          left: { color: theme.secondaryText, fontSize: 11 },
+          right: { color: "rgba(255,255,255,0.6)", fontSize: 11 },
+        }}
+        /* ── Localization ── */
+        dateFormat="DD/MM/YYYY"
+        timeFormat="HH:mm"
+        locale="pt-br"
+      />
 
-        {/* Permission modal */}
-        <DataPermissionModal
-          visible={permissionModal !== null}
-          permissionKey={permissionModal?.key ?? null}
-          onAllow={handlePermissionAllow}
-          onDeny={handlePermissionDeny}
-        />
+      {/* Provider switch suggestion modal */}
+      <ProviderSwitchModal
+        visible={switchModal !== null}
+        currentProvider={settings.provider}
+        availableProviders={
+          (Object.keys(settings.apiKeyStatus) as import("@packages/ai").AIProvider[])
+            .filter((p) => settings.apiKeyStatus[p] === true)
+        }
+        reason={switchModal?.reason ?? ""}
+        onSwitch={(provider) => {
+          setSwitchModal(null);
+          updateSettings({ provider, systemPromptSent: false });
+        }}
+        onDismiss={() => setSwitchModal(null)}
+      />
 
-        <FinancialTooltip
-          visible={!!glossaryTip}
-          title={glossaryTip?.title ?? ""}
-          content={glossaryTip?.content ?? ""}
-          onClose={() => setGlossaryTip(null)}
-        />
+      {/* Permission modal */}
+      <DataPermissionModal
+        visible={permissionModal !== null}
+        permissionKey={permissionModal?.key ?? null}
+        onAllow={handlePermissionAllow}
+        onDeny={handlePermissionDeny}
+      />
 
-        <SelectionModal
-          visible={visionModal.visible}
-          title={visionModal.docType === "invoice" ? "Escanear Nota Fiscal" : "Escanear Holerite"}
-          subtitle="Como deseja capturar a imagem?"
-          options={[
-            { label: "Camera", icon: "camera", color: "#4CAF50", onPress: () => processVisionImage("camera", visionModal.docType) },
-            { label: "Galeria de Fotos", icon: "image", color: "#2196F3", onPress: () => processVisionImage("gallery", visionModal.docType) },
-          ]}
-          onCancel={() => setVisionModal((v) => ({ ...v, visible: false }))}
-          theme={theme}
-        />
-      </SafeAreaView>
-    </KeyboardProvider>
+      <FinancialTooltip
+        visible={!!glossaryTip}
+        title={glossaryTip?.title ?? ""}
+        content={glossaryTip?.content ?? ""}
+        onClose={() => setGlossaryTip(null)}
+      />
+
+      <SelectionModal
+        visible={visionModal.visible}
+        title={visionModal.docType === "invoice" ? "Escanear Nota Fiscal" : "Escanear Holerite"}
+        subtitle="Como deseja capturar a imagem?"
+        options={[
+          { label: "Camera", icon: "camera", color: "#4CAF50", onPress: () => processVisionImage("camera", visionModal.docType) },
+          { label: "Galeria de Fotos", icon: "image", color: "#2196F3", onPress: () => processVisionImage("gallery", visionModal.docType) },
+        ]}
+        onCancel={() => setVisionModal((v) => ({ ...v, visible: false }))}
+        theme={theme}
+      />
+    </SafeAreaView>
   );
 }
 

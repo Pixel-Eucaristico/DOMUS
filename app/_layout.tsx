@@ -6,7 +6,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { View, Platform, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { AvoidSoftInput } from "react-native-avoid-softinput";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import {
   useFonts,
   DMSans_400Regular,
@@ -377,16 +377,22 @@ function AppContainer({ children }: { children: React.ReactNode }) {
   const isDark = themeMode === "dark" || (themeMode === "system" && systemScheme === "dark");
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
-      <TamaguiProvider config={tamaguiConfig} defaultTheme={isDark ? "dark" : "light"}>
-        <SafeAreaProvider>
-          <ResponsiveLayoutProvider>
-            <ToastProvider>
-              {children}
-              <Scanlines opacity={0.025} spacing={3} color={isDark ? "#FFF" : "#000"} />
-            </ToastProvider>
-          </ResponsiveLayoutProvider>
-        </SafeAreaProvider>
-      </TamaguiProvider>
+      {/* Sistema único de teclado (Story 13.1): um só KeyboardProvider, sempre
+          montado e com filho único e estável, envolvendo telas e modais. Não
+          trocar por montagem condicional: o KeyboardControllerView é o
+          EdgeToEdgeReactViewGroup (ver o comentário do slot condicional abaixo). */}
+      <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
+        <TamaguiProvider config={tamaguiConfig} defaultTheme={isDark ? "dark" : "light"}>
+          <SafeAreaProvider>
+            <ResponsiveLayoutProvider>
+              <ToastProvider>
+                {children}
+                <Scanlines opacity={0.025} spacing={3} color={isDark ? "#FFF" : "#000"} />
+              </ToastProvider>
+            </ResponsiveLayoutProvider>
+          </SafeAreaProvider>
+        </TamaguiProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }
@@ -407,18 +413,6 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
-
-  // Enable native keyboard avoidance globally (react-native-avoid-softinput)
-  useEffect(() => {
-    AvoidSoftInput.setEnabled(true);
-    AvoidSoftInput.setAvoidOffset(8);
-    AvoidSoftInput.setEasing("easeIn");
-    AvoidSoftInput.setHideAnimationDuration(100);
-    AvoidSoftInput.setShowAnimationDuration(100);
-    return () => {
-      AvoidSoftInput.setEnabled(false);
-    };
-  }, []);
 
   if (!fontsLoaded && !fontError) {
     return null;

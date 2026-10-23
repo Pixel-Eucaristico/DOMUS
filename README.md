@@ -50,7 +50,6 @@ Aplicativo mobile de finanças pessoais (orçamento 50/30/20, importação de no
 | [expo-system-ui](https://docs.expo.dev/versions/latest/sdk/system-ui) | ~6.0.9 | https://docs.expo.dev/versions/latest/sdk/system-ui |
 | [react-native-worklets](https://github.com/margelo/react-native-worklets) | 0.5.1 | https://github.com/margelo/react-native-worklets |
 | [react-native-gifted-chat](https://github.com/FaridSafi/react-native-gifted-chat) | ^2.6.4 | https://github.com/FaridSafi/react-native-gifted-chat |
-| [react-native-avoid-softinput](https://mateusz1913.github.io/react-native-avoid-softinput) | ^6.1.0 | https://mateusz1913.github.io/react-native-avoid-softinput |
 
 ---
 
@@ -252,7 +251,6 @@ Este projeto utiliza e e grato as seguintes comunidades e mantenedores de codigo
 - **Marc Rousavy** — pelo react-native-vision-camera e react-native-worklets
 - **Paul Miller** — pelas bibliotecas noble-ciphers e noble-hashes
 - **Kirill Zyusko** — pelo react-native-keyboard-controller
-- **Mateusz Mierzwa** — pelo react-native-avoid-softinput
 - **Farid Safi** — pelo react-native-gifted-chat
 - **Colby Fayock / nostr-tools contributors** — pelo nostr-tools
 - **Naptha** — pelo Tesseract.js
