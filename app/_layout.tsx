@@ -3,7 +3,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState, useCallback } from "react";
-import { View, Platform, useColorScheme, Alert } from "react-native";
+import { View, Platform, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AvoidSoftInput } from "react-native-avoid-softinput";
@@ -41,6 +41,8 @@ import { LockScreen } from "@/src/components/security/LockScreen";
 import { useSecurityLock } from "@/src/hooks/useSecurityLock";
 import { AnimatedSplash } from "@/src/components/shared/AnimatedSplash";
 import { DebugTools } from "@/src/components/debug/DebugTools";
+import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
+import { appAlert, setAppAlertLocked } from "@/src/services/appAlert";
 import { ResponsiveLayoutProvider } from "@/src/ui/layout/ResponsiveLayoutProvider";
 import { useResponsive } from "@/src/ui/layout/useResponsive";
 import { AdaptiveTabBar } from "@/src/ui/navigation/AdaptiveTabBar";
@@ -123,19 +125,7 @@ function ExternalLookupsNoticeHost({ ready }: { ready: boolean }) {
     // Grava antes de mostrar: o aviso nunca reaparece, nem se o app fechar
     markExternalLookupsNoticeShown().catch(() => {});
 
-    if (Platform.OS === "web") {
-      // Na web o Alert com botões não funciona (ver src/utils/confirmAsync.ts)
-      const w = globalThis as unknown as { confirm?: (msg: string) => boolean };
-      const keep = w.confirm
-        ? w.confirm(
-            `${EXTERNAL_LOOKUPS_NOTICE_TITLE}\n\n${EXTERNAL_LOOKUPS_NOTICE_BODY}\n\nOK = Manter ligado · Cancelar = Desligar`,
-          )
-        : true;
-      if (!keep) setExternalLookupsEnabled(false).catch(() => {});
-      return;
-    }
-
-    Alert.alert(
+    appAlert(
       EXTERNAL_LOOKUPS_NOTICE_TITLE,
       EXTERNAL_LOOKUPS_NOTICE_BODY,
       [
@@ -217,6 +207,12 @@ function useNotificationResponseHandler() {
  */
 function SecurityGuard({ children }: { children: React.ReactNode }) {
   const { isLocked, isLoading, unlock } = useSecurityLock();
+
+  // Com o app bloqueado, o alerta customizado some (sem rodar botão) e volta ao desbloquear
+  useEffect(() => {
+    setAppAlertLocked(isLoading || isLocked);
+  }, [isLoading, isLocked]);
+  useEffect(() => () => setAppAlertLocked(false), []);
 
   if (isLoading) return null;
   if (isLocked) return <LockScreen onUnlock={unlock} />;
@@ -469,6 +465,8 @@ export default function RootLayout() {
                     ) : null}
                   </TourContent>
                 </SyncProvider>
+                {/* Alerta customizado: host da raiz, dentro do tema (ver src/services/appAlert.ts) */}
+                <AppAlertHost />
               </>
             </AppContainer>
           </AppStateProvider>

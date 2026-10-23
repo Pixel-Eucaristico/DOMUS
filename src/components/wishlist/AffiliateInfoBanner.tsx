@@ -5,12 +5,12 @@ import {
   TouchableOpacity,
   Linking,
   Clipboard,
-  Alert,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import { AFFILIATE_INFO } from "@packages/wishlist";
 import { TText , TCard } from "@/src/components/tamagui";
+import { appAlert } from "@/src/services/appAlert";
 
 interface Props {
   theme: ThemeColors;
@@ -21,7 +21,7 @@ export function AffiliateInfoBanner({ theme }: Props) {
 
   const copyAmazonTag = () => {
     Clipboard.setString(AFFILIATE_INFO.amazon.tag);
-    Alert.alert("Copiado!", `Tag Amazon "${AFFILIATE_INFO.amazon.tag}" copiada.`);
+    appAlert("Copiado!", `Tag Amazon "${AFFILIATE_INFO.amazon.tag}" copiada.`);
   };
 
   const openAmazonLink = () => {
@@ -30,7 +30,7 @@ export function AffiliateInfoBanner({ theme }: Props) {
 
   const copyMlId = () => {
     Clipboard.setString(AFFILIATE_INFO.mercadolivre.id);
-    Alert.alert(
+    appAlert(
       "Copiado!",
       `ID ${AFFILIATE_INFO.mercadolivre.id} copiado. Cole no buscador do Mercado Livre.`,
     );

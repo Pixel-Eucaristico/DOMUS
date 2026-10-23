@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Animated,
   ActivityIndicator,
- Alert } from "react-native";
+} from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -45,6 +45,7 @@ import type { ChatAction } from "@/src/components/ai/ChatActionMenu";
 import { ProviderSwitchModal, detectProviderIssue } from "@/src/components/ai/ProviderSwitchModal";
 import type { ConsultationResult } from "@packages/ai";
 import type { AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
+import { appAlert } from "@/src/services/appAlert";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -212,7 +213,7 @@ export default function AIChatScreen() {
 
   const openVisionModal = useCallback((docType: OCRDocumentType) => {
     if (!settings.isEnabled || !VisionOCRService.supportsVision(settings.provider as any)) {
-      Alert.alert("Nao suportado", `${settings.provider} nao suporta Vision OCR. Use OpenAI, Gemini, Claude ou Qwen.`);
+      appAlert("Nao suportado", `${settings.provider} nao suporta Vision OCR. Use OpenAI, Gemini, Claude ou Qwen.`);
       return;
     }
     setVisionModal({ visible: true, docType });
@@ -226,7 +227,7 @@ export default function AIChatScreen() {
       provider, settings.customBudgets, settings.budgetMode, settings.monthlyBudgets, settings.billingDay,
     );
     if (overBudget) {
-      Alert.alert("Limite de IA atingido", "Voce atingiu o limite de uso de IA. Ajuste o orcamento nas configuracoes.");
+      appAlert("Limite de IA atingido", "Voce atingiu o limite de uso de IA. Ajuste o orcamento nas configuracoes.");
       return;
     }
 
@@ -234,7 +235,7 @@ export default function AIChatScreen() {
     let result: ImagePicker.ImagePickerResult;
     if (source === "camera") {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) { Alert.alert("Permissao negada", "Permita acesso a camera."); return; }
+      if (!perm.granted) { appAlert("Permissao negada", "Permita acesso a camera."); return; }
       result = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.8 });
     } else {
       result = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.8 });
@@ -251,7 +252,7 @@ export default function AIChatScreen() {
 
     try {
       const apiKey = await SecureKeyService.retrieveKey(provider);
-      if (!apiKey) { Alert.alert("Sem chave API", "Configure a chave API nas configurações de IA."); setVisionLoading(false); return; }
+      if (!apiKey) { appAlert("Sem chave API", "Configure a chave API nas configurações de IA."); setVisionLoading(false); return; }
 
       // 3. Processar com VisionOCR
       const ocrResult = await VisionOCRService.process(imageBase64, mimeType, provider, apiKey, docType);

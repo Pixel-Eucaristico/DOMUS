@@ -26,6 +26,8 @@ import { getArchetypeDescription } from "@packages/personality/src/archetypeEngi
 import { LottieTrophy } from "@/src/components/gamification/LottieTrophy";
 import { clampTier, type TrophyTier } from "@/src/components/gamification/lottieTierSelection";
 import { LinearGradient } from "expo-linear-gradient";
+import { appAlert } from "@/src/services/appAlert";
+import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
 
 const ARCHETYPES: ArchetypeType[] = [
   "EXPLORER",
@@ -392,7 +394,7 @@ export function DebugTools() {
                     onPress={async () => {
                       await AsyncStorage.removeItem("domus_ai_last_greeting_date_v1");
                       setVisible(false);
-                      alert("Saudação IA resetada. Reabra o chat para gerar nova saudação.");
+                      appAlert("Saudação IA resetada. Reabra o chat para gerar nova saudação.");
                     }}
                   >
                     <Text style={{ color: theme.textColor, fontWeight: "500" }}>Reset Saudação Diária IA</Text>
@@ -404,7 +406,7 @@ export function DebugTools() {
                     onPress={async () => {
                       await resetApp();
                       setVisible(false);
-                      alert("App resetado com sucesso.");
+                      appAlert("App resetado com sucesso.");
                     }}
                   >
                     <View style={{ flex: 1 }}>
@@ -531,6 +533,8 @@ export function DebugTools() {
             </View>
           </Pressable>
         </Modal>
+        {/* Alerta customizado por cima deste Modal (ver src/services/appAlert.ts) */}
+        <AppAlertHost />
       </Modal>
     </>
   );

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Switch,
-  Alert,
 } from "react-native";
 import { TInput } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
@@ -29,6 +28,7 @@ import {
 } from "@/src/modules/ai/infrastructure/TokenPricingService";
 import type { CostEstimate } from "@/src/modules/ai/infrastructure/TokenPricingService";
 import type { AIProvider } from "@packages/ai";
+import { appAlert } from "@/src/services/appAlert";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -173,7 +173,7 @@ export function BudgetCostSection({
     setEditingField(null);
     const val = parseInt(tokensInput, 10);
     if (isNaN(val) || val < 1000) {
-      Alert.alert("Valor invalido", "O limite minimo e 1.000 tokens.");
+      appAlert("Valor invalido", "O limite minimo e 1.000 tokens.");
       setTokensInput(activeUnlimited ? "" : String(activeBudget));
       return;
     }

@@ -3,10 +3,10 @@
  * Separado do hook para ser testável sem react-native.
  */
 export async function runIfConfirmed(
-  confirm: () => Promise<boolean>,
+  askConfirmation: () => Promise<boolean>,
   run: () => Promise<void>,
 ): Promise<"done" | "cancelled"> {
-  if (!(await confirm())) return "cancelled";
+  if (!(await askConfirmation())) return "cancelled";
   await run();
   return "done";
 }

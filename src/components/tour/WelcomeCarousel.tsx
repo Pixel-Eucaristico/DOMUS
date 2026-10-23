@@ -11,7 +11,6 @@ import {
   Platform,
   ActivityIndicator,
   Linking,
-  Alert,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -37,6 +36,8 @@ import { PRIVACY_FLAG_TEXTS, type PrivacyFlagId } from "@/src/constants/privacyF
 import { ClipboardService } from "@/src/modules/security/application/ClipboardService";
 import { useAISettings } from "@/src/hooks/useAISettings";
 import type { AIProvider } from "@packages/ai";
+import { appAlert } from "@/src/services/appAlert";
+import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
 
 const FIREBASE_FLAGS: PrivacyFlagId[] = ["firebaseAnalytics", "firebasePerformance", "firebaseCrashlytics"];
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -49,7 +50,7 @@ async function openUrl(url: string) {
   try {
     await Linking.openURL(url);
   } catch {
-    Alert.alert("Erro", "Não foi possível abrir o link.");
+    appAlert("Erro", "Não foi possível abrir o link.");
   }
 }
 
@@ -541,6 +542,8 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
           </View>
         </View>
       </View>
+      {/* Alerta customizado por cima deste Modal (ver src/services/appAlert.ts) */}
+      <AppAlertHost />
     </Modal>
   );
 }

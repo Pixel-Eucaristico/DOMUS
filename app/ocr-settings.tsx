@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Platform,
 } from "react-native";
@@ -18,6 +17,7 @@ import { TButton, TCard, TInput, TText } from "@/src/components/tamagui";
 import { OCRConfigService } from "@/src/services/ocrConfigService";
 import type { OCRProvider } from "@packages/parsers";
 import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
+import { appAlert } from "@/src/services/appAlert";
 
 type OCRProviderExtended = OCRProvider | "vision_ai";
 
@@ -42,7 +42,7 @@ export default function OCRSettingsScreen() {
       setProvider(config.preferredProvider);
       setApiKey(config.cloudVisionApiKey || "");
     } catch {
-      Alert.alert("Erro", "Não foi possível carregar as configurações");
+      appAlert("Erro", "Não foi possível carregar as configurações");
     } finally {
       setLoading(false);
     }
@@ -53,7 +53,7 @@ export default function OCRSettingsScreen() {
       setSaving(true);
 
       if (provider === "cloudvision" && !apiKey.trim()) {
-        Alert.alert(
+        appAlert(
           "API Key necessária",
           "Para usar Cloud Vision API, você precisa fornecer uma API Key do Google Cloud."
         );
@@ -68,11 +68,11 @@ export default function OCRSettingsScreen() {
         await OCRConfigService.clearCloudVisionApiKey();
       }
 
-      Alert.alert("Sucesso", "Configurações salvas com sucesso!", [
+      appAlert("Sucesso", "Configurações salvas com sucesso!", [
         { text: "OK", onPress: () => router.back() },
       ]);
     } catch {
-      Alert.alert("Erro", "Não foi possível salvar as configurações");
+      appAlert("Erro", "Não foi possível salvar as configurações");
     } finally {
       setSaving(false);
     }
@@ -200,7 +200,7 @@ export default function OCRSettingsScreen() {
             onPress={() => {
               soundManager.play("tap");
               if (Platform.OS !== "web") {
-                Alert.alert(
+                appAlert(
                   "Tesseract — Somente Web",
                   "Tesseract.js funciona apenas no navegador web. Neste dispositivo o app " +
                   "usará automaticamente o OCR On-device ao invés do Tesseract.",
@@ -275,7 +275,7 @@ export default function OCRSettingsScreen() {
             style={s.helpLink}
             onPress={() => {
               soundManager.play("tap");
-              Alert.alert(
+              appAlert(
                 "Como obter API Key",
                 "1. Acesse console.cloud.google.com\n" +
                 "2. Crie ou selecione um projeto\n" +

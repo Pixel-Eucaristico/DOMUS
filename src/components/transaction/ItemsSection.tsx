@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Pressable,
-  Alert,
   StyleSheet,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
@@ -17,6 +16,7 @@ import { CategoryPickerModal } from "@/src/components/shared/CategoryPickerModal
 import { soundManager } from "@/src/services/SoundManager";
 import { TButton, TInput } from "@/src/components/tamagui";
 import { getCategoryDisplayName, getCategoryColor, getGroupColor, getGroupLabel, getCategoryGroup } from "@/src/utils/categoryHelpers";
+import { appAlert } from "@/src/services/appAlert";
 
 const DEFAULT_CATEGORY_ID = EXPENSE_CATEGORIES[0]!.id;
 
@@ -56,7 +56,7 @@ export function ItemsSection({
     const qtyNum = parseFloat(newItemQty.replace(",", "."));
     const priceNum = parseFloat(newItemUnitPrice.replace(",", "."));
     if (!newItemDesc.trim() || isNaN(qtyNum) || qtyNum <= 0 || isNaN(priceNum) || priceNum <= 0) {
-      Alert.alert("Item inválido", "Informe descrição, quantidade e preço unitário.");
+      appAlert("Item inválido", "Informe descrição, quantidade e preço unitário.");
       return;
     }
     soundManager.play("success");

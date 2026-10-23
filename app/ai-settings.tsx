@@ -5,7 +5,6 @@ import {
   Switch,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Platform,
   Linking,
 } from "react-native";
@@ -31,6 +30,7 @@ import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
 import type { AIProvider, AudioProvider } from "@packages/ai";
 import { ELEVENLABS_VOICES } from "@packages/../packages/ai/src/audio/ElevenLabsAdapter";
 import { GEMINI_TTS_VOICES } from "@packages/../packages/ai/src/audio/GeminiAudioAdapter";
+import { appAlert } from "@/src/services/appAlert";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -484,31 +484,20 @@ export default function AISettingsScreen() {
                     const handleToggle = (value: boolean) => {
                       soundManager.play("tap");
                       if (value && !enabled) {
-                        if (Platform.OS === "web") {
-                          const ok = window.confirm(
-                            `Permitir acesso: ${label.title}\n\nA IA poderá ver: ${label.description}.\n\nVocê pode desativar a qualquer momento.`,
-                          );
-                          if (ok) {
-                            updateSettings({
-                              dataPermissions: { ...settings.dataPermissions, [key]: true },
-                            });
-                          }
-                        } else {
-                          Alert.alert(
-                            `Permitir acesso: ${label.title}`,
-                            `A IA poderá ver: ${label.description}.\n\nVocê pode desativar a qualquer momento.`,
-                            [
-                              { text: "Cancelar", style: "cancel" },
-                              {
-                                text: "Permitir",
-                                onPress: () =>
-                                  updateSettings({
-                                    dataPermissions: { ...settings.dataPermissions, [key]: true },
-                                  }),
-                              },
-                            ],
-                          );
-                        }
+                        appAlert(
+                          `Permitir acesso: ${label.title}`,
+                          `A IA poderá ver: ${label.description}.\n\nVocê pode desativar a qualquer momento.`,
+                          [
+                            { text: "Cancelar", style: "cancel" },
+                            {
+                              text: "Permitir",
+                              onPress: () =>
+                                updateSettings({
+                                  dataPermissions: { ...settings.dataPermissions, [key]: true },
+                                }),
+                            },
+                          ],
+                        );
                       } else {
                         updateSettings({
                           dataPermissions: { ...settings.dataPermissions, [key]: false },
@@ -610,23 +599,18 @@ export default function AISettingsScreen() {
             style={styles.actionRow}
             onPress={() => {
               soundManager.play("tap");
-              if (Platform.OS === "web") {
-                const ok = window.confirm("Limpar histórico da IA\n\nIsso apagará todas as mensagens da conversa atual. Esta ação não pode ser desfeita.");
-                if (ok) { soundManager.play("trash"); clearHistory(); }
-              } else {
-                Alert.alert(
-                  "Limpar histórico da IA",
-                  "Isso apagará todas as mensagens da conversa atual. Esta ação não pode ser desfeita.",
-                  [
-                    { text: "Cancelar", style: "cancel" },
-                    {
-                      text: "Limpar",
-                      style: "destructive",
-                      onPress: () => { soundManager.play("trash"); clearHistory(); },
-                    },
-                  ],
-                );
-              }
+              appAlert(
+                "Limpar histórico da IA",
+                "Isso apagará todas as mensagens da conversa atual. Esta ação não pode ser desfeita.",
+                [
+                  { text: "Cancelar", style: "cancel" },
+                  {
+                    text: "Limpar",
+                    style: "destructive",
+                    onPress: () => { soundManager.play("trash"); clearHistory(); },
+                  },
+                ],
+              );
             }}
             accessibilityLabel="Limpar historico da IA"
             accessibilityRole="button"

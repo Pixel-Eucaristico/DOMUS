@@ -7,7 +7,6 @@ import {
   ScrollView,
   Switch,
   Platform,
-  Alert,
   Modal,
   Animated,
 } from "react-native";
@@ -23,6 +22,8 @@ import { soundManager } from "@/src/services/SoundManager";
 import { TButton, TInput } from "@/src/components/tamagui";
 import { ACCOUNT_TYPES } from "@/src/components/shared/AccountCard";
 import { URGENCY_ORDER } from "@packages/wishlist";
+import { appAlert } from "@/src/services/appAlert";
+import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
 
 interface AccountFormModalProps {
   visible: boolean;
@@ -125,7 +126,7 @@ export function AccountFormModal({
 
   const handleSaveAccount = () => {
     if (!name.trim()) {
-      Alert.alert("Nome obrigatório", "Informe o nome da conta.");
+      appAlert("Nome obrigatório", "Informe o nome da conta.");
       return;
     }
 
@@ -538,6 +539,8 @@ export function AccountFormModal({
           </Animated.View>
         </KeyboardSafeView>
       </View>
+      {/* Alerta customizado por cima deste Modal (ver src/services/appAlert.ts) */}
+      <AppAlertHost />
     </Modal>
   );
 }

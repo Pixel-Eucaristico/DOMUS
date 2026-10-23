@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Switch,
   Platform,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -29,6 +28,7 @@ import {
   DEFAULT_NOTIFICATION_SETTINGS,
   type NotificationSettings,
 } from "@/src/modules/notifications/domain/NotificationSettings";
+import { appAlert } from "@/src/services/appAlert";
 
 export default function NotificationSettingsScreen() {
   const router = useRouter();
@@ -57,7 +57,7 @@ export default function NotificationSettingsScreen() {
       if (value) {
         const granted = await requestPermission();
         if (!granted) {
-          Alert.alert(
+          appAlert(
             "Permissão Necessária",
             "Para receber notificações, habilite a permissão nas configurações do sistema.",
           );

@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -143,17 +142,9 @@ export default function WishlistDetailScreen() {
     [editItem, updateItem],
   );
 
-  const handleRemove = useCallback(
-    (item: WishlistItem) => {
-      if (Platform.OS === "web") {
-        const ok = window.confirm(`Remover "${item.name}" da lista?`);
-        if (ok) removeItem(item.id, item.listId);
-      } else {
-        setRemovingItem(item);
-      }
-    },
-    [removeItem],
-  );
+  const handleRemove = useCallback((item: WishlistItem) => {
+    setRemovingItem(item);
+  }, []);
 
   const handleConvertConfirm = useCallback(
     (item: WishlistItem, accountId: string) => {

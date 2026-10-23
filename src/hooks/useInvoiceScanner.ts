@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { Alert, Platform } from "react-native";
+import { Platform } from "react-native";
 import { soundManager } from "@/src/services/SoundManager";
 import type { OCRProvider } from "@packages/parsers";
 import { useCameraPermissions, scanFromURLAsync } from "expo-camera";
@@ -14,6 +14,7 @@ import {
 } from "@packages/parsers";
 import { OCRConfigService } from "@/src/services/ocrConfigService";
 import { SEFAZ_SP_CONSULTA } from "./useInvoiceWebView";
+import { appAlert } from "@/src/services/appAlert";
 
 export interface UseInvoiceScannerResult {
   permission: ReturnType<typeof useCameraPermissions>[0];
@@ -165,7 +166,7 @@ export function useInvoiceScanner(
   const handleManualChave = () => {
     const cleaned = manualChave.replace(/\D/g, "");
     if (cleaned.length !== 44) {
-      Alert.alert(
+      appAlert(
         "Chave Inválida",
         "A chave de acesso deve conter exatamente 44 dígitos numéricos.",
       );

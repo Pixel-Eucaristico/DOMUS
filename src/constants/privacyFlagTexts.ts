@@ -31,6 +31,11 @@ export interface PrivacyFlagText {
   sends: string;
   /** O que se perde com a flag desligada (vem depois de "Sem isso:"). */
   loses: string;
+  /**
+   * Linha curta para telas de configuração com espaço de uma linha; o texto
+   * completo (`formatPrivacyFlagText`) fica a um toque, no "Saiba mais".
+   */
+  shortDescription?: string;
 }
 
 export const PRIVACY_FLAG_TEXTS: Record<PrivacyFlagId, PrivacyFlagText> = {
@@ -114,6 +119,7 @@ export const PRIVACY_FLAG_TEXTS: Record<PrivacyFlagId, PrivacyFlagText> = {
   },
   externalLookups: {
     title: "Consultas de itens, preços e ícones",
+    shortDescription: "Busca produtos, preços e ícones online.",
     sends:
       "o código de barras dos itens de nota ao Open Food Facts e ao Cosmos (Bluesoft), o pedido da tabela de NCM ao Portal Único Siscomex, o acesso a cada 24 h às páginas dos produtos da lista de desejos e o domínio de cada loja ao serviço de ícones do Google.",
     loses:

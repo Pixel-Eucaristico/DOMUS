@@ -11,6 +11,7 @@ import {
   LayoutAnimation,
   Switch,
   Modal,
+  Pressable,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import Animated, {
@@ -35,7 +36,8 @@ import { DonationSection , LinkRow } from "@/src/components/about/DonationSectio
 import { PixelText } from "@/src/components/pixel";
 import { TText, TButton } from "@/src/components/tamagui";
 import { useExternalLookups } from "@/src/hooks/useExternalLookups";
-import { formatPrivacyFlagText } from "@/src/constants/privacyFlagTexts";
+import { formatPrivacyFlagText, PRIVACY_FLAG_TEXTS } from "@/src/constants/privacyFlagTexts";
+import { appAlert } from "@/src/services/appAlert";
 
 export default function AboutScreen() {
   const router = useRouter();
@@ -144,7 +146,7 @@ export default function AboutScreen() {
               <LinkRow icon="star" label="Avaliar na Play Store" description="Deixe sua avaliação e ajude o DOMUS a crescer" color="#34A853" theme={theme} onPress={() => { soundManager.play("tap"); Linking.openURL("https://play.google.com/store/apps/details?id=br.com.pixeleucaristico.domus"); }} />
               <LinkRow icon="moon" label="Tema" description={`Modo atual: ${themeMode === "system" ? "Sistema" : themeMode === "dark" ? "Escuro" : "Claro"}`} color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); setThemeModalVisible(true); }} />
               <LinkRow icon="info" label="Ver Dicas das Telas" description="Reexibe as explicações de cada tela do DOMUS" color={theme.accentColor} theme={theme} onPress={() => { soundManager.play("tap"); resetAllScreenIntros(); }} />
-              <SwitchRow icon="globe" label="Consultas de itens, preços e ícones" description={formatPrivacyFlagText("externalLookups")} color={theme.accentColor} theme={theme} value={externalLookups.enabled} onValueChange={(v) => { externalLookups.setEnabled(v).catch(() => {}); }} />
+              <SwitchRow icon="globe" label={PRIVACY_FLAG_TEXTS.externalLookups.title} description={PRIVACY_FLAG_TEXTS.externalLookups.shortDescription ?? ""} color={theme.accentColor} theme={theme} value={externalLookups.enabled} onValueChange={(v) => { externalLookups.setEnabled(v).catch(() => {}); }} onLearnMore={() => { soundManager.play("tap"); appAlert(PRIVACY_FLAG_TEXTS.externalLookups.title, formatPrivacyFlagText("externalLookups").replace("\n", "\n\n")); }} />
               <SwitchRow icon="volume-2" label="Efeitos Sonoros" description="Sons de confirmação e interações" color={theme.primaryColor} theme={theme} value={soundEnabled} onValueChange={setSoundEnabled} />
             </SectionCard>
 
@@ -364,8 +366,10 @@ const featureRowStyles = StyleSheet.create({
   texts: { flex: 1 },
 });
 
-function SwitchRow({ icon, label, description, color, theme, value, onValueChange }: {
+function SwitchRow({ icon, label, description, color, theme, value, onValueChange, onLearnMore }: {
   icon: string; label: string; description: string; color: string; theme: any; value: boolean; onValueChange: (v: boolean) => void;
+  /** Mostra um "Saiba mais" que abre o texto completo (ex.: o que a flag envia e o que se perde). */
+  onLearnMore?: () => void;
 }) {
   return (
     <View style={switchRowStyles.row}>
@@ -375,6 +379,17 @@ function SwitchRow({ icon, label, description, color, theme, value, onValueChang
       <View style={switchRowStyles.texts}>
         <Text style={[switchRowStyles.label, { color: theme.textColor }]}>{label}</Text>
         <Text style={[switchRowStyles.description, { color: theme.secondaryText }]}>{description}</Text>
+        {onLearnMore ? (
+          <Pressable
+            onPress={onLearnMore}
+            accessibilityRole="button"
+            accessibilityLabel={`Saiba mais sobre ${label}`}
+            hitSlop={8}
+            style={switchRowStyles.learnMoreBtn}
+          >
+            <Text style={[switchRowStyles.learnMore, { color: theme.primaryColor }]}>Saiba mais</Text>
+          </Pressable>
+        ) : null}
       </View>
       <Switch
         value={value}
@@ -392,6 +407,8 @@ const switchRowStyles = StyleSheet.create({
   texts: { flex: 1 },
   label: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
   description: { fontFamily: "DMSans_400Regular", fontSize: 12, marginTop: 1 },
+  learnMoreBtn: { alignSelf: "flex-start", marginTop: 2 },
+  learnMore: { fontFamily: "DMSans_600SemiBold", fontSize: 12, textDecorationLine: "underline" },
 });
 
 // ─── stylesheet factory ───────────────────────────────────────────────────────

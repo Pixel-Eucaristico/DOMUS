@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useReducer } from "react";
-import { Alert, Platform } from "react-native";
+import { Platform } from "react-native";
 import * as Haptics from "expo-haptics";
 import { SecurityService } from "@/src/modules/security/application/SecurityService";
 import { BiometricService } from "@/src/modules/security/application/BiometricService";
@@ -14,6 +14,7 @@ import {
   type LocalState,
   type LocalAction,
 } from "@/src/modules/security/application/securitySetupReducer";
+import { appAlert } from "@/src/services/appAlert";
 
 export interface SecuritySetupState {
   settings: UserSecuritySettings | null;
@@ -85,7 +86,7 @@ export function useSecuritySetup(): SecuritySetupState {
       haptic();
       if (method === "biometric") {
         if (!biometricAvailable) {
-          Alert.alert("Biometria indisponível", "Nenhuma biometria cadastrada no dispositivo.");
+          appAlert("Biometria indisponível", "Nenhuma biometria cadastrada no dispositivo.");
           return;
         }
         dispatch({ type: "SET_SAVING", value: true });
@@ -234,7 +235,7 @@ export function useSecuritySetup(): SecuritySetupState {
       setSettings(updated);
       dispatch({ type: "RESET" });
       hapticSuccess();
-      Alert.alert("Sucesso", "PIN alterado com sucesso.");
+      appAlert("Sucesso", "PIN alterado com sucesso.");
     },
     [settings, local.pendingPin, hapticError, hapticSuccess],
   );

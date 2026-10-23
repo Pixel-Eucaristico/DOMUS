@@ -25,6 +25,7 @@ import { ScreenIntroModal } from "@/src/components/tour/ScreenIntroModal";
 import { useScreenIntro } from "@/src/hooks/useScreenIntro";
 import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
+import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const QR_SIZE = Math.min(SCREEN_W * 0.5, SCREEN_H * 0.3, 220);
@@ -58,7 +59,7 @@ function statusLabel(status: string): string {
   }
 }
 
-export default function SyncScreen() {
+function SyncScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { theme } = useAppState();
@@ -461,3 +462,13 @@ const s = StyleSheet.create({
   backupBtnTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 15 },
   backupBtnDesc: { fontFamily: "DMSans_400Regular", fontSize: 12, marginTop: 2 },
 });
+
+/** Tela com `presentation: "modal"`: tem o próprio host do alerta customizado (ver src/services/appAlert.ts). */
+export default function SyncScreenRoute() {
+  return (
+    <>
+      <SyncScreen />
+      <AppAlertHost />
+    </>
+  );
+}

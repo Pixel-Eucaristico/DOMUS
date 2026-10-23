@@ -4,7 +4,6 @@ import {
   Text,
   Pressable,
   Linking,
-  Alert,
   Platform,
   StyleSheet,
 } from "react-native";
@@ -15,6 +14,7 @@ import { ClipboardService } from "@/src/modules/security/application/ClipboardSe
 import { buildPixPayload } from "@packages/domain/src/pixPayload";
 import { soundManager } from "@/src/services/SoundManager";
 import { TButton } from "@/src/components/tamagui";
+import { appAlert } from "@/src/services/appAlert";
 
 const PIX_KEY = "55.075.291/0001-79";
 const PIX_PAYLOAD = buildPixPayload(PIX_KEY);
@@ -26,12 +26,12 @@ async function safeOpenUrl(url: string): Promise<void> {
   try {
     const supported = await Linking.canOpenURL(url);
     if (!supported) {
-      Alert.alert("Erro", "Não foi possível abrir este link.");
+      appAlert("Erro", "Não foi possível abrir este link.");
       return;
     }
     await Linking.openURL(url);
   } catch {
-    Alert.alert("Erro", "Não foi possível abrir este link.");
+    appAlert("Erro", "Não foi possível abrir este link.");
   }
 }
 

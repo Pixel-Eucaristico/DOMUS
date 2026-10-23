@@ -5,7 +5,6 @@ import {
   Text,
   TouchableOpacity,
   Linking,
-  Alert,
   StyleSheet,
   Platform,
 } from "react-native";
@@ -19,6 +18,8 @@ import { getAdRequestOptions } from "@/src/modules/monetization/adConsent";
 import { markFullScreenAdActive, markFullScreenAdClosed } from "./fullScreenAd";
 import { AFFILIATE_URLS, DONATION_PIX_KEY } from "./AffiliateLinks";
 import { TCard } from "@/src/components/tamagui";
+import { appAlert } from "@/src/services/appAlert";
+import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
 
 const PIX_COPIED_RESET_DELAY_MS = 2500;
 
@@ -26,7 +27,7 @@ async function openAffiliateUrl(url: string): Promise<void> {
   try {
     await Linking.openURL(url);
   } catch {
-    Alert.alert("Erro", "Não foi possível abrir o link.");
+    appAlert("Erro", "Não foi possível abrir o link.");
   }
 }
 
@@ -249,6 +250,8 @@ function AffiliateFallbackModal({ onClose }: { onClose: () => void }) {
           </TouchableOpacity>
         </TCard>
       </View>
+      {/* Alerta customizado por cima deste Modal (ver src/services/appAlert.ts) */}
+      <AppAlertHost />
     </Modal>
   );
 }

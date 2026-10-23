@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   Linking,
   StyleSheet,
-  Alert,
   Platform,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
@@ -17,12 +16,13 @@ import { ADMOB_IDS } from "./AdMobConfig";
 import { AFFILIATE_URLS } from "./AffiliateLinks";
 import { adRequestOptions } from "@/src/modules/monetization/adConsent";
 import { usePersonalizedAdsConsent } from "@/src/hooks/usePersonalizedAdsConsent";
+import { appAlert } from "@/src/services/appAlert";
 
 async function openAffiliatUrl(url: string): Promise<void> {
   try {
     await Linking.openURL(url);
   } catch {
-    Alert.alert("Erro", "Não foi possível abrir o link.");
+    appAlert("Erro", "Não foi possível abrir o link.");
   }
 }
 

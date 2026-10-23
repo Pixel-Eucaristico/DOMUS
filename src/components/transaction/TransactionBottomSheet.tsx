@@ -30,6 +30,7 @@ import { InfoTip } from "@/src/components/shared/InfoTip";
 import { soundManager } from "@/src/services/SoundManager";
 import * as Haptics from "expo-haptics";
 import { TButton, TInput } from "@/src/components/tamagui";
+import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
 
 interface TransactionBottomSheetProps {
   visible: boolean;
@@ -546,6 +547,8 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
         </Animated.View>
       </KeyboardSafeView>
     </View>
+    {/* Alerta customizado por cima deste Modal (ver src/services/appAlert.ts) */}
+    <AppAlertHost />
     </Modal>
   );
 }

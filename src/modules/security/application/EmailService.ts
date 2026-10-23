@@ -1,5 +1,6 @@
-import { Linking, Alert } from "react-native";
+import { Linking } from "react-native";
 import type { DeviceInfo } from "../infrastructure/DeviceInfoService";
+import { appAlert } from "@/src/services/appAlert";
 
 const SUPPORT_EMAIL = "williancustodioquintino+domus@gmail.com";
 
@@ -41,7 +42,7 @@ export class EmailService {
     const url = EmailService.buildMailtoUrl(form, deviceInfo);
     const canOpen = await Linking.canOpenURL(url);
     if (!canOpen) {
-      Alert.alert(
+      appAlert(
         "Cliente de e-mail não encontrado",
         `Nenhum aplicativo de e-mail instalado.\nEnvie manualmente para:\n${SUPPORT_EMAIL}`,
         [{ text: "OK" }],

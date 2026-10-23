@@ -1,5 +1,4 @@
 import { useCallback } from "react";
-import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 import {
   InvoiceImportedPayload,
@@ -12,6 +11,7 @@ import { EVENT_TYPES, type CategoryCreatedEvent } from "@packages/events/src/typ
 import { useAppState } from "@/src/context/AppStateProvider";
 import { CATEGORY_OPTIONS } from "@/src/constants/invoiceCategories";
 import { EditableItem } from "./useEditableItems";
+import { appAlert } from "@/src/services/appAlert";
 
 export function useInvoiceConfirm(
   importedData: InvoiceImportedPayload | null,
@@ -25,7 +25,7 @@ export function useInvoiceConfirm(
 
   const confirmImport = useCallback(() => {
     if (!importedData || !selectedAccountId) {
-      Alert.alert("Erro", "Selecione uma conta para importar.");
+      appAlert("Erro", "Selecione uma conta para importar.");
       return;
     }
 
@@ -129,7 +129,7 @@ export function useInvoiceConfirm(
       dispatchDomainEvent(confirmEvent as any);
     }
 
-    Alert.alert(
+    appAlert(
       "Sucesso",
       isManual ? "Lançamento salvo com sucesso!" : "Nota fiscal importada com sucesso!",
     );

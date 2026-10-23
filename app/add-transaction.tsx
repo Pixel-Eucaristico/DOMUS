@@ -32,6 +32,7 @@ import { GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import type { TransactionStatus, RecurrenceType } from "@packages/events/src/types";
 import { createTransactionEvent } from "@packages/domain/src/transactions";
 import { TButton, TInput } from "@/src/components/tamagui";
+import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
 
 const STATUS_OPTIONS: { key: TransactionStatus; label: string; icon: string }[] = [
   { key: "confirmed", label: "Confirmado", icon: "check-circle" },
@@ -46,7 +47,7 @@ const RECURRENCE_OPTIONS: { key: RecurrenceType; label: string }[] = [
   { key: "custom",  label: "Personalizado" },
 ];
 
-export default function AddTransactionScreen() {
+function AddTransactionScreen() {
   const insets = useSafeAreaInsets();
   const { txId } = useLocalSearchParams<{ txId?: string }>();
   const { domain, theme, dispatchDomainEvent } = useAppState();
@@ -548,3 +549,13 @@ const s = StyleSheet.create({
   },
   catChipText: { fontFamily: "DMSans_500Medium", fontSize: 12 },
 });
+
+/** Tela com `presentation: "modal"`: tem o próprio host do alerta customizado (ver src/services/appAlert.ts). */
+export default function AddTransactionScreenRoute() {
+  return (
+    <>
+      <AddTransactionScreen />
+      <AppAlertHost />
+    </>
+  );
+}

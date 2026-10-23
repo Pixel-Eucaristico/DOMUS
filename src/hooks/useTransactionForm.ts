@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Alert, Platform } from "react-native";
+import { Platform } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAppState } from "@/src/context/AppStateProvider";
@@ -28,6 +28,7 @@ import {
   ManualItem,
   itemTotal,
 } from "@/src/constants/transactionCategories";
+import { appAlert } from "@/src/services/appAlert";
 
 export type InstallmentModalType = "save" | "delete" | null;
 
@@ -187,7 +188,7 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
       setInstallmentModal("delete");
       return;
     }
-    Alert.alert(
+    appAlert(
       "Excluir transação",
       "Tem certeza que deseja remover esta transação?",
       [
@@ -243,11 +244,11 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     const amountNum = useItemsTotal ? computedItemsTotal : parseFloat(amount.replace(",", "."));
 
     if (isNaN(amountNum) || amountNum <= 0) {
-      Alert.alert("Valor invalido", "Informe um valor maior que zero.");
+      appAlert("Valor invalido", "Informe um valor maior que zero.");
       return;
     }
     if (!defaultAccountId) {
-      Alert.alert("Sem conta", "Crie uma conta primeiro na aba Contas.");
+      appAlert("Sem conta", "Crie uma conta primeiro na aba Contas.");
       return;
     }
 

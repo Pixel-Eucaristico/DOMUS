@@ -22,6 +22,7 @@ import { getEncouragementMessage, evaluatePerformance } from "@packages/onboardi
 import { ONBOARDING_EVENTS } from "@packages/onboarding/src/types";
 import { generateId } from "@packages/events/src/factory";
 import { TButton, TCard, TText } from "@/src/components/tamagui";
+import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
 
 const STEP_LABELS: Record<string, string> = {
   create_account: "Criar uma conta",
@@ -43,7 +44,7 @@ const STEP_ICONS: Record<string, string> = {
   check_503020: "bar-chart-2",
 };
 
-export default function OnboardingScreen() {
+function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { onboarding, theme, dispatch } = useAppState();
@@ -407,3 +408,13 @@ const st = StyleSheet.create({
   },
   stepLabel: { fontFamily: "DMSans_500Medium", fontSize: 14, flex: 1 },
 });
+
+/** Tela com `presentation: "modal"`: tem o próprio host do alerta customizado (ver src/services/appAlert.ts). */
+export default function OnboardingScreenRoute() {
+  return (
+    <>
+      <OnboardingScreen />
+      <AppAlertHost />
+    </>
+  );
+}

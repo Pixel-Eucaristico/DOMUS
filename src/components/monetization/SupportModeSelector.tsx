@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Switch, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Switch } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import type { SupportMode } from "@/src/modules/monetization/MonetizationSettingsStore";
@@ -7,6 +7,7 @@ import { useSupportModes } from "@/src/hooks/useSupportModes";
 import { usePersonalizedAdsConsent } from "@/src/hooks/usePersonalizedAdsConsent";
 import { soundManager } from "@/src/services/SoundManager";
 import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
+import { appAlert } from "@/src/services/appAlert";
 
 interface SupportOption {
   mode: SupportMode;
@@ -61,7 +62,7 @@ function PersonalizedAdsConsentRow({ theme }: { theme: ThemeColors }) {
       setSaving(true);
       setConsent(next)
         .catch(() => {
-          Alert.alert("Erro", "Não foi possível salvar a sua escolha. Tente de novo.");
+          appAlert("Erro", "Não foi possível salvar a sua escolha. Tente de novo.");
         })
         .finally(() => setSaving(false));
     },

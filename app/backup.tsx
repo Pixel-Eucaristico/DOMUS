@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Platform,
   Share,
   Switch,
@@ -26,6 +25,7 @@ import { ScreenIntroModal } from "@/src/components/tour/ScreenIntroModal";
 import { useScreenIntro } from "@/src/hooks/useScreenIntro";
 import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
+import { appAlert } from "@/src/services/appAlert";
 
 type TabId = "export" | "restore" | "drive";
 
@@ -342,7 +342,7 @@ export default function BackupScreen() {
                         await drive.uploadContent(content);
                       } catch {
                         // Arquivo de auto-backup ainda não existe ou não pôde ser lido
-                        Alert.alert(
+                        appAlert(
                           "Backup ainda não gerado",
                           "A cópia automática ainda não foi criada. Ela é gravada no aparelho uma vez por dia, ao abrir o app; abra o app de novo mais tarde ou use \"Exportar backup\".",
                         );

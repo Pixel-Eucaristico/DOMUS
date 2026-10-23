@@ -28,6 +28,7 @@ App Android de finanças pessoais com gamificação (XP, streaks, arquétipos). 
 
 - Telas despacham eventos; nunca mutam estado. O estado é reconstruído por replay do `EventStore` — nunca persista estado derivado.
 - Texto de UI em pt-BR com acentos completos.
+- Nunca use o alerta nativo (`Alert.alert`, `window.alert`, `window.confirm`): use `appAlert`/`appConfirm` (`src/services/appAlert.ts`), que mostram o alerta customizado do app.
 
 ## Known pitfalls
 

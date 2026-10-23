@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Linking,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -14,6 +13,7 @@ import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { TCard, TText } from "@/src/components/tamagui";
+import { appAlert } from "@/src/services/appAlert";
 
 const LAST_UPDATED = "21 de outubro de 2026";
 const EXTERNAL_POLICY_URL =
@@ -23,12 +23,12 @@ async function safeOpenUrl(url: string): Promise<void> {
   try {
     const supported = await Linking.canOpenURL(url);
     if (!supported) {
-      Alert.alert("Erro", "Não foi possível abrir este link.");
+      appAlert("Erro", "Não foi possível abrir este link.");
       return;
     }
     await Linking.openURL(url);
   } catch {
-    Alert.alert("Erro", "Não foi possível abrir este link.");
+    appAlert("Erro", "Não foi possível abrir este link.");
   }
 }
 

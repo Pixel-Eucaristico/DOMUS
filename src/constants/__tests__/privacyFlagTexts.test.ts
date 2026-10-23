@@ -72,6 +72,13 @@ describe("PRIVACY_FLAG_TEXTS", () => {
     }
   });
 
+  it("Consultas de itens tem linha curta, do tamanho das outras linhas da tela Sobre", () => {
+    const short = PRIVACY_FLAG_TEXTS.externalLookups.shortDescription ?? "";
+    expect(short.length).toBeGreaterThan(10);
+    expect(short.length).toBeLessThanOrEqual(50);
+    expect(short).not.toMatch(/["{}&<>\n]/);
+  });
+
   it("formata em duas linhas, Envia e Sem isso", () => {
     const t = PRIVACY_FLAG_TEXTS.sync;
     expect(formatPrivacyFlagText("sync")).toBe(`Envia: ${t.sends}\nSem isso: ${t.loses}`);

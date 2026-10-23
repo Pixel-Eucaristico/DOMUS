@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback } from "react";
-import { Alert } from "react-native";
 import {
   InvoiceItem,
   InvoiceImportedPayload,
@@ -9,6 +8,7 @@ import {
   buildCaptureScript,
   buildPhase2Script,
 } from "@packages/parsers";
+import { appAlert } from "@/src/services/appAlert";
 
 const SEFAZ_SP_CONSULTA =
   "https://www.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaPublica.aspx";
@@ -137,7 +137,7 @@ export function useInvoiceWebView(
         setIsWaitingUserClick(false);
         if (!data.items || data.items.length === 0) {
           setIsEnrichingMode(false);
-          Alert.alert(
+          appAlert(
             "Sem produtos",
             "O script encontrou a página mas não extraiu produtos.\nAguarde os dados carregarem e tente novamente.",
           );
@@ -194,7 +194,7 @@ export function useInvoiceWebView(
           const hint = data.debug?.classes?.length
             ? `\n\nClasses na página: ${(data.debug.classes as string[]).slice(0, 8).join(", ")}`
             : "";
-          Alert.alert(
+          appAlert(
             "Dados não encontrados",
             "A página não contém dados no formato esperado.\n\n" +
               "Verifique se:\n• O CAPTCHA foi resolvido\n" +
@@ -212,7 +212,7 @@ export function useInvoiceWebView(
       if (data.type === "ERROR") {
         setIsEnrichingMode(false);
         console.error("[WebView] JS Error:", data.message);
-        Alert.alert("Erro no script", data.message);
+        appAlert("Erro no script", data.message);
       }
     } catch (err) {
       console.error("[WebView] Erro ao processar mensagem:", err);
