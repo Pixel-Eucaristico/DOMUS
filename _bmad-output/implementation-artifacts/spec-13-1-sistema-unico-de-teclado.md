@@ -2,7 +2,8 @@
 title: 'Story 13.1: ligar o sistema único de teclado na raiz'
 type: 'bugfix'
 created: '2026-10-23'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: 'aae3863'
 route: 'dispatch'
 review_loop_iteration: 0
 context:

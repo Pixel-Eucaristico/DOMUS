@@ -168,8 +168,8 @@ development_status:
   12-7-dizer-em-cada-flag-o-que-transmite-e-o-que-se-perde: review
   epic-12-retrospective: optional
 
-  epic-13: backlog
-  13-1-ligar-o-sistema-único-de-teclado-na-raiz: backlog
+  epic-13: in-progress
+  13-1-ligar-o-sistema-único-de-teclado-na-raiz: in-progress
   13-2-padronizar-a-rolagem-das-telas-com-campos: backlog
   13-3-fazer-os-modais-com-formulário-subirem: backlog
   13-4-fazer-as-buscas-e-diálogos-em-modal-subirem: backlog
