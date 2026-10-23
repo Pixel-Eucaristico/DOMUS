@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "tamagui-v2": {
+      "source": "ramarivera/tamagui-skills",
+      "sourceType": "github",
+      "skillPath": "skills/tamagui-v2/SKILL.md",
+      "computedHash": "ba7274d65b299059bbf2a6f706b69a10e7624aff5fe4dfb4301d55be41c5a1e0"
+    }
+  }
+}
