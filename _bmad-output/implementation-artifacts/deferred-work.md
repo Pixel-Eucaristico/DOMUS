@@ -89,3 +89,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-2-quarentena-no-replay.md`
   summary: D30 — Em release, o usuário não vê a Quarentena: um evento descartado no replay some do app sem aviso (só o DebugTools, que é de desenvolvimento, mostra).
   evidence: `DebugTools` só aparece com `__DEV__`. Avisar com contagem e opção de reportar, numa story própria.
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-timestamp-no-futuro.md`
+  summary: D31 — `ACHIEVEMENT_UNLOCKED` não é deduplicado no reducer: se a conquista de outro aparelho está em Quarentena (horário no futuro) ou atrasada no sync, este aparelho desbloqueia de novo e, quando as duas valem, o XP soma duas vezes.
+  evidence: `packages/gamification/src/reducer.ts` soma `xpReward` sempre; decidir se conquista pode repetir (`completionCounts`) antes de deduplicar por id.
