@@ -131,6 +131,7 @@
       "@react-native-firebase/crashlytics",
       "./plugins/withGwpAsan",
       "./plugins/withOrientationFix",
+      "./plugins/withReleaseSigning",
       [
         "react-native-google-mobile-ads",
         {
