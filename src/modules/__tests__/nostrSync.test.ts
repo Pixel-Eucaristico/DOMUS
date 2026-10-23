@@ -103,6 +103,20 @@ describe("publishSyncEvents + pullSyncEvents (ponta a ponta com pool falso)", ()
     expect(pulled.map((e) => e.id)).toEqual(["a", "c"]);
   });
 
+  it("Story 3.5: publicação e pull mantêm o timestamp idêntico, inclusive o adiantado", async () => {
+    const keys = await deriveKeysFromCode("TESTE-35");
+    const now = 1_792_627_200_000;
+    const events = [
+      valid({ id: "normal", timestamp: now }),
+      valid({ id: "adiantado", timestamp: now + 25 * 60 * 60 * 1000 }),
+    ] as any[];
+    expect(await publishSyncEvents(keys, "dev-a", events)).toBe(2);
+    relayEvents = published.map((ev) => ({ ...ev, id: "pub-35" }));
+    const pulled = await pullSyncEvents(keys, "dev-b", 0, true);
+    expect(pulled.map((e) => [e.id, e.timestamp])).toEqual(events.map((e) => [e.id, e.timestamp]));
+    for (const e of pulled) expect(typeof e.timestamp).toBe("number");
+  });
+
   it("pull: lote misto + JSON malformado num evento do relay; os demais seguem e há uma linha de total", async () => {
     const keys = await deriveKeysFromCode("TESTE-31");
     const mixed = [

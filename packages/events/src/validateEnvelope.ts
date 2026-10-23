@@ -43,6 +43,12 @@ function isNonEmptyString(value: unknown): value is string {
 export const MIN_ENVELOPE_TIMESTAMP_MS = 1_577_836_800_000;
 /** 01/01/2100 00:00:00 UTC em ms (exclusivo). */
 export const MAX_ENVELOPE_TIMESTAMP_MS = 4_102_444_800_000;
+/**
+ * Story 3.5: quanto o `timestamp` de um evento de outro aparelho pode estar à
+ * frente do "agora" antes de ir para a Quarentena ("horário no futuro"). Único
+ * lugar onde o limite é definido; o import do sync não usa (só recusa ≥ 2100).
+ */
+export const MAX_FUTURE_SKEW_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Inteiro seguro em ms dentro de [2020-01-01, 2100-01-01). Recusa segundos,

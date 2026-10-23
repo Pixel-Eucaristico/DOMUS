@@ -4,8 +4,11 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
+  useState,
   type ReactNode,
 } from "react";
+import { AppState as RNAppState } from "react-native";
 import { EVENT_TYPES, type DomainEvent } from "@packages/events/src/types";
 import type { AppState } from "@packages/domain/src/state";
 import { calculate503020, type BudgetBreakdown } from "@packages/domain/src/transactions";
@@ -19,7 +22,13 @@ import type { ArchetypeType } from "@packages/personality/src/types";
 import { generateId } from "@packages/events/src/factory";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { WishlistEvent, WishlistState } from "@packages/wishlist";
-import { replayAllEvents, type QuarantineEntry } from "@/src/context/replay";
+import {
+  futureReleaseDelayMs,
+  nextFutureReleaseAt,
+  replayAllEvents,
+  replayOptionsFor,
+  type QuarantineEntry,
+} from "@/src/context/replay";
 import { compareEvents } from "@/src/context/localEventLog";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 
@@ -90,11 +99,56 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const debug = useDebugOverrides();
   const eventStore = useEventStore({ isDemoActive, dispatchDemoEvent });
 
+  // Story 3.5: `nowTick` força um novo replay (com um novo `Date.now()`) quando um evento
+  // em Quarentena por "horário no futuro" pode ter passado a valer: ao voltar para o
+  // primeiro plano e no timer até o próximo evento desses. Não é estado derivado persistido.
+  const [nowTick, setNowTick] = useState(0);
+
   // Replay all events to derive state
   const { domain, gamification: baseGamification, onboarding, season, wishlist, quarantine } = useMemo(
-    () => replayAllEvents(isDemoActive ? demoEvents : eventStore.allEvents),
-    [isDemoActive, demoEvents, eventStore.allEvents],
+    // Story 3.5: "agora" = Date.now() a cada replay; o id do aparelho decide quais eventos são
+    // de outro aparelho (no modo demo, nenhum: a regra do horário no futuro não se aplica).
+    () => {
+      void nowTick;
+      return replayAllEvents(
+        isDemoActive ? demoEvents : eventStore.allEvents,
+        replayOptionsFor(isDemoActive, eventStore.deviceId),
+      );
+    },
+    [isDemoActive, demoEvents, eventStore.allEvents, eventStore.deviceId, nowTick],
   );
+
+  const hasFutureQuarantine = useMemo(
+    () => quarantine.some((q) => q.kind === "future_timestamp"),
+    [quarantine],
+  );
+  const hasFutureQuarantineRef = useRef(hasFutureQuarantine);
+  useEffect(() => {
+    hasFutureQuarantineRef.current = hasFutureQuarantine;
+  }, [hasFutureQuarantine]);
+
+  // Story 3.5: ao voltar para o primeiro plano, refaz o replay só se há evento em Quarentena
+  // por horário (o relógio pode ter andado muito com o app em segundo plano).
+  useEffect(() => {
+    const sub = RNAppState.addEventListener("change", (next) => {
+      if (next === "active" && hasFutureQuarantineRef.current) setNowTick((n) => n + 1);
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Story 3.5: timer até o primeiro instante em que um evento em Quarentena por horário passa
+  // a valer; refeito a cada mudança do log/aparelho/replay e limpo ao desmontar. Sem evento
+  // desses, nenhum timer.
+  useEffect(() => {
+    if (!hasFutureQuarantine) return;
+    const options = replayOptionsFor(isDemoActive, eventStore.deviceId);
+    const now = Date.now();
+    const releaseAt = nextFutureReleaseAt(isDemoActive ? demoEvents : eventStore.allEvents, { ...options, now });
+    const delay = futureReleaseDelayMs(releaseAt, now);
+    if (delay === null) return;
+    const timer = setTimeout(() => setNowTick((n) => n + 1), delay);
+    return () => clearTimeout(timer);
+  }, [hasFutureQuarantine, isDemoActive, demoEvents, eventStore.allEvents, eventStore.deviceId, nowTick]);
 
   const gamification = useMemo(() => {
     if (debug.debugXp === null) return baseGamification;
