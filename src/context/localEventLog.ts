@@ -143,6 +143,16 @@ export function prepareBackupForStorage(items: unknown): PreparedLocalLog {
 }
 
 /**
+ * Story 3.4/3.5: carimbo do `dispatch`. Com o id deste aparelho, um evento novo com
+ * `deviceId` vazio/"local" recebe o id real (para não mudar de posição ao reabrir o app
+ * nem sair como "local"); o resto (inclusive o `timestamp`) fica idêntico. Sem o id, ou
+ * com `deviceId` já preenchido, devolve o próprio evento. Pura; não altera a entrada.
+ */
+export function stampDeviceId<T extends { deviceId?: unknown }>(event: T, deviceId: string | null): T {
+  return deviceId && isBlankDeviceId(event.deviceId) ? { ...event, deviceId } : event;
+}
+
+/**
  * Eventos para exportar (backup manual e automático): `deviceId` "local" ou
  * vazio vira o id real deste aparelho, para que outro aparelho não o troque
  * pelo próprio id. Sem o id do aparelho, devolve como está.

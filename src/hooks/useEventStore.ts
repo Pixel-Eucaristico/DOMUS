@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { SQLiteEventStore } from "@packages/storage/src/eventStore";
 import { selectEventsToImport } from "@/src/modules/syncPayload";
-import { isBlankDeviceId, prepareBackupForStorage, prepareLocalLog } from "@/src/context/localEventLog";
+import { prepareBackupForStorage, prepareLocalLog, stampDeviceId } from "@/src/context/localEventLog";
 
 const DEVICE_ID_KEY = "domus_device_id";
 const EVENTS_BACKUP_KEY = "domus_events_v1";
@@ -158,7 +158,7 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
 
       // Story 3.4: carimba o id do aparelho já na criação (quando conhecido), para que
       // o evento não mude de posição ao reabrir o app nem saia como "local".
-      const evt = deviceId && isBlankDeviceId(syncEvt.deviceId) ? { ...syncEvt, deviceId } : syncEvt;
+      const evt = stampDeviceId(syncEvt, deviceId);
 
       getEventStore().then((store) => {
         store?.appendEvent(evt);
