@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "tamagui-best-practices": {
+      "source": "alleneubank/claude-code",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/tamagui-best-practices/SKILL.md",
+      "computedHash": "b2f815652ca756166a6d9d8d8d324e756f8bd1e8cd32f92955872ad781ef9c92"
+    },
     "tamagui-v2": {
       "source": "ramarivera/tamagui-skills",
       "sourceType": "github",
