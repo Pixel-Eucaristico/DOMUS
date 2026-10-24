@@ -4,6 +4,7 @@ import { CameraView } from "expo-camera";
 import { Feather } from "@expo/vector-icons";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
+import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { useIsFocused } from "@react-navigation/native";
 import { soundManager } from "@/src/services/SoundManager";
 import { TButton } from "@/src/components/tamagui";
@@ -104,8 +105,14 @@ export function QrScanScreen({
         </Text>
       </View>
 
-      {/* BOTTOM BAR: gallery + type key, or key input */}
-      <View style={[s.bottomBar, { paddingBottom: insets.bottom + 20 }]}>
+      {/* BOTTOM BAR: gallery + type key, or key input.
+          KeyboardStickyView sobe a barra junto com o teclado (edge-to-edge não
+          redimensiona a janela). A altura do teclado já inclui a barra de
+          navegação, então `opened: insets.bottom` desconta o paddingBottom. */}
+      <KeyboardStickyView
+        style={[s.bottomBar, { paddingBottom: insets.bottom + 20 }]}
+        offset={{ closed: 0, opened: insets.bottom }}
+      >
         {showKeyInput ? (
           <View style={s.keyInputArea}>
             <TextInput
@@ -156,7 +163,7 @@ export function QrScanScreen({
             </Pressable>
           </View>
         )}
-      </View>
+      </KeyboardStickyView>
     </View>
   );
 }

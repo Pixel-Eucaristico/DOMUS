@@ -169,7 +169,7 @@ development_status:
   epic-12-retrospective: optional
 
   epic-13: in-progress
-  13-1-ligar-o-sistema-único-de-teclado-na-raiz: in-progress
+  13-1-ligar-o-sistema-único-de-teclado-na-raiz: done
   13-2-padronizar-a-rolagem-das-telas-com-campos: backlog
   13-3-fazer-os-modais-com-formulário-subirem: backlog
   13-4-fazer-as-buscas-e-diálogos-em-modal-subirem: backlog

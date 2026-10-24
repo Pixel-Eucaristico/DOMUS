@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ScrollView,
   ActivityIndicator,
   Platform,
 } from "react-native";
@@ -18,6 +17,7 @@ import { OCRConfigService } from "@/src/services/ocrConfigService";
 import type { OCRProvider } from "@packages/parsers";
 import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
 import { appAlert } from "@/src/services/appAlert";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 type OCRProviderExtended = OCRProvider | "vision_ai";
 
@@ -98,7 +98,7 @@ export default function OCRSettingsScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={s.scrollView} contentContainerStyle={s.scrollContent}>
+      <KeyboardAwareScrollViewCompat style={s.scrollView} contentContainerStyle={s.scrollContent} keyboardShouldPersistTaps="handled" bottomOffset={50}>
         {/* Descrição */}
         <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} flexDirection="row" gap={12} padding={16} marginBottom={24}>
           <Feather name="info" size={20} color={theme.primaryColor} />
@@ -292,7 +292,7 @@ export default function OCRSettingsScreen() {
             </Text>
           </Pressable>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollViewCompat>
 
       {/* Botão Salvar */}
       <View style={[s.footer, { paddingBottom: insets.bottom + 20, backgroundColor: theme.cardBackground }]}>

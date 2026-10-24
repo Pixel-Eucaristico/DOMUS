@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback } from "react";
 import {
   StyleSheet,
   View,
@@ -26,6 +26,7 @@ import { useScreenIntro } from "@/src/hooks/useScreenIntro";
 import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
 import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const QR_SIZE = Math.min(SCREEN_W * 0.5, SCREEN_H * 0.3, 220);
@@ -74,7 +75,6 @@ function SyncScreen() {
   const [actionLoading, setActionLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
   const { showIntro, dismissIntro } = useScreenIntro("sync");
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
@@ -143,7 +143,7 @@ function SyncScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView ref={scrollRef} contentContainerStyle={[s.content, { paddingBottom: insets.bottom + webBottomInset + 24 }]} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollViewCompat contentContainerStyle={[s.content, { paddingBottom: insets.bottom + webBottomInset + 24 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bottomOffset={50}>
         {/* Status card */}
         <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} elevated padding={18} gap={16}>
           <View style={s.statusRow}>
@@ -377,7 +377,7 @@ function SyncScreen() {
             <Feather name="chevron-right" size={18} color={theme.secondaryText} />
           </Pressable>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollViewCompat>
 
       <QRScannerModal visible={showScanner} onClose={() => setShowScanner(false)} onScanned={handleScanResult} theme={theme} />
 

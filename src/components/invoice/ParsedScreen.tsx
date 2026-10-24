@@ -3,10 +3,10 @@ import {
   View,
   Text,
   Pressable,
-  ScrollView,
   StyleSheet,
 } from "react-native";
 import { DatePickerField } from "@/src/components/shared/DatePickerField";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { Feather } from "@expo/vector-icons";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
@@ -88,7 +88,7 @@ export function ParsedScreen({
 }: Props) {
   return (
     <View style={s.container}>
-      <ScrollView contentContainerStyle={s.scroll}>
+      <KeyboardAwareScrollViewCompat contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" bottomOffset={50}>
         {/* Emitter card */}
         <View style={[s.emitterCard, { backgroundColor: theme.cardBackground }]}>
           <Text style={[s.emitterLabel, { color: theme.secondaryText }]}>Estabelecimento</Text>
@@ -207,7 +207,7 @@ export function ParsedScreen({
             />
           ))}
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollViewCompat>
 
       {/* Footer */}
       <View
