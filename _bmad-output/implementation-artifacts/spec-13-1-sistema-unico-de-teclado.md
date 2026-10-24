@@ -54,6 +54,22 @@ context:
 - Given o app aberto, when foco um campo em add-transaction, ai-settings, backup ou about, then a tela sobe até o campo
 - Given o projeto, when procuro `avoid-softinput`, then não há referência no código nem nas dependências
 
+## Spec Change Log
+
+- **Regressão corrigida na própria 13.1 (decisão do dono, 24/10/2026):** sem o `AvoidSoftInput`, quatro campos da janela principal ficavam cobertos (o edge-to-edge do Android 16 não redimensiona a janela). A troca mínima vem para cá, antecipando parte das Stories 13.2 e 13.6: `KeyboardAwareScrollView` em `app/ocr-settings.tsx`, `app/sync.tsx` e `ParsedScreen`, e a barra da chave manual do `QrScanScreen` presa acima do teclado (`KeyboardStickyView` ou `KeyboardAvoidingView` da biblioteca).
+
+## Review Triage Log
+
+| Achado | Veredito | Evidência |
+|---|---|---|
+| Chave manual da NF (`QrScanScreen`), itens da nota (`ParsedScreen`), chave do Cloud Vision (`ocr-settings`) e código do grupo (`sync`) ficam cobertos pelo teclado | high | Só subiam pelo `AvoidSoftInput`; com edge-to-edge, `adjustResize` não age. **patch** (Change Log). |
+| Lista de regressões das notas errada (inclui o que já sobe, falta a importação da nota) | medium | **patch**: lista certa e importação da nota na checklist da 13.7. |
+| Nota falsa: o GiftedChat sempre monta o próprio `KeyboardProvider` | medium | **patch** na nota; a 13.5 configura por `keyboardProviderProps`. |
+| O watcher de modais passa a valer em todo modal (Android 7–10 e modal dentro de modal) | low | **defer** para a checklist da 13.7. |
+| Margens em paisagem com navegação de 3 botões | low | **defer** para a checklist da 13.7. |
+| Desmontagem do provider na raiz (patch da biblioteca, abrir por link) | low | **defer**: conferir no Crashlytics e abrir por link/compartilhamento na 13.7. |
+| Sem teste automático de teclado | low (gap) | **defer**: nativo; checklist da 13.7. |
+
 ## Verification
 
 - `npx vitest run`, `npx tsc --noEmit` e `npx expo export --platform web` sem falhas novas

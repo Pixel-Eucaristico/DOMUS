@@ -58,6 +58,8 @@ context:
 
 - **Referência do "agora" (decisão do dono, 23/10/2026):** o limite de 24 h conta a partir do maior entre o relógio do aparelho e o horário mais recente dos eventos de **outros** aparelhos que não o do próprio evento (um aparelho não serve de prova para si mesmo). Assim um aparelho com o relógio atrasado não esconde os dados do grupo, e um evento muito à frente de todo o grupo continua em Quarentena.
 
+- **Grupo de dois aparelhos (decisão do dono, 24/10/2026):** se o relógio deste aparelho está atrás do evento mais recente que ele mesmo gravou, esse evento também entra na referência, para um relógio atrasado não esconder os eventos do outro aparelho.
+
 ## Review Triage Log
 
 | Achado | Veredito | Evidência |
