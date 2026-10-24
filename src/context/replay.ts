@@ -166,6 +166,11 @@ function deviceKeyOf(deviceId: unknown, currentDeviceId: string): string {
  * si mesmo. Entram todos os eventos com envelope válido (inclusive os que acabam em
  * Quarentena), lidos com `eventTimestampKey`.
  *
+ * Grupo de dois (decisão do dono, 24/10/2026): `ref = max(now, maior próprio se > now,
+ * maior dos aparelhos ≠ X)`. Para X de fora, "aparelhos ≠ X" já inclui os eventos do
+ * aparelho atual (id igual, vazio ou "local"), então o próprio mais recente já entra;
+ * para os próprios a regra não se aplica. Nenhum ramo extra é necessário.
+ *
  * O(n): uma passada guarda o maior horário de cada aparelho e, deles, os dois
  * maiores de aparelhos distintos; o "maior dos outros" de X é o primeiro, ou o
  * segundo quando o primeiro é o próprio X. Pura; não altera a entrada.

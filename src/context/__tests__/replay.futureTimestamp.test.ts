@@ -308,8 +308,73 @@ describe("referência do agora: maior entre o relógio e os outros aparelhos (de
     expect(replayAllEvents([base, txOn("n", NOW + 72 * H, B)], { now: NOW, currentDeviceId: "local" }).quarantine).toEqual([]);
   });
 
-  it("sonda 2 (limite conhecido): num grupo de dois, o atrasado não serve de prova — os eventos do outro esperam", () => {
-    // D está 3 dias atrás e é o único outro aparelho de A: a referência de A é o relógio de D.
+  // Grupo de dois aparelhos (decisão do dono, 24/10/2026): para um evento do aparelho X,
+  // ref = max(now, maior próprio (só se > now), maior entre os aparelhos ≠ X). Para X de
+  // fora, "aparelhos ≠ X" já inclui o aparelho atual (deviceId igual, vazio ou "local"),
+  // então `futureReferenceResolver` já cobre a decisão sem mudança de código.
+  it("grupo de dois: D com o relógio 3 dias atrás, mas que gravou eventos na hora certa, aplica os do outro", () => {
+    for (const mine of [D, "local", ""]) {
+      const log = [
+        acc("a1", NOW - 10 * H, A),
+        ev("cat", "CATEGORY_CREATED", { id: "c1", name: "Food", type: "needs" }, NOW - 20 * H, A),
+        txOn("ta", NOW - H, A),
+        // Gravado por D antes de o relógio atrasar: mais novo que o `now` de D.
+        txOn("dtx", NOW - 5 * H, mine),
+      ];
+      const r = replayAllEvents(log, { now: NOW - 72 * H, currentDeviceId: D });
+      expect(r.quarantine).toEqual([]);
+      expect(Object.keys(r.domain.transactions).sort()).toEqual(["tx-dtx", "tx-ta"]);
+      expect(Object.keys(r.domain.categories)).toEqual(["c1"]);
+      expect(nextFutureReleaseAt(log, { now: NOW - 72 * H, currentDeviceId: D })).toBeNull();
+      // A referência de A é o próprio mais recente de D, não o relógio de D.
+      expect(futureReferenceResolver(log, NOW - 72 * H, D)(A)).toBe(NOW - 5 * H);
+    }
+  });
+
+  it("grupo de dois: limite contado do próprio mais recente; nextFutureReleaseAt usa a mesma referência", () => {
+    const own = NOW - 5 * H;
+    const clock = NOW - 72 * H;
+    const base = [acc("a1", NOW - 10 * H, A), txOn("dtx", own, D)];
+    expect(
+      replayAllEvents([...base, txOn("e", own + MAX_FUTURE_SKEW_MS, A)], { now: clock, currentDeviceId: D }).quarantine,
+    ).toEqual([]);
+    const t = own + MAX_FUTURE_SKEW_MS + 1;
+    const log = [...base, txOn("e", t, A)];
+    expect(replayAllEvents(log, { now: clock, currentDeviceId: D }).quarantine.map((q) => [q.id, q.kind])).toEqual([
+      ["e", "future_timestamp"],
+    ]);
+    // O próprio mais recente é fixo (só muda com o log): o evento vale quando o relógio
+    // de D alcança t − 24 h, exatamente o instante do timer.
+    const at = nextFutureReleaseAt(log, { now: clock, currentDeviceId: D });
+    expect(at).toBe(t - MAX_FUTURE_SKEW_MS);
+    expect(replayAllEvents(log, { now: at! - 1, currentDeviceId: D }).quarantine.map((q) => q.id)).toEqual(["e"]);
+    expect(replayAllEvents(log, { now: at!, currentDeviceId: D }).quarantine).toEqual([]);
+    expect(nextFutureReleaseAt(log, { now: at!, currentDeviceId: D })).toBeNull();
+  });
+
+  it("grupo de dois: futureReferenceResolver é igual à fórmula literal da decisão (log pseudoaleatório)", () => {
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 1_103_515_245 + 12_345) % 2 ** 31) / 2 ** 31);
+    const devices = [D, "local", "", A, B, C];
+    for (let round = 0; round < 40; round++) {
+      const now = NOW + Math.floor((rnd() - 0.5) * 200 * H);
+      const log = Array.from({ length: 1 + Math.floor(rnd() * 12) }, (_, i) =>
+        txOn(`r${round}-${i}`, NOW + Math.floor((rnd() - 0.5) * 200 * H), devices[Math.floor(rnd() * devices.length)]),
+      );
+      const isOwn = (d: string) => d === D || d === "local" || d === "";
+      const ownTs = log.filter((e) => isOwn(e.deviceId)).map((e) => e.timestamp);
+      const latestOwn = ownTs.length ? Math.max(...ownTs) : -Infinity;
+      const ref = futureReferenceResolver(log, now, D);
+      for (const x of [A, B, C, "dev-new"]) {
+        const others = log.filter((e) => !isOwn(e.deviceId) && e.deviceId !== x).map((e) => e.timestamp);
+        const literal = Math.max(now, latestOwn > now ? latestOwn : -Infinity, ...others);
+        expect(ref(x)).toBe(literal);
+      }
+    }
+  });
+
+  it("grupo de dois (continua em Quarentena): o próprio mais recente de D também é antigo e A está +3 dias à frente de tudo", () => {
+    // D está 3 dias atrás e tudo o que gravou também: nada no log prova o horário de A.
     const log = [
       acc("a1", NOW - 10 * H, A),
       txOn("dtx", NOW - 72 * H, D),
@@ -319,6 +384,16 @@ describe("referência do agora: maior entre o relógio e os outros aparelhos (de
     expect(r.quarantine.map((q) => [q.id, q.kind])).toEqual([
       ["cat", "future_timestamp"],
       ["c-a1", "future_timestamp"],
+    ]);
+    expect(nextFutureReleaseAt(log, { now: NOW - 72 * H, currentDeviceId: D })).toBe(NOW - 20 * H - MAX_FUTURE_SKEW_MS);
+    // D nunca gravou nada (instalação nova com o relógio atrasado): idem, só o relógio conta.
+    const fresh = replayAllEvents([log[0], log[2]], { now: NOW - 72 * H, currentDeviceId: D });
+    expect(fresh.quarantine.map((q) => q.id)).toEqual(["cat", "c-a1"]);
+    // Próprio da hora certa, mas A gravou mais de 24 h depois dele (D ficou dias sem
+    // gravar): a referência parada no próprio não alcança; o evento espera.
+    const stale = [acc("a1", NOW - 40 * H, A), txOn("dtx", NOW - 60 * H, D), txOn("late", NOW, A)];
+    expect(replayAllEvents(stale, { now: NOW - 72 * H, currentDeviceId: D }).quarantine.map((q) => q.id)).toEqual([
+      "late",
     ]);
     // Com um terceiro aparelho em dia no log, tudo vale.
     const withC = replayAllEvents([...log, txOn("tc", NOW - 2 * H, C)], { now: NOW - 72 * H, currentDeviceId: D });
