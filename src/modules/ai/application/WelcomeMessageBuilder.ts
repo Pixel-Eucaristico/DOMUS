@@ -19,18 +19,18 @@ export function buildWelcomeMessage(
 ): string {
   const lines: string[] = [];
 
-  lines.push("**Ola! Sou o DOMUS, seu consultor financeiro.**\n");
+  lines.push("**Olá! Sou o DOMUS, seu consultor financeiro.**\n");
 
   // Gamification highlights
   if (permissions.gamification) {
     if (gamification.currentStreak > 0) {
       lines.push(
-        `🔥 **Parabens!** Voce esta com um streak de **${gamification.currentStreak} dias** consecutivos!`,
+        `🔥 **Parabéns!** Você está com um streak de **${gamification.currentStreak} dias** consecutivos!`,
       );
     }
     if (gamification.level > 1) {
       lines.push(
-        `🏆 Nivel **${gamification.level}** com **${gamification.totalXp.toLocaleString("pt-BR")} XP** acumulados.`,
+        `🏆 Nível **${gamification.level}** com **${gamification.totalXp.toLocaleString("pt-BR")} XP** acumulados.`,
       );
     }
     const achievements = gamification.unlockedAchievements?.length ?? 0;
@@ -56,7 +56,7 @@ export function buildWelcomeMessage(
       .reduce((s, t) => s + t.amount, 0);
     if (expenses > 0) {
       lines.push(
-        `📊 Este mes voce ja gastou **R$ ${expenses.toFixed(2)}** em ${monthTx.filter((t) => t.type === "expense").length} transacoes.`,
+        `📊 Este mês você já gastou **R$ ${expenses.toFixed(2)}** em ${monthTx.filter((t) => t.type === "expense").length} transações.`,
       );
     }
   }
@@ -68,7 +68,7 @@ export function buildWelcomeMessage(
       const urgentItems = items.filter((i) => i.urgencyLevel === "PRIORITY" || i.urgencyLevel === "ESSENTIAL");
       if (urgentItems.length > 0) {
         lines.push(
-          `🎯 Voce tem **${urgentItems.length} item${urgentItems.length > 1 ? "ns" : ""}** urgente${urgentItems.length > 1 ? "s" : ""} na lista de desejos.`,
+          `🎯 Você tem **${urgentItems.length} item${urgentItems.length > 1 ? "ns" : ""}** urgente${urgentItems.length > 1 ? "s" : ""} na lista de desejos.`,
         );
       } else {
         lines.push(`📋 ${items.length} item${items.length > 1 ? "ns" : ""} na sua lista de desejos.`);
@@ -76,7 +76,7 @@ export function buildWelcomeMessage(
     }
   }
 
-  lines.push("\nComo posso te ajudar hoje? Pergunte sobre seus gastos, peca uma analise ou conselho antes de uma compra.");
+  lines.push("\nComo posso te ajudar hoje? Pergunte sobre seus gastos, peça uma análise ou conselho antes de uma compra.");
 
   return lines.join("\n");
 }

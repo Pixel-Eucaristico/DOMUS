@@ -10,7 +10,7 @@ import { BackupValidationError } from "@/src/modules/backup/application/BackupVa
 import type { BackupPreview, BackupStatus } from "@/src/modules/backup/domain/BackupMetadata";
 import { isEncryptedBackupContent } from "@/src/modules/backup/domain/BackupMetadata";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
-import { eventsForExport } from "@/src/context/localEventLog";
+import { buildExportEvents } from "@/src/context/localEventLog";
 import {
   getDeviceBackupKey,
   getLastAutoBackupTs,
@@ -83,7 +83,7 @@ export function useBackupRestore({ getAllEvents, restoreFromBackup, deviceId }: 
     }
     try {
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const events = eventsForExport(getAllEvents(), deviceId);
+      const events = buildExportEvents(getAllEvents(), deviceId);
       await BackupExportService.export(events, deviceId ?? "unknown", exportPassword, setExportStatus);
       setExportStatus({ type: "success", message: `${events.length} eventos exportados com sucesso.` });
       setExportPassword("");
@@ -105,7 +105,7 @@ export function useBackupRestore({ getAllEvents, restoreFromBackup, deviceId }: 
         () => confirmAsync(PLAIN_EXPORT_WARNING.title, PLAIN_EXPORT_WARNING.message, PLAIN_EXPORT_WARNING.confirmLabel),
         async () => {
           if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          const events = eventsForExport(getAllEvents(), deviceId);
+          const events = buildExportEvents(getAllEvents(), deviceId);
           await BackupExportService.exportPlain(events, deviceId ?? "unknown", setExportStatus);
           setExportStatus({ type: "success", message: `${events.length} eventos exportados sem criptografia.` });
           if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

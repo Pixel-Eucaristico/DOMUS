@@ -21,7 +21,7 @@ import { ALL_ACHIEVEMENTS, MONTHLY_TROPHIES } from "@packages/gamification/src/a
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import type { ArchetypeType } from "@packages/personality/src/types";
-import { generateId } from "@packages/events/src/factory";
+import { createEvent } from "@packages/events/src/factory";
 import { getArchetypeDescription } from "@packages/personality/src/archetypeEngine";
 import { LottieTrophy } from "@/src/components/gamification/LottieTrophy";
 import { clampTier, type TrophyTier } from "@/src/components/gamification/lottieTierSelection";
@@ -374,14 +374,13 @@ export function DebugTools() {
                   <TouchableOpacity 
                     style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
                     onPress={() => {
-                      dispatch({
-                        id: `debug-lvl-${generateId()}`,
-                        type: "LEVEL_UP",
-                        payload: { previousLevel: gamification.level, newLevel: gamification.level + 1, totalXp: gamification.totalXp },
-                        timestamp: Date.now(),
-                        deviceId: deviceId || "debug",
-                        signature: ""
-                      } as any);
+                      // Revisão 23/10: createEvent (id e timestamp do mesmo instante);
+                      // sem id do aparelho, sai "local" e o dispatch carimba.
+                      dispatch(createEvent<{ type: string; payload: unknown }>(
+                        "LEVEL_UP",
+                        { previousLevel: gamification.level, newLevel: gamification.level + 1, totalXp: gamification.totalXp },
+                        deviceId || "local",
+                      ) as any);
                       setVisible(false);
                     }}
                   >
@@ -512,14 +511,11 @@ export function DebugTools() {
                         };
                       }
                       
-                      dispatch({
-                        id: `debug-${selectedTrophy.id}-${generateId()}`,
-                        type: eventType,
+                      dispatch(createEvent<{ type: string; payload: unknown }>(
+                        eventType,
                         payload,
-                        timestamp: Date.now(),
-                        deviceId: deviceId || "debug",
-                        signature: ""
-                      } as any);
+                        deviceId || "local",
+                      ) as any);
 
                       setSelectedTrophy(null);
                       setVisible(false);

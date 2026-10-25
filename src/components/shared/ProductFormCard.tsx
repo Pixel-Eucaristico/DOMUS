@@ -103,7 +103,7 @@ export function ProductFormCard({
           paddingHorizontal="$md"
           value={data.unitPrice}
           onChangeText={(v) => onChange("unitPrice", v)}
-          placeholder="Preco unit."
+          placeholder="Preço unit."
           keyboardType="decimal-pad"
           color={theme.textColor}
           backgroundColor={theme.cardBackground}

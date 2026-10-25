@@ -6,7 +6,7 @@ import { useAppState } from "@/src/context/AppStateProvider";
 import { BackupExportService } from "@/src/modules/backup/application/BackupExportService";
 import { GoogleDriveService } from "@/src/modules/backup/infrastructure/GoogleDriveService";
 import { BACKUP_FILE_EXTENSION } from "@/src/modules/backup/domain/BackupMetadata";
-import { eventsForExport } from "@/src/context/localEventLog";
+import { buildExportEvents } from "@/src/context/localEventLog";
 
 // ─── constantes ──────────────────────────────────────────────────────────────
 
@@ -79,7 +79,7 @@ export function useAutoBackup() {
         const due = !lastTs || now - lastTs >= AUTO_BACKUP_INTERVAL_MS;
         if (!due) return;
 
-        const events = eventsForExport(getAllEvents(), deviceId);
+        const events = buildExportEvents(getAllEvents(), deviceId);
         if (events.length === 0) return;
 
         const key = await getOrCreateDeviceBackupKey();

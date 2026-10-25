@@ -98,7 +98,7 @@ export function APIKeyManager({
         >
           <Feather name="lock" size={16} color={theme.success} />
           <TText flex={1} color={theme.textColor}>
-            Chave armazenada com seguranca
+            Chave armazenada com segurança
           </TText>
           <TouchableOpacity
             onPress={handleDelete}

@@ -1,4 +1,4 @@
-import type { DomainEvent, EventType } from "./types";
+import type { DomainEvent } from "./types";
 
 /**
  * Contador monotônico do milissegundo atual (Story 3.4): ids criados neste
@@ -31,7 +31,11 @@ export function generateId(now: number = Date.now()): string {
   );
 }
 
-export function createEvent<T extends DomainEvent>(
+/**
+ * Evento novo com id e timestamp do mesmo instante. Aceita também eventos de
+ * outros pacotes (gamificação, wishlist), que seguem o mesmo envelope.
+ */
+export function createEvent<T extends { type: string; payload: unknown } = DomainEvent>(
   type: T["type"],
   payload: T["payload"],
   deviceId: string = "local",
@@ -40,10 +44,10 @@ export function createEvent<T extends DomainEvent>(
   const now = Date.now();
   return {
     id: generateId(now),
-    type: type as EventType,
+    type,
     payload,
     timestamp: now,
     deviceId,
     signature: "",
-  } as T;
+  } as unknown as T;
 }

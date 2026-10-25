@@ -38,7 +38,7 @@ export function BalanceCard({ balance }: BalanceCardProps) {
         <View style={s.changeRow}>
           <Feather name="trending-up" size={14} color={colors.secondaryLight} />
           <TText variant="caption" fontWeight="500" color={colors.secondaryLight}>
-            +2,4% este mes
+            +2,4% este mês
           </TText>
         </View>
       </View>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
 import { useAppState } from "@/src/context/AppStateProvider";
@@ -31,25 +32,43 @@ const { height } = Dimensions.get("window");
 
 /**
  * Alerta customizado do app (substitui `Alert.alert` / `window.confirm`), no
- * estilo do `ConfirmDeleteModal`. Um na raiz (`app/_layout.tsx`) e um dentro de
- * cada Modal ou tela modal que pode chamar alertas: só o montado por último
- * mostra o alerta (ver `src/services/appAlert.ts`). No Android/iOS o `Modal`
- * fica sempre montado e só muda `visible`.
+ * estilo do `ConfirmDeleteModal`. Só o host de cima mostra o alerta (ver
+ * `src/services/appAlert.ts`). No Android/iOS o `Modal` fica sempre montado e
+ * só muda `visible`.
+ *
+ * - `<AppAlertHost root />`: o da raiz (`app/_layout.tsx`), sempre por baixo.
+ * - `<AppAlertHost />`: dentro de um `Modal` do RN; entra ao montar.
+ * - `<AppAlertScreenHost />`: em tela com `presentation: "modal"`; entra no
+ *   foco e sai no blur (tela empilhada por cima usa a raiz).
  */
-export function AppAlertHost() {
+export function AppAlertHost({ root = false }: { root?: boolean }) {
   const { theme } = useAppState();
   const [request, setRequest] = useState<AppAlertRequest | null>(null);
 
-  useEffect(() => {
-    const host = registerAppAlertHost();
-    const unsubscribe = subscribeAppAlert(() => setRequest(getAppAlertForHost(host.id)));
-    return () => {
-      unsubscribe();
-      host.unregister();
-    };
-  }, []);
+  useEffect(() => connectHost(root, setRequest), [root]);
 
   return <AppAlertModal request={request} theme={theme} />;
+}
+
+/** Host de tela modal do Expo Router: registrado só enquanto a tela tem foco. */
+export function AppAlertScreenHost() {
+  const { theme } = useAppState();
+  const [request, setRequest] = useState<AppAlertRequest | null>(null);
+
+  useFocusEffect(useCallback(() => connectHost(false, setRequest), []));
+
+  return <AppAlertModal request={request} theme={theme} />;
+}
+
+/** Registra o host e assina a fila; o devolvido desfaz os dois e esconde o alerta. */
+function connectHost(root: boolean, setRequest: (r: AppAlertRequest | null) => void): () => void {
+  const host = registerAppAlertHost({ root });
+  const unsubscribe = subscribeAppAlert(() => setRequest(getAppAlertForHost(host.id)));
+  return () => {
+    unsubscribe();
+    host.unregister();
+    setRequest(null);
+  };
 }
 
 function AppAlertModal({ request, theme }: { request: AppAlertRequest | null; theme: ThemeColors }) {

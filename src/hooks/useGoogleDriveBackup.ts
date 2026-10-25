@@ -97,7 +97,7 @@ export function useGoogleDriveBackup() {
   const connect = useCallback(async () => {
     if (!WEB_CLIENT_ID) {
       setSyncError(
-        "Google Client ID nao configurado. Adicione EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID no .env",
+        "Google Client ID não configurado. Adicione EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID no .env",
       );
       return;
     }
@@ -122,15 +122,15 @@ export function useGoogleDriveBackup() {
       if (statusCodes && e?.code === statusCodes.SIGN_IN_CANCELLED) {
         // Usuário cancelou — não exibir erro
       } else if (statusCodes && e?.code === statusCodes.IN_PROGRESS) {
-        setSyncError("Login ja em andamento.");
+        setSyncError("Login já em andamento.");
       } else if (statusCodes && e?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        setSyncError("Google Play Services nao disponivel.");
+        setSyncError("Google Play Services não disponível.");
       } else if (e?.code === "DEVELOPER_ERROR" || e?.code === 10 || /DEVELOPER_ERROR/.test(String(e?.message ?? ""))) {
         // Erro de configuracao OAuth: o SHA-1 do certificado que assinou este
         // build (EAS keystore ou chave do Play App Signing) nao esta registrado
         // como cliente OAuth Android no Google Cloud Console.
         setSyncError(
-          "Configuracao OAuth invalida (DEVELOPER_ERROR): o SHA-1 do certificado deste build nao esta registrado no Google Cloud Console para o pacote br.com.pixeleucaristico.domus.",
+          "Configuração OAuth inválida (DEVELOPER_ERROR): o SHA-1 do certificado deste build não está registrado no Google Cloud Console para o pacote br.com.pixeleucaristico.domus.",
         );
       } else {
         setSyncError(e instanceof Error ? e.message : "Erro ao conectar com o Google.");

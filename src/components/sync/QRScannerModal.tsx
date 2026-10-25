@@ -71,14 +71,14 @@ export function QRScannerModal({ visible, onClose, onScanned, theme }: QRScanner
         ) : !permission.granted ? (
           <View style={s.scannerCenter}>
             <Feather name="camera-off" size={48} color="#9CA3AF" />
-            <Text style={s.scannerPermText}>Permita o acesso a camera para escanear o QR Code do grupo</Text>
+            <Text style={s.scannerPermText}>Permita o acesso à câmera para escanear o QR Code do grupo</Text>
             {permission.canAskAgain ? (
               <Pressable style={[s.scannerPermBtn, { backgroundColor: theme.primaryColor }]} onPress={requestPermission}>
-                <Text style={s.scannerPermBtnText}>Permitir Camera</Text>
+                <Text style={s.scannerPermBtnText}>Permitir Câmera</Text>
               </Pressable>
             ) : (
               <Text style={[s.scannerPermText, { fontSize: 12, marginTop: 8 }]}>
-                Va em Configuracoes do dispositivo para permitir a camera
+                Vá em Configurações do dispositivo para permitir a câmera
               </Text>
             )}
           </View>

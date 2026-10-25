@@ -204,7 +204,7 @@ export class ConsultantChatUseCase {
 
       fallback.content =
         `Erro ao consultar ${settings.provider}: ${errorMessage}\n\n` +
-        `Mostrando analise local:\n\n${fallback.content}`;
+        `Mostrando análise local:\n\n${fallback.content}`;
 
       return fallback;
     }
@@ -299,17 +299,17 @@ export class ConsultantChatUseCase {
     settings: AISettings,
   ): string {
     const lines: string[] = [];
-    lines.push("**Ola! Sou o DOMUS, seu consultor financeiro.**\n");
+    lines.push("**Olá! Sou o DOMUS, seu consultor financeiro.**\n");
 
     const { dataPermissions } = settings;
 
     if (dataPermissions.gamification) {
       const g = contextData.gamification;
       if (g.currentStreak > 0) {
-        lines.push(`Voce esta com um streak de **${g.currentStreak} dias** consecutivos!`);
+        lines.push(`Você está com um streak de **${g.currentStreak} dias** consecutivos!`);
       }
       if (g.level > 1) {
-        lines.push(`Nivel **${g.level}** com **${g.totalXp.toLocaleString("pt-BR")} XP**.`);
+        lines.push(`Nível **${g.level}** com **${g.totalXp.toLocaleString("pt-BR")} XP**.`);
       }
     }
 
@@ -342,15 +342,15 @@ export class ConsultantChatUseCase {
       content =
         `Saldo atual: R$ ${snapshot.totalBalance.toFixed(2)}\n` +
         `Renda mensal: R$ ${snapshot.monthlyIncome.toFixed(2)}\n` +
-        `Gastos do mes: R$ ${snapshot.monthlyExpenses.toFixed(2)}\n` +
-        `Taxa de poupanca: ${sr}%`;
+        `Gastos do mês: R$ ${snapshot.monthlyExpenses.toFixed(2)}\n` +
+        `Taxa de poupança: ${sr}%`;
     } else {
       const sr = Math.round(snapshot.savingsRate);
       content =
-        "Ola! Sou o DOMUS, seu assistente financeiro.\n\n" +
+        "Olá! Sou o DOMUS, seu assistente financeiro.\n\n" +
         `Seu saldo atual: R$ ${snapshot.totalBalance.toFixed(2)}\n` +
-        `Taxa de poupanca: ${sr}%\n\n` +
-        "Pergunte sobre seus gastos, peca uma analise mensal ou conselho antes de uma compra.";
+        `Taxa de poupança: ${sr}%\n\n` +
+        "Pergunte sobre seus gastos, peça uma análise mensal ou conselho antes de uma compra.";
     }
 
     return {
@@ -370,7 +370,7 @@ export class ConsultantChatUseCase {
     };
     const riskLabels: Record<ConsultationResult["risk"], string> = {
       Low: "baixo",
-      Medium: "medio",
+      Medium: "médio",
       High: "alto",
     };
 

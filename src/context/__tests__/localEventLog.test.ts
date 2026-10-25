@@ -1,5 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
+  appendDispatched,
+  appendGenerated,
+  buildExportEvents,
+  compareEvents,
+  createXpRecoveryEvent,
+  isXpRecoveryEvent,
+  mergeHydrated,
+  mergeImported,
+  numericTimestamp,
+  XP_RECOVERY_MARKER,
   normalizeStoredEvents,
   eventSortKey,
   dedupeById,
@@ -143,3 +153,223 @@ describe("Story 3.4 — log local pronto para a memória", () => {
   });
 });
 
+
+describe("Revisão 23/10 (frente C) — helpers usados pelos hooks", () => {
+  const ev = (id: string, over: Partial<Record<keyof SyncEvent, unknown>> = {}) =>
+    ({ ...base, id, ...over }) as unknown as SyncEvent;
+  const view = (list: SyncEvent[]) => list.map((e) => [e.id, e.deviceId]);
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  describe("appendDispatched", () => {
+    it("dispatch 'local' com deviceId dev-1 grava dev-1 e fica no mesmo índice depois de recarregar via prepareLocalLog", () => {
+      const prev = prepareLocalLog([ev("p0", { deviceId: "dev-0" }), ev("p2", { deviceId: "dev-2" }), ev("p9", { timestamp: T0 + 1 })], "dev-1").events;
+      const r = appendDispatched(prev, ev("novo", { deviceId: "local" }), "dev-1");
+      expect(r.added).toBe(true);
+      expect(r.event.deviceId).toBe("dev-1");
+      const index = r.events.findIndex((e) => e.id === "novo");
+      expect(index).toBe(1);
+      expect(r.events[index]!.deviceId).toBe("dev-1");
+
+      // O banco recebe `r.event`; ao reabrir, o log carregado tem a mesma ordem.
+      const stored = [...prev, r.event];
+      const reloaded = prepareLocalLog(stored, "dev-1").events;
+      expect(reloaded.findIndex((e) => e.id === "novo")).toBe(index);
+      expect(view(reloaded)).toEqual(view(r.events));
+    });
+
+    it("id repetido: added=false, log igual, nada é alterado (não conta nem sincroniza)", () => {
+      const prev = prepareLocalLog([ev("a", { payload: { n: 1 } }), ev("b")], "dev-1").events;
+      const snapshot = JSON.stringify(prev);
+      const r = appendDispatched(prev, ev("a", { payload: { n: 2 } }), "dev-1");
+      expect(r.added).toBe(false);
+      expect(r.events).toEqual(prev);
+      expect((r.events.find((e) => e.id === "a")!.payload as { n: number }).n).toBe(1);
+      expect(JSON.stringify(prev)).toBe(snapshot);
+    });
+
+    it("sem id do aparelho fica 'local'; deviceId preenchido não muda", () => {
+      expect(appendDispatched([], ev("a", { deviceId: "local" }), null).event.deviceId).toBe("local");
+      expect(appendDispatched([], ev("a", { deviceId: "dev-x" }), "dev-1").event.deviceId).toBe("dev-x");
+    });
+
+    it("dois dispatch seguidos sobre o resultado anterior (como o ref do hook): o segundo repetido é descartado", () => {
+      const first = appendDispatched([], ev("a", { deviceId: "local" }), "dev-1");
+      const second = appendDispatched(first.events, ev("a", { deviceId: "local" }), "dev-1");
+      expect(first.added).toBe(true);
+      expect(second.added).toBe(false);
+      expect(second.events).toHaveLength(1);
+    });
+  });
+
+  describe("mergeHydrated", () => {
+    it("hidratação mantém os eventos despachados antes de terminar", () => {
+      const dispatchedEarly = appendDispatched([], ev("cedo", { deviceId: "local", timestamp: T0 + 5 }), null).events;
+      expect(dispatchedEarly[0]!.deviceId).toBe("local");
+      const loaded = prepareLocalLog([ev("l1", { deviceId: "local", timestamp: T0 }), ev("l2", { deviceId: "dev-z", timestamp: T0 + 10 })], "dev-1").events;
+      const merged = mergeHydrated(loaded, dispatchedEarly, "dev-1");
+      expect(view(merged)).toEqual([
+        ["l1", "dev-1"],
+        ["cedo", "dev-1"],
+        ["l2", "dev-z"],
+      ]);
+    });
+
+    it("sem despachados devolve o log carregado; id repetido fica o do log carregado", () => {
+      const loaded = prepareLocalLog([ev("a", { payload: { n: 1 } })], "dev-1").events;
+      expect(mergeHydrated(loaded, [], "dev-1")).toEqual(loaded);
+      const merged = mergeHydrated(loaded, [ev("a", { payload: { n: 2 } })], "dev-1");
+      expect(merged).toHaveLength(1);
+      expect((merged[0]!.payload as { n: number }).n).toBe(1);
+    });
+  });
+
+  describe("appendGenerated", () => {
+    it("carimba, descarta ids repetidos (com o log e entre si) e ordena; added na ordem recebida", () => {
+      const prev = prepareLocalLog([ev("x", { timestamp: T0 + 1 })], "dev-1").events;
+      const r = appendGenerated(
+        prev,
+        [ev("c2", { deviceId: "local", timestamp: T0 + 2 }), ev("x"), ev("c1", { deviceId: "", timestamp: T0 }), ev("c2")],
+        "dev-1",
+      );
+      expect(view(r.added)).toEqual([
+        ["c2", "dev-1"],
+        ["c1", "dev-1"],
+      ]);
+      expect(r.events.map((e) => e.id)).toEqual(["c1", "x", "c2"]);
+      expect(prev).toHaveLength(1);
+    });
+
+    it("nada novo: added vazio e log igual", () => {
+      const prev = prepareLocalLog([ev("x")], "dev-1").events;
+      const r = appendGenerated(prev, [ev("x")], "dev-1");
+      expect(r.added).toEqual([]);
+      expect(r.events).toEqual(prev);
+    });
+
+    it("categorias padrão (createEvent com o mesmo instante) entram na ordem de criação", async () => {
+      const { createDefaultCategories } = await import("@packages/domain/src/categories");
+      const generated = createDefaultCategories().map((e) => ({ ...e, type: e.type as string, deviceId: "dev-1" }) as SyncEvent);
+      const r = appendGenerated([], generated, "dev-1");
+      expect(r.events.map((e) => e.id)).toEqual(generated.map((e) => e.id));
+    });
+  });
+
+  it("mergeImported: mesma junção do importEvents (sem repetidos, ordem total)", () => {
+    const prev = prepareLocalLog([ev("a", { timestamp: T0 + 5 })], "dev-1").events;
+    const merged = mergeImported(prev, [ev("b", { deviceId: "dev-b", timestamp: T0 }), ev("a", { payload: { n: 9 } })], "dev-1");
+    expect(merged.map((e) => e.id)).toEqual(["b", "a"]);
+    expect(merged.find((e) => e.id === "a")!.payload).toEqual(base.payload);
+    expect(mergeImported(prev, [], "dev-1")).toEqual(prev);
+  });
+
+  describe("buildExportEvents (backup manual criptografado, simples e automático)", () => {
+    it("troca 'local'/vazio pelo id, deduplica, ordena e não altera a entrada", () => {
+      const input = [
+        ev("b", { deviceId: "local", timestamp: T0 + 1 }),
+        ev("a", { deviceId: "", timestamp: T0 }),
+        ev("b", { deviceId: "dev-x", timestamp: T0 + 9 }),
+        ev("c", { deviceId: "dev-x", timestamp: T0 - 1 }),
+      ];
+      const out = buildExportEvents(input, "dev-1");
+      expect(out.map((e) => [e.id, e.deviceId, e.timestamp])).toEqual([
+        ["c", "dev-x", T0 - 1],
+        ["a", "dev-1", T0],
+        ["b", "dev-1", T0 + 1],
+      ]);
+      expect(input[0]!.deviceId).toBe("local");
+      expect(input.map((e) => e.id)).toEqual(["b", "a", "b", "c"]);
+    });
+
+    it("sem id do aparelho exporta como está (sem carimbo) e pula o que não é objeto", () => {
+      const out = buildExportEvents([ev("a", { deviceId: "local" }), null as unknown as SyncEvent], null);
+      expect(view(out)).toEqual([["a", "local"]]);
+    });
+  });
+
+  describe("prepareBackupForStorage com o id do aparelho (restauração)", () => {
+    it("'local'/vazio recebe o id; preenchido fica como veio", () => {
+      const r = prepareBackupForStorage(
+        [ev("a", { deviceId: "local" }), ev("b", { deviceId: " LOCAL " }), ev("c", { deviceId: "" }), ev("d", { deviceId: "dev-x" })],
+        "dev-1",
+      );
+      expect(r.events.map((e) => [e.id, e.deviceId])).toEqual([
+        ["a", "dev-1"],
+        ["b", "dev-1"],
+        ["c", "dev-1"],
+        ["d", "dev-x"],
+      ]);
+    });
+
+    it("banco e memória têm o mesmo deviceId e a mesma ordem", () => {
+      const items = [ev("z", { deviceId: "local" }), ev("y", { deviceId: "dev-9" }), ev("x", { deviceId: "dev-0" })];
+      const stored = prepareBackupForStorage(items, "dev-5").events;
+      const memory = prepareLocalLog(stored, "dev-5").events;
+      expect(view(stored)).toEqual(view(memory));
+      expect(view(stored)).toEqual([
+        ["x", "dev-0"],
+        ["z", "dev-5"],
+        ["y", "dev-9"],
+      ]);
+    });
+  });
+
+  describe("numericTimestamp: só decimal simples", () => {
+    it("decimal (com sinal, fração e espaços nas pontas) vira número", () => {
+      expect(numericTimestamp(String(T0))).toBe(T0);
+      expect(numericTimestamp(" 42 ")).toBe(42);
+      expect(numericTimestamp("-5")).toBe(-5);
+      expect(numericTimestamp("1.5")).toBe(1.5);
+    });
+
+    it("hexadecimal, binário, octal, expoente e afins ficam inválidos", () => {
+      for (const v of ["0x1A", "0X1a", "0b11", "0o7", "1e3", "1E3", "Infinity", "-Infinity", "NaN", "+5", ".5", "5.", "1_000", "", "  ", "abc"]) {
+        expect(numericTimestamp(v), v).toBeUndefined();
+      }
+      for (const v of [5, null, undefined, {}, true]) expect(numericTimestamp(v)).toBeUndefined();
+    });
+
+    it("hidratação e restauração mantêm o texto não decimal como veio", () => {
+      const items = [ev("a", { timestamp: "0x1A" }), ev("b", { timestamp: "0b11" }), ev("c", { timestamp: "1e3" }), ev("d", { timestamp: "12" })];
+      const memory = normalizeStoredEvents(items, "dev-1").events;
+      expect(memory.map((e) => e.timestamp)).toEqual(["0x1A", "0b11", "1e3", 12]);
+      const stored = prepareBackupForStorage(items).events;
+      expect(Object.fromEntries(stored.map((e) => [e.id, e.timestamp]))).toEqual({ a: "0x1A", b: "0b11", c: "1e3", d: 12 });
+    });
+  });
+
+  describe("recuperação de XP", () => {
+    it("createEvent: id e timestamp do mesmo instante, marca no payload, sem prefixo", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(T0);
+      const e = createXpRecoveryEvent(45, "dev-1");
+      expect(e.timestamp).toBe(T0);
+      expect(e.id.startsWith(T0.toString(36))).toBe(true);
+      expect(e.id.startsWith("xp-recovery-")).toBe(false);
+      expect(e.deviceId).toBe("dev-1");
+      expect(e.type).toBe("XP_GAINED");
+      expect(e.payload).toMatchObject({ amount: 45, source: "streak_bonus", recovery: XP_RECOVERY_MARKER });
+
+      const later = createXpRecoveryEvent(45, null);
+      expect(later.deviceId).toBe("local");
+      expect(compareEvents(e, { ...later, deviceId: "dev-1" })).toBeLessThan(0);
+    });
+
+    it("detecção: ids antigos com prefixo e os novos com a marca; o resto não", () => {
+      expect(isXpRecoveryEvent({ id: "xp-recovery-abc", payload: {} })).toBe(true);
+      expect(isXpRecoveryEvent(createXpRecoveryEvent(30, "dev-1"))).toBe(true);
+      expect(isXpRecoveryEvent({ id: "abc", payload: { recovery: "outra" } })).toBe(false);
+      expect(isXpRecoveryEvent({ id: "abc", payload: null })).toBe(false);
+      for (const v of [null, undefined, 3, "xp-recovery-1"]) expect(isXpRecoveryEvent(v)).toBe(false);
+    });
+
+    it("o replay aplica o XP do evento novo (a marca não atrapalha a validação)", () => {
+      const e = createXpRecoveryEvent(45, "dev-1");
+      const r = replayAllEvents([e]);
+      expect(r.quarantine).toEqual([]);
+      expect(r.gamification.totalXp).toBe(45);
+    });
+  });
+});

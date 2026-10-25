@@ -67,7 +67,7 @@ export function WebViewScreen({
     return (
       <View style={[s.container, { justifyContent: "center", alignItems: "center" }]}>
         <Feather name="alert-triangle" size={40} color={theme.primaryColor} />
-        <Text style={[s.loadingText, { color: theme.textColor }]}>WebView indisponivel</Text>
+        <Text style={[s.loadingText, { color: theme.textColor }]}>WebView indisponível</Text>
         <View style={{ marginTop: 20 }}>
           <TButton variant="ghost" color={theme.primaryColor} onPress={onClose}>
             Voltar

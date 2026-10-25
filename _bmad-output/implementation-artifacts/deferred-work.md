@@ -92,3 +92,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-5-timestamp-no-futuro.md`
   summary: D31 — `ACHIEVEMENT_UNLOCKED` não é deduplicado no reducer: se a conquista de outro aparelho está em Quarentena (horário no futuro) ou atrasada no sync, este aparelho desbloqueia de novo e, quando as duas valem, o XP soma duas vezes.
   evidence: `packages/gamification/src/reducer.ts` soma `xpReward` sempre; decidir se conquista pode repetir (`completionCounts`) antes de deduplicar por id.
+- source_spec: `_bmad-output/implementation-artifacts/spec-revisao-23-10-correcoes.md`
+  summary: D32 — Logs antigos com dois eventos do mesmo milissegundo e ids sem o contador da 3.4 (ou com prefixo, como `xp-recovery-…`/`debug-…`) podem trocar de ordem na atualização: o desempate por `deviceId`/`id` não segue a ordem de gravação.
+  evidence: `compareEvents` (`packages/storage/src/eventOrder.ts`) desempata por texto; ids antigos não carregam ordem de criação. Medir em logs reais antes de mexer; se aparecer, desempatar ids antigos pela ordem de gravação (`rowid`).
+- source_spec: `_bmad-output/implementation-artifacts/spec-revisao-23-10-correcoes.md`
+  summary: D33 — `dispatch` (e `appendDispatched`/`appendGenerated`) refaz o log inteiro a cada evento: normaliza, deduplica e reordena tudo (O(n log n) por evento).
+  evidence: `src/context/localEventLog.ts` chama `prepareLocalLog([...prev, evt])`. Trocar por inserção ordenada (busca binária com `compareEvents`) quando virar gargalo em logs grandes.

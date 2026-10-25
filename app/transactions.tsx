@@ -145,7 +145,7 @@ export default function TransactionsScreen() {
                 ? "Cobranças pendentes"
                 : targetAccount
                   ? targetAccount.name
-                  : "Historico Total"}
+                  : "Histórico Total"}
             </TText>
             {pendingOnly ? (
               <TText variant="caption" secondary marginTop={2}>

@@ -208,7 +208,7 @@ export function CategorySelectorGrid({
             marginLeft={4}
             opacity={0.8}
           >
-            Sugeridas p/ voce
+            Sugeridas p/ você
           </TText>
           <View style={s.grid}>
             {suggestedCategories.map((cat) => (

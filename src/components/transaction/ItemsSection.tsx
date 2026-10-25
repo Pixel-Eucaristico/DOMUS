@@ -171,7 +171,7 @@ export function ItemsSection({
               flex={2}
               value={newItemUnitPrice}
               onChangeText={setNewItemUnitPrice}
-              placeholder="Preco unit."
+              placeholder="Preço unit."
               keyboardType="decimal-pad"
               height={38}
               fontSize={13}
@@ -353,7 +353,7 @@ export function ItemsSection({
                     flex={2}
                     value={item.unitPrice}
                     onChangeText={(v: string) => onEditItemField(item.id, "unitPrice", v)}
-                    placeholder="Preco unit."
+                    placeholder="Preço unit."
                     keyboardType="decimal-pad"
                     height={38}
                     fontSize={13}

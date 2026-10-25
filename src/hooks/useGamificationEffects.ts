@@ -22,7 +22,7 @@ import { generateId } from "@packages/events/src/factory";
 import { createDefaultCategories } from "@packages/domain/src/categories";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { getEventStore } from "./useEventStore";
-import { compareEvents } from "@/src/context/localEventLog";
+import { appendGenerated } from "@/src/context/localEventLog";
 
 function todayStr(): string {
   const d = new Date();
@@ -44,6 +44,8 @@ export interface GamificationEffectsInput {
   dispatch: (syncEvt: SyncEvent) => void;
   setLocalEventCount: React.Dispatch<React.SetStateAction<number>>;
   setAllEvents: React.Dispatch<React.SetStateAction<SyncEvent[]>>;
+  /** Log atual, atualizado na hora pelo `dispatch` (antes do próximo render). */
+  allEventsRef: React.MutableRefObject<SyncEvent[]>;
   setPendingToast: (toast: AchievementUnlockedPayload | null) => void;
   setPendingMonthlyToast: (toast: MonthlyTrophyCompletedPayload | null) => void;
   setPendingSeasonalToast: (toast: SeasonalTrophyCompletedPayload | null) => void;
@@ -64,7 +66,7 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
   const {
     domain, gamification, budget, deviceId, loading, isDemoActive,
     debugXp, isCatholic, allEventsLength, hasCategoryEvents,
-    dispatch, setLocalEventCount, setAllEvents,
+    dispatch, setLocalEventCount, setAllEvents, allEventsRef,
     setPendingToast, setPendingMonthlyToast, setPendingSeasonalToast,
   } = input;
 
@@ -110,27 +112,21 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
     if (!loading && deviceId && Object.keys(domain.categories).length === 0) {
       defaultCategoriesCreatedRef.current = true;
       const categoryEvents = createDefaultCategories();
-      const syncEvents: SyncEvent[] = categoryEvents.map(evt => ({
-        id: evt.id,
-        type: evt.type as string,
-        payload: evt.payload,
-        timestamp: evt.timestamp,
-        deviceId: deviceId,
-        signature: evt.signature || "",
-      }));
+      const generated: SyncEvent[] = categoryEvents.map(evt => createSyncEvent(evt, deviceId));
+
+      // Revisão 23/10: mesma regra do dispatch (carimbo, sem ids repetidos, ordem total).
+      const { events: next, added } = appendGenerated(allEventsRef.current, generated, deviceId);
+      if (added.length === 0) return;
+      allEventsRef.current = next;
 
       getEventStore().then((store) => {
-        syncEvents.forEach(evt => store?.appendEvent(evt));
+        added.forEach(evt => store?.appendEvent(evt));
       });
 
-      setAllEvents((prev) => {
-        const next = [...prev, ...syncEvents];
-        next.sort(compareEvents);
-        return next;
-      });
-      setLocalEventCount((c) => c + syncEvents.length);
+      setAllEvents((prev) => appendGenerated(prev, added, deviceId).events);
+      setLocalEventCount((c) => c + added.length);
     }
-  }, [isDemoActive, loading, domain.categories, deviceId, hasCategoryEvents, setAllEvents, setLocalEventCount]);
+  }, [isDemoActive, loading, domain.categories, deviceId, hasCategoryEvents, setAllEvents, setLocalEventCount, allEventsRef]);
 
   // ── Monthly Trophy checker ──────────────────────────────────────────
   useEffect(() => {

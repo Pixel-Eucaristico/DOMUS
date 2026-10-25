@@ -46,7 +46,7 @@ export function SavingsGoalSection({ savingsGoal, accounts, theme, onChange }: P
           </View>
           <View>
             <TText variant="body" fontWeight="600" color={theme.textColor}>
-              Objetivo de Poupanca
+              Objetivo de Poupança
             </TText>
             <TText variant="caption" color={theme.secondaryText} fontSize={11} marginTop={1}>
               Vincule uma conta e acompanhe o progresso
@@ -78,7 +78,7 @@ export function SavingsGoalSection({ savingsGoal, accounts, theme, onChange }: P
           </TText>
           {savingsAccounts.length === 0 ? (
             <TText variant="caption" color={theme.secondaryText} marginBottom={4}>
-              Nenhuma conta disponivel. Crie uma conta poupanca no app.
+              Nenhuma conta disponível. Crie uma conta poupança no app.
             </TText>
           ) : (
             <ScrollView

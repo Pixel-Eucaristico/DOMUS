@@ -85,12 +85,12 @@ export function groupLabel(g: CategoryGroup): string {
   switch (g) {
     case "needs":   return "Necessidades (50%)";
     case "wants":   return "Desejos (30%)";
-    case "savings": return "Poupanca (20%)";
+    case "savings": return "Poupança (20%)";
   }
 }
 
 export const TX_TYPES = [
   { key: "expense" as const,  label: "Despesa",       icon: "arrow-down-left" },
   { key: "income" as const,   label: "Receita",        icon: "arrow-up-right"  },
-  { key: "transfer" as const, label: "Transferencia", icon: "repeat"           },
+  { key: "transfer" as const, label: "Transferência", icon: "repeat"           },
 ];

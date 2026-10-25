@@ -47,7 +47,7 @@ interface FormatBtn {
 const MD_BUTTONS: FormatBtn[] = [
   { icon: "bold", wrap: "**", label: "Negrito" },
   { icon: "italic", wrap: "_", label: "Italico" },
-  { icon: "code", wrap: "`", label: "Codigo" },
+  { icon: "code", wrap: "`", label: "Código" },
   { icon: "list", wrap: "- ", label: "Lista" },
   { icon: "minus", wrap: "\n---\n", label: "Linha" },
 ];
@@ -132,7 +132,7 @@ export function ChatInputBar({
           value={text}
           onChangeText={onChangeText}
           onSelectionChange={(e) => setSelection(e.nativeEvent.selection)}
-          placeholder="Pergunte sobre suas financas..."
+          placeholder="Pergunte sobre suas finanças..."
           placeholderTextColor={theme.secondaryText}
           multiline
           maxLength={2000}

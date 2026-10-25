@@ -8,9 +8,9 @@ import type { AccountPayload, AccountType } from "@packages/events/src/types";
 
 const ACCOUNT_TYPES: { key: AccountType; label: string; icon: string; color: string }[] = [
   { key: "checking", label: "Corrente", icon: "credit-card", color: "#3B82F6" },
-  { key: "savings", label: "Poupanca", icon: "trending-up", color: "#10B981" },
+  { key: "savings", label: "Poupança", icon: "trending-up", color: "#10B981" },
   { key: "wallet", label: "Carteira", icon: "briefcase", color: "#F59E0B" },
-  { key: "credit_card", label: "Cartao", icon: "zap", color: "#8B5CF6" },
+  { key: "credit_card", label: "Cartão", icon: "zap", color: "#8B5CF6" },
 ];
 
 export function accountTypeLabel(t: AccountType): string {

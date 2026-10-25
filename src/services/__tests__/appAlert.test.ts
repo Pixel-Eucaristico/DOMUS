@@ -68,7 +68,7 @@ describe("appAlert — fila do alerta customizado", () => {
     expect(onPress).toHaveBeenCalledOnce();
   });
 
-  it("tocar fora chama o onPress do botão cancel e o onDismiss", () => {
+  it("tocar fora chama só o onPress do botão cancel, não o onDismiss", () => {
     const cancel = vi.fn();
     const onDismiss = vi.fn();
     appAlert("T", "M", [
@@ -77,8 +77,15 @@ describe("appAlert — fila do alerta customizado", () => {
     ], { onDismiss });
     expect(dismissAppAlert(current().id)).toBe(true);
     expect(cancel).toHaveBeenCalledOnce();
-    expect(onDismiss).toHaveBeenCalledOnce();
+    expect(onDismiss).not.toHaveBeenCalled();
     expect(getCurrentAppAlert()).toBeNull();
+  });
+
+  it("botão cancel sem onPress: tocar fora chama o onDismiss", () => {
+    const onDismiss = vi.fn();
+    appAlert("T", "M", [{ text: "Cancelar", style: "cancel" }, { text: "Sim", onPress: vi.fn() }], { onDismiss });
+    expect(dismissAppAlert(current().id)).toBe(true);
+    expect(onDismiss).toHaveBeenCalledOnce();
   });
 
   it("sem botão cancel, tocar fora chama onDismiss", () => {
@@ -211,6 +218,77 @@ describe("appAlert — pilha de hosts", () => {
     expect(getTopAppAlertHost()).toBe(root.id);
   });
 
+  it("raiz é a base mesmo registrada depois de um Modal no mesmo commit", () => {
+    // Efeitos rodam do filho para o pai: o host do Modal registra antes da raiz
+    const modal = registerAppAlertHost();
+    const root = registerAppAlertHost({ root: true });
+    appAlert("Nome obrigatório");
+    expect(getTopAppAlertHost()).toBe(modal.id);
+    expect(getAppAlertForHost(root.id)).toBeNull();
+    // Um Modal aberto depois também fica por cima da raiz
+    const other = registerAppAlertHost();
+    expect(getTopAppAlertHost()).toBe(other.id);
+    other.unregister();
+    modal.unregister();
+    expect(getAppAlertForHost(root.id)?.title).toBe("Nome obrigatório");
+  });
+
+  it("tela modal: entra no foco, sai no blur e a tela empilhada usa a raiz", () => {
+    const root = registerAppAlertHost({ root: true });
+    let sync = registerAppAlertHost(); // foco em /sync
+    expect(getTopAppAlertHost()).toBe(sync.id);
+    sync.unregister(); // /sync → /backup: blur
+    appAlert("Backup salvo");
+    expect(getAppAlertForHost(root.id)?.title).toBe("Backup salvo");
+    pressAppAlertButton(current().id, 0);
+    sync = registerAppAlertHost(); // voltou para /sync: foco de novo
+    appAlert("Sincronizado");
+    expect(getAppAlertForHost(sync.id)?.title).toBe("Sincronizado");
+    expect(getAppAlertForHost(root.id)).toBeNull();
+  });
+
+  it("Modal aberto por cima de uma tela modal ganha o alerta", () => {
+    const root = registerAppAlertHost({ root: true });
+    const screen = registerAppAlertHost();
+    const sheet = registerAppAlertHost();
+    appAlert("Valor inválido");
+    expect(getAppAlertForHost(sheet.id)?.title).toBe("Valor inválido");
+    expect(getAppAlertForHost(screen.id)).toBeNull();
+    expect(getAppAlertForHost(root.id)).toBeNull();
+    sheet.unregister();
+    expect(getAppAlertForHost(screen.id)?.title).toBe("Valor inválido");
+  });
+
+  it("se o host do alerta sai, o alerta visível passa na hora para o próximo de cima", () => {
+    const root = registerAppAlertHost({ root: true });
+    const screen = registerAppAlertHost();
+    const modal = registerAppAlertHost();
+    const onPress = vi.fn();
+    appAlert("Erro", undefined, [{ text: "OK", onPress }]);
+    const id = current().id;
+    const seen: Record<string, (number | null)[]> = { root: [], screen: [] };
+    subscribeAppAlert(() => {
+      seen.root.push(getAppAlertForHost(root.id)?.id ?? null);
+      seen.screen.push(getAppAlertForHost(screen.id)?.id ?? null);
+    });
+    modal.unregister();
+    expect(seen.screen[seen.screen.length - 1]).toBe(id);
+    screen.unregister();
+    expect(seen.root[seen.root.length - 1]).toBe(id);
+    pressAppAlertButton(id, 0);
+    expect(onPress).toHaveBeenCalledOnce();
+  });
+
+  it("várias raízes ficam por baixo, na ordem de registro", () => {
+    const modal = registerAppAlertHost();
+    const r1 = registerAppAlertHost({ root: true });
+    const r2 = registerAppAlertHost({ root: true });
+    modal.unregister();
+    expect(getTopAppAlertHost()).toBe(r2.id);
+    r2.unregister();
+    expect(getTopAppAlertHost()).toBe(r1.id);
+  });
+
   it("desmontar um host do meio mantém o de cima", () => {
     const root = registerAppAlertHost();
     const a = registerAppAlertHost();
@@ -249,6 +327,51 @@ describe("appAlert — app bloqueado", () => {
     pressAppAlertButton(id, 1);
     expect(ok).toHaveBeenCalledOnce();
     expect(current().title).toBe("Outro");
+  });
+
+  it("ao bloquear, appConfirm pendente resolve false e sai da fila; avisos esperam", async () => {
+    const root = registerAppAlertHost({ root: true });
+    const onDismiss = vi.fn();
+    appAlert("Aviso 1");
+    const a = appConfirm({ title: "Excluir?", confirmLabel: "Excluir", destructive: true });
+    appAlert("Aviso 2", undefined, undefined, { onDismiss });
+    const b = appConfirm({ title: "Restaurar?", confirmLabel: "Restaurar" });
+    setAppAlertLocked(true);
+    await expect(a).resolves.toBe(false);
+    await expect(b).resolves.toBe(false);
+    expect(onDismiss).not.toHaveBeenCalled();
+    setAppAlertLocked(false);
+    expect(getAppAlertForHost(root.id)?.title).toBe("Aviso 1");
+    pressAppAlertButton(current().id, 0);
+    expect(current().title).toBe("Aviso 2");
+    pressAppAlertButton(current().id, 0);
+    expect(getCurrentAppAlert()).toBeNull();
+  });
+
+  it("appConfirm visível resolve false ao bloquear", async () => {
+    registerAppAlertHost({ root: true });
+    const p = appConfirm({ title: "Sair?", confirmLabel: "Sair" });
+    const id = current().id;
+    setAppAlertLocked(true);
+    await expect(p).resolves.toBe(false);
+    setAppAlertLocked(false);
+    expect(getCurrentAppAlert()).toBeNull();
+    pressAppAlertButton(id, 1); // id antigo: ignorado
+    await expect(p).resolves.toBe(false);
+  });
+
+  it("appConfirm feito com o app bloqueado resolve false sem entrar na fila", async () => {
+    setAppAlertLocked(true);
+    await expect(appConfirm({ title: "X", confirmLabel: "Sim" })).resolves.toBe(false);
+    setAppAlertLocked(false);
+    expect(getCurrentAppAlert()).toBeNull();
+  });
+
+  it("appConfirm já respondido não é afetado pelo bloqueio seguinte", async () => {
+    const p = appConfirm({ title: "X", confirmLabel: "Sim" });
+    pressAppAlertButton(current().id, 1);
+    setAppAlertLocked(true);
+    await expect(p).resolves.toBe(true);
   });
 });
 

@@ -404,7 +404,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                           }
                         }}
                         theme={theme}
-                        namePlaceholder={`Peca ${idx + 1}...`}
+                        namePlaceholder={`Peça ${idx + 1}...`}
                         showRemove
                         onRemove={() => { soundManager.play("tap"); removeBundleItem(idx); }}
                         compact
@@ -425,7 +425,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                   ))}
                   <TouchableOpacity style={[s.bundleAddBtn, { borderColor: theme.primaryColor + "50" }]} onPress={() => { soundManager.play("tap"); addBundleItem(); }} activeOpacity={0.7}>
                     <Feather name="plus" size={14} color={theme.primaryColor} />
-                    <Text style={[s.bundleAddText, { color: theme.primaryColor }]}>Adicionar peca</Text>
+                    <Text style={[s.bundleAddText, { color: theme.primaryColor }]}>Adicionar peça</Text>
                   </TouchableOpacity>
                 </View>
               )}

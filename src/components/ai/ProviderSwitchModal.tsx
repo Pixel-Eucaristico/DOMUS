@@ -44,7 +44,7 @@ export function ProviderSwitchModal({
           <View style={styles.header}>
             <Feather name="alert-triangle" size={20} color={theme.warning} />
             <Text style={[styles.title, { color: theme.textColor }]}>
-              Provedor indisponivel
+              Provedor indisponível
             </Text>
           </View>
 
@@ -75,7 +75,7 @@ export function ProviderSwitchModal({
           </View>
 
           <TButton variant="ghost" color={theme.primaryColor} onPress={onDismiss}>
-            Agora nao
+            Agora não
           </TButton>
         </TCard>
       </Pressable>
@@ -95,8 +95,8 @@ export function detectProviderIssue(text: string): string | null {
   if (lower.includes("429") || lower.includes("rate") || lower.includes("excedido") || lower.includes("resource_exhausted")) {
     return "Limite de requisições excedido pelo provedor.";
   }
-  if (lower.includes("invalida") && lower.includes("chave")) {
-    return "Chave de API invalida ou expirada.";
+  if ((lower.includes("invalida") || lower.includes("inválida")) && lower.includes("chave")) {
+    return "Chave de API inválida ou expirada.";
   }
   return null;
 }

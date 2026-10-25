@@ -132,7 +132,7 @@ export function InstallmentSelector({
         <TInput
           value={customText}
           onChangeText={handleCustomChange}
-          placeholder="Numero de parcelas"
+          placeholder="Número de parcelas"
           keyboardType="number-pad"
           autoFocus
           editable={!disabled}
@@ -219,7 +219,7 @@ export function InstallmentSelector({
           {/* Start from stepper */}
           <View style={s.startFromRow}>
             <Text style={[s.startFromLabel, { color: theme.secondaryText }]}>
-              Comecar da parcela
+              Começar da parcela
             </Text>
             <View style={s.stepper}>
               <Pressable
@@ -249,7 +249,7 @@ export function InstallmentSelector({
           </View>
           {startFrom > 1 && (
             <Text style={[s.startFromHelper, { color: theme.secondaryText }]}>
-              Serao criadas {count - startFrom + 1} parcelas ({startFrom}/{count} ate{" "}
+              Serão criadas {count - startFrom + 1} parcelas ({startFrom}/{count} até{" "}
               {count}/{count})
             </Text>
           )}

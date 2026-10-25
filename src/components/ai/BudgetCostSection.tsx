@@ -173,7 +173,7 @@ export function BudgetCostSection({
     setEditingField(null);
     const val = parseInt(tokensInput, 10);
     if (isNaN(val) || val < 1000) {
-      appAlert("Valor invalido", "O limite minimo e 1.000 tokens.");
+      appAlert("Valor inválido", "O limite mínimo é 1.000 tokens.");
       setTokensInput(activeUnlimited ? "" : String(activeBudget));
       return;
     }
@@ -233,7 +233,7 @@ export function BudgetCostSection({
                   color: budgetMode === mode ? "#fff" : theme.textColor,
                 }}
               >
-                {mode === "daily" ? "Diario" : "Mensal"}
+                {mode === "daily" ? "Diário" : "Mensal"}
               </Text>
             </TouchableOpacity>
           ))}
@@ -266,10 +266,10 @@ export function BudgetCostSection({
         )}
 
         <Text style={[sectionStyles.cardTitle, { color: theme.textColor }]}>
-          Limite {isMonthly ? "mensal" : "diario"} de tokens
+          Limite {isMonthly ? "mensal" : "diário"} de tokens
         </Text>
         <Text style={[sectionStyles.cardSubtitle, { color: theme.secondaryText }]}>
-          Padrao: {activeDefault.toLocaleString("pt-BR")} tokens.
+          Padrão: {activeDefault.toLocaleString("pt-BR")} tokens.
           {isMonthly ? ` Ciclo: ${formatCycleDate(cycle.start)} — ${formatCycleDate(cycle.end)} (${daysLeft}d restantes).` : ""}
         </Text>
 
@@ -280,7 +280,7 @@ export function BudgetCostSection({
               Modo ilimitado
             </Text>
             <Text style={[sectionStyles.cardSubtitle, { color: theme.secondaryText }]}>
-              Sem limite {isMonthly ? "mensal" : "diario"} de tokens
+              Sem limite {isMonthly ? "mensal" : "diário"} de tokens
             </Text>
           </View>
           <Switch
@@ -357,7 +357,7 @@ export function BudgetCostSection({
         {isMonthly && !monthlyUnlimited && (
           <View style={[styles.effectiveCard, { backgroundColor: `${theme.accentColor}10` }]}>
             <Text style={{ fontSize: 12, color: theme.secondaryText }}>
-              Limite efetivo diario (mensal / {daysLeft}d):
+              Limite efetivo diário (mensal / {daysLeft}d):
             </Text>
             <Text style={{ fontSize: 14, fontWeight: "700", color: theme.textColor }}>
               {effectiveDaily.toLocaleString("pt-BR")} tokens/dia
@@ -368,12 +368,12 @@ export function BudgetCostSection({
         {/* Cost estimate */}
         <View style={[styles.costCard, { backgroundColor: `${theme.accentColor}10` }]}>
           <Text style={[styles.costTitle, { color: theme.textColor }]}>
-            Custo estimado {activeUnlimited ? "(por uso)" : `do limite ${isMonthly ? "mensal" : "diario"}`}
+            Custo estimado {activeUnlimited ? "(por uso)" : `do limite ${isMonthly ? "mensal" : "diário"}`}
           </Text>
 
           <View style={styles.costRow}>
             <Text style={[styles.costLabel, { color: theme.secondaryText }]}>
-              Preco por 1M tokens:
+              Preço por 1M tokens:
             </Text>
             <Text style={[styles.costValue, { color: theme.textColor }]}>
               US$ {usdPrice.toFixed(2)}
@@ -384,7 +384,7 @@ export function BudgetCostSection({
           {budgetCost && !activeUnlimited && (
             <View style={styles.costRow}>
               <Text style={[styles.costLabel, { color: theme.secondaryText }]}>
-                Custo max {isMonthly ? "mensal" : "diario"}:
+                Custo máx. {isMonthly ? "mensal" : "diário"}:
               </Text>
               <Text style={[styles.costValue, { color: theme.textColor }]}>
                 R$ {budgetCost.costBrl.toFixed(2)} (US$ {budgetCost.costUsd.toFixed(2)})
@@ -403,7 +403,7 @@ export function BudgetCostSection({
 
           {exchangeRate && (
             <Text style={[styles.disclaimer, { color: theme.secondaryText }]}>
-              Cotacao: 1 USD = {exchangeRate.toFixed(2)} BRL · Valores estimados
+              Cotação: 1 USD = {exchangeRate.toFixed(2)} BRL · Valores estimados
             </Text>
           )}
         </View>

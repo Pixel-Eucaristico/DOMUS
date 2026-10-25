@@ -124,7 +124,7 @@ export function WishlistItemRow({
             >
               <Feather name="check-circle" size={10} color="#16A34A" />
               <TText variant="caption" fontWeight="600" color="#16A34A" fontSize={10}>
-                Possivel
+                Possível
               </TText>
             </View>
           )}
@@ -244,7 +244,7 @@ export function WishlistItemRow({
         >
           <Feather name="layers" size={13} color={theme.primaryColor} />
           <TText variant="caption" fontWeight="600" color={theme.primaryColor} fontSize={10}>
-            {`Kit · ${item.bundleItems!.length} pecas`}
+            {`Kit · ${item.bundleItems!.length} peças`}
           </TText>
           <Feather name={bundleOpen ? "chevron-up" : "chevron-down"} size={13} color={theme.primaryColor} />
         </TouchableOpacity>

@@ -110,7 +110,7 @@ export function AIUsageDashboard({
       <View style={s.header}>
         <MaterialCommunityIcons name="robot-happy" size={14} color={theme.secondaryText} />
         <TText bold color={theme.secondaryText} letterSpacing={0.3}>
-          {isMonthly ? "Uso de tokens (mensal)" : "Uso diario de tokens"}
+          {isMonthly ? "Uso de tokens (mensal)" : "Uso diário de tokens"}
         </TText>
       </View>
 
@@ -216,8 +216,8 @@ export function AIUsageDashboard({
           backgroundColor="rgba(239, 68, 68, 0.08)"
         >
           {isMonthly
-            ? "Limite diario (mensal rateado) atingido em um ou mais provedores."
-            : "Limite diario atingido em um ou mais provedores."}
+            ? "Limite diário (mensal rateado) atingido em um ou mais provedores."
+            : "Limite diário atingido em um ou mais provedores."}
         </TText>
       )}
 
@@ -230,7 +230,7 @@ export function AIUsageDashboard({
           marginTop={4}
           opacity={0.7}
         >
-          Cotacao USD/BRL: {exchangeRate.toFixed(2)} · Valores estimados, nao representam custo real exato
+          Cotação USD/BRL: {exchangeRate.toFixed(2)} · Valores estimados, não representam custo real exato
         </TText>
       )}
     </TCard>

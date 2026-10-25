@@ -64,7 +64,7 @@ function stripMarkdown(text: string): string {
     .replace(/\n{3,}/g, "\n\n")     // excess newlines
     .trim();
 }
-const HUMAN_USER = { _id: 1, name: "Voce" };
+const HUMAN_USER = { _id: 1, name: "Você" };
 
 const AI_USER = { _id: 2, name: "DOMUS IA" };
 
@@ -212,7 +212,7 @@ export default function AIChatScreen() {
 
   const openVisionModal = useCallback((docType: OCRDocumentType) => {
     if (!settings.isEnabled || !VisionOCRService.supportsVision(settings.provider as any)) {
-      appAlert("Nao suportado", `${settings.provider} nao suporta Vision OCR. Use OpenAI, Gemini, Claude ou Qwen.`);
+      appAlert("Não suportado", `${settings.provider} não suporta Vision OCR. Use OpenAI, Gemini, Claude ou Qwen.`);
       return;
     }
     setVisionModal({ visible: true, docType });
@@ -226,7 +226,7 @@ export default function AIChatScreen() {
       provider, settings.customBudgets, settings.budgetMode, settings.monthlyBudgets, settings.billingDay,
     );
     if (overBudget) {
-      appAlert("Limite de IA atingido", "Voce atingiu o limite de uso de IA. Ajuste o orcamento nas configuracoes.");
+      appAlert("Limite de IA atingido", "Você atingiu o limite de uso de IA. Ajuste o orçamento nas configurações.");
       return;
     }
 
@@ -234,7 +234,7 @@ export default function AIChatScreen() {
     let result: ImagePicker.ImagePickerResult;
     if (source === "camera") {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) { appAlert("Permissao negada", "Permita acesso a camera."); return; }
+      if (!perm.granted) { appAlert("Permissão negada", "Permita acesso à câmera."); return; }
       result = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.8 });
     } else {
       result = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.8 });
@@ -290,10 +290,10 @@ export default function AIChatScreen() {
         // Enviar para chat com resumo + instruir usuário a adicionar manualmente
         const resumo = `Holerite escaneado com sucesso!\n\n` +
           `Empresa: ${pay.company}\n` +
-          `Periodo: ${pay.period}\n` +
-          `Salario Bruto: R$ ${pay.grossSalary.toFixed(2)}\n` +
+          `Período: ${pay.period}\n` +
+          `Salário Bruto: R$ ${pay.grossSalary.toFixed(2)}\n` +
           `Descontos: ${pay.deductions.map((d) => `${d.name}: R$ ${d.value.toFixed(2)}`).join(", ")}\n` +
-          `Salario Liquido: R$ ${pay.netSalary.toFixed(2)}\n\n` +
+          `Salário Líquido: R$ ${pay.netSalary.toFixed(2)}\n\n` +
           `Adicione como receita na tela principal com valor R$ ${pay.netSalary.toFixed(2)}.`;
         await sendMessage(resumo);
       }
@@ -485,7 +485,7 @@ export default function AIChatScreen() {
 
                 {extra.isLocalFallback && !isUser && (
                   <Text style={{ color: theme.secondaryText, fontSize: 10, marginTop: 4, fontStyle: "italic" }}>
-                    analise local
+                    análise local
                   </Text>
                 )}
 
@@ -660,8 +660,8 @@ export default function AIChatScreen() {
           <Feather name="info" size={14} color={theme.warning} />
           <TText variant="caption" color={theme.warning} lineHeight={18} flex={1}>
             Configure sua chave de API em{" "}
-            <TText variant="caption" bold color={theme.warning} onPress={() => router.push("/ai-settings")}>Configuracoes</TText>
-            {" "}para ativar a IA. Analise local disponivel.
+            <TText variant="caption" bold color={theme.warning} onPress={() => router.push("/ai-settings")}>Configurações</TText>
+            {" "}para ativar a IA. Análise local disponível.
           </TText>
         </View>
       )}
@@ -802,7 +802,7 @@ export default function AIChatScreen() {
         title={visionModal.docType === "invoice" ? "Escanear Nota Fiscal" : "Escanear Holerite"}
         subtitle="Como deseja capturar a imagem?"
         options={[
-          { label: "Camera", icon: "camera", color: "#4CAF50", onPress: () => processVisionImage("camera", visionModal.docType) },
+          { label: "Câmera", icon: "camera", color: "#4CAF50", onPress: () => processVisionImage("camera", visionModal.docType) },
           { label: "Galeria de Fotos", icon: "image", color: "#2196F3", onPress: () => processVisionImage("gallery", visionModal.docType) },
         ]}
         onCancel={() => setVisionModal((v) => ({ ...v, visible: false }))}

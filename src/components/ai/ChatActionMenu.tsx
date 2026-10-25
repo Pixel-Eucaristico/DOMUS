@@ -39,7 +39,7 @@ const ACTIONS: ActionItem[] = [
     id: "scan_invoice",
     icon: "camera",
     label: "Escanear Nota Fiscal",
-    subtitle: "Leitura automatica via IA Vision",
+    subtitle: "Leitura automática via IA Vision",
     color: "#4CAF50",
     requiresVision: true,
   },
@@ -55,7 +55,7 @@ const ACTIONS: ActionItem[] = [
     id: "monthly_summary",
     icon: "bar-chart-2",
     label: "Resumo Mensal",
-    subtitle: "Analise completa do mes atual",
+    subtitle: "Análise completa do mês atual",
     color: "#FF9800",
   },
   {

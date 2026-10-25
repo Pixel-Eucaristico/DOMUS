@@ -20,26 +20,26 @@ interface Suggestion {
 const INITIAL_SUGGESTIONS: Suggestion[] = [
   {
     icon: "pie-chart",
-    label: "Resumo do mes",
-    prompt: "Faca um resumo financeiro do meu mes atual com as principais categorias de gastos",
+    label: "Resumo do mês",
+    prompt: "Faça um resumo financeiro do meu mês atual com as principais categorias de gastos",
     color: "#4CAF50",
   },
   {
     icon: "trending-up",
     label: "Dica de economia",
-    prompt: "Me de uma dica pratica para economizar este mes baseado nos meus gastos",
+    prompt: "Me dê uma dica prática para economizar este mês baseado nos meus gastos",
     color: "#2196F3",
   },
   {
     icon: "shield",
-    label: "Reserva de emergencia",
-    prompt: "Como esta minha reserva de emergencia? Estou no caminho certo?",
+    label: "Reserva de emergência",
+    prompt: "Como está minha reserva de emergência? Estou no caminho certo?",
     color: "#FF9800",
   },
   {
     icon: "target",
     label: "Metas financeiras",
-    prompt: "Analise meus habitos e sugira metas financeiras realistas para os proximos 3 meses",
+    prompt: "Analise meus hábitos e sugira metas financeiras realistas para os próximos 3 meses",
     color: "#9C27B0",
   },
 ];

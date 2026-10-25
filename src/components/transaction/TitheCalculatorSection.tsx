@@ -40,7 +40,7 @@ export function TitheCalculatorSection({
       <View style={s.titheHeader}>
         <Feather name="gift" size={15} color="#A78BFA" />
         <Text style={[s.label, { color: "#A78BFA", marginBottom: 0 }]}>
-          Calculadora de Dizimo
+          Calculadora de Dízimo
         </Text>
       </View>
 
@@ -59,13 +59,13 @@ export function TitheCalculatorSection({
       />
 
       <Text style={[s.label, { color: theme.secondaryText, marginTop: 10 }]}>
-        Base de calculo
+        Base de cálculo
       </Text>
       <View style={s.titheChipRow}>
         {(
           [
             { key: "gross" as const, label: "Renda bruta" },
-            { key: "net" as const, label: "Renda liquida" },
+            { key: "net" as const, label: "Renda líquida" },
           ]
         ).map(({ key, label }) => (
           <Pressable
@@ -89,13 +89,13 @@ export function TitheCalculatorSection({
       </View>
 
       <Text style={[s.label, { color: theme.secondaryText, marginTop: 10 }]}>
-        Periodo de calculo
+        Período de cálculo
       </Text>
       <View style={s.titheChipRow}>
         {(
           [
-            { key: "previous_month" as const, label: "Mes anterior" },
-            { key: "current_month" as const, label: "Mes atual" },
+            { key: "previous_month" as const, label: "Mês anterior" },
+            { key: "current_month" as const, label: "Mês atual" },
             { key: "custom" as const, label: "Personalizado" },
           ]
         ).map(({ key, label }) => (

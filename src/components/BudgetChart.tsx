@@ -14,7 +14,7 @@ interface BudgetSegment {
 const MOCK_BUDGET: BudgetSegment[] = [
   { label: "Necessidades", percentage: 50, color: colors.chart.needs, amount: 2500 },
   { label: "Desejos", percentage: 30, color: colors.chart.wants, amount: 1500 },
-  { label: "Poupanca", percentage: 20, color: colors.chart.savings, amount: 1000 },
+  { label: "Poupança", percentage: 20, color: colors.chart.savings, amount: 1000 },
 ];
 
 const SIZE = 140;

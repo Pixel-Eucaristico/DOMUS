@@ -101,6 +101,12 @@ function ExternalLookupsPreloader() {
 }
 
 /**
+ * O aviso já entrou na fila nesta execução: o host desmonta ao bloquear (fica
+ * dentro do SecurityGuard) e, ao remontar, não pode enfileirar outro igual.
+ */
+let externalLookupsNoticeQueued = false;
+
+/**
  * Aviso único para quem já usa o app. Montado dentro do SecurityGuard: só
  * aparece depois do desbloqueio.
  */
@@ -122,8 +128,13 @@ function ExternalLookupsNoticeHost({ ready }: { ready: boolean }) {
   useEffect(() => {
     if (!ready || !pendingNotice) return;
     setPendingNotice(false);
-    // Grava antes de mostrar: o aviso nunca reaparece, nem se o app fechar
-    markExternalLookupsNoticeShown().catch(() => {});
+    if (externalLookupsNoticeQueued) return;
+    externalLookupsNoticeQueued = true;
+    // Grava só quando o usuário responde: se o app fechar antes de o aviso
+    // aparecer (ou com ele aberto), ele volta na próxima abertura
+    const markShown = () => {
+      markExternalLookupsNoticeShown().catch(() => {});
+    };
 
     appAlert(
       EXTERNAL_LOOKUPS_NOTICE_TITLE,
@@ -132,11 +143,16 @@ function ExternalLookupsNoticeHost({ ready }: { ready: boolean }) {
         {
           text: "Desligar",
           style: "destructive",
-          onPress: () => { setExternalLookupsEnabled(false).catch(() => {}); },
+          onPress: () => {
+            // Em sequência: as duas gravam o mesmo registro (ler → mudar → salvar)
+            setExternalLookupsEnabled(false)
+              .catch(() => {})
+              .then(markShown);
+          },
         },
-        { text: "Manter ligado" },
+        { text: "Manter ligado", onPress: markShown },
       ],
-      { cancelable: false },
+      { cancelable: false, onDismiss: markShown },
     );
   }, [ready, pendingNotice]);
 
@@ -460,7 +476,7 @@ export default function RootLayout() {
                   </TourContent>
                 </SyncProvider>
                 {/* Alerta customizado: host da raiz, dentro do tema (ver src/services/appAlert.ts) */}
-                <AppAlertHost />
+                <AppAlertHost root />
               </>
             </AppContainer>
           </AppStateProvider>

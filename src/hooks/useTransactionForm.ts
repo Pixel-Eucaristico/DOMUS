@@ -244,7 +244,7 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     const amountNum = useItemsTotal ? computedItemsTotal : parseFloat(amount.replace(",", "."));
 
     if (isNaN(amountNum) || amountNum <= 0) {
-      appAlert("Valor invalido", "Informe um valor maior que zero.");
+      appAlert("Valor inválido", "Informe um valor maior que zero.");
       return;
     }
     if (!defaultAccountId) {

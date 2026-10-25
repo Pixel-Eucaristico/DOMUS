@@ -35,14 +35,14 @@ export function FinancialCard({ result }: FinancialCardProps) {
         </View>
         <View style={[styles.riskBadge, { borderColor: riskColor }]}>
           <Text style={[styles.riskText, { color: riskColor }]}>
-            Risco {result.risk === "Low" ? "Baixo" : result.risk === "Medium" ? "Medio" : "Alto"}
+            Risco {result.risk === "Low" ? "Baixo" : result.risk === "Medium" ? "Médio" : "Alto"}
           </Text>
         </View>
       </View>
 
       {/* Confidence bar */}
       <View style={styles.confidenceRow}>
-        <Text style={[styles.label, { color: theme.secondaryText }]}>Confianca</Text>
+        <Text style={[styles.label, { color: theme.secondaryText }]}>Confiança</Text>
         <View style={styles.confidenceBar}>
           <View
             style={[

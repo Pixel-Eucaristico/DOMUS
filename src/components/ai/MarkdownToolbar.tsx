@@ -20,7 +20,7 @@ interface FormatOption {
 const OPTIONS: FormatOption[] = [
   { icon: "bold", label: "Negrito", wrapper: "**", preview: "**texto**" },
   { icon: "italic", label: "Italico", wrapper: "_", preview: "_texto_" },
-  { icon: "code", label: "Codigo", wrapper: "`", preview: "`codigo`" },
+  { icon: "code", label: "Código", wrapper: "`", preview: "`código`" },
   { icon: "list", label: "Lista", wrapper: "- ", preview: "- item" },
   { icon: "minus", label: "Linha", wrapper: "\n---\n", preview: "---" },
 ];

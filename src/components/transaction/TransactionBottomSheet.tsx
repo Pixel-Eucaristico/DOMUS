@@ -45,7 +45,7 @@ const STATUS_OPTIONS: { key: TransactionStatus; label: string; icon: string }[] 
 ];
 
 const RECURRENCE_OPTIONS: { key: RecurrenceType; label: string }[] = [
-  { key: "once",    label: "Unico"         },
+  { key: "once",    label: "Único"         },
   { key: "weekly",  label: "Semanal"       },
   { key: "monthly", label: "Mensal"        },
   { key: "yearly",  label: "Anual"         },

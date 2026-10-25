@@ -7,7 +7,7 @@ import { CATEGORY_OPTIONS, GROUP_COLORS } from "@/src/constants/invoiceCategorie
 export const GROUP_LABELS: Record<CategoryGroup, string> = {
   needs: "Necessidade",
   wants: "Desejo",
-  savings: "Poupanca",
+  savings: "Poupança",
 };
 
 export const GROUP_COLOR_MAP: Record<CategoryGroup, string> = {

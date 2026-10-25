@@ -72,7 +72,7 @@ export function EditableItemRow({ item, index, isEditing, theme, onToggleEdit, o
           </TText>
           {item.ean && <TText variant="caption" color={theme.secondaryText} fontSize={11} marginTop={2}>EAN: {item.ean}</TText>}
           {item.ncm && <TText variant="caption" color={theme.secondaryText} fontSize={11} marginTop={2}>NCM: {item.ncm}</TText>}
-          {item.productCode && <TText variant="caption" color={theme.secondaryText} fontSize={11} marginTop={2}>Cod: {item.productCode}</TText>}
+          {item.productCode && <TText variant="caption" color={theme.secondaryText} fontSize={11} marginTop={2}>Cód.: {item.productCode}</TText>}
 
           {/* Category + Group tags */}
           <View style={s.tagRow}>
@@ -109,7 +109,7 @@ export function EditableItemRow({ item, index, isEditing, theme, onToggleEdit, o
           <View style={s.editRow}>
             <TextInput style={[s.editInputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]} value={String(item.quantity)} onChangeText={(v) => onEditField(index, "quantity", v)} placeholder="Qtd" placeholderTextColor={theme.secondaryText} keyboardType="decimal-pad" />
             <TextInput style={[s.editInputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]} value={item.unit || ""} onChangeText={(v) => onEditField(index, "unit", v)} placeholder="UN" placeholderTextColor={theme.secondaryText} autoCapitalize="characters" />
-            <TextInput style={[s.editInputSm, { color: theme.textColor, borderColor: theme.border, flex: 2 }]} value={String(item.unitPrice)} onChangeText={(v) => onEditField(index, "unitPrice", v)} placeholder="Preco unit." placeholderTextColor={theme.secondaryText} keyboardType="decimal-pad" />
+            <TextInput style={[s.editInputSm, { color: theme.textColor, borderColor: theme.border, flex: 2 }]} value={String(item.unitPrice)} onChangeText={(v) => onEditField(index, "unitPrice", v)} placeholder="Preço unit." placeholderTextColor={theme.secondaryText} keyboardType="decimal-pad" />
           </View>
           <View style={s.editRow}>
             <TextInput style={[s.editInputSm, { color: theme.textColor, borderColor: theme.border, flex: 1 }]} value={item.ean || ""} onChangeText={(v) => onEditField(index, "ean", v)} placeholder="EAN" placeholderTextColor={theme.secondaryText} keyboardType="number-pad" maxLength={14} />

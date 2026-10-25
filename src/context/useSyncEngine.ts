@@ -351,7 +351,7 @@ export function useSyncEngine({
       if (relayTest.connected.length === 0) {
         setSyncStatus("error");
         setErrorMessage(
-          `Nenhum relay acessivel. Verifique sua conexao com a internet. Relays testados: ${relayTest.failed.length}`,
+          `Nenhum relay acessível. Verifique sua conexão com a internet. Relays testados: ${relayTest.failed.length}`,
         );
         return null;
       }
@@ -391,7 +391,7 @@ export function useSyncEngine({
         if (relayTest.connected.length === 0) {
           setSyncStatus("error");
           setErrorMessage(
-            `Nenhum relay acessivel. Verifique sua conexao com a internet. Relays testados: ${relayTest.failed.length}`,
+            `Nenhum relay acessível. Verifique sua conexão com a internet. Relays testados: ${relayTest.failed.length}`,
           );
           return false;
         }
@@ -418,7 +418,7 @@ export function useSyncEngine({
         return true;
       } catch {
         setSyncStatus("error");
-        setErrorMessage("Falha ao entrar no grupo. Verifique o codigo e tente novamente.");
+        setErrorMessage("Falha ao entrar no grupo. Verifique o código e tente novamente.");
         return false;
       }
     },

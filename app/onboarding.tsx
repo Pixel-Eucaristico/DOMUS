@@ -22,15 +22,15 @@ import { getEncouragementMessage, evaluatePerformance } from "@packages/onboardi
 import { ONBOARDING_EVENTS } from "@packages/onboarding/src/types";
 import { generateId } from "@packages/events/src/factory";
 import { TButton, TCard, TText } from "@/src/components/tamagui";
-import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
+import { AppAlertScreenHost } from "@/src/components/shared/AppAlertHost";
 
 const STEP_LABELS: Record<string, string> = {
   create_account: "Criar uma conta",
   set_income: "Registrar sua renda",
   log_expense: "Registrar um gasto",
-  review_budget: "Revisar orcamento",
+  review_budget: "Revisar orçamento",
   set_goal: "Definir uma meta",
-  log_3_transactions: "Registrar 3 transacoes",
+  log_3_transactions: "Registrar 3 transações",
   check_503020: "Verificar 50/30/20",
 };
 
@@ -169,11 +169,11 @@ function OnboardingScreen() {
             Bem-vindo ao DOMUS
           </TText>
           <TText variant="body" color={theme.secondaryText} textAlign="center" lineHeight={22}>
-            Vamos comecar sua jornada financeira em 7 dias. Missoes simples, sem pressao.
+            Vamos começar sua jornada financeira em 7 dias. Missões simples, sem pressão.
           </TText>
           <View style={{ marginTop: 12 }}>
             <TButton variant="primary" backgroundColor={theme.primaryColor} icon={<Feather name="play" size={20} color="#FFF" />} onPress={handleStart}>
-              Comecar
+              Começar
             </TButton>
           </View>
           <View style={{ marginTop: 8 }}>
@@ -197,11 +197,11 @@ function OnboardingScreen() {
             Onboarding completo!
           </TText>
           <TText variant="body" color={theme.secondaryText} textAlign="center" lineHeight={22}>
-            Voce esta pronto para gerenciar suas financas. Continue registrando suas transacoes.
+            Você está pronto para gerenciar suas finanças. Continue registrando suas transações.
           </TText>
           <View style={{ marginTop: 12 }}>
             <TButton variant="primary" backgroundColor={theme.primaryColor} icon={<Feather name="arrow-left" size={20} color="#FFF" />} onPress={() => router.back()}>
-              Voltar ao inicio
+              Voltar ao início
             </TButton>
           </View>
         </View>
@@ -348,7 +348,7 @@ function OnboardingScreen() {
           </TText>
           <TText variant="label" bold color={theme.textColor}>
             {onboarding.difficulty === "easy"
-              ? "Facil"
+              ? "Fácil"
               : onboarding.difficulty === "normal"
                 ? "Normal"
                 : "Desafiante"}
@@ -414,7 +414,7 @@ export default function OnboardingScreenRoute() {
   return (
     <>
       <OnboardingScreen />
-      <AppAlertHost />
+      <AppAlertScreenHost />
     </>
   );
 }

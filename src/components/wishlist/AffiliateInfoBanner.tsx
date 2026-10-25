@@ -70,8 +70,8 @@ export function AffiliateInfoBanner({ theme }: Props) {
       {expanded && (
         <View style={s.body}>
           <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
-            Ao comprar pelos links abaixo, voce apoia o DOMUS sem nenhum custo
-            adicional. Os links sao automaticamente convertidos quando voce
+            Ao comprar pelos links abaixo, você apoia o DOMUS sem nenhum custo
+            adicional. Os links são automaticamente convertidos quando você
             adiciona produtos da Amazon ou Mercado Livre.
           </TText>
 

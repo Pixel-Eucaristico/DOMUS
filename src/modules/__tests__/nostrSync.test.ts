@@ -117,6 +117,30 @@ describe("publishSyncEvents + pullSyncEvents (ponta a ponta com pool falso)", ()
     for (const e of pulled) expect(typeof e.timestamp).toBe("number");
   });
 
+  it("revisão 23/10: eventos próprios 'local'/vazio são publicados com o id do aparelho", async () => {
+    const keys = await deriveKeysFromCode("TESTE-2310");
+    const events = [
+      valid({ id: "loc", deviceId: "local" }),
+      valid({ id: "LOC", deviceId: " LOCAL " }),
+      valid({ id: "vazio", deviceId: "" }),
+      valid({ id: "proprio", deviceId: "dev-a" }),
+    ] as any[];
+    const before = JSON.stringify(events);
+    expect(await publishSyncEvents(keys, "dev-a", events)).toBe(4);
+    const logs = warn.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logs).not.toContain("invalid_device_id");
+    expect(JSON.stringify(events)).toBe(before);
+
+    relayEvents = published.map((ev) => ({ ...ev, id: "pub-2310" }));
+    const pulled = await pullSyncEvents(keys, "dev-b", 0, true);
+    expect(pulled.map((e) => [e.id, e.deviceId])).toEqual([
+      ["loc", "dev-a"],
+      ["LOC", "dev-a"],
+      ["vazio", "dev-a"],
+      ["proprio", "dev-a"],
+    ]);
+  });
+
   it("pull: lote misto + JSON malformado num evento do relay; os demais seguem e há uma linha de total", async () => {
     const keys = await deriveKeysFromCode("TESTE-31");
     const mixed = [

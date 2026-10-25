@@ -4,7 +4,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { SQLiteEventStore } from "@packages/storage/src/eventStore";
 import { selectEventsToImport } from "@/src/modules/syncPayload";
-import { prepareBackupForStorage, prepareLocalLog, stampDeviceId } from "@/src/context/localEventLog";
+import {
+  appendDispatched,
+  mergeHydrated,
+  mergeImported,
+  prepareBackupForStorage,
+  prepareLocalLog,
+} from "@/src/context/localEventLog";
 
 const DEVICE_ID_KEY = "domus_device_id";
 const EVENTS_BACKUP_KEY = "domus_events_v1";
@@ -123,9 +129,7 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
           if (prepared.skippedIndexes.length > 0) {
             console.warn(`[EventStore] Itens ignorados na hidratação (não são objeto), índices: ${prepared.skippedIndexes.join(", ")}`);
           }
-          setAllEvents((prev) =>
-            prev.length === 0 ? prepared.events : prepareLocalLog([...prepared.events, ...prev], did).events,
-          );
+          setAllEvents((prev) => mergeHydrated(prepared.events, prev, did));
           setLoading(false);
           clearTimeout(safetyTimeout);
         }
@@ -158,13 +162,22 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
 
       // Story 3.4: carimba o id do aparelho já na criação (quando conhecido), para que
       // o evento não mude de posição ao reabrir o app nem saia como "local".
-      const evt = stampDeviceId(syncEvt, deviceId);
+      // Revisão 23/10: id repetido não é gravado, contado nem sincronizado. A conferência
+      // usa o ref (atualizado aqui mesmo), porque dois dispatch seguidos acontecem antes
+      // do próximo render.
+      const result = appendDispatched(allEventsRef.current, syncEvt, deviceId);
+      if (!result.added) {
+        console.warn(`[EventStore] dispatch ignorado: id repetido (${result.event.type})`);
+        return;
+      }
+      allEventsRef.current = result.events;
+      const evt = result.event;
 
       getEventStore().then((store) => {
         store?.appendEvent(evt);
       });
 
-      setAllEvents((prev) => prepareLocalLog([...prev, evt], deviceId).events);
+      setAllEvents((prev) => appendDispatched(prev, evt, deviceId).events);
       setLocalEventCount((c) => c + 1);
     },
     [isDemoActive, dispatchDemoEvent, deviceId],
@@ -183,7 +196,7 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
 
       if (newEvents.length > 0) {
         // Story 3.4: mesma normalização, deduplicação e ordem da hidratação.
-        setAllEvents((prev) => prepareLocalLog([...prev, ...newEvents], deviceId).events);
+        setAllEvents((prev) => mergeImported(prev, newEvents, deviceId));
       }
       return newEvents.length;
     },
@@ -196,7 +209,8 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
     // e, em memória, recebe a mesma normalização da hidratação (deviceId, payload em texto).
     // Story 3.4: sem ids repetidos (fica o primeiro, como o INSERT OR IGNORE), timestamp
     // em texto numérico como número, na ordem total.
-    const { events: sorted, skippedIndexes: skipped, duplicateIds } = prepareBackupForStorage(events);
+    // Revisão 23/10: com o id do aparelho, "local"/vazio já é gravado com o id.
+    const { events: sorted, skippedIndexes: skipped, duplicateIds } = prepareBackupForStorage(events, deviceId);
     if (skipped.length > 0) {
       console.warn(`[EventStore] Itens ignorados na restauração (não são objeto), índices: ${skipped.join(", ")}`);
     }

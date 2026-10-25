@@ -23,8 +23,8 @@ const PROVIDERS: { id: AIProvider; label: string }[] = [
 ];
 
 const TIERS: { id: AIModelTier; label: string }[] = [
-  { id: "fast", label: "Rapido" },
-  { id: "smart", label: "Avancado" },
+  { id: "fast", label: "Rápido" },
+  { id: "smart", label: "Avançado" },
 ];
 
 export function ProviderSelector({

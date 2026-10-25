@@ -13,13 +13,11 @@ import { EVENT_TYPES, type DomainEvent } from "@packages/events/src/types";
 import type { AppState } from "@packages/domain/src/state";
 import { calculate503020, type BudgetBreakdown } from "@packages/domain/src/transactions";
 import type { GamificationEvent, GamificationState, AchievementUnlockedPayload, MonthlyTrophyCompletedPayload , SeasonalTrophyCompletedPayload } from "@packages/gamification/src/types";
-import { GAMIFICATION_EVENTS } from "@packages/gamification/src/types";
 import { getLevelInfo, type LevelInfo } from "@packages/gamification/src/levelEngine";
 import type { OnboardingEvent, OnboardingState } from "@packages/onboarding/src/types";
 import type { SeasonState , SeasonEvent } from "@packages/season/src/types";
 import type { ThemeColors, ThemeMode } from "@packages/theme";
 import type { ArchetypeType } from "@packages/personality/src/types";
-import { generateId } from "@packages/events/src/factory";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { WishlistEvent, WishlistState } from "@packages/wishlist";
 import {
@@ -29,7 +27,7 @@ import {
   replayOptionsFor,
   type QuarantineEntry,
 } from "@/src/context/replay";
-import { compareEvents } from "@/src/context/localEventLog";
+import { appendGenerated, createXpRecoveryEvent, isXpRecoveryEvent } from "@/src/context/localEventLog";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 
 // Extracted hooks
@@ -197,33 +195,25 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (!eventStore.loading && eventStore.allEvents.length > 0 && eventStore.deviceId) {
       const txCount = Object.keys(domain.transactions).length;
       const currentXp = gamification.totalXp;
-      const hasRecovery = eventStore.allEvents.some(e => typeof e?.id === "string" && e.id.startsWith("xp-recovery-"));
+      // Ids antigos com prefixo "xp-recovery-" e novos com a marca no payload.
+      const hasRecovery = eventStore.allEvents.some(isXpRecoveryEvent);
 
       if (txCount > 0 && currentXp <= 5 && !hasRecovery) {
         const recoveryAmount = Math.max(30, txCount * 15);
-        const recoveryEvent: SyncEvent = {
-          id: `xp-recovery-${generateId()}`,
-          type: GAMIFICATION_EVENTS.XP_GAINED as string,
-          payload: {
-            amount: recoveryAmount,
-            source: "streak_bonus",
-            description: "Correção de XP Domus",
-          },
-          timestamp: Date.now(),
-          deviceId: eventStore.deviceId,
-          signature: "",
-        };
+        // Revisão 23/10: id e timestamp do mesmo instante (createEvent) e mesma regra do
+        // dispatch (carimbo antes de gravar, sem ids repetidos, ordem total).
+        const recoveryEvent = createXpRecoveryEvent(recoveryAmount, eventStore.deviceId);
+        const did = eventStore.deviceId;
+        const { events: next, added } = appendGenerated(eventStore.allEventsRef.current, [recoveryEvent], did);
+        if (added.length === 0) return;
+        eventStore.allEventsRef.current = next;
 
         getEventStore().then((store) => {
-          store?.appendEvent(recoveryEvent);
+          added.forEach((evt) => store?.appendEvent(evt));
         });
 
-        eventStore.setAllEvents((prev) => {
-          const next = [...prev, recoveryEvent];
-          next.sort(compareEvents);
-          return next;
-        });
-        eventStore.setLocalEventCount((c) => c + 1);
+        eventStore.setAllEvents((prev) => appendGenerated(prev, added, did).events);
+        eventStore.setLocalEventCount((c) => c + added.length);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- eventStore é recriado a cada render; os campos realmente usados já estão nas deps e reexecutar dispararia o evento de recuperação de novo
@@ -251,6 +241,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     dispatch: eventStore.dispatch,
     setLocalEventCount: eventStore.setLocalEventCount,
     setAllEvents: eventStore.setAllEvents,
+    allEventsRef: eventStore.allEventsRef,
     setPendingToast: toast.setPendingToast,
     setPendingMonthlyToast: toast.setPendingMonthlyToast,
     setPendingSeasonalToast: toast.setPendingSeasonalToast,

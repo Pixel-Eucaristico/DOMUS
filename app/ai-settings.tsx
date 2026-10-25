@@ -280,7 +280,7 @@ export default function AISettingsScreen() {
             >
               <Feather name="book-open" size={12} color={theme.secondaryText} />
               <TText variant="caption" color={theme.secondaryText} fontSize={11}>
-                Documentacao oficial
+                Documentação oficial
               </TText>
             </TouchableOpacity>
           </View>
@@ -310,7 +310,7 @@ export default function AISettingsScreen() {
               <Card theme={theme}>
                 <ToggleRow
                   title="Falar direto"
-                  subtitle="Ler automaticamente cada resposta da IA em audio"
+                  subtitle="Ler automaticamente cada resposta da IA em áudio"
                   value={settings.autoPlayTTS ?? false}
                   onToggle={(v) => updateSettings({ autoPlayTTS: v })}
                   theme={theme}
@@ -322,10 +322,10 @@ export default function AISettingsScreen() {
             {(settings.voiceEnabled ?? false) && (
               <Card theme={theme}>
                 <TText variant="subtitle" color={theme.textColor} fontSize={15}>
-                  Provedor de Audio (TTS)
+                  Provedor de Áudio (TTS)
                 </TText>
                 <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
-                  Independente do provedor de texto. Cada um tem custos proprios.
+                  Independente do provedor de texto. Cada um tem custos próprios.
                 </TText>
 
                 {/* Claude warning — no native TTS */}
@@ -333,7 +333,7 @@ export default function AISettingsScreen() {
                   <View style={[styles.hint, { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4, backgroundColor: `${theme.warning}15`, padding: 8, borderRadius: 8 }]}>
                     <Feather name="alert-triangle" size={13} color={theme.warning} />
                     <Text style={{ fontSize: 12, color: theme.warning, flex: 1 }}>
-                      Claude nao possui TTS proprio. Selecione um provedor de audio abaixo para usar o modo voz.
+                      Claude não possui TTS próprio. Selecione um provedor de áudio abaixo para usar o modo voz.
                     </Text>
                   </View>
                 )}
@@ -355,7 +355,7 @@ export default function AISettingsScreen() {
                     <View style={{ gap: 4 }}>
                       <View style={{ backgroundColor: "rgba(251, 191, 36, 0.1)", borderRadius: 8, padding: 8, marginBottom: 4 }}>
                         <Text style={{ color: "#F59E0B", fontSize: 11, fontFamily: "DMSans_500Medium" }}>
-                          Requer plano pago (Starter $5/mes). O free tier nao permite uso de vozes via API.
+                          Requer plano pago (Starter $5/mês). O free tier não permite uso de vozes via API.
                         </Text>
                       </View>
                       <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
@@ -407,7 +407,7 @@ export default function AISettingsScreen() {
                       </TText>
                       <ChipSelector
                         options={[
-                          { id: "gemini-2.5-flash-preview-tts", label: "Flash (rapido)" },
+                          { id: "gemini-2.5-flash-preview-tts", label: "Flash (rápido)" },
                           { id: "gemini-2.5-pro-preview-tts", label: "Pro (qualidade)" },
                         ]}
                         selected={settings.audioVoice?.includes("pro") ? "gemini-2.5-pro-preview-tts" : "gemini-2.5-flash-preview-tts"}
@@ -535,7 +535,7 @@ export default function AISettingsScreen() {
             ════════════════════════════════════════════════════════════════════ */}
         {isEnabled && (
           <>
-            <SectionHeader title="Orcamento e uso" theme={theme} />
+            <SectionHeader title="Orçamento e uso" theme={theme} />
 
             <BudgetCostSection
               provider={settings.provider}
@@ -587,9 +587,9 @@ export default function AISettingsScreen() {
             </TText>
           </View>
           <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
-            Os dados sao enviados diretamente ao provedor de IA escolhido.
-            Nunca passam por servidores do DOMUS. CPF, nome, numero de
-            conta, cartao ou IDs internos nunca sao incluidos.
+            Os dados são enviados diretamente ao provedor de IA escolhido.
+            Nunca passam por servidores do DOMUS. CPF, nome, número de
+            conta, cartão ou IDs internos nunca são incluídos.
           </TText>
         </TCard>
 
@@ -612,13 +612,13 @@ export default function AISettingsScreen() {
                 ],
               );
             }}
-            accessibilityLabel="Limpar historico da IA"
+            accessibilityLabel="Limpar histórico da IA"
             accessibilityRole="button"
           >
             <Feather name="trash-2" size={18} color={theme.warning} />
             <View style={styles.actionInfo}>
               <TText variant="subtitle" color={theme.textColor} fontSize={15}>
-                Limpar historico da IA
+                Limpar histórico da IA
               </TText>
               <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
                 Remove todas as mensagens da conversa atual
@@ -632,16 +632,16 @@ export default function AISettingsScreen() {
           <TouchableOpacity
             style={styles.actionRow}
             onPress={() => { soundManager.play("tap"); router.push("/privacy-policy"); }}
-            accessibilityLabel="Ver politica de privacidade"
+            accessibilityLabel="Ver política de privacidade"
             accessibilityRole="link"
           >
             <Feather name="shield" size={18} color={theme.primaryColor} />
             <View style={styles.actionInfo}>
               <TText variant="subtitle" color={theme.textColor} fontSize={15}>
-                Politica de Privacidade
+                Política de Privacidade
               </TText>
               <TText variant="caption" color={theme.secondaryText} lineHeight={18}>
-                Como seus dados e chaves de IA sao protegidos
+                Como seus dados e chaves de IA são protegidos
               </TText>
             </View>
             <Feather name="chevron-right" size={16} color={theme.secondaryText} />

@@ -125,7 +125,7 @@ export function RecentTransactionsList({ recentTxs, txCount, categories, theme }
           <View style={s.emptyState}>
             <Feather name="inbox" size={28} color={theme.secondaryText} />
             <TText variant="body" color={theme.secondaryText} textAlign="center">
-              Nenhuma transacao ainda
+              Nenhuma transação ainda
             </TText>
           </View>
         )}

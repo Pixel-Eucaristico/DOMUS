@@ -2,6 +2,7 @@ import { finalizeEvent, type UnsignedEvent, getPublicKey } from "nostr-tools/pur
 import { SimplePool, type SubCloser } from "nostr-tools/pool";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { describeRejection, partitionEnvelopes } from "@packages/events/src/validateEnvelope";
+import { eventsForExport } from "@/src/context/localEventLog";
 import {
   createWarnOnce,
   describePullDiscards,
@@ -400,8 +401,10 @@ export async function publishSyncEvents(
 ): Promise<number> {
   if (events.length === 0) return 0;
 
+  // Revisão 23/10: eventos próprios com deviceId "local"/vazio saem com o id deste
+  // aparelho (a validação recusaria "local" e eles nunca chegariam aos outros).
   // Story 3.1: não publicar envelope que os outros aparelhos recusariam.
-  const { valid: publishable, rejected } = partitionEnvelopes(events);
+  const { valid: publishable, rejected } = partitionEnvelopes(eventsForExport(events, deviceId));
   for (const r of rejected) {
     console.warn(`[NostrSync] Envelope inválido não publicado: ${describeRejection(r)}`);
   }

@@ -32,7 +32,7 @@ import { GROUP_COLORS } from "@/src/constants/invoiceCategories";
 import type { TransactionStatus, RecurrenceType } from "@packages/events/src/types";
 import { createTransactionEvent } from "@packages/domain/src/transactions";
 import { TButton, TInput } from "@/src/components/tamagui";
-import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
+import { AppAlertScreenHost } from "@/src/components/shared/AppAlertHost";
 
 const STATUS_OPTIONS: { key: TransactionStatus; label: string; icon: string }[] = [
   { key: "confirmed", label: "Confirmado", icon: "check-circle" },
@@ -40,7 +40,7 @@ const STATUS_OPTIONS: { key: TransactionStatus; label: string; icon: string }[] 
 ];
 
 const RECURRENCE_OPTIONS: { key: RecurrenceType; label: string }[] = [
-  { key: "once",    label: "Unico"         },
+  { key: "once",    label: "Único"         },
   { key: "weekly",  label: "Semanal"       },
   { key: "monthly", label: "Mensal"        },
   { key: "yearly",  label: "Anual"         },
@@ -206,7 +206,7 @@ function AddTransactionScreen() {
           <ResponsiveColumn>
             {/* Description */}
             <View style={[s.card, { backgroundColor: theme.cardBackground, marginBottom: 16 }]}>
-              <Text style={[s.label, { color: theme.secondaryText }]}>Descricao</Text>
+              <Text style={[s.label, { color: theme.secondaryText }]}>Descrição</Text>
               <TInput
                 value={form.description}
                 onChangeText={form.setDescription}
@@ -404,7 +404,7 @@ function AddTransactionScreen() {
 
             {/* Recurrence */}
             <View style={[s.card, { backgroundColor: theme.cardBackground, marginBottom: 16 }]}>
-              <Text style={[s.label, { color: theme.secondaryText }]}>Recorrencia</Text>
+              <Text style={[s.label, { color: theme.secondaryText }]}>Recorrência</Text>
               <View style={s.chipRow}>
                 {RECURRENCE_OPTIONS.map((opt) => {
                   const active = form.recurrence === opt.key;
@@ -453,7 +453,7 @@ function AddTransactionScreen() {
         {/* Criar proxima */}
         {txId && form.editingTx?.recurrence && form.editingTx.recurrence !== "once" && (
           <TButton variant="outline" borderColor={theme.border} color={theme.textColor} icon={<Feather name="repeat" size={16} color={theme.primaryColor} />} onPress={handleCreateNext}>
-            Criar proxima
+            Criar próxima
           </TButton>
         )}
 
@@ -555,7 +555,7 @@ export default function AddTransactionScreenRoute() {
   return (
     <>
       <AddTransactionScreen />
-      <AppAlertHost />
+      <AppAlertScreenHost />
     </>
   );
 }

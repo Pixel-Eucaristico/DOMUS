@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { replayAllEvents, KNOWN_EVENT_TYPES, UNKNOWN_TYPE_REASON, type ReplayOptions } from "../replay";
 import { parseSyncPayloadDetailed, selectEventsToImport } from "@/src/modules/syncPayload";
+import { mergeImported } from "@/src/context/localEventLog";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { DomainEvent } from "@packages/events/src/types";
 import { domainReducer } from "@packages/domain/src/reducer";
@@ -208,8 +209,9 @@ describe("reprocessar eventos desconhecidos (Story 3.3) — ponta a ponta com o 
     expect(duplicates).toBe(1);
     expect(parsed.rejected.length + discarded).toBe(1);
 
-    // Mesmo caminho do importEvents: anexa e ordena por timestamp.
-    const merged = [...localLog, ...toAppend].sort((a, b) => a.timestamp - b.timestamp);
+    // Mesmo caminho do importEvents: a junção real (`mergeImported`, ordem total da 3.4).
+    const merged = mergeImported(localLog, toAppend, "dev-a");
+    expect(merged.map((e) => e.id)).toEqual([...localLog.map((e) => e.id), "relay-x"]);
     const before = snapshot(merged);
 
     const old = replayOld(merged);

@@ -56,7 +56,7 @@ export function DataPermissionModal({
               {label.description}
             </Text>
             {"\n\n"}
-            Voce pode desativar a qualquer momento em Configuracoes &gt; IA.
+            Você pode desativar a qualquer momento em Configurações &gt; IA.
           </Text>
 
           <View style={styles.actions}>
@@ -65,7 +65,7 @@ export function DataPermissionModal({
               style={[styles.btn, styles.btnSecondary, { borderColor: theme.border }]}
             >
               <Text style={[styles.btnText, { color: theme.secondaryText }]}>
-                Agora nao
+                Agora não
               </Text>
             </TouchableOpacity>
 

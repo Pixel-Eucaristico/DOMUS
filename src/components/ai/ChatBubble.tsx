@@ -206,7 +206,7 @@ export function ChatBubble({ message, onSpeak, isSpeaking, onStopSpeaking }: Cha
 
         {message.isLocalFallback && !isUser && (
           <TText fontSize={10} fontStyle="italic" color={theme.secondaryText} marginTop={4}>
-            analise local
+            análise local
           </TText>
         )}
 
@@ -222,7 +222,7 @@ export function ChatBubble({ message, onSpeak, isSpeaking, onStopSpeaking }: Cha
             <TouchableOpacity
               onPress={handleSpeak}
               style={[styles.listenBtn, { borderColor: theme.border }]}
-              accessibilityLabel={isSpeaking ? "Parar audio" : "Ouvir mensagem"}
+              accessibilityLabel={isSpeaking ? "Parar áudio" : "Ouvir mensagem"}
             >
               {isSynthesizing ? (
                 <ActivityIndicator size={12} color={theme.primaryColor} />

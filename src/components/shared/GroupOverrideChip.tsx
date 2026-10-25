@@ -10,7 +10,7 @@ import { TText } from "@/src/components/tamagui";
 const GROUP_OPTIONS: { value: CategoryGroup; label: string; color: string }[] = [
   { value: "needs", label: "Necessidade", color: "#10B981" },
   { value: "wants", label: "Desejo", color: "#F59E0B" },
-  { value: "savings", label: "Poupanca", color: "#3B82F6" },
+  { value: "savings", label: "Poupança", color: "#3B82F6" },
 ];
 
 interface GroupOverrideChipProps {

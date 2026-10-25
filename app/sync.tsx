@@ -25,7 +25,7 @@ import { ScreenIntroModal } from "@/src/components/tour/ScreenIntroModal";
 import { useScreenIntro } from "@/src/hooks/useScreenIntro";
 import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
-import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
+import { AppAlertScreenHost } from "@/src/components/shared/AppAlertHost";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
@@ -54,7 +54,7 @@ function statusLabel(status: string): string {
   switch (status) {
     case "connected": return "Sincronizado";
     case "syncing": return "Sincronizando...";
-    case "offline": return "Sem conexao";
+    case "offline": return "Sem conexão";
     case "error": return "Erro";
     default: return "Desconectado";
   }
@@ -173,7 +173,7 @@ function SyncScreen() {
             <View style={[s.statDivider, { backgroundColor: theme.border }]} />
             <View style={s.statItem}>
               <Text style={[s.statValue, { color: theme.textColor }]}>{lastSyncTime ? formatTime(lastSyncTime) : "--"}</Text>
-              <Text style={[s.statLabel, { color: theme.secondaryText }]}>ultimo sync</Text>
+              <Text style={[s.statLabel, { color: theme.secondaryText }]}>último sync</Text>
             </View>
           </View>
         </TCard>
@@ -207,7 +207,7 @@ function SyncScreen() {
                   <>
                     <View style={s.actionCardIcon}><Feather name="plus" size={24} color="#FFFFFF" /></View>
                     <Text style={s.actionCardTitle}>Criar grupo</Text>
-                    <Text style={s.actionCardDesc}>Novo codigo</Text>
+                    <Text style={s.actionCardDesc}>Novo código</Text>
                   </>
                 )}
               </Pressable>
@@ -220,7 +220,7 @@ function SyncScreen() {
                   <Feather name="log-in" size={24} color={theme.primaryColor} />
                 </View>
                 <Text style={[s.actionCardTitle, { color: theme.textColor }]}>Entrar</Text>
-                <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Com codigo</Text>
+                <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Com código</Text>
               </Pressable>
             </View>
 
@@ -240,7 +240,7 @@ function SyncScreen() {
 
             {showJoinInput && (
               <View style={[s.joinCard, { backgroundColor: theme.cardBackground }]}>
-                <Text style={[s.joinLabel, { color: theme.textColor }]}>Codigo do grupo</Text>
+                <Text style={[s.joinLabel, { color: theme.textColor }]}>Código do grupo</Text>
                 <View style={s.joinInputRow}>
                   <TInput
                     flex={1}
@@ -301,12 +301,12 @@ function SyncScreen() {
                 </View>
               </View>
               <Text style={[s.connectedHint, { color: theme.secondaryText }]}>
-                Compartilhe o codigo ou mostre o QR para parear outro celular
+                Compartilhe o código ou mostre o QR para parear outro celular
               </Text>
             </View>
 
             <View style={s.sectionHeader}>
-              <TText variant="subtitle" color={theme.textColor} fontSize={15}>Sync automatico</TText>
+              <TText variant="subtitle" color={theme.textColor} fontSize={15}>Sync automático</TText>
               <Text style={[s.sectionDesc, { color: theme.secondaryText }]}>
                 Seus dados sincronizam via relays Nostr a cada 8 segundos e ao criar eventos
               </Text>
@@ -468,7 +468,7 @@ export default function SyncScreenRoute() {
   return (
     <>
       <SyncScreen />
-      <AppAlertHost />
+      <AppAlertScreenHost />
     </>
   );
 }
