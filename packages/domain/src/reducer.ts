@@ -5,9 +5,11 @@ import type {
   AccountDeletedEvent,
   TransactionUpdatedEvent,
   TransactionDeletedEvent,
+  PayslipPayload,
+  PayslipLinePayload,
 } from "../../events/src/types";
 import { createInitialOutOfOrderState } from "./state";
-import type { AppState, OutOfOrderState } from "./state";
+import type { AppState, OutOfOrderState, StoredPayslip } from "./state";
 
 export function domainReducer(state: AppState, event: DomainEvent): AppState {
   switch (event.type) {
@@ -150,9 +152,102 @@ export function domainReducer(state: AppState, event: DomainEvent): AppState {
       };
     }
 
+    case EVENT_TYPES.PAYSLIP_RECORDED: {
+      const payslip = toStoredPayslip(event.payload, event.timestamp);
+      // Decisão 2a (Story 11.4): excluído antes (inclusive por exclusão que chegou
+      // antes do alvo) — continua excluído.
+      if (state.outOfOrder && hasOwn(state.outOfOrder.deletedPayslips, payslip.id)) return state;
+      // Uma competência por empregador: sai todo holerite de outro id com a mesma
+      // competência e o mesmo empregador. Regravar o mesmo id atualiza o registro.
+      // `Object.fromEntries` cria chaves próprias (um id "__proto__" não vira protótipo).
+      const kept = Object.entries(state.payslips).filter(
+        ([id, p]) => id === payslip.id || !(p.period === payslip.period && sameEmployer(p, payslip)),
+      );
+      return { ...state, payslips: Object.fromEntries([...kept, [payslip.id, payslip]]) };
+    }
+
+    case EVENT_TYPES.PAYSLIP_DELETED: {
+      const id = event.payload.id;
+      // Id inexistente (nunca gravado, já excluído ou substituído): nada visível
+      // muda; só fica a marca (decisão 2a), sem Quarentena.
+      const base = hasOwn(state.payslips, id)
+        ? { ...state, payslips: without(state.payslips, id) }
+        : state;
+      return markPayslipDeleted(base, id);
+    }
+
     default:
       return state;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Story 11.4: holerite. Nunca toca em contas, lançamentos, categorias nem notas.
+// ---------------------------------------------------------------------------
+
+function copyLines(lines: readonly PayslipLinePayload[]): PayslipLinePayload[] {
+  return lines.map((l) => ({ name: l.name, value: l.value }));
+}
+
+/**
+ * Lista branca: monta o holerite guardado campo a campo. Um `employee` (ou
+ * qualquer outro campo) vindo de evento antigo ou de outro aparelho não chega
+ * ao estado.
+ */
+function toStoredPayslip(p: PayslipPayload, recordedAt: number): StoredPayslip {
+  const stored: StoredPayslip = {
+    id: p.id,
+    period: p.period,
+    company: p.company,
+    grossSalary: p.grossSalary,
+    netSalary: p.netSalary,
+    deductions: copyLines(p.deductions),
+    recordedAt,
+  };
+  if (p.cnpj !== undefined && p.cnpj !== null) stored.cnpj = p.cnpj;
+  if (Array.isArray(p.earnings)) stored.earnings = copyLines(p.earnings);
+  if (p.fgts !== undefined && p.fgts !== null) stored.fgts = p.fgts;
+  if (p.source !== undefined && p.source !== null) stored.source = p.source;
+  if (p.transactionId !== undefined && p.transactionId !== null) stored.transactionId = p.transactionId;
+  return stored;
+}
+
+/** 14 dígitos do CNPJ, ou `null` se ausente/incompleto. */
+function cnpjDigits(cnpj: unknown): string | null {
+  if (typeof cnpj !== "string") return null;
+  const digits = cnpj.replace(/\D/g, "");
+  return digits.length === 14 ? digits : null;
+}
+
+/** Nome da empresa normalizado: pontas, minúsculas, sem acentos, espaços repetidos viram um. */
+export function normalizeCompany(company: unknown): string {
+  if (typeof company !== "string") return "";
+  return company
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Mesmo empregador: se os dois têm CNPJ, compara os 14 dígitos; se algum não
+ * tem, compara o nome normalizado. Pura (a tela da 11.5 usa a mesma regra).
+ */
+export function sameEmployer(
+  a: { cnpj?: string; company: string },
+  b: { cnpj?: string; company: string },
+): boolean {
+  const ca = cnpjDigits(a.cnpj);
+  const cb = cnpjDigits(b.cnpj);
+  if (ca !== null && cb !== null) return ca === cb;
+  return normalizeCompany(a.company) === normalizeCompany(b.company);
+}
+
+function markPayslipDeleted(state: AppState, id: string): AppState {
+  const cur = state.outOfOrder ?? createInitialOutOfOrderState();
+  if (hasOwn(cur.deletedPayslips, id)) return state;
+  return withOutOfOrder(state, { ...cur, deletedPayslips: { ...cur.deletedPayslips, [id]: true } });
 }
 
 // ---------------------------------------------------------------------------
@@ -168,7 +263,8 @@ function isOutOfOrderEmpty(o: OutOfOrderState): boolean {
     Object.keys(o.pendingTransactions).length === 0 &&
     Object.keys(o.pendingAccounts).length === 0 &&
     Object.keys(o.deletedTransactions).length === 0 &&
-    Object.keys(o.deletedAccounts).length === 0
+    Object.keys(o.deletedAccounts).length === 0 &&
+    Object.keys(o.deletedPayslips).length === 0
   );
 }
 

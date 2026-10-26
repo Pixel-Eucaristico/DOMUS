@@ -3,6 +3,8 @@ import type {
   TransactionPayload,
   CategoryPayload,
   InvoiceImportedPayload,
+  PayslipLinePayload,
+  PayslipSource,
   AccountUpdatedEvent,
   AccountDeletedEvent,
   TransactionUpdatedEvent,
@@ -23,12 +25,36 @@ export interface StoredInvoice extends InvoiceImportedPayload {
  *   do log; aplicados logo depois do `*_CREATED` do alvo.
  * - `deletedTransactions`/`deletedAccounts`: alvos excluídos por uma exclusão
  *   pendente; um `*_CREATED` posterior com o mesmo id não os traz de volta.
+ * - `deletedPayslips` (Story 11.4): holerites excluídos; um `PAYSLIP_RECORDED`
+ *   posterior com o mesmo id (exclusão que chegou antes do alvo) não volta.
  */
 export interface OutOfOrderState {
   pendingTransactions: Readonly<Record<string, readonly (TransactionUpdatedEvent | TransactionDeletedEvent)[]>>;
   pendingAccounts: Readonly<Record<string, readonly (AccountUpdatedEvent | AccountDeletedEvent)[]>>;
   deletedTransactions: Readonly<Record<string, true>>;
   deletedAccounts: Readonly<Record<string, true>>;
+  deletedPayslips: Readonly<Record<string, true>>;
+}
+
+/**
+ * Story 11.4: holerite guardado no estado. Montado campo a campo (lista branca)
+ * a partir do `PAYSLIP_RECORDED`: nunca tem nome do funcionário, CPF,
+ * `confidence`, `warnings` nem metadados do payload.
+ */
+export interface StoredPayslip {
+  id: string;
+  period: string;
+  company: string;
+  cnpj?: string;
+  grossSalary: number;
+  netSalary: number;
+  deductions: PayslipLinePayload[];
+  earnings?: PayslipLinePayload[];
+  fgts?: number;
+  source?: PayslipSource;
+  transactionId?: string;
+  /** `timestamp` do evento que gravou esta versão. */
+  recordedAt: number;
 }
 
 export interface AppState {
@@ -36,6 +62,8 @@ export interface AppState {
   transactions: Record<string, TransactionPayload>;
   categories: Record<string, CategoryPayload>;
   invoices: Record<string, StoredInvoice>;
+  /** Story 11.4: holerites por id (uma competência por empregador). */
+  payslips: Record<string, StoredPayslip>;
   /**
    * Story 3.7: controle interno do replay (ver `OutOfOrderState`). Só existe
    * quando alguma edição/exclusão chegou antes do alvo; telas e seletores não
@@ -50,6 +78,7 @@ export function createInitialOutOfOrderState(): OutOfOrderState {
     pendingAccounts: {},
     deletedTransactions: {},
     deletedAccounts: {},
+    deletedPayslips: {},
   };
 }
 
@@ -59,5 +88,6 @@ export function createInitialState(): AppState {
     transactions: {},
     categories: {},
     invoices: {},
+    payslips: {},
   };
 }

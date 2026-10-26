@@ -12,6 +12,9 @@ import {
   RELAY_CURSOR_KEY,
   LEGACY_LAST_PULL_TS_KEY,
   RELAY_CURSOR_OVERLAP_SEC,
+  OLD_GROUP_EXCLUDED_PREFIXES,
+  isOldGroupPublishable,
+  partitionOldGroupEvents,
 } from "../syncPayload";
 
 const valid = (over: Record<string, unknown> = {}) => ({
@@ -244,5 +247,35 @@ describe("Story 3.6: cursor dos relays", () => {
       },
     };
     expect(await loadRelayCursor(st)).toBeNull();
+  });
+});
+
+describe("Story 11.4: isOldGroupPublishable / partitionOldGroupEvents", () => {
+  it("PAYSLIP_* não é publicável no Grupo antigo; o resto é", () => {
+    expect(OLD_GROUP_EXCLUDED_PREFIXES).toEqual(["PAYSLIP_"]);
+    expect(isOldGroupPublishable("PAYSLIP_RECORDED")).toBe(false);
+    expect(isOldGroupPublishable("PAYSLIP_DELETED")).toBe(false);
+    expect(isOldGroupPublishable("PAYSLIP_QUALQUER_FUTURO")).toBe(false);
+    for (const t of ["TRANSACTION_CREATED", "ACCOUNT_CREATED", "XP_GAINED", "WISHLIST_ITEM_ADDED", "FUTURE_EVENT_X", "payslip_recorded"]) {
+      expect(isOldGroupPublishable(t), t).toBe(true);
+    }
+  });
+
+  it("type que não é texto segue (a validação do envelope decide)", () => {
+    expect(isOldGroupPublishable(undefined)).toBe(true);
+    expect(isOldGroupPublishable(42)).toBe(true);
+  });
+
+  it("separa na ordem recebida sem alterar a entrada", () => {
+    const events = Object.freeze([
+      { id: "a", type: "TRANSACTION_CREATED" },
+      { id: "p", type: "PAYSLIP_RECORDED" },
+      { id: "b", type: "XP_GAINED" },
+      { id: "d", type: "PAYSLIP_DELETED" },
+    ]);
+    const { allowed, excluded } = partitionOldGroupEvents(events);
+    expect(allowed.map((e) => e.id)).toEqual(["a", "b"]);
+    expect(excluded.map((e) => e.id)).toEqual(["p", "d"]);
+    expect(allowed[0]).toBe(events[0]);
   });
 });

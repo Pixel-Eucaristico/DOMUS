@@ -64,6 +64,15 @@ function encrypt(plain: string, encKey: Uint8Array): string {
   return `${hex(nonce)}:${hex(bytes.map((b, i) => b ^ k[i % k.length]))}`;
 }
 
+/** Inverso de `encrypt`/`encryptPayload`: decifra o que o pool falso recebeu. */
+function decrypt(content: string, encKey: Uint8Array): string {
+  const [nonceHex, cipherHex] = content.split(":");
+  const bytesOf = (h: string) => new Uint8Array(h.match(/../g)!.map((x) => parseInt(x, 16)));
+  const nonce = bytesOf(nonceHex!);
+  const k = sha256(new Uint8Array([...encKey, ...nonce]));
+  return new TextDecoder().decode(bytesOf(cipherHex!).map((b, i) => b ^ k[i % k.length]));
+}
+
 const relayEvent = (id: string, content: string, created_at = 1_700_000_000) => ({
   id,
   tags: [["t", "domus-sync"]],
@@ -254,5 +263,68 @@ describe("Story 3.6: cursor dos relays pelo created_at", () => {
 
     lastSubHandler.onevent(relayEvent("live", encrypt(JSON.stringify(valid({ id: "L" })), keys.encryptionKey), T + 5));
     await vi.waitFor(() => expect(got).toEqual([["L", T + 5]]));
+  });
+});
+
+describe("Story 11.4: PAYSLIP_* fora do Grupo antigo", () => {
+  const payslip = (id: string, type = "PAYSLIP_RECORDED") =>
+    valid({
+      id,
+      type,
+      payload:
+        type === "PAYSLIP_RECORDED"
+          ? { id: "p1", period: "2026-09", company: "ACME", grossSalary: 9876.54, netSalary: 7654.32, deductions: [], schemaVersion: 1 }
+          : { id: "p1", schemaVersion: 1 },
+    });
+
+  it("publish: lote misto sai só com a transação; decifrado, nenhum PAYSLIP_*", async () => {
+    const keys = await deriveKeysFromCode("TESTE-114");
+    const events = [valid({ id: "tx" }), payslip("rec"), payslip("del", "PAYSLIP_DELETED")] as any[];
+    const before = JSON.stringify(events);
+    expect(await publishSyncEvents(keys, "dev-a", events)).toBe(1);
+    expect(JSON.stringify(events)).toBe(before);
+    expect(published).toHaveLength(1);
+    const plain = decrypt(published[0].content, keys.encryptionKey);
+    const sent = JSON.parse(plain) as { id: string; type: string }[];
+    expect(sent.map((e) => [e.id, e.type])).toEqual([["tx", "TRANSACTION_CREATED"]]);
+    expect(plain).not.toContain("PAYSLIP_");
+    expect(plain).not.toContain("7654.32");
+    expect(published[0].tags).toContainEqual(["batch", "1"]);
+  });
+
+  it("publish: lote só de holerites não publica nada e devolve 0", async () => {
+    const keys = await deriveKeysFromCode("TESTE-114");
+    const events = [payslip("rec"), payslip("del", "PAYSLIP_DELETED")] as any[];
+    expect(await publishSyncEvents(keys, "dev-a", events)).toBe(0);
+    expect(published).toHaveLength(0);
+  });
+
+  it("decisão 3a: pull descarta PAYSLIP_* recebido, com aviso único por evento e sem payload", async () => {
+    const keys = await deriveKeysFromCode("TESTE-114");
+    relayEvents = [
+      relayEvent("r1", encrypt(JSON.stringify([valid({ id: "tx" }), payslip("rec-x"), payslip("del-x", "PAYSLIP_DELETED")]), keys.encryptionKey)),
+    ];
+    const { events } = await pullSyncEvents(keys, "dev-b", true);
+    expect(events.map((e) => e.id)).toEqual(["tx"]);
+    const logs = warn.mock.calls.map((c) => String(c[0]));
+    expect(logs.filter((l) => l.includes("id=rec-x type=PAYSLIP_RECORDED"))).toHaveLength(1);
+    expect(logs.filter((l) => l.includes("id=del-x type=PAYSLIP_DELETED"))).toHaveLength(1);
+    expect(logs.join("\n")).not.toContain("7654.32");
+
+    // Segundo pull: os mesmos eventos continuam fora, sem repetir o aviso.
+    warn.mockClear();
+    const again = await pullSyncEvents(keys, "dev-b", true);
+    expect(again.events.map((e) => e.id)).toEqual(["tx"]);
+    expect(warn.mock.calls.map((c) => String(c[0])).filter((l) => l.includes("PAYSLIP_"))).toEqual([]);
+  });
+
+  it("decisão 3a: assinatura ao vivo também descarta PAYSLIP_*", async () => {
+    const keys = await deriveKeysFromCode("TESTE-114");
+    const got: string[] = [];
+    subscribeToSyncEvents(keys, "dev-b", 0, (evt) => got.push(evt.id));
+    lastSubHandler.onevent(
+      relayEvent("live-114", encrypt(JSON.stringify([payslip("rec-live"), valid({ id: "L2" })]), keys.encryptionKey)),
+    );
+    await vi.waitFor(() => expect(got).toEqual(["L2"]));
   });
 });

@@ -8,6 +8,7 @@ import {
   createWarnOnce,
   describePullDiscards,
   parseSyncPayloadDetailed,
+  partitionOldGroupEvents,
   type ParsedSyncPayload,
 } from "./syncPayload";
 
@@ -402,6 +403,11 @@ export async function publishSyncEvents(
 ): Promise<number> {
   if (events.length === 0) return 0;
 
+  // Story 11.4: este é o Grupo antigo (cifra XOR): holerite (`PAYSLIP_*`) nunca
+  // sai por aqui. Filtrado antes da validação e da cifra.
+  events = partitionOldGroupEvents(events).allowed;
+  if (events.length === 0) return 0;
+
   // Revisão 23/10: eventos próprios com deviceId "local"/vazio saem com o id deste
   // aparelho (a validação recusaria "local" e eles nunca chegariam aos outros).
   // Story 3.1: não publicar envelope que os outros aparelhos recusariam.
@@ -468,8 +474,11 @@ export async function publishSyncEvents(
 // Avisa uma vez por evento do relay na sessão (o pull se repete a cada poucos segundos).
 const warnOncePerRelayEvent = createWarnOnce(1000);
 
+// Story 11.4 (decisão 3a): aviso único por evento `PAYSLIP_*` recebido do Grupo antigo.
+const warnOncePerExcludedEvent = createWarnOnce(1000);
+
 function parseAndReport(decrypted: string, relayEventId?: string): ParsedSyncPayload {
-  const parsed = parseSyncPayloadDetailed(decrypted);
+  const parsed = dropOldGroupExcluded(parseSyncPayloadDetailed(decrypted));
   const hasProblem = parsed.malformedJson || parsed.rejected.length > 0;
   if (hasProblem && (relayEventId === undefined || warnOncePerRelayEvent(relayEventId))) {
     if (parsed.malformedJson) {
@@ -480,6 +489,22 @@ function parseAndReport(decrypted: string, relayEventId?: string): ParsedSyncPay
     }
   }
   return parsed;
+}
+
+/**
+ * Story 11.4 (decisão 3a): pull e assinatura ao vivo do Grupo antigo descartam
+ * `PAYSLIP_*` (só pelo Grupo forte, Story 4.5). Avisa uma vez por evento, só com
+ * id/type — nunca o payload. O restore de backup não passa por aqui.
+ */
+function dropOldGroupExcluded(parsed: ParsedSyncPayload): ParsedSyncPayload {
+  const { allowed, excluded } = partitionOldGroupEvents(parsed.events);
+  if (excluded.length === 0) return parsed;
+  for (const e of excluded) {
+    if (warnOncePerExcludedEvent(e.id)) {
+      console.warn(`[NostrSync] Evento ignorado (não aceito no Grupo antigo): id=${e.id} type=${e.type}`);
+    }
+  }
+  return { ...parsed, events: allowed };
 }
 
 /** Valida cada item sozinho; JSON malformado vira lista vazia. Exportado para teste. */

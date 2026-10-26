@@ -47,6 +47,37 @@ export function filterImportableEvents(
   return { valid, discarded: rejected.length };
 }
 
+// ── Tipos fora do Grupo antigo (Story 11.4) ───────────────────────────────────
+// O Grupo antigo cifra com XOR e um código de 6 caracteres: o salário do
+// holerite não sai por ele (SCP 16/10, D2 = b) e não é aceito vindo dele
+// (decisão 3a). A Story 4.5 troca isto por "publicável neste grupo".
+// O restore de backup não passa por aqui.
+
+/** Prefixos de tipo que nunca saem nem entram pelo Grupo antigo. */
+export const OLD_GROUP_EXCLUDED_PREFIXES: readonly string[] = ["PAYSLIP_"];
+
+/** `true` quando o tipo pode ser publicado/aceito no Grupo antigo. */
+export function isOldGroupPublishable(type: unknown): boolean {
+  if (typeof type !== "string") return true;
+  return !OLD_GROUP_EXCLUDED_PREFIXES.some((prefix) => type.startsWith(prefix));
+}
+
+/**
+ * Separa os eventos que o Grupo antigo aceita dos excluídos (`PAYSLIP_*`), na
+ * ordem recebida. Não altera a entrada.
+ */
+export function partitionOldGroupEvents<T extends { type?: unknown }>(
+  events: readonly T[],
+): { allowed: T[]; excluded: T[] } {
+  const allowed: T[] = [];
+  const excluded: T[] = [];
+  for (const e of events) {
+    if (isOldGroupPublishable(e?.type)) allowed.push(e);
+    else excluded.push(e);
+  }
+  return { allowed, excluded };
+}
+
 export interface ImportSelection {
   /** Eventos a gravar, na ordem recebida, já validados e sem repetidos. */
   toAppend: SyncEvent[];

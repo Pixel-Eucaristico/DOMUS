@@ -84,13 +84,13 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] Tipos e payloads em `packages/events`, mais as entradas no `SCHEMA_REGISTRY`
-- [ ] `AppState.payslips`, reducer com lista branca, substituição e exclusão
-- [ ] Criadores puros com arredondamento e validação de `period`
-- [ ] `PAYLOAD_SPECS` dos dois tipos
-- [ ] Filtro `PAYSLIP_*` em `publishSyncEvents`, com predicado puro
-- [ ] Testes: `packages/domain/__tests__/payslips.test.ts` (matriz pelo reducer), `src/context/__tests__/replay.payslip.test.ts` (roteamento, carimbo via `appendDispatched`, `schemaVersion` fora do estado, `invalid_payload`, `future_schema_version`, `unknown_type` → reprocessado, saldo intacto), `src/modules/__tests__/syncPayload.test.ts` (predicado) e `nostrSync.test.ts` (lote misto e lote só de holerites, decifrando o publicado)
-- [ ] Decisão 2 e decisão 3 conforme o que o dono aprovar
+- [x] Tipos e payloads em `packages/events`, mais as entradas no `SCHEMA_REGISTRY`
+- [x] `AppState.payslips`, reducer com lista branca, substituição e exclusão
+- [x] Criadores puros com arredondamento e validação de `period`
+- [x] `PAYLOAD_SPECS` dos dois tipos
+- [x] Filtro `PAYSLIP_*` em `publishSyncEvents`, com predicado puro
+- [x] Testes: `packages/domain/__tests__/payslips.test.ts` (matriz pelo reducer), `src/context/__tests__/replay.payslip.test.ts` (roteamento, carimbo via `appendDispatched`, `schemaVersion` fora do estado, `invalid_payload`, `future_schema_version`, `unknown_type` → reprocessado, saldo intacto), `src/modules/__tests__/syncPayload.test.ts` (predicado) e `nostrSync.test.ts` (lote misto e lote só de holerites, decifrando o publicado)
+- [x] Decisão 2 e decisão 3 conforme o que o dono aprovar
 
 **Acceptance Criteria:**
 - Given os tipos `PAYSLIP_RECORDED` e `PAYSLIP_DELETED` em `packages/events`, when o log é reproduzido, then os tipos são roteados ao `domainReducer` e o payload gravado tem `schemaVersion`
@@ -116,3 +116,31 @@ context:
 
 - `npx vitest run` e `npx tsc --noEmit` sem falhas novas em relação ao baseline (`03daf45`)
 - Revisão manual: nenhum `...payload` no caso `PAYSLIP_RECORDED` do reducer; `grep -rn "PAYSLIP_" src/modules/nostrSync.ts src/modules/syncPayload.ts` mostra o filtro
+
+## Implementation Notes
+
+**O que mudou (26/10, decisões 1a, 2a e 3a):**
+
+- `packages/events/src/types.ts`: `EVENT_TYPES.PAYSLIP_RECORDED/PAYSLIP_DELETED`, `PayslipLinePayload`, `PayslipSource`, `PayslipPayload` (sem `employee`), `PayslipDeletedPayload`, `PayslipRecordedEvent`/`PayslipDeletedEvent` na união `DomainEvent`.
+- `packages/events/src/schemaVersion.ts`: `SCHEMA_REGISTRY` com os dois tipos `{ current: 1, stamp: true }`.
+- `packages/domain/src/state.ts`: `StoredPayslip` (lista branca + `recordedAt`), `AppState.payslips`, `createInitialState` com `payslips: {}`; `OutOfOrderState.deletedPayslips` (decisão 2a).
+- `packages/domain/src/reducer.ts`: casos `PAYSLIP_RECORDED` (monta o holerite campo a campo com `toStoredPayslip`, inclusive as linhas `{name, value}`; substituição por competência + empregador; id marcado como excluído é ignorado) e `PAYSLIP_DELETED` (remove se existe e sempre deixa a marca em `outOfOrder.deletedPayslips`, sem efeito visível e sem Quarentena). `sameEmployer` e `normalizeCompany` exportados (puros) para a tela da 11.5.
+- `packages/domain/src/payslips.ts` (novo): `recordPayslipEvent`, `deletePayslipEvent`, `PAYSLIP_PERIOD_PATTERN`; exportados em `packages/domain/index.ts` (com `StoredPayslip`, `sameEmployer`, `normalizeCompany`).
+- `src/context/replayValidation.ts`: `PAYLOAD_SPECS` de `PAYSLIP_RECORDED` (linhas com `each: {name, value}`) e `PAYSLIP_DELETED`.
+- `src/modules/syncPayload.ts`: `OLD_GROUP_EXCLUDED_PREFIXES`, `isOldGroupPublishable(type)`, `partitionOldGroupEvents(events)`.
+- `src/modules/nostrSync.ts`: `publishSyncEvents` descarta `PAYSLIP_*` antes de `partitionEnvelopes` e da cifra (lote vazio → 0, nada publicado). Decisão 3a: `parseAndReport` (usado pelo `pullSyncEvents` e pela assinatura ao vivo `subscribeToSyncEvents`) descarta `PAYSLIP_*` recebido, com aviso único por id de evento (`id=… type=…`, nunca o payload). `restoreFromBackup` e o backup não mudaram (decisão 1a).
+- Testes ajustados: `packages/events/__tests__/schemaVersion.test.ts` (registro real agora tem os dois `PAYSLIP_*`), `packages/domain/__tests__/outOfOrder.test.ts` (o `outOfOrder` exato ganha `deletedPayslips: {}`), `src/context/__tests__/replay.test.ts` (37 → 39 tipos conhecidos).
+- Testes novos: `packages/domain/__tests__/payslips.test.ts` (30: matriz pelo reducer, `sameEmployer`, criadores), `src/context/__tests__/replay.payslip.test.ts` (13: roteamento, carimbo via `appendDispatched`, `schemaVersion`/`profileId`/`employee` fora do estado, `invalid_payload`, `future_schema_version`, `unknown_type` → aplicado, exclusão antes do alvo, ordem de chegada, saldo intacto, backup exporta/restaura), `src/modules/__tests__/syncPayload.test.ts` (+3: predicado), `src/modules/__tests__/nostrSync.test.ts` (+4: lote misto e só de holerites decifrando o publicado; pull e assinatura descartando `PAYSLIP_*`). Conferido por mutação: sem o filtro, os 4 testes de `nostrSync` falham.
+
+**Verificação:** `npx vitest run` → 78 arquivos / 1571 testes, todos passando (baseline 76 / 1519). `npx tsc --noEmit` → 0 erros. Nenhum `...payload` no caso `PAYSLIP_RECORDED`; `grep -rn "PAYSLIP_" src/modules/nostrSync.ts src/modules/syncPayload.ts` mostra o filtro.
+
+**Decisões além da spec:**
+
+- Decisão 2a seguindo a 3.7 à risca: **toda** exclusão deixa a marca (não só a que chega antes). Um `PAYSLIP_RECORDED` posterior com o mesmo id de um holerite excluído é ignorado; para "regravar" depois de excluir, a 11.5 precisa de id novo. Um holerite ignorado pela marca também não substitui outro do mesmo empregador.
+- CNPJ só conta como "tem CNPJ" com exatamente 14 dígitos; CNPJ incompleto (OCR ruim) cai na comparação por nome.
+- Pela regra literal, dois holerites sem CNPJ e com `company` vazia na mesma competência são do mesmo empregador (o último substitui). A 11.5 pode exigir nome ou CNPJ na tela, se quiser evitar.
+- O criador também lança erro para valor monetário não finito (`NaN`/`Infinity`), apara `company` e `cnpj` e omite CNPJ vazio; aceita `id` opcional (para regravar um holerite existente). Monta o payload campo a campo, então `employee`/`confidence`/`warnings` vindos do parser não entram.
+- O reducer monta o mapa com `Object.fromEntries` para um id `"__proto__"` não tocar o protótipo.
+- Os `PAYSLIP_*` descartados do Grupo antigo não entram na linha de total do pull ("N descartados de M"); têm o próprio aviso único por evento.
+- `AIContextBuilder.test.ts` não precisou mudar: o literal ali é `ContextData`, não `AppState` (o `tsc` passa sem `payslips`).
+

@@ -59,8 +59,12 @@ export type SchemaRegistry = Readonly<Record<string, TypeSchema>>;
 /**
  * Registro real. Tipo ausente = versão atual 1, sem carimbo. Hoje todos os tipos
  * publicados estão na v1, então nada do formato publicado muda.
+ * Story 11.4: `PAYSLIP_*` nascem versionados (`schemaVersion: 1` carimbado).
  */
-export const SCHEMA_REGISTRY: SchemaRegistry = {};
+export const SCHEMA_REGISTRY: SchemaRegistry = {
+  PAYSLIP_RECORDED: { current: 1, stamp: true },
+  PAYSLIP_DELETED: { current: 1, stamp: true },
+};
 
 export function currentSchemaVersion(type: string, registry: SchemaRegistry = SCHEMA_REGISTRY): number {
   return Object.prototype.hasOwnProperty.call(registry, type) ? registry[type]!.current : 1;

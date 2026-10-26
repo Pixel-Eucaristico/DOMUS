@@ -103,6 +103,9 @@ const ACCOUNT_OPTIONAL: Record<string, FieldSpec> = {
   creditLimit: optNum,
 };
 
+/** Linha do holerite (rubrica ou desconto). */
+const PAYSLIP_LINE: Record<string, FieldSpec> = { name: str, value: num };
+
 /** Campos exigidos de um payload, por nome. */
 export type PayloadSpec = Record<string, FieldSpec>;
 
@@ -125,6 +128,21 @@ export const PAYLOAD_SPECS: Readonly<Record<string, PayloadSpec>> = {
   CATEGORY_CREATED: { id: str, name: optStr, group: optStr },
   INVOICE_IMPORTED: { invoiceId: str, totalAmount: optNum, items: { kind: "array", optional: true } },
   INVOICE_CONFIRMED: { invoiceId: str },
+  // Story 11.4: holerite (v1)
+  PAYSLIP_RECORDED: {
+    id: str,
+    period: str,
+    company: str,
+    cnpj: optStr,
+    grossSalary: num,
+    netSalary: num,
+    deductions: { kind: "array", each: PAYSLIP_LINE },
+    earnings: { kind: "array", optional: true, each: PAYSLIP_LINE },
+    fgts: optNum,
+    source: optStr,
+    transactionId: optStr,
+  },
+  PAYSLIP_DELETED: { id: str },
   // Gamificação
   XP_GAINED: { amount: num, source: optStr },
   LEVEL_UP: { newLevel: num },

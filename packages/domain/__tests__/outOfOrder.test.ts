@@ -157,6 +157,7 @@ describe("domainReducer — edição/exclusão antes do alvo (Story 3.7)", () =>
         pendingAccounts: {},
         deletedTransactions: { t1: true },
         deletedAccounts: {},
+        deletedPayslips: {},
       });
       expect(publicOf(deleted)).toEqual({ ...createInitialState(), accounts: { a1: ACC } });
     });

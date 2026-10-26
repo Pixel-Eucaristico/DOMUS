@@ -8,6 +8,8 @@ export const EVENT_TYPES = {
   CATEGORY_CREATED: "CATEGORY_CREATED",
   INVOICE_IMPORTED: "INVOICE_IMPORTED",
   INVOICE_CONFIRMED: "INVOICE_CONFIRMED",
+  PAYSLIP_RECORDED: "PAYSLIP_RECORDED",
+  PAYSLIP_DELETED: "PAYSLIP_DELETED",
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
@@ -142,6 +144,42 @@ export interface InvoiceConfirmedPayload {
   totalAmount: number;
 }
 
+/** Linha do holerite (rubrica de provento ou desconto). */
+export interface PayslipLinePayload {
+  name: string;
+  value: number;
+}
+
+/** Origem da leitura do holerite. */
+export type PayslipSource = "vision" | "ocr" | "manual";
+
+/**
+ * Story 11.4: holerite registrado (v1, nasce versionado — ver `SCHEMA_REGISTRY`).
+ * Nunca guarda o nome do funcionário, CPF nem `confidence`/`warnings` do parser.
+ * Não altera contas nem lançamentos: a receita (Story 11.5) é outro evento.
+ */
+export interface PayslipPayload {
+  id: string;
+  /** Competência no formato `YYYY-MM`. */
+  period: string;
+  /** Nome da empresa (pode ser vazio). */
+  company: string;
+  /** CNPJ no formato `00.000.000/0000-00`. */
+  cnpj?: string;
+  grossSalary: number;
+  netSalary: number;
+  deductions: PayslipLinePayload[];
+  earnings?: PayslipLinePayload[];
+  fgts?: number;
+  source?: PayslipSource;
+  /** Receita lançada a partir deste holerite (Story 11.5). */
+  transactionId?: string;
+}
+
+export interface PayslipDeletedPayload {
+  id: string;
+}
+
 interface BaseEvent {
   id: string;
   type: EventType;
@@ -195,6 +233,16 @@ export interface InvoiceConfirmedEvent extends BaseEvent {
   payload: InvoiceConfirmedPayload;
 }
 
+export interface PayslipRecordedEvent extends BaseEvent {
+  type: typeof EVENT_TYPES.PAYSLIP_RECORDED;
+  payload: PayslipPayload;
+}
+
+export interface PayslipDeletedEvent extends BaseEvent {
+  type: typeof EVENT_TYPES.PAYSLIP_DELETED;
+  payload: PayslipDeletedPayload;
+}
+
 export type DomainEvent =
   | AccountCreatedEvent
   | AccountUpdatedEvent
@@ -204,4 +252,6 @@ export type DomainEvent =
   | TransactionDeletedEvent
   | CategoryCreatedEvent
   | InvoiceImportedEvent
-  | InvoiceConfirmedEvent;
+  | InvoiceConfirmedEvent
+  | PayslipRecordedEvent
+  | PayslipDeletedEvent;

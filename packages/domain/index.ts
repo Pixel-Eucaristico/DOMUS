@@ -1,7 +1,7 @@
-export type { AppState, OutOfOrderState } from "./src/state";
+export type { AppState, OutOfOrderState, StoredPayslip } from "./src/state";
 export { createInitialState, createInitialOutOfOrderState } from "./src/state";
 
-export { domainReducer } from "./src/reducer";
+export { domainReducer, sameEmployer, normalizeCompany } from "./src/reducer";
 
 export { replayEvents, replayEventsSince } from "./src/replay";
 
@@ -22,3 +22,6 @@ export {
   getIdeal503020,
 } from "./src/transactions";
 export type { CreateTransactionParams, BudgetBreakdown } from "./src/transactions";
+
+export { recordPayslipEvent, deletePayslipEvent, PAYSLIP_PERIOD_PATTERN } from "./src/payslips";
+export type { RecordPayslipParams } from "./src/payslips";
