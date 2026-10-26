@@ -170,3 +170,24 @@ context:
 - [ ] Salvar com receita: lançamento "Salário (MM/AAAA)" na conta escolhida; substituir a mesma competência não duplica a receita (chave começa desligada).
 - [ ] 13º (`13/AAAA`): fica ao lado do mensal de dezembro, sem pedir substituição.
 
+
+## Review Triage Log
+
+Revisão única com três lentes (adversarial, casos de borda, lacunas de verificação), 26/10, sobre o commit 3bda19c. 2 High, 5 Med, 6 Low (contagem do revisor).
+
+| # | Achado | Sev. | Decisão |
+|---|--------|------|---------|
+| R1 | `usePayslipScanner` usa uma instância própria de `useAISettings` carregada só na montagem: depois de trocar o provedor no chat, a foto vai ao provedor antigo | High | **patch**: função pura `resolveVisionEligibility(settings, deps)` lendo as configurações frescas no momento do scan (carregar do armazenamento dentro do `scan`); testes, inclusive troca de provedor |
+| R2 | Descrição da receita "Salário (MM/AAAA) — EMPRESA" leva o empregador ao contexto da IA e ao Grupo antigo | Med | **patch** (decisão do dono 26/10): descrição só "Salário (MM/AAAA)"; teste do `AIContextBuilder` depois de uma receita de holerite sem nome da empresa |
+| R3 | Salvar só com nome pode substituir vários holerites; confirmação mostra um e a 2a olha só um | Med | **patch**: `findPayslipsInSlot` devolve todos; confirmação lista todos; receita desligada se qualquer um tiver `transactionId`; teste |
+| R4 | `packages/domain` importa `packages/parsers` (viola o diagrama do ARCHITECTURE-SPINE) e carrega o parser no início | Med | **patch**: `validatePayslipDraft` e helpers de parse vão para `src/modules/payslip/`; domain fica com busca de slot e montagem dos eventos |
+| R5 | Toque duplo em Salvar pode lançar receita duas vezes | Low | **patch**: trava com `useRef` |
+| R6 | Dados pendentes do chat podem sobrar na memória | Low | **patch**: validade curta (TTL) no `pendingReview` |
+| R7 | Salvar desabilitado sem motivo quando faltam empresa/CNPJ em campo não tocado | Med | **patch**: botão pressionável que mostra todos os erros ao tocar (ou mostrar `employerMissing` quando o resto é válido); lógica de estado da revisão em módulo puro testado |
+| R8 | CNPJ alfanumérico recusado na revisão, aceito no reducer | Med | **patch**: aceitar 14 caracteres `[0-9A-Z]` com dígito verificador módulo 11 sobre ASCII−48; mensagem "Confira os 14 caracteres" |
+| R9 | Acoplamento 13º/competência: switch desligado com `13/AAAA` substitui dezembro; switch não desliga; `13º/2026` inválido | Low | **patch**: `13/AAAA` força `thirteenth`; switch acompanha a competência até o usuário tocar; aceitar `13º/AAAA` |
+| R10 | `1e3` aceito; `1 234,56` → NaN; negativo; mensagem enganosa | Low | **patch**: recusar expoente e negativo, aceitar espaço como milhar, mensagem "Valor inválido" |
+| R11 | Sem limite no nome da empresa; data `2026-13-45`; acessibilidade; conta padrão pode ser de meta/investimento | Low | **patch**: limite de 120 caracteres na empresa, validar data real, `accessibilityRole`/labels, conta padrão preferindo corrente |
+| R12 | Fiação do hook que decide o envio da foto sem teste | Med | **patch**: coberto pelo R1 |
+| R13 | ACs provados só por função pura ou grep | Med | **patch**: testes de multi-match (R3), contexto da IA (R2) e estado da revisão (R7) |
+| N1 | Texto "a leitura é feita no aparelho" impreciso quando o Google Cloud Vision híbrido está ligado | Low | **patch**: ajustar a frase nos 4 textos para citar a exceção do Cloud Vision |
