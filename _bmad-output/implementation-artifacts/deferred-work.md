@@ -101,3 +101,12 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-6-cursor-dos-relays.md`
   summary: D34 — O pull lê no máximo 500 eventos por relay e cada aparelho republica todos os lotes (`d=sync-<aparelho>-<i>`, 20 eventos por lote). Passando de ~500 lotes no total, o relay devolve os mais novos e os lotes do aparelho com relógio atrasado são cortados primeiro. Relays também recusam evento com `created_at` muito no futuro (strfry: 15 min), e cada entrega ao vivo limpa o push pendente.
   evidence: revisão da Story 3.6; repensar o formato dos lotes junto do Epic 4 (Grupo forte).
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-7-edicao-e-exclusao-antes-do-alvo.md`
+  summary: D35 — `AccountFormModal` envia `balance` (valor derivado) em toda edição de conta, mesmo quando só o nome muda; com eventos concorrentes de outro aparelho o saldo gravado fica velho.
+  evidence: `src/components/shared/AccountFormModal.tsx` preenche `balance` com `editingAccount.balance`; enviar só quando o usuário alterar o saldo.
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-7-edicao-e-exclusao-antes-do-alvo.md`
+  summary: D36 — Transação com `timestamp` menor que o `ACCOUNT_CREATED` da conta (relógio do criador da conta adiantado) é criada sem efeito no saldo; uma exclusão ou edição depois reverte um valor que nunca entrou (1000 → 1030).
+  evidence: revisão da Story 3.7 (sonda p1); aplicar o efeito no saldo quando a conta aparecer, em story própria.
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-7-edicao-e-exclusao-antes-do-alvo.md`
+  summary: D37 — `INVOICE_CONFIRMED` antes de `INVOICE_IMPORTED` e os eventos da lista de desejos (item atualizado, removido, preço, convertido, meta, lista apagada) antes do alvo ainda são ignorados.
+  evidence: `packages/domain/src/reducer.ts` (`if (!invoice) return state`) e `packages/wishlist/src/reducer.ts`.

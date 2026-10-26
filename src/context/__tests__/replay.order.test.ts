@@ -78,10 +78,13 @@ describe("replayAllEvents — ordem total (Story 3.4)", () => {
   });
 
   it("timestamp em texto ou não finito é ordenado como número / como 0", () => {
-    const early = ev("nan", "ACCOUNT_UPDATED", { id: "acc-1", name: "Primeiro" }, Number.NaN);
+    const early = ev("nan", "ACCOUNT_UPDATED", { id: "acc-1", name: "Primeiro", balance: 1 }, Number.NaN);
     const r = replayAllEvents([...LOG, early]);
-    // NaN vale 0: aplicado antes da criação da conta → sem efeito.
-    expect(r.domain.accounts["acc-1"]?.name).toBe("Carteira");
+    // NaN vale 0: vem antes da criação da conta. Desde a Story 3.7 a edição fica
+    // pendente e vale logo depois da criação (sem o `balance`, que a edição pendente
+    // ignora) — o saldo segue 4800 (se NaN fosse para o fim, o saldo seria 1).
+    expect(r.domain.accounts["acc-1"]?.name).toBe("Primeiro");
+    expect(r.domain.accounts["acc-1"]?.balance).toBe(4800);
   });
 });
 

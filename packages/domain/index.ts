@@ -1,5 +1,5 @@
-export type { AppState } from "./src/state";
-export { createInitialState } from "./src/state";
+export type { AppState, OutOfOrderState } from "./src/state";
+export { createInitialState, createInitialOutOfOrderState } from "./src/state";
 
 export { domainReducer } from "./src/reducer";
 
