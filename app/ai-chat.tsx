@@ -18,7 +18,7 @@ import { useAppState } from "@/src/context/AppStateProvider";
 import * as ImagePicker from "expo-image-picker";
 import { soundManager } from "@/src/services/SoundManager";
 import { VisionOCRService } from "@packages/ai/src/vision/VisionOCRService";
-import type { OCRDocumentType , InvoiceOCRResult, PayslipOCRResult } from "@packages/ai/src/vision/ocrSchema";
+import type { OCRDocumentType , InvoiceOCRResult } from "@packages/ai/src/vision/ocrSchema";
 import { SelectionModal } from "@/src/components/shared/SelectionModal";
 import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
 import { useAIConsultant } from "@/src/hooks/useAIConsultant";
@@ -45,6 +45,9 @@ import { ProviderSwitchModal, detectProviderIssue } from "@/src/components/ai/Pr
 import type { ConsultationResult } from "@packages/ai";
 import type { AIDataPermissions } from "@/src/modules/ai/domain/AISettings";
 import { appAlert } from "@/src/services/appAlert";
+import { usePayslipScanner } from "@/src/hooks/usePayslipScanner";
+import { setPendingPayslipReview } from "@/src/modules/payslip/pendingReview";
+import { EMPTY_PAYSLIP_PARSE } from "@/src/modules/payslip/scanPayslip";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -210,7 +213,27 @@ export default function AIChatScreen() {
   const [visionLoading, setVisionLoading] = useState(false);
   const [visionModal, setVisionModal] = useState<{ visible: boolean; docType: OCRDocumentType }>({ visible: false, docType: "invoice" });
 
+  // Story 11.5: o holerite passa pela mesma captura de /payslips (Vision ou OCR
+  // do aparelho) e abre a revisão de lá; nada do holerite vai ao chat.
+  const openPayslipManual = useCallback(() => {
+    setPendingPayslipReview({ data: EMPTY_PAYSLIP_PARSE, source: "manual" });
+    router.push("/payslips");
+  }, []);
+  const { scan: scanPayslip, scanning: payslipScanning } = usePayslipScanner({ onManual: openPayslipManual });
+
+  const processPayslipImage = useCallback(async (source: "camera" | "gallery") => {
+    setVisionModal((v) => ({ ...v, visible: false }));
+    const result = await scanPayslip(source);
+    if (!result) return;
+    setPendingPayslipReview({ data: result.data, source: result.source });
+    router.push("/payslips");
+  }, [scanPayslip]);
+
   const openVisionModal = useCallback((docType: OCRDocumentType) => {
+    if (docType === "payslip") {
+      setVisionModal({ visible: true, docType });
+      return;
+    }
     if (!settings.isEnabled || !VisionOCRService.supportsVision(settings.provider as any)) {
       appAlert("Não suportado", `${settings.provider} não suporta Vision OCR. Use OpenAI, Gemini, Claude ou Qwen.`);
       return;
@@ -285,22 +308,11 @@ export default function AIChatScreen() {
         // Salvar no AsyncStorage temporário para a tela de import ler
         await AsyncStorage.setItem("@domus/vision_ocr_result", JSON.stringify(payload));
         router.push("/import-invoice?fromVision=1");
-      } else {
-        const pay = ocrResult as PayslipOCRResult;
-        // Enviar para chat com resumo + instruir usuário a adicionar manualmente
-        const resumo = `Holerite escaneado com sucesso!\n\n` +
-          `Empresa: ${pay.company}\n` +
-          `Período: ${pay.period}\n` +
-          `Salário Bruto: R$ ${pay.grossSalary.toFixed(2)}\n` +
-          `Descontos: ${pay.deductions.map((d) => `${d.name}: R$ ${d.value.toFixed(2)}`).join(", ")}\n` +
-          `Salário Líquido: R$ ${pay.netSalary.toFixed(2)}\n\n` +
-          `Adicione como receita na tela principal com valor R$ ${pay.netSalary.toFixed(2)}.`;
-        await sendMessage(resumo);
       }
     } catch (err: any) {
       setVisionLoading(false);
       soundManager.play("error");
-      await sendMessage(`Erro ao escanear ${docType === "invoice" ? "nota fiscal" : "holerite"}: ${err.message}. O que posso fazer?`);
+      await sendMessage(`Erro ao escanear nota fiscal: ${err.message}. O que posso fazer?`);
     }
   }, [settings, sendMessage]);
 
@@ -619,13 +631,13 @@ export default function AIChatScreen() {
         visionOCREnabled={settings.visionOCREnabled && VisionOCRService.supportsVision(settings.provider as any)}
         isRecording={isRecording}
         isTranscribing={isTranscribing}
-        isLoading={isLoading || visionLoading}
+        isLoading={isLoading || visionLoading || payslipScanning}
         pulseAnim={pulseAnim}
         onVoicePress={handleVoicePress}
         onAction={handleAction}
       />
     ),
-    [inputText, settings.isEnabled, settings.voiceEnabled, settings.visionOCREnabled, settings.provider, settings.audioProvider, isRecording, isTranscribing, isLoading, visionLoading, pulseAnim, handleVoicePress, handleAction, handleSend],
+    [inputText, settings.isEnabled, settings.voiceEnabled, settings.visionOCREnabled, settings.provider, settings.audioProvider, isRecording, isTranscribing, isLoading, visionLoading, payslipScanning, pulseAnim, handleVoicePress, handleAction, handleSend],
   );
 
   // ─── GiftedChat: Scroll to bottom ─────────────────────────────────────
@@ -667,10 +679,10 @@ export default function AIChatScreen() {
       )}
 
       {/* Vision loading banner */}
-      {visionLoading && (
+      {(visionLoading || payslipScanning) && (
         <View style={s.visionBanner}>
           <ActivityIndicator size="small" color="#FFF" />
-          <Text style={s.visionBannerText}>Escaneando com IA Vision...</Text>
+          <Text style={s.visionBannerText}>{payslipScanning ? "Lendo o holerite…" : "Escaneando com IA Vision..."}</Text>
         </View>
       )}
 
@@ -802,8 +814,8 @@ export default function AIChatScreen() {
         title={visionModal.docType === "invoice" ? "Escanear Nota Fiscal" : "Escanear Holerite"}
         subtitle="Como deseja capturar a imagem?"
         options={[
-          { label: "Câmera", icon: "camera", color: "#4CAF50", onPress: () => processVisionImage("camera", visionModal.docType) },
-          { label: "Galeria de Fotos", icon: "image", color: "#2196F3", onPress: () => processVisionImage("gallery", visionModal.docType) },
+          { label: "Câmera", icon: "camera", color: "#4CAF50", onPress: () => (visionModal.docType === "payslip" ? processPayslipImage("camera") : processVisionImage("camera", visionModal.docType)) },
+          { label: "Galeria de Fotos", icon: "image", color: "#2196F3", onPress: () => (visionModal.docType === "payslip" ? processPayslipImage("gallery") : processVisionImage("gallery", visionModal.docType)) },
         ]}
         onCancel={() => setVisionModal((v) => ({ ...v, visible: false }))}
         theme={theme}

@@ -196,6 +196,13 @@ export default function HomeScreen() {
         onPress: () => { soundManager.play("tap"); router.push("/import-invoice"); },
       },
       // ── Página 2: secundárias ──
+      {
+        id: "payslips",
+        icon: "file-text" as const,
+        label: "Holerite",
+        color: "#0EA5E9",
+        onPress: () => { soundManager.play("tap"); router.push("/payslips"); },
+      },
       ...(aiSettings.isEnabled ? [
         {
           id: "ai",

@@ -225,8 +225,8 @@ export default function PrivacyPolicyScreen() {
           <FlagItem
             theme={theme}
             title="OCR por Visão (IA)"
-            sends="a foto da nota fiscal ou do holerite que você tirar ou escolher no chat ao provedor de IA ativo, que lê o texto; a foto pode conter nome, CPF, empregador e salário."
-            loses="o chat da IA não lê fotos; a importação de notas continua com a leitura feita no aparelho."
+            sends="a foto da nota fiscal ou do holerite que você tirar ou escolher no chat ou na tela de holerites ao provedor de IA ativo, que lê o texto; a foto pode conter nome, CPF, empregador e salário."
+            loses="o chat da IA não lê fotos; na tela de holerites e na importação de notas, a leitura é feita no aparelho."
           />
         </PolicySection>
 
@@ -242,11 +242,12 @@ export default function PrivacyPolicyScreen() {
           </PolicyItem>
           <PolicyItem theme={theme}>
             Com a IA e o &quot;OCR por Visão (IA)&quot; ligados, a foto que você
-            tirar ou escolher na galeria pelo chat da IA vai ao provedor de IA
-            escolhido para leitura do texto.
+            tirar ou escolher na galeria pelo chat da IA ou na tela de holerites
+            vai ao provedor de IA escolhido para leitura do texto.
           </PolicyItem>
           <PolicyItem theme={theme}>
-            Na importação de notas, a leitura das fotos é feita no aparelho. Se você
+            Na importação de notas, e na tela de holerites sem o &quot;OCR por
+            Visão (IA)&quot;, a leitura das fotos é feita no aparelho. Se você
             cadastrar uma chave do Google Cloud Vision, a foto também vai ao Google
             Cloud Vision quando a leitura feita no aparelho falha ou tem confiança
             abaixo de 60%; se você escolher o Cloud Vision como provedor principal,

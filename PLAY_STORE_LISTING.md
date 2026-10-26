@@ -177,7 +177,7 @@ busca na Amazon ou no Mercado Livre) só acontecem quando você os pede.
 - **Ativar IA.** Envia: a sua mensagem, as 6 últimas mensagens da conversa e um resumo do mês (saldo, receita, despesa e taxa de poupança) ao provedor de IA escolhido, com a sua chave de API; ao revisar uma nota fiscal, o nome do item, para sugerir a categoria. Sem isso: não há chat com a IA, resumo do mês, conselho de compra nem sugestão de categoria pela IA; o resto do app funciona normalmente.
 - **Acesso aos dados.** Envia: só o que você liberar, junto de cada mensagem à IA: até 50 transações recentes (data, tipo, valor, categoria e descrição), contas (nome, tipo, saldo e limite de crédito), categorias (nome e grupo), até 10 notas fiscais (data, emissor, quantidade de itens e valor total), lista de desejos (nome, urgência e preço), troféus e conquistas (nível, XP total e da temporada, sequência atual e maior sequência, quantidade de conquistas e de troféus mensais) e sincronização (se há grupo, sync automático, quantidade de eventos e de relays e a última sincronização), nunca o código do grupo. Sem isso: a IA responde só com o resumo do mês e não comenta as suas transações, contas, notas, desejos, conquistas nem a sincronização.
 - **Modo Voz.** Envia: a gravação da sua voz, que sai do aparelho para a OpenAI, o Gemini ou a ElevenLabs, para ser transcrita, e o texto das respostas ao provedor de áudio escolhido (OpenAI, Gemini, Qwen ou ElevenLabs), para virar fala. Sem isso: não há perguntas por voz nem respostas faladas; o chat segue por texto.
-- **OCR por Visão (IA).** Envia: a foto da nota fiscal ou do holerite que você tirar ou escolher no chat ao provedor de IA ativo, que lê o texto; a foto pode conter nome, CPF, empregador e salário. Sem isso: o chat da IA não lê fotos; a importação de notas continua com a leitura feita no aparelho.
+- **OCR por Visão (IA).** Envia: a foto da nota fiscal ou do holerite que você tirar ou escolher no chat ou na tela de holerites ao provedor de IA ativo, que lê o texto; a foto pode conter nome, CPF, empregador e salário. Sem isso: o chat da IA não lê fotos; na tela de holerites e na importação de notas, a leitura é feita no aparelho.
 
 ## 4. Câmera e fotos
 
@@ -186,8 +186,9 @@ busca na Amazon ou no Mercado Livre) só acontecem quando você os pede.
 - Ao ler o QR Code, o app abre a página da SEFAZ do seu estado com a chave de acesso da nota,
   para buscar os itens.
 - Com a IA e o "OCR por Visão (IA)" ligados, a foto que você tirar ou escolher na galeria
-  pelo chat da IA vai ao provedor de IA escolhido para leitura do texto.
-- Na importação de notas, a leitura das fotos é feita no aparelho. Se você cadastrar uma
+  pelo chat da IA ou na tela de holerites vai ao provedor de IA escolhido para leitura do texto.
+- Na importação de notas, e na tela de holerites sem o "OCR por Visão (IA)", a leitura das
+  fotos é feita no aparelho. Se você cadastrar uma
   chave do Google Cloud Vision, a foto também vai ao Google Cloud Vision quando a leitura
   feita no aparelho falha ou tem confiança abaixo de 60%; se você escolher o Cloud Vision
   como provedor principal, a foto vai a ele primeiro.

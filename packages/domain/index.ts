@@ -25,3 +25,27 @@ export type { CreateTransactionParams, BudgetBreakdown } from "./src/transaction
 
 export { recordPayslipEvent, deletePayslipEvent, PAYSLIP_PERIOD_PATTERN, PAYSLIP_SOURCES, PAYSLIP_KINDS } from "./src/payslips";
 export type { RecordPayslipParams } from "./src/payslips";
+
+export {
+  PAYSLIP_INCOME_CATEGORY_ID,
+  PAYSLIP_DRAFT_ERRORS,
+  periodToInput,
+  isThirteenthPeriodInput,
+  emptyPayslipDraft,
+  draftFromParse,
+  validatePayslipDraft,
+  findPayslipInSlot,
+  defaultLaunchIncome,
+  formatPayslipPeriodLabel,
+  replacePayslipMessage,
+  payslipIncomeDescription,
+  buildPayslipSaveEvents,
+} from "./src/payslipReview";
+export type {
+  PayslipDraft,
+  PayslipDraftField,
+  PayslipReviewValues,
+  PayslipDraftValidation,
+  PayslipSaveOptions,
+  PayslipSaveEvents,
+} from "./src/payslipReview";

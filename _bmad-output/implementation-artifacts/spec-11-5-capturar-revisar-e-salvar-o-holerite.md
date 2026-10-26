@@ -93,13 +93,13 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `packages/domain/src/payslipReview.ts` + testes (`packages/domain/__tests__/payslipReview.test.ts`): validação da matriz, vaga ocupada via `samePayslipSlot` (13º × mensal, CNPJ × nome), id novo a cada salvar, receita income/`salario` com o `transactionId` ligado, toda saída passa no replay sem Quarentena
-- [ ] `src/modules/payslip/scanPayslip.ts` + teste: Vision elegível/não elegível, queda com aviso, tokens só com Vision ok, `normalizeVisionPayslip` sempre aplicado
-- [ ] `src/modules/payslip/pendingReview.ts` + teste (lido uma vez)
-- [ ] Hook `usePayslipScanner`, `PayslipReview`, `app/payslips.tsx`, rota e ação rápida
-- [ ] Chat: `scan_payslip` pelo hook, sem resumo no chat
-- [ ] Frase `visionOcr` nas quatro fontes; decisão 1 no aviso de exportação
-- [ ] Conferir no build web (Playwright) a revisão manual: validação, confirmação de substituição e salvar com receita; o teclado no aparelho fica na checklist da Story 13.7
+- [x] `packages/domain/src/payslipReview.ts` + testes (`packages/domain/__tests__/payslipReview.test.ts`): validação da matriz, vaga ocupada via `samePayslipSlot` (13º × mensal, CNPJ × nome), id novo a cada salvar, receita income/`salario` com o `transactionId` ligado, toda saída passa no replay sem Quarentena
+- [x] `src/modules/payslip/scanPayslip.ts` + teste: Vision elegível/não elegível, queda com aviso, tokens só com Vision ok, `normalizeVisionPayslip` sempre aplicado
+- [x] `src/modules/payslip/pendingReview.ts` + teste (lido uma vez)
+- [x] Hook `usePayslipScanner`, `PayslipReview`, `app/payslips.tsx`, rota e ação rápida
+- [x] Chat: `scan_payslip` pelo hook, sem resumo no chat
+- [x] Frase `visionOcr` nas quatro fontes; decisão 1 no aviso de exportação
+- [x] Conferir no build web (Playwright) a revisão manual: validação, confirmação de substituição e salvar com receita; o teclado no aparelho fica na checklist da Story 13.7
 
 **Acceptance Criteria:**
 - Given a tela de holerites, when escolho câmera ou galeria, then a leitura usa o Vision OCR se houver provedor com visão (e a flag ligada) e cai para o OCR do aparelho se ele falhar ou não existir; e posso preencher manualmente
@@ -126,3 +126,47 @@ context:
 - `grep -rn "Alert.alert\|window.confirm\|window.alert" app/payslips.tsx src/components/payslip src/hooks/usePayslipScanner.ts` vazio
 - `grep -n "AsyncStorage" app/payslips.tsx src/hooks/usePayslipScanner.ts src/modules/payslip` vazio; em `app/ai-chat.tsx` nenhuma mensagem montada com `grossSalary`/`netSalary`
 - Build web: revisão manual salva holerite e receita; segunda gravação da mesma vaga pede confirmação
+
+## Implementation Notes
+
+**O que mudou (26/10, decisões 1a, 2a e 3a):**
+
+- `packages/domain/src/payslipReview.ts` (novo, puro, exportado em `packages/domain/index.ts`): `PayslipDraft` (texto dos campos), `emptyPayslipDraft`, `draftFromParse`, `periodToInput`, `isThirteenthPeriodInput`, `validatePayslipDraft` (erros por campo em `PAYSLIP_DRAFT_ERRORS`), `findPayslipInSlot` (sobre `samePayslipSlot`), `defaultLaunchIncome` (decisão 2a), `replacePayslipMessage`, `formatPayslipPeriodLabel`, `payslipIncomeDescription`, `buildPayslipSaveEvents` (sempre id novo; `[PAYSLIP_RECORDED, TRANSACTION_CREATED?]`, com `transactionId` = id da receita).
+- `src/modules/payslip/scanPayslip.ts` (novo, puro, deps injetadas): `isVisionEligible` (IA + flag `visionOCREnabled` + provedor com visão + chave + orçamento), `scanPayslip` (Vision → `normalizeVisionPayslip`; falha ou não elegível → OCR do aparelho + `parsePayslipText`; avisos de queda e de valores não encontrados; tokens só quando o Vision respondeu), `EMPTY_PAYSLIP_PARSE`.
+- `src/modules/payslip/pendingReview.ts` (novo): `setPendingPayslipReview`/`takePendingPayslipReview`, em memória, lido uma vez.
+- `src/hooks/usePayslipScanner.ts` (novo): checa elegibilidade antes de abrir a imagem (base64 só quando o Vision vai ser tentado), permissão da câmera, `expo-image-picker`, `VisionOCRService`, `TokenTracker`, `SecureKeyService`, `OCRConfigService` + `createHybridOCRAdapter` (mesma configuração do `useInvoiceScanner`). Falhas: `appAlert` com "Preencher à mão".
+- `src/components/payslip/PayslipReview.tsx` (novo): revisão como tela que rola (`KeyboardAwareScrollViewCompat`, `bottomOffset={50}`, `keyboardShouldPersistTaps="handled"`), com origem, avisos, empresa, CNPJ, competência, chave 13º, linhas lidas (só leitura), bruto, líquido, chave de receita, `AccountPicker` (sem cartão), `DatePickerField` e os botões Cancelar/Salvar dentro da rolagem.
+- `app/payslips.tsx` (novo): câmera, galeria, preencher à mão, indicador "Lendo o holerite…", lista simples só leitura (decisão 3a: competência, 13º, empresa, líquido; mais novo primeiro), revisão, `appConfirm` de substituição e despacho (`PAYSLIP_RECORDED` e depois `TRANSACTION_CREATED`). Lê o pendente do chat no foco (`useFocusEffect`). Voltar do Android na revisão volta à captura.
+- `app/_layout.tsx`: `Stack.Screen name="payslips"`. `app/(tabs)/index.tsx`: ação rápida "Holerite" depois de "NF".
+- `app/ai-chat.tsx`: `scan_payslip` abre câmera/galeria, usa `usePayslipScanner` e leva o resultado a `/payslips` pelo `pendingReview`; erro → `appAlert` com "Preencher à mão" (abre `/payslips` com a revisão vazia). Removido o ramo que mandava o resumo do holerite ao chat e o `PayslipOCRResult`; a mensagem de erro do Vision agora é só da nota fiscal. O fluxo de nota fiscal não mudou.
+- Privacidade (`visionOcr`) nas quatro fontes (`src/constants/privacyFlagTexts.ts`, `docs/politica-de-privacidade.md`, `app/privacy-policy.tsx`, `PLAY_STORE_LISTING.md`): "…no chat ou na tela de holerites…"; sem a flag: "o chat da IA não lê fotos; na tela de holerites e na importação de notas, a leitura é feita no aparelho." Na seção "Câmera e fotos" das três cópias da política, o item do Vision cita a tela de holerites e o item da leitura no aparelho cita o holerite sem a flag.
+- Decisão 1a: `PLAIN_EXPORT_WARNING.message` ganhou "inclusive o salário e o empregador dos holerites".
+
+**Testes:** `packages/domain/__tests__/payslipReview.test.ts` (37: matriz de validação, rascunho, vaga 13º × mensal e CNPJ × nome, decisão 2a, mensagem, eventos com e sem receita, id novo, nada de `confidence`/`warnings`, replay pelo `domainReducer`), `src/context/__tests__/replay.payslipReview.test.ts` (1: holerite, 13º e receita via `appendDispatched` + `replayAllEvents` sem Quarentena, saldo somado), `src/modules/payslip/__tests__/scanPayslip.test.ts` (8), `src/modules/payslip/__tests__/pendingReview.test.ts` (2), `confirmedExport.test.ts` (+1: frase da decisão 1a). `privacyFlagTexts.test.ts` passa sem mudança.
+
+**Verificação:** `npx vitest run` → 82 arquivos / 1646 testes, todos passando (baseline 78 / 1597). `npx tsc --noEmit` → 0 erros. `npx expo export --platform web` → ok. Os `grep` da seção Verification voltam vazios. Playwright (Chromium headless, 412×900) no build web exportado: com uma conta corrente criada, a revisão manual mostrou o botão Salvar desabilitado vazio, os erros de competência (`14/2026`), líquido > bruto e CNPJ inválido; `13/2026` ligou a chave 13º; salvou com receita (lista "09/2026 · R$ 4.000,00", saldo R$ 5.000,00, lançamento "Salário (09/2026) — ACME LTDA"); a segunda gravação da mesma vaga ("acme ltda.") começou com a receita desligada, pediu "Substituir holerite?" com o aviso da receita mantida, Cancelar não salvou e Substituir trocou o holerite (lista com só R$ 4.100,00); sem erro de página.
+
+**Decisões além da spec:**
+
+- `packages/domain/src/payslipReview.ts` importa as funções puras de `packages/parsers/src/payslipParser.ts` (`normalizeCnpj`, `normalizePayslipPeriod`, `parseBRL`): primeira dependência `domain → parsers`, só do arquivo sem dependências; a validação precisa ler o texto digitado.
+- O teste de replay com Quarentena ficou em `src/context/__tests__/replay.payslipReview.test.ts`, não no teste do domínio, para `packages/` não importar `src/`.
+- A chave de receita segue o padrão (`defaultLaunchIncome`) até o usuário mexer nela; o padrão é recalculado enquanto se edita, então digitar uma vaga que já lançou receita desliga a chave sozinha (decisão 2a vale também para a revisão manual).
+- Erros aparecem no campo já preenchido pela leitura ou depois que o usuário mexe nele (a revisão manual não abre cheia de erros); a falta de empresa/CNPJ aparece na empresa assim que um dos dois é mexido.
+- O CNPJ digitado usa o `normalizeCnpj` do parser (só numérico, com dígito verificador); CNPJ alfanumérico é recusado na revisão.
+- Bruto vazio ou 0 também bloqueia o salvar ("Informe o salário bruto."), como consequência de líquido > 0 e ≤ bruto.
+- Descrição da receita: "Salário (MM/AAAA) — Empresa" / "13º salário (AAAA) — Empresa". Data da receita padrão: hoje, no fuso do aparelho.
+- No chat, "Escanear holerite" abre a escolha câmera/galeria sem exigir provedor com visão (a ação já só aparece com a flag e provedor com visão); o banner mostra "Lendo o holerite…".
+- Falha ao abrir a câmera/galeria também mostra `appAlert` com "Preencher à mão".
+
+**O dono precisa testar no aparelho (APK de pré-release, Android 16):**
+
+- [ ] Câmera com o OCR por Visão ligado: lê pela IA (selo "Lido pela IA") e o uso de tokens sobe.
+- [ ] Com a flag desligada (ou sem chave): lê no aparelho (selo "Lido no aparelho"), sem uso de tokens.
+- [ ] Chave de API errada: aviso "A leitura pela IA falhou; lido no aparelho."
+- [ ] Negar a permissão da câmera: alerta do app com "Preencher à mão".
+- [ ] Foto sem holerite: revisão com "Não encontramos valores na imagem. Confira ou preencha à mão."
+- [ ] Teclado: foco no líquido e no CNPJ; o campo e o botão Salvar ficam visíveis (checklist da Story 13.7).
+- [ ] Chat da IA → "Escanear holerite": abre a revisão em Holerites; nenhuma mensagem com valores no chat.
+- [ ] Salvar com receita: lançamento "Salário (MM/AAAA)" na conta escolhida; substituir a mesma competência não duplica a receita (chave começa desligada).
+- [ ] 13º (`13/AAAA`): fica ao lado do mensal de dezembro, sem pedir substituição.
+

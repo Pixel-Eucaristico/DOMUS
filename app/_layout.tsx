@@ -317,6 +317,10 @@ function RootLayoutNav() {
         options={{ headerShown: false }}
       />
       <Stack.Screen
+        name="payslips"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="ocr-settings"
         options={{ headerShown: false }}
       />

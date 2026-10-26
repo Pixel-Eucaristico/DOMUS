@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { runIfConfirmed } from "../confirmedExport";
+import { runIfConfirmed, PLAIN_EXPORT_WARNING } from "../confirmedExport";
 
 describe("runIfConfirmed", () => {
   it("sem confirmação, nada é exportado", async () => {
@@ -16,5 +16,11 @@ describe("runIfConfirmed", () => {
 
   it("erro da exportação chega a quem chamou", async () => {
     await expect(runIfConfirmed(async () => true, () => Promise.reject(new Error("falhou")))).rejects.toThrow("falhou");
+  });
+});
+
+describe("PLAIN_EXPORT_WARNING", () => {
+  it("cita o salário e o empregador dos holerites (Story 11.5, decisão 1a)", () => {
+    expect(PLAIN_EXPORT_WARNING.message).toContain("inclusive o salário e o empregador dos holerites");
   });
 });
