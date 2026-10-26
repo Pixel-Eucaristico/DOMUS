@@ -2,10 +2,13 @@ import type {
   PayslipPayload,
   PayslipLinePayload,
   PayslipSource,
+  PayslipKind,
   PayslipRecordedEvent,
   PayslipDeletedEvent,
 } from "../../events/src/types";
-import { EVENT_TYPES } from "../../events/src/types";
+import { EVENT_TYPES, PAYSLIP_SOURCES, PAYSLIP_KINDS } from "../../events/src/types";
+
+export { PAYSLIP_SOURCES, PAYSLIP_KINDS };
 import { createEvent, generateId } from "../../events/src/factory";
 
 /**
@@ -30,6 +33,11 @@ export interface RecordPayslipParams {
   earnings?: readonly PayslipLinePayload[];
   fgts?: number;
   source?: PayslipSource;
+  /**
+   * `"thirteenth"` para o holerite do 13º salário (o parser marca
+   * `thirteenth: true`); ausente ou `"monthly"` = mensal.
+   */
+  kind?: PayslipKind;
   transactionId?: string;
 }
 
@@ -40,8 +48,25 @@ function roundMoney(value: number, field: string): number {
   return Math.round(value * 100) / 100;
 }
 
-function lines(list: readonly PayslipLinePayload[], field: string): PayslipLinePayload[] {
-  return list.map((l, i) => ({ name: l.name, value: roundMoney(l.value, `${field}[${i}].value`) }));
+function fail(message: string): never {
+  throw new Error(`Holerite: ${message}`);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+/**
+ * Linhas `{name, value}`: `name` texto (aparado), `value` finito arredondado.
+ * Toda saída passa no `PAYLOAD_SPECS` do replay (revisão R2).
+ */
+function lines(list: unknown, field: string): PayslipLinePayload[] {
+  if (!Array.isArray(list)) fail(`${field} precisa ser uma lista`);
+  return list.map((l: unknown, i: number) => {
+    const line = (typeof l === "object" && l !== null ? l : {}) as Partial<PayslipLinePayload>;
+    if (typeof line.name !== "string") fail(`${field}[${i}].name precisa ser texto`);
+    return { name: line.name.trim(), value: roundMoney(line.value as number, `${field}[${i}].value`) };
+  });
 }
 
 export function recordPayslipEvent(
@@ -49,7 +74,17 @@ export function recordPayslipEvent(
   deviceId: string = "local",
 ): PayslipRecordedEvent {
   if (typeof params.period !== "string" || !PAYSLIP_PERIOD_PATTERN.test(params.period)) {
-    throw new Error("Holerite: competência inválida (use AAAA-MM)");
+    fail("competência inválida (use AAAA-MM)");
+  }
+  if (typeof params.company !== "string") fail("empresa precisa ser texto");
+  if (params.id !== undefined && !isNonEmptyString(params.id)) fail("id vazio");
+  if (params.cnpj !== undefined && params.cnpj !== null && typeof params.cnpj !== "string") {
+    fail("CNPJ precisa ser texto");
+  }
+  if (params.source !== undefined && !PAYSLIP_SOURCES.includes(params.source)) fail("origem desconhecida");
+  if (params.kind !== undefined && !PAYSLIP_KINDS.includes(params.kind)) fail("tipo desconhecido");
+  if (params.transactionId !== undefined && !isNonEmptyString(params.transactionId)) {
+    fail("transactionId vazio");
   }
   const payload: PayslipPayload = {
     id: params.id ?? generateId(),
@@ -64,10 +99,13 @@ export function recordPayslipEvent(
   if (params.earnings !== undefined) payload.earnings = lines(params.earnings, "earnings");
   if (params.fgts !== undefined) payload.fgts = roundMoney(params.fgts, "fgts");
   if (params.source !== undefined) payload.source = params.source;
+  // Mensal é o padrão: só o 13º leva `kind` no payload (ausente = mensal).
+  if (params.kind === "thirteenth") payload.kind = "thirteenth";
   if (params.transactionId !== undefined) payload.transactionId = params.transactionId;
   return createEvent<PayslipRecordedEvent>(EVENT_TYPES.PAYSLIP_RECORDED, payload, deviceId);
 }
 
 export function deletePayslipEvent(id: string, deviceId: string = "local"): PayslipDeletedEvent {
+  if (!isNonEmptyString(id)) fail("id vazio");
   return createEvent<PayslipDeletedEvent>(EVENT_TYPES.PAYSLIP_DELETED, { id }, deviceId);
 }

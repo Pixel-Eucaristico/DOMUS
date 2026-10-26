@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from "vitest";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { subscriptionSince } from "../syncPayload";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import path from "node:path";
 
 // Pool Nostr falso: guarda o que é publicado e devolve `relayEvents` no pull.
 const published: any[] = [];
@@ -326,5 +328,42 @@ describe("Story 11.4: PAYSLIP_* fora do Grupo antigo", () => {
       relayEvent("live-114", encrypt(JSON.stringify([payslip("rec-live"), valid({ id: "L2" })]), keys.encryptionKey)),
     );
     await vi.waitFor(() => expect(got).toEqual(["L2"]));
+  });
+});
+
+describe("revisão 11.4 — R12: publicador único do Grupo antigo", () => {
+  const root = path.resolve(__dirname, "../../..");
+  const nostrSyncPath = path.resolve(__dirname, "../nostrSync.ts");
+
+  function sourceFiles(dir: string, out: string[] = []): string[] {
+    for (const name of readdirSync(dir)) {
+      if (name === "node_modules" || name === "__tests__") continue;
+      const full = path.join(dir, name);
+      if (statSync(full).isDirectory()) sourceFiles(full, out);
+      else if (/\.(ts|tsx)$/.test(name)) out.push(full);
+    }
+    return out;
+  }
+
+  it("finalizeEvent( e .publish( só aparecem dentro de publishSyncEvents", () => {
+    const src = readFileSync(nostrSyncPath, "utf8");
+    const start = src.indexOf("export async function publishSyncEvents(");
+    expect(start).toBeGreaterThan(-1);
+    const end = src.indexOf("\n}\n", start);
+    expect(end).toBeGreaterThan(start);
+    for (const re of [/finalizeEvent\(/g, /\.publish\(/g]) {
+      const at = [...src.matchAll(re)].map((m) => m.index!);
+      expect(at.length, String(re)).toBeGreaterThan(0);
+      for (const i of at) expect(i > start && i < end, `${re} fora de publishSyncEvents`).toBe(true);
+    }
+  });
+
+  it("nenhum outro arquivo de src/ ou app/ assina ou publica eventos Nostr", () => {
+    const offenders = ["src", "app"]
+      .flatMap((d) => sourceFiles(path.join(root, d)))
+      .filter((f) => path.resolve(f) !== nostrSyncPath)
+      .filter((f) => /finalizeEvent|\.publish\(|new SimplePool/.test(readFileSync(f, "utf8")))
+      .map((f) => path.relative(root, f));
+    expect(offenders).toEqual([]);
   });
 });

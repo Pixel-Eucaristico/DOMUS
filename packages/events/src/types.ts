@@ -152,6 +152,14 @@ export interface PayslipLinePayload {
 
 /** Origem da leitura do holerite. */
 export type PayslipSource = "vision" | "ocr" | "manual";
+export const PAYSLIP_SOURCES: readonly PayslipSource[] = ["vision", "ocr", "manual"];
+
+/**
+ * Tipo do holerite (revisão 11.4, R1): o 13º salário tem competência de
+ * dezembro e não substitui o holerite mensal de dezembro. Ausente = `monthly`.
+ */
+export type PayslipKind = "monthly" | "thirteenth";
+export const PAYSLIP_KINDS: readonly PayslipKind[] = ["monthly", "thirteenth"];
 
 /**
  * Story 11.4: holerite registrado (v1, nasce versionado — ver `SCHEMA_REGISTRY`).
@@ -172,6 +180,8 @@ export interface PayslipPayload {
   earnings?: PayslipLinePayload[];
   fgts?: number;
   source?: PayslipSource;
+  /** Ausente = `monthly` (eventos gravados antes da revisão R1). */
+  kind?: PayslipKind;
   /** Receita lançada a partir deste holerite (Story 11.5). */
   transactionId?: string;
 }

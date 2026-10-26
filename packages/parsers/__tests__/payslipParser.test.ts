@@ -809,3 +809,14 @@ describe("desempenho", () => {
     expect(performance.now() - t).toBeLessThan(200);
   });
 });
+
+describe("revisão 11.4 — R1: flag thirteenth para o kind do holerite", () => {
+  it("texto e Vision com competência 13 marcam thirteenth: true; mês comum não tem a chave", () => {
+    expect(parsePayslipText("ACME LTDA\nCompetência: 13/2026\nValor Líquido 100,00").thirteenth).toBe(true);
+    expect(parsePayslipText("ACME LTDA\nCompetência: 13º Salário 2026\nValor Líquido 100,00").thirteenth).toBe(true);
+    expect(parsePayslipText("ACME LTDA\nCompetência: 12/2026\nValor Líquido 100,00")).not.toHaveProperty("thirteenth");
+    const base = { company: "ACME", grossSalary: 5000, netSalary: 4500, deductions: [] };
+    expect(normalizeVisionPayslip({ ...base, period: "13/2026" }).thirteenth).toBe(true);
+    expect(normalizeVisionPayslip({ ...base, period: "09/2026" })).not.toHaveProperty("thirteenth");
+  });
+});

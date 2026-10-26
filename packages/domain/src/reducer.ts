@@ -7,6 +7,7 @@ import type {
   TransactionDeletedEvent,
   PayslipPayload,
   PayslipLinePayload,
+  PayslipKind,
 } from "../../events/src/types";
 import { createInitialOutOfOrderState } from "./state";
 import type { AppState, OutOfOrderState, StoredPayslip } from "./state";
@@ -157,11 +158,12 @@ export function domainReducer(state: AppState, event: DomainEvent): AppState {
       // Decisão 2a (Story 11.4): excluído antes (inclusive por exclusão que chegou
       // antes do alvo) — continua excluído.
       if (state.outOfOrder && hasOwn(state.outOfOrder.deletedPayslips, payslip.id)) return state;
-      // Uma competência por empregador: sai todo holerite de outro id com a mesma
-      // competência e o mesmo empregador. Regravar o mesmo id atualiza o registro.
+      // Uma competência por empregador e tipo: sai todo holerite de outro id com a
+      // mesma competência, o mesmo tipo (mensal/13º, R1) e o mesmo empregador.
+      // Regravar o mesmo id atualiza o registro.
       // `Object.fromEntries` cria chaves próprias (um id "__proto__" não vira protótipo).
       const kept = Object.entries(state.payslips).filter(
-        ([id, p]) => id === payslip.id || !(p.period === payslip.period && sameEmployer(p, payslip)),
+        ([id, p]) => id === payslip.id || !samePayslipSlot(p, payslip),
       );
       return { ...state, payslips: Object.fromEntries([...kept, [payslip.id, payslip]]) };
     }
@@ -208,40 +210,76 @@ function toStoredPayslip(p: PayslipPayload, recordedAt: number): StoredPayslip {
   if (Array.isArray(p.earnings)) stored.earnings = copyLines(p.earnings);
   if (p.fgts !== undefined && p.fgts !== null) stored.fgts = p.fgts;
   if (p.source !== undefined && p.source !== null) stored.source = p.source;
+  if (p.kind !== undefined && p.kind !== null) stored.kind = p.kind;
   if (p.transactionId !== undefined && p.transactionId !== null) stored.transactionId = p.transactionId;
   return stored;
 }
 
-/** 14 dígitos do CNPJ, ou `null` se ausente/incompleto. */
-function cnpjDigits(cnpj: unknown): string | null {
+/**
+ * CNPJ normalizado: só `[0-9A-Z]` em maiúsculas, exatamente 14 caracteres
+ * (cobre o CNPJ alfanumérico da Receita, jul/2026). `null` se ausente/incompleto.
+ */
+function normalizeCnpj(cnpj: unknown): string | null {
   if (typeof cnpj !== "string") return null;
-  const digits = cnpj.replace(/\D/g, "");
-  return digits.length === 14 ? digits : null;
+  const chars = cnpj.toUpperCase().replace(/[^0-9A-Z]/g, "");
+  return chars.length === 14 ? chars : null;
 }
 
-/** Nome da empresa normalizado: pontas, minúsculas, sem acentos, espaços repetidos viram um. */
+/** Marcas combinantes (acentos) que sobram depois do NFKD. */
+const COMBINING_MARKS = /[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]/g;
+/** Caracteres invisíveis: largura zero, hífen suave, marcas de direção, BOM. */
+const INVISIBLE = /[\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2064\ufeff]/g;
+/** Pontuação ASCII e pontuação Unicode comum (aspas, travessões, reticências). */
+const PUNCTUATION = /[!-/:-@[-`{-~\u00a1-\u00bf\u00d7\u00f7\u2010-\u2027\u2030-\u205e\u3000-\u303f]/g;
+
+/**
+ * Nome da empresa normalizado: NFKD (letras largas viram comuns), sem acentos,
+ * sem caracteres invisíveis nem pontuação ("LTDA." = "LTDA"), minúsculas,
+ * espaços repetidos viram um e sem espaços nas pontas.
+ */
 export function normalizeCompany(company: unknown): string {
   if (typeof company !== "string") return "";
   return company
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFKD")
+    .replace(COMBINING_MARKS, "")
+    .replace(INVISIBLE, "")
+    .replace(PUNCTUATION, "")
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
 }
 
 /**
- * Mesmo empregador: se os dois têm CNPJ, compara os 14 dígitos; se algum não
- * tem, compara o nome normalizado. Pura (a tela da 11.5 usa a mesma regra).
+ * Mesmo empregador: se os dois têm CNPJ, compara os 14 caracteres normalizados;
+ * se algum não tem, compara o nome normalizado, e nome vazio nunca casa (R8).
+ * Pura (a tela da 11.5 usa a mesma regra).
  */
 export function sameEmployer(
   a: { cnpj?: string; company: string },
   b: { cnpj?: string; company: string },
 ): boolean {
-  const ca = cnpjDigits(a.cnpj);
-  const cb = cnpjDigits(b.cnpj);
+  const ca = normalizeCnpj(a.cnpj);
+  const cb = normalizeCnpj(b.cnpj);
   if (ca !== null && cb !== null) return ca === cb;
-  return normalizeCompany(a.company) === normalizeCompany(b.company);
+  const na = normalizeCompany(a.company);
+  if (na === "") return false;
+  return na === normalizeCompany(b.company);
+}
+
+/** Tipo do holerite; ausente (ou desconhecido) = `monthly` (R1). */
+export function payslipKindOf(p: { kind?: unknown }): PayslipKind {
+  return p.kind === "thirteenth" ? "thirteenth" : "monthly";
+}
+
+/**
+ * Mesma "vaga": mesma competência, mesmo tipo (mensal/13º) e mesmo empregador.
+ * É a chave de substituição do reducer; pura, para a confirmação da 11.5.
+ */
+export function samePayslipSlot(
+  a: { period: string; kind?: unknown; cnpj?: string; company: string },
+  b: { period: string; kind?: unknown; cnpj?: string; company: string },
+): boolean {
+  return a.period === b.period && payslipKindOf(a) === payslipKindOf(b) && sameEmployer(a, b);
 }
 
 function markPayslipDeleted(state: AppState, id: string): AppState {

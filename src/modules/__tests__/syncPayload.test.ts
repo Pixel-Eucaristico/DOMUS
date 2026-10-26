@@ -15,7 +15,10 @@ import {
   OLD_GROUP_EXCLUDED_PREFIXES,
   isOldGroupPublishable,
   partitionOldGroupEvents,
+  selectOldGroupPushEvents,
 } from "../syncPayload";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 const valid = (over: Record<string, unknown> = {}) => ({
   id: "evt-1",
@@ -130,7 +133,12 @@ describe("selectEventsToImport (laço do importEvents)", () => {
   });
 
   it("lote vazio", () => {
-    expect(selectEventsToImport([], new Set(), vi.fn())).toEqual({ toAppend: [], discarded: 0, duplicates: 0 });
+    expect(selectEventsToImport([], new Set(), vi.fn())).toEqual({
+      toAppend: [],
+      discarded: 0,
+      duplicates: 0,
+      excluded: 0,
+    });
   });
 });
 
@@ -277,5 +285,56 @@ describe("Story 11.4: isOldGroupPublishable / partitionOldGroupEvents", () => {
     expect(allowed.map((e) => e.id)).toEqual(["a", "b"]);
     expect(excluded.map((e) => e.id)).toEqual(["p", "d"]);
     expect(allowed[0]).toBe(events[0]);
+  });
+});
+
+describe("revisão 11.4 — R5: importEvents do sync não grava PAYSLIP_*", () => {
+  it("selectEventsToImport descarta PAYSLIP_* válidos, conta em excluded e avisa só com id/type", () => {
+    const warn = vi.fn();
+    const salary = { id: "p1", period: "2026-09", company: "ACME", grossSalary: 98765, netSalary: 87654, deductions: [] };
+    const events = [
+      valid({ id: "a" }),
+      valid({ id: "p", type: "PAYSLIP_RECORDED", payload: salary }),
+      valid({ id: "d", type: "PAYSLIP_DELETED", payload: { id: "p1" } }),
+      valid({ id: "b", type: "XP_GAINED", payload: { amount: 10 } }),
+    ];
+    const r = selectEventsToImport(events, new Set(), warn);
+    expect(r.toAppend.map((e) => e.id)).toEqual(["a", "b"]);
+    expect(r).toMatchObject({ discarded: 0, duplicates: 0, excluded: 2 });
+    const logged = warn.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("id=p type=PAYSLIP_RECORDED");
+    expect(logged).toContain("id=d type=PAYSLIP_DELETED");
+    expect(logged).not.toMatch(/98765|87654|ACME/);
+  });
+});
+
+describe("revisão 11.4 — R6: hash do push só do publicável no Grupo antigo", () => {
+  const log = [
+    valid({ id: "a", deviceId: "dev-a" }),
+    valid({ id: "x", deviceId: "dev-b" }),
+    valid({ id: "b", deviceId: "dev-a", type: "XP_GAINED" }),
+  ];
+
+  it("só eventos do aparelho e publicáveis; gravar/excluir holerite não muda a lista (nem o hash)", () => {
+    const before = selectOldGroupPushEvents(log, "dev-a");
+    expect(before.map((e) => e.id)).toEqual(["a", "b"]);
+    const withSlips = [
+      ...log,
+      valid({ id: "p", deviceId: "dev-a", type: "PAYSLIP_RECORDED" }),
+      valid({ id: "d", deviceId: "dev-a", type: "PAYSLIP_DELETED" }),
+    ];
+    // O hash (`computeEventHash`) é função só dos ids desta lista.
+    expect(selectOldGroupPushEvents(withSlips, "dev-a").map((e) => e.id)).toEqual(before.map((e) => e.id));
+  });
+
+  it("useSyncEngine monta o push e o hash com selectOldGroupPushEvents", () => {
+    const src = readFileSync(path.resolve(__dirname, "../../context/useSyncEngine.ts"), "utf8");
+    expect(src).toMatch(/selectOldGroupPushEvents\(allEventsRef\.current, did\)/);
+    expect(src).not.toMatch(/\.filter\(\(e\) => e\.deviceId === did\)/);
+    // As duas contas de hash partem de getMyEvents.
+    const hashes = src.match(/computeEventHash\((\w+)\)/g) ?? [];
+    expect(hashes.length).toBeGreaterThan(0);
+    for (const call of hashes) expect(call).toBe("computeEventHash(myEvents)");
+    expect(src.match(/const myEvents = getMyEvents\(/g)?.length).toBe(hashes.length);
   });
 });

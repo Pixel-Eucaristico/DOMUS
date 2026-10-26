@@ -2,7 +2,7 @@
 title: 'Story 11.4: registrar o holerite como evento local'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '03daf45'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -132,13 +132,30 @@ context:
 - Testes ajustados: `packages/events/__tests__/schemaVersion.test.ts` (registro real agora tem os dois `PAYSLIP_*`), `packages/domain/__tests__/outOfOrder.test.ts` (o `outOfOrder` exato ganha `deletedPayslips: {}`), `src/context/__tests__/replay.test.ts` (37 → 39 tipos conhecidos).
 - Testes novos: `packages/domain/__tests__/payslips.test.ts` (30: matriz pelo reducer, `sameEmployer`, criadores), `src/context/__tests__/replay.payslip.test.ts` (13: roteamento, carimbo via `appendDispatched`, `schemaVersion`/`profileId`/`employee` fora do estado, `invalid_payload`, `future_schema_version`, `unknown_type` → aplicado, exclusão antes do alvo, ordem de chegada, saldo intacto, backup exporta/restaura), `src/modules/__tests__/syncPayload.test.ts` (+3: predicado), `src/modules/__tests__/nostrSync.test.ts` (+4: lote misto e só de holerites decifrando o publicado; pull e assinatura descartando `PAYSLIP_*`). Conferido por mutação: sem o filtro, os 4 testes de `nostrSync` falham.
 
-**Verificação:** `npx vitest run` → 78 arquivos / 1571 testes, todos passando (baseline 76 / 1519). `npx tsc --noEmit` → 0 erros. Nenhum `...payload` no caso `PAYSLIP_RECORDED`; `grep -rn "PAYSLIP_" src/modules/nostrSync.ts src/modules/syncPayload.ts` mostra o filtro.
+**Patches da revisão (26/10, Review Triage Log):**
+
+- R1: `PayslipKind = "monthly" | "thirteenth"` e `PAYSLIP_KINDS` em `packages/events/src/types.ts`; `kind?` opcional em `PayslipPayload` (v1, sem mudar a versão) e em `StoredPayslip`; `PAYLOAD_SPECS` com `kind` por enum. A chave de substituição virou `samePayslipSlot` (competência + tipo + empregador; ausente = `monthly`, via `payslipKindOf`), exportada pura para a 11.5. O criador recebe `kind` e só grava `kind: "thirteenth"` (mensal fica ausente). O parser já detectava o 13º internamente (`PeriodRead.thirteenth`, só usado no aviso); agora `PayslipParseResult` expõe `thirteenth: true` quando há competência de 13º (ausente nos demais). Nenhum outro comportamento do parser mudou.
+- R2/R11: o criador exige `company` texto, `deductions`/`earnings` lista, `name` texto (aparado) em cada linha, `cnpj` texto, `source`/`kind` conhecidos, `id`/`transactionId` não vazios, todos com `Error("Holerite: …")` nomeando o campo; `deletePayslipEvent` exige id não vazio. Teste de propriedade: toda saída do criador passa no `validatePayload` e no replay sem Quarentena, e entrada ruim lança `Error` (não `TypeError`).
+- R3: CNPJ normalizado para `[0-9A-Z]` em maiúsculas com 14 caracteres (alfanumérico da Receita).
+- R4: `FieldSpec` ganhou `nonEmpty`, `pattern` e `enum` (opcionais; specs existentes sem mudança de comportamento). `PAYSLIP_RECORDED`: `id` não vazio, `period` `AAAA-MM` (`PAYSLIP_PERIOD_PATTERN`), `source` e `kind` por enum; `PAYSLIP_DELETED`: `id` não vazio. Valores negativos aceitos.
+- R5: `selectEventsToImport` (laço puro do `importEvents` do sync) descarta `PAYSLIP_*` depois da validação do envelope, conta em `excluded` e avisa só com id/type. O restore de backup não passa por ele. A parte do `deviceId` segue adiada (D38).
+- R6: `selectOldGroupPushEvents(events, deviceId)` em `syncPayload.ts` (do aparelho e publicável no Grupo antigo); o `getMyEvents` do `useSyncEngine` usa essa função, então o hash do push e o push ignoram `PAYSLIP_*`.
+- R7: `normalizeCompany` usa NFKD (letras largas viram comuns), tira acentos, caracteres invisíveis (largura zero, hífen suave, marcas de direção, BOM) e pontuação (ASCII e Unicode comum), sem `\p{…}` (Hermes).
+- R8: nome normalizado vazio nunca casa, salvo quando os dois têm CNPJ igual.
+- R10: teste de timestamp empatado (desempate por `deviceId`), nas duas ordens de chegada.
+- R12: teste que `finalizeEvent(`/`.publish(` só aparecem dentro de `publishSyncEvents`, e que nenhum outro arquivo de `src/` ou `app/` assina ou publica eventos Nostr.
+- Testes: `payslips.test.ts` +15 (45), `replay.payslip.test.ts` +5 (18), `syncPayload.test.ts` +3 (o `toEqual` do lote vazio ganhou `excluded: 0`), `nostrSync.test.ts` +2, `payslipParser.test.ts` +1. Conferido por mutação: desfazendo cada patch (R1, R1 no parser, R2, R3, R4, R5, R6, R7, R8, R12), pelo menos um teste novo falha.
+- Decisões além da tabela: só `kind: "thirteenth"` vai para o payload (mensal = ausente, o mesmo que os eventos já gravados); a pontuação é removida sem virar espaço ("S/A" = "SA", mas "Acme-Corp" ≠ "Acme Corp"); `ImportSelection` ganhou o campo `excluded`.
+
+**Verificação após os patches:** `npx vitest run` → 78 arquivos / 1597 testes, todos passando. `npx tsc --noEmit` → 0 erros.
+
+**Verificação (commit 6606fcb):** `npx vitest run` → 78 arquivos / 1571 testes, todos passando (baseline 76 / 1519). `npx tsc --noEmit` → 0 erros. Nenhum `...payload` no caso `PAYSLIP_RECORDED`; `grep -rn "PAYSLIP_" src/modules/nostrSync.ts src/modules/syncPayload.ts` mostra o filtro.
 
 **Decisões além da spec:**
 
 - Decisão 2a seguindo a 3.7 à risca: **toda** exclusão deixa a marca (não só a que chega antes). Um `PAYSLIP_RECORDED` posterior com o mesmo id de um holerite excluído é ignorado; para "regravar" depois de excluir, a 11.5 precisa de id novo. Um holerite ignorado pela marca também não substitui outro do mesmo empregador.
-- CNPJ só conta como "tem CNPJ" com exatamente 14 dígitos; CNPJ incompleto (OCR ruim) cai na comparação por nome.
-- Pela regra literal, dois holerites sem CNPJ e com `company` vazia na mesma competência são do mesmo empregador (o último substitui). A 11.5 pode exigir nome ou CNPJ na tela, se quiser evitar.
+- CNPJ só conta como "tem CNPJ" com exatamente 14 caracteres (dígitos; `[0-9A-Z]` depois do R3); CNPJ incompleto (OCR ruim) cai na comparação por nome.
+- ~~Dois holerites sem CNPJ e com `company` vazia na mesma competência são do mesmo empregador~~: substituído pelo R8 (nome vazio nunca casa; os dois ficam).
 - O criador também lança erro para valor monetário não finito (`NaN`/`Infinity`), apara `company` e `cnpj` e omite CNPJ vazio; aceita `id` opcional (para regravar um holerite existente). Monta o payload campo a campo, então `employee`/`confidence`/`warnings` vindos do parser não entram.
 - O reducer monta o mapa com `Object.fromEntries` para um id `"__proto__"` não tocar o protótipo.
 - Os `PAYSLIP_*` descartados do Grupo antigo não entram na linha de total do pull ("N descartados de M"); têm o próprio aviso único por evento.
@@ -151,16 +168,16 @@ Revisão única com três lentes (adversarial, casos de borda, lacunas de verifi
 
 | # | Achado | Sev. | Decisão |
 |---|--------|------|---------|
-| R1 | Holerite do 13º vira `AAAA-12` e substitui o de dezembro do mesmo empregador | Med | **patch** (decisão do dono 26/10): campo opcional `kind: "monthly" \| "thirteenth"` (ausente = `monthly`) no payload v1, `PAYLOAD_SPECS`, `StoredPayslip` e na chave de substituição; o criador recebe `kind` |
-| R2 | Criador aceita linha sem `name` e gera evento que o replay põe em Quarentena; `company` ausente lança `TypeError` cru | Med | **patch**: criador exige `name` texto (trim) e `company` texto, com erro claro; teste que toda saída do criador passa no `validatePayload` e no replay sem Quarentena |
-| R3 | CNPJ alfanumérico (Receita, jul/2026) tratado como ausente | Low | **patch**: normalizar para `[0-9A-Z]` em maiúsculas, 14 caracteres |
-| R4 | Replay aceita `id: ""`, `period: "lixo"`, `source` desconhecido, salário negativo | Low | **patch**: `FieldSpec` ganha padrão/enum; `period` `AAAA-MM`, `source` e `kind` por enum, `id` não vazio; valores negativos aceitos (descontos/estornos) |
-| R5 | Filtro de entrada só no parse; `importEvents` do sync não filtra | Low | **patch**: filtrar também no `importEvents` do sync (não no restauro de backup). Ignorar `PAYSLIP_*` de outro aparelho já no log: **defer** (D38) |
-| R6 | Hash do `pushMyEvents` inclui `PAYSLIP_*` e republica tudo a cada holerite | Low | **patch**: hash só do que é publicável no Grupo antigo |
-| R7 | Normalização do nome não pega "LTDA." vs "LTDA", largura zero, letras largas | Low | **patch**: NFKD, remover caracteres de largura zero e pontuação |
-| R8 | Nome vazio conta como empregador | Low | **patch**: nome normalizado vazio nunca casa, salvo CNPJs iguais |
+| R1 | Holerite do 13º vira `AAAA-12` e substitui o de dezembro do mesmo empregador | Med | **patch** (decisão do dono 26/10): campo opcional `kind: "monthly" \| "thirteenth"` (ausente = `monthly`) no payload v1, `PAYLOAD_SPECS`, `StoredPayslip` e na chave de substituição; o criador recebe `kind`. **Aplicado** |
+| R2 | Criador aceita linha sem `name` e gera evento que o replay põe em Quarentena; `company` ausente lança `TypeError` cru | Med | **patch**: criador exige `name` texto (trim) e `company` texto, com erro claro; teste que toda saída do criador passa no `validatePayload` e no replay sem Quarentena. **Aplicado** |
+| R3 | CNPJ alfanumérico (Receita, jul/2026) tratado como ausente | Low | **patch**: normalizar para `[0-9A-Z]` em maiúsculas, 14 caracteres. **Aplicado** |
+| R4 | Replay aceita `id: ""`, `period: "lixo"`, `source` desconhecido, salário negativo | Low | **patch**: `FieldSpec` ganha padrão/enum; `period` `AAAA-MM`, `source` e `kind` por enum, `id` não vazio; valores negativos aceitos (descontos/estornos). **Aplicado** |
+| R5 | Filtro de entrada só no parse; `importEvents` do sync não filtra | Low | **patch**: filtrar também no `importEvents` do sync (não no restauro de backup). Ignorar `PAYSLIP_*` de outro aparelho já no log: **defer** (D38). **Aplicado** (só o filtro; D38 segue adiado) |
+| R6 | Hash do `pushMyEvents` inclui `PAYSLIP_*` e republica tudo a cada holerite | Low | **patch**: hash só do que é publicável no Grupo antigo. **Aplicado** |
+| R7 | Normalização do nome não pega "LTDA." vs "LTDA", largura zero, letras largas | Low | **patch**: NFKD, remover caracteres de largura zero e pontuação. **Aplicado** |
+| R8 | Nome vazio conta como empregador | Low | **patch**: nome normalizado vazio nunca casa, salvo CNPJs iguais. **Aplicado** |
 | R9 | Arredondamento `1.005 → 1`, `-0` | Low | **reject**: segue o `round2` do repositório |
-| R10 | Teste de ordem de chegada passa trivialmente | Low | **patch**: caso com timestamp empatado |
-| R11 | Testes do criador só checam forma | Low | **patch**: coberto pelo teste do R2 |
-| R12 | Nada garante publicador único | Low | **patch**: teste que `pool.publish`/`finalizeEvent` só aparecem dentro de `publishSyncEvents` |
+| R10 | Teste de ordem de chegada passa trivialmente | Low | **patch**: caso com timestamp empatado. **Aplicado** |
+| R11 | Testes do criador só checam forma | Low | **patch**: coberto pelo teste do R2. **Aplicado** |
+| R12 | Nada garante publicador único | Low | **patch**: teste que `pool.publish`/`finalizeEvent` só aparecem dentro de `publishSyncEvents`. **Aplicado** |
 | R13 | Modo demo sem teste para `PAYSLIP_*` | Low | **reject**: hook RN, não roda no vitest; caminho coberto por leitura na 3.8 |

@@ -212,4 +212,89 @@ describe("replayAllEvents — holerite (Story 11.4)", () => {
     expect(EVENT_TYPES.PAYSLIP_RECORDED).toBe("PAYSLIP_RECORDED");
     expect(EVENT_TYPES.PAYSLIP_DELETED).toBe("PAYSLIP_DELETED");
   });
+
+  // ─── Revisão da Story 11.4 (Review Triage Log) ─────────────────────────────
+
+  it("R2/R11: toda saída do criador passa no validatePayload e no replay sem Quarentena; entrada ruim lança Error claro", () => {
+    const base = { period: "2026-09", company: "ACME", grossSalary: 5000, netSalary: 4000, deductions: [] };
+    const inputs: unknown[] = [
+      base,
+      { ...base, company: "", cnpj: "  " },
+      { ...base, cnpj: "12.ABC.345/01DE-35", kind: "thirteenth", source: "manual", transactionId: "t1" },
+      { ...base, kind: "monthly", earnings: [{ name: " Salário ", value: 5000.001 }], fgts: 400 },
+      { ...base, grossSalary: -10, netSalary: -10, deductions: [{ name: "Estorno", value: -5 }] },
+      // Entradas ruins: o criador lança em vez de gerar evento que o replay recusaria.
+      { ...base, deductions: [{ value: 1 }] },
+      { ...base, earnings: [{ name: null, value: 1 }] },
+      { ...base, company: undefined },
+      { ...base, source: "pdf" },
+      { ...base, kind: "decimo" },
+      { ...base, id: "" },
+    ];
+    let created = 0;
+    let rejected = 0;
+    const log: SyncEvent[] = [];
+    for (const input of inputs) {
+      let e: SyncEvent;
+      try {
+        e = recordPayslipEvent(input as Parameters<typeof recordPayslipEvent>[0]) as unknown as SyncEvent;
+      } catch (err) {
+        expect(err).not.toBeInstanceOf(TypeError);
+        expect((err as Error).message).toMatch(/^Holerite: /);
+        rejected++;
+        continue;
+      }
+      created++;
+      expect(validatePayload("PAYSLIP_RECORDED", e.payload as Record<string, unknown>)).toBeNull();
+      log.push(appendDispatched(log, e, "dev-a").event);
+    }
+    expect([created, rejected]).toEqual([5, 6]);
+    const del = deletePayslipEvent("p-x") as unknown as SyncEvent;
+    expect(validatePayload("PAYSLIP_DELETED", del.payload as Record<string, unknown>)).toBeNull();
+    log.push(appendDispatched(log, del, "dev-a").event);
+    expect(replayAllEvents(log).quarantine).toEqual([]);
+  });
+
+  it("R4: id vazio, period fora de AAAA-MM, source e kind desconhecidos → Quarentena nomeando o campo", () => {
+    const cases: [string, Record<string, unknown>, string][] = [
+      ["id-vazio", slip({ id: "" }), "id"],
+      ["id-espacos", slip({ id: "   " }), "id"],
+      ["period-lixo", slip({ period: "lixo" }), "period"],
+      ["period-13", slip({ period: "2026-13" }), "period"],
+      ["source-x", slip({ source: "pdf" }), "source"],
+      ["kind-x", slip({ kind: "decimo" }), "kind"],
+    ];
+    const r = replayAllEvents(cases.map(([id, payload]) => ev("PAYSLIP_RECORDED", payload, id)));
+    expect(r.quarantine.map((q) => [q.id, q.kind])).toEqual(cases.map(([id]) => [id, "invalid_payload"]));
+    cases.forEach(([, , field], i) => expect(r.quarantine[i]!.reason).toContain(`"${field}"`));
+    expect(r.domain.payslips).toEqual({});
+    const d = replayAllEvents([ev("PAYSLIP_DELETED", { id: "", schemaVersion: 1 }, "del-vazio")]);
+    expect(d.quarantine.map((q) => [q.id, q.kind])).toEqual([["del-vazio", "invalid_payload"]]);
+  });
+
+  it("R4: valores negativos (descontos/estornos), kind válido e source conhecido são aceitos", () => {
+    const r = replayAllEvents([
+      ev("PAYSLIP_RECORDED", slip({ grossSalary: -1, netSalary: -2, deductions: [{ name: "Estorno", value: -3 }] }), "neg"),
+      ev("PAYSLIP_RECORDED", slip({ id: "p13", period: "2026-12", kind: "thirteenth", source: "manual" }), "k13"),
+      ev("PAYSLIP_RECORDED", slip({ id: "pm", period: "2026-11", kind: "monthly", source: "ocr" }), "km"),
+    ]);
+    expect(r.quarantine).toEqual([]);
+    expect(Object.keys(r.domain.payslips).sort()).toEqual(["p1", "p13", "pm"]);
+  });
+
+  it("R4: specs antigas mantêm o comportamento (texto vazio continua aceito onde já era)", () => {
+    expect(validatePayload("ACCOUNT_DELETED", { id: "" })).toBeNull();
+    expect(validatePayload("STREAK_UPDATED", { currentStreak: 1, longestStreak: 1, lastActiveDate: "" })).toBeNull();
+  });
+
+  it("R10: timestamp empatado — o desempate da ordem total decide, em qualquer ordem de chegada", () => {
+    const at = T0 + 999_000;
+    const fromA = { ...ev("PAYSLIP_RECORDED", slip({ id: "pa", netSalary: 1 }), "r-a", at), deviceId: "dev-a" };
+    const fromB = { ...ev("PAYSLIP_RECORDED", slip({ id: "pb", netSalary: 2 }), "r-b", at), deviceId: "dev-b" };
+    const one = replayAllEvents([fromA, fromB]);
+    const two = replayAllEvents([fromB, fromA]);
+    // (timestamp, deviceId, id): "dev-b" vem depois de "dev-a" e substitui.
+    expect(Object.keys(one.domain.payslips)).toEqual(["pb"]);
+    expect(stateOf(two)).toEqual(stateOf(one));
+  });
 });

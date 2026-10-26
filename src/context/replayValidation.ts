@@ -1,4 +1,6 @@
 import type { SyncEvent } from "@packages/storage/src/eventStore";
+import { PAYSLIP_KINDS, PAYSLIP_SOURCES } from "@packages/events/src/types";
+import { PAYSLIP_PERIOD_PATTERN } from "@packages/domain/src/payslips";
 
 /**
  * Conferências do replay local (Story 3.2) — puras, sem `react-native`.
@@ -72,6 +74,12 @@ export interface FieldSpec {
   fields?: Record<string, FieldSpec>;
   /** Campos de cada elemento (objeto) de um array. */
   each?: Record<string, FieldSpec>;
+  /** Texto: não pode ser vazio (nem só espaços). */
+  nonEmpty?: boolean;
+  /** Texto: precisa casar o padrão. */
+  pattern?: RegExp;
+  /** Valor precisa ser um destes. */
+  enum?: readonly unknown[];
 }
 
 const str: FieldSpec = { kind: "string" };
@@ -105,6 +113,8 @@ const ACCOUNT_OPTIONAL: Record<string, FieldSpec> = {
 
 /** Linha do holerite (rubrica ou desconto). */
 const PAYSLIP_LINE: Record<string, FieldSpec> = { name: str, value: num };
+/** Id de holerite: texto não vazio (revisão R4). */
+const PAYSLIP_ID: FieldSpec = { kind: "string", nonEmpty: true };
 
 /** Campos exigidos de um payload, por nome. */
 export type PayloadSpec = Record<string, FieldSpec>;
@@ -129,9 +139,11 @@ export const PAYLOAD_SPECS: Readonly<Record<string, PayloadSpec>> = {
   INVOICE_IMPORTED: { invoiceId: str, totalAmount: optNum, items: { kind: "array", optional: true } },
   INVOICE_CONFIRMED: { invoiceId: str },
   // Story 11.4: holerite (v1)
+  // Revisão R4: id não vazio, period AAAA-MM, source e kind por enum. Valores
+  // negativos são aceitos (descontos/estornos).
   PAYSLIP_RECORDED: {
-    id: str,
-    period: str,
+    id: PAYSLIP_ID,
+    period: { kind: "string", pattern: PAYSLIP_PERIOD_PATTERN },
     company: str,
     cnpj: optStr,
     grossSalary: num,
@@ -139,10 +151,11 @@ export const PAYLOAD_SPECS: Readonly<Record<string, PayloadSpec>> = {
     deductions: { kind: "array", each: PAYSLIP_LINE },
     earnings: { kind: "array", optional: true, each: PAYSLIP_LINE },
     fgts: optNum,
-    source: optStr,
+    source: { kind: "string", optional: true, enum: PAYSLIP_SOURCES },
+    kind: { kind: "string", optional: true, enum: PAYSLIP_KINDS },
     transactionId: optStr,
   },
-  PAYSLIP_DELETED: { id: str },
+  PAYSLIP_DELETED: { id: PAYSLIP_ID },
   // Gamificação
   XP_GAINED: { amount: num, source: optStr },
   LEVEL_UP: { newLevel: num },
@@ -216,6 +229,9 @@ function checkFields(obj: Record<string, unknown>, fields: Record<string, FieldS
     }
     const kinds = Array.isArray(spec.kind) ? spec.kind : [spec.kind];
     if (!kinds.some((k) => matchesKind(value, k))) return path;
+    if (spec.nonEmpty && typeof value === "string" && value.trim() === "") return path;
+    if (spec.pattern && typeof value === "string" && !spec.pattern.test(value)) return path;
+    if (spec.enum && !spec.enum.includes(value)) return path;
     if (spec.fields) {
       const bad = checkFields(value as Record<string, unknown>, spec.fields, path);
       if (bad) return bad;

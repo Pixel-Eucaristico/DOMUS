@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { domainReducer, sameEmployer, normalizeCompany } from "../src/reducer";
+import { domainReducer, sameEmployer, normalizeCompany, samePayslipSlot, payslipKindOf } from "../src/reducer";
 import { replayEvents } from "../src/replay";
 import { createInitialState } from "../src/state";
 import type { AppState } from "../src/state";
@@ -307,5 +307,136 @@ describe("criadores (recordPayslipEvent / deletePayslipEvent)", () => {
   it("criador + reducer: ponta a ponta", () => {
     const s = replayEvents([recordPayslipEvent(params({ id: "p1" }))]);
     expect(s.payslips["p1"]!.grossSalary).toBe(1234.57);
+  });
+});
+
+// ─── Revisão da Story 11.4 (Review Triage Log) ───────────────────────────────
+
+describe("revisão 11.4 — R1: 13º salário (kind)", () => {
+  it("13º de dezembro não substitui o mensal de dezembro do mesmo empregador", () => {
+    const s = run([
+      recorded(slip({ id: "dez", period: "2026-12" })),
+      recorded(slip({ id: "13o", period: "2026-12", kind: "thirteenth" })),
+    ]);
+    expect(Object.keys(s.payslips).sort()).toEqual(["13o", "dez"]);
+    expect(s.payslips["13o"]!.kind).toBe("thirteenth");
+    expect(s.payslips["dez"]).not.toHaveProperty("kind");
+  });
+
+  it("dois 13º da mesma competência e empregador: o último substitui", () => {
+    const s = run([
+      recorded(slip({ id: "a", period: "2026-12", kind: "thirteenth" })),
+      recorded(slip({ id: "b", period: "2026-12", kind: "thirteenth" })),
+    ]);
+    expect(Object.keys(s.payslips)).toEqual(["b"]);
+  });
+
+  it("kind ausente = monthly: substitui e é substituído por monthly explícito", () => {
+    const s = run([
+      recorded(slip({ id: "a" })),
+      recorded(slip({ id: "b", kind: "monthly" })),
+    ]);
+    expect(Object.keys(s.payslips)).toEqual(["b"]);
+    expect(payslipKindOf({})).toBe("monthly");
+    expect(samePayslipSlot({ period: "2026-12", company: "A" }, { period: "2026-12", company: "a", kind: "monthly" })).toBe(true);
+    expect(samePayslipSlot({ period: "2026-12", company: "A" }, { period: "2026-12", company: "a", kind: "thirteenth" })).toBe(false);
+  });
+
+  it("criador: kind thirteenth vai no payload; monthly/ausente não; kind desconhecido lança", () => {
+    const base = { period: "2026-12", company: "ACME", grossSalary: 1, netSalary: 1, deductions: [] };
+    expect(recordPayslipEvent({ ...base, kind: "thirteenth" }).payload.kind).toBe("thirteenth");
+    expect(recordPayslipEvent({ ...base, kind: "monthly" }).payload).not.toHaveProperty("kind");
+    expect(recordPayslipEvent(base).payload).not.toHaveProperty("kind");
+    expect(() => recordPayslipEvent({ ...base, kind: "x" as never })).toThrow(/tipo/);
+  });
+});
+
+describe("revisão 11.4 — R2: criador exige name e company texto", () => {
+  const base = (): RecordPayslipParams => ({
+    period: "2026-09",
+    company: "ACME",
+    grossSalary: 1,
+    netSalary: 1,
+    deductions: [{ name: " INSS ", value: 1 }],
+  });
+
+  it("linha sem name (ou name não texto) lança erro claro com o campo", () => {
+    expect(() => recordPayslipEvent({ ...base(), deductions: [{ value: 1 } as never] })).toThrow(
+      /Holerite: deductions\[0\]\.name/,
+    );
+    expect(() => recordPayslipEvent({ ...base(), earnings: [{ name: 5, value: 1 } as never] })).toThrow(
+      /Holerite: earnings\[0\]\.name/,
+    );
+  });
+
+  it("name é aparado", () => {
+    expect(recordPayslipEvent(base()).payload.deductions).toEqual([{ name: "INSS", value: 1 }]);
+  });
+
+  it("company ausente ou não texto: erro claro, não TypeError cru", () => {
+    for (const company of [undefined, null, 42]) {
+      expect(() => recordPayslipEvent({ ...base(), company: company as never })).toThrow(/Holerite: empresa/);
+    }
+  });
+
+  it("deductions não lista, cnpj não texto, source desconhecido, id/transactionId vazio: erro", () => {
+    expect(() => recordPayslipEvent({ ...base(), deductions: undefined as never })).toThrow(/Holerite/);
+    expect(() => recordPayslipEvent({ ...base(), cnpj: 123 as never })).toThrow(/Holerite: CNPJ/);
+    expect(() => recordPayslipEvent({ ...base(), source: "pdf" as never })).toThrow(/Holerite: origem/);
+    expect(() => recordPayslipEvent({ ...base(), id: " " })).toThrow(/Holerite: id/);
+    expect(() => recordPayslipEvent({ ...base(), transactionId: "" })).toThrow(/Holerite: transactionId/);
+    expect(() => deletePayslipEvent("")).toThrow(/Holerite: id/);
+  });
+});
+
+describe("revisão 11.4 — R3: CNPJ alfanumérico", () => {
+  it("mesmo CNPJ alfanumérico (pontuação/caixa diferentes) com nomes diferentes: mesmo empregador", () => {
+    expect(
+      sameEmployer({ cnpj: "12.ABC.345/01DE-35", company: "Acme" }, { cnpj: "12abc34501de35", company: "Outra" }),
+    ).toBe(true);
+  });
+
+  it("CNPJs alfanuméricos diferentes com o mesmo nome: empregadores diferentes", () => {
+    expect(
+      sameEmployer({ cnpj: "12.ABC.345/01DE-35", company: "Acme" }, { cnpj: "12.ABC.345/01DF-35", company: "Acme" }),
+    ).toBe(false);
+  });
+
+  it("reducer: substitui pelo CNPJ alfanumérico", () => {
+    const s = run([
+      recorded(slip({ id: "a", cnpj: "12.ABC.345/01DE-35", company: "Acme" })),
+      recorded(slip({ id: "b", cnpj: "12ABC34501DE35", company: "Acme Matriz" })),
+    ]);
+    expect(Object.keys(s.payslips)).toEqual(["b"]);
+  });
+});
+
+describe("revisão 11.4 — R7: normalização do nome", () => {
+  it("'LTDA.' = 'LTDA', largura zero, letras largas e pontuação", () => {
+    expect(normalizeCompany("ACME LTDA.")).toBe(normalizeCompany("Acme Ltda"));
+    expect(normalizeCompany("AC​ME﻿ LTDA")).toBe("acme ltda");
+    expect(normalizeCompany("ＡＣＭＥ　ＬＴＤＡ")).toBe("acme ltda");
+    expect(normalizeCompany("Ação & Cia. S/A")).toBe("acao cia sa");
+    expect(sameEmployer({ company: "Acme S.A." }, { company: "ACME SA" })).toBe(true);
+  });
+});
+
+describe("revisão 11.4 — R8: nome vazio não é empregador", () => {
+  it("nomes vazios (ou só pontuação) sem CNPJ nunca casam", () => {
+    expect(sameEmployer({ company: "" }, { company: "  " })).toBe(false);
+    expect(sameEmployer({ company: "..." }, { company: "" })).toBe(false);
+    expect(sameEmployer({ cnpj: CNPJ_X, company: "" }, { company: "" })).toBe(false);
+  });
+
+  it("nomes vazios com CNPJs iguais casam", () => {
+    expect(sameEmployer({ cnpj: CNPJ_X, company: "" }, { cnpj: "12345678000190", company: "" })).toBe(true);
+  });
+
+  it("reducer: dois holerites sem CNPJ e sem nome na mesma competência ficam os dois", () => {
+    const s = run([
+      recorded(slip({ id: "a", cnpj: undefined, company: "" })),
+      recorded(slip({ id: "b", cnpj: undefined, company: "" })),
+    ]);
+    expect(Object.keys(s.payslips).sort()).toEqual(["a", "b"]);
   });
 });

@@ -5,6 +5,7 @@ import type {
   InvoiceImportedPayload,
   PayslipLinePayload,
   PayslipSource,
+  PayslipKind,
   AccountUpdatedEvent,
   AccountDeletedEvent,
   TransactionUpdatedEvent,
@@ -52,6 +53,8 @@ export interface StoredPayslip {
   earnings?: PayslipLinePayload[];
   fgts?: number;
   source?: PayslipSource;
+  /** Ausente = `monthly`. */
+  kind?: PayslipKind;
   transactionId?: string;
   /** `timestamp` do evento que gravou esta versão. */
   recordedAt: number;

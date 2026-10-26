@@ -13,6 +13,7 @@ import {
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { SubCloser } from "nostr-tools/pool";
 import { createSyncCoordinator } from "@/src/modules/syncCoordinator";
+import { selectOldGroupPushEvents } from "@/src/modules/syncPayload";
 import {
   LAST_SYNC_KEY,
   LAST_PUSH_HASH_KEY,
@@ -135,9 +136,11 @@ export function useSyncEngine({
 
   // --- Core sync operations ---
 
+  // Revisão R6 (Story 11.4): só o que o Grupo antigo publica entra no hash e no
+  // push; um holerite novo não muda o hash nem republica o log inteiro.
   const getMyEvents = useCallback(
     (did: string): SyncEvent[] => {
-      return allEventsRef.current.filter((e) => e.deviceId === did);
+      return selectOldGroupPushEvents(allEventsRef.current, did);
     },
     [],
   );

@@ -26,6 +26,12 @@ export interface PayslipParseResult {
   cnpj?: string;
   /** Competência no formato YYYY-MM (null se não identificada) */
   period: string | null;
+  /**
+   * `true` quando a competência é do 13º salário ("13/2026", "13º Salário 2026"):
+   * `period` vira dezembro e a 11.5 grava o holerite com `kind: "thirteenth"`.
+   * Ausente nos demais.
+   */
+  thirteenth?: true;
   grossSalary: number;
   netSalary: number;
   /** Proventos (rubricas de vencimento) */
@@ -723,6 +729,7 @@ function finalize(x: Extracted): PayslipParseResult {
     company: x.company,
     ...(x.cnpj ? { cnpj: x.cnpj } : {}),
     period,
+    ...(period && x.period?.thirteenth ? { thirteenth: true as const } : {}),
     grossSalary,
     netSalary,
     earnings: x.earnings,

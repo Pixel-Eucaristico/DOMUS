@@ -1,7 +1,7 @@
 export type { AppState, OutOfOrderState, StoredPayslip } from "./src/state";
 export { createInitialState, createInitialOutOfOrderState } from "./src/state";
 
-export { domainReducer, sameEmployer, normalizeCompany } from "./src/reducer";
+export { domainReducer, sameEmployer, normalizeCompany, samePayslipSlot, payslipKindOf } from "./src/reducer";
 
 export { replayEvents, replayEventsSince } from "./src/replay";
 
@@ -23,5 +23,5 @@ export {
 } from "./src/transactions";
 export type { CreateTransactionParams, BudgetBreakdown } from "./src/transactions";
 
-export { recordPayslipEvent, deletePayslipEvent, PAYSLIP_PERIOD_PATTERN } from "./src/payslips";
+export { recordPayslipEvent, deletePayslipEvent, PAYSLIP_PERIOD_PATTERN, PAYSLIP_SOURCES, PAYSLIP_KINDS } from "./src/payslips";
 export type { RecordPayslipParams } from "./src/payslips";

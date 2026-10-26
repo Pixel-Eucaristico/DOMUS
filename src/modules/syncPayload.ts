@@ -78,6 +78,18 @@ export function partitionOldGroupEvents<T extends { type?: unknown }>(
   return { allowed, excluded };
 }
 
+/**
+ * Eventos deste aparelho que o push do Grupo antigo publica (revisão R6): os
+ * do `deviceId` e publicáveis. O hash do `pushMyEvents` é calculado sobre esta
+ * lista, então gravar ou excluir um holerite não muda o hash nem republica tudo.
+ */
+export function selectOldGroupPushEvents<T extends { deviceId?: unknown; type?: unknown }>(
+  events: readonly T[],
+  deviceId: string,
+): T[] {
+  return events.filter((e) => e.deviceId === deviceId && isOldGroupPublishable(e.type));
+}
+
 export interface ImportSelection {
   /** Eventos a gravar, na ordem recebida, já validados e sem repetidos. */
   toAppend: SyncEvent[];
@@ -85,6 +97,8 @@ export interface ImportSelection {
   discarded: number;
   /** Válidos ignorados por já existirem (no log local ou antes no mesmo lote). */
   duplicates: number;
+  /** Válidos de tipo fora do Grupo antigo (`PAYSLIP_*`), não gravados (revisão R5). */
+  excluded: number;
 }
 
 /**
@@ -96,7 +110,14 @@ export function selectEventsToImport(
   existingIds: ReadonlySet<string>,
   warn: (message: string) => void = (m) => console.warn(m),
 ): ImportSelection {
-  const { valid, discarded } = filterImportableEvents(events, warn);
+  const { valid: envelopes, discarded } = filterImportableEvents(events, warn);
+  // Revisão R5: o `importEvents` só serve ao sync do Grupo antigo; `PAYSLIP_*`
+  // não entra por ele, mesmo que escape do filtro do pull/assinatura. O restore
+  // de backup não passa por aqui. Só id/type no aviso, nunca o payload.
+  const { allowed: valid, excluded } = partitionOldGroupEvents(envelopes);
+  for (const e of excluded) {
+    warn(`[EventStore] Evento ignorado na importação (não aceito no Grupo antigo): id=${e.id} type=${e.type}`);
+  }
   const seen = new Set(existingIds);
   const toAppend: SyncEvent[] = [];
   let duplicates = 0;
@@ -108,7 +129,7 @@ export function selectEventsToImport(
     seen.add(evt.id);
     toAppend.push(evt);
   }
-  return { toAppend, discarded, duplicates };
+  return { toAppend, discarded, duplicates, excluded: excluded.length };
 }
 
 /**
