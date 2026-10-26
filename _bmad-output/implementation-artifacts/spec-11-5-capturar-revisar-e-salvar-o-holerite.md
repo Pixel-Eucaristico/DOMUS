@@ -2,7 +2,7 @@
 title: 'Story 11.5: capturar, revisar e salvar o holerite'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '447f7c9'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -131,7 +131,7 @@ context:
 
 **O que mudou (26/10, decisões 1a, 2a e 3a):**
 
-- `packages/domain/src/payslipReview.ts` (novo, puro, exportado em `packages/domain/index.ts`): `PayslipDraft` (texto dos campos), `emptyPayslipDraft`, `draftFromParse`, `periodToInput`, `isThirteenthPeriodInput`, `validatePayslipDraft` (erros por campo em `PAYSLIP_DRAFT_ERRORS`), `findPayslipInSlot` (sobre `samePayslipSlot`), `defaultLaunchIncome` (decisão 2a), `replacePayslipMessage`, `formatPayslipPeriodLabel`, `payslipIncomeDescription`, `buildPayslipSaveEvents` (sempre id novo; `[PAYSLIP_RECORDED, TRANSACTION_CREATED?]`, com `transactionId` = id da receita).
+- `packages/domain/src/payslipReview.ts` (novo, puro, exportado em `packages/domain/index.ts`; depois do R4, o rascunho e a validação estão em `src/modules/payslip/reviewDraft.ts`, ver os patches abaixo): `PayslipDraft` (texto dos campos), `emptyPayslipDraft`, `draftFromParse`, `periodToInput`, `isThirteenthPeriodInput`, `validatePayslipDraft` (erros por campo em `PAYSLIP_DRAFT_ERRORS`), `findPayslipInSlot` (sobre `samePayslipSlot`), `defaultLaunchIncome` (decisão 2a), `replacePayslipMessage`, `formatPayslipPeriodLabel`, `payslipIncomeDescription`, `buildPayslipSaveEvents` (sempre id novo; `[PAYSLIP_RECORDED, TRANSACTION_CREATED?]`, com `transactionId` = id da receita).
 - `src/modules/payslip/scanPayslip.ts` (novo, puro, deps injetadas): `isVisionEligible` (IA + flag `visionOCREnabled` + provedor com visão + chave + orçamento), `scanPayslip` (Vision → `normalizeVisionPayslip`; falha ou não elegível → OCR do aparelho + `parsePayslipText`; avisos de queda e de valores não encontrados; tokens só quando o Vision respondeu), `EMPTY_PAYSLIP_PARSE`.
 - `src/modules/payslip/pendingReview.ts` (novo): `setPendingPayslipReview`/`takePendingPayslipReview`, em memória, lido uma vez.
 - `src/hooks/usePayslipScanner.ts` (novo): checa elegibilidade antes de abrir a imagem (base64 só quando o Vision vai ser tentado), permissão da câmera, `expo-image-picker`, `VisionOCRService`, `TokenTracker`, `SecureKeyService`, `OCRConfigService` + `createHybridOCRAdapter` (mesma configuração do `useInvoiceScanner`). Falhas: `appAlert` com "Preencher à mão".
@@ -148,15 +148,33 @@ context:
 
 **Decisões além da spec:**
 
-- `packages/domain/src/payslipReview.ts` importa as funções puras de `packages/parsers/src/payslipParser.ts` (`normalizeCnpj`, `normalizePayslipPeriod`, `parseBRL`): primeira dependência `domain → parsers`, só do arquivo sem dependências; a validação precisa ler o texto digitado.
+- ~~`packages/domain/src/payslipReview.ts` importa as funções puras de `packages/parsers`~~ (desfeito pelo R4: a leitura do texto digitado foi para `src/modules/payslip/reviewDraft.ts`; `packages/domain` não importa `packages/parsers`).
 - O teste de replay com Quarentena ficou em `src/context/__tests__/replay.payslipReview.test.ts`, não no teste do domínio, para `packages/` não importar `src/`.
 - A chave de receita segue o padrão (`defaultLaunchIncome`) até o usuário mexer nela; o padrão é recalculado enquanto se edita, então digitar uma vaga que já lançou receita desliga a chave sozinha (decisão 2a vale também para a revisão manual).
 - Erros aparecem no campo já preenchido pela leitura ou depois que o usuário mexe nele (a revisão manual não abre cheia de erros); a falta de empresa/CNPJ aparece na empresa assim que um dos dois é mexido.
-- O CNPJ digitado usa o `normalizeCnpj` do parser (só numérico, com dígito verificador); CNPJ alfanumérico é recusado na revisão.
+- O CNPJ digitado usa o `normalizeCnpj` do parser, que desde o R8 aceita o numérico e o alfanumérico (dígito verificador sobre ASCII − 48).
 - Bruto vazio ou 0 também bloqueia o salvar ("Informe o salário bruto."), como consequência de líquido > 0 e ≤ bruto.
-- Descrição da receita: "Salário (MM/AAAA) — Empresa" / "13º salário (AAAA) — Empresa". Data da receita padrão: hoje, no fuso do aparelho.
+- Descrição da receita: "Salário (MM/AAAA)" / "13º salário (AAAA)", sem a empresa (R2). Data da receita padrão: hoje, no fuso do aparelho.
 - No chat, "Escanear holerite" abre a escolha câmera/galeria sem exigir provedor com visão (a ação já só aparece com a flag e provedor com visão); o banner mostra "Lendo o holerite…".
 - Falha ao abrir a câmera/galeria também mostra `appAlert` com "Preencher à mão".
+
+**Patches da revisão (26/10, Review Triage Log R1–R13 e N1):**
+
+- **R1/R12:** `usePayslipScanner` não usa mais `useAISettings`. A cada scan, `resolveVisionFromStore` (puro, em `scanPayslip.ts`) lê o JSON das configurações da IA do `SecureStorageService` (`parseStoredAISettings`) e `resolveVisionEligibility(settings, deps)` consulta chave e orçamento do provedor desse momento. Testes: troca de provedor entre dois scans, provedor sem visão, flag/IA desligada depois da montagem, sem chave, orçamento, erro de leitura.
+- **R2:** `payslipIncomeDescription` sem a empresa. Teste do `buildFinancialContext` depois de uma receita de holerite (`src/modules/payslip/__tests__/payslipIncomeContext.test.ts`): "Salário (09/2026)" sem nome nem CNPJ.
+- **R3:** `findPayslipsInSlot` devolve todos os holerites da vaga; a confirmação lista todos ("Substituir holerites?", "Já existem N holerites nesta vaga… Todos serão substituídos"); a receita começa desligada se qualquer um tiver `transactionId`. Teste com dois CNPJs do mesmo nome e replay mostrando que o reducer substitui os dois.
+- **R4:** `src/modules/payslip/reviewDraft.ts` (novo) recebeu `PayslipDraft`, `emptyPayslipDraft`, `draftFromParse`, `periodToInput`, `isThirteenthPeriodInput`, `validatePayslipDraft` e `PAYSLIP_DRAFT_ERRORS`. `packages/domain/src/payslipReview.ts` ficou com a busca da vaga, os textos e a montagem dos eventos, sem importar `packages/parsers` (teste lê `packages/domain/src` e falha se algum arquivo importar o parser).
+- **R5:** `createSingleFlight` (`src/modules/payslip/singleFlight.ts`), guardado num `useRef` em `app/payslips.tsx`: o segundo toque em Salvar, com o primeiro em andamento, é ignorado.
+- **R6:** `pendingReview` vence em 2 minutos (`PENDING_PAYSLIP_TTL_MS`): `take` recusa o vencido e um temporizador limpa a memória mesmo sem leitura.
+- **R7:** o botão Salvar fica pressionável (só desabilita salvando); com erro, `decidePayslipSubmit` marca todos os campos e a tela mostra todos os erros, inclusive "Informe a empresa ou o CNPJ." em campo não tocado, mais "Confira os campos destacados." acima dos botões. Estado da revisão (`initialTouched`, `visibleDraftErrors`, `updateDraftField`, `toggleDraftThirteenth`) no módulo puro, testado.
+- **R8:** `isValidCnpj` do parser aceita 12 caracteres `[0-9A-Z]` + 2 dígitos, valor de cada caractere = ASCII − 48, pesos e módulo 11 de sempre (exemplo oficial `12.ABC.345/01DE-35`). `normalizeCnpj` põe em maiúsculas e ignora a pontuação, como o `normalizeCnpj` do reducer (sem mudança no reducer); texto com rótulo ("CNPJ: 11.222…") cai para só os dígitos, então o numérico continua igual. A busca de CNPJ no texto do OCR (`findCnpj`) segue só numérica. Mensagem: "CNPJ inválido. Confira os 14 caracteres."; o campo usa teclado comum com maiúsculas.
+- **R9:** `readPayslipPeriod` (novo, exportado pelo parser) devolve competência e 13º; o parser aceita "13º/AAAA", "13°/AAAA", "13ª-AAAA". `13/AAAA` sempre sai como 13º, com a chave ligada ou não. A chave acompanha a competência até o usuário tocar nela; depois, `13/AAAA` ainda a liga, e desligá-la com `13/AAAA` troca a competência por `12/AAAA`. O 13º lido aparece como `13/AAAA` na revisão.
+- **R10:** `parseAmountInput` recusa expoente, sinal, hexadecimal e letras; aceita espaço (inclusive não separável) como milhar e "R$". Valor ilegível ou negativo: "Valor inválido.".
+- **R11:** empresa com até 120 caracteres (`maxLength` e erro "Use até 120 caracteres."); `isRealIsoDate` na data da receita (`2026-13-45` e `2026-02-30` lançam erro no `buildPayslipSaveEvents`); `accessibilityRole` (button, header, alert) e `accessibilityLabel` nos campos, chaves e botões; `defaultIncomeAccountId` escolhe corrente, depois carteira, depois poupança sem meta nem vínculo com cartão.
+- **R13:** coberto pelos testes de R2, R3 e R7 acima.
+- **N1:** `visionOcr.loses` nas quatro fontes: "…a leitura é feita no aparelho, ou no Google Cloud Vision, se ele estiver configurado." Teste no `privacyFlagTexts.test.ts`.
+
+**Testes e verificação depois dos patches (26/10):** `packages/domain/__tests__/payslipReview.test.ts` (19: R4 sem import do parser, vaga 13º × mensal e CNPJ × nome, R3 vários na vaga, decisão 2a, R2 descrição sem empresa, R11 data real e conta padrão, eventos e replay), `src/modules/payslip/__tests__/reviewDraft.test.ts` (54, novo: validação movida do domínio, R7, R8, R9, R10, R11 empresa), `scanPayslip.test.ts` (14: +6 do R1), `pendingReview.test.ts` (5: +3 do R6), `singleFlight.test.ts` (2, novo, R5), `payslipIncomeContext.test.ts` (1, novo, R2), `packages/parsers/__tests__/payslipParser.review.test.ts` (11, novo: R8 e R9 no parser), `privacyFlagTexts.test.ts` (+1, N1); `replay.payslipReview.test.ts` só trocou o import. Cada teste novo falha com o código de antes dos patches (conferido revertendo os fontes). `npx vitest run` → 86 arquivos / 1706 testes, todos passando. `npx tsc --noEmit` → 0 erros. `npx expo export --platform web` → ok. Os `grep` da seção Verification voltam vazios. Playwright (Chromium headless, 412×900) no build web, com uma conta corrente: a revisão manual abre sem erros; Salvar vazio mostra "Confira os campos destacados." e todos os erros, inclusive "Informe a empresa ou o CNPJ."; `1e3` mostra "Valor inválido."; `12.abc.345/01de-36` mostra "Confira os 14 caracteres" e `12.ABC.345/01DE-35` salva; `4 000,00` aceito; `13º/2026` liga a chave do 13º, desligá-la troca para `12/2026` e `13/2026` a religa; o mesmo nome com outro CNPJ salva sem confirmação; "acme ltda." sem CNPJ começa com a receita desligada e pede "Substituir holerites?" listando os dois CNPJs, e substituir deixa um só holerite de 09/2026; toque duplo em Salvar lança uma receita só; o extrato mostra "Salário (09/2026)" e "Salário (10/2026)", sem a empresa; saldo R$ 7.500,00; sem erro de página. Na web, o `accessibilityRole="switch"` no `Switch` duplicava o papel (o `Switch` já o tem), então as chaves ficaram só com `accessibilityLabel`.
 
 **O dono precisa testar no aparelho (APK de pré-release, Android 16):**
 
@@ -169,6 +187,11 @@ context:
 - [ ] Chat da IA → "Escanear holerite": abre a revisão em Holerites; nenhuma mensagem com valores no chat.
 - [ ] Salvar com receita: lançamento "Salário (MM/AAAA)" na conta escolhida; substituir a mesma competência não duplica a receita (chave começa desligada).
 - [ ] 13º (`13/AAAA`): fica ao lado do mensal de dezembro, sem pedir substituição.
+- [ ] Trocar o provedor de IA no chat (ex.: para um sem visão) e escanear um holerite em seguida: vale a troca, sem reabrir o app (R1).
+- [ ] CNPJ alfanumérico: o teclado do campo aceita letras; `12.ABC.345/01DE-35` salva (R8).
+- [ ] Toque duplo rápido em "Salvar holerite": só uma receita no extrato (R5).
+- [ ] Salvar com empresa e CNPJ vazios: o botão responde e mostra "Informe a empresa ou o CNPJ." (R7).
+- [ ] TalkBack: campos, chaves e botões da revisão são anunciados com nome e papel (R11).
 
 
 ## Review Triage Log
@@ -177,17 +200,17 @@ Revisão única com três lentes (adversarial, casos de borda, lacunas de verifi
 
 | # | Achado | Sev. | Decisão |
 |---|--------|------|---------|
-| R1 | `usePayslipScanner` usa uma instância própria de `useAISettings` carregada só na montagem: depois de trocar o provedor no chat, a foto vai ao provedor antigo | High | **patch**: função pura `resolveVisionEligibility(settings, deps)` lendo as configurações frescas no momento do scan (carregar do armazenamento dentro do `scan`); testes, inclusive troca de provedor |
-| R2 | Descrição da receita "Salário (MM/AAAA) — EMPRESA" leva o empregador ao contexto da IA e ao Grupo antigo | Med | **patch** (decisão do dono 26/10): descrição só "Salário (MM/AAAA)"; teste do `AIContextBuilder` depois de uma receita de holerite sem nome da empresa |
-| R3 | Salvar só com nome pode substituir vários holerites; confirmação mostra um e a 2a olha só um | Med | **patch**: `findPayslipsInSlot` devolve todos; confirmação lista todos; receita desligada se qualquer um tiver `transactionId`; teste |
-| R4 | `packages/domain` importa `packages/parsers` (viola o diagrama do ARCHITECTURE-SPINE) e carrega o parser no início | Med | **patch**: `validatePayslipDraft` e helpers de parse vão para `src/modules/payslip/`; domain fica com busca de slot e montagem dos eventos |
-| R5 | Toque duplo em Salvar pode lançar receita duas vezes | Low | **patch**: trava com `useRef` |
-| R6 | Dados pendentes do chat podem sobrar na memória | Low | **patch**: validade curta (TTL) no `pendingReview` |
-| R7 | Salvar desabilitado sem motivo quando faltam empresa/CNPJ em campo não tocado | Med | **patch**: botão pressionável que mostra todos os erros ao tocar (ou mostrar `employerMissing` quando o resto é válido); lógica de estado da revisão em módulo puro testado |
-| R8 | CNPJ alfanumérico recusado na revisão, aceito no reducer | Med | **patch**: aceitar 14 caracteres `[0-9A-Z]` com dígito verificador módulo 11 sobre ASCII−48; mensagem "Confira os 14 caracteres" |
-| R9 | Acoplamento 13º/competência: switch desligado com `13/AAAA` substitui dezembro; switch não desliga; `13º/2026` inválido | Low | **patch**: `13/AAAA` força `thirteenth`; switch acompanha a competência até o usuário tocar; aceitar `13º/AAAA` |
-| R10 | `1e3` aceito; `1 234,56` → NaN; negativo; mensagem enganosa | Low | **patch**: recusar expoente e negativo, aceitar espaço como milhar, mensagem "Valor inválido" |
-| R11 | Sem limite no nome da empresa; data `2026-13-45`; acessibilidade; conta padrão pode ser de meta/investimento | Low | **patch**: limite de 120 caracteres na empresa, validar data real, `accessibilityRole`/labels, conta padrão preferindo corrente |
-| R12 | Fiação do hook que decide o envio da foto sem teste | Med | **patch**: coberto pelo R1 |
-| R13 | ACs provados só por função pura ou grep | Med | **patch**: testes de multi-match (R3), contexto da IA (R2) e estado da revisão (R7) |
-| N1 | Texto "a leitura é feita no aparelho" impreciso quando o Google Cloud Vision híbrido está ligado | Low | **patch**: ajustar a frase nos 4 textos para citar a exceção do Cloud Vision |
+| R1 | `usePayslipScanner` usa uma instância própria de `useAISettings` carregada só na montagem: depois de trocar o provedor no chat, a foto vai ao provedor antigo | High | **patch** — Aplicado: função pura `resolveVisionEligibility(settings, deps)` lendo as configurações frescas no momento do scan (carregar do armazenamento dentro do `scan`); testes, inclusive troca de provedor |
+| R2 | Descrição da receita "Salário (MM/AAAA) — EMPRESA" leva o empregador ao contexto da IA e ao Grupo antigo | Med | **patch** — Aplicado (decisão do dono 26/10): descrição só "Salário (MM/AAAA)"; teste do `AIContextBuilder` depois de uma receita de holerite sem nome da empresa |
+| R3 | Salvar só com nome pode substituir vários holerites; confirmação mostra um e a 2a olha só um | Med | **patch** — Aplicado: `findPayslipsInSlot` devolve todos; confirmação lista todos; receita desligada se qualquer um tiver `transactionId`; teste |
+| R4 | `packages/domain` importa `packages/parsers` (viola o diagrama do ARCHITECTURE-SPINE) e carrega o parser no início | Med | **patch** — Aplicado: `validatePayslipDraft` e helpers de parse vão para `src/modules/payslip/`; domain fica com busca de slot e montagem dos eventos |
+| R5 | Toque duplo em Salvar pode lançar receita duas vezes | Low | **patch** — Aplicado: trava com `useRef` |
+| R6 | Dados pendentes do chat podem sobrar na memória | Low | **patch** — Aplicado: validade curta (TTL) no `pendingReview` |
+| R7 | Salvar desabilitado sem motivo quando faltam empresa/CNPJ em campo não tocado | Med | **patch** — Aplicado: botão pressionável que mostra todos os erros ao tocar (ou mostrar `employerMissing` quando o resto é válido); lógica de estado da revisão em módulo puro testado |
+| R8 | CNPJ alfanumérico recusado na revisão, aceito no reducer | Med | **patch** — Aplicado: aceitar 14 caracteres `[0-9A-Z]` com dígito verificador módulo 11 sobre ASCII−48; mensagem "Confira os 14 caracteres" |
+| R9 | Acoplamento 13º/competência: switch desligado com `13/AAAA` substitui dezembro; switch não desliga; `13º/2026` inválido | Low | **patch** — Aplicado: `13/AAAA` força `thirteenth`; switch acompanha a competência até o usuário tocar; aceitar `13º/AAAA` |
+| R10 | `1e3` aceito; `1 234,56` → NaN; negativo; mensagem enganosa | Low | **patch** — Aplicado: recusar expoente e negativo, aceitar espaço como milhar, mensagem "Valor inválido" |
+| R11 | Sem limite no nome da empresa; data `2026-13-45`; acessibilidade; conta padrão pode ser de meta/investimento | Low | **patch** — Aplicado: limite de 120 caracteres na empresa, validar data real, `accessibilityRole`/labels, conta padrão preferindo corrente |
+| R12 | Fiação do hook que decide o envio da foto sem teste | Med | **patch** — Aplicado: coberto pelo R1 |
+| R13 | ACs provados só por função pura ou grep | Med | **patch** — Aplicado: testes de multi-match (R3), contexto da IA (R2) e estado da revisão (R7) |
+| N1 | Texto "a leitura é feita no aparelho" impreciso quando o Google Cloud Vision híbrido está ligado | Low | **patch** — Aplicado: ajustar a frase nos 4 textos para citar a exceção do Cloud Vision |

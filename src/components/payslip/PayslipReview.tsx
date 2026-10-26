@@ -4,15 +4,25 @@ import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import type { AccountPayload } from "@packages/events/src/types";
 import {
+  defaultIncomeAccountId,
   defaultLaunchIncome,
-  findPayslipInSlot,
-  isThirteenthPeriodInput,
-  validatePayslipDraft,
-  type PayslipDraft,
-  type PayslipDraftField,
+  findPayslipsInSlot,
+  incomeEligibleAccounts,
   type PayslipReviewValues,
   type StoredPayslip,
 } from "@packages/domain";
+import {
+  PAYSLIP_COMPANY_MAX_LENGTH,
+  decidePayslipSubmit,
+  initialTouched,
+  toggleDraftThirteenth,
+  updateDraftField,
+  validatePayslipDraft,
+  visibleDraftErrors,
+  type PayslipDraft,
+  type PayslipDraftField,
+  type PayslipTouched,
+} from "@/src/modules/payslip/reviewDraft";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { AppTextInput } from "@/src/components/shared/AppTextInput";
 import { AccountPicker } from "@/src/components/shared/AccountPicker";
@@ -25,8 +35,8 @@ export interface PayslipReviewSave {
   values: PayslipReviewValues;
   /** Conta e data da receita; ausente = não lançar. */
   income?: { accountId: string; date: string };
-  /** Holerite já salvo na mesma vaga (será substituído). */
-  inSlot?: StoredPayslip;
+  /** Holerites já salvos na mesma vaga (todos serão substituídos). */
+  inSlot: StoredPayslip[];
 }
 
 interface PayslipReviewProps {
@@ -70,59 +80,45 @@ export function PayslipReview({
   onSave,
 }: PayslipReviewProps) {
   const [draft, setDraft] = useState<PayslipDraft>(initialDraft);
-  // Campo já preenchido pela leitura mostra o erro de saída; vazio, só depois de mexer.
-  const [touched, setTouched] = useState<Partial<Record<PayslipDraftField, boolean>>>(() => ({
-    company: initialDraft.company.trim() !== "" || initialDraft.cnpj.trim() !== "",
-    cnpj: initialDraft.cnpj.trim() !== "",
-    period: initialDraft.period.trim() !== "",
-    gross: initialDraft.gross.trim() !== "",
-    net: initialDraft.net.trim() !== "",
-  }));
+  const [touched, setTouched] = useState<PayslipTouched>(() => initialTouched(initialDraft));
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [incomeChoice, setIncomeChoice] = useState<boolean | null>(null);
-  const eligibleAccounts = useMemo(() => accounts.filter((a) => a.type !== "credit_card"), [accounts]);
-  const [accountId, setAccountId] = useState<string>(() => eligibleAccounts[0]?.id ?? "");
+  const eligibleAccounts = useMemo(() => incomeEligibleAccounts(accounts), [accounts]);
+  const [accountId, setAccountId] = useState<string>(() => defaultIncomeAccountId(accounts));
   const [incomeDate, setIncomeDate] = useState<string>(todayLocalISO);
 
   const validation = useMemo(() => validatePayslipDraft(draft), [draft]);
+  const errors = useMemo(() => visibleDraftErrors(validation.errors, touched), [validation, touched]);
   const inSlot = useMemo(
-    () => (validation.ok ? findPayslipInSlot(payslips, validation.values) : undefined),
+    () => (validation.ok ? findPayslipsInSlot(payslips, validation.values) : []),
     [validation, payslips],
   );
+  const slotHasIncome = inSlot.some((p) => !!p.transactionId);
   const hasEligible = eligibleAccounts.length > 0;
-  const selectedAccountId = eligibleAccounts.some((a) => a.id === accountId) ? accountId : eligibleAccounts[0]?.id ?? "";
+  const selectedAccountId = eligibleAccounts.some((a) => a.id === accountId)
+    ? accountId
+    : defaultIncomeAccountId(eligibleAccounts);
   const launchIncome = hasEligible && (incomeChoice ?? defaultLaunchIncome(hasEligible, inSlot));
 
   const set = (field: PayslipDraftField) => (text: string) => {
     setTouched((t) => (t[field] ? t : { ...t, [field]: true }));
-    setDraft((d) => {
-      const next = { ...d, [field]: text };
-      // Competência 13/AAAA liga a chave do 13º ao ser digitada.
-      if (field === "period" && isThirteenthPeriodInput(text) && !isThirteenthPeriodInput(d.period)) {
-        next.thirteenth = true;
-      }
-      return next;
-    });
+    setSubmitError(null);
+    setDraft((d) => updateDraftField(d, field, text));
   };
 
-  const errorOf = (field: PayslipDraftField): string | undefined => {
-    if (!touched[field]) {
-      // A falta de empresa/CNPJ aparece na empresa assim que um dos dois é mexido.
-      if (field === "company" && touched.cnpj) return validation.errors.company;
-      return undefined;
-    }
-    return validation.errors[field];
-  };
-
-  const canSave = validation.ok && !saving && (!launchIncome || !!selectedAccountId);
-
+  // O botão fica sempre pressionável (R7): com erro, o toque mostra todos os erros.
   const handleSave = () => {
-    if (!validation.ok) {
-      setTouched({ company: true, cnpj: true, period: true, gross: true, net: true });
+    if (saving) return;
+    const decision = decidePayslipSubmit(validation);
+    if (decision.action === "showErrors") {
+      soundManager.play("error");
+      setTouched(decision.touched);
+      setSubmitError(decision.message);
       return;
     }
-    if (!canSave) return;
+    if (launchIncome && !selectedAccountId) return;
     onSave({
-      values: validation.values,
+      values: decision.values,
       income: launchIncome ? { accountId: selectedAccountId, date: incomeDate } : undefined,
       inSlot,
     });
@@ -153,16 +149,21 @@ export function PayslipReview({
         value={draft.company}
         onChangeText={set("company")}
         placeholder="Nome do empregador"
-        error={errorOf("company")}
+        error={errors.company}
         autoCapitalize="words"
+        maxLength={PAYSLIP_COMPANY_MAX_LENGTH}
+        accessibilityLabel="Empresa"
       />
       <AppTextInput
         label="CNPJ (opcional)"
         value={draft.cnpj}
         onChangeText={set("cnpj")}
         placeholder="00.000.000/0000-00"
-        keyboardType="numbers-and-punctuation"
-        error={errorOf("cnpj")}
+        autoCapitalize="characters"
+        autoCorrect={false}
+        maxLength={24}
+        error={errors.cnpj}
+        accessibilityLabel="CNPJ, opcional"
       />
       <AppTextInput
         label="Competência (MM/AAAA)"
@@ -170,7 +171,8 @@ export function PayslipReview({
         onChangeText={set("period")}
         placeholder="09/2026"
         keyboardType="numbers-and-punctuation"
-        error={errorOf("period")}
+        error={errors.period}
+        accessibilityLabel="Competência, mês e ano"
       />
 
       <View style={[s.switchRow, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
@@ -182,7 +184,7 @@ export function PayslipReview({
         </View>
         <Switch
           value={draft.thirteenth}
-          onValueChange={(v) => setDraft((d) => ({ ...d, thirteenth: v }))}
+          onValueChange={(v) => setDraft((d) => toggleDraftThirteenth(d, v))}
           trackColor={{ false: theme.border, true: theme.primaryColor }}
           thumbColor="#fff"
           accessibilityLabel="13º salário"
@@ -228,7 +230,8 @@ export function PayslipReview({
         onChangeText={set("gross")}
         placeholder="0,00"
         keyboardType="decimal-pad"
-        error={errorOf("gross")}
+        error={errors.gross}
+        accessibilityLabel="Salário bruto"
       />
       <AppTextInput
         label="Salário líquido"
@@ -236,7 +239,8 @@ export function PayslipReview({
         onChangeText={set("net")}
         placeholder="0,00"
         keyboardType="decimal-pad"
-        error={errorOf("net")}
+        error={errors.net}
+        accessibilityLabel="Salário líquido"
       />
 
       <View style={[s.switchRow, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
@@ -247,7 +251,7 @@ export function PayslipReview({
           <Text style={[s.switchHint, { color: theme.secondaryText }]}>
             {!hasEligible
               ? "Crie uma conta corrente, poupança ou carteira para lançar a receita."
-              : inSlot?.transactionId
+              : slotHasIncome
                 ? "O holerite anterior desta competência já lançou receita."
                 : "Entra no extrato na categoria Salário."}
           </Text>
@@ -276,12 +280,20 @@ export function PayslipReview({
         </>
       )}
 
+      {submitError && (
+        <Text style={[s.submitError, { color: theme.danger }]} accessibilityRole="alert">
+          {submitError}
+        </Text>
+      )}
+
       <View style={s.actions}>
         <TButton
           variant="outline"
           borderColor={theme.border}
           color={theme.textColor}
           flex={1}
+          accessibilityRole="button"
+          accessibilityLabel="Cancelar revisão"
           onPress={() => {
             soundManager.play("tap");
             onCancel();
@@ -293,9 +305,10 @@ export function PayslipReview({
           variant="primary"
           flex={2}
           backgroundColor={theme.primaryColor}
-          opacity={canSave ? 1 : 0.5}
-          disabled={!canSave}
+          opacity={saving ? 0.5 : 1}
+          disabled={saving}
           onPress={handleSave}
+          accessibilityRole="button"
           accessibilityLabel="Salvar holerite"
         >
           Salvar holerite
@@ -336,4 +349,5 @@ const s = StyleSheet.create({
   lineRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
   lineName: { flex: 1 },
   actions: { flexDirection: "row", gap: 12, marginTop: 8 },
+  submitError: { fontSize: 13, fontWeight: "600", textAlign: "center" },
 });

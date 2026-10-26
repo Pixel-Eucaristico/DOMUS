@@ -191,25 +191,38 @@ const CNPJ_LABEL_RE = new RegExp(`(?<![a-z])${CNPJ_LABEL}`, "i");
 const CNPJ_NUMBER_SRC =
   "(?<![\\d])(\\d{2})\\s?\\.?\\s?(\\d{3})\\s?\\.?\\s?(\\d{3})\\s?\\/?\\s?(\\d{4})\\s?-?\\s?(\\d{2})(?!\\d)";
 
-function isValidCnpj(digits: string): boolean {
-  if (!/^\d{14}$/.test(digits) || /^(\d)\1{13}$/.test(digits)) return false;
+/**
+ * Dígito verificador do CNPJ, numérico ou alfanumérico (Receita, jul/2026):
+ * 12 caracteres `[0-9A-Z]` + 2 dígitos; cada caractere vale o código ASCII − 48
+ * ("0"→0 … "9"→9, "A"→17 … "Z"→42), pesos e módulo 11 de sempre.
+ */
+function isValidCnpj(chars: string): boolean {
+  if (!/^[0-9A-Z]{12}\d{2}$/.test(chars) || /^(.)\1{13}$/.test(chars)) return false;
   const check = (len: number) => {
     const weights = len === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
     let sum = 0;
-    for (let i = 0; i < len; i++) sum += Number(digits[i]) * weights[i]!;
+    for (let i = 0; i < len; i++) sum += (chars.charCodeAt(i) - 48) * weights[i]!;
     const r = sum % 11;
     return r < 2 ? 0 : 11 - r;
   };
-  return check(12) === Number(digits[12]) && check(13) === Number(digits[13]);
+  return check(12) === Number(chars[12]) && check(13) === Number(chars[13]);
 }
 
 function formatCnpj(d: string): string {
   return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
 }
 
-/** CNPJ validado e formatado, ou null. */
+/**
+ * CNPJ validado e formatado, ou null. Aceita o numérico e o alfanumérico (letras
+ * viram maiúsculas); a pontuação é ignorada, como no `normalizeCnpj` do reducer
+ * (14 caracteres `[0-9A-Z]`). Um texto com rótulo ("CNPJ: 11.222…") cai para só
+ * os dígitos.
+ */
 export function normalizeCnpj(raw: string | null | undefined): string | null {
-  const digits = String(raw ?? "").replace(/\D/g, "");
+  const text = String(raw ?? "").toUpperCase();
+  const chars = text.replace(/[^0-9A-Z]/g, "");
+  if (isValidCnpj(chars)) return formatCnpj(chars);
+  const digits = text.replace(/\D/g, "");
   return isValidCnpj(digits) ? formatCnpj(digits) : null;
 }
 
@@ -320,6 +333,9 @@ function readPeriod(raw: string): PeriodRead | null {
     const same = Number(range[1]) === Number(range[3]) && range[2] === range[4];
     add(range.index, same ? { period: ym(range[2]!, Number(range[1])), thirteenth: false } : null);
   }
+  // "13º/2026", "13° 2026", "13ª-2026": 13º sem a palavra "salário".
+  const thirteenthOrdinal = s.match(/(?<!\d)13(?:\s?[º°ª]|o)\s?(?:[/-]\s?)?(20\d{2})(?!\d)/);
+  if (thirteenthOrdinal) add(thirteenthOrdinal.index, { period: ym(thirteenthOrdinal[1]!, 12), thirteenth: true });
   const thirteenthText = s.match(/(?<!\d)13[º°o]?\s*sal\w{0,8}\.?\s*(?:de\s*|[/-]\s*)?(20\d{2})(?!\d)/);
   if (thirteenthText) add(thirteenthText.index, { period: ym(thirteenthText[1]!, 12), thirteenth: true });
 
@@ -350,6 +366,16 @@ function readPeriod(raw: string): PeriodRead | null {
 export function normalizePayslipPeriod(raw: string | null | undefined): string | null {
   if (!raw) return null;
   return readPeriod(raw)?.period ?? null;
+}
+
+/**
+ * Competência explícita com o tipo: `{ period: "2026-12", thirteenth: true }`
+ * para "13/2026", "13º/2026" ou "13º salário 2026". `null` se não lê.
+ */
+export function readPayslipPeriod(raw: string | null | undefined): { period: string; thirteenth: boolean } | null {
+  if (!raw) return null;
+  const read = readPeriod(raw);
+  return read?.period ? { period: read.period, thirteenth: read.thirteenth === true } : null;
 }
 
 /** Competência rotulada na linha `i` (ou na seguinte, quando o rótulo está sozinho). */

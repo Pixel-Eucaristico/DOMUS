@@ -226,7 +226,7 @@ export default function PrivacyPolicyScreen() {
             theme={theme}
             title="OCR por Visão (IA)"
             sends="a foto da nota fiscal ou do holerite que você tirar ou escolher no chat ou na tela de holerites ao provedor de IA ativo, que lê o texto; a foto pode conter nome, CPF, empregador e salário."
-            loses="o chat da IA não lê fotos; na tela de holerites e na importação de notas, a leitura é feita no aparelho."
+            loses="o chat da IA não lê fotos; na tela de holerites e na importação de notas, a leitura é feita no aparelho, ou no Google Cloud Vision, se ele estiver configurado."
           />
         </PolicySection>
 

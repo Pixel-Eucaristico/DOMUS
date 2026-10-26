@@ -2,13 +2,8 @@ import { describe, it, expect } from "vitest";
 import { replayAllEvents } from "../replay";
 import { appendDispatched } from "../localEventLog";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
-import {
-  buildPayslipSaveEvents,
-  createAccountEvent,
-  emptyPayslipDraft,
-  validatePayslipDraft,
-  type PayslipDraft,
-} from "@packages/domain";
+import { buildPayslipSaveEvents, createAccountEvent } from "@packages/domain";
+import { emptyPayslipDraft, validatePayslipDraft, type PayslipDraft } from "@/src/modules/payslip/reviewDraft";
 
 /**
  * Story 11.5: tudo o que o salvar da revisão despacha passa no replay do app

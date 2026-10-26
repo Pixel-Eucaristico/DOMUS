@@ -1,5 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
-import { scanPayslip, isVisionEligible, PAYSLIP_SCAN_WARNINGS } from "../scanPayslip";
+import {
+  scanPayslip,
+  isVisionEligible,
+  parseStoredAISettings,
+  resolveVisionEligibility,
+  resolveVisionFromStore,
+  PAYSLIP_SCAN_WARNINGS,
+  type VisionEligibilityDeps,
+} from "../scanPayslip";
 
 /** Story 11.5: Vision × OCR do aparelho na captura do holerite. */
 
@@ -104,5 +112,65 @@ describe("scanPayslip", () => {
     const r = await scanPayslip(deps({ runVision: vi.fn().mockResolvedValue({ ...VISION_RAW, grossSalary: 0, netSalary: 0, deductions: [] }) }));
     expect(r.source).toBe("vision");
     expect(r.data.warnings).toContain(PAYSLIP_SCAN_WARNINGS.noValues);
+  });
+});
+
+// R1/R12: as configurações são lidas no momento do scan, não na montagem do hook.
+describe("resolveVisionEligibility / resolveVisionFromStore", () => {
+  const settings = (over: Record<string, unknown> = {}) =>
+    JSON.stringify({ provider: "openai", isEnabled: true, visionOCREnabled: true, billingDay: 5, ...over });
+
+  function visionDeps(over: Partial<VisionEligibilityDeps> = {}) {
+    return {
+      supportsVision: vi.fn((p: string) => p === "openai" || p === "claude" || p === "gemini"),
+      retrieveKey: vi.fn(async (p: string) => `key-${p}`),
+      isOverBudget: vi.fn(async () => false),
+      ...over,
+    } as VisionEligibilityDeps & { [k: string]: ReturnType<typeof vi.fn> };
+  }
+
+  it("trocar o provedor vale no scan seguinte (a chave é a do provedor novo)", async () => {
+    let stored = settings({ provider: "openai" });
+    const load = vi.fn(async () => stored);
+    const d = visionDeps();
+    const first = await resolveVisionFromStore(load, d);
+    expect(first).toMatchObject({ eligible: true, provider: "openai", apiKey: "key-openai" });
+    stored = settings({ provider: "claude" });
+    const second = await resolveVisionFromStore(load, d);
+    expect(second).toMatchObject({ eligible: true, provider: "claude", apiKey: "key-claude" });
+    expect(d.retrieveKey).toHaveBeenLastCalledWith("claude");
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it("trocar para um provedor sem visão desliga o Vision sem consultar a chave", async () => {
+    const d = visionDeps();
+    const r = await resolveVisionFromStore(async () => settings({ provider: "deepseek" }), d);
+    expect(r).toMatchObject({ eligible: false, provider: "deepseek", apiKey: null });
+    expect(d.retrieveKey).not.toHaveBeenCalled();
+  });
+
+  it("desligar a flag ou a IA depois da montagem vale na hora", async () => {
+    expect((await resolveVisionFromStore(async () => settings({ visionOCREnabled: false }), visionDeps())).eligible).toBe(false);
+    expect((await resolveVisionFromStore(async () => settings({ isEnabled: false }), visionDeps())).eligible).toBe(false);
+  });
+
+  it("sem chave, orçamento estourado ou erro: não elegível", async () => {
+    const s = parseStoredAISettings(settings());
+    expect((await resolveVisionEligibility(s, visionDeps({ retrieveKey: vi.fn(async () => null) }))).eligible).toBe(false);
+    expect((await resolveVisionEligibility(s, visionDeps({ isOverBudget: vi.fn(async () => true) }))).eligible).toBe(false);
+    expect((await resolveVisionEligibility(s, visionDeps({ retrieveKey: vi.fn().mockRejectedValue(new Error("x")) }))).eligible).toBe(false);
+  });
+
+  it("o orçamento é o das configurações do momento", async () => {
+    const d = visionDeps();
+    await resolveVisionFromStore(async () => settings({ budgetMode: "monthly", billingDay: 10 }), d);
+    expect(d.isOverBudget).toHaveBeenCalledWith(expect.objectContaining({ provider: "openai", budgetMode: "monthly", billingDay: 10 }));
+  });
+
+  it("armazenamento vazio, ilegível ou com erro: IA desligada", async () => {
+    expect(parseStoredAISettings(null)).toMatchObject({ isEnabled: false });
+    expect(parseStoredAISettings("{")).toMatchObject({ isEnabled: false });
+    const r = await resolveVisionFromStore(vi.fn().mockRejectedValue(new Error("x")), visionDeps());
+    expect(r.eligible).toBe(false);
   });
 });

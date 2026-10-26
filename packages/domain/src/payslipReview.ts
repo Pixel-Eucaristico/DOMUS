@@ -1,49 +1,25 @@
 import type {
+  AccountPayload,
   PayslipLinePayload,
   PayslipSource,
   PayslipRecordedEvent,
   TransactionCreatedEvent,
 } from "../../events/src/types";
-import {
-  normalizeCnpj,
-  normalizePayslipPeriod,
-  parseBRL,
-} from "../../parsers/src/payslipParser";
-import type { PayslipParseResult } from "../../parsers/src/payslipParser";
-import { recordPayslipEvent, PAYSLIP_PERIOD_PATTERN } from "./payslips";
+import { recordPayslipEvent } from "./payslips";
 import { createTransactionEvent } from "./transactions";
-import { normalizeCompany, samePayslipSlot } from "./reducer";
+import { samePayslipSlot } from "./reducer";
 import type { StoredPayslip } from "./state";
 
 /**
- * Story 11.5: revisão do holerite antes de salvar. Puro (AD-3): sem `Date.now`,
- * ids só pelos criadores (`recordPayslipEvent`, `createTransactionEvent`); a
- * data da receita entra como parâmetro. A tela só liga estas peças.
+ * Story 11.5: salvar o holerite revisado. Puro (AD-3): sem `Date.now`, ids só
+ * pelos criadores (`recordPayslipEvent`, `createTransactionEvent`); a data da
+ * receita entra como parâmetro. A leitura do texto digitado (validação do
+ * rascunho) fica em `src/modules/payslip/reviewDraft.ts`: `packages/domain` não
+ * depende de `packages/parsers` (R4 da revisão).
  */
 
 /** Categoria da receita lançada a partir do holerite. */
 export const PAYSLIP_INCOME_CATEGORY_ID = "salario";
-
-/** Rascunho da revisão: o texto dos campos como o usuário vê e edita. */
-export interface PayslipDraft {
-  company: string;
-  /** CNPJ digitado (opcional). */
-  cnpj: string;
-  /** Competência digitada, `MM/AAAA` (aceita `13/AAAA`). */
-  period: string;
-  /** Chave "13º salário". */
-  thirteenth: boolean;
-  /** Valores no formato brasileiro ("5.340,91"). */
-  gross: string;
-  net: string;
-  /** Lidos da imagem; só leitura, vão para o evento como lidos. */
-  earnings: PayslipLinePayload[];
-  deductions: PayslipLinePayload[];
-  fgts?: number;
-  source: PayslipSource;
-}
-
-export type PayslipDraftField = "company" | "cnpj" | "period" | "gross" | "net";
 
 /** Valores validados, prontos para os criadores de evento. */
 export interface PayslipReviewValues {
@@ -59,142 +35,56 @@ export interface PayslipReviewValues {
   source: PayslipSource;
 }
 
-export type PayslipDraftValidation =
-  | { ok: true; errors: Partial<Record<PayslipDraftField, string>>; values: PayslipReviewValues }
-  | { ok: false; errors: Partial<Record<PayslipDraftField, string>> };
-
-export const PAYSLIP_DRAFT_ERRORS = {
-  periodEmpty: "Informe a competência (MM/AAAA).",
-  periodInvalid: "Competência inválida. Use MM/AAAA.",
-  employerMissing: "Informe a empresa ou o CNPJ.",
-  cnpjInvalid: "CNPJ inválido. Confira os 14 dígitos.",
-  grossInvalid: "Informe o salário bruto.",
-  netInvalid: "Informe o salário líquido.",
-  netAboveGross: "O líquido não pode ser maior que o bruto.",
-} as const;
-
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/** "5340.91" → "5340,91"; 0 ou inválido → "". */
-function amountInput(n: number | undefined): string {
-  return typeof n === "number" && Number.isFinite(n) && n > 0 ? n.toFixed(2).replace(".", ",") : "";
-}
-
-/** `YYYY-MM` → `MM/AAAA`. */
-export function periodToInput(period: string | null | undefined): string {
-  if (!period || !PAYSLIP_PERIOD_PATTERN.test(period)) return "";
-  const [y, m] = period.split("-");
-  return `${m}/${y}`;
-}
-
-/** Competência digitada como 13º ("13/2026", "13º/2026", "13º salário 2026"). */
-export function isThirteenthPeriodInput(text: string): boolean {
-  return /^\s*13(?!\d)/.test(text) && normalizePayslipPeriod(text) !== null;
-}
-
-/** Rascunho vazio (preencher à mão). */
-export function emptyPayslipDraft(): PayslipDraft {
-  return {
-    company: "",
-    cnpj: "",
-    period: "",
-    thirteenth: false,
-    gross: "",
-    net: "",
-    earnings: [],
-    deductions: [],
-    source: "manual",
-  };
-}
-
-/** Rascunho a partir da leitura (parser local ou Vision normalizado). */
-export function draftFromParse(result: PayslipParseResult, source: PayslipSource): PayslipDraft {
-  const draft: PayslipDraft = {
-    company: result.company ?? "",
-    cnpj: result.cnpj ?? "",
-    period: periodToInput(result.period),
-    thirteenth: result.thirteenth === true,
-    gross: amountInput(result.grossSalary),
-    net: amountInput(result.netSalary),
-    earnings: (result.earnings ?? []).map((l) => ({ name: l.name, value: l.value })),
-    deductions: (result.deductions ?? []).map((l) => ({ name: l.name, value: l.value })),
-    source,
-  };
-  if (typeof result.fgts === "number" && Number.isFinite(result.fgts)) draft.fgts = result.fgts;
-  return draft;
-}
-
-/** Valor digitado: `null` se vazio, `NaN` se ilegível. */
-function readAmount(text: string): number | null {
-  if (!text.trim()) return null;
-  const n = parseBRL(text);
-  return Number.isFinite(n) ? round2(n) : NaN;
-}
-
 /**
- * Validação para salvar: competência válida, líquido > 0 e ≤ bruto, valores
- * finitos, empresa ou CNPJ (nome normalizado vazio sem CNPJ nunca casa no
- * reducer, R8 da 11.4) e CNPJ, se preenchido, válido.
+ * Holerites já salvos na mesma vaga (competência + tipo + empregador), pela
+ * regra do reducer (`samePayslipSlot`), nunca uma regra própria. Pode haver
+ * mais de um: salvar só com o nome casa com todos os holerites desse nome,
+ * de qualquer CNPJ, e o reducer substitui todos (R3 da revisão).
  */
-export function validatePayslipDraft(draft: PayslipDraft): PayslipDraftValidation {
-  const errors: Partial<Record<PayslipDraftField, string>> = {};
-
-  const periodText = draft.period.trim();
-  const period = periodText ? normalizePayslipPeriod(periodText) : null;
-  if (!periodText) errors.period = PAYSLIP_DRAFT_ERRORS.periodEmpty;
-  else if (!period || !PAYSLIP_PERIOD_PATTERN.test(period)) errors.period = PAYSLIP_DRAFT_ERRORS.periodInvalid;
-
-  const cnpjText = draft.cnpj.trim();
-  const cnpj = cnpjText ? normalizeCnpj(cnpjText) : null;
-  if (cnpjText && !cnpj) errors.cnpj = PAYSLIP_DRAFT_ERRORS.cnpjInvalid;
-
-  const company = draft.company.trim();
-  if (!cnpjText && normalizeCompany(company) === "") errors.company = PAYSLIP_DRAFT_ERRORS.employerMissing;
-
-  const gross = readAmount(draft.gross);
-  const net = readAmount(draft.net);
-  const grossOk = gross !== null && Number.isFinite(gross) && gross > 0;
-  if (!grossOk) errors.gross = PAYSLIP_DRAFT_ERRORS.grossInvalid;
-  if (net === null || !Number.isFinite(net) || net <= 0) errors.net = PAYSLIP_DRAFT_ERRORS.netInvalid;
-  else if (grossOk && net > (gross as number)) errors.net = PAYSLIP_DRAFT_ERRORS.netAboveGross;
-
-  if (Object.keys(errors).length > 0) return { ok: false, errors };
-
-  const values: PayslipReviewValues = {
-    period: period as string,
-    company,
-    grossSalary: gross as number,
-    netSalary: net as number,
-    earnings: draft.earnings.map((l) => ({ name: l.name, value: l.value })),
-    deductions: draft.deductions.map((l) => ({ name: l.name, value: l.value })),
-    source: draft.source,
-  };
-  if (draft.thirteenth) values.kind = "thirteenth";
-  if (cnpj) values.cnpj = cnpj;
-  if (typeof draft.fgts === "number" && Number.isFinite(draft.fgts)) values.fgts = draft.fgts;
-  return { ok: true, errors, values };
-}
-
-/**
- * Holerite já salvo na mesma vaga (competência + tipo + empregador), pela regra
- * do reducer (`samePayslipSlot`), nunca uma regra própria.
- */
-export function findPayslipInSlot(
+export function findPayslipsInSlot(
   payslips: Readonly<Record<string, StoredPayslip>> | readonly StoredPayslip[],
   slot: { period: string; kind?: "thirteenth" | "monthly"; cnpj?: string; company: string },
-): StoredPayslip | undefined {
-  const list = Array.isArray(payslips) ? payslips : Object.values(payslips);
-  return (list as StoredPayslip[]).find((p) => samePayslipSlot(p, slot));
+): StoredPayslip[] {
+  const list = (Array.isArray(payslips) ? payslips : Object.values(payslips)) as StoredPayslip[];
+  return list.filter((p) => samePayslipSlot(p, slot));
 }
 
 /**
- * Decisão 2a: a chave de receita começa ligada só quando há conta elegível e a
- * vaga não tem holerite que já lançou receita.
+ * Decisão 2a: a chave de receita começa ligada só quando há conta elegível e
+ * nenhum holerite da vaga já lançou receita.
  */
-export function defaultLaunchIncome(hasEligibleAccount: boolean, inSlot: StoredPayslip | undefined): boolean {
-  return hasEligibleAccount && !inSlot?.transactionId;
+export function defaultLaunchIncome(hasEligibleAccount: boolean, inSlot: readonly StoredPayslip[]): boolean {
+  return hasEligibleAccount && !inSlot.some((p) => !!p.transactionId);
+}
+
+/** Contas que podem receber o salário: todas menos cartão de crédito. */
+export function incomeEligibleAccounts<T extends Pick<AccountPayload, "type">>(accounts: readonly T[]): T[] {
+  return accounts.filter((a) => a.type !== "credit_card");
+}
+
+/**
+ * Conta padrão da receita (R11): conta corrente primeiro, depois carteira,
+ * depois poupança sem meta nem vínculo com cartão, e só então qualquer outra
+ * elegível. Na mesma prioridade, a ordem recebida.
+ */
+export function defaultIncomeAccountId(
+  accounts: readonly Pick<AccountPayload, "id" | "type" | "savingsGoalEnabled" | "linkedCreditCardId">[],
+): string {
+  const rank = (a: (typeof accounts)[number]): number => {
+    if (a.type === "checking") return 0;
+    if (a.type === "wallet") return 1;
+    if (a.type === "savings" && !a.savingsGoalEnabled && !a.linkedCreditCardId) return 2;
+    return 3;
+  };
+  let best: (typeof accounts)[number] | undefined;
+  for (const a of incomeEligibleAccounts(accounts)) {
+    if (!best || rank(a) < rank(best)) best = a;
+  }
+  return best?.id ?? "";
 }
 
 /** "09/2026" ou "13º salário 2026". */
@@ -203,22 +93,49 @@ export function formatPayslipPeriodLabel(p: { period: string; kind?: unknown }):
   return p.kind === "thirteenth" ? `13º salário ${y}` : `${m}/${y}`;
 }
 
-/** Texto da confirmação de substituição (decisão 2a). */
-export function replacePayslipMessage(existing: StoredPayslip): string {
-  const who = existing.company.trim() || existing.cnpj || "este empregador";
-  let message = `Já existe o holerite de ${formatPayslipPeriodLabel(existing)} de ${who}. Ele será substituído pelo novo.`;
-  if (existing.transactionId) {
-    message += " A receita já lançada pelo holerite anterior continua no extrato.";
+function employerLabel(p: StoredPayslip): string {
+  return p.company.trim() || p.cnpj || "este empregador";
+}
+
+/**
+ * Texto da confirmação de substituição (decisão 2a), listando todos os
+ * holerites da vaga (R3).
+ */
+export function replacePayslipMessage(existing: StoredPayslip | readonly StoredPayslip[]): string {
+  const list: readonly StoredPayslip[] = Array.isArray(existing) ? existing : [existing as StoredPayslip];
+  let message: string;
+  if (list.length <= 1) {
+    const one = list[0]!;
+    message = `Já existe o holerite de ${formatPayslipPeriodLabel(one)} de ${employerLabel(one)}. Ele será substituído pelo novo.`;
+  } else {
+    const lines = list.map((p) => `• ${formatPayslipPeriodLabel(p)} de ${employerLabel(p)}${p.cnpj && p.company.trim() ? ` (${p.cnpj})` : ""}`);
+    message = `Já existem ${list.length} holerites nesta vaga:\n${lines.join("\n")}\nTodos serão substituídos pelo novo.`;
+  }
+  if (list.some((p) => !!p.transactionId)) {
+    message += list.length > 1
+      ? " As receitas já lançadas pelos holerites anteriores continuam no extrato."
+      : " A receita já lançada pelo holerite anterior continua no extrato.";
   }
   return message;
 }
 
-/** "Salário (09/2026)" ou "13º salário (2026)", seguida da empresa quando houver. */
-export function payslipIncomeDescription(values: Pick<PayslipReviewValues, "period" | "kind" | "company">): string {
+/**
+ * "Salário (09/2026)" ou "13º salário (2026)". Sem o nome da empresa (R2 da
+ * revisão): a descrição vai ao contexto da IA e ao Grupo de sync.
+ */
+export function payslipIncomeDescription(values: Pick<PayslipReviewValues, "period" | "kind">): string {
   const [y, m] = values.period.split("-");
-  const base = values.kind === "thirteenth" ? `13º salário (${y})` : `Salário (${m}/${y})`;
-  const company = values.company.trim();
-  return company ? `${base} — ${company}` : base;
+  return values.kind === "thirteenth" ? `13º salário (${y})` : `Salário (${m}/${y})`;
+}
+
+/** `YYYY-MM-DD` que existe no calendário ("2026-02-30" e "2026-13-45" não). */
+export function isRealIsoDate(date: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (mo < 1 || mo > 12 || d < 1) return false;
+  const days = [31, (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0 ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return d <= days[mo - 1]!;
 }
 
 export interface PayslipSaveOptions {
@@ -241,7 +158,7 @@ export function buildPayslipSaveEvents(values: PayslipReviewValues, options: Pay
   let tx: TransactionCreatedEvent | undefined;
   if (options.income) {
     if (!options.income.accountId) throw new Error("Holerite: conta da receita vazia");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(options.income.date)) throw new Error("Holerite: data da receita inválida");
+    if (!isRealIsoDate(options.income.date)) throw new Error("Holerite: data da receita inválida");
     [tx] = createTransactionEvent(
       {
         accountId: options.income.accountId,

@@ -3,14 +3,9 @@ import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, BackH
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import {
-  buildPayslipSaveEvents,
-  draftFromParse,
-  emptyPayslipDraft,
-  formatPayslipPeriodLabel,
-  replacePayslipMessage,
-  type PayslipDraft,
-} from "@packages/domain";
+import { buildPayslipSaveEvents, formatPayslipPeriodLabel, replacePayslipMessage } from "@packages/domain";
+import { draftFromParse, emptyPayslipDraft, type PayslipDraft } from "@/src/modules/payslip/reviewDraft";
+import { createSingleFlight } from "@/src/modules/payslip/singleFlight";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { appAlert, appConfirm } from "@/src/services/appAlert";
@@ -37,6 +32,8 @@ export default function PayslipsScreen() {
   const [review, setReview] = useState<ReviewState | null>(null);
   const [saving, setSaving] = useState(false);
   const reviewSeq = useRef(0);
+  // Trava síncrona do salvar (R5): o toque duplo não lança a receita duas vezes.
+  const saveFlight = useRef(createSingleFlight()).current;
 
   const openReview = useCallback((draft: PayslipDraft, warnings: readonly string[] = []) => {
     reviewSeq.current += 1;
@@ -91,36 +88,37 @@ export default function PayslipsScreen() {
   );
 
   const handleSave = useCallback(
-    async ({ values, income, inSlot }: PayslipReviewSave) => {
-      if (saving) return;
-      setSaving(true);
-      try {
-        if (inSlot) {
-          const ok = await appConfirm({
-            title: "Substituir holerite?",
-            message: replacePayslipMessage(inSlot),
-            confirmLabel: "Substituir",
-          });
-          if (!ok) return;
-        }
-        let events;
+    (save: PayslipReviewSave) =>
+      saveFlight.run(async () => {
+        const { values, income, inSlot } = save;
+        setSaving(true);
         try {
-          events = buildPayslipSaveEvents(values, { income, deviceId: deviceId ?? "local" });
-        } catch (err) {
-          console.warn("[Payslips] Falha ao montar o holerite:", err);
-          soundManager.play("error");
-          appAlert("Não foi possível salvar", "Confira os dados do holerite e tente de novo.");
-          return;
+          if (inSlot.length > 0) {
+            const ok = await appConfirm({
+              title: inSlot.length > 1 ? "Substituir holerites?" : "Substituir holerite?",
+              message: replacePayslipMessage(inSlot),
+              confirmLabel: "Substituir",
+            });
+            if (!ok) return;
+          }
+          let events;
+          try {
+            events = buildPayslipSaveEvents(values, { income, deviceId: deviceId ?? "local" });
+          } catch (err) {
+            console.warn("[Payslips] Falha ao montar o holerite:", err);
+            soundManager.play("error");
+            appAlert("Não foi possível salvar", "Confira os dados do holerite e tente de novo.");
+            return;
+          }
+          // Holerite primeiro, depois a receita ligada a ele.
+          for (const event of events) dispatchDomainEvent(event);
+          soundManager.play("success");
+          setReview(null);
+        } finally {
+          setSaving(false);
         }
-        // Holerite primeiro, depois a receita ligada a ele.
-        for (const event of events) dispatchDomainEvent(event);
-        soundManager.play("success");
-        setReview(null);
-      } finally {
-        setSaving(false);
-      }
-    },
-    [saving, deviceId, dispatchDomainEvent],
+      }),
+    [saveFlight, deviceId, dispatchDomainEvent],
   );
 
   const goBack = () => {
@@ -132,10 +130,12 @@ export default function PayslipsScreen() {
   return (
     <View style={[s.root, { backgroundColor: theme.background }]}>
       <View style={[s.header, { paddingTop: insets.top + 16 }]}>
-        <Pressable onPress={goBack} hitSlop={12} accessibilityLabel="Voltar">
+        <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Voltar">
           <Feather name="arrow-left" size={24} color={theme.textColor} />
         </Pressable>
-        <Text style={[s.title, { color: theme.textColor }]}>{review ? "Revisar holerite" : "Holerites"}</Text>
+        <Text style={[s.title, { color: theme.textColor }]} accessibilityRole="header">
+          {review ? "Revisar holerite" : "Holerites"}
+        </Text>
         <View style={s.headerSpacer} />
       </View>
 

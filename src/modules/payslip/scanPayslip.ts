@@ -4,6 +4,8 @@ import {
   type PayslipParseResult,
   type VisionPayslipInput,
 } from "@packages/parsers/src/payslipParser";
+import type { AIProvider } from "@packages/ai";
+import { DEFAULT_AI_SETTINGS, type AISettings } from "@/src/modules/ai/domain/AISettings";
 
 /**
  * Story 11.5: escolha entre Vision OCR (IA) e OCR do aparelho na captura do
@@ -40,6 +42,97 @@ export interface VisionEligibility {
 /** O Vision só é usado quando todas as condições valem. */
 export function isVisionEligible(e: VisionEligibility): boolean {
   return e.aiEnabled && e.visionFlag && e.providerSupportsVision && e.hasApiKey && !e.overBudget;
+}
+
+/** Campos das configurações da IA que decidem o Vision. */
+export type VisionSettings = Pick<
+  AISettings,
+  "provider" | "isEnabled" | "visionOCREnabled" | "customBudgets" | "budgetMode" | "monthlyBudgets" | "billingDay"
+>;
+
+/**
+ * Lê o JSON das configurações da IA guardado no aparelho (o mesmo que o
+ * `useAISettings` grava). Ausente ou ilegível = padrão (IA desligada).
+ */
+export function parseStoredAISettings(raw: string | null | undefined): VisionSettings {
+  const base: VisionSettings = { provider: DEFAULT_AI_SETTINGS.provider, isEnabled: false };
+  if (!raw) return base;
+  try {
+    const stored = JSON.parse(raw) as Partial<AISettings> | null;
+    if (!stored || typeof stored !== "object") return base;
+    return {
+      provider: stored.provider ?? base.provider,
+      isEnabled: stored.isEnabled === true,
+      visionOCREnabled: stored.visionOCREnabled === true,
+      customBudgets: stored.customBudgets,
+      budgetMode: stored.budgetMode,
+      monthlyBudgets: stored.monthlyBudgets,
+      billingDay: stored.billingDay,
+    };
+  } catch {
+    return base;
+  }
+}
+
+export interface VisionEligibilityDeps {
+  /** `VisionOCRService.supportsVision`. */
+  supportsVision: (provider: AIProvider) => boolean;
+  /** `SecureKeyService.retrieveKey`. */
+  retrieveKey: (provider: AIProvider) => Promise<string | null>;
+  /** `TokenTracker.isOverBudget` com o orçamento das configurações. */
+  isOverBudget: (settings: VisionSettings) => Promise<boolean>;
+}
+
+export interface ResolvedVision {
+  eligible: boolean;
+  provider: AIProvider;
+  /** Só presente quando o Vision é elegível. */
+  apiKey: string | null;
+  billingDay?: number;
+}
+
+/**
+ * Decide o Vision com as configurações do momento (R1 da revisão): a chave e o
+ * orçamento são do provedor dessas configurações. Só consulta a chave e o
+ * orçamento quando IA, flag e provedor com visão valem; erro = não elegível.
+ */
+export async function resolveVisionEligibility(
+  settings: VisionSettings,
+  deps: VisionEligibilityDeps,
+): Promise<ResolvedVision> {
+  const provider = settings.provider;
+  const none: ResolvedVision = { eligible: false, provider, apiKey: null, billingDay: settings.billingDay };
+  const aiEnabled = settings.isEnabled === true;
+  const visionFlag = settings.visionOCREnabled === true;
+  const providerSupportsVision = aiEnabled && visionFlag && deps.supportsVision(provider);
+  if (!providerSupportsVision) return none;
+  let apiKey: string | null = null;
+  let overBudget = true;
+  try {
+    apiKey = await deps.retrieveKey(provider);
+    overBudget = await deps.isOverBudget(settings);
+  } catch {
+    return none;
+  }
+  const eligible = isVisionEligible({ aiEnabled, visionFlag, providerSupportsVision, hasApiKey: !!apiKey, overBudget });
+  return eligible ? { eligible, provider, apiKey, billingDay: settings.billingDay } : none;
+}
+
+/**
+ * Lê as configurações guardadas no momento do scan e decide o Vision. Nunca usa
+ * uma cópia carregada antes (trocar o provedor no chat vale na hora).
+ */
+export async function resolveVisionFromStore(
+  loadRaw: () => Promise<string | null>,
+  deps: VisionEligibilityDeps,
+): Promise<ResolvedVision> {
+  let raw: string | null = null;
+  try {
+    raw = await loadRaw();
+  } catch {
+    raw = null;
+  }
+  return resolveVisionEligibility(parseStoredAISettings(raw), deps);
 }
 
 export interface ScanPayslipDeps {

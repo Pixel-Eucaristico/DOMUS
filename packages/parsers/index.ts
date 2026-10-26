@@ -23,6 +23,7 @@ export type { OCRParseResult } from "./src/ocrParser";
 export {
   parsePayslipText,
   normalizePayslipPeriod,
+  readPayslipPeriod,
   normalizeVisionPayslip,
   parseBRL,
   PAYSLIP_WARNINGS,

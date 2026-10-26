@@ -133,3 +133,11 @@ describe("textos que contradiziam a política", () => {
     expect(policy).toContain("não personalizados por padrão");
   });
 });
+
+// N1 (revisão da Story 11.5): sem o OCR por Visão a leitura não é só no
+// aparelho quando o Google Cloud Vision está configurado.
+describe("OCR por Visão sem a flag", () => {
+  it("cita a exceção do Google Cloud Vision", () => {
+    expect(PRIVACY_FLAG_TEXTS.visionOcr.loses).toContain("Google Cloud Vision");
+  });
+});

@@ -9,11 +9,13 @@ import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyServi
 import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
 import { soundManager } from "@/src/services/SoundManager";
 import { appAlert } from "@/src/services/appAlert";
-import { useAISettings } from "@/src/hooks/useAISettings";
+import { SecureStorageService } from "@/src/modules/security/infrastructure/SecureStorageService";
+import { AI_SETTINGS_STORE_KEY } from "@/src/modules/ai/domain/AISettings";
 import {
-  isVisionEligible,
+  resolveVisionFromStore,
   scanPayslip,
   type PayslipScanResult,
+  type ResolvedVision,
 } from "@/src/modules/payslip/scanPayslip";
 
 export type PayslipCaptureSource = "camera" | "gallery";
@@ -24,12 +26,25 @@ interface UsePayslipScannerOptions {
 }
 
 /**
+ * Configurações da IA lidas do armazenamento no momento do scan (R1 da
+ * revisão): trocar o provedor no chat vale na hora, sem depender de uma cópia
+ * carregada na montagem.
+ */
+function resolveVisionNow(): Promise<ResolvedVision> {
+  return resolveVisionFromStore(() => SecureStorageService.get(AI_SETTINGS_STORE_KEY), {
+    supportsVision: (provider) => VisionOCRService.supportsVision(provider),
+    retrieveKey: (provider) => SecureKeyService.retrieveKey(provider),
+    isOverBudget: (s) =>
+      TokenTracker.isOverBudget(s.provider, s.customBudgets, s.budgetMode, s.monthlyBudgets, s.billingDay),
+  });
+}
+
+/**
  * Story 11.5: captura do holerite (câmera/galeria). Só orquestra: a escolha
  * Vision × OCR do aparelho fica em `scanPayslip` (puro). O Vision só é tentado
  * com IA ligada, flag `visionOCREnabled`, provedor com visão, chave e orçamento.
  */
 export function usePayslipScanner({ onManual }: UsePayslipScannerOptions) {
-  const { settings } = useAISettings();
   const [scanning, setScanning] = useState(false);
   const busy = useRef(false);
   const onManualRef = useRef(onManual);
@@ -47,34 +62,10 @@ export function usePayslipScanner({ onManual }: UsePayslipScannerOptions) {
       if (busy.current) return null;
       busy.current = true;
       try {
-        const provider = settings.provider as Parameters<typeof VisionOCRService.supportsVision>[0];
-        const basic =
-          settings.isEnabled &&
-          settings.visionOCREnabled === true &&
-          VisionOCRService.supportsVision(provider);
-        let apiKey: string | null = null;
-        let overBudget = true;
-        if (basic) {
-          try {
-            apiKey = await SecureKeyService.retrieveKey(provider);
-            overBudget = await TokenTracker.isOverBudget(
-              provider,
-              settings.customBudgets,
-              settings.budgetMode,
-              settings.monthlyBudgets,
-              settings.billingDay,
-            );
-          } catch {
-            apiKey = null;
-          }
-        }
-        const visionEligible = isVisionEligible({
-          aiEnabled: settings.isEnabled,
-          visionFlag: settings.visionOCREnabled === true,
-          providerSupportsVision: basic,
-          hasApiKey: !!apiKey,
-          overBudget,
-        });
+        const vision = await resolveVisionNow();
+        const visionEligible = vision.eligible;
+        const provider = vision.provider;
+        const apiKey = vision.apiKey;
 
         let picked: ImagePicker.ImagePickerResult;
         try {
@@ -120,7 +111,7 @@ export function usePayslipScanner({ onManual }: UsePayslipScannerOptions) {
               const raw = await VisionOCRService.process(asset.base64!, mimeType, provider, apiKey!, "payslip");
               return raw as VisionPayslipInput;
             },
-            recordVisionTokens: () => TokenTracker.record(provider, 2000, settings.billingDay),
+            recordVisionTokens: () => TokenTracker.record(provider, 2000, vision.billingDay),
             runLocalOcr: async () => {
               const ocrConfig = await OCRConfigService.loadConfig();
               const cloudVisionConfig = await OCRConfigService.getCloudVisionConfig();
@@ -154,7 +145,7 @@ export function usePayslipScanner({ onManual }: UsePayslipScannerOptions) {
         busy.current = false;
       }
     },
-    [settings, alertWithManual],
+    [alertWithManual],
   );
 
   return { scan, scanning };
