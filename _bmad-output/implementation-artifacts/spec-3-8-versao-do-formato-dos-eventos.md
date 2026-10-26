@@ -2,7 +2,7 @@
 title: 'Story 3.8: evoluir o formato dos eventos sem quebrar versões publicadas'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '96c0cc2'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -65,12 +65,12 @@ Registro de teste: `ACCOUNT_CREATED` atual = 2; v2 exige `currency` (texto); con
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] Módulo puro do registro e da conversão + testes unitários (ausente = 1, passos encadeados, imutável, versão futura, versão inválida, passo faltando)
-- [ ] Passo de conversão no `replayAllEvents` com Quarentena `future_schema_version`; `schemaVersion` retirado antes do reducer
-- [ ] Carimbo da versão atual no `appendDispatched`/`appendGenerated` (só tipos com versão > 1 — decisão 2)
-- [ ] Testes da matriz pelo replay com registro de teste (v1 e v2 → estado esperado) e regressão com o registro real
-- [ ] Testes de `profileId` (envelope e payload) em `validateEnvelope`, `validateLocalEvent` e replay
-- [ ] Comentário no registro com a regra de evolução (opcional por padrão; obrigatório novo exige versão + conversão; v2 de tipo publicado legível como v1)
+- [x] Módulo puro do registro e da conversão + testes unitários (ausente = 1, passos encadeados, imutável, versão futura, versão inválida, passo faltando)
+- [x] Passo de conversão no `replayAllEvents` com Quarentena `future_schema_version`; `schemaVersion` retirado antes do reducer
+- [x] Carimbo da versão atual no `appendDispatched`/`appendGenerated` (só tipos com versão > 1 — decisão 2)
+- [x] Testes da matriz pelo replay com registro de teste (v1 e v2 → estado esperado) e regressão com o registro real
+- [x] Testes de `profileId` (envelope e payload) em `validateEnvelope`, `validateLocalEvent` e replay
+- [x] Comentário no registro com a regra de evolução (opcional por padrão; obrigatório novo exige versão + conversão; v2 de tipo publicado legível como v1)
 
 **Acceptance Criteria:**
 - Given um evento publicado sem `schemaVersion`, when o replay roda, then ele é tratado como v1, convertido e aplicado
@@ -95,3 +95,44 @@ Registro de teste: `ACCOUNT_CREATED` atual = 2; v2 exige `currency` (texto); con
 ## Verification
 
 - `npx vitest run` e `npx tsc --noEmit` sem falhas novas em relação ao baseline
+
+## Implementation Notes
+
+**O que mudou**
+- `packages/events/src/schemaVersion.ts` (novo, puro): `SCHEMA_REGISTRY` (vazio = todos os tipos na v1), `currentSchemaVersion`, `shouldStampSchemaVersion` (versão atual > 1 ou `stamp: true`), `readSchemaVersion` (ausente = 1; só inteiro seguro ≥ 1), `upcastPayload` (passos `upcasters[N]`: vN→vN+1, cópia rasa por passo, devolve `invalid_version`/`future_version`/`missing_upcaster`/`upcaster_error`), `stripPayloadMetadata` e `stampSchemaVersion`. Comentário do módulo traz a regra de evolução. Exportado em `packages/events/index.ts`.
+- `src/context/replay.ts`: passo de conversão entre o filtro `unknown_type` e `validatePayload`; `QuarantineKind` ganha `future_schema_version` (motivo "versão do formato mais nova", `FUTURE_SCHEMA_VERSION_REASON`); versão inválida → `invalid_payload` com motivo próprio `payload inválido: campo "schemaVersion" inválido` (`INVALID_SCHEMA_VERSION_REASON`, R4); conversão ausente/que lança → `reducer_error` com motivo próprio ("conversão do formato vN→vN+1 ausente" / "erro na conversão do formato vN→vN+1: …"). O reducer recebe o payload convertido sem `schemaVersion` nem `profileId`; sem metadados e sem conversão, o payload chega como está (mesma referência). `ReplayOptions` ganha `schemaRegistry` e `payloadSpecs` (só teste).
+- `src/context/replayValidation.ts`: `validatePayload(type, payload, specs = PAYLOAD_SPECS)`; `FieldSpec`/`Kind`/`PayloadSpec` exportados; comentário de `PAYLOAD_SPECS` = versão atual.
+- `src/context/localEventLog.ts`: `appendDispatched`/`appendGenerated` carimbam com `stampSchemaVersion` (junto do `stampDeviceId`), com registro injetável só em teste. Após a revisão (R1), o carimbo grava sempre a versão atual: ausente ou menor vira a atual; maior ou inválida fica como está (o replay decide).
+- `src/hooks/useEventStore.ts` (R1): o caminho do modo demo (`dispatchDemoEvent`, que não passa por `appendDispatched`) também carimba com `stampSchemaVersion`.
+- Revisão (R2): `upcastPayload` passa a cada passo uma cópia profunda (`JSON.parse(JSON.stringify())`, sem `structuredClone`). R3/R7: comentário do registro ganhou as regras "conversão só preenche campo ausente", "nunca copiar estado/payload de outro evento para payload novo", "escrita local carimba sempre a versão atual" e os três pontos de `profileId` (valor não conferido, só a chave de topo é retirada, retirado de todo tipo).
+- Sem mudança: `validateEnvelope`, `eventStore`, `nostrSync`, reducers, `packages/sync`. Consumidores de `QuarantineKind`: `AppStateProvider` só olha `future_timestamp` (o timer não se aplica a versão futura, que só sai da Quarentena com atualização do app); `DebugTools` mostra o `reason` (pt-BR).
+
+**Decisões além da spec**
+- `profileId` do payload também é retirado antes do reducer (não só `schemaVersion`): os reducers espalham/guardam o payload (`ACCOUNT_CREATED` guarda o payload inteiro), então sem isso o estado com `profileId` seria diferente do estado sem ele. Valor de `profileId` não é conferido (aceito sem recusa).
+- Conversão ausente/que lança usa o kind existente `reducer_error` (com motivo próprio), em vez de um kind novo.
+- Conversão que não devolve objeto conta como erro de conversão.
+
+**Testes**
+- `packages/events/__tests__/schemaVersion.test.ts` (novo, 21 testes; +3 da revisão: mutação aninhada R2, carimbo sobrescreve versão menor R1, `SCHEMA_REGISTRY` real bem formado R6): leitura da versão, registro real/de teste, encadeamento, imutabilidade, futura, inválida, passo faltando, erro, carimbo.
+- `src/context/__tests__/replay.schemaVersion.test.ts` (novo, 19 testes; revisão: carimbo grava a versão atual sobre versão menor e não toca maior/inválida R1, `schemaVersion: null` na matriz R9c, ordem das checagens `unknown_type`/`future_timestamp` R8, motivo próprio R4): matriz pelo replay com registro de teste (v1, v2, v2 sem `currency`, v3 futura → aplicada com registro v3 na mesma posição, versões inválidas, conversão ausente/erro, payload sem metadados no reducer), regressão com registro real (log demo idêntico ao replay antigo, payload entregue sem cópia, log não alterado), carimbo no dispatch/gerados, `profileId` (envelope e payload) em `validateEnvelope`/`validateLocalEvent`/replay, sync com `schemaVersion: 99`.
+- `packages/events/__tests__/validateEnvelope.test.ts`: +1 teste (`profileId` no envelope e `schemaVersion` qualquer no payload).
+- `npx vitest run`: 76 arquivos / 1519 testes passando (baseline 74 / 1478; 1513 antes da revisão). `npx tsc --noEmit`: 0 erros.
+
+## Review Triage Log
+
+Revisão única com três lentes (adversarial, casos de borda, lacunas de verificação), 26/10. 0 High, 3 Med, 6 Low.
+
+| # | Achado | Sev. | Decisão |
+|---|--------|------|---------|
+| R1 | Escrita local sem carimbo ou com versão antiga (ex.: modo demo, que não passa por `appendDispatched`) é reconvertida e perde dado v2 | Med | **patch**: carimbo de escrita local grava sempre a versão atual (sobrescreve versão menor); modo demo também carimba; regra do comentário e upcaster de teste só preenchem campo ausente (`p.currency ?? "BRL"`) — **Aplicado** |
+| R2 | Cópia rasa antes do upcaster: conversão que muta objeto aninhado reescreve o log em memória | Med | **patch**: cópia profunda (JSON — payloads são JSON) antes de cada passo + teste com mutação aninhada — **Aplicado** |
+| R3 | App antigo guarda `schemaVersion` no estado e pode copiá-lo para outro payload | Low | **patch** (só comentário): regra "nunca copiar objeto de estado ou payload de outro evento para um payload novo" — **Aplicado** |
+| R4 | Motivo "ausente ou com tipo errado" para `0`, `-1`, `1.5`, `null` | Low | **patch**: motivo próprio `campo "schemaVersion" inválido` — **Aplicado** |
+| R5 | Inteiro acima do seguro vira `invalid_payload`, não `future_schema_version` | Low | **reject**: a spec manda inteiro seguro; versão > 2^53 não é cenário real |
+| R6 | Registro mal configurado não é detectado | Low | **patch**: teste que valida todo `SCHEMA_REGISTRY` (`current` inteiro ≥ 1 e upcasters 1..current-1) — **Aplicado** |
+| R7 | `profileId` não validado; só a chave de topo é retirada; retirado de todo tipo | Low | **patch** (só comentário): documentar os três pontos — **Aplicado** |
+| R8 | Nenhum teste prova a ordem das checagens | Med | **patch**: testes `tipo desconhecido + schemaVersion 99 → unknown_type` e `timestamp futuro + schemaVersion 0 → future_timestamp` — **Aplicado** |
+| R9a | Base "estado idêntico" reimplementada no teste | Low | **reject**: aceitável enquanto o registro real estiver vazio |
+| R9b | Persistência do evento carimbado não testada (hook RN) | Low | **reject**: correto por leitura; hook não roda no vitest |
+| R9c | `schemaVersion: null` não passa pelo replay em teste | Low | **patch**: incluir na matriz do replay — **Aplicado** |
+| R9d | Restauração de backup coberta só indiretamente | Low | **reject**: mesmo `selectEventsToImport` |

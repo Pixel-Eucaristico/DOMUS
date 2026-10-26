@@ -65,7 +65,7 @@ development_status:
   3-5-rejeitar-timestamp-no-futuro-e-nunca-reescrevê-lo: done
   3-6-separar-o-cursor-de-leitura-dos-relays-do-timestamp-do-event: done
   3-7-aplicar-edição-e-exclusão-que-chegam-antes-do-alvo: done
-  3-8-evoluir-o-formato-dos-eventos-sem-quebrar-versões-publicadas: in-progress
+  3-8-evoluir-o-formato-dos-eventos-sem-quebrar-versões-publicadas: done
   epic-3-retrospective: optional
 
   epic-4: backlog

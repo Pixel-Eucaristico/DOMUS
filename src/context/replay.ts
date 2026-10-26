@@ -1,6 +1,13 @@
 import { EVENT_TYPES, type DomainEvent } from "@packages/events/src/types";
 import { diagnosticString, MAX_FUTURE_SKEW_MS } from "@packages/events/src/validateEnvelope";
-import { validateLocalEvent, validatePayload, type LocalEnvelopeProblem } from "./replayValidation";
+import { SCHEMA_REGISTRY, upcastPayload, type SchemaRegistry } from "@packages/events/src/schemaVersion";
+import {
+  PAYLOAD_SPECS,
+  validateLocalEvent,
+  validatePayload,
+  type LocalEnvelopeProblem,
+  type PayloadSpec,
+} from "./replayValidation";
 import { domainReducer } from "@packages/domain/src/reducer";
 import { createInitialState, type AppState } from "@packages/domain/src/state";
 import { GAMIFICATION_EVENTS, type GamificationEvent, type GamificationState } from "@packages/gamification/src/types";
@@ -24,6 +31,11 @@ import { isBlankDeviceId } from "./localEventLog";
  * mandam o evento para a Quarentena, sem efeito parcial no estado. A Quarentena
  * é derivada (nunca persistida) e o log não é alterado.
  *
+ * Story 3.8: depois do filtro de tipo desconhecido, o payload é convertido em
+ * memória até a versão atual do formato (`upcastPayload`) e sai sem os metadados
+ * `schemaVersion`/`profileId`; versão mais nova que a conhecida vai para a
+ * Quarentena ("versão do formato mais nova") e passa a valer depois da atualização.
+ *
  * A conferência do envelope aqui é a local e tolerante (`validateLocalEvent`),
  * não o `validateEnvelope` estrito do sync: relógio errado não descarta evento.
  */
@@ -32,6 +44,7 @@ export type QuarantineKind =
   | "invalid_envelope"
   | "future_timestamp"
   | "unknown_type"
+  | "future_schema_version"
   | "invalid_payload"
   | "reducer_error";
 
@@ -56,6 +69,8 @@ export interface ReplayResult {
 
 export const UNKNOWN_TYPE_REASON = "tipo desconhecido";
 export const FUTURE_TIMESTAMP_REASON = "horário no futuro";
+export const FUTURE_SCHEMA_VERSION_REASON = "versão do formato mais nova";
+export const INVALID_SCHEMA_VERSION_REASON = 'payload inválido: campo "schemaVersion" inválido';
 
 const ENVELOPE_REASONS: Record<LocalEnvelopeProblem, string> = {
   not_object: "envelope inválido: não é um objeto",
@@ -86,6 +101,15 @@ export const MAX_REASON_LENGTH = 160;
 /** Mesmo corte (code points, "…") e escape do diagnóstico da Story 3.1. */
 function safeText(value: unknown, max?: number): string {
   return diagnosticString(value, max) ?? "?";
+}
+
+function invalidFieldReason(field: string): string {
+  return safeText(`payload inválido: campo "${field}" ausente ou com tipo errado`, MAX_REASON_LENGTH);
+}
+
+function upcastErrorReason(from: number, err: unknown): string {
+  const message = err instanceof Error ? `${err.name}: ${err.message}` : "erro desconhecido";
+  return safeText(`erro na conversão do formato v${from}→v${from + 1}: ${message}`, MAX_REASON_LENGTH);
 }
 
 function errorReason(err: unknown): string {
@@ -125,6 +149,13 @@ export interface ReplayOptions {
    * não esconder os dados do próprio usuário durante a inicialização.
    */
   currentDeviceId?: string | null;
+  /**
+   * Story 3.8: registro de versões do formato (versão atual e conversões por tipo).
+   * Padrão: `SCHEMA_REGISTRY`. Só teste troca, junto com `payloadSpecs`.
+   */
+  schemaRegistry?: SchemaRegistry;
+  /** Story 3.8: campos exigidos por tipo (versão atual). Padrão: `PAYLOAD_SPECS`. */
+  payloadSpecs?: Readonly<Record<string, PayloadSpec>>;
 }
 
 /**
@@ -271,6 +302,8 @@ const DEFAULT_REDUCERS: ReplayReducers = {
 export function replayAllEvents(events: readonly SyncEvent[], options: ReplayOptions = {}): ReplayResult {
   const knownTypes = options.knownTypes ?? KNOWN_EVENT_TYPES;
   const reducers: ReplayReducers = { ...DEFAULT_REDUCERS, ...options.reducers };
+  const schemaRegistry = options.schemaRegistry ?? SCHEMA_REGISTRY;
+  const payloadSpecs = options.payloadSpecs ?? PAYLOAD_SPECS;
   const now = options.now ?? Date.now();
   const currentDeviceId = options.currentDeviceId ?? null;
   // Story 3.5: referência do "agora" por aparelho (decisão do dono); só calculada
@@ -319,29 +352,52 @@ export function replayAllEvents(events: readonly SyncEvent[], options: ReplayOpt
       continue;
     }
 
-    const badField = validatePayload(t, evt.payload as Record<string, unknown>);
+    // Story 3.8: converte em memória até a versão atual (ausente = v1) e tira
+    // `schemaVersion`/`profileId` do payload antes da conferência e do reducer.
+    const upcast = upcastPayload(t, evt.payload as Record<string, unknown>, schemaRegistry);
+    if (!upcast.ok) {
+      switch (upcast.problem) {
+        case "invalid_version":
+          quarantine.push({ id, type, kind: "invalid_payload", reason: INVALID_SCHEMA_VERSION_REASON });
+          break;
+        case "future_version":
+          quarantine.push({ id, type, kind: "future_schema_version", reason: FUTURE_SCHEMA_VERSION_REASON });
+          break;
+        case "missing_upcaster":
+          quarantine.push({
+            id,
+            type,
+            kind: "reducer_error",
+            reason: safeText(`conversão do formato v${upcast.from}→v${upcast.from + 1} ausente`, MAX_REASON_LENGTH),
+          });
+          break;
+        case "upcaster_error":
+          quarantine.push({ id, type, kind: "reducer_error", reason: upcastErrorReason(upcast.from, upcast.error) });
+          break;
+      }
+      continue;
+    }
+    const payload = upcast.payload;
+    const applied = payload === evt.payload ? evt : { ...evt, payload };
+
+    const badField = validatePayload(t, payload, payloadSpecs);
     if (badField !== null) {
-      quarantine.push({
-        id,
-        type,
-        kind: "invalid_payload",
-        reason: safeText(`payload inválido: campo "${badField}" ausente ou com tipo errado`, MAX_REASON_LENGTH),
-      });
+      quarantine.push({ id, type, kind: "invalid_payload", reason: invalidFieldReason(badField) });
       continue;
     }
 
     // Calcula os próximos estados e só os confirma se nenhum reducer lançar erro.
     try {
-      const nextDomain = DOMAIN_TYPES.has(t) ? reducers.domain(domain, evt as unknown as DomainEvent) : domain;
+      const nextDomain = DOMAIN_TYPES.has(t) ? reducers.domain(domain, applied as unknown as DomainEvent) : domain;
       const nextGamification = GAMIFICATION_TYPES.has(t)
-        ? reducers.gamification(gamification, evt as unknown as GamificationEvent)
+        ? reducers.gamification(gamification, applied as unknown as GamificationEvent)
         : gamification;
       const nextOnboarding = ONBOARDING_TYPES.has(t)
-        ? reducers.onboarding(onboarding, evt as unknown as OnboardingEvent)
+        ? reducers.onboarding(onboarding, applied as unknown as OnboardingEvent)
         : onboarding;
-      const nextSeason = SEASON_TYPES.has(t) ? reducers.season(season, evt as unknown as SeasonEvent) : season;
+      const nextSeason = SEASON_TYPES.has(t) ? reducers.season(season, applied as unknown as SeasonEvent) : season;
       const nextWishlist = WISHLIST_TYPES.has(t)
-        ? reducers.wishlist(wishlist, evt as unknown as WishlistEvent)
+        ? reducers.wishlist(wishlist, applied as unknown as WishlistEvent)
         : wishlist;
 
       domain = nextDomain;

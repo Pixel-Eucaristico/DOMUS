@@ -24,6 +24,14 @@ const omit = (key: string) => {
 };
 
 describe("validateEnvelope", () => {
+  it("Story 3.8: aceita profileId no envelope (ignorado) e qualquer schemaVersion/profileId no payload", () => {
+    for (const schemaVersion of [1, 2, 99, "2", 0, 1.5]) {
+      const payload = { amount: 1, schemaVersion, profileId: "perfil-1" };
+      const r = validateEnvelope(valid({ profileId: "perfil-1", payload }));
+      expect(r).toEqual({ ok: true, event: valid({ payload }) });
+    }
+  });
+
   it("aceita envelope completo e normaliza", () => {
     const r = validateEnvelope(valid());
     expect(r).toEqual({ ok: true, event: valid() });

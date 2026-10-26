@@ -11,6 +11,7 @@ import {
   prepareBackupForStorage,
   prepareLocalLog,
 } from "@/src/context/localEventLog";
+import { stampSchemaVersion } from "@packages/events/src/schemaVersion";
 
 const DEVICE_ID_KEY = "domus_device_id";
 const EVENTS_BACKUP_KEY = "domus_events_v1";
@@ -151,10 +152,12 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
   const dispatch = useCallback(
     (syncEvt: SyncEvent) => {
       if (isDemoActive) {
+        // Story 3.8: o modo demo não passa por `appendDispatched`; carimba a versão
+        // do formato aqui para o evento não ser reconvertido no replay.
         dispatchDemoEvent({
           id: syncEvt.id,
           type: syncEvt.type,
-          payload: syncEvt.payload,
+          payload: stampSchemaVersion(syncEvt).payload,
           timestamp: syncEvt.timestamp,
         });
         return;

@@ -1,6 +1,7 @@
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { compareEvents, eventTimestampKey } from "@packages/storage/src/eventOrder";
 import { createEvent } from "@packages/events/src/factory";
+import { SCHEMA_REGISTRY, stampSchemaVersion, type SchemaRegistry } from "@packages/events/src/schemaVersion";
 import { GAMIFICATION_EVENTS, type XpGainedEvent, type XpGainedPayload } from "@packages/gamification/src/types";
 
 /** Ordem total do log (Story 3.4): `(timestamp, deviceId, id)`. */
@@ -191,8 +192,9 @@ export interface DispatchAppendResult {
 }
 
 /**
- * `dispatch` de um evento novo: carimba o id do aparelho (`stampDeviceId`) e o
- * junta ao log com `prepareLocalLog`. Id já presente em `prev` é descartado
+ * `dispatch` de um evento novo: carimba o id do aparelho (`stampDeviceId`) e a
+ * versão atual do formato (Story 3.8, `stampSchemaVersion`: só tipos com versão
+ * atual > 1 ou que nascem versionados) e o junta ao log com `prepareLocalLog`. Id já presente em `prev` é descartado
  * (fica o primeiro, como o `INSERT OR IGNORE`) e `added` volta `false`.
  * Pura; não altera a entrada.
  */
@@ -200,8 +202,10 @@ export function appendDispatched(
   prev: readonly SyncEvent[],
   evt: SyncEvent,
   deviceId: string | null,
+  /** Story 3.8: só teste troca. */
+  schemaRegistry: SchemaRegistry = SCHEMA_REGISTRY,
 ): DispatchAppendResult {
-  const event = stampDeviceId(evt, deviceId);
+  const event = stampSchemaVersion(stampDeviceId(evt, deviceId), schemaRegistry);
   const id = event?.id;
   if (typeof id === "string" && prev.some((e) => e?.id === id)) {
     return { events: [...prev], event, added: false };
@@ -220,19 +224,21 @@ export interface GeneratedAppendResult {
 /**
  * Eventos gerados pelo próprio app fora do `dispatch` (categorias padrão,
  * recuperação de XP): mesma regra do `dispatch` para cada um — carimbo do id
- * do aparelho, sem ids repetidos (nem com `prev` nem entre si), ordem total.
+ * do aparelho e da versão do formato (Story 3.8), sem ids repetidos (nem com `prev` nem entre si), ordem total.
  * Pura; não altera a entrada.
  */
 export function appendGenerated(
   prev: readonly SyncEvent[],
   evts: readonly SyncEvent[],
   deviceId: string | null,
+  /** Story 3.8: só teste troca. */
+  schemaRegistry: SchemaRegistry = SCHEMA_REGISTRY,
 ): GeneratedAppendResult {
   const seen = new Set<string>();
   for (const e of prev) if (typeof e?.id === "string") seen.add(e.id);
   const added: SyncEvent[] = [];
   for (const raw of evts) {
-    const event = stampDeviceId(raw, deviceId);
+    const event = stampSchemaVersion(stampDeviceId(raw, deviceId), schemaRegistry);
     const id = event?.id;
     if (typeof id === "string") {
       if (seen.has(id)) continue;

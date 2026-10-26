@@ -63,9 +63,9 @@ export function validateLocalEvent(raw: unknown): LocalEventCheck {
 
 // ─── Payload por tipo ───────────────────────────────────────────────────────
 
-type Kind = "string" | "number" | "boolean" | "object" | "array";
+export type Kind = "string" | "number" | "boolean" | "object" | "array";
 
-interface FieldSpec {
+export interface FieldSpec {
   kind: Kind | Kind[];
   optional?: boolean;
   /** Campos de um objeto aninhado. */
@@ -103,11 +103,16 @@ const ACCOUNT_OPTIONAL: Record<string, FieldSpec> = {
   creditLimit: optNum,
 };
 
+/** Campos exigidos de um payload, por nome. */
+export type PayloadSpec = Record<string, FieldSpec>;
+
 /**
- * Campos exigidos por tipo, conferidos antes do reducer. Tipo ausente aqui
+ * Campos exigidos por tipo, conferidos antes do reducer. Descreve sempre a
+ * versão **atual** do formato de cada tipo (Story 3.8: o replay converte o
+ * payload até a versão atual antes desta conferência). Tipo ausente aqui
  * (ex.: `ONBOARDING_FINISHED`, `SEASON_ENDED`) não lê nada do payload.
  */
-export const PAYLOAD_SPECS: Readonly<Record<string, Record<string, FieldSpec>>> = {
+export const PAYLOAD_SPECS: Readonly<Record<string, PayloadSpec>> = {
   // Domínio
   ACCOUNT_CREATED: { id: str, type: str, balance: num, ...ACCOUNT_OPTIONAL },
   ACCOUNT_UPDATED: { id: str, type: optStr, balance: optNum, ...ACCOUNT_OPTIONAL },
@@ -213,10 +218,15 @@ function checkFields(obj: Record<string, unknown>, fields: Record<string, FieldS
 
 /**
  * Confere o payload de um tipo conhecido. Devolve o caminho do campo ausente
- * ou com tipo errado (ex.: `"item.listId"`), ou `null` se está bom.
+ * ou com tipo errado (ex.: `"item.listId"`), ou `null` se está bom. `specs`
+ * só é trocado em teste (Story 3.8: formato de uma versão simulada).
  */
-export function validatePayload(type: string, payload: Record<string, unknown>): string | null {
-  const spec = PAYLOAD_SPECS[type];
+export function validatePayload(
+  type: string,
+  payload: Record<string, unknown>,
+  specs: Readonly<Record<string, PayloadSpec>> = PAYLOAD_SPECS,
+): string | null {
+  const spec = Object.prototype.hasOwnProperty.call(specs, type) ? specs[type] : undefined;
   if (!spec) return null;
   return checkFields(payload, spec, "");
 }

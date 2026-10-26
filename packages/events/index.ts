@@ -40,3 +40,23 @@ export type {
   EnvelopeValidationResult,
   EnvelopePartition,
 } from "./src/validateEnvelope";
+
+export {
+  SCHEMA_REGISTRY,
+  SCHEMA_VERSION_FIELD,
+  PROFILE_ID_FIELD,
+  PAYLOAD_METADATA_FIELDS,
+  currentSchemaVersion,
+  shouldStampSchemaVersion,
+  readSchemaVersion,
+  stripPayloadMetadata,
+  upcastPayload,
+  stampSchemaVersion,
+} from "./src/schemaVersion";
+export type {
+  PayloadUpcaster,
+  TypeSchema,
+  SchemaRegistry,
+  SchemaVersionRead,
+  UpcastResult,
+} from "./src/schemaVersion";
