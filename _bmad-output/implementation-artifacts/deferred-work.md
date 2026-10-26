@@ -98,3 +98,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-revisao-23-10-correcoes.md`
   summary: D33 — `dispatch` (e `appendDispatched`/`appendGenerated`) refaz o log inteiro a cada evento: normaliza, deduplica e reordena tudo (O(n log n) por evento).
   evidence: `src/context/localEventLog.ts` chama `prepareLocalLog([...prev, evt])`. Trocar por inserção ordenada (busca binária com `compareEvents`) quando virar gargalo em logs grandes.
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-6-cursor-dos-relays.md`
+  summary: D34 — O pull lê no máximo 500 eventos por relay e cada aparelho republica todos os lotes (`d=sync-<aparelho>-<i>`, 20 eventos por lote). Passando de ~500 lotes no total, o relay devolve os mais novos e os lotes do aparelho com relógio atrasado são cortados primeiro. Relays também recusam evento com `created_at` muito no futuro (strfry: 15 min), e cada entrega ao vivo limpa o push pendente.
+  evidence: revisão da Story 3.6; repensar o formato dos lotes junto do Epic 4 (Grupo forte).
