@@ -144,3 +144,23 @@ context:
 - Os `PAYSLIP_*` descartados do Grupo antigo não entram na linha de total do pull ("N descartados de M"); têm o próprio aviso único por evento.
 - `AIContextBuilder.test.ts` não precisou mudar: o literal ali é `ContextData`, não `AppState` (o `tsc` passa sem `payslips`).
 
+
+## Review Triage Log
+
+Revisão única com três lentes (adversarial, casos de borda, lacunas de verificação), 26/10, sobre o commit 6606fcb. 0 High, 2 Med, 11 Low. Auditoria de vazamento: nenhum caminho publica `PAYSLIP_*` ou valor de salário.
+
+| # | Achado | Sev. | Decisão |
+|---|--------|------|---------|
+| R1 | Holerite do 13º vira `AAAA-12` e substitui o de dezembro do mesmo empregador | Med | **patch** (decisão do dono 26/10): campo opcional `kind: "monthly" \| "thirteenth"` (ausente = `monthly`) no payload v1, `PAYLOAD_SPECS`, `StoredPayslip` e na chave de substituição; o criador recebe `kind` |
+| R2 | Criador aceita linha sem `name` e gera evento que o replay põe em Quarentena; `company` ausente lança `TypeError` cru | Med | **patch**: criador exige `name` texto (trim) e `company` texto, com erro claro; teste que toda saída do criador passa no `validatePayload` e no replay sem Quarentena |
+| R3 | CNPJ alfanumérico (Receita, jul/2026) tratado como ausente | Low | **patch**: normalizar para `[0-9A-Z]` em maiúsculas, 14 caracteres |
+| R4 | Replay aceita `id: ""`, `period: "lixo"`, `source` desconhecido, salário negativo | Low | **patch**: `FieldSpec` ganha padrão/enum; `period` `AAAA-MM`, `source` e `kind` por enum, `id` não vazio; valores negativos aceitos (descontos/estornos) |
+| R5 | Filtro de entrada só no parse; `importEvents` do sync não filtra | Low | **patch**: filtrar também no `importEvents` do sync (não no restauro de backup). Ignorar `PAYSLIP_*` de outro aparelho já no log: **defer** (D38) |
+| R6 | Hash do `pushMyEvents` inclui `PAYSLIP_*` e republica tudo a cada holerite | Low | **patch**: hash só do que é publicável no Grupo antigo |
+| R7 | Normalização do nome não pega "LTDA." vs "LTDA", largura zero, letras largas | Low | **patch**: NFKD, remover caracteres de largura zero e pontuação |
+| R8 | Nome vazio conta como empregador | Low | **patch**: nome normalizado vazio nunca casa, salvo CNPJs iguais |
+| R9 | Arredondamento `1.005 → 1`, `-0` | Low | **reject**: segue o `round2` do repositório |
+| R10 | Teste de ordem de chegada passa trivialmente | Low | **patch**: caso com timestamp empatado |
+| R11 | Testes do criador só checam forma | Low | **patch**: coberto pelo teste do R2 |
+| R12 | Nada garante publicador único | Low | **patch**: teste que `pool.publish`/`finalizeEvent` só aparecem dentro de `publishSyncEvents` |
+| R13 | Modo demo sem teste para `PAYSLIP_*` | Low | **reject**: hook RN, não roda no vitest; caminho coberto por leitura na 3.8 |

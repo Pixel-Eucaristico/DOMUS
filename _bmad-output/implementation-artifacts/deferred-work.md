@@ -110,3 +110,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-7-edicao-e-exclusao-antes-do-alvo.md`
   summary: D37 — `INVOICE_CONFIRMED` antes de `INVOICE_IMPORTED` e os eventos da lista de desejos (item atualizado, removido, preço, convertido, meta, lista apagada) antes do alvo ainda são ignorados.
   evidence: `packages/domain/src/reducer.ts` (`if (!invoice) return state`) e `packages/wishlist/src/reducer.ts`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-11-4-holerite-como-evento-local.md`
+  summary: D38 — `PAYSLIP_*` que um build de dev já tenha importado do Grupo antigo antes da 11.4 (publicado por um build do commit `850aa1b`) continua no log e é aplicado no replay.
+  evidence: revisão da Story 11.4 (R5); ignorar `PAYSLIP_*` de outro `deviceId` até a Story 4.5 ou limpar na migração para o Grupo forte.
