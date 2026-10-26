@@ -12,9 +12,9 @@ import {
 } from "@/src/modules/nostrSync";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { SubCloser } from "nostr-tools/pool";
+import { createSyncCoordinator } from "@/src/modules/syncCoordinator";
 import {
   LAST_SYNC_KEY,
-  LAST_PULL_TS_KEY,
   LAST_PUSH_HASH_KEY,
   PULL_INTERVAL_MS,
   generateGroupCode,
@@ -45,12 +45,6 @@ export function useSyncEngine({
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [lastPullTs, setLastPullTs] = useState(0);
-  const lastPullTsRef = useRef(0);
-
-  useEffect(() => {
-    lastPullTsRef.current = lastPullTs;
-  }, [lastPullTs]);
 
   const allEvents = getAllEvents();
   const allEventsRef = useRef(allEvents);
@@ -67,7 +61,6 @@ export function useSyncEngine({
   }, [keys]);
 
   const lastPushHashRef = useRef<string>("empty");
-  const isImportingRef = useRef(false);
   const isPushingRef = useRef(false);
   const pushDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialSyncDoneRef = useRef(false);
@@ -81,13 +74,32 @@ export function useSyncEngine({
     } catch {}
   }, []);
 
-  const saveLastPullTs = useCallback(async (ts: number) => {
-    setLastPullTs(ts);
-    lastPullTsRef.current = ts;
-    try {
-      await AsyncStorage.setItem(LAST_PULL_TS_KEY, ts.toString());
-    } catch {}
-  }, []);
+  // Story 3.6: o coordenador (puro, testado no vitest) é dono do cursor dos relays,
+  // da fila ao vivo, do mutex único de importação e da época do grupo.
+  const importEventsRef = useRef(importEvents);
+  useEffect(() => {
+    importEventsRef.current = importEvents;
+  }, [importEvents]);
+
+  const [coordinator] = useState(() =>
+    createSyncCoordinator<{ keys: NostrSyncKeys; deviceId: string; isRecovery: boolean }>({
+      storage: AsyncStorage,
+      pull: (req) => pullSyncEvents(req.keys, req.deviceId, req.isRecovery),
+      importEvents: (events) => {
+        if (pushDebounceRef.current) {
+          clearTimeout(pushDebounceRef.current);
+          pushDebounceRef.current = null;
+        }
+        return importEventsRef.current(events);
+      },
+      onLiveImported: () => {
+        const ts = Date.now();
+        setLastSyncTime(ts);
+        AsyncStorage.setItem(LAST_SYNC_KEY, ts.toString()).catch(() => {});
+        setSyncStatus("connected");
+      },
+    }),
+  );
 
   // --- Load persisted state on mount ---
 
@@ -95,21 +107,23 @@ export function useSyncEngine({
     AsyncStorage.getItem(LAST_SYNC_KEY).then((val) => {
       if (val) setLastSyncTime(parseInt(val, 10));
     });
-    loadGroupCode().then(async (val) => {
-      if (val) {
-        setGroupCode(val);
-        const derived = await deriveKeysFromCode(val);
-        setKeys(derived);
-        keysRef.current = derived;
-      }
-    });
-    AsyncStorage.getItem(LAST_PULL_TS_KEY).then((val) => {
-      if (val) {
-        const ts = parseInt(val, 10);
-        setLastPullTs(ts);
-        lastPullTsRef.current = ts;
-      }
-    });
+    // O cursor carrega antes das chaves: a assinatura só nasce com as chaves e
+    // já monta o `since` com o cursor salvo. A chave antiga (`lastPullTs`) é apagada.
+    coordinator
+      .load()
+      .catch(() => null)
+      .then(() => loadGroupCode())
+      .then(async (val) => {
+        if (val) {
+          setGroupCode(val);
+          const derived = await deriveKeysFromCode(val);
+          setKeys(derived);
+          keysRef.current = derived;
+        }
+      })
+      .catch((err) => {
+        console.warn("[Sync] Falha ao carregar o código do grupo:", err);
+      });
     AsyncStorage.getItem(LAST_PUSH_HASH_KEY).then((val) => {
       if (val) lastPushHashRef.current = val;
     });
@@ -117,7 +131,7 @@ export function useSyncEngine({
     return () => {
       closePool();
     };
-  }, []);
+  }, [coordinator]);
 
   // --- Core sync operations ---
 
@@ -150,37 +164,14 @@ export function useSyncEngine({
   );
 
   const pullFromRelays = useCallback(
-    async (k: NostrSyncKeys, did: string, since: number): Promise<number> => {
-      try {
-        const isRecovery = allEventsRef.current.length === 0;
-        const syncEvents = await pullSyncEvents(k, did, since, isRecovery);
-
-        if (syncEvents.length > 0) {
-          isImportingRef.current = true;
-
-          if (pushDebounceRef.current) {
-            clearTimeout(pushDebounceRef.current);
-            pushDebounceRef.current = null;
-          }
-
-          const imported = await importEvents(syncEvents);
-          isImportingRef.current = false;
-
-          if (imported > 0) {
-            const maxTs = Math.max(...syncEvents.map((e) => e.timestamp));
-            await saveLastPullTs(maxTs);
-            await saveLastSync(Date.now());
-          }
-          return imported;
-        }
-
-        return 0;
-      } catch (err) {
-        isImportingRef.current = false;
-        throw err;
-      }
+    async (k: NostrSyncKeys, did: string): Promise<number> => {
+      const isRecovery = allEventsRef.current.length === 0;
+      // Busca fora do mutex; importação e cursor sob o mutex; a fila ao vivo drena depois.
+      const imported = await coordinator.runPull({ keys: k, deviceId: did, isRecovery });
+      if (imported > 0) await saveLastSync(Date.now());
+      return imported;
     },
-    [importEvents, saveLastSync, saveLastPullTs],
+    [coordinator, saveLastSync],
   );
 
   const doSync = useCallback(async () => {
@@ -189,19 +180,15 @@ export function useSyncEngine({
     const currentKeys = keysRef.current;
 
     if (!currentGroupCode || !currentDeviceId || !currentKeys) return;
-    if (isImportingRef.current) return;
+    if (coordinator.isImporting()) return;
 
     try {
       setSyncStatus("syncing");
 
-      const pullSince = (initialSyncDoneRef.current && allEventsRef.current.length > 0) ? lastPullTsRef.current : 0;
-
       await pushMyEvents(currentKeys, currentDeviceId, false);
-      const imported = await pullFromRelays(currentKeys, currentDeviceId, pullSince);
+      await pullFromRelays(currentKeys, currentDeviceId);
 
-      if (!initialSyncDoneRef.current && (imported > 0 || pullSince === 0)) {
-        initialSyncDoneRef.current = true;
-      }
+      initialSyncDoneRef.current = true;
 
       setSyncStatus("connected");
       setErrorMessage(null);
@@ -209,7 +196,7 @@ export function useSyncEngine({
       console.warn("[Sync] periodic sync failed (offline):", err);
       setSyncStatus("offline");
     }
-  }, [groupCode, deviceId, pushMyEvents, pullFromRelays]);
+  }, [groupCode, deviceId, pushMyEvents, pullFromRelays, coordinator]);
 
   // --- Main sync effect ---
 
@@ -233,7 +220,7 @@ export function useSyncEngine({
       setSyncStatus("syncing");
 
       pushMyEvents(keys, did, true)
-        .then(() => pullFromRelays(keys, did, 0))
+        .then(() => pullFromRelays(keys, did))
         .then(() => {
           initialSyncDoneRef.current = true;
           setSyncStatus("connected");
@@ -251,25 +238,10 @@ export function useSyncEngine({
       subRef.current = subscribeToSyncEvents(
         keys,
         deviceId,
-        lastPullTs,
-        async (event) => {
-          if (isImportingRef.current) return;
-
-          try {
-            isImportingRef.current = true;
-
-            if (pushDebounceRef.current) {
-              clearTimeout(pushDebounceRef.current);
-              pushDebounceRef.current = null;
-            }
-
-            await importEvents([event]);
-            isImportingRef.current = false;
-            await saveLastSync(Date.now());
-            setSyncStatus("connected");
-          } catch {
-            isImportingRef.current = false;
-          }
+        coordinator.liveSince(),
+        (event, createdAt) => {
+          // Story 3.6: o evento entra na fila e é importado quando o mutex permitir (sem descarte).
+          coordinator.enqueueLive(event, createdAt);
         },
       );
     } catch {}
@@ -284,8 +256,8 @@ export function useSyncEngine({
         subRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- lastPullTs muda a cada pull; incluí-lo recriaria a subscription de sync a cada pull (o valor atual é lido via lastPullTsRef)
-  }, [groupCode, deviceId, keys, loading, doSync, pullFromRelays, pushMyEvents, importEvents, saveLastSync]);
+    // O cursor não entra nas deps: ele muda a cada pull e recriaria a assinatura (lido do coordenador ao assinar).
+  }, [groupCode, deviceId, keys, loading, doSync, pullFromRelays, pushMyEvents, coordinator]);
 
   // --- Auto-push on local event changes ---
 
@@ -359,6 +331,8 @@ export function useSyncEngine({
       const code = generateGroupCode();
       const derivedKeys = await deriveKeysFromCode(code);
 
+      // Grupo novo: cursor e fila do grupo anterior não valem mais.
+      await coordinator.reset();
       setKeys(derivedKeys);
       setGroupCode(code);
       await saveGroupCode(code);
@@ -377,7 +351,7 @@ export function useSyncEngine({
       setErrorMessage("Falha ao criar grupo. Tente novamente.");
       return null;
     }
-  }, [deviceId, pushMyEvents, saveLastSync]);
+  }, [deviceId, pushMyEvents, saveLastSync, coordinator]);
 
   const joinGroup = useCallback(
     async (code: string): Promise<boolean> => {
@@ -399,6 +373,8 @@ export function useSyncEngine({
         const normalizedCode = code.trim().toUpperCase();
         const derivedKeys = await deriveKeysFromCode(normalizedCode);
 
+        // Grupo novo: cursor e fila do grupo anterior não valem mais.
+        await coordinator.reset();
         setKeys(derivedKeys);
         setGroupCode(normalizedCode);
         await saveGroupCode(normalizedCode);
@@ -410,7 +386,7 @@ export function useSyncEngine({
         } catch {}
 
         try {
-          await pullFromRelays(derivedKeys, deviceId, 0);
+          await pullFromRelays(derivedKeys, deviceId);
         } catch {}
 
         setSyncStatus("connected");
@@ -422,7 +398,7 @@ export function useSyncEngine({
         return false;
       }
     },
-    [deviceId, pushMyEvents, pullFromRelays, saveLastSync],
+    [deviceId, pushMyEvents, pullFromRelays, saveLastSync, coordinator],
   );
 
   const leaveGroup = useCallback(async () => {
@@ -431,18 +407,19 @@ export function useSyncEngine({
       subRef.current = null;
     }
     closePool();
+    // Nova época já (síncrono): pull e drenagem em curso do grupo antigo são ignorados.
+    const resetting = coordinator.reset();
 
     setGroupCode(null);
     setKeys(null);
     setSyncStatus("idle");
     setErrorMessage(null);
-    setLastPullTs(0);
     lastPushHashRef.current = "empty";
     initialSyncDoneRef.current = false;
     await clearGroupCode();
-    await AsyncStorage.removeItem(LAST_PULL_TS_KEY);
+    await resetting;
     await AsyncStorage.removeItem(LAST_PUSH_HASH_KEY);
-  }, []);
+  }, [coordinator]);
 
   const pushNow = useCallback(async () => {
     if (!groupCode || !deviceId || !keys) return;
@@ -460,14 +437,14 @@ export function useSyncEngine({
     if (!groupCode || !deviceId || !keys) return 0;
     try {
       setSyncStatus("syncing");
-      const count = await pullFromRelays(keys, deviceId, lastPullTs);
+      const count = await pullFromRelays(keys, deviceId);
       setSyncStatus("connected");
       return count;
     } catch {
       setSyncStatus("offline");
       return 0;
     }
-  }, [groupCode, deviceId, pullFromRelays, lastPullTs, keys]);
+  }, [groupCode, deviceId, pullFromRelays, keys]);
 
   const resetStatus = useCallback(() => {
     setSyncStatus(groupCode ? "connected" : "idle");

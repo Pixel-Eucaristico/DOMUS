@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from "vitest";
 import { sha256 } from "@noble/hashes/sha2.js";
+import { subscriptionSince } from "../syncPayload";
 
 // Pool Nostr falso: guarda o que é publicado e devolve `relayEvents` no pull.
 const published: any[] = [];
 let relayEvents: any[] = [];
+// Último filtro e handler da assinatura, para simular a entrega ao vivo.
+let lastSubFilter: any = null;
+// Último filtro do pull; o pool falso aplica `since` e `limit` como um relay.
+let lastQueryFilter: any = null;
+let lastSubHandler: any = null;
 
 vi.mock("nostr-tools/pool", () => ({
   SimplePool: class {
@@ -11,10 +17,18 @@ vi.mock("nostr-tools/pool", () => ({
       published.push(ev);
       return relays.map(() => Promise.resolve("ok"));
     }
-    querySync() {
-      return Promise.resolve(relayEvents);
+    querySync(_relays: string[], filter: any) {
+      lastQueryFilter = filter;
+      let out = relayEvents.filter((e) => filter.since === undefined || (e.created_at ?? 0) >= filter.since);
+      if (filter.limit !== undefined) {
+        // Como um relay: os mais recentes por created_at primeiro, cortados no limite.
+        out = [...out].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0)).slice(0, filter.limit);
+      }
+      return Promise.resolve(out);
     }
-    subscribeMany() {
+    subscribeMany(_relays: string[], filter: any, handler: any) {
+      lastSubFilter = filter;
+      lastSubHandler = handler;
       return { close() {} };
     }
     close() {}
@@ -25,6 +39,7 @@ import {
   parseSyncPayload,
   pullSyncEvents,
   publishSyncEvents,
+  subscribeToSyncEvents,
   deriveKeysFromCode,
   closePool,
 } from "../nostrSync";
@@ -49,16 +64,20 @@ function encrypt(plain: string, encKey: Uint8Array): string {
   return `${hex(nonce)}:${hex(bytes.map((b, i) => b ^ k[i % k.length]))}`;
 }
 
-const relayEvent = (id: string, content: string) => ({
+const relayEvent = (id: string, content: string, created_at = 1_700_000_000) => ({
   id,
   tags: [["t", "domus-sync"]],
   content,
+  created_at,
 });
 
 let warn: MockInstance<typeof console.warn>;
 beforeEach(() => {
   published.length = 0;
   relayEvents = [];
+  lastSubFilter = null;
+  lastQueryFilter = null;
+  lastSubHandler = null;
   warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 });
 afterEach(() => {
@@ -99,7 +118,7 @@ describe("publishSyncEvents + pullSyncEvents (ponta a ponta com pool falso)", ()
 
     // O que foi publicado volta no pull só com os válidos.
     relayEvents = published.map((ev) => ({ ...ev, id: "pub-1" }));
-    const pulled = await pullSyncEvents(keys, "dev-b", 0, true);
+    const { events: pulled } = await pullSyncEvents(keys, "dev-b", true);
     expect(pulled.map((e) => e.id)).toEqual(["a", "c"]);
   });
 
@@ -112,7 +131,7 @@ describe("publishSyncEvents + pullSyncEvents (ponta a ponta com pool falso)", ()
     ] as any[];
     expect(await publishSyncEvents(keys, "dev-a", events)).toBe(2);
     relayEvents = published.map((ev) => ({ ...ev, id: "pub-35" }));
-    const pulled = await pullSyncEvents(keys, "dev-b", 0, true);
+    const { events: pulled } = await pullSyncEvents(keys, "dev-b", true);
     expect(pulled.map((e) => [e.id, e.timestamp])).toEqual(events.map((e) => [e.id, e.timestamp]));
     for (const e of pulled) expect(typeof e.timestamp).toBe("number");
   });
@@ -132,7 +151,7 @@ describe("publishSyncEvents + pullSyncEvents (ponta a ponta com pool falso)", ()
     expect(JSON.stringify(events)).toBe(before);
 
     relayEvents = published.map((ev) => ({ ...ev, id: "pub-2310" }));
-    const pulled = await pullSyncEvents(keys, "dev-b", 0, true);
+    const { events: pulled } = await pullSyncEvents(keys, "dev-b", true);
     expect(pulled.map((e) => [e.id, e.deviceId])).toEqual([
       ["loc", "dev-a"],
       ["LOC", "dev-a"],
@@ -155,7 +174,7 @@ describe("publishSyncEvents + pullSyncEvents (ponta a ponta com pool falso)", ()
       relayEvent("r2", encrypt("isto não é json", keys.encryptionKey)),
       relayEvent("r3", encrypt(JSON.stringify(valid({ id: "f" })), keys.encryptionKey)),
     ];
-    const pulled = await pullSyncEvents(keys, "dev-b", 0, true);
+    const { events: pulled } = await pullSyncEvents(keys, "dev-b", true);
     expect(pulled.map((e) => e.id)).toEqual(["a", "c", "e", "f"]);
     expect(pulled.find((e) => e.id === "c")?.type).toBe("FUTURE_EVENT_X");
     expect(pulled.find((e) => e.id === "e")?.signature).toBe("");
@@ -168,8 +187,72 @@ describe("publishSyncEvents + pullSyncEvents (ponta a ponta com pool falso)", ()
 
     // Segundo pull: sem repetir os avisos por item, só a linha de total.
     warn.mockClear();
-    await pullSyncEvents(keys, "dev-b", 0, true);
+    await pullSyncEvents(keys, "dev-b", true);
     const logs2 = warn.mock.calls.map((c) => String(c[0]));
     expect(logs2).toEqual(["[NostrSync] Pull: 2 descartados de 6; 1 evento(s) do relay com JSON malformado."]);
+  });
+});
+
+describe("Story 3.6: cursor dos relays pelo created_at", () => {
+  const T = 1_792_627_200; // segundos
+  const nowMs = T * 1000;
+
+  it("evento novo e depois um antigo publicado depois: os dois voltam, maxCreatedAt = T+10 e o pull não tem since", async () => {
+    const keys = await deriveKeysFromCode("TESTE-36");
+    relayEvents = [
+      relayEvent("r-novo", encrypt(JSON.stringify(valid({ id: "E1", timestamp: nowMs })), keys.encryptionKey), T),
+      relayEvent(
+        "r-antigo",
+        encrypt(JSON.stringify(valid({ id: "E0", timestamp: nowMs - 24 * 3600 * 1000 })), keys.encryptionKey),
+        T + 10,
+      ),
+      // Lote de um aparelho com relógio atrasado: created_at bem antigo, ainda assim volta.
+      relayEvent("r-atrasado", encrypt(JSON.stringify(valid({ id: "Ea" })), keys.encryptionKey), T - 7 * 24 * 3600),
+    ];
+    const { events, maxCreatedAt } = await pullSyncEvents(keys, "dev-b", true);
+    expect(events.map((e) => e.id).sort()).toEqual(["E0", "E1", "Ea"]);
+    expect(maxCreatedAt).toBe(T + 10);
+    expect(lastQueryFilter).not.toBeNull();
+    expect("since" in lastQueryFilter).toBe(false);
+    expect(lastQueryFilter.limit).toBe(500);
+  });
+
+  it("evento com timestamp +25 h: maxCreatedAt é o created_at (o since seguinte não vai para o futuro)", async () => {
+    const keys = await deriveKeysFromCode("TESTE-36");
+    const futureTs = nowMs + 25 * 3600 * 1000;
+    relayEvents = [relayEvent("r-fut", encrypt(JSON.stringify(valid({ id: "F", timestamp: futureTs })), keys.encryptionKey), T)];
+    const { events, maxCreatedAt } = await pullSyncEvents(keys, "dev-b", true);
+    expect(events.map((e) => [e.id, e.timestamp])).toEqual([["F", futureTs]]);
+    expect(maxCreatedAt).toBe(T);
+    // A assinatura montada com esse cursor começa antes de T e recebe o próximo evento.
+    expect(subscriptionSince(maxCreatedAt, T + 5)).toBe(T - 60);
+  });
+
+  it("created_at de evento sem a tag do app, que não decripta ou não finito não conta", async () => {
+    const keys = await deriveKeysFromCode("TESTE-36");
+    relayEvents = [
+      relayEvent("r-ok", encrypt(JSON.stringify(valid({ id: "ok" })), keys.encryptionKey), T),
+      { ...relayEvent("r-sem-tag", encrypt(JSON.stringify(valid({ id: "x" })), keys.encryptionKey), T + 500), tags: [] },
+      relayEvent("r-lixo", "nao-decripta", T + 900),
+      relayEvent("r-nan", encrypt(JSON.stringify(valid({ id: "nan" })), keys.encryptionKey), Number.NaN),
+    ];
+    const { maxCreatedAt } = await pullSyncEvents(keys, "dev-b", true);
+    expect(maxCreatedAt).toBe(T);
+  });
+
+  it("pull sem eventos devolve maxCreatedAt null", async () => {
+    const keys = await deriveKeysFromCode("TESTE-36");
+    expect(await pullSyncEvents(keys, "dev-b", true)).toEqual({ events: [], maxCreatedAt: null });
+  });
+
+  it("assinatura: usa o since recebido e o callback recebe o created_at", async () => {
+    const keys = await deriveKeysFromCode("TESTE-36");
+    const got: [string, number][] = [];
+    subscribeToSyncEvents(keys, "dev-b", subscriptionSince(T, T + 3600), (evt, createdAt) => got.push([evt.id, createdAt]));
+    expect(lastSubFilter.since).toBe(T - 60);
+    expect(lastSubFilter["#t"]).toEqual(["domus-sync"]);
+
+    lastSubHandler.onevent(relayEvent("live", encrypt(JSON.stringify(valid({ id: "L" })), keys.encryptionKey), T + 5));
+    await vi.waitFor(() => expect(got).toEqual([["L", T + 5]]));
   });
 });

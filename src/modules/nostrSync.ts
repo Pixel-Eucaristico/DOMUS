@@ -4,6 +4,7 @@ import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { describeRejection, partitionEnvelopes } from "@packages/events/src/validateEnvelope";
 import { eventsForExport } from "@/src/context/localEventLog";
 import {
+  advanceRelayCursor,
   createWarnOnce,
   describePullDiscards,
   parseSyncPayloadDetailed,
@@ -486,12 +487,27 @@ export function parseSyncPayload(decrypted: string, relayEventId?: string): Sync
   return parseAndReport(decrypted, relayEventId).events;
 }
 
+export interface PullResult {
+  events: SyncEvent[];
+  /**
+   * Story 3.6: maior `created_at` (segundos, relógio do relay/publicação) entre os
+   * eventos do relay que passaram pela tag do app e pela decriptação; `null` se nenhum.
+   */
+  maxCreatedAt: number | null;
+}
+
+/**
+ * Pull completo de propósito (até 500 eventos por relay), sem `since`: os lotes
+ * são eventos substituíveis (tag `d`), republicados com `created_at` novo, e o
+ * `created_at` vem do relógio de quem publica. Um `since` pelo cursor perderia
+ * os lotes de um aparelho com relógio atrasado. Só a assinatura ao vivo usa o
+ * cursor dos relays (Story 3.6).
+ */
 export async function pullSyncEvents(
   keys: NostrSyncKeys,
   deviceId: string,
-  sinceTimestamp: number,
   includeMyEvents: boolean = false,
-): Promise<SyncEvent[]> {
+): Promise<PullResult> {
   const pool = getPool();
   const relays = getRelays();
 
@@ -506,6 +522,7 @@ export async function pullSyncEvents(
   let discarded = 0;
   let total = 0;
   let malformedRelayEvents = 0;
+  let maxCreatedAt: number | null = null;
 
   const relayResults = await Promise.all(
     relays.map(async (relay) => {
@@ -535,6 +552,7 @@ export async function pullSyncEvents(
 
       try {
         const decrypted = await decryptPayload(ne.content, keys.encryptionKey);
+        maxCreatedAt = advanceRelayCursor(maxCreatedAt, [ne.created_at]);
         const parsed = parseAndReport(decrypted, ne.id);
         if (parsed.malformedJson) malformedRelayEvents++;
         discarded += parsed.rejected.length;
@@ -549,26 +567,24 @@ export async function pullSyncEvents(
   const summary = describePullDiscards({ discarded, total, malformedRelayEvents });
   if (summary) console.warn(summary);
 
-  return syncEvents;
+  return { events: syncEvents, maxCreatedAt };
 }
 
 export function subscribeToSyncEvents(
   keys: NostrSyncKeys,
   deviceId: string,
-  sinceTimestamp: number,
-  onEvent: (event: SyncEvent) => void,
+  since: number,
+  onEvent: (event: SyncEvent, createdAt: number) => void,
 ): SubCloser {
   const pool = getPool();
 
-  const sinceUnix =
-    sinceTimestamp > 0 ? Math.floor(sinceTimestamp / 1000) - 5 : 0;
-
+  // Story 3.6: `since` (segundos) vem do cursor dos relays com folga, via
+  // `subscriptionSince` (o `useSyncEngine` usa `coordinator.liveSince()`).
   const filter = {
     kinds: [DOMUS_KIND],
     authors: [keys.publicKey],
     "#t": [DOMUS_APP_TAG],
-    since:
-      sinceUnix > 0 ? sinceUnix : Math.floor(Date.now() / 1000) - 60,
+    since,
   };
 
   const sub = pool.subscribeMany(getRelays(), filter as any, {
@@ -577,7 +593,7 @@ export function subscribeToSyncEvents(
         .then((decrypted) => {
           const events = parseSyncPayload(decrypted, nostrEvent.id);
           for (const evt of events) {
-            onEvent(evt);
+            onEvent(evt, nostrEvent.created_at);
           }
         })
         .catch(() => {});

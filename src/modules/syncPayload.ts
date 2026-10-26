@@ -109,3 +109,79 @@ export function describePullDiscards(stats: {
   if (malformedRelayEvents > 0) line += `; ${malformedRelayEvents} evento(s) do relay com JSON malformado`;
   return line + ".";
 }
+
+// ── Cursor dos relays (Story 3.6) ─────────────────────────────────────────────
+// O cursor é o maior `created_at` (segundos, relógio da publicação no relay) já
+// recebido. Nunca usa o `timestamp` de domínio do evento (relógio de quem o criou).
+
+/** Chave nova do cursor dos relays no AsyncStorage (segundos de `created_at`). */
+export const RELAY_CURSOR_KEY = "domus_relay_cursor_v1";
+/** Chave antiga (`lastPullTs`, em ms de `timestamp` de domínio): ignorada e apagada. */
+export const LEGACY_LAST_PULL_TS_KEY = "domus_nostr_last_pull_ts";
+/** Folga ao montar o `since` da assinatura; a releitura é descartada pelo id. */
+export const RELAY_CURSOR_OVERLAP_SEC = 60;
+/** Sem cursor, a assinatura começa em `agora − 60 s` (como antes da 3.6). */
+export const SUBSCRIPTION_DEFAULT_LOOKBACK_SEC = 60;
+
+function isValidCreatedAt(v: unknown): v is number {
+  return typeof v === "number" && Number.isFinite(v) && v > 0;
+}
+
+/**
+ * Avança o cursor para o maior `created_at` recebido. Nunca anda para trás;
+ * valores não finitos, não numéricos ou ≤ 0 são ignorados.
+ */
+export function advanceRelayCursor(
+  current: number | null,
+  createdAts: readonly unknown[],
+): number | null {
+  let next = isValidCreatedAt(current) ? Math.floor(current) : null;
+  for (const c of createdAts) {
+    if (!isValidCreatedAt(c)) continue;
+    const s = Math.floor(c);
+    if (next === null || s > next) next = s;
+  }
+  return next;
+}
+
+/**
+ * `since` da assinatura ao vivo: `cursor − RELAY_CURSOR_OVERLAP_SEC`; sem cursor,
+ * `agora − 60 s`. Defesa extra: um cursor à frente do relógio local (publicador com
+ * relógio adiantado) não leva o `since` para depois de `agora − 60 s`.
+ */
+export function subscriptionSince(cursor: number | null, nowSec: number): number {
+  const fallback = Math.floor(nowSec) - SUBSCRIPTION_DEFAULT_LOOKBACK_SEC;
+  if (!isValidCreatedAt(cursor)) return fallback;
+  return Math.max(0, Math.min(Math.floor(cursor) - RELAY_CURSOR_OVERLAP_SEC, fallback));
+}
+
+/** Lê o valor salvo; qualquer coisa que não seja inteiro positivo vira `null`. */
+export function parseRelayCursor(raw: string | null | undefined): number | null {
+  if (raw == null || !/^\d+$/.test(raw.trim())) return null;
+  const n = Number(raw.trim());
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+/** Subconjunto do AsyncStorage usado pelo cursor (injetável no teste). */
+export interface CursorStorage {
+  getItem(key: string): Promise<string | null>;
+  removeItem(key: string): Promise<void>;
+}
+
+/**
+ * Carrega o cursor da chave nova e apaga a chave antiga (`lastPullTs`), que não
+ * é migrada: era em ms de `timestamp` de domínio, outro relógio. Falhas do
+ * storage viram "sem cursor".
+ */
+export async function loadRelayCursor(storage: CursorStorage): Promise<number | null> {
+  try {
+    await storage.removeItem(LEGACY_LAST_PULL_TS_KEY);
+  } catch {
+    // tenta de novo no próximo boot
+  }
+  try {
+    return parseRelayCursor(await storage.getItem(RELAY_CURSOR_KEY));
+  } catch {
+    return null;
+  }
+}

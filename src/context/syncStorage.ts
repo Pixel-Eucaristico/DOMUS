@@ -6,7 +6,6 @@ import type { SyncEvent } from "@packages/storage/src/eventStore";
 export const DEVICE_ID_KEY = "domus_device_id";
 export const LAST_SYNC_KEY = "domus_last_sync_ts";
 export const GROUP_CODE_KEY = "domus_nostr_group_code";
-export const LAST_PULL_TS_KEY = "domus_nostr_last_pull_ts";
 export const LAST_PUSH_HASH_KEY = "domus_nostr_last_push_hash";
 
 export const PULL_INTERVAL_MS = 8_000;

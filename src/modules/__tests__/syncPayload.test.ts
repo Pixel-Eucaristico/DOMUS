@@ -5,6 +5,13 @@ import {
   selectEventsToImport,
   createWarnOnce,
   describePullDiscards,
+  advanceRelayCursor,
+  subscriptionSince,
+  parseRelayCursor,
+  loadRelayCursor,
+  RELAY_CURSOR_KEY,
+  LEGACY_LAST_PULL_TS_KEY,
+  RELAY_CURSOR_OVERLAP_SEC,
 } from "../syncPayload";
 
 const valid = (over: Record<string, unknown> = {}) => ({
@@ -145,5 +152,97 @@ describe("describePullDiscards", () => {
     expect(describePullDiscards({ discarded: 0, total: 3, malformedRelayEvents: 1 })).toBe(
       "[NostrSync] Pull: 0 descartados de 3; 1 evento(s) do relay com JSON malformado.",
     );
+  });
+});
+
+describe("Story 3.6: cursor dos relays", () => {
+  const T = 1_792_627_200; // segundos (created_at)
+  const nowMs = T * 1000;
+
+  it("a folga é uma constante única de 60 s", () => {
+    expect(RELAY_CURSOR_OVERLAP_SEC).toBe(60);
+  });
+
+  it("evento novo e depois um antigo (publicado depois): cursor = T+10", () => {
+    // E1: timestamp hoje, created_at T; E0: timestamp de ontem, created_at T+10.
+    let c = advanceRelayCursor(null, [T]);
+    c = advanceRelayCursor(c, [T + 10]);
+    expect(c).toBe(T + 10);
+  });
+
+  it("nunca anda para trás", () => {
+    expect(advanceRelayCursor(T, [T - 1000])).toBe(T);
+    expect(advanceRelayCursor(T, [])).toBe(T);
+    expect(advanceRelayCursor(T, [T - 5, T + 3, T + 1])).toBe(T + 3);
+  });
+
+  it("ignora não finitos, não numéricos e ≤ 0; arredonda para baixo", () => {
+    expect(advanceRelayCursor(null, [Number.NaN, Infinity, -Infinity, "123", null, undefined, -5, 0])).toBeNull();
+    expect(advanceRelayCursor(T, [Infinity, Number.NaN])).toBe(T);
+    expect(advanceRelayCursor(null, [T + 0.9])).toBe(T);
+    expect(advanceRelayCursor(Number.NaN, [T])).toBe(T);
+  });
+
+  it("sem cursor: assinatura em agora − 60 s", () => {
+    expect(subscriptionSince(null, T)).toBe(T - 60);
+    expect(subscriptionSince(0, T)).toBe(T - 60);
+    expect(subscriptionSince(Number.NaN, T)).toBe(T - 60);
+  });
+
+  it("com cursor: cursor − folga", () => {
+    expect(subscriptionSince(T - 3600, T)).toBe(T - 3600 - RELAY_CURSOR_OVERLAP_SEC);
+  });
+
+  it("cursor à frente do relógio local não leva o since para o futuro", () => {
+    expect(subscriptionSince(T + 25 * 3600, T)).toBe(T - 60);
+  });
+
+  it("parseRelayCursor aceita só inteiro positivo", () => {
+    expect(parseRelayCursor(String(T))).toBe(T);
+    expect(parseRelayCursor(null)).toBeNull();
+    expect(parseRelayCursor("")).toBeNull();
+    expect(parseRelayCursor("0")).toBeNull();
+    expect(parseRelayCursor("-1")).toBeNull();
+    expect(parseRelayCursor("12.5")).toBeNull();
+    expect(parseRelayCursor("abc")).toBeNull();
+    expect(parseRelayCursor("1e3")).toBeNull();
+    expect(parseRelayCursor("99999999999999999999")).toBeNull();
+  });
+
+  const memStorage = (init: Record<string, string>) => {
+    const data = new Map(Object.entries(init));
+    return {
+      data,
+      getItem: vi.fn(async (k: string) => data.get(k) ?? null),
+      removeItem: vi.fn(async (k: string) => {
+        data.delete(k);
+      }),
+    };
+  };
+
+  it("cursor antigo salvo: ignorado e apagado; sem chave nova → sem cursor", async () => {
+    const st = memStorage({ [LEGACY_LAST_PULL_TS_KEY]: String(nowMs + 25 * 3600 * 1000) });
+    expect(LEGACY_LAST_PULL_TS_KEY).toBe("domus_nostr_last_pull_ts");
+    expect(await loadRelayCursor(st)).toBeNull();
+    expect(st.data.has(LEGACY_LAST_PULL_TS_KEY)).toBe(false);
+  });
+
+  it("chave nova é lida; a antiga apagada mesmo assim", async () => {
+    const st = memStorage({ [RELAY_CURSOR_KEY]: String(T), [LEGACY_LAST_PULL_TS_KEY]: "123" });
+    expect(await loadRelayCursor(st)).toBe(T);
+    expect(st.data.has(LEGACY_LAST_PULL_TS_KEY)).toBe(false);
+    expect(st.data.get(RELAY_CURSOR_KEY)).toBe(String(T));
+  });
+
+  it("falha do storage vira sem cursor, sem lançar", async () => {
+    const st = {
+      getItem: async () => {
+        throw new Error("x");
+      },
+      removeItem: async () => {
+        throw new Error("y");
+      },
+    };
+    expect(await loadRelayCursor(st)).toBeNull();
   });
 });
