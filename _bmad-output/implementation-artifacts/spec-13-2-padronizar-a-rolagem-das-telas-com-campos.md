@@ -2,7 +2,7 @@
 title: 'Story 13.2: padronizar a rolagem das telas com campos'
 type: 'bugfix'
 created: '2026-10-27'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '16d00049b8ffaecd43adc9604be1b8011e909dc6'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -101,8 +101,8 @@ Fora do componente: `KeyboardAwareScrollView` importado direto da biblioteca só
 - [x] Teste estático `keyboardScroll.test.ts`:
   - só `components/KeyboardAwareScrollViewCompat.tsx` importa `KeyboardAwareScrollView` de `react-native-keyboard-controller`;
   - uma lista fixa de telas com campo (as 8 da auditoria) importa e renderiza `KeyboardAwareScrollViewCompat` e não importa `ScrollView` de `react-native` (exceção nomeada: o modal do QR em `sync.tsx`);
-  - descoberta: todo arquivo em `app/` que usa `TInput`/`TextInput`/`AppTextInput`/`onChangeText` ou importa um componente de `src/components` com campo e sem `Modal`/`KeyboardSafeView` está na lista ou numa lista de exceções com motivo (`ai-chat` → 13.5; `import-invoice` → via `ParsedScreen`/`QrScanScreen`);
-  - nenhuma tela da lista passa `keyboardShouldPersistTaps` diferente de `"handled"`;
+  - descoberta: todo arquivo em `app/` que usa `TInput`/`TextInput`/`AppTextInput`/`onChangeText` ou importa um componente de `src/components` com campo e sem `Modal`/`KeyboardSafeView` está na lista ou numa lista de exceções com motivo (`ai-chat` → 13.5; `import-invoice` → via `ParsedScreen`/`QrScanScreen`; `payslips` → via `PayslipReview`);
+  - nenhuma tela da lista passa `keyboardShouldPersistTaps` nem `bottomOffset` (exceção: a expressão do rodapé do `ParsedScreen`; revisão R4);
   - auto-teste com trechos de código que devem e não devem casar, como no `noNativeAlert.test.ts`.
 - [x] Conferir no build web com Playwright (ver Verification)
 - [x] Itens desta story na checklist da Story 13.7 (ver Verification)
@@ -130,18 +130,24 @@ Fora do componente: `KeyboardAwareScrollView` importado direto da biblioteca só
 **Web (Playwright, Chromium headless, 412×900, no build exportado)**
 - Abrir `/add-transaction`, `/ai-settings`, `/backup`, `/about`, `/ocr-settings` e `/sync` sem erro de página.
 - Em cada uma, focar o último campo, rolar até o botão principal e conferir que ele está visível e responde ao clique ("Salvar transação", "Salvar chave", "Exportar e compartilhar", "Enviar mensagem", "Salvar Configurações", "Entrar").
-- A web não simula o teclado: isso prova a rolagem e o alcance do botão, não a subida. `ParsedScreen` e `PayslipReview` precisam de nota/holerite carregado e ficam só no aparelho.
+- `ParsedScreen` pela entrada manual (`/import-invoice` → "Lançar manualmente"): adicionar 8 itens; total e "Confirmar Importação" visíveis sem rolar; com o novo item meio preenchido, "Confirmar Importação" pede confirmação (revisão R11/R2). Repetir em 800×360.
+- A web não simula o teclado: isso prova a rolagem e o alcance do botão, não a subida. `PayslipReview` precisa de holerite carregado e fica só no aparelho.
 
 **Aparelho (itens para a checklist da Story 13.7, Android 16)**
 1. add-transaction: focar valor, descrição e "a cada N dias" (recorrência); o campo fica acima do teclado e "Salvar transação" é alcançável rolando.
 2. ai-settings: focar a chave de API de cada provedor e os campos de orçamento; "Salvar chave" responde no 1º toque com o teclado aberto.
 3. backup: focar as duas senhas da exportação e a senha da importação; "Exportar e compartilhar" e "Verificar e restaurar" alcançáveis.
 4. about: escrever várias linhas no campo multiline do contato; o cursor fica acima do teclado e "Enviar mensagem" é alcançável.
-5. ocr-settings: focar a chave do Cloud Vision; "Salvar Configurações" alcançável com o teclado aberto (D-1).
+5. ocr-settings: focar a chave do Cloud Vision; "Salvar Configurações" (no fim da rolagem, D-1 b) alcançável rolando com o teclado aberto; sem teclado, o botão também só aparece rolando (aceito pela D-1).
 6. sync: tocar em "Entrar"; o código (`autoFocus`) e o botão ao lado ficam acima do teclado.
-7. Importar nota, `ParsedScreen`: editar o último item, adicionar item e buscar conta; o total e "Importar" alcançáveis com o teclado aberto (D-1).
+7. Importar nota, `ParsedScreen`: editar o último item, adicionar item e buscar conta; o total e "Confirmar Importação" sobem com o teclado (D-1 a) e o campo focado fica acima do rodapé. Em paisagem e com fonte do sistema 1,3 e 2,0, o campo focado continua visível (o rodapé deixa de subir quando não cabe). Com o novo item meio preenchido, "Confirmar Importação" pede confirmação.
 8. Holerite, revisão: focar o último campo; "Salvar holerite" alcançável.
 9. Em todas: fechar o teclado não deixa faixa em branco; repetir em paisagem com navegação de 3 botões.
+10. Celular com tela de até 640 dp de altura: repetir 1, 5 e 7.
+11. Trocar de campo numérico para texto (e o contrário) com o teclado aberto: a tela acompanha a mudança de altura do teclado sem pular.
+12. Teclado físico (ou teclado só com a barra de sugestões): o rodapé do `ParsedScreen` não desce para fora da tela.
+13. add-transaction e sync abertas em apresentação modal: o campo sobe e o botão principal é alcançável.
+14. ai-settings: salvar o orçamento pelo Enter do teclado (`onSubmitEditing`) com o teclado aberto.
 
 ## Implementation Notes
 
@@ -168,10 +174,42 @@ Fora do componente: `KeyboardAwareScrollView` importado direto da biblioteca só
 **Verificação**
 
 - `npx vitest run`: 91 arquivos e 1806 testes passando (baseline 90 / 1761; +1 arquivo e +45 testes do `keyboardScroll.test.ts`).
+- Depois dos patches da revisão: `npx vitest run` com 93 arquivos e 1853 testes passando (`keyboardScroll.test.ts` 74, `parsedFooterLayout.test.ts` 13, `keyboardScrollDefaults.test.ts` 5); `npx tsc --noEmit` exit 0; `npx eslint` nos arquivos tocados sem avisos; `npx expo export --platform web` exit 0. Playwright das 6 rotas de novo sem falha. Playwright do `ParsedScreen` (412×900 e 800×360): `/import-invoice` → "Lançar manualmente" abre o `ParsedScreen`; com 8 itens, "Total da Nota" e "Confirmar Importação" ficam dentro da janela sem rolar; com o novo item meio preenchido e o NCM focado, "Confirmar Importação" mostra a confirmação, e "Voltar" mantém a tela e o texto; com o formulário vazio, o clique chega à importação sem perguntar (perfil novo sem conta, então aparece "Selecione uma conta para importar."); sem erro de página.
 - `npx tsc --noEmit`: exit 0. `npx eslint` nos 10 arquivos tocados: sem avisos.
 - Prova de que a guarda falha: com o `about.tsx` do baseline e um `ScrollView keyboardShouldPersistTaps="always"` no ocr-settings, 4 testes falharam apontando `app/about.tsx` e `app/ocr-settings.tsx`. Uma rota temporária `app/zz-probe.tsx` com `TextInput` em `ScrollView` fez a descoberta falhar apontando o arquivo. Tudo foi revertido depois.
 - `npx expo export --platform web`: exit 0.
 - Playwright (Chromium headless, 412×900, build exportado servido com fallback de SPA; `localStorage` com o carrossel de boas-vindas, as introduções de tela e o aviso de consultas externas já vistos): `/add-transaction`, `/ai-settings`, `/backup`, `/about` (com "Fale Conosco" aberto), `/ocr-settings` e `/sync` abriram sem erro de página. Em cada uma, o último campo recebeu o foco, o botão principal ("Salvar transação", "Salvar chave", "Exportar e compartilhar", "Enviar mensagem", "Salvar Configurações", "Entrar") ficou visível dentro da janela depois de rolar e respondeu ao clique (ocr-settings mostrou o `appAlert` "Configurações salvas com sucesso!"; em sync o campo do código apareceu). A web não simula o teclado.
+
+**Patches da revisão (R1–R13, 27/10)**
+
+- R1/R3 — `src/components/invoice/parsedFooterLayout.ts` (novo, sem `react-native`): `computeParsedFooterLayout({ windowHeight, keyboardHeight, scrollTop, footerHeight, insetBottom })` devolve `stickyEnabled`, `openedOffset` e `bottomOffset`. Com o teclado aberto, `openedOffset = min(insets.bottom, teclado)` (R3). Com o teclado fechado fica o inset, para o rodapé não pular na animação de fechar. A faixa coberta pelo rodapé erguido é `altura do rodapé − openedOffset`. O rodapé só sobe se sobrar ao menos `MIN_FIELD_SPACE = 48` para o campo: `janela − teclado − topo da rolagem − faixa − 50 ≥ 48`. Se não sobrar, o `KeyboardStickyView` fica com `enabled={false}` (o rodapé fica atrás do teclado) e o `bottomOffset` volta a 50, limitado a `janela − teclado − topo − 48` e nunca negativo. O `ParsedScreen` lê a altura da janela (`useWindowDimensions`), a do teclado (`useKeyboardState`) e o topo da rolagem (`measureInWindow` no `onLayout` do contêiner). Testes: `src/components/invoice/__tests__/parsedFooterLayout.test.ts` (13). Sonda: com a fórmula antiga no lugar da função, 5 testes falham (paisagem, janela baixa, limite exato, R3, entradas inválidas). No primeiro teclado da sessão o `useKeyboardState` só é atualizado quando a animação começa; o ajuste vem no render seguinte. Conferir no aparelho (item 7).
+- R2 — `hasPendingNewItem`, no mesmo módulo, detecta o formulário de novo item aberto com descrição, preço, EAN ou NCM digitados. Quantidade "1" e unidade "UN" já vêm preenchidas e não contam. Nesse caso, "Confirmar Importação" chama `appConfirm` antes de `onConfirm`: título "Importar sem o item em edição?", mensagem "O item em edição não foi adicionado. Se importar agora, ele fica de fora da nota.", botões "Importar mesmo assim" e "Voltar". Sonda: num build web com a checagem desligada, o Playwright falhou em "R2: confirmação aparece com item meio preenchido".
+- R4 — guarda: as telas da lista não podem ter `keyboardShouldPersistTaps=` (qualquer valor) nem `bottomOffset=`. A única exceção é a expressão exata `footerLayout.bottomOffset` no `ParsedScreen` (`BOTTOM_OFFSET_EXCEPTIONS`).
+- R5 — guarda: fora do Compat, acusa `import * as` ou import default de `react-native-keyboard-controller`, `export *` ou reexportação de `KeyboardAwareScrollView`, `require(...)` e `import(...)` da biblioteca, e `<NS.KeyboardAwareScrollView`.
+- R6 (só a parte patch) — guarda:
+  - rolagem crua inclui `FlatList`, `SectionList` e o `ScrollView` de `react-native`, `react-native-gesture-handler` e `tamagui`/`@tamagui/*`;
+  - campo inclui `Input`, `TextArea` e `<NS.TextInput>`;
+  - a descoberta segue imports `@/src/components/…`, `@/components/…` e relativos, em um nível;
+  - o `AccountPicker` conta como campo (`INLINE_FIELD_COMPONENTS`).
+
+  Descoberta em mais de um nível e sub-telas de `src/` ficam para a D39 (não feito).
+- R7 — guarda: os imports são lidos por `parseImports`, que ignora `import type` e membros `type X`. Uso por namespace só conta em posição de JSX, então `useRef<RN.ScrollView>` e um texto com `.KeyboardAwareScrollView` não acusam.
+- R8 — guarda: em `sync.tsx` vale exatamente um `<ScrollView>`, dentro de `<Modal>` (`SCROLL_EXCEPTIONS` com `count: 1`).
+- R9 — `components/keyboardScrollDefaults.ts` (novo, sem `react-native`) traz as constantes e `withKeyboardScrollDefaults(props, platform)`, com `bottomOffset ?? KEYBOARD_BOTTOM_OFFSET` e `keyboardShouldPersistTaps ?? "handled"`. Na web, a função tira as props de teclado. O Compat usa a função e reexporta as constantes. Testes: `src/components/__tests__/keyboardScrollDefaults.test.ts` (5). Observação: no código anterior, o valor padrão na desestruturação já cobria `undefined`. O patch deixa o padrão explícito e testável.
+- R10/R12 — checklist do aparelho ampliada (itens 5, 7 e 10–14).
+- R11 — Playwright do `ParsedScreen` pela entrada manual (ver Verificação). O botão na tela é "Lançar manualmente".
+- R13 — Tasks e Verification sincronizadas: `payslips` nas exceções, regra de props repetidas e `ParsedScreen` verificado na web.
+- Sondas da guarda, com arquivos temporários depois revertidos:
+  - reexportação;
+  - `import * as` + desestruturação;
+  - `import()`;
+  - `FlatList` em backup;
+  - `keyboardShouldPersistTaps="handled"` em backup;
+  - `bottomOffset={50}` em sync;
+  - segundo `<ScrollView>` fora do modal em sync;
+  - rotas com `<Input>` do tamagui, com `AccountPicker`, com componente de `@/components` e com import relativo.
+
+  A guarda nova acusou todos. A guarda anterior deixou passar R4, R5, R6 (menos a rota com import relativo) e R8. Ela também acusava por engano o `import type { ScrollView }` + `useRef<RN.ScrollView>` em ocr-settings (R7), que a guarda nova aceita.
 
 **Checklist do aparelho (para a Story 13.7, Android 16)**
 
@@ -179,11 +217,16 @@ Fora do componente: `KeyboardAwareScrollView` importado direto da biblioteca só
 2. ai-settings: focar a chave de API de cada provedor e os campos de orçamento; "Salvar chave" responde no 1º toque com o teclado aberto.
 3. backup: focar as duas senhas da exportação e a senha da importação; "Exportar e compartilhar" e "Verificar e restaurar" alcançáveis.
 4. about: escrever várias linhas no campo multiline do contato; o cursor fica acima do teclado e "Enviar mensagem" é alcançável.
-5. ocr-settings: focar a chave do Cloud Vision; "Salvar Configurações" (agora no fim da rolagem) alcançável rolando com o teclado aberto.
+5. ocr-settings: focar a chave do Cloud Vision; "Salvar Configurações" (agora no fim da rolagem) alcançável rolando com o teclado aberto; sem teclado, o botão também só aparece rolando (aceito pela D-1).
 6. sync: tocar em "Entrar"; o código (`autoFocus`) e o botão ao lado ficam acima do teclado.
-7. Importar nota, `ParsedScreen`: editar o último item, adicionar item e buscar conta; o rodapé (total + "Confirmar Importação") sobe junto com o teclado, sem faixa entre ele e o teclado, e o campo focado fica acima do rodapé, não atrás dele. Ao fechar o teclado, o rodapé volta ao fundo.
+7. Importar nota, `ParsedScreen`: editar o último item, adicionar item e buscar conta; o rodapé (total + "Confirmar Importação") sobe junto com o teclado, sem faixa entre ele e o teclado, e o campo focado fica acima do rodapé, não atrás dele. Ao fechar o teclado, o rodapé volta ao fundo. Em paisagem e com fonte do sistema 1,3 e 2,0, o campo focado continua visível (o rodapé deixa de subir quando não cabe). Com o novo item meio preenchido, "Confirmar Importação" pede confirmação.
 8. Holerite, revisão: focar o último campo; "Salvar holerite" alcançável.
 9. Em todas: fechar o teclado não deixa faixa em branco; repetir em paisagem com navegação de 3 botões.
+10. Celular com tela de até 640 dp de altura: repetir 1, 5 e 7.
+11. Trocar de campo numérico para texto (e o contrário) com o teclado aberto: a tela acompanha a mudança de altura do teclado sem pular.
+12. Teclado físico (ou teclado só com a barra de sugestões): o rodapé do `ParsedScreen` não desce para fora da tela.
+13. add-transaction e sync abertas em apresentação modal: o campo sobe e o botão principal é alcançável.
+14. ai-settings: salvar o orçamento pelo Enter do teclado (`onSubmitEditing`) com o teclado aberto.
 
 ## Review Triage Log
 
@@ -191,16 +234,16 @@ Revisão única com três lentes (adversarial, casos de borda, lacunas de verifi
 
 | # | Achado | Sev. | Decisão |
 |---|--------|------|---------|
-| R1 | ParsedScreen: rodapé erguido deixa pouco espaço (paisagem esconde o campo focado sob o cabeçalho) | Med | **patch**: com teclado aberto, limitar o deslocamento extra ao que cabe (altura da janela − teclado − topo da rolagem − 48); se não couber, `KeyboardStickyView` com `enabled={false}` abaixo de um limite de altura; lógica de cálculo em função pura testada |
-| R2 | ParsedScreen: "Confirmar Importação" a um toque com o formulário de novo item meio preenchido descarta o item | Low | **patch**: com dados no formulário de novo item, `appConfirm` antes de importar ("O item em edição não foi adicionado") |
-| R3 | Teclado mais baixo que `insets.bottom` empurra o rodapé para fora | Low | **patch** só no ParsedScreen: `opened` limitado pela altura do teclado; o mesmo no QrScanScreen fica para a 13.6 |
-| R4 | Guarda não impede repetir `keyboardShouldPersistTaps`/`bottomOffset` | Med | **patch**: proibir `keyboardShouldPersistTaps=` nas telas da lista e `bottomOffset=` fora da expressão permitida do ParsedScreen |
-| R5 | Guarda burlável por reexportação, desestruturação de namespace e `import()` | Med | **patch**: detectar reexportação e `import * as` da biblioteca fora do Compat |
-| R6 | Guarda não vê `FlatList`/`SectionList`/ScrollView do tamagui, `Input`/`TextArea`/`RN.TextInput`, import relativo; `SELF_MANAGED` amplo demais (AccountPicker em modo lista) | Med | **patch**: ampliar os padrões, seguir imports relativos e `@/components`, AccountPicker tratado como campo. Descoberta em mais de um nível e em sub-telas de `src/`: **defer** (D39) |
-| R7 | Falsos positivos (`import type`, `useRef<RN.ScrollView>`, texto com `.KeyboardAwareScrollView`) | Low | **patch**: ignorar `import type` e só sinalizar uso em JSX |
-| R8 | `sync.tsx` isento inteiro do ScrollView simples | Low | **patch**: exatamente um `ScrollView` (o do modal do QR) |
-| R9 | `bottomOffset={undefined}` vira 0 | Low | **patch**: `??` com `KEYBOARD_BOTTOM_OFFSET` |
-| R10 | Salvar do OCR só por rolagem, mesmo sem teclado | Low | **patch**: item no checklist (aceito pela D-1) |
-| R11 | Nenhum teste de "botão alcançável"; ParsedScreen acessível na web por "Inserir manualmente" | Med | **patch**: Playwright do ParsedScreen pela entrada manual (rodapé visível, Confirmar clicável) |
-| R12 | Checklist do aparelho incompleto | Med | **patch**: acrescentar paisagem e fonte 1,3/2,0 no ParsedScreen, celular ≤640dp, troca de teclado numérico/texto, teclado físico, Confirmar com item meio preenchido, add-transaction e sync em apresentação modal, orçamento da ai-settings por `onSubmitEditing` |
-| R13 | Spec fora de sincronia (`payslips` na lista de exceções) | Low | **patch**: atualizar a spec |
+| R1 | ParsedScreen: rodapé erguido deixa pouco espaço (paisagem esconde o campo focado sob o cabeçalho) | Med | **patch**: com teclado aberto, limitar o deslocamento extra ao que cabe (altura da janela − teclado − topo da rolagem − 48); se não couber, `KeyboardStickyView` com `enabled={false}` abaixo de um limite de altura; lógica de cálculo em função pura testada — **Aplicado** |
+| R2 | ParsedScreen: "Confirmar Importação" a um toque com o formulário de novo item meio preenchido descarta o item | Low | **patch**: com dados no formulário de novo item, `appConfirm` antes de importar ("O item em edição não foi adicionado") — **Aplicado** |
+| R3 | Teclado mais baixo que `insets.bottom` empurra o rodapé para fora | Low | **patch** só no ParsedScreen: `opened` limitado pela altura do teclado; o mesmo no QrScanScreen fica para a 13.6 — **Aplicado** |
+| R4 | Guarda não impede repetir `keyboardShouldPersistTaps`/`bottomOffset` | Med | **patch**: proibir `keyboardShouldPersistTaps=` nas telas da lista e `bottomOffset=` fora da expressão permitida do ParsedScreen — **Aplicado** |
+| R5 | Guarda burlável por reexportação, desestruturação de namespace e `import()` | Med | **patch**: detectar reexportação e `import * as` da biblioteca fora do Compat — **Aplicado** |
+| R6 | Guarda não vê `FlatList`/`SectionList`/ScrollView do tamagui, `Input`/`TextArea`/`RN.TextInput`, import relativo; `SELF_MANAGED` amplo demais (AccountPicker em modo lista) | Med | **patch**: ampliar os padrões, seguir imports relativos e `@/components`, AccountPicker tratado como campo. Descoberta em mais de um nível e em sub-telas de `src/`: **defer** (D39) — **Aplicado** (só a parte patch; D39 segue adiado) |
+| R7 | Falsos positivos (`import type`, `useRef<RN.ScrollView>`, texto com `.KeyboardAwareScrollView`) | Low | **patch**: ignorar `import type` e só sinalizar uso em JSX — **Aplicado** |
+| R8 | `sync.tsx` isento inteiro do ScrollView simples | Low | **patch**: exatamente um `ScrollView` (o do modal do QR) — **Aplicado** |
+| R9 | `bottomOffset={undefined}` vira 0 | Low | **patch**: `??` com `KEYBOARD_BOTTOM_OFFSET` — **Aplicado** |
+| R10 | Salvar do OCR só por rolagem, mesmo sem teclado | Low | **patch**: item no checklist (aceito pela D-1) — **Aplicado** |
+| R11 | Nenhum teste de "botão alcançável"; ParsedScreen acessível na web por "Inserir manualmente" | Med | **patch**: Playwright do ParsedScreen pela entrada manual (rodapé visível, Confirmar clicável) — **Aplicado** |
+| R12 | Checklist do aparelho incompleto | Med | **patch**: acrescentar paisagem e fonte 1,3/2,0 no ParsedScreen, celular ≤640dp, troca de teclado numérico/texto, teclado físico, Confirmar com item meio preenchido, add-transaction e sync em apresentação modal, orçamento da ai-settings por `onSubmitEditing` — **Aplicado** |
+| R13 | Spec fora de sincronia (`payslips` na lista de exceções) | Low | **patch**: atualizar a spec — **Aplicado** |

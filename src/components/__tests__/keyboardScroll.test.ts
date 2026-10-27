@@ -7,8 +7,10 @@ import path from "path";
  * `KeyboardAwareScrollViewCompat` (components/KeyboardAwareScrollViewCompat.tsx),
  * que já traz `bottomOffset`, `keyboardShouldPersistTaps="handled"` e a queda
  * para `ScrollView` na web. Este teste barra o `KeyboardAwareScrollView`
- * importado direto e o `ScrollView` puro em tela com campo, e descobre telas
- * novas com campo que ainda não estão na lista.
+ * importado direto (inclusive por namespace, reexportação, `require` e
+ * `import()`), a rolagem crua (`ScrollView`/`FlatList`/`SectionList`) e as
+ * props de teclado repetidas nas telas com campo, e descobre rotas novas com
+ * campo que ainda não estão na lista.
  */
 
 const ROOT = path.resolve(__dirname, "../../..");
@@ -28,9 +30,20 @@ const FIELD_SCREENS = [
   "src/components/payslip/PayslipReview.tsx",
 ];
 
-/** `ScrollView` puro permitido numa tela da lista, com o motivo. */
-const SCROLLVIEW_EXCEPTIONS: Record<string, string> = {
-  "app/sync.tsx": "ScrollView do modal do QR Code (sem campo)",
+/**
+ * Rolagem crua permitida numa tela da lista: o componente, quantas vezes ele
+ * aparece em JSX e o motivo. Cada uso precisa estar dentro de um `<Modal>`.
+ */
+const SCROLL_EXCEPTIONS: Record<string, { component: string; count: number; reason: string }> = {
+  "app/sync.tsx": { component: "ScrollView", count: 1, reason: "ScrollView do modal do QR Code (sem campo)" },
+};
+
+/** `bottomOffset` permitido numa tela da lista (a expressão exata), com o motivo. */
+const BOTTOM_OFFSET_EXCEPTIONS: Record<string, { expression: string; reason: string }> = {
+  "src/components/invoice/ParsedScreen.tsx": {
+    expression: "footerLayout.bottomOffset",
+    reason: "rodapé que sobe com o teclado (D-1 a, parsedFooterLayout.ts)",
+  },
 };
 
 /** Rotas com campo fora da lista, com o motivo. */
@@ -39,6 +52,12 @@ const DISCOVERY_EXCEPTIONS: Record<string, string> = {
   "app/import-invoice.tsx": "campos no ParsedScreen (na lista) e no QrScanScreen (KeyboardStickyView, Story 13.6)",
   "app/payslips.tsx": "campos no PayslipReview (na lista)",
 };
+
+/**
+ * Componentes com `Modal` que também têm campo fora dele: contam como campo na
+ * descoberta (o AccountPicker em modo lista tem a busca inline).
+ */
+const INLINE_FIELD_COMPONENTS = ["src/components/shared/AccountPicker.tsx"];
 
 /**
  * Remove comentários sem mexer no conteúdo de strings, templates e regex
@@ -100,53 +119,143 @@ function stripComments(source: string): string {
   return out;
 }
 
-// ─── Detectores (código já sem comentários) ──────────────────────────────────
+// ─── Imports (código já sem comentários) ─────────────────────────────────────
 
-const KC = `["']react-native-keyboard-controller["']`;
-const DIRECT_KASV: RegExp[] = [
-  // import { KeyboardAwareScrollView } / { KeyboardAwareScrollView as X } from "react-native-keyboard-controller"
-  new RegExp(`import\\s[^;]*?\\bKeyboardAwareScrollView\\b[^;]*?from\\s*${KC}`),
-  // const { KeyboardAwareScrollView } = require("react-native-keyboard-controller")
-  new RegExp(`\\{[^}]*\\bKeyboardAwareScrollView\\b[^}]*\\}\\s*=\\s*require\\(\\s*${KC}\\s*\\)`),
-  // require("react-native-keyboard-controller").KeyboardAwareScrollView
-  new RegExp(`require\\(\\s*${KC}\\s*\\)\\s*\\??\\.\\s*KeyboardAwareScrollView\\b`),
-  // import * as KC from "react-native-keyboard-controller"; KC.KeyboardAwareScrollView
-  /[\w$)\]]\s*\??\.\s*KeyboardAwareScrollView\b/,
-];
-
-function importsKeyboardAwareScrollView(source: string): boolean {
-  const code = stripComments(source);
-  return DIRECT_KASV.some((p) => p.test(code));
+interface ImportInfo {
+  module: string;
+  /** Nomes importados como valor (o nome original, antes do `as`). */
+  named: string[];
+  namespace: string | null;
+  defaultName: string | null;
 }
 
-function importsPlainScrollView(source: string): boolean {
+/** Imports de valor (`import type` e membros `type X` ficam de fora). */
+function parseImports(code: string): ImportInfo[] {
+  const out: ImportInfo[] = [];
+  for (const m of code.matchAll(/(?:^|[;\n])\s*import\s+([^;]*?)\s+from\s*["']([^"']+)["']/g)) {
+    let clause = m[1].trim();
+    if (/^type\s/.test(clause)) continue;
+    const info: ImportInfo = { module: m[2], named: [], namespace: null, defaultName: null };
+    const braces = clause.match(/\{([^}]*)\}/);
+    if (braces) {
+      for (const raw of braces[1].split(",")) {
+        const member = raw.trim();
+        if (!member || /^type\s/.test(member)) continue;
+        info.named.push(member.split(/\s+as\s+/)[0].trim());
+      }
+      clause = clause.replace(braces[0], "");
+    }
+    const ns = clause.match(/\*\s*as\s+([\w$]+)/);
+    if (ns) {
+      info.namespace = ns[1];
+      clause = clause.replace(ns[0], "");
+    }
+    const def = clause.replace(/,/g, " ").trim();
+    if (def) info.defaultName = def;
+    out.push(info);
+  }
+  return out;
+}
+
+/** `<X` ou `<NS.X` em posição de JSX (não pega genérico como `useRef<RN.ScrollView>`). */
+function jsxPattern(names: string, namespaced: boolean): RegExp {
+  const tag = namespaced ? `[\\w$]+\\s*\\.\\s*(?:${names})` : `(?:${names})`;
+  return new RegExp(`(?:^|[^\\w$.\\s]|[^\\w$.]\\s|\\breturn\\s)\\s*<\\s*${tag}\\b`, "g");
+}
+
+const KC_MODULE = "react-native-keyboard-controller";
+const KC = `["']react-native-keyboard-controller["']`;
+
+/** Motivos pelos quais o arquivo usa o KeyboardAwareScrollView da biblioteca direto. */
+function directKeyboardAwareScrollView(source: string): string[] {
   const code = stripComments(source);
-  return (
-    /import\s[^;]*?\bScrollView\b[^;]*?from\s*["']react-native(-gesture-handler)?["']/.test(code) ||
-    /\{[^}]*\bScrollView\b[^}]*\}\s*=\s*require\(\s*["']react-native(-gesture-handler)?["']\s*\)/.test(code) ||
-    /[\w$)\]]\s*\??\.\s*ScrollView\b/.test(code)
-  );
+  const hits: string[] = [];
+  for (const imp of parseImports(code)) {
+    if (imp.module !== KC_MODULE) continue;
+    if (imp.named.includes("KeyboardAwareScrollView")) hits.push("import nomeado");
+    if (imp.namespace) hits.push("import * as");
+    if (imp.defaultName) hits.push("import default");
+  }
+  if (new RegExp(`export\\s+\\*\\s*(?:as\\s+[\\w$]+\\s*)?from\\s*${KC}`).test(code)) hits.push("export * from");
+  for (const m of code.matchAll(new RegExp(`export\\s+(type\\s+)?\\{([^}]*)\\}\\s*from\\s*${KC}`, "g"))) {
+    const values = m[1] ? [] : m[2].split(",").map((x) => x.trim()).filter((x) => x && !/^type\s/.test(x));
+    if (values.some((x) => x.split(/\s+as\s+/)[0].trim() === "KeyboardAwareScrollView")) hits.push("reexportação");
+  }
+  if (new RegExp(`\\brequire\\(\\s*${KC}\\s*\\)`).test(code)) hits.push("require");
+  if (new RegExp(`\\bimport\\(\\s*${KC}\\s*\\)`).test(code)) hits.push("import()");
+  if (jsxPattern("KeyboardAwareScrollView", true).test(code)) hits.push("JSX por namespace");
+  return hits;
+}
+
+const SCROLL_COMPONENTS = ["ScrollView", "FlatList", "SectionList"];
+const SCROLL_MODULES = /^(react-native|react-native-gesture-handler|tamagui|@tamagui\/.+)$/;
+
+/** Componentes de rolagem crua que o arquivo importa ou usa por namespace. */
+function plainScrollUses(source: string): string[] {
+  const code = stripComments(source);
+  const hits = new Set<string>();
+  for (const imp of parseImports(code)) {
+    if (!SCROLL_MODULES.test(imp.module)) continue;
+    for (const name of imp.named) if (SCROLL_COMPONENTS.includes(name)) hits.add(name);
+  }
+  const req = /\{([^}]*)\}\s*=\s*require\(\s*["'](react-native|react-native-gesture-handler|tamagui)["']\s*\)/g;
+  for (const m of code.matchAll(req)) {
+    for (const name of SCROLL_COMPONENTS) if (new RegExp(`\\b${name}\\b`).test(m[1])) hits.add(name);
+  }
+  for (const m of code.matchAll(jsxPattern(SCROLL_COMPONENTS.join("|"), true))) {
+    const name = SCROLL_COMPONENTS.find((n) => m[0].includes(n));
+    if (name) hits.add(name);
+  }
+  return [...hits];
+}
+
+/** Usos em JSX de `<Name` e se cada um está dentro de um `<Modal>…</Modal>`. */
+function jsxUsesInsideModal(source: string, name: string): boolean[] {
+  const code = stripComments(source);
+  const result: boolean[] = [];
+  for (const m of code.matchAll(jsxPattern(name, false))) {
+    const before = code.slice(0, (m.index ?? 0) + m[0].length);
+    const open = before.lastIndexOf("<Modal");
+    const close = before.lastIndexOf("</Modal>");
+    result.push(open !== -1 && open > close);
+  }
+  return result;
 }
 
 function usesCompat(source: string): boolean {
   const code = stripComments(source);
-  return (
-    /import\s[^;]*?\bKeyboardAwareScrollViewCompat\b[^;]*?from\s*["']@\/components\/KeyboardAwareScrollViewCompat["']/.test(code) &&
-    /<KeyboardAwareScrollViewCompat\b/.test(code)
+  const imported = parseImports(code).some(
+    (imp) => imp.module === "@/components/KeyboardAwareScrollViewCompat" && imp.named.includes("KeyboardAwareScrollViewCompat"),
   );
+  return imported && jsxPattern("KeyboardAwareScrollViewCompat", false).test(code);
 }
 
-function badPersistTaps(source: string): boolean {
+/**
+ * Props de teclado repetidas na tela: qualquer `keyboardShouldPersistTaps=` e
+ * qualquer `bottomOffset=` que não seja a expressão permitida.
+ */
+function repeatedKeyboardProps(source: string, allowedBottomOffset?: string): string[] {
   const code = stripComments(source);
-  const values = [...code.matchAll(/\bkeyboardShouldPersistTaps\s*=\s*(\{\s*)?(["'`]?)([^"'`}\s>]*)\2/g)];
-  return values.some((m) => m[3] !== "handled");
+  const hits: string[] = [];
+  if (/\bkeyboardShouldPersistTaps\s*=/.test(code)) hits.push("keyboardShouldPersistTaps");
+  for (const m of code.matchAll(/\bbottomOffset\s*=\s*(\{\s*([^}]*?)\s*\}|["'][^"']*["'])/g)) {
+    if (allowedBottomOffset === undefined || m[2] !== allowedBottomOffset) hits.push(`bottomOffset=${m[1]}`);
+  }
+  return hits;
 }
 
-const FIELD = /<(TInput|TextInput|AppTextInput)\b|\bonChangeText\s*=/;
+// ─── Campos ──────────────────────────────────────────────────────────────────
+
+const FIELD_TAGS = "TInput|TextInput|AppTextInput|Input|TextArea";
 const SELF_MANAGED = /<(Modal|KeyboardSafeView)\b/;
 
 function hasField(source: string): boolean {
-  return FIELD.test(stripComments(source));
+  const code = stripComments(source);
+  return (
+    jsxPattern(FIELD_TAGS, false).test(code) ||
+    jsxPattern("TextInput|Input|TextArea", true).test(code) ||
+    /\bonChangeText\s*=/.test(code)
+  );
 }
 
 // ─── Arquivos ────────────────────────────────────────────────────────────────
@@ -168,10 +277,15 @@ function collect(dir: string, out: string[]): void {
 const rel = (file: string) => path.relative(ROOT, file).split(path.sep).join("/");
 const read = (relPath: string) => fs.readFileSync(path.join(ROOT, relPath), "utf8");
 
-/** Resolve `@/src/components/...` para o arquivo, ou null. */
-function resolveComponent(spec: string): string | null {
-  if (!spec.startsWith("@/src/components/")) return null;
-  const base = path.join(ROOT, spec.slice(2));
+/**
+ * Resolve um import de componente do app para o arquivo: `@/src/components/…`,
+ * `@/components/…` ou relativo. Fora disso (bibliotecas, hooks, serviços), null.
+ */
+function resolveComponent(fromFile: string, spec: string): string | null {
+  let base: string;
+  if (spec.startsWith("@/src/components/") || spec.startsWith("@/components/")) base = path.join(ROOT, spec.slice(2));
+  else if (spec.startsWith(".")) base = path.resolve(path.dirname(fromFile), spec);
+  else return null;
   for (const c of [`${base}.tsx`, `${base}.ts`, path.join(base, "index.tsx"), path.join(base, "index.ts")]) {
     if (fs.existsSync(c)) return c;
   }
@@ -179,17 +293,22 @@ function resolveComponent(spec: string): string | null {
 }
 
 /**
- * A rota tem campo próprio, ou importa de `src/components` um componente com
- * campo que não cuida do teclado sozinho (sem `Modal`/`KeyboardSafeView`).
+ * Componente importado com campo que não cuida do teclado sozinho (sem
+ * `Modal`/`KeyboardSafeView`), ou da lista INLINE_FIELD_COMPONENTS.
  */
-function routeHasField(source: string): boolean {
+function componentHasInlineField(file: string): boolean {
+  if (INLINE_FIELD_COMPONENTS.includes(rel(file))) return true;
+  const dep = fs.readFileSync(file, "utf8");
+  return hasField(dep) && !SELF_MANAGED.test(stripComments(dep));
+}
+
+/** A rota tem campo próprio, ou importa (um nível) um componente com campo inline. */
+function routeHasField(file: string): boolean {
+  const source = fs.readFileSync(file, "utf8");
   if (hasField(source)) return true;
-  const code = stripComments(source);
-  for (const m of code.matchAll(/from\s*["'](@\/src\/components\/[^"']+)["']/g)) {
-    const file = resolveComponent(m[1]);
-    if (!file) continue;
-    const dep = fs.readFileSync(file, "utf8");
-    if (hasField(dep) && !SELF_MANAGED.test(stripComments(dep))) return true;
+  for (const imp of parseImports(stripComments(source))) {
+    const dep = resolveComponent(file, imp.module);
+    if (dep && componentHasInlineField(dep)) return true;
   }
   return false;
 }
@@ -202,17 +321,17 @@ describe("rolagem padrão das telas com campo (Story 13.2)", () => {
 
   it("encontra os arquivos do app e as telas da lista", () => {
     expect(files.length).toBeGreaterThan(50);
-    for (const screen of [...FIELD_SCREENS, COMPAT]) {
+    for (const screen of [...FIELD_SCREENS, COMPAT, ...INLINE_FIELD_COMPONENTS]) {
       expect(fs.existsSync(path.join(ROOT, screen)), screen).toBe(true);
     }
   });
 
-  it("só o componente padrão importa KeyboardAwareScrollView da biblioteca", () => {
+  it("só o componente padrão usa KeyboardAwareScrollView da biblioteca", () => {
     const hits = files
-      .filter((f) => rel(f) !== COMPAT && importsKeyboardAwareScrollView(fs.readFileSync(f, "utf8")))
-      .map(rel);
+      .filter((f) => rel(f) !== COMPAT)
+      .flatMap((f) => directKeyboardAwareScrollView(fs.readFileSync(f, "utf8")).map((why) => `${rel(f)}: ${why}`));
     expect(hits).toEqual([]);
-    expect(importsKeyboardAwareScrollView(read(COMPAT))).toBe(true);
+    expect(directKeyboardAwareScrollView(read(COMPAT))).toContain("import nomeado");
   });
 
   it("as telas com campo importam e renderizam KeyboardAwareScrollViewCompat", () => {
@@ -220,112 +339,179 @@ describe("rolagem padrão das telas com campo (Story 13.2)", () => {
     expect(hits).toEqual([]);
   });
 
-  it("as telas com campo não usam ScrollView puro (salvo exceção nomeada)", () => {
-    const hits = FIELD_SCREENS.filter((f) => !SCROLLVIEW_EXCEPTIONS[f] && importsPlainScrollView(read(f)));
+  it("as telas com campo não usam rolagem crua (salvo exceção nomeada, dentro de Modal)", () => {
+    const hits: string[] = [];
+    for (const f of FIELD_SCREENS) {
+      const source = read(f);
+      const exception = SCROLL_EXCEPTIONS[f];
+      for (const name of plainScrollUses(source)) {
+        if (!exception || exception.component !== name) {
+          hits.push(`${f}: ${name}`);
+          continue;
+        }
+        const uses = jsxUsesInsideModal(source, name);
+        if (uses.length !== exception.count) hits.push(`${f}: ${uses.length} × ${name} (esperado ${exception.count})`);
+        if (uses.some((inside) => !inside)) hits.push(`${f}: ${name} fora de Modal`);
+      }
+    }
     expect(hits).toEqual([]);
   });
 
-  it('nenhuma tela da lista passa keyboardShouldPersistTaps diferente de "handled"', () => {
-    const hits = FIELD_SCREENS.filter((f) => badPersistTaps(read(f)));
+  it("nenhuma tela da lista repete keyboardShouldPersistTaps ou bottomOffset", () => {
+    const hits = FIELD_SCREENS.flatMap((f) =>
+      repeatedKeyboardProps(read(f), BOTTOM_OFFSET_EXCEPTIONS[f]?.expression).map((p) => `${f}: ${p}`),
+    );
     expect(hits).toEqual([]);
   });
 
   it("toda rota em app/ com campo está na lista ou nas exceções com motivo", () => {
-    const routes = files.filter((f) => rel(f).startsWith("app/"));
-    const missing = routes
-      .map(rel)
-      .filter((r) => !FIELD_SCREENS.includes(r) && !DISCOVERY_EXCEPTIONS[r])
-      .filter((r) => routeHasField(read(r)));
+    const missing = files
+      .filter((f) => rel(f).startsWith("app/"))
+      .filter((f) => !FIELD_SCREENS.includes(rel(f)) && !DISCOVERY_EXCEPTIONS[rel(f)])
+      .filter((f) => routeHasField(f))
+      .map(rel);
     expect(missing).toEqual([]);
   });
 
-  it("as exceções apontam para arquivos que existem", () => {
-    for (const file of [...Object.keys(SCROLLVIEW_EXCEPTIONS), ...Object.keys(DISCOVERY_EXCEPTIONS)]) {
+  it("as exceções apontam para arquivos que existem e ainda precisam delas", () => {
+    for (const file of [...Object.keys(SCROLL_EXCEPTIONS), ...Object.keys(BOTTOM_OFFSET_EXCEPTIONS)]) {
+      expect(FIELD_SCREENS, file).toContain(file);
+    }
+    for (const file of Object.keys(DISCOVERY_EXCEPTIONS)) {
       expect(fs.existsSync(path.join(ROOT, file)), file).toBe(true);
+      expect(routeHasField(path.join(ROOT, file)), file).toBe(true);
     }
   });
 });
 
 describe("auto-teste dos detectores", () => {
-  const directImports = [
+  const directUses = [
     `import { KeyboardAwareScrollView } from "react-native-keyboard-controller";`,
     `import { KeyboardProvider, KeyboardAwareScrollView } from 'react-native-keyboard-controller';`,
     `import {\n  KeyboardAwareScrollView,\n  KeyboardStickyView,\n} from "react-native-keyboard-controller";`,
     `import { KeyboardAwareScrollView as KASV } from "react-native-keyboard-controller";`,
+    `import { type KeyboardStickyViewProps, KeyboardAwareScrollView } from "react-native-keyboard-controller";`,
     `const { KeyboardAwareScrollView } = require("react-native-keyboard-controller");`,
     `const K = require("react-native-keyboard-controller").KeyboardAwareScrollView;`,
     `import * as KC from "react-native-keyboard-controller";\n<KC.KeyboardAwareScrollView />`,
+    `import * as KC from "react-native-keyboard-controller";\nconst { KeyboardAwareScrollView } = KC;`,
+    `export { KeyboardAwareScrollView } from "react-native-keyboard-controller";`,
+    `export { KeyboardAwareScrollView as Scroll } from "react-native-keyboard-controller";`,
+    `export * from "react-native-keyboard-controller";`,
+    `const { KeyboardAwareScrollView } = await import("react-native-keyboard-controller");`,
+    `return (\n  <Lib.KeyboardAwareScrollView>{x}</Lib.KeyboardAwareScrollView>\n);`,
   ];
-  it.each(directImports)("detecta import direto: %s", (code) => {
-    expect(importsKeyboardAwareScrollView(code)).toBe(true);
+  it.each(directUses)("detecta uso direto: %s", (code) => {
+    expect(directKeyboardAwareScrollView(code)).not.toEqual([]);
   });
 
   const notDirect = [
     `import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";`,
-    `import { KeyboardStickyView } from "react-native-keyboard-controller";`,
+    `import { KeyboardStickyView, useKeyboardState } from "react-native-keyboard-controller";`,
     `import type { KeyboardAwareScrollViewProps } from "react-native-keyboard-controller";`,
+    `import type { KeyboardAwareScrollView } from "react-native-keyboard-controller";`,
+    `import { type KeyboardAwareScrollView, KeyboardStickyView } from "react-native-keyboard-controller";`,
+    `export type { KeyboardAwareScrollViewProps } from "react-native-keyboard-controller";`,
     `// import { KeyboardAwareScrollView } from "react-native-keyboard-controller";`,
     `/* KeyboardAwareScrollView */ import { KeyboardProvider } from "react-native-keyboard-controller";`,
+    `const msg = "use o Compat, não o x.KeyboardAwareScrollView";`,
   ];
-  it.each(notDirect)("não acusa import direto: %s", (code) => {
-    expect(importsKeyboardAwareScrollView(code)).toBe(false);
+  it.each(notDirect)("não acusa uso direto: %s", (code) => {
+    expect(directKeyboardAwareScrollView(code)).toEqual([]);
   });
 
-  const plainScroll = [
-    `import { View, ScrollView } from "react-native";`,
-    `import {\n  View,\n  ScrollView,\n  Text,\n} from 'react-native';`,
-    `import { ScrollView as SV } from "react-native";`,
-    `import { ScrollView } from "react-native-gesture-handler";`,
-    `const { ScrollView } = require("react-native");`,
-    `import * as RN from "react-native";\n<RN.ScrollView />`,
+  const plainScroll: [string, string][] = [
+    [`import { View, ScrollView } from "react-native";`, "ScrollView"],
+    [`import {\n  View,\n  ScrollView,\n  Text,\n} from 'react-native';`, "ScrollView"],
+    [`import { ScrollView as SV } from "react-native";`, "ScrollView"],
+    [`import { ScrollView } from "react-native-gesture-handler";`, "ScrollView"],
+    [`import { ScrollView, YStack } from "tamagui";`, "ScrollView"],
+    [`import { FlatList } from "react-native";`, "FlatList"],
+    [`import { SectionList } from "react-native";`, "SectionList"],
+    [`import { FlatList } from "react-native-gesture-handler";`, "FlatList"],
+    [`const { ScrollView } = require("react-native");`, "ScrollView"],
+    [`import * as RN from "react-native";\nreturn <RN.ScrollView />;`, "ScrollView"],
+    [`import * as RN from "react-native";\nconst x = (\n  <RN.FlatList data={d} />\n);`, "FlatList"],
   ];
-  it.each(plainScroll)("detecta ScrollView puro: %s", (code) => {
-    expect(importsPlainScrollView(code)).toBe(true);
+  it.each(plainScroll)("detecta rolagem crua: %s", (code, name) => {
+    expect(plainScrollUses(code)).toContain(name);
   });
 
   const notPlainScroll = [
     `import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";`,
-    `import { View, FlatList } from "react-native";`,
+    `import { View, Text } from "react-native";`,
     `import { ScrollViewProps } from "react-native";`,
+    `import type { ScrollView } from "react-native";`,
+    `import { type ScrollView, View } from "react-native";`,
+    `import * as RN from "react-native";\nconst ref = useRef<RN.ScrollView>(null);`,
     `// import { ScrollView } from "react-native";`,
+    `import { FlashList } from "@shopify/flash-list";`,
   ];
-  it.each(notPlainScroll)("não acusa ScrollView puro: %s", (code) => {
-    expect(importsPlainScrollView(code)).toBe(false);
+  it.each(notPlainScroll)("não acusa rolagem crua: %s", (code) => {
+    expect(plainScrollUses(code)).toEqual([]);
+  });
+
+  it("conta os usos de ScrollView e se estão dentro de Modal", () => {
+    const inModal = `<View>\n  <Modal visible>\n    <ScrollView>{x}</ScrollView>\n  </Modal>\n</View>`;
+    const outside = `<Modal visible><Text /></Modal>\n<ScrollView>{x}</ScrollView>`;
+    const two = `${inModal}\n<ScrollView />`;
+    expect(jsxUsesInsideModal(inModal, "ScrollView")).toEqual([true]);
+    expect(jsxUsesInsideModal(outside, "ScrollView")).toEqual([false]);
+    expect(jsxUsesInsideModal(two, "ScrollView")).toEqual([true, false]);
+    expect(jsxUsesInsideModal(`const r = useRef<ScrollView>(null);`, "ScrollView")).toEqual([]);
   });
 
   it("reconhece o uso do componente padrão", () => {
-    const ok = `import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";\n<KeyboardAwareScrollViewCompat>{x}</KeyboardAwareScrollViewCompat>`;
-    const multi = `import {\n  KeyboardAwareScrollViewCompat,\n  SCROLL_BOTTOM_PADDING,\n} from "@/components/KeyboardAwareScrollViewCompat";\n<KeyboardAwareScrollViewCompat\n  contentContainerStyle={s.c}\n/>`;
-    const importOnly = `import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";\n<ScrollView />`;
-    const renderOnly = `<KeyboardAwareScrollViewCompat />`;
+    const ok = `import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";\nreturn <KeyboardAwareScrollViewCompat>{x}</KeyboardAwareScrollViewCompat>;`;
+    const multi = `import {\n  KeyboardAwareScrollViewCompat,\n  SCROLL_BOTTOM_PADDING,\n} from "@/components/KeyboardAwareScrollViewCompat";\nreturn (\n  <KeyboardAwareScrollViewCompat\n    contentContainerStyle={s.c}\n  />\n);`;
+    const importOnly = `import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";\nreturn <ScrollView />;`;
+    const typeOnly = `import type { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";\nreturn <KeyboardAwareScrollViewCompat />;`;
+    const renderOnly = `return <KeyboardAwareScrollViewCompat />;`;
     expect(usesCompat(ok)).toBe(true);
     expect(usesCompat(multi)).toBe(true);
     expect(usesCompat(importOnly)).toBe(false);
+    expect(usesCompat(typeOnly)).toBe(false);
     expect(usesCompat(renderOnly)).toBe(false);
   });
 
   it.each([
-    [`<X keyboardShouldPersistTaps="never" />`, true],
-    [`<X keyboardShouldPersistTaps='always' />`, true],
-    [`<X keyboardShouldPersistTaps={"always"} />`, true],
-    [`<X keyboardShouldPersistTaps={mode} />`, true],
-    [`<X keyboardShouldPersistTaps="handled" />`, false],
-    [`<X keyboardShouldPersistTaps={"handled"} />`, false],
-    [`<X />`, false],
-    [`// keyboardShouldPersistTaps="never"\n<X />`, false],
-  ])("keyboardShouldPersistTaps: %s → %s", (code, bad) => {
-    expect(badPersistTaps(code)).toBe(bad);
+    [`<X keyboardShouldPersistTaps="handled" />`, undefined, ["keyboardShouldPersistTaps"]],
+    [`<X keyboardShouldPersistTaps={"always"} />`, undefined, ["keyboardShouldPersistTaps"]],
+    [`<X bottomOffset={50} />`, undefined, ["bottomOffset={50}"]],
+    [`<X bottomOffset={KEYBOARD_BOTTOM_OFFSET + 10} />`, undefined, ["bottomOffset={KEYBOARD_BOTTOM_OFFSET + 10}"]],
+    [`<X bottomOffset={footerLayout.bottomOffset} />`, "footerLayout.bottomOffset", []],
+    [`<X bottomOffset={ footerLayout.bottomOffset } />`, "footerLayout.bottomOffset", []],
+    [`<X bottomOffset={120} />`, "footerLayout.bottomOffset", ["bottomOffset={120}"]],
+    [`<X />`, undefined, []],
+    [`// keyboardShouldPersistTaps="never" bottomOffset={1}\n<X />`, undefined, []],
+    [`const layout = { bottomOffset: 50 };`, undefined, []],
+  ] as [string, string | undefined, string[]][])("props repetidas: %s", (code, allowed, expected) => {
+    expect(repeatedKeyboardProps(code, allowed)).toEqual(expected);
   });
 
   it.each([
-    [`<TInput value={v} />`, true],
-    [`<TextInput\n  value={v}\n/>`, true],
-    [`<AppTextInput label="x" />`, true],
+    [`return <TInput value={v} />;`, true],
+    [`return (\n  <TextInput\n    value={v}\n  />\n);`, true],
+    [`return <AppTextInput label="x" />;`, true],
+    [`return <Input size="$4" />;`, true],
+    [`return <TextArea />;`, true],
+    [`return <RN.TextInput />;`, true],
     [`<Foo onChangeText={setX} />`, true],
-    [`<Text>oi</Text>`, false],
-    [`<TextInputLabel />`, false],
+    [`return <Text>oi</Text>;`, false],
+    [`return <TextInputLabel />;`, false],
+    [`return <InputAccessoryView />;`, false],
+    [`const r = useRef<TextInput>(null);`, false],
     [`// <TextInput />`, false],
   ])("campo: %s → %s", (code, field) => {
     expect(hasField(code)).toBe(field);
+  });
+
+  it("parseImports separa nome, namespace, default e ignora tipos", () => {
+    const [a, b, c] = parseImports(
+      `import React, { useState, type FC } from "react";\nimport * as RN from "react-native";\nimport type { X } from "x";\nimport Def from "d";`,
+    );
+    expect(a).toEqual({ module: "react", named: ["useState"], namespace: null, defaultName: "React" });
+    expect(b).toEqual({ module: "react-native", named: [], namespace: "RN", defaultName: null });
+    expect(c).toEqual({ module: "d", named: [], namespace: null, defaultName: "Def" });
   });
 });

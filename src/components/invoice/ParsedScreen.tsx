@@ -1,17 +1,19 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
   Pressable,
   StyleSheet,
+  useWindowDimensions,
 } from "react-native";
 import { DatePickerField } from "@/src/components/shared/DatePickerField";
-import { KeyboardStickyView } from "react-native-keyboard-controller";
+import { KeyboardStickyView, useKeyboardState } from "react-native-keyboard-controller";
 import {
   KeyboardAwareScrollViewCompat,
-  KEYBOARD_BOTTOM_OFFSET,
   SCROLL_BOTTOM_PADDING,
 } from "@/components/KeyboardAwareScrollViewCompat";
+import { computeParsedFooterLayout, hasPendingNewItem } from "./parsedFooterLayout";
+import { appConfirm } from "@/src/services/appAlert";
 import { Feather } from "@expo/vector-icons";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
@@ -91,16 +93,56 @@ export function ParsedScreen({
   onCancel,
   onConfirm,
 }: Props) {
-  // Altura do rodapé medida no layout: com o teclado aberto ele sobe e cobre a
-  // faixa logo acima do teclado, então o campo focado precisa subir além dele.
+  // Com o teclado aberto o rodapé sobe e cobre a faixa logo acima do teclado:
+  // o campo focado precisa parar acima dele, e em janela baixa o rodapé deixa
+  // de subir (cálculo em parsedFooterLayout.ts).
   const [footerHeight, setFooterHeight] = useState(0);
-  const footerOverlap = Math.max(0, footerHeight - insets.bottom);
+  const [scrollTop, setScrollTop] = useState(0);
+  const containerRef = useRef<View>(null);
+  const { height: windowHeight } = useWindowDimensions();
+  const keyboardHeight = useKeyboardState((state) => state.height);
+  const footerLayout = computeParsedFooterLayout({
+    windowHeight,
+    keyboardHeight,
+    scrollTop,
+    footerHeight,
+    insetBottom: insets.bottom,
+  });
+
+  const handleConfirm = async () => {
+    if (editableItems.length === 0) {
+      soundManager.play("error");
+      return;
+    }
+    const pending = hasPendingNewItem({
+      isAddingItem,
+      desc: newItemDesc,
+      unitPrice: newItemUnitPrice,
+      ean: newItemEan,
+      ncm: newItemNcm,
+    });
+    if (pending) {
+      const ok = await appConfirm({
+        title: "Importar sem o item em edição?",
+        message: "O item em edição não foi adicionado. Se importar agora, ele fica de fora da nota.",
+        confirmLabel: "Importar mesmo assim",
+        cancelLabel: "Voltar",
+      });
+      if (!ok) return;
+    }
+    soundManager.play("success");
+    onConfirm();
+  };
 
   return (
-    <View style={s.container}>
+    <View
+      ref={containerRef}
+      style={s.container}
+      onLayout={() => containerRef.current?.measureInWindow((_x, y) => setScrollTop(y))}
+    >
       <KeyboardAwareScrollViewCompat
         contentContainerStyle={s.scroll}
-        bottomOffset={KEYBOARD_BOTTOM_OFFSET + footerOverlap}
+        bottomOffset={footerLayout.bottomOffset}
       >
         {/* Emitter card */}
         <View style={[s.emitterCard, { backgroundColor: theme.cardBackground }]}>
@@ -224,14 +266,16 @@ export function ParsedScreen({
 
       {/* Footer: total + ações. KeyboardStickyView sobe junto com o teclado
           (edge-to-edge não redimensiona a janela; Story 13.2, D-1). A altura do
-          teclado já inclui a barra de navegação, então `opened: insets.bottom`
-          desconta o paddingBottom. */}
+          teclado já inclui a barra de navegação, então `opened` desconta o
+          paddingBottom (nunca mais que o próprio teclado). Em janela baixa o
+          rodapé não sobe (`enabled` falso). */}
       <KeyboardStickyView
         style={[
           s.footer,
           { backgroundColor: theme.cardBackground, paddingBottom: insets.bottom + 20 },
         ]}
-        offset={{ closed: 0, opened: insets.bottom }}
+        enabled={footerLayout.stickyEnabled}
+        offset={{ closed: 0, opened: footerLayout.openedOffset }}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
       >
         <View style={s.totalRow}>
@@ -250,14 +294,7 @@ export function ParsedScreen({
             flex={2}
             backgroundColor={theme.primaryColor}
             opacity={editableItems.length === 0 ? 0.5 : 1}
-            onPress={() => {
-              if (editableItems.length === 0) {
-                soundManager.play("error");
-                return;
-              }
-              soundManager.play("success");
-              onConfirm();
-            }}
+            onPress={() => { void handleConfirm(); }}
           >
             Confirmar Importação
           </TButton>

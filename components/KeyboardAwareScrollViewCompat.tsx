@@ -7,44 +7,18 @@ import {
   KeyboardAwareScrollView,
   KeyboardAwareScrollViewProps,
 } from "react-native-keyboard-controller";
+import { withKeyboardScrollDefaults } from "./keyboardScrollDefaults";
 
-/** Folga entre o campo focado e o topo do teclado (bem acima dos 8 dp do FR-29). */
-export const KEYBOARD_BOTTOM_OFFSET = 50;
-
-/**
- * Folga no fim do conteúdo rolável. A tela soma `insets.bottom` quando não está
- * num `SafeAreaView` com a borda de baixo.
- */
-export const SCROLL_BOTTOM_PADDING = 32;
+export { KEYBOARD_BOTTOM_OFFSET, SCROLL_BOTTOM_PADDING } from "./keyboardScrollDefaults";
 
 type Props = KeyboardAwareScrollViewProps & ScrollViewProps;
 
-export function KeyboardAwareScrollViewCompat({
-  children,
-  keyboardShouldPersistTaps = "handled",
-  bottomOffset = KEYBOARD_BOTTOM_OFFSET,
-  ...props
-}: Props) {
+export function KeyboardAwareScrollViewCompat({ children, ...props }: Props) {
   if (Platform.OS === "web") {
-    const {
-      extraKeyboardSpace: _extraKeyboardSpace,
-      disableScrollOnKeyboardHide: _disableScrollOnKeyboardHide,
-      enabled: _enabled,
-      ScrollViewComponent: _ScrollViewComponent,
-      ...webProps
-    } = props;
-    return (
-      <ScrollView keyboardShouldPersistTaps={keyboardShouldPersistTaps} {...webProps}>
-        {children}
-      </ScrollView>
-    );
+    return <ScrollView {...withKeyboardScrollDefaults(props, "web")}>{children}</ScrollView>;
   }
   return (
-    <KeyboardAwareScrollView
-      keyboardShouldPersistTaps={keyboardShouldPersistTaps}
-      bottomOffset={bottomOffset}
-      {...props}
-    >
+    <KeyboardAwareScrollView {...withKeyboardScrollDefaults(props, Platform.OS)}>
       {children}
     </KeyboardAwareScrollView>
   );
