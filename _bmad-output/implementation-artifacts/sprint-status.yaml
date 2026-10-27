@@ -57,7 +57,7 @@ development_status:
   2-8-barrar-lint-e-testes-na-ci: backlog
   epic-2-retrospective: optional
 
-  epic-3: in-progress
+  epic-3: done
   3-1-validar-o-envelope-e-o-tipo-na-importação: done
   3-2-isolar-cada-evento-no-replay-e-registrar-a-quarentena: done
   3-3-reprocessar-eventos-desconhecidos-depois-de-atualizar-o-app: done
