@@ -4,6 +4,8 @@ import {
   averageLabel,
   chartBarAccessibilityLabel,
   chartBarDetail,
+  deductionRateLabel,
+  netChangeColors,
   employersLabel,
   formatPercentPoints,
   moneyOrDash,
@@ -52,5 +54,22 @@ describe("historyFormat", () => {
     const [p] = payslipChartSeries(buildPayslipHistory([slip("2026-09", 4000)]));
     expect(nbsp(chartBarAccessibilityLabel(p!))).toBe("09/2026: líquido R$ 4.000,00, bruto R$ 5.000,00");
     expect(nbsp(chartBarDetail(p!))).toBe("09/2026 · líquido R$ 4.000,00 · bruto R$ 5.000,00");
+  });
+
+  it("R4/R6: percentual de descontos arredondado uma vez; negativo ou não finito vira —", () => {
+    // 0,177496 arredondado antes a 4 casas (0,1775) viraria 17,8%; o certo é 17,7%.
+    expect(deductionRateLabel(0.177496)).toBe("17,7%");
+    expect(deductionRateLabel(0.2)).toBe("20,0%");
+    expect(deductionRateLabel(0)).toBe("0,0%");
+    expect(deductionRateLabel(-0.25)).toBe("—");
+    expect(deductionRateLabel(NaN)).toBe("—");
+    expect(deductionRateLabel(summary([slip("2026-09", 5000, 4000)]).deductionRate)).toBe("—");
+  });
+
+  it("R9: a cor da alta/queda fica só na seta; o texto usa textColor", () => {
+    const theme = { success: "#0f0", danger: "#f00", textColor: "#111" };
+    expect(netChangeColors("up", theme)).toEqual({ icon: "#0f0", text: "#111" });
+    expect(netChangeColors("down", theme)).toEqual({ icon: "#f00", text: "#111" });
+    expect(netChangeColors("flat", theme)).toEqual({ icon: "#111", text: "#111" });
   });
 });

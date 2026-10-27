@@ -14,15 +14,18 @@ import { InfoTip } from "@/src/components/shared/InfoTip";
 import { PayslipChart } from "./PayslipChart";
 import {
   averageLabel,
+  deductionRateLabel,
   employersLabel,
-  formatPercentPoints,
   moneyOrDash,
+  netChangeColors,
   netChangeView,
 } from "@/src/modules/payslip/historyFormat";
 
 interface PayslipHistoryProps {
-  /** `null` quando só há 13º salvo (sem mensal para o resumo). */
+  /** `null` sem competência mensal válida (só 13º, ou mensais com valores inválidos). */
   summary: PayslipHistorySummary | null;
+  /** Texto no lugar do resumo quando `summary` é `null` (`payslipSummaryNotice`). */
+  summaryNotice: string | null;
   series: readonly PayslipChartPoint[];
   deductionTotals: readonly PayslipDeductionTotal[];
   deductionTitle: string;
@@ -38,6 +41,7 @@ interface PayslipHistoryProps {
  */
 export function PayslipHistory({
   summary,
+  summaryNotice,
   series,
   deductionTotals,
   deductionTitle,
@@ -51,7 +55,7 @@ export function PayslipHistory({
         <SummaryCards summary={summary} theme={theme} />
       ) : (
         <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-          <Text style={[s.muted, { color: theme.secondaryText }]}>Ainda não há holerite mensal para o resumo.</Text>
+          <Text style={[s.muted, { color: theme.secondaryText }]}>{summaryNotice}</Text>
         </View>
       )}
 
@@ -117,7 +121,7 @@ export function PayslipHistory({
 
 function SummaryCards({ summary, theme }: { summary: PayslipHistorySummary; theme: ThemeColors }) {
   const change = netChangeView(summary);
-  const changeColor = change.trend === "up" ? theme.success : change.trend === "down" ? theme.danger : theme.textColor;
+  const changeColors = netChangeColors(change.trend, theme);
   const changeIcon = change.trend === "up" ? "arrow-up-right" : change.trend === "down" ? "arrow-down-right" : "minus";
   const employers = employersLabel(summary.latest.count);
   const card = [s.summaryCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }];
@@ -141,8 +145,9 @@ function SummaryCards({ summary, theme }: { summary: PayslipHistorySummary; them
       <View style={card}>
         <Text style={[s.label, { color: theme.secondaryText }]}>Variação</Text>
         <View style={s.changeRow}>
-          {change.reference && <Feather name={changeIcon} size={16} color={changeColor} />}
-          <Text style={[s.changeText, { color: change.reference ? changeColor : theme.textColor }]}>{change.text}</Text>
+          {change.reference && <Feather name={changeIcon} size={16} color={changeColors.icon} />}
+          {/* R9: a cor da alta/queda fica só na seta; o texto usa textColor (contraste). */}
+          <Text style={[s.changeText, { color: changeColors.text }]}>{change.text}</Text>
         </View>
         {change.reference && <Text style={[s.sub, { color: theme.secondaryText }]}>{change.reference}</Text>}
       </View>
@@ -160,7 +165,7 @@ function SummaryCards({ summary, theme }: { summary: PayslipHistorySummary; them
           <Text style={[s.label, { color: theme.secondaryText }]}>Descontos</Text>
           <InfoTip term="descontos_holerite" size={13} />
         </View>
-        <Text style={[s.value, { color: theme.textColor }]}>{formatPercentPoints(summary.deductionRate * 100)}</Text>
+        <Text style={[s.value, { color: theme.textColor }]}>{deductionRateLabel(summary.deductionRate)}</Text>
         <Text style={[s.sub, { color: theme.secondaryText }]}>
           do bruto em {summary.windowCount} {summary.windowCount === 1 ? "competência" : "competências"}
         </Text>

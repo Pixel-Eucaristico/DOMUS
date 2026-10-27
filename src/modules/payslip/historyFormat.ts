@@ -18,6 +18,16 @@ export function formatPercentPoints(points: number): string {
   return `${points.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 }
 
+/**
+ * Cartão "Descontos": a fração do domínio (sem arredondar) vira percentual com
+ * 1 casa, arredondado uma vez só (R4). Negativo (líquido acima do bruto) ou não
+ * finito vira "—" (R6).
+ */
+export function deductionRateLabel(rate: number): string {
+  if (!Number.isFinite(rate) || rate < 0) return "—";
+  return formatPercentPoints(rate * 100);
+}
+
 export type NetTrend = "up" | "down" | "flat";
 
 export interface NetChangeView {
@@ -37,6 +47,18 @@ export function netChangeView(summary: PayslipHistorySummary): NetChangeView {
   if (netChangePct !== null) text += ` (${sign}${formatPercentPoints(Math.abs(netChangePct))})`;
   const [y, m] = previous.period.split("-");
   return { trend, text, reference: `em relação a ${m}/${y}` };
+}
+
+/**
+ * Cores da variação (R9): alta/queda colorem só a seta; o texto fica em
+ * `textColor`, porque o verde do tema claro não tem contraste para texto.
+ */
+export function netChangeColors(
+  trend: NetTrend,
+  theme: { success: string; danger: string; textColor: string },
+): { icon: string; text: string } {
+  const icon = trend === "up" ? theme.success : trend === "down" ? theme.danger : theme.textColor;
+  return { icon, text: theme.textColor };
 }
 
 /** "média de 7 competências" / "média de 1 competência". */

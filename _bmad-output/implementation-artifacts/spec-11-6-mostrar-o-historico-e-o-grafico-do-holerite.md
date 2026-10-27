@@ -2,7 +2,7 @@
 title: 'Story 11.6: mostrar o histórico e o gráfico do holerite'
 type: 'feature'
 created: '2026-10-27'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '9141e23'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -31,7 +31,7 @@ context:
   - `buildPayslipHistory(payslips)`: competências mensais em ordem crescente. Cada uma tem `period`, `gross`, `net`, `deductionsTotal` (bruto − líquido), `count` e `ids`. Vários empregadores na mesma competência seguem a decisão 1. O 13º fica fora da série mensal (decisão 2).
   - `summarizePayslipHistory(history, payslips)`: retorna `latest`, `previous` (a competência mensal salva anterior, mesmo que não seja o mês seguido), `netChange`, `netChangePct` (`null` sem anterior ou com líquido anterior 0), `averageNet` e `deductionRate`, todos sobre a **janela** das últimas 12 competências mensais salvas. `deductionRate` é (Σbruto − Σlíquido) / Σbruto, e vale 0 com Σbruto 0.
   - `payslipChartSeries(history)`: as últimas 12 competências mensais, com `label` (`MM/AA`), `net`, `gross`, `netRatio` e `grossRatio` em [0, 1] sobre o maior bruto da janela. A divisão por zero é protegida.
-  - `payslipDeductionTotals(payslips, window)`: soma por desconto, do maior para o menor (empate por nome), no período da decisão 3. A chave de agrupamento normaliza acentos, caixa, pontuação e espaços (base: `deductionKey` do `850aa1b`). O nome exibido é o do holerite mais recente do grupo. Quando um holerite tem bruto − líquido maior que a soma das linhas lidas (manual ou leitura incompleta), a diferença entra numa linha "Descontos sem detalhe", e diferença negativa é ignorada. Assim, o total por desconto fecha com o percentual de descontos.
+  - `payslipDeductionTotals(payslips, window)`: soma por desconto, do maior para o menor (empate por nome), no período da decisão 3. A chave de agrupamento normaliza acentos, caixa, pontuação e espaços (base: `deductionKey` do `850aa1b`). O nome exibido é o do holerite mais recente do grupo. Quando um holerite tem bruto − líquido maior que a soma das linhas lidas (manual ou leitura incompleta), a diferença entra numa linha "Descontos sem detalhe", e diferença negativa é ignorada. Assim, sem 13º na conta e sem rubricas lidas acima de bruto − líquido, o total por desconto fecha com o percentual de descontos; quando um 13º entra, o título diz "(inclui 13º)" e o total passa do percentual, que é só dos mensais (R5 da revisão).
   - `deletePayslipMessage(payslip, incomeStillExists)`: texto da confirmação.
   - Valores arredondados a 2 casas na saída (AD-7). Entrada não finita (dados antigos, D38) é ignorada sem lançar erro.
 - **Resumo (cartões):**
@@ -139,31 +139,56 @@ context:
 - `src/components/payslip/PayslipHistory.tsx` (novo): cartões de resumo (`InfoTip` `salario_liquido` em "Último líquido" e `descontos_holerite` em "Descontos"), o gráfico, o total por desconto com barra proporcional e a lista com o botão de excluir (`trash-2`, `hitSlop`, `accessibilityRole="button"`); `PayslipEmptyState` no mesmo arquivo. Só 13º: "Ainda não há holerite mensal para o resumo." no lugar dos cartões e do gráfico, e o `InfoTip` `descontos_holerite` vai para o título do total.
 - `app/payslips.tsx`: a lista provisória saiu; entraram o estado vazio, o `PayslipHistory` (dados por `useMemo` sobre `domain.payslips`) e o `handleDelete` (`createSingleFlight` próprio + `appConfirm` destrutivo + `deletePayslipEvent(p.id, deviceId ?? "local")` + `soundManager.play("success")`). Captura, revisão, pendente do chat, voltar do Android e salvar não mudaram.
 
-**Testes:** `packages/domain/__tests__/payslipHistory.test.ts` (24: vazio, um, alta, queda, competência pulada, anterior com líquido 0, bruto 0, janela de 12 com 15, arredondamento, decisão 1a, decisão 2a, 13º fora da janela, só 13º, agrupamento de nomes, ordem e empate, "Descontos sem detalhe" manual e incompleto, linhas acima de bruto − líquido, valor não finito, rótulo da empresa, mensagens de exclusão com e sem receita, export no `index.ts`, R4 + sem `react`/`react-native`/`expo`/relógio no arquivo novo; o teste R4 da 11.5 já varre `packages/domain/src` e cobre o arquivo), `src/context/__tests__/replay.payslipHistory.test.ts` (2: salvar com receita → excluir → sai do resumo, receita e saldo ficam, sem Quarentena; excluir o último zera o histórico e regravar a vaga gera id novo), `src/modules/payslip/__tests__/historyFormat.test.ts` (4).
+**Testes (antes da revisão):** `packages/domain/__tests__/payslipHistory.test.ts` (24: vazio, um, alta, queda, competência pulada, anterior com líquido 0, bruto 0, janela de 12 com 15, arredondamento, decisão 1a, decisão 2a, 13º fora da janela, só 13º, agrupamento de nomes, ordem e empate, "Descontos sem detalhe" manual e incompleto, linhas acima de bruto − líquido, valor não finito, rótulo da empresa, mensagens de exclusão com e sem receita, export no `index.ts`, R4 + sem `react`/`react-native`/`expo`/relógio no arquivo novo; o teste R4 da 11.5 já varre `packages/domain/src` e cobre o arquivo), `src/context/__tests__/replay.payslipHistory.test.ts` (2: salvar com receita → excluir → sai do resumo, receita e saldo ficam, sem Quarentena; excluir o último zera o histórico e regravar a vaga gera id novo), `src/modules/payslip/__tests__/historyFormat.test.ts` (4).
 
-**Verificação:** `npx vitest run` → 89 arquivos / 1736 testes, todos passando (baseline 86 / 1706). `npx tsc --noEmit` → 0 erros. `npx expo export --platform web` → ok. Os `grep` e o `git diff --stat 9141e23 -- package.json package-lock.json packages/events packages/sync` da seção Verification voltam vazios (em `src/modules/ai` só o comentário do `AISettings.ts`). Playwright (Chromium headless, 412×900) no build web: estado vazio com título, texto e os três botões, sem resumo nem lista; um holerite → "Primeiro holerite salvo", "média de 1 competência", 20,0%; 11/2026 ACME (com receita) + 12/2026 ACME + 12/2026 BETA (outro CNPJ) + 13º 2026 → último R$ 5.700,00 "12/2026 · 2 empregadores", "+R$ 1.700,00 (+42,5%)" em `theme.success` "em relação a 11/2026", média R$ 4.850,00 "média de 2 competências", descontos 17,8%, duas barras, "Descontos nas últimas 12 competências" com "Descontos sem detalhe" R$ 2.600,00 (o 13º de 12/2026 entra), lista com quatro itens e "13º salário 2026"; toque na barra 11/2026 trocou o detalhe; a dica "Salário Bruto" abriu e fechou ao tocar fora; dois toques no mesmo quadro no excluir abriram uma confirmação só, com a frase da receita "Salário (11/2026)"; depois de excluir, saldo (R$ 5.000,00) e lançamento iguais; o holerite sem receita mostrou a mensagem sem a frase, Cancelar manteve, Excluir tirou; sobrou só o 13º → "Ainda não há holerite mensal para o resumo." e "Descontos do 13º salário"; excluir o último voltou o estado vazio. Com 13 mensais: 12 barras (02/25–01/26) com rótulos legíveis, "média de 12 competências", 13 itens na lista, sem rolagem horizontal. Nenhum erro de página.
+**Verificação (antes da revisão):** `npx vitest run` → 89 arquivos / 1736 testes, todos passando (baseline 86 / 1706). `npx tsc --noEmit` → 0 erros. `npx expo export --platform web` → ok. Os `grep` e o `git diff --stat 9141e23 -- package.json package-lock.json packages/events packages/sync` da seção Verification voltam vazios (em `src/modules/ai` só o comentário do `AISettings.ts`). Playwright (Chromium headless, 412×900) no build web: estado vazio com título, texto e os três botões, sem resumo nem lista; um holerite → "Primeiro holerite salvo", "média de 1 competência", 20,0%; 11/2026 ACME (com receita) + 12/2026 ACME + 12/2026 BETA (outro CNPJ) + 13º 2026 → último R$ 5.700,00 "12/2026 · 2 empregadores", "+R$ 1.700,00 (+42,5%)" em `theme.success` "em relação a 11/2026", média R$ 4.850,00 "média de 2 competências", descontos 17,8%, duas barras, "Descontos nas últimas 12 competências" com "Descontos sem detalhe" R$ 2.600,00 (o 13º de 12/2026 entra), lista com quatro itens e "13º salário 2026"; toque na barra 11/2026 trocou o detalhe; a dica "Salário Bruto" abriu e fechou ao tocar fora; dois toques no mesmo quadro no excluir abriram uma confirmação só, com a frase da receita "Salário (11/2026)"; depois de excluir, saldo (R$ 5.000,00) e lançamento iguais; o holerite sem receita mostrou a mensagem sem a frase, Cancelar manteve, Excluir tirou; sobrou só o 13º → "Ainda não há holerite mensal para o resumo." e "Descontos do 13º salário"; excluir o último voltou o estado vazio. Com 13 mensais: 12 barras (02/25–01/26) com rótulos legíveis, "média de 12 competências", 13 itens na lista, sem rolagem horizontal. Nenhum erro de página.
 
 **Decisões além da spec:**
 
 - `summarizePayslipHistory(history)` recebe só o histórico (a contagem de empregadores já está em `count`); a spec sugeria também `payslips`.
-- `deductionRate` sai como fração com 4 casas (0,1780 = 17,80%), para a tela mostrar o percentual com 1 casa; `netChangePct` sai em pontos percentuais com 2 casas.
+- `deductionRate` sai como fração sem arredondar (R4), e a tela arredonda uma vez, a 1 casa (`deductionRateLabel`); `netChangePct` sai em pontos percentuais com 2 casas.
 - Valor não finito: o holerite com bruto ou líquido não finito (ou competência inválida) sai do histórico e dos totais inteiro; a linha de desconto não finita é ignorada. Na lista ele continua, com "—" no valor.
 - Só 13º salvo: o total por desconto soma todos os 13º (não há janela mensal) e o título vira "Descontos do 13º salário".
-- Total por desconto: grupo que soma 0 não aparece; linha sem nome vira "Desconto sem nome". O 13º com competência depois da última mensal fica fora da janela (regra literal da 3a): por exemplo, 13º 2026 salvo antes do holerite mensal de 12/2026 só entra nos totais quando o de dezembro for salvo. Fica para o dono decidir se quer estender a janela até o 13º mais recente.
+- Total por desconto: linha ≤ 0 não entra e grupo ≤ 0 não aparece (R6); linha sem nome vira "Desconto sem nome". A janela do 13º segue a decisão do dono no R1 (ver "Revisão" abaixo).
 - `accessibilityLabel` do excluir acrescenta o empregador quando conhecido ("Excluir holerite de 09/2026 de ACME LTDA"), porque com dois empregadores no mês os dois botões teriam o mesmo rótulo.
-- O texto da confirmação: "O holerite de 09/2026 de ACME LTDA sai do histórico, do gráfico e dos totais." + a frase da receita da spec quando ela ainda existe.
+- O texto da confirmação: "O holerite de 09/2026 de ACME LTDA sai do histórico, do gráfico e dos totais." (13º: "… sai da lista e do total por desconto.", R7) + a frase da receita da spec quando ela ainda existe.
 - O cartão "Descontos" diz "do bruto em N competências"; o estado vazio fica acima do texto curto e dos três botões.
 - No web, o `dblclick` do Playwright fecha a confirmação (o segundo clique cai no fundo do alerta e conta como Cancelar; nada é despachado). O teste da trava usou dois `click()` no mesmo quadro.
+
+**Revisão (R1–R11, 27/10):**
+
+- R1 (decisão do dono): `payslipDeductionWindow` — fim = o mais recente entre a última competência mensal e o último 13º; início = a primeira das 12 mensais da janela, ou, com menos de 12 mensais, 11 meses de calendário antes do fim. `payslipDeductionReport(payslips, history)` devolve `rows`, `title`, `window`, `includesThirteenth` e `includesMonthly`; o título ganha " (inclui 13º)" quando algum 13º entra. `payslipDeductionTitle` saiu (o título vem do relatório); `payslipDeductionTotals` continua, só com as linhas.
+- R2/R10: `src/modules/payslip/deleteRequest.ts` (sem `react-native`): `buildDeletePayslipRequest(p, transactions, deviceId) → { confirm, events }` com `events` exatamente `[PAYSLIP_DELETED]`, e `createDeletePayslipFlow` (trava `createSingleFlight`, cancelar não despacha, falha em confirmar ou despachar vai para `onError`). A tela usa o fluxo e avisa a falha com `appAlert("Não foi possível excluir", "Tente de novo em instantes.")`.
+- R3: com mais de 6 barras, `label` é só `MM` e `yearMarker` traz o ano (`AAAA`) na primeira barra e na virada; o gráfico mostra o ano numa linha abaixo, com largura fixa de 36 centrada na coluna (cabe "2026" com colunas de 22 px); `adjustsFontSizeToFit` com `minimumFontScale={0.7}` no rótulo do mês.
+- R4: `deductionRate` sem arredondar no domínio; `deductionRateLabel` arredonda na exibição.
+- R5: título "(inclui 13º)" (R1) e frase da spec sobre totais × percentual corrigida.
+- R6: linha de desconto ≤ 0 não entra nem no grupo nem na conta de "Descontos sem detalhe" (um estorno não cria "sem detalhe" falso); percentual negativo ou não finito vira "—".
+- R7: confirmação do 13º diz "sai da lista e do total por desconto".
+- R8: `payslipSummaryNotice` — mensais salvos sem valor válido mostram "Os holerites mensais salvos não têm valores válidos para o resumo."; só 13º continua "Ainda não há holerite mensal para o resumo."; o título dos totais segue os tipos que entraram na conta.
+- R9: `netChangeColors` — `theme.success`/`theme.danger` só na seta; o texto da variação em `textColor`.
+- R11: testes de razões com várias barras, desempate por `recordedAt`, arredondamento dos totais e linha negativa.
+
+**Decisões além da tabela (revisão):**
+
+- R1: com menos de 12 mensais espalhados por mais de 12 meses, o início da janela não passa da primeira mensal contada (início = o mais antigo entre "fim − 11 meses" e a primeira mensal da janela), para um 13º entre mensais contados não ficar de fora. Com 12 ou mais mensais, a janela pode passar de 12 meses quando o 13º é posterior à última mensal (início na primeira das 12, fim no 13º).
+- R6: além de ocultar grupos ≤ 0, a linha negativa é ignorada também na conta do "sem detalhe".
+- R2: a dependência de confirmação do fluxo se chama `ask` (o teste `noNativeAlert` barra qualquer `.confirm(`).
+
+**Testes (depois da revisão):** `payslipHistory.test.ts` 40 (+16: R1 ×5, R3 ×2, R4/R6 ×3, R8 ×2, R11 ×4), `historyFormat.test.ts` 6 (+2: R4/R6, R9), `deleteRequest.test.ts` 7 (novo: R2 ×3, fluxo com confirmar, cancelar, toque duplo e R10). Cada patch de código tem teste que falha sem ele (conferido com o código anterior: 16 falhas + o arquivo do `deleteRequest`); os de R11 cobrem comportamento que já existia.
+
+**Verificação (depois da revisão):** `npx vitest run` → 90 arquivos / 1761 testes, todos passando. `npx tsc --noEmit` → 0 erros. `npx expo export --platform web` → ok. Os `grep` e o `git diff --stat 9141e23 -- package.json package-lock.json packages/events packages/sync` voltam vazios. Playwright (412×900) com o mesmo roteiro: tudo igual ao anterior, mais o título "Descontos nas últimas 12 competências (inclui 13º)" (13º 2026 com a última mensal 12/2026), o texto da alta em `textColor` (rgb(26, 26, 46)) com a seta em `theme.success`, e a confirmação do 13º com "sai da lista e do total por desconto" sem "gráfico". 13 mensais em 360×900 e 412×900: 12 barras, rótulos "02 … 12 01" com "2025" sob 02 e "2026" sob 01, sem corte e sem rolagem horizontal (`scrollWidth` = largura). Nenhum erro de página.
 
 **Aparelho (APK de pré-release, Android 16), a conferir:**
 
 - [ ] Rolagem da tela com 12 barras e lista longa sem travar
-- [ ] Toque nas barras troca o detalhe; rótulos MM/AA legíveis com 12 barras
+- [ ] Toque nas barras troca o detalhe; rótulos MM/AA legíveis com até 6 barras
+- [ ] 360dp com fonte 1,3 (R3): 12 barras com rótulo "MM" e o ano na primeira barra e na virada, sem corte
 - [ ] Dicas (`salario_liquido`, `salario_bruto`, `descontos_holerite`) abrem ancoradas e fecham ao tocar fora
 - [ ] Excluir holerite com receita: mensagem cita a receita; extrato e saldo iguais depois
 - [ ] Toque duplo no excluir abre uma confirmação só
 - [ ] TalkBack lê cada barra ("09/2026: líquido R$ …, bruto R$ …") e o botão de excluir
-- [ ] Temas claro/escuro: contorno do bruto e cores da variação legíveis
+- [ ] Temas claro/escuro: contorno do bruto legível; variação com cor só na seta e texto legível (R9)
+- [ ] Excluir o 13º: mensagem "sai da lista e do total por desconto" (R7); título dos totais com "(inclui 13º)" quando ele entra (R1)
 
 ## Review Triage Log
 
@@ -171,14 +196,14 @@ Revisão única com três lentes (adversarial, casos de borda, lacunas de verifi
 
 | # | Achado | Sev. | Decisão |
 |---|--------|------|---------|
-| R1 | 13º fora da janela dos totais quando é posterior ao último mensal (caso comum) ou anterior ao primeiro com menos de 12 mensais | Med | **patch** (decisão do dono 27/10): fim da janela = o mais recente entre o último mensal e o último 13º; com menos de 12 mensais, início = 11 meses de calendário antes do fim; título indica "inclui 13º" quando houver; testes dos dois casos |
-| R2 | Exclusão na tela sem teste automático (opções do `appConfirm`, receita existente, trava, eventos despachados) | Med | **patch**: módulo puro `buildDeletePayslipRequest(p, transactions) → {confirm, events}` testado, com `events` exatamente `[PAYSLIP_DELETED]` |
-| R3 | Rótulos do gráfico cortados com 12 barras em 360dp ou fonte maior | Med | **patch**: com mais de 6 barras, rótulo só "MM" e marcador de ano na virada; `adjustsFontSizeToFit` com `minimumFontScale`; item no checklist do aparelho (360dp, fonte 1,3) |
-| R4 | Percentual de descontos arredondado duas vezes | Low | **patch**: domínio devolve a fração sem arredondar; arredonda só na exibição |
-| R5 | Totais não fecham com o percentual quando há 13º ou linhas maiores que bruto − líquido | Low | **patch**: título com "inclui 13º" (R1) e ajuste da frase da spec |
-| R6 | Desconto negativo e líquido maior que o bruto geram linhas e percentual estranhos | Low | **patch**: ocultar grupos ≤ 0; percentual negativo vira "—" |
-| R7 | Confirmação de exclusão do 13º cita "gráfico" | Low | **patch**: para 13º, "sai da lista e do total por desconto" |
-| R8 | Valores inválidos em todos os mensais mostram mensagem e título errados | Low | **patch**: título e mensagem pelos tipos realmente salvos |
-| R9 | Texto verde de variação com contraste fraco no tema claro | Low | **patch**: cor só no ícone de seta; texto em `textColor` |
-| R10 | Rejeição no callback de exclusão sem tratamento | Low | **patch**: try/catch com `appAlert` |
-| R11 | Lacunas de teste: razões do gráfico com várias barras, desempate por `recordedAt`, arredondamento, linha negativa | Low | **patch**: testes dessas quatro situações; o teste de imports do R4 da 11.5 por regex fica como está (**reject**: `require` não é usado no código) |
+| R1 | 13º fora da janela dos totais quando é posterior ao último mensal (caso comum) ou anterior ao primeiro com menos de 12 mensais | Med | **patch** · **Aplicado** (decisão do dono 27/10): fim da janela = o mais recente entre o último mensal e o último 13º; com menos de 12 mensais, início = 11 meses de calendário antes do fim; título indica "inclui 13º" quando houver; testes dos dois casos |
+| R2 | Exclusão na tela sem teste automático (opções do `appConfirm`, receita existente, trava, eventos despachados) | Med | **patch** · **Aplicado**: módulo puro `buildDeletePayslipRequest(p, transactions) → {confirm, events}` testado, com `events` exatamente `[PAYSLIP_DELETED]` |
+| R3 | Rótulos do gráfico cortados com 12 barras em 360dp ou fonte maior | Med | **patch** · **Aplicado**: com mais de 6 barras, rótulo só "MM" e marcador de ano na virada; `adjustsFontSizeToFit` com `minimumFontScale`; item no checklist do aparelho (360dp, fonte 1,3) |
+| R4 | Percentual de descontos arredondado duas vezes | Low | **patch** · **Aplicado**: domínio devolve a fração sem arredondar; arredonda só na exibição |
+| R5 | Totais não fecham com o percentual quando há 13º ou linhas maiores que bruto − líquido | Low | **patch** · **Aplicado**: título com "inclui 13º" (R1) e ajuste da frase da spec |
+| R6 | Desconto negativo e líquido maior que o bruto geram linhas e percentual estranhos | Low | **patch** · **Aplicado**: ocultar grupos ≤ 0; percentual negativo vira "—" |
+| R7 | Confirmação de exclusão do 13º cita "gráfico" | Low | **patch** · **Aplicado**: para 13º, "sai da lista e do total por desconto" |
+| R8 | Valores inválidos em todos os mensais mostram mensagem e título errados | Low | **patch** · **Aplicado**: título e mensagem pelos tipos realmente salvos |
+| R9 | Texto verde de variação com contraste fraco no tema claro | Low | **patch** · **Aplicado**: cor só no ícone de seta; texto em `textColor` |
+| R10 | Rejeição no callback de exclusão sem tratamento | Low | **patch** · **Aplicado**: try/catch com `appAlert` |
+| R11 | Lacunas de teste: razões do gráfico com várias barras, desempate por `recordedAt`, arredondamento, linha negativa | Low | **patch** · **Aplicado**: testes dessas quatro situações; o teste de imports do R4 da 11.5 por regex fica como está (**reject**: `require` não é usado no código) |

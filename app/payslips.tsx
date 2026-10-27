@@ -6,18 +6,16 @@ import { Feather } from "@expo/vector-icons";
 import {
   buildPayslipHistory,
   buildPayslipSaveEvents,
-  deletePayslipEvent,
-  deletePayslipMessage,
   payslipChartSeries,
-  payslipDeductionTitle,
-  payslipDeductionTotals,
+  payslipDeductionReport,
+  payslipSummaryNotice,
   replacePayslipMessage,
   sortPayslipsNewestFirst,
   summarizePayslipHistory,
-  type StoredPayslip,
 } from "@packages/domain";
 import { draftFromParse, emptyPayslipDraft, type PayslipDraft } from "@/src/modules/payslip/reviewDraft";
 import { createSingleFlight } from "@/src/modules/payslip/singleFlight";
+import { createDeletePayslipFlow } from "@/src/modules/payslip/deleteRequest";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { appAlert, appConfirm } from "@/src/services/appAlert";
@@ -47,8 +45,6 @@ export default function PayslipsScreen() {
   const reviewSeq = useRef(0);
   // Trava síncrona do salvar (R5): o toque duplo não lança a receita duas vezes.
   const saveFlight = useRef(createSingleFlight()).current;
-  // Toque duplo no excluir abre uma confirmação só.
-  const deleteFlight = useRef(createSingleFlight()).current;
 
   const openReview = useCallback((draft: PayslipDraft, warnings: readonly string[] = []) => {
     reviewSeq.current += 1;
@@ -95,27 +91,30 @@ export default function PayslipsScreen() {
   const history = useMemo(() => buildPayslipHistory(domain.payslips), [domain.payslips]);
   const summary = useMemo(() => summarizePayslipHistory(history), [history]);
   const series = useMemo(() => payslipChartSeries(history), [history]);
-  const deductionTotals = useMemo(() => payslipDeductionTotals(domain.payslips, history), [domain.payslips, history]);
-  const deductionTitle = payslipDeductionTitle(history);
+  const summaryNotice = useMemo(() => payslipSummaryNotice(domain.payslips, history), [domain.payslips, history]);
+  const deductions = useMemo(() => payslipDeductionReport(domain.payslips, history), [domain.payslips, history]);
 
   // Excluir só despacha PAYSLIP_DELETED: a receita lançada nunca é apagada.
-  const handleDelete = useCallback(
-    (p: StoredPayslip) =>
-      deleteFlight.run(async () => {
+  // A trava do fluxo faz o toque duplo abrir uma confirmação só (R2/R10).
+  const latest = useRef({ transactions: domain.transactions, deviceId, dispatchDomainEvent });
+  latest.current = { transactions: domain.transactions, deviceId, dispatchDomainEvent };
+  const handleDelete = useRef(
+    createDeletePayslipFlow({
+      getTransactions: () => latest.current.transactions,
+      getDeviceId: () => latest.current.deviceId,
+      ask: (params) => {
         soundManager.play("tap");
-        const incomeStillExists = !!p.transactionId && !!domain.transactions[p.transactionId];
-        const ok = await appConfirm({
-          title: "Excluir holerite?",
-          message: deletePayslipMessage(p, incomeStillExists),
-          confirmLabel: "Excluir",
-          destructive: true,
-        });
-        if (!ok) return;
-        dispatchDomainEvent(deletePayslipEvent(p.id, deviceId ?? "local"));
-        soundManager.play("success");
-      }),
-    [deleteFlight, domain.transactions, dispatchDomainEvent, deviceId],
-  );
+        return appConfirm(params);
+      },
+      dispatch: (event) => latest.current.dispatchDomainEvent(event),
+      onDeleted: () => soundManager.play("success"),
+      onError: (err) => {
+        console.warn("[Payslips] Falha ao excluir o holerite:", err);
+        soundManager.play("error");
+        appAlert("Não foi possível excluir", "Tente de novo em instantes.");
+      },
+    }),
+  ).current;
 
   const handleSave = useCallback(
     (save: PayslipReviewSave) =>
@@ -230,12 +229,13 @@ export default function PayslipsScreen() {
           {saved.length > 0 && (
             <PayslipHistory
               summary={summary}
+              summaryNotice={summaryNotice}
               series={series}
-              deductionTotals={deductionTotals}
-              deductionTitle={deductionTitle}
+              deductionTotals={deductions.rows}
+              deductionTitle={deductions.title}
               payslips={saved}
               theme={theme}
-              onDelete={handleDelete}
+              onDelete={(p) => void handleDelete(p)}
             />
           )}
         </ScrollView>

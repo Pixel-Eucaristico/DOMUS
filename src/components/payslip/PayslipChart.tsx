@@ -14,6 +14,8 @@ interface PayslipChartProps {
 /** Altura fixa da área das barras: nenhuma `View` passa disso (GPU Mali). */
 const CHART_HEIGHT = 140;
 const BAR_MAX_WIDTH = 28;
+/** Cabe "2026" sem corte mesmo com a coluna de ~22dp (12 barras em 360dp). */
+const YEAR_MARKER_WIDTH = 36;
 
 /**
  * Story 11.6: barras pareadas por competência — bruto em contorno, líquido
@@ -24,6 +26,8 @@ export function PayslipChart({ series, theme }: PayslipChartProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   if (series.length === 0) return null;
   const selected = series.find((p) => p.period === selectedPeriod) ?? series[series.length - 1]!;
+  // R3: com muitas barras o rótulo é só "MM" e o ano aparece numa linha abaixo, na virada.
+  const shortLabels = series.some((p) => p.yearMarker !== null);
 
   return (
     <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
@@ -73,9 +77,17 @@ export function PayslipChart({ series, theme }: PayslipChartProps) {
                   isSelected && s.labelSelected,
                 ]}
                 numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
               >
                 {p.label}
               </Text>
+              {shortLabels && (
+                // Largura fixa maior que a coluna, centrada: o ano ocupa o espaço vazio das vizinhas.
+                <Text style={[s.year, { color: theme.secondaryText }]} importantForAccessibility="no">
+                  {p.yearMarker ?? " "}
+                </Text>
+              )}
             </Pressable>
           );
         })}
@@ -97,7 +109,7 @@ const s = StyleSheet.create({
   dotOutline: { borderWidth: 1.5, backgroundColor: "transparent" },
   legendText: { fontSize: 12 },
   bars: { flexDirection: "row", alignItems: "flex-end", justifyContent: "center", gap: 2 },
-  col: { flex: 1, maxWidth: 48, alignItems: "center", gap: 6 },
+  col: { flex: 1, minWidth: 0, maxWidth: 48, alignItems: "center", gap: 6 },
   track: {
     width: "100%",
     maxWidth: BAR_MAX_WIDTH + 8,
@@ -114,7 +126,8 @@ const s = StyleSheet.create({
     borderRadius: 6,
   },
   net: { position: "absolute", left: "26%", right: "26%", bottom: 0, borderRadius: 4 },
-  label: { fontSize: 9 },
+  label: { fontSize: 10, textAlign: "center", alignSelf: "stretch" },
+  year: { fontSize: 9, marginTop: -4, width: YEAR_MARKER_WIDTH, maxWidth: YEAR_MARKER_WIDTH, textAlign: "center" },
   labelSelected: { fontWeight: "700" },
   detail: { fontSize: 13, fontWeight: "600", textAlign: "center" },
 });

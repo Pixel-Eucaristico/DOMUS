@@ -14,7 +14,10 @@ import type { StoredPayslip } from "./state";
  * - 2a: o 13º fica fora do histórico mensal (resumo e gráfico); entra no total
  *   por desconto e na lista.
  * - 3a: o total por desconto usa as últimas 12 competências mensais salvas,
- *   mais o 13º cuja competência caia nesse intervalo.
+ *   mais o 13º cuja competência caia na janela dos totais. R1 da revisão
+ *   (dono, 27/10): a janela termina na mais recente entre a última mensal e o
+ *   último 13º; com menos de 12 mensais, começa 11 meses de calendário antes do
+ *   fim (ou na primeira mensal, se ela for anterior).
  */
 
 /** Quantas competências mensais entram no resumo, no gráfico e nos totais. */
@@ -45,14 +48,20 @@ export interface PayslipHistorySummary {
   averageNet: number;
   /** Quantas competências entraram na média (até 12). */
   windowCount: number;
-  /** (Σbruto − Σlíquido) / Σbruto, em fração (0,2 = 20%), 4 casas; 0 com Σbruto 0. */
+  /**
+   * (Σbruto − Σlíquido) / Σbruto, em fração (0,2 = 20%), sem arredondar (R4: a
+   * tela arredonda uma vez só); 0 com Σbruto 0. Negativo quando o líquido passa
+   * do bruto (a tela mostra "—").
+   */
   deductionRate: number;
 }
 
 export interface PayslipChartPoint {
   period: string;
-  /** `MM/AA`, sob a barra. */
+  /** Sob a barra: `MM/AA` com até 6 barras; só `MM` com mais (R3). */
   label: string;
+  /** Com mais de 6 barras: o ano (`AAAA`) na primeira barra e na virada do ano; senão `null`. */
+  yearMarker: string | null;
   /** `MM/AAAA`, no detalhe e na acessibilidade. */
   fullLabel: string;
   net: number;
@@ -75,6 +84,21 @@ export interface PayslipHistoryWindow {
   from: string;
   to: string;
 }
+
+/** Total por desconto com o título e o que entrou na conta. */
+export interface PayslipDeductionReport {
+  rows: PayslipDeductionTotal[];
+  title: string;
+  /** Janela dos totais (R1), ou `null` quando só há 13º (todos entram). */
+  window: PayslipHistoryWindow | null;
+  /** Algum 13º entrou nos totais (o título diz "inclui 13º"). */
+  includesThirteenth: boolean;
+  /** Algum holerite mensal entrou nos totais. */
+  includesMonthly: boolean;
+}
+
+/** Com mais barras que isto, o rótulo vira só `MM` com o ano na virada (R3). */
+export const PAYSLIP_CHART_SHORT_LABEL_AFTER = 6;
 
 type PayslipSource = Readonly<Record<string, StoredPayslip>> | readonly StoredPayslip[];
 
@@ -158,7 +182,7 @@ export function summarizePayslipHistory(history: readonly PayslipHistoryEntry[])
     netChangePct,
     averageNet: round2(sumNet / w.length),
     windowCount: w.length,
-    deductionRate: sumGross > 0 ? Math.round(((sumGross - sumNet) / sumGross) * 10000) / 10000 : 0,
+    deductionRate: sumGross > 0 ? (sumGross - sumNet) / sumGross : 0,
   };
 }
 
@@ -166,11 +190,14 @@ export function summarizePayslipHistory(history: readonly PayslipHistoryEntry[])
 export function payslipChartSeries(history: readonly PayslipHistoryEntry[]): PayslipChartPoint[] {
   const w = lastWindow(history);
   const max = w.reduce((m, e) => Math.max(m, e.gross, e.net), 0);
-  return w.map((e) => {
+  const short = w.length > PAYSLIP_CHART_SHORT_LABEL_AFTER;
+  return w.map((e, i) => {
     const [y, m] = e.period.split("-");
+    const prevYear = i > 0 ? w[i - 1]!.period.slice(0, 4) : null;
     return {
       period: e.period,
-      label: `${m}/${y!.slice(2)}`,
+      label: short ? m! : `${m}/${y!.slice(2)}`,
+      yearMarker: short && y !== prevYear ? y! : null,
       fullLabel: `${m}/${y}`,
       net: e.net,
       gross: e.gross,
@@ -200,28 +227,54 @@ function newestFirst(a: StoredPayslip, b: StoredPayslip): number {
   );
 }
 
-/** Holerites que entram nos totais: os mensais da janela e o 13º dentro dela (3a). Só 13º: todos. */
-function inDeductionWindow(p: StoredPayslip, window: PayslipHistoryWindow | null, windowIds: ReadonlySet<string>): boolean {
-  if (payslipKindOf(p) === "thirteenth") {
-    return !window || (p.period >= window.from && p.period <= window.to);
-  }
-  return windowIds.has(p.id);
+/** Soma `delta` meses a uma competência `YYYY-MM`. */
+function addMonths(period: string, delta: number): string {
+  const [y, m] = period.split("-").map(Number);
+  const total = y! * 12 + (m! - 1) + delta;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`;
 }
 
 /**
- * Soma por desconto, do maior para o menor (empate por nome). O nome exibido é
- * o do holerite mais recente do grupo. Bruto − líquido acima da soma das linhas
- * vira "Descontos sem detalhe"; diferença negativa é ignorada.
+ * Janela do total por desconto (3a + R1): fim = a mais recente entre a última
+ * competência mensal e o último 13º; início = a primeira das 12 mensais da
+ * janela, ou, com menos de 12 mensais, 11 meses antes do fim (sem deixar de
+ * fora a primeira mensal contada). `null` sem mensal válido.
  */
-export function payslipDeductionTotals(
+export function payslipDeductionWindow(
   payslips: PayslipSource,
   history: readonly PayslipHistoryEntry[] = buildPayslipHistory(payslips),
-): PayslipDeductionTotal[] {
-  const window = payslipHistoryWindow(history);
+): PayslipHistoryWindow | null {
+  const monthly = payslipHistoryWindow(history);
+  if (!monthly) return null;
+  let to = monthly.to;
+  for (const p of listOf(payslips)) {
+    if (usable(p) && payslipKindOf(p) === "thirteenth" && p.period > to) to = p.period;
+  }
+  if (history.length >= PAYSLIP_HISTORY_WINDOW) return { from: monthly.from, to };
+  const calendar = addMonths(to, -(PAYSLIP_HISTORY_WINDOW - 1));
+  return { from: calendar < monthly.from ? calendar : monthly.from, to };
+}
+
+/**
+ * Soma por desconto, do maior para o menor (empate por nome), com o título.
+ * Entram os mensais da janela de 12 e o 13º dentro da janela dos totais (R1);
+ * só 13º salvo: todos os 13º. O nome exibido é o do holerite mais recente do
+ * grupo. Bruto − líquido acima da soma das linhas vira "Descontos sem detalhe";
+ * diferença negativa é ignorada, e linha ≤ 0 não entra (R6).
+ */
+export function payslipDeductionReport(
+  payslips: PayslipSource,
+  history: readonly PayslipHistoryEntry[] = buildPayslipHistory(payslips),
+): PayslipDeductionReport {
+  const window = payslipDeductionWindow(payslips, history);
   const windowIds = new Set(lastWindow(history).flatMap((e) => e.ids));
+  const counted = (p: StoredPayslip) =>
+    payslipKindOf(p) === "thirteenth"
+      ? !window || (p.period >= window.from && p.period <= window.to)
+      : windowIds.has(p.id);
   // Do mais antigo ao mais novo: o último nome visto é o do mais recente.
   const list = listOf(payslips)
-    .filter((p) => usable(p) && inDeductionWindow(p, window, windowIds))
+    .filter((p) => usable(p) && counted(p))
     .sort((a, b) => newestFirst(b, a));
   const groups = new Map<string, { name: string; value: number }>();
   const add = (rawName: string, value: number) => {
@@ -232,27 +285,56 @@ export function payslipDeductionTotals(
     g.value += value;
     groups.set(key, g);
   };
+  let includesThirteenth = false;
+  let includesMonthly = false;
   for (const p of list) {
+    if (payslipKindOf(p) === "thirteenth") includesThirteenth = true;
+    else includesMonthly = true;
     let lineSum = 0;
     for (const d of Array.isArray(p.deductions) ? p.deductions : []) {
-      if (!d || !finite(d.value)) continue;
+      // Linha negativa ou zero (estorno, ajuste) não entra (R6): nem no grupo nem na conta do "sem detalhe".
+      if (!d || !finite(d.value) || d.value <= 0) continue;
       lineSum += d.value;
       add(typeof d.name === "string" ? d.name : "", d.value);
     }
     const missing = round2(p.grossSalary - p.netSalary - lineSum);
     if (missing > 0) add(UNDETAILED_DEDUCTIONS_LABEL, missing);
   }
-  const rows = [...groups.values()]
+  const sorted = [...groups.values()]
     .map((g) => ({ name: g.name, value: round2(g.value) }))
-    .filter((g) => g.value !== 0)
+    .filter((g) => g.value > 0)
     .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, "pt-BR"));
-  const max = rows.reduce((m, r) => Math.max(m, r.value), 0);
-  return rows.map((r) => ({ ...r, ratio: max > 0 ? clamp01(r.value / max) : 0 }));
+  const max = sorted.reduce((m, r) => Math.max(m, r.value), 0);
+  const rows = sorted.map((r) => ({ ...r, ratio: max > 0 ? clamp01(r.value / max) : 0 }));
+  // R8: o título segue os tipos que entraram de fato na conta.
+  const title = includesMonthly
+    ? `Descontos nas últimas ${PAYSLIP_HISTORY_WINDOW} competências${includesThirteenth ? " (inclui 13º)" : ""}`
+    : "Descontos do 13º salário";
+  return { rows, title, window, includesThirteenth, includesMonthly };
 }
 
-/** Título do total por desconto (3a); só 13º salvo: "Descontos do 13º salário". */
-export function payslipDeductionTitle(history: readonly PayslipHistoryEntry[]): string {
-  return history.length > 0 ? `Descontos nas últimas ${PAYSLIP_HISTORY_WINDOW} competências` : "Descontos do 13º salário";
+/** Só as linhas de `payslipDeductionReport`. */
+export function payslipDeductionTotals(
+  payslips: PayslipSource,
+  history: readonly PayslipHistoryEntry[] = buildPayslipHistory(payslips),
+): PayslipDeductionTotal[] {
+  return payslipDeductionReport(payslips, history).rows;
+}
+
+/**
+ * Texto no lugar do resumo e do gráfico quando não há competência mensal válida
+ * (R8): distingue "só 13º" de mensais salvos com valores inválidos (D38).
+ * `null` quando há resumo.
+ */
+export function payslipSummaryNotice(
+  payslips: PayslipSource,
+  history: readonly PayslipHistoryEntry[] = buildPayslipHistory(payslips),
+): string | null {
+  if (history.length > 0) return null;
+  const hasMonthly = listOf(payslips).some((p) => !!p && payslipKindOf(p) !== "thirteenth");
+  return hasMonthly
+    ? "Os holerites mensais salvos não têm valores válidos para o resumo."
+    : "Ainda não há holerite mensal para o resumo.";
 }
 
 /** Todos os holerites, do mais novo ao mais antigo (mesma ordem da lista da 11.5). */
@@ -273,11 +355,14 @@ export function payslipEmployerLabel(p: Pick<StoredPayslip, "company" | "cnpj">)
  */
 export function deletePayslipMessage(p: StoredPayslip, incomeStillExists: boolean): string {
   const company = (typeof p.company === "string" ? p.company.trim() : "") || p.cnpj;
-  let message = `O holerite de ${formatPayslipPeriodLabel(p)}${company ? ` de ${company}` : ""} sai do histórico, do gráfico e dos totais.`;
+  const thirteenth = payslipKindOf(p) === "thirteenth";
+  // R7: o 13º não está no histórico mensal nem no gráfico.
+  const where = thirteenth ? "sai da lista e do total por desconto" : "sai do histórico, do gráfico e dos totais";
+  let message = `O holerite de ${formatPayslipPeriodLabel(p)}${company ? ` de ${company}` : ""} ${where}.`;
   if (incomeStillExists) {
     const description = payslipIncomeDescription({
       period: p.period,
-      ...(payslipKindOf(p) === "thirteenth" ? { kind: "thirteenth" as const } : {}),
+      ...(thirteenth ? { kind: "thirteenth" as const } : {}),
     });
     message += ` A receita “${description}” lançada por ele continua no extrato; exclua-a por lá, se quiser.`;
   }

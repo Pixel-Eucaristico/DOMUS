@@ -49,7 +49,10 @@ export {
   payslipChartSeries,
   deductionKey,
   payslipDeductionTotals,
-  payslipDeductionTitle,
+  payslipDeductionReport,
+  payslipDeductionWindow,
+  payslipSummaryNotice,
+  PAYSLIP_CHART_SHORT_LABEL_AFTER,
   sortPayslipsNewestFirst,
   payslipEmployerLabel,
   deletePayslipMessage,
@@ -60,4 +63,5 @@ export type {
   PayslipChartPoint,
   PayslipDeductionTotal,
   PayslipHistoryWindow,
+  PayslipDeductionReport,
 } from "./src/payslipHistory";
