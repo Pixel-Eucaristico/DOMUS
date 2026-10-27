@@ -164,3 +164,21 @@ context:
 - [ ] Toque duplo no excluir abre uma confirmação só
 - [ ] TalkBack lê cada barra ("09/2026: líquido R$ …, bruto R$ …") e o botão de excluir
 - [ ] Temas claro/escuro: contorno do bruto e cores da variação legíveis
+
+## Review Triage Log
+
+Revisão única com três lentes (adversarial, casos de borda, lacunas de verificação), 27/10, sobre o commit 0874438. 0 High, 3 Med, 8 Low.
+
+| # | Achado | Sev. | Decisão |
+|---|--------|------|---------|
+| R1 | 13º fora da janela dos totais quando é posterior ao último mensal (caso comum) ou anterior ao primeiro com menos de 12 mensais | Med | **patch** (decisão do dono 27/10): fim da janela = o mais recente entre o último mensal e o último 13º; com menos de 12 mensais, início = 11 meses de calendário antes do fim; título indica "inclui 13º" quando houver; testes dos dois casos |
+| R2 | Exclusão na tela sem teste automático (opções do `appConfirm`, receita existente, trava, eventos despachados) | Med | **patch**: módulo puro `buildDeletePayslipRequest(p, transactions) → {confirm, events}` testado, com `events` exatamente `[PAYSLIP_DELETED]` |
+| R3 | Rótulos do gráfico cortados com 12 barras em 360dp ou fonte maior | Med | **patch**: com mais de 6 barras, rótulo só "MM" e marcador de ano na virada; `adjustsFontSizeToFit` com `minimumFontScale`; item no checklist do aparelho (360dp, fonte 1,3) |
+| R4 | Percentual de descontos arredondado duas vezes | Low | **patch**: domínio devolve a fração sem arredondar; arredonda só na exibição |
+| R5 | Totais não fecham com o percentual quando há 13º ou linhas maiores que bruto − líquido | Low | **patch**: título com "inclui 13º" (R1) e ajuste da frase da spec |
+| R6 | Desconto negativo e líquido maior que o bruto geram linhas e percentual estranhos | Low | **patch**: ocultar grupos ≤ 0; percentual negativo vira "—" |
+| R7 | Confirmação de exclusão do 13º cita "gráfico" | Low | **patch**: para 13º, "sai da lista e do total por desconto" |
+| R8 | Valores inválidos em todos os mensais mostram mensagem e título errados | Low | **patch**: título e mensagem pelos tipos realmente salvos |
+| R9 | Texto verde de variação com contraste fraco no tema claro | Low | **patch**: cor só no ícone de seta; texto em `textColor` |
+| R10 | Rejeição no callback de exclusão sem tratamento | Low | **patch**: try/catch com `appAlert` |
+| R11 | Lacunas de teste: razões do gráfico com várias barras, desempate por `recordedAt`, arredondamento, linha negativa | Low | **patch**: testes dessas quatro situações; o teste de imports do R4 da 11.5 por regex fica como está (**reject**: `require` não é usado no código) |
