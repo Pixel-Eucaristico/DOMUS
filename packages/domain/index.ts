@@ -39,3 +39,25 @@ export {
   buildPayslipSaveEvents,
 } from "./src/payslipReview";
 export type { PayslipReviewValues, PayslipSaveOptions, PayslipSaveEvents } from "./src/payslipReview";
+
+export {
+  PAYSLIP_HISTORY_WINDOW,
+  UNDETAILED_DEDUCTIONS_LABEL,
+  buildPayslipHistory,
+  payslipHistoryWindow,
+  summarizePayslipHistory,
+  payslipChartSeries,
+  deductionKey,
+  payslipDeductionTotals,
+  payslipDeductionTitle,
+  sortPayslipsNewestFirst,
+  payslipEmployerLabel,
+  deletePayslipMessage,
+} from "./src/payslipHistory";
+export type {
+  PayslipHistoryEntry,
+  PayslipHistorySummary,
+  PayslipChartPoint,
+  PayslipDeductionTotal,
+  PayslipHistoryWindow,
+} from "./src/payslipHistory";

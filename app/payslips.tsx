@@ -3,16 +3,28 @@ import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, BackH
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { buildPayslipSaveEvents, formatPayslipPeriodLabel, replacePayslipMessage } from "@packages/domain";
+import {
+  buildPayslipHistory,
+  buildPayslipSaveEvents,
+  deletePayslipEvent,
+  deletePayslipMessage,
+  payslipChartSeries,
+  payslipDeductionTitle,
+  payslipDeductionTotals,
+  replacePayslipMessage,
+  sortPayslipsNewestFirst,
+  summarizePayslipHistory,
+  type StoredPayslip,
+} from "@packages/domain";
 import { draftFromParse, emptyPayslipDraft, type PayslipDraft } from "@/src/modules/payslip/reviewDraft";
 import { createSingleFlight } from "@/src/modules/payslip/singleFlight";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { appAlert, appConfirm } from "@/src/services/appAlert";
-import { formatCurrency } from "@/src/utils/formatCurrency";
 import { usePayslipScanner, type PayslipCaptureSource } from "@/src/hooks/usePayslipScanner";
 import { takePendingPayslipReview } from "@/src/modules/payslip/pendingReview";
 import { PayslipReview, type PayslipReviewSave } from "@/src/components/payslip/PayslipReview";
+import { PayslipHistory, PayslipEmptyState } from "@/src/components/payslip/PayslipHistory";
 
 interface ReviewState {
   /** Muda a cada revisão aberta, para o formulário começar do zero. */
@@ -23,7 +35,8 @@ interface ReviewState {
 
 /**
  * Story 11.5: `/payslips` — captura (câmera, galeria, à mão), revisão e salvar.
- * A lista abaixo é provisória (decisão 3a); a Story 11.6 a troca pelo histórico.
+ * Story 11.6: resumo, gráfico, total por desconto e lista com excluir, todos
+ * derivados de `domain.payslips` a cada render (nunca persistidos).
  */
 export default function PayslipsScreen() {
   const router = useRouter();
@@ -34,6 +47,8 @@ export default function PayslipsScreen() {
   const reviewSeq = useRef(0);
   // Trava síncrona do salvar (R5): o toque duplo não lança a receita duas vezes.
   const saveFlight = useRef(createSingleFlight()).current;
+  // Toque duplo no excluir abre uma confirmação só.
+  const deleteFlight = useRef(createSingleFlight()).current;
 
   const openReview = useCallback((draft: PayslipDraft, warnings: readonly string[] = []) => {
     reviewSeq.current += 1;
@@ -76,15 +91,30 @@ export default function PayslipsScreen() {
   );
 
   const accounts = useMemo(() => Object.values(domain.accounts), [domain.accounts]);
-  const saved = useMemo(
-    () =>
-      Object.values(domain.payslips).sort(
-        (a, b) =>
-          b.period.localeCompare(a.period) ||
-          Number(b.kind === "thirteenth") - Number(a.kind === "thirteenth") ||
-          b.recordedAt - a.recordedAt,
-      ),
-    [domain.payslips],
+  const saved = useMemo(() => sortPayslipsNewestFirst(domain.payslips), [domain.payslips]);
+  const history = useMemo(() => buildPayslipHistory(domain.payslips), [domain.payslips]);
+  const summary = useMemo(() => summarizePayslipHistory(history), [history]);
+  const series = useMemo(() => payslipChartSeries(history), [history]);
+  const deductionTotals = useMemo(() => payslipDeductionTotals(domain.payslips, history), [domain.payslips, history]);
+  const deductionTitle = payslipDeductionTitle(history);
+
+  // Excluir só despacha PAYSLIP_DELETED: a receita lançada nunca é apagada.
+  const handleDelete = useCallback(
+    (p: StoredPayslip) =>
+      deleteFlight.run(async () => {
+        soundManager.play("tap");
+        const incomeStillExists = !!p.transactionId && !!domain.transactions[p.transactionId];
+        const ok = await appConfirm({
+          title: "Excluir holerite?",
+          message: deletePayslipMessage(p, incomeStillExists),
+          confirmLabel: "Excluir",
+          destructive: true,
+        });
+        if (!ok) return;
+        dispatchDomainEvent(deletePayslipEvent(p.id, deviceId ?? "local"));
+        soundManager.play("success");
+      }),
+    [deleteFlight, domain.transactions, dispatchDomainEvent, deviceId],
   );
 
   const handleSave = useCallback(
@@ -154,6 +184,8 @@ export default function PayslipsScreen() {
         />
       ) : (
         <ScrollView contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 32 }]}>
+          {saved.length === 0 && <PayslipEmptyState theme={theme} />}
+
           <Text style={[s.intro, { color: theme.secondaryText }]}>
             Fotografe o holerite ou preencha os valores. Você confere tudo antes de salvar.
           </Text>
@@ -196,20 +228,15 @@ export default function PayslipsScreen() {
           )}
 
           {saved.length > 0 && (
-            <>
-              <Text style={[s.section, { color: theme.textColor }]}>Holerites salvos</Text>
-              {saved.map((p) => (
-                <View key={p.id} style={[s.item, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-                  <View style={s.flex}>
-                    <Text style={[s.itemTitle, { color: theme.textColor }]}>{formatPayslipPeriodLabel(p)}</Text>
-                    <Text style={[s.itemSub, { color: theme.secondaryText }]} numberOfLines={1}>
-                      {p.company.trim() || p.cnpj || "Empresa não informada"}
-                    </Text>
-                  </View>
-                  <Text style={[s.itemValue, { color: theme.success }]}>{formatCurrency(p.netSalary)}</Text>
-                </View>
-              ))}
-            </>
+            <PayslipHistory
+              summary={summary}
+              series={series}
+              deductionTotals={deductionTotals}
+              deductionTitle={deductionTitle}
+              payslips={saved}
+              theme={theme}
+              onDelete={handleDelete}
+            />
           )}
         </ScrollView>
       )}
@@ -269,10 +296,4 @@ const s = StyleSheet.create({
   captureIcon: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   captureLabel: { fontSize: 13, fontWeight: "600", textAlign: "center" },
   scanning: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 12 },
-  section: { fontSize: 15, fontWeight: "700", marginTop: 8 },
-  item: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14, borderWidth: 1, padding: 14 },
-  flex: { flex: 1 },
-  itemTitle: { fontSize: 15, fontWeight: "600" },
-  itemSub: { fontSize: 12 },
-  itemValue: { fontSize: 15, fontWeight: "700" },
 });

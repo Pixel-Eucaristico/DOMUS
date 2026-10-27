@@ -99,11 +99,11 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `packages/domain/src/payslipHistory.ts` + `packages/domain/__tests__/payslipHistory.test.ts`: toda a matriz (vazio, um, alta, queda, competência pulada, janela de 12 com 15, decisão 1 com dois empregadores, decisão 2 com 13º, só 13º, agrupamento de nomes, "Descontos sem detalhe", diferença negativa, valor não finito, arredondamento, divisão por zero), mensagem de exclusão com e sem receita, e o teste do R4 (não importa `packages/parsers`) cobrindo o arquivo novo
-- [ ] Replay: `src/context/__tests__/replay.payslipHistory.test.ts` (ou extensão do `replay.payslipReview.test.ts`): salvar com receita → excluir → o holerite sai do resumo, a receita e o saldo ficam, e não há Quarentena
-- [ ] `PayslipChart`, `PayslipHistory`, estado vazio e `InfoTip` na tela
-- [ ] `app/payslips.tsx`: troca da lista provisória e exclusão com `appConfirm`
-- [ ] Conferir no build web (`npx expo export --platform web` + Playwright, 412×900): estado vazio, resumo com dois holerites, gráfico com seleção por toque, total por desconto, exclusão com e sem receita (extrato e saldo iguais depois), dica abrindo e fechando; sem erro de página
+- [x] `packages/domain/src/payslipHistory.ts` + `packages/domain/__tests__/payslipHistory.test.ts`: toda a matriz (vazio, um, alta, queda, competência pulada, janela de 12 com 15, decisão 1 com dois empregadores, decisão 2 com 13º, só 13º, agrupamento de nomes, "Descontos sem detalhe", diferença negativa, valor não finito, arredondamento, divisão por zero), mensagem de exclusão com e sem receita, e o teste do R4 (não importa `packages/parsers`) cobrindo o arquivo novo
+- [x] Replay: `src/context/__tests__/replay.payslipHistory.test.ts` (ou extensão do `replay.payslipReview.test.ts`): salvar com receita → excluir → o holerite sai do resumo, a receita e o saldo ficam, e não há Quarentena
+- [x] `PayslipChart`, `PayslipHistory`, estado vazio e `InfoTip` na tela
+- [x] `app/payslips.tsx`: troca da lista provisória e exclusão com `appConfirm`
+- [x] Conferir no build web (`npx expo export --platform web` + Playwright, 412×900): estado vazio, resumo com dois holerites, gráfico com seleção por toque, total por desconto, exclusão com e sem receita (extrato e saldo iguais depois), dica abrindo e fechando; sem erro de página
 
 **Acceptance Criteria:**
 - Given holerites salvos, when abro a tela de holerites, then vejo o último líquido com a variação em relação ao anterior, a média líquida e o percentual de descontos
@@ -128,3 +128,39 @@ context:
 - `git diff --stat 9141e23 -- package.json package-lock.json packages/events packages/sync` vazio
 - Build web (Playwright): matriz da seção Execution conferida
 - Aparelho (APK de pré-release, Android 16): rolagem da tela com 12 barras e lista longa sem travar, toque nas barras, dica, exclusão com receita (extrato e saldo iguais) e TalkBack lendo barras e botão de excluir
+
+## Implementation Notes
+
+**O que mudou (27/10, decisões 1a, 2a e 3a):**
+
+- `packages/domain/src/payslipHistory.ts` (novo, puro, exportado em `packages/domain/index.ts`): `PAYSLIP_HISTORY_WINDOW = 12`, `buildPayslipHistory` (mensais por competência, somando os empregadores, sem 13º), `payslipHistoryWindow`, `summarizePayslipHistory` (janela de 12; `latest`, `previous`, `netChange`, `netChangePct`, `averageNet`, `windowCount`, `deductionRate`), `payslipChartSeries` (`label` MM/AA, `fullLabel` MM/AAAA, razões em [0, 1]), `deductionKey`, `payslipDeductionTotals` (janela 3a, nome do mais recente, "Descontos sem detalhe", `ratio` para a barra), `payslipDeductionTitle`, `sortPayslipsNewestFirst` (a ordem da lista da 11.5), `payslipEmployerLabel`, `deletePayslipMessage`. Reusa `payslipKindOf`, `formatPayslipPeriodLabel`, `payslipIncomeDescription` e `PAYSLIP_PERIOD_PATTERN`; não importa `packages/parsers`.
+- `src/modules/payslip/historyFormat.ts` (novo, sem `react-native`): textos da tela (variação com sinal e percentual de 1 casa, "Primeiro holerite salvo", "em relação a MM/AAAA", "média de N competências", "N empregadores", rótulo de acessibilidade e detalhe da barra, "—" para valor não finito).
+- `src/components/payslip/PayslipChart.tsx` (novo): barras pareadas com `View`s de altura fixa (140), bruto em contorno e líquido preenchido (`theme.primaryColor`), legenda com `InfoTip term="salario_bruto"`, cada barra um `Pressable` com `accessibilityLabel`/`accessibilityState.selected`; o detalhe sob o gráfico segue a barra tocada (padrão: a mais recente; a seleção é pela competência, então a exclusão não deixa índice inválido). Sem SVG, sem animação.
+- `src/components/payslip/PayslipHistory.tsx` (novo): cartões de resumo (`InfoTip` `salario_liquido` em "Último líquido" e `descontos_holerite` em "Descontos"), o gráfico, o total por desconto com barra proporcional e a lista com o botão de excluir (`trash-2`, `hitSlop`, `accessibilityRole="button"`); `PayslipEmptyState` no mesmo arquivo. Só 13º: "Ainda não há holerite mensal para o resumo." no lugar dos cartões e do gráfico, e o `InfoTip` `descontos_holerite` vai para o título do total.
+- `app/payslips.tsx`: a lista provisória saiu; entraram o estado vazio, o `PayslipHistory` (dados por `useMemo` sobre `domain.payslips`) e o `handleDelete` (`createSingleFlight` próprio + `appConfirm` destrutivo + `deletePayslipEvent(p.id, deviceId ?? "local")` + `soundManager.play("success")`). Captura, revisão, pendente do chat, voltar do Android e salvar não mudaram.
+
+**Testes:** `packages/domain/__tests__/payslipHistory.test.ts` (24: vazio, um, alta, queda, competência pulada, anterior com líquido 0, bruto 0, janela de 12 com 15, arredondamento, decisão 1a, decisão 2a, 13º fora da janela, só 13º, agrupamento de nomes, ordem e empate, "Descontos sem detalhe" manual e incompleto, linhas acima de bruto − líquido, valor não finito, rótulo da empresa, mensagens de exclusão com e sem receita, export no `index.ts`, R4 + sem `react`/`react-native`/`expo`/relógio no arquivo novo; o teste R4 da 11.5 já varre `packages/domain/src` e cobre o arquivo), `src/context/__tests__/replay.payslipHistory.test.ts` (2: salvar com receita → excluir → sai do resumo, receita e saldo ficam, sem Quarentena; excluir o último zera o histórico e regravar a vaga gera id novo), `src/modules/payslip/__tests__/historyFormat.test.ts` (4).
+
+**Verificação:** `npx vitest run` → 89 arquivos / 1736 testes, todos passando (baseline 86 / 1706). `npx tsc --noEmit` → 0 erros. `npx expo export --platform web` → ok. Os `grep` e o `git diff --stat 9141e23 -- package.json package-lock.json packages/events packages/sync` da seção Verification voltam vazios (em `src/modules/ai` só o comentário do `AISettings.ts`). Playwright (Chromium headless, 412×900) no build web: estado vazio com título, texto e os três botões, sem resumo nem lista; um holerite → "Primeiro holerite salvo", "média de 1 competência", 20,0%; 11/2026 ACME (com receita) + 12/2026 ACME + 12/2026 BETA (outro CNPJ) + 13º 2026 → último R$ 5.700,00 "12/2026 · 2 empregadores", "+R$ 1.700,00 (+42,5%)" em `theme.success` "em relação a 11/2026", média R$ 4.850,00 "média de 2 competências", descontos 17,8%, duas barras, "Descontos nas últimas 12 competências" com "Descontos sem detalhe" R$ 2.600,00 (o 13º de 12/2026 entra), lista com quatro itens e "13º salário 2026"; toque na barra 11/2026 trocou o detalhe; a dica "Salário Bruto" abriu e fechou ao tocar fora; dois toques no mesmo quadro no excluir abriram uma confirmação só, com a frase da receita "Salário (11/2026)"; depois de excluir, saldo (R$ 5.000,00) e lançamento iguais; o holerite sem receita mostrou a mensagem sem a frase, Cancelar manteve, Excluir tirou; sobrou só o 13º → "Ainda não há holerite mensal para o resumo." e "Descontos do 13º salário"; excluir o último voltou o estado vazio. Com 13 mensais: 12 barras (02/25–01/26) com rótulos legíveis, "média de 12 competências", 13 itens na lista, sem rolagem horizontal. Nenhum erro de página.
+
+**Decisões além da spec:**
+
+- `summarizePayslipHistory(history)` recebe só o histórico (a contagem de empregadores já está em `count`); a spec sugeria também `payslips`.
+- `deductionRate` sai como fração com 4 casas (0,1780 = 17,80%), para a tela mostrar o percentual com 1 casa; `netChangePct` sai em pontos percentuais com 2 casas.
+- Valor não finito: o holerite com bruto ou líquido não finito (ou competência inválida) sai do histórico e dos totais inteiro; a linha de desconto não finita é ignorada. Na lista ele continua, com "—" no valor.
+- Só 13º salvo: o total por desconto soma todos os 13º (não há janela mensal) e o título vira "Descontos do 13º salário".
+- Total por desconto: grupo que soma 0 não aparece; linha sem nome vira "Desconto sem nome". O 13º com competência depois da última mensal fica fora da janela (regra literal da 3a): por exemplo, 13º 2026 salvo antes do holerite mensal de 12/2026 só entra nos totais quando o de dezembro for salvo. Fica para o dono decidir se quer estender a janela até o 13º mais recente.
+- `accessibilityLabel` do excluir acrescenta o empregador quando conhecido ("Excluir holerite de 09/2026 de ACME LTDA"), porque com dois empregadores no mês os dois botões teriam o mesmo rótulo.
+- O texto da confirmação: "O holerite de 09/2026 de ACME LTDA sai do histórico, do gráfico e dos totais." + a frase da receita da spec quando ela ainda existe.
+- O cartão "Descontos" diz "do bruto em N competências"; o estado vazio fica acima do texto curto e dos três botões.
+- No web, o `dblclick` do Playwright fecha a confirmação (o segundo clique cai no fundo do alerta e conta como Cancelar; nada é despachado). O teste da trava usou dois `click()` no mesmo quadro.
+
+**Aparelho (APK de pré-release, Android 16), a conferir:**
+
+- [ ] Rolagem da tela com 12 barras e lista longa sem travar
+- [ ] Toque nas barras troca o detalhe; rótulos MM/AA legíveis com 12 barras
+- [ ] Dicas (`salario_liquido`, `salario_bruto`, `descontos_holerite`) abrem ancoradas e fecham ao tocar fora
+- [ ] Excluir holerite com receita: mensagem cita a receita; extrato e saldo iguais depois
+- [ ] Toque duplo no excluir abre uma confirmação só
+- [ ] TalkBack lê cada barra ("09/2026: líquido R$ …, bruto R$ …") e o botão de excluir
+- [ ] Temas claro/escuro: contorno do bruto e cores da variação legíveis
