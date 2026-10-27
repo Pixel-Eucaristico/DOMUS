@@ -113,3 +113,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-11-4-holerite-como-evento-local.md`
   summary: D38 — `PAYSLIP_*` que um build de dev já tenha importado do Grupo antigo antes da 11.4 (publicado por um build do commit `850aa1b`) continua no log e é aplicado no replay.
   evidence: revisão da Story 11.4 (R5); ignorar `PAYSLIP_*` de outro `deviceId` até a Story 4.5 ou limpar na migração para o Grupo forte.
+- source_spec: `_bmad-output/implementation-artifacts/spec-13-2-padronizar-a-rolagem-das-telas-com-campos.md`
+  summary: D39 — O teste-guarda da rolagem só descobre campos um nível abaixo das rotas de `app/`; campo novo em componente aninhado ou em sub-tela de `src/` renderizada por rota isenta (ex.: IdleScreen do `import-invoice`) passa despercebido.
+  evidence: revisão da Story 13.2 (R6); resolver imports recursivamente com memo, cuidando do barril do tamagui que exporta `TInput`.
