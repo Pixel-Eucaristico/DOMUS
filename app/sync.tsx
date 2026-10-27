@@ -26,7 +26,10 @@ import { useScreenIntro } from "@/src/hooks/useScreenIntro";
 import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
 import { AppAlertScreenHost } from "@/src/components/shared/AppAlertHost";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import {
+  KeyboardAwareScrollViewCompat,
+  SCROLL_BOTTOM_PADDING,
+} from "@/components/KeyboardAwareScrollViewCompat";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const QR_SIZE = Math.min(SCREEN_W * 0.5, SCREEN_H * 0.3, 220);
@@ -143,7 +146,7 @@ function SyncScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <KeyboardAwareScrollViewCompat contentContainerStyle={[s.content, { paddingBottom: insets.bottom + webBottomInset + 24 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bottomOffset={50}>
+      <KeyboardAwareScrollViewCompat contentContainerStyle={[s.content, { paddingBottom: insets.bottom + webBottomInset + SCROLL_BOTTOM_PADDING }]} showsVerticalScrollIndicator={false}>
         {/* Status card */}
         <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} elevated padding={18} gap={16}>
           <View style={s.statusRow}>

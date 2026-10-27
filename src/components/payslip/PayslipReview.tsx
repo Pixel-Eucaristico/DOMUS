@@ -23,7 +23,10 @@ import {
   type PayslipDraftField,
   type PayslipTouched,
 } from "@/src/modules/payslip/reviewDraft";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import {
+  KeyboardAwareScrollViewCompat,
+  SCROLL_BOTTOM_PADDING,
+} from "@/components/KeyboardAwareScrollViewCompat";
 import { AppTextInput } from "@/src/components/shared/AppTextInput";
 import { AccountPicker } from "@/src/components/shared/AccountPicker";
 import { DatePickerField } from "@/src/components/shared/DatePickerField";
@@ -128,9 +131,7 @@ export function PayslipReview({
 
   return (
     <KeyboardAwareScrollViewCompat
-      contentContainerStyle={[s.content, { paddingBottom: bottomInset + 32 }]}
-      keyboardShouldPersistTaps="handled"
-      bottomOffset={50}
+      contentContainerStyle={[s.content, { paddingBottom: bottomInset + SCROLL_BOTTOM_PADDING }]}
     >
       <View style={[s.sourceRow, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
         <Feather name={source.icon} size={14} color={theme.primaryColor} />

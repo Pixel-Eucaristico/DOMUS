@@ -17,7 +17,10 @@ import { OCRConfigService } from "@/src/services/ocrConfigService";
 import type { OCRProvider } from "@packages/parsers";
 import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
 import { appAlert } from "@/src/services/appAlert";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import {
+  KeyboardAwareScrollViewCompat,
+  SCROLL_BOTTOM_PADDING,
+} from "@/components/KeyboardAwareScrollViewCompat";
 
 type OCRProviderExtended = OCRProvider | "vision_ai";
 
@@ -98,7 +101,7 @@ export default function OCRSettingsScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <KeyboardAwareScrollViewCompat style={s.scrollView} contentContainerStyle={s.scrollContent} keyboardShouldPersistTaps="handled" bottomOffset={50}>
+      <KeyboardAwareScrollViewCompat style={s.scrollView} contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + SCROLL_BOTTOM_PADDING }]}>
         {/* Descrição */}
         <TCard backgroundColor={theme.cardBackground} borderColor={theme.border} flexDirection="row" gap={12} padding={16} marginBottom={24}>
           <Feather name="info" size={20} color={theme.primaryColor} />
@@ -292,10 +295,8 @@ export default function OCRSettingsScreen() {
             </Text>
           </Pressable>
         </View>
-      </KeyboardAwareScrollViewCompat>
 
-      {/* Botão Salvar */}
-      <View style={[s.footer, { paddingBottom: insets.bottom + 20, backgroundColor: theme.cardBackground }]}>
+        {/* Botão Salvar: no fim da rolagem, alcançável com o teclado aberto (Story 13.2, D-1) */}
         <TButton
           variant="primary"
           backgroundColor={theme.primaryColor}
@@ -307,7 +308,7 @@ export default function OCRSettingsScreen() {
         >
           {saving ? "" : "Salvar Configurações"}
         </TButton>
-      </View>
+      </KeyboardAwareScrollViewCompat>
     </View>
   );
 }
@@ -323,7 +324,7 @@ const s = StyleSheet.create({
     paddingBottom: 15,
   },
   scrollView: { flex: 1 },
-  scrollContent: { padding: 20, paddingBottom: 100 },
+  scrollContent: { padding: 20 },
   section: { marginBottom: 32 },
   providerCard: {
     padding: 16,
@@ -371,15 +372,5 @@ const s = StyleSheet.create({
   helpLinkText: {
     fontSize: 13,
     fontFamily: "DMSans_500Medium",
-  },
-  footer: {
-    padding: 20,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
   },
 });

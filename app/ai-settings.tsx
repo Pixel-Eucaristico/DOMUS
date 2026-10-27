@@ -8,7 +8,10 @@ import {
   Platform,
   Linking,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import {
+  KeyboardAwareScrollViewCompat,
+  SCROLL_BOTTOM_PADDING,
+} from "@/components/KeyboardAwareScrollViewCompat";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -184,11 +187,9 @@ export default function AISettingsScreen() {
         </TText>
       </View>
 
-      <KeyboardAwareScrollView
+      <KeyboardAwareScrollViewCompat
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        bottomOffset={50}
       >
         {/* ════════════════════════════════════════════════════════════════════
             SECAO 1: ATIVACAO E PROVEDOR
@@ -648,8 +649,7 @@ export default function AISettingsScreen() {
           </TouchableOpacity>
         </Card>
 
-        <View style={styles.spacer} />
-      </KeyboardAwareScrollView>
+      </KeyboardAwareScrollViewCompat>
     </SafeAreaView>
   );
 }
@@ -670,6 +670,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+    paddingBottom: SCROLL_BOTTOM_PADDING,
     gap: 12,
   },
   cardBody: {
@@ -703,9 +704,6 @@ const styles = StyleSheet.create({
   sectionHeader: {
     paddingHorizontal: 4,
     marginTop: 6,
-  },
-  spacer: {
-    height: 24,
   },
   actionRow: {
     flexDirection: "row",

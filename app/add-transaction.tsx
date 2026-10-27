@@ -6,7 +6,10 @@ import {
   Pressable,
   Platform,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import {
+  KeyboardAwareScrollViewCompat,
+  SCROLL_BOTTOM_PADDING,
+} from "@/components/KeyboardAwareScrollViewCompat";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
@@ -104,15 +107,13 @@ function AddTransactionScreen() {
 
   return (
     <>
-    <KeyboardAwareScrollView
+    <KeyboardAwareScrollViewCompat
       style={[s.root, { backgroundColor: theme.background }]}
       contentContainerStyle={[
         s.content,
-        { paddingTop: insets.top + webTopInset + 16, paddingBottom: insets.bottom + 32 },
+        { paddingTop: insets.top + webTopInset + 16, paddingBottom: insets.bottom + SCROLL_BOTTOM_PADDING },
       ]}
       showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      bottomOffset={50}
     >
         <ResponsiveContainer>
         {/* Header */}
@@ -473,7 +474,7 @@ function AddTransactionScreen() {
           </View>
         )}
         </ResponsiveContainer>
-      </KeyboardAwareScrollView>
+      </KeyboardAwareScrollViewCompat>
 
       {/* Installment group save modal */}
       <SelectionModal

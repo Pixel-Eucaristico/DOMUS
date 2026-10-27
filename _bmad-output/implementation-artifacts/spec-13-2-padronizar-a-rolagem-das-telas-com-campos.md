@@ -94,18 +94,18 @@ Fora do componente: `KeyboardAwareScrollView` importado direto da biblioteca só
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] Componente padrão com `KEYBOARD_BOTTOM_OFFSET`, `keyboardShouldPersistTaps="handled"`, folga (D-3) e props de teclado fora do `ScrollView` da web
-- [ ] add-transaction, ai-settings, backup e about usam o componente padrão; `scrollRef` e `scrollEventThrottle` sem uso saem do about
-- [ ] ocr-settings, sync, `ParsedScreen` e `PayslipReview` sem `bottomOffset`/`keyboardShouldPersistTaps` repetidos
-- [ ] Botão principal de ocr-settings e `ParsedScreen` alcançável com o teclado aberto (D-1)
-- [ ] Teste estático `keyboardScroll.test.ts`:
+- [x] Componente padrão com `KEYBOARD_BOTTOM_OFFSET`, `keyboardShouldPersistTaps="handled"`, folga (D-3) e props de teclado fora do `ScrollView` da web
+- [x] add-transaction, ai-settings, backup e about usam o componente padrão; `scrollRef` e `scrollEventThrottle` sem uso saem do about
+- [x] ocr-settings, sync, `ParsedScreen` e `PayslipReview` sem `bottomOffset`/`keyboardShouldPersistTaps` repetidos
+- [x] Botão principal de ocr-settings e `ParsedScreen` alcançável com o teclado aberto (D-1)
+- [x] Teste estático `keyboardScroll.test.ts`:
   - só `components/KeyboardAwareScrollViewCompat.tsx` importa `KeyboardAwareScrollView` de `react-native-keyboard-controller`;
   - uma lista fixa de telas com campo (as 8 da auditoria) importa e renderiza `KeyboardAwareScrollViewCompat` e não importa `ScrollView` de `react-native` (exceção nomeada: o modal do QR em `sync.tsx`);
   - descoberta: todo arquivo em `app/` que usa `TInput`/`TextInput`/`AppTextInput`/`onChangeText` ou importa um componente de `src/components` com campo e sem `Modal`/`KeyboardSafeView` está na lista ou numa lista de exceções com motivo (`ai-chat` → 13.5; `import-invoice` → via `ParsedScreen`/`QrScanScreen`);
   - nenhuma tela da lista passa `keyboardShouldPersistTaps` diferente de `"handled"`;
   - auto-teste com trechos de código que devem e não devem casar, como no `noNativeAlert.test.ts`.
-- [ ] Conferir no build web com Playwright (ver Verification)
-- [ ] Itens desta story na checklist da Story 13.7 (ver Verification)
+- [x] Conferir no build web com Playwright (ver Verification)
+- [x] Itens desta story na checklist da Story 13.7 (ver Verification)
 
 **Acceptance Criteria:**
 - Given o componente de rolagem padrão, when abro add-transaction, ai-settings, backup, about, ocr-settings, sync, a revisão da nota (`ParsedScreen`) ou a revisão do holerite, then a tela usa esse componente sem repetir `bottomOffset` nem `keyboardShouldPersistTaps`
@@ -144,3 +144,43 @@ Fora do componente: `KeyboardAwareScrollView` importado direto da biblioteca só
 9. Em todas: fechar o teclado não deixa faixa em branco; repetir em paisagem com navegação de 3 botões.
 
 ## Implementation Notes
+
+**O que mudou**
+
+- `components/KeyboardAwareScrollViewCompat.tsx` (D-2 a): exporta `KEYBOARD_BOTTOM_OFFSET = 50` (padrão de `bottomOffset`) e `SCROLL_BOTTOM_PADDING = 32` (D-3 a); `keyboardShouldPersistTaps="handled"` continua padrão. Na web, tira `bottomOffset`, `extraKeyboardSpace`, `disableScrollOnKeyboardHide`, `enabled` e também `ScrollViewComponent` antes de repassar ao `ScrollView`. Saiu o `// template`; entrou um comentário curto em pt-BR. Sem `forwardRef`.
+- `app/add-transaction.tsx`, `app/ai-settings.tsx`, `app/backup.tsx`, `app/about.tsx`: o `KeyboardAwareScrollView` importado direto virou o `KeyboardAwareScrollViewCompat`, sem `bottomOffset`/`keyboardShouldPersistTaps`. Folga no fim: add-transaction (sem `SafeAreaView`) `insets.bottom + SCROLL_BOTTOM_PADDING`; ai-settings, backup e about (dentro de `SafeAreaView` com a borda de baixo) só `SCROLL_BOTTOM_PADDING`. No ai-settings saiu o `spacer` de 24 (a folga do `contentContainerStyle` cobre). No about saíram `scrollRef`, `scrollEventThrottle`, o `useRef` e o import de `ScrollView`, que só serviam a eles.
+- `app/ocr-settings.tsx` (D-1 b): "Salvar Configurações" saiu do rodapé fixo e virou o último item da rolagem (como na `PayslipReview`); sumiram o estilo `footer` e o `paddingBottom: 100` reservado para ele. Folga: `insets.bottom + SCROLL_BOTTOM_PADDING`.
+- `app/sync.tsx`: sem props repetidas; folga `insets.bottom + webBottomInset + SCROLL_BOTTOM_PADDING` (o `webBottomInset` de 34 da web ficou). O `ScrollView` do modal do QR ficou como estava.
+- `src/components/invoice/ParsedScreen.tsx` (D-1 a): o rodapé (total + "Cancelar"/"Confirmar Importação") virou `KeyboardStickyView` com `offset={{ closed: 0, opened: insets.bottom }}`, igual à barra do `QrScanScreen` (a altura do teclado já inclui a barra de navegação). A altura do rodapé é medida no `onLayout` (estado local de UI, nada de domínio) e a rolagem usa `bottomOffset={KEYBOARD_BOTTOM_OFFSET + (alturaDoRodapé − insets.bottom)}`, para o campo focado parar acima do rodapé que subiu e não atrás dele. O `paddingBottom: 140` virou `SCROLL_BOTTOM_PADDING`: o rodapé está no fluxo (não é `absolute`), então a rolagem já termina acima dele.
+- `src/components/payslip/PayslipReview.tsx`: sem props repetidas; folga `bottomInset + SCROLL_BOTTOM_PADDING` (mesmo valor de antes).
+- `src/components/__tests__/keyboardScroll.test.ts` (novo, 45 testes): (1) só o Compat importa `KeyboardAwareScrollView` de `react-native-keyboard-controller` (import nomeado/alias, `require`, namespace); (2) as 8 telas da auditoria importam e renderizam o Compat; (3) não importam `ScrollView` de `react-native`/`react-native-gesture-handler` (exceção nomeada: modal do QR em `sync.tsx`); (4) não passam `keyboardShouldPersistTaps` diferente de `"handled"`; (5) descoberta: toda rota em `app/` com `TInput`/`TextInput`/`AppTextInput`/`onChangeText`, ou que importa de `@/src/components` um componente com campo e sem `Modal`/`KeyboardSafeView`, está na lista ou em exceção com motivo (`ai-chat` → 13.5; `import-invoice` → via `ParsedScreen`/`QrScanScreen`; `payslips` → via `PayslipReview`); (6) auto-teste com trechos que devem e não devem casar. Os comentários são removidos antes (cópia do `stripComments` do `noNativeAlert.test.ts`).
+
+**Decisões além da spec**
+
+- A descoberta olha um nível de import, como a spec diz. Seguir os imports de forma transitiva marcava quase todas as rotas, porque o barrel `@/src/components/tamagui` exporta o `TInput`.
+- `payslips.tsx` entrou nas exceções da descoberta (o campo está na `PayslipReview`, que já está na lista). A spec citava só `ai-chat` e `import-invoice`.
+- O detector de `ScrollView` puro também pega o `ScrollView` do `react-native-gesture-handler` e `RN.ScrollView`.
+- Na web, add-transaction, ai-settings, backup e about agora renderizam `ScrollView` (antes era o `KeyboardAwareScrollView` da biblioteca, que já caía para um `ScrollView` por dentro). Não muda nada visível.
+- A folga no fim mudou um pouco em algumas telas: backup e about de 40 para 32; ai-settings de 16 + 12 (gap) + 24 (spacer) para 32; add-transaction e `PayslipReview` continuam com 32; sync passou de 24 para 32.
+- O `stripComments` foi copiado, não extraído para um módulo comum, para não mexer no `noNativeAlert.test.ts`.
+- Não existe ainda arquivo da Story 13.7: a checklist do aparelho fica abaixo (e na seção Verification), pronta para ser copiada quando a 13.7 for aberta.
+
+**Verificação**
+
+- `npx vitest run`: 91 arquivos e 1806 testes passando (baseline 90 / 1761; +1 arquivo e +45 testes do `keyboardScroll.test.ts`).
+- `npx tsc --noEmit`: exit 0. `npx eslint` nos 10 arquivos tocados: sem avisos.
+- Prova de que a guarda falha: com o `about.tsx` do baseline e um `ScrollView keyboardShouldPersistTaps="always"` no ocr-settings, 4 testes falharam apontando `app/about.tsx` e `app/ocr-settings.tsx`. Uma rota temporária `app/zz-probe.tsx` com `TextInput` em `ScrollView` fez a descoberta falhar apontando o arquivo. Tudo foi revertido depois.
+- `npx expo export --platform web`: exit 0.
+- Playwright (Chromium headless, 412×900, build exportado servido com fallback de SPA; `localStorage` com o carrossel de boas-vindas, as introduções de tela e o aviso de consultas externas já vistos): `/add-transaction`, `/ai-settings`, `/backup`, `/about` (com "Fale Conosco" aberto), `/ocr-settings` e `/sync` abriram sem erro de página. Em cada uma, o último campo recebeu o foco, o botão principal ("Salvar transação", "Salvar chave", "Exportar e compartilhar", "Enviar mensagem", "Salvar Configurações", "Entrar") ficou visível dentro da janela depois de rolar e respondeu ao clique (ocr-settings mostrou o `appAlert` "Configurações salvas com sucesso!"; em sync o campo do código apareceu). A web não simula o teclado.
+
+**Checklist do aparelho (para a Story 13.7, Android 16)**
+
+1. add-transaction: focar valor, descrição e "a cada N dias" (recorrência); o campo fica acima do teclado e "Salvar transação" é alcançável rolando.
+2. ai-settings: focar a chave de API de cada provedor e os campos de orçamento; "Salvar chave" responde no 1º toque com o teclado aberto.
+3. backup: focar as duas senhas da exportação e a senha da importação; "Exportar e compartilhar" e "Verificar e restaurar" alcançáveis.
+4. about: escrever várias linhas no campo multiline do contato; o cursor fica acima do teclado e "Enviar mensagem" é alcançável.
+5. ocr-settings: focar a chave do Cloud Vision; "Salvar Configurações" (agora no fim da rolagem) alcançável rolando com o teclado aberto.
+6. sync: tocar em "Entrar"; o código (`autoFocus`) e o botão ao lado ficam acima do teclado.
+7. Importar nota, `ParsedScreen`: editar o último item, adicionar item e buscar conta; o rodapé (total + "Confirmar Importação") sobe junto com o teclado, sem faixa entre ele e o teclado, e o campo focado fica acima do rodapé, não atrás dele. Ao fechar o teclado, o rodapé volta ao fundo.
+8. Holerite, revisão: focar o último campo; "Salvar holerite" alcançável.
+9. Em todas: fechar o teclado não deixa faixa em branco; repetir em paisagem com navegação de 3 botões.

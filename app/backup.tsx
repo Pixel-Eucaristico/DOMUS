@@ -9,7 +9,10 @@ import {
   Share,
   Switch,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import {
+  KeyboardAwareScrollViewCompat,
+  SCROLL_BOTTOM_PADDING,
+} from "@/components/KeyboardAwareScrollViewCompat";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -73,7 +76,7 @@ export default function BackupScreen() {
         })}
       </View>
 
-      <KeyboardAwareScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bottomOffset={50}>
+      <KeyboardAwareScrollViewCompat contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         {/* EXPORT TAB */}
         {activeTab === "export" && (
           <>
@@ -384,7 +387,7 @@ export default function BackupScreen() {
             PBKDF2-SHA256 · 100 000 iter · AES-256-GCM · salt e IV aleatórios
           </Text>
         </View>
-      </KeyboardAwareScrollView>
+      </KeyboardAwareScrollViewCompat>
 
       <ConfirmRestoreModal
         visible={bk.showConfirmModal}
@@ -431,7 +434,7 @@ const s = StyleSheet.create({
   tabItemActive: { shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
   tabLabel: { fontFamily: "DMSans_500Medium", fontSize: 13 },
   tabLabelActive: { fontFamily: "DMSans_700Bold" },
-  content: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40, gap: 12 },
+  content: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: SCROLL_BOTTOM_PADDING, gap: 12 },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
   sectionIconBg: { width: 34, height: 34, borderRadius: 10, justifyContent: "center", alignItems: "center" },
   sectionSubtitle: { fontFamily: "DMSans_400Regular", fontSize: 11, marginTop: 1 },

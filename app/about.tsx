@@ -1,9 +1,8 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   Linking,
@@ -13,7 +12,10 @@ import {
   Modal,
   Pressable,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import {
+  KeyboardAwareScrollViewCompat,
+  SCROLL_BOTTOM_PADDING,
+} from "@/components/KeyboardAwareScrollViewCompat";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -42,7 +44,6 @@ import { appAlert } from "@/src/services/appAlert";
 export default function AboutScreen() {
   const router = useRouter();
   const { theme, themeMode, setThemeMode, soundEnabled, setSoundEnabled, resetApp } = useAppState();
-  const scrollRef = useRef<ScrollView>(null);
   const { showIntro, dismissIntro } = useScreenIntro("about");
   const externalLookups = useExternalLookups();
 
@@ -82,13 +83,9 @@ export default function AboutScreen() {
           </TText>
         </View>
 
-        <KeyboardAwareScrollView
-          ref={scrollRef}
+        <KeyboardAwareScrollViewCompat
           contentContainerStyle={s.content}
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          bottomOffset={50}
-          scrollEventThrottle={16}
         >
           {/* ── COMPANY ─────────────────────────────────────────────────── */}
           <SectionCard
@@ -182,7 +179,7 @@ export default function AboutScreen() {
               · Pixel Eucarístico · Privacidade em primeiro lugar
             </TText>
           </View>
-        </KeyboardAwareScrollView>
+        </KeyboardAwareScrollViewCompat>
 
       {/* Reset Modal */}
       <Modal
@@ -418,7 +415,7 @@ function styles(theme: any) {
     safe: { flex: 1 },
     header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
     backBtn: { padding: 4 },
-    content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
+    content: { paddingHorizontal: 16, paddingBottom: SCROLL_BOTTOM_PADDING, gap: 12 },
     card: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
     cardHeader: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
     cardIconBg: { width: 36, height: 36, borderRadius: 11, justifyContent: "center", alignItems: "center" },

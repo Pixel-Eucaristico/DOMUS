@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,7 +6,12 @@ import {
   StyleSheet,
 } from "react-native";
 import { DatePickerField } from "@/src/components/shared/DatePickerField";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { KeyboardStickyView } from "react-native-keyboard-controller";
+import {
+  KeyboardAwareScrollViewCompat,
+  KEYBOARD_BOTTOM_OFFSET,
+  SCROLL_BOTTOM_PADDING,
+} from "@/components/KeyboardAwareScrollViewCompat";
 import { Feather } from "@expo/vector-icons";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
@@ -86,9 +91,17 @@ export function ParsedScreen({
   onCancel,
   onConfirm,
 }: Props) {
+  // Altura do rodapé medida no layout: com o teclado aberto ele sobe e cobre a
+  // faixa logo acima do teclado, então o campo focado precisa subir além dele.
+  const [footerHeight, setFooterHeight] = useState(0);
+  const footerOverlap = Math.max(0, footerHeight - insets.bottom);
+
   return (
     <View style={s.container}>
-      <KeyboardAwareScrollViewCompat contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" bottomOffset={50}>
+      <KeyboardAwareScrollViewCompat
+        contentContainerStyle={s.scroll}
+        bottomOffset={KEYBOARD_BOTTOM_OFFSET + footerOverlap}
+      >
         {/* Emitter card */}
         <View style={[s.emitterCard, { backgroundColor: theme.cardBackground }]}>
           <Text style={[s.emitterLabel, { color: theme.secondaryText }]}>Estabelecimento</Text>
@@ -209,12 +222,17 @@ export function ParsedScreen({
         </View>
       </KeyboardAwareScrollViewCompat>
 
-      {/* Footer */}
-      <View
+      {/* Footer: total + ações. KeyboardStickyView sobe junto com o teclado
+          (edge-to-edge não redimensiona a janela; Story 13.2, D-1). A altura do
+          teclado já inclui a barra de navegação, então `opened: insets.bottom`
+          desconta o paddingBottom. */}
+      <KeyboardStickyView
         style={[
           s.footer,
           { backgroundColor: theme.cardBackground, paddingBottom: insets.bottom + 20 },
         ]}
+        offset={{ closed: 0, opened: insets.bottom }}
+        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
       >
         <View style={s.totalRow}>
           <Text style={[s.totalLabel, { color: theme.secondaryText }]}>Total da Nota</Text>
@@ -244,14 +262,14 @@ export function ParsedScreen({
             Confirmar Importação
           </TButton>
         </View>
-      </View>
+      </KeyboardStickyView>
     </View>
   );
 }
 
 const s = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { paddingBottom: 140 },
+  scroll: { paddingBottom: SCROLL_BOTTOM_PADDING },
   emitterCard: { margin: 20, padding: 20, borderRadius: 16 },
   emitterLabel: { fontSize: 12, textTransform: "uppercase", marginBottom: 4 },
   emitterName: { fontSize: 18, fontWeight: "700", marginBottom: 4 },
