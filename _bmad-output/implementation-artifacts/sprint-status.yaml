@@ -152,7 +152,7 @@ development_status:
   11-3-extrair-os-dados-do-holerite-a-partir-do-texto-do-ocr: done
   11-4-registrar-o-holerite-como-evento-local: done
   11-5-capturar-revisar-e-salvar-o-holerite: done
-  11-6-mostrar-o-histórico-e-o-gráfico-do-holerite: backlog
+  11-6-mostrar-o-histórico-e-o-gráfico-do-holerite: in-progress
   11-7-gerar-o-lottie-dos-troféus-sem-animação-própria: done
   11-8-aprovar-os-novos-lottie-e-registrar-no-app: done
   11-9-fazer-o-lottie-funcionar-na-web: review
