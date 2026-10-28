@@ -10,7 +10,8 @@ import {
   type LayoutChangeEvent,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useKeyboardState } from "react-native-keyboard-controller";
 import { router, useFocusEffect } from "expo-router";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { GiftedChat, Bubble } from "react-native-gifted-chat";
@@ -27,7 +28,12 @@ import { useAISettings } from "@/src/hooks/useAISettings";
 import { useVoiceRecorder } from "@/src/hooks/useVoiceRecorder";
 import { voiceOutputService } from "@/src/services/VoiceOutputService";
 import { AIUsageBar } from "@/src/components/ai/AIUsageBar";
-import { CHAT_KEYBOARD_PROVIDER_PROPS, chatKeyboardVerticalOffset } from "@/src/components/ai/chatKeyboardLayout";
+import {
+  CHAT_COMPOSER_FALLBACK_HEIGHT,
+  chatCompactFrame,
+  chatKeyboardCompact,
+  chatKeyboardVerticalOffset,
+} from "@/src/components/ai/chatKeyboardLayout";
 import { DataPermissionModal } from "@/src/components/ai/DataPermissionModal";
 import { detectMissingPermission } from "@/src/modules/ai/application/PermissionDetector";
 import { PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
@@ -615,51 +621,90 @@ export default function AIChatScreen() {
     [],
   );
 
+  // ─── GiftedChat: teclado (Story 13.5) ─────────────────────────────────
+  // Um só deslocamento: o KeyboardAvoidingView interno do GiftedChat, sob o
+  // KeyboardProvider único da raiz (o GiftedChat não monta o dele: patch
+  // react-native-gifted-chat+3.3.2). O offset recebe a distância do topo da
+  // janela até o chat (status bar, cabeçalho, banners e AIUsageBar), medida
+  // pelo onLayout do invólucro.
+  const [chatTop, setChatTop] = useState(0);
+  const [chatHeight, setChatHeight] = useState(0);
+  const onChatFrameLayout = useCallback((e: LayoutChangeEvent) => {
+    const y = e.nativeEvent.layout.y;
+    const height = e.nativeEvent.layout.height;
+    setChatTop((prev) => (prev === y ? prev : y));
+    setChatHeight((prev) => (prev === height ? prev : height));
+  }, []);
+  const keyboardAvoidingViewProps = useMemo(
+    () => ({ keyboardVerticalOffset: chatKeyboardVerticalOffset(chatTop) }),
+    [chatTop],
+  );
+
+  // Espaço curto com o teclado aberto (paisagem, fonte grande): somem as
+  // sugestões rápidas e a barra de uso para a caixa caber (R2 da revisão).
+  // Só leitura do estado do teclado; nenhuma compensação além do KAV.
+  const keyboardVisible = useKeyboardState((state) => state.isVisible);
+  const keyboardHeight = useKeyboardState((state) => state.height);
+  const insets = useSafeAreaInsets();
+  const [usageBarHeight, setUsageBarHeight] = useState(0);
+  const [composerHeight, setComposerHeight] = useState(CHAT_COMPOSER_FALLBACK_HEIGHT);
+  const [footerHeight, setFooterHeight] = useState(0);
+  const measure = useCallback(
+    (set: React.Dispatch<React.SetStateAction<number>>) => (e: LayoutChangeEvent) => {
+      const h = e.nativeEvent.layout.height;
+      set((prev) => (prev === h ? prev : h));
+    },
+    [],
+  );
+  const onUsageBarLayout = useMemo(() => measure(setUsageBarHeight), [measure]);
+  const onComposerLayout = useMemo(() => measure(setComposerHeight), [measure]);
+  const onFooterLayout = useMemo(() => measure(setFooterHeight), [measure]);
+  const [usageBarShown, setUsageBarShown] = useState(true);
+  const { compact } = chatKeyboardCompact({
+    keyboardVisible,
+    keyboardHeight,
+    ...chatCompactFrame(chatTop, chatHeight, insets.bottom, usageBarHeight, usageBarShown),
+    usageBarHeight,
+    composerHeight,
+    footerHeight,
+  });
+  useEffect(() => {
+    setUsageBarShown(!compact);
+  }, [compact]);
+
   // ─── GiftedChat: Full input toolbar (ChatInputBar component) ─────────
   const renderInputToolbar = useCallback(
     () => (
-      <ChatInputBar
-        text={inputText}
-        onChangeText={setInputText}
-        onSend={(txt) => {
-          if (!txt) return;
-          handleSend([{ _id: Date.now(), text: txt, createdAt: new Date(), user: HUMAN_USER }]);
-        }}
-        isEnabled={settings.isEnabled}
-        voiceEnabled={(settings.voiceEnabled ?? false) && (
-          settings.provider === "openai" || settings.provider === "gemini" ||
-          ((settings.provider === "claude" || settings.provider === "deepseek" || settings.provider === "qwen") && !!settings.audioProvider)
-        )}
-        visionOCREnabled={settings.visionOCREnabled && VisionOCRService.supportsVision(settings.provider as any)}
-        isRecording={isRecording}
-        isTranscribing={isTranscribing}
-        isLoading={isLoading || visionLoading || payslipScanning}
-        pulseAnim={pulseAnim}
-        onVoicePress={handleVoicePress}
-        onAction={handleAction}
-      />
+      <View onLayout={onComposerLayout}>
+        <ChatInputBar
+          text={inputText}
+          onChangeText={setInputText}
+          onSend={(txt) => {
+            if (!txt) return;
+            handleSend([{ _id: Date.now(), text: txt, createdAt: new Date(), user: HUMAN_USER }]);
+          }}
+          isEnabled={settings.isEnabled}
+          voiceEnabled={(settings.voiceEnabled ?? false) && (
+            settings.provider === "openai" || settings.provider === "gemini" ||
+            ((settings.provider === "claude" || settings.provider === "deepseek" || settings.provider === "qwen") && !!settings.audioProvider)
+          )}
+          visionOCREnabled={settings.visionOCREnabled && VisionOCRService.supportsVision(settings.provider as any)}
+          isRecording={isRecording}
+          isTranscribing={isTranscribing}
+          isLoading={isLoading || visionLoading || payslipScanning}
+          pulseAnim={pulseAnim}
+          onVoicePress={handleVoicePress}
+          onAction={handleAction}
+        />
+      </View>
     ),
-    [inputText, settings.isEnabled, settings.voiceEnabled, settings.visionOCREnabled, settings.provider, settings.audioProvider, isRecording, isTranscribing, isLoading, visionLoading, payslipScanning, pulseAnim, handleVoicePress, handleAction, handleSend],
+    [inputText, settings.isEnabled, settings.voiceEnabled, settings.visionOCREnabled, settings.provider, settings.audioProvider, isRecording, isTranscribing, isLoading, visionLoading, payslipScanning, pulseAnim, handleVoicePress, handleAction, handleSend, onComposerLayout],
   );
 
   // ─── GiftedChat: Scroll to bottom ─────────────────────────────────────
   const scrollToBottomComponent = useCallback(() => (
     <Feather name="chevrons-down" size={20} color={theme.primaryColor} />
   ), [theme]);
-
-  // ─── GiftedChat: teclado (Story 13.5) ─────────────────────────────────
-  // Um só deslocamento: o KeyboardAvoidingView interno do GiftedChat. O
-  // offset dele recebe a distância do topo da janela até o chat (status bar,
-  // cabeçalho, banners e AIUsageBar), medida pelo onLayout do invólucro.
-  const [chatTop, setChatTop] = useState(0);
-  const onChatFrameLayout = useCallback((e: LayoutChangeEvent) => {
-    const y = e.nativeEvent.layout.y;
-    setChatTop((prev) => (prev === y ? prev : y));
-  }, []);
-  const keyboardAvoidingViewProps = useMemo(
-    () => ({ keyboardVerticalOffset: chatKeyboardVerticalOffset(chatTop) }),
-    [chatTop],
-  );
 
   // ─── Render ────────────────────────────────────────────────────────────
 
@@ -702,21 +747,25 @@ export default function AIChatScreen() {
         </View>
       )}
 
-      {/* Usage bar */}
-      <AIUsageBar
-        provider={settings.provider}
-        audioProvider={settings.audioProvider}
-        voiceEnabled={settings.voiceEnabled}
-        modelTier={settings.modelTier}
-        customBudgets={settings.customBudgets}
-        budgetMode={settings.budgetMode}
-        monthlyBudgets={settings.monthlyBudgets}
-        billingDay={settings.billingDay}
-        refreshKey={messages.length}
-      />
+      {/* Usage bar (some com o teclado aberto e espaço curto, R2) */}
+      {usageBarShown && (
+        <View onLayout={onUsageBarLayout}>
+          <AIUsageBar
+            provider={settings.provider}
+            audioProvider={settings.audioProvider}
+            voiceEnabled={settings.voiceEnabled}
+            modelTier={settings.modelTier}
+            customBudgets={settings.customBudgets}
+            budgetMode={settings.budgetMode}
+            monthlyBudgets={settings.monthlyBudgets}
+            billingDay={settings.billingDay}
+            refreshKey={messages.length}
+          />
+        </View>
+      )}
 
       {/* ═══════════════════ GiftedChat (FULL FEATURES) ═══════════════════ */}
-      {/* Invólucro: mede o chatTop e recorta a translação do teclado (Story 13.5). */}
+      {/* Invólucro: mede o chatTop (Story 13.5). Quem corta a translação é o GiftedChat; o overflow é reforço (R6). */}
       <View style={styles.chatFrame} onLayout={onChatFrameLayout}>
         <GiftedChat
           messages={giftedMessages}
@@ -773,8 +822,10 @@ export default function AIChatScreen() {
           scrollToBottomOffset={200}
           scrollToBottomStyle={{ backgroundColor: theme.cardBackground, borderColor: theme.border, borderWidth: 1, borderRadius: 20 }}
           /* ── Quick suggestions as chat footer ── */
-          renderChatFooter={settings.isEnabled ? () => (
-            <QuickSuggestions onSelect={handleQuickSuggestion} hasMessages={messages.length > 0} />
+          renderChatFooter={settings.isEnabled && !compact ? () => (
+            <View onLayout={onFooterLayout}>
+              <QuickSuggestions onSelect={handleQuickSuggestion} hasMessages={messages.length > 0} />
+            </View>
           ) : undefined}
           /* ── Reply to messages (swipe) ── */
           reply={{
@@ -785,7 +836,6 @@ export default function AIChatScreen() {
           }}
           /* ── Keyboard & layout ── */
           keyboardAvoidingViewProps={keyboardAvoidingViewProps}
-          keyboardProviderProps={CHAT_KEYBOARD_PROVIDER_PROPS}
           /* ── Styles ── */
           messagesContainerStyle={{ backgroundColor: theme.background }}
           timeTextStyle={{

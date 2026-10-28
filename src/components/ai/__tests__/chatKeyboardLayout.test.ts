@@ -1,9 +1,13 @@
 import { describe, it, expect } from "vitest";
+import * as layout from "../chatKeyboardLayout";
 import {
+  CHAT_COMPOSER_FALLBACK_HEIGHT,
   CHAT_KEYBOARD_GAP,
-  CHAT_KEYBOARD_PROVIDER_PROPS,
+  chatCompactFrame,
+  chatKeyboardCompact,
   chatKeyboardVerticalOffset,
   giftedChatLift,
+  type ChatCompactInput,
 } from "../chatKeyboardLayout";
 
 /**
@@ -37,15 +41,8 @@ describe("constantes (Story 13.5)", () => {
     expect(CHAT_KEYBOARD_GAP + inputRowPaddingVertical).toBeGreaterThanOrEqual(8);
   });
 
-  it("o provider interno espelha o da raiz, sem preload e sem enabled (D-1 a)", () => {
-    expect(CHAT_KEYBOARD_PROVIDER_PROPS.statusBarTranslucent).toBe(true);
-    expect(CHAT_KEYBOARD_PROVIDER_PROPS.navigationBarTranslucent).toBe(true);
-    expect(CHAT_KEYBOARD_PROVIDER_PROPS.preload).toBe(false);
-    expect("enabled" in CHAT_KEYBOARD_PROVIDER_PROPS).toBe(false);
-    expect(CHAT_KEYBOARD_PROVIDER_PROPS.children).toBeNull();
-    expect(Object.keys(CHAT_KEYBOARD_PROVIDER_PROPS).sort()).toEqual(
-      ["children", "navigationBarTranslucent", "preload", "statusBarTranslucent"],
-    );
+  it("sem props de provider interno: o GiftedChat não monta KeyboardProvider (patch, R1)", () => {
+    expect("CHAT_KEYBOARD_PROVIDER_PROPS" in layout).toBe(false);
   });
 });
 
@@ -155,5 +152,99 @@ describe("caixa colada acima do teclado (Story 13.5)", () => {
       const { bottom } = boxBottom({ ...portrait, chatTop, navBar: 48, keyboardVerticalOffset: 0 });
       expect(bottom - (915 - 336)).toBe(chatTop);
     }
+  });
+});
+
+/**
+ * R2 da revisão da Story 13.5: com o teclado aberto, o espaço acima dele
+ * precisa caber a caixa e o rodapé (sugestões). Se não couber, o chat fica
+ * compacto: some o rodapé e a barra de uso. Medidas: caixa 110 (web,
+ * Playwright), sugestões 52, barra de uso 32; retrato com chatTop 125 (sem
+ * banner) e 185 (com banner), como nos casos acima.
+ */
+describe("chatKeyboardCompact (espaço acima do teclado, R2)", () => {
+  const base: ChatCompactInput = {
+    keyboardVisible: true,
+    keyboardHeight: 336,
+    windowHeight: 915,
+    topWithoutUsageBar: 93,
+    usageBarHeight: 32,
+    composerHeight: 110,
+    footerHeight: 52,
+  };
+
+  it.each([
+    [93, "sem banner (chatTop 125)"],
+    [153, "com banner (chatTop 185)"],
+  ])("retrato 412×915, teclado 336, topo %s (%s): o espaço ≥ caixa + rodapé, nada some", (top) => {
+    const r = chatKeyboardCompact({ ...base, topWithoutUsageBar: top });
+    expect(r.space).toBe(915 - 336 - CHAT_KEYBOARD_GAP - (top + 32));
+    expect(r.space).toBeGreaterThanOrEqual(r.needed);
+    expect(r.needed).toBe(110 + 52);
+    expect(r.compact).toBe(false);
+    expect(r.composerFits).toBe(true);
+  });
+
+  it("paisagem 915×412, teclado 200: o espaço é curto, some o rodapé e a barra de uso, e a caixa cabe", () => {
+    const r = chatKeyboardCompact({ ...base, windowHeight: 412, keyboardHeight: 200, topWithoutUsageBar: 61 });
+    expect(r.space).toBe(412 - 200 - CHAT_KEYBOARD_GAP - (61 + 32));
+    expect(r.space).toBeLessThan(r.needed);
+    expect(r.compact).toBe(true);
+    // sem a barra de uso (e sem o rodapé), a caixa cabe
+    expect(r.space + 32).toBeGreaterThanOrEqual(110);
+    expect(r.composerFits).toBe(true);
+  });
+
+  it("paisagem com fonte 2,0 (57 dp acima do teclado): compacto, e a caixa ainda não cabe (aviso na checklist)", () => {
+    const r = chatKeyboardCompact({
+      ...base,
+      windowHeight: 412,
+      keyboardHeight: 200,
+      topWithoutUsageBar: 123,
+      usageBarHeight: 30,
+      composerHeight: 150,
+      footerHeight: 80,
+    });
+    expect(r.space).toBe(412 - 200 - CHAT_KEYBOARD_GAP - 153);
+    expect(r.compact).toBe(true);
+    expect(r.composerFits).toBe(false);
+  });
+
+  it("teclado fechado: nunca compacto, mesmo com pouco espaço", () => {
+    const r = chatKeyboardCompact({ ...base, keyboardVisible: false, windowHeight: 300 });
+    expect(r.compact).toBe(false);
+    expect(chatKeyboardCompact({ ...base, keyboardVisible: true, keyboardHeight: 0, windowHeight: 200 }).compact).toBe(false);
+  });
+
+  it("a decisão não depende de a barra de uso e o rodapé estarem escondidos (sem oscilação)", () => {
+    // Paisagem: chatTop 93 com a barra (61 + 32), chat de 412 − 93 − 0 de altura.
+    const shown = chatCompactFrame(93, 412 - 93, 0, 32, true);
+    // Escondida a barra: o chat sobe 32 e cresce 32.
+    const hidden = chatCompactFrame(61, 412 - 61, 0, 32, false);
+    expect(hidden).toEqual(shown);
+    expect(shown).toEqual({ windowHeight: 412, topWithoutUsageBar: 61 });
+    const input = { ...base, keyboardHeight: 200, footerHeight: 52 };
+    const before = chatKeyboardCompact({ ...input, ...shown });
+    const after = chatKeyboardCompact({ ...input, ...hidden });
+    expect(before.compact).toBe(true);
+    expect(after).toEqual(before);
+  });
+
+  it("chatCompactFrame: a janela é o fim do chat mais o insets.bottom; medidas inválidas viram 0", () => {
+    expect(chatCompactFrame(125, 742, 48, 32, true)).toEqual({ windowHeight: 915, topWithoutUsageBar: 93 });
+    expect(chatCompactFrame(Number.NaN, 700, -1, 32, true)).toEqual({ windowHeight: 700, topWithoutUsageBar: 0 });
+  });
+
+  it("no limite: espaço igual a caixa + rodapé não compacta; 1 dp a menos compacta", () => {
+    const exact = { ...base, windowHeight: 336 + CHAT_KEYBOARD_GAP + 93 + 32 + 110 + 52 };
+    expect(chatKeyboardCompact(exact).compact).toBe(false);
+    expect(chatKeyboardCompact({ ...exact, windowHeight: exact.windowHeight - 1 }).compact).toBe(true);
+  });
+
+  it("medidas inválidas (NaN, negativas) viram 0; a caixa sem medida usa o valor de reserva", () => {
+    const r = chatKeyboardCompact({ ...base, usageBarHeight: Number.NaN, footerHeight: -5 });
+    expect(r.needed).toBe(110);
+    expect(r.space).toBe(915 - 336 - CHAT_KEYBOARD_GAP - 93);
+    expect(CHAT_COMPOSER_FALLBACK_HEIGHT).toBeGreaterThan(0);
   });
 });

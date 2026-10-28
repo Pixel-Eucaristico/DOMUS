@@ -1,0 +1,59 @@
+diff --git a/node_modules/react-native-gifted-chat/src/GiftedChat/index.tsx b/node_modules/react-native-gifted-chat/src/GiftedChat/index.tsx
+index 2858b6c..207029c 100644
+--- a/node_modules/react-native-gifted-chat/src/GiftedChat/index.tsx
++++ b/node_modules/react-native-gifted-chat/src/GiftedChat/index.tsx
+@@ -19,7 +19,7 @@ import {
+ import dayjs from 'dayjs'
+ import localizedFormat from 'dayjs/plugin/localizedFormat'
+ import { GestureHandlerRootView, TextInput } from 'react-native-gesture-handler'
+-import { KeyboardAvoidingView, KeyboardProvider } from 'react-native-keyboard-controller'
++import { KeyboardAvoidingView } from 'react-native-keyboard-controller'
+ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context'
+ import { TEST_ID } from '../Constant'
+ import { GiftedChatContext } from '../GiftedChatContext'
+@@ -346,21 +346,12 @@ function GiftedChat<TMessage extends IMessage = IMessage> (
+ }
+ 
+ function GiftedChatWrapper<TMessage extends IMessage = IMessage> (props: GiftedChatProps<TMessage>) {
+-  const {
+-    keyboardProviderProps,
+-    ...rest
+-  } = props
+-
++  // DOMUS (Story 13.5, R1): sem KeyboardProvider próprio. O KeyboardAvoidingView
++  // interno usa o KeyboardProvider único da raiz do app (app/_layout.tsx).
+   return (
+     <GestureHandlerRootView style={styles.fill}>
+       <SafeAreaProvider>
+-        <KeyboardProvider
+-          statusBarTranslucent
+-          navigationBarTranslucent
+-          {...keyboardProviderProps}
+-        >
+-          <GiftedChat<TMessage> {...rest} />
+-        </KeyboardProvider>
++        <GiftedChat<TMessage> {...props} />
+       </SafeAreaProvider>
+     </GestureHandlerRootView>
+   )
+diff --git a/node_modules/react-native-gifted-chat/src/GiftedChat/types.ts b/node_modules/react-native-gifted-chat/src/GiftedChat/types.ts
+index 5cfdc8e..18d6a47 100644
+--- a/node_modules/react-native-gifted-chat/src/GiftedChat/types.ts
++++ b/node_modules/react-native-gifted-chat/src/GiftedChat/types.ts
+@@ -8,7 +8,7 @@ import {
+ import {
+   ActionSheetOptions,
+ } from '@expo/react-native-action-sheet'
+-import { KeyboardProvider, KeyboardAvoidingViewProps } from 'react-native-keyboard-controller'
++import { KeyboardAvoidingViewProps } from 'react-native-keyboard-controller'
+ 
+ import { ActionsProps } from '../Actions'
+ import { AvatarProps } from '../Avatar'
+@@ -145,7 +145,6 @@ export interface GiftedChatProps<TMessage extends IMessage> extends Partial<Omit
+     quickReplies: QuickRepliesProps<TMessage>
+   ) => React.ReactNode
+   renderQuickReplySend?: () => React.ReactNode
+-  keyboardProviderProps?: React.ComponentProps<typeof KeyboardProvider>
+   /** Props for KeyboardAvoidingView. Use `keyboardVerticalOffset` to account for headers or iOS predictive text bar (~44pt). */
+   keyboardAvoidingViewProps?: KeyboardAvoidingViewProps
+   /** Enable animated day label that appears on scroll; default is true */
