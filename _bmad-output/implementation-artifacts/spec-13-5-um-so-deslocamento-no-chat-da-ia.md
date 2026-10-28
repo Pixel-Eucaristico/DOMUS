@@ -144,7 +144,7 @@ Sem `react-native` (pitfall do vitest no AGENTS.md):
 - A altura da janela que o `KeyboardAvoidingView` usa é a do `content` do Android (edge-to-edge, tela inteira), e a altura do teclado já inclui a barra de navegação (13.1).
 - Com o fim do chat em `alturaDaJanela − insets.bottom`, a subida fica `teclado − insets.bottom + gap`, ou seja, colada.
 
-## Decisões do dono (aprovadas em 28/10: D-1 a, D-2 a, D-3 a)
+## Decisões do dono (aprovadas em 28/10: D-1 a, D-2 a, D-3 a; D-1 trocada para (b) — patch no GiftedChat — depois da revisão, R1)
 
 - **D-1: o provider interno do GiftedChat.**
   - (a) Manter o provider interno, que a 3.3.2 sempre monta, e só configurá-lo por `keyboardProviderProps` (espelho da raiz, `preload: false`). O `ai-chat.tsx` não tem provider próprio, e o deslocamento é um só (o KAV interno). A guarda barra qualquer outro provider no app.
@@ -374,4 +374,18 @@ Se os itens 8 ou 9 falharem por causa do provider aninhado, a saída é a D-1 (b
 
 ## Review Triage Log
 
-—
+Revisão única com três lentes (adversarial, casos de borda, lacunas de verificação), 28/10, sobre o commit 2a16009. 1 High, 4 Med, 6 Low.
+
+| # | Achado | Sev. | Decisão |
+|---|--------|------|---------|
+| R1 | Dois `KeyboardProvider` vivos: o `ModalAttachedWatcher` do provider interno do GiftedChat sobrescreve o listener de dismiss e o callback de animação do modal; ao sair do chat a raiz pode ficar suspensa, e no caminho chat → holerite → busca de conta/categoria a folha não sobe | High | **patch** (decisão do dono 28/10, troca a D-1 para (b)): patch no `react-native-gifted-chat` 3.3.2 (`patches/`, via patch-package) para não montar `KeyboardProvider` próprio; fica um só provider no app. `keyboardProviderProps` sai; a guarda passa a exigir o patch aplicado (o `GiftedChatWrapper` do `node_modules` sem `KeyboardProvider`) e exatamente um provider no app |
+| R2 | Paisagem e fonte 2,0: o espaço acima do teclado (57dp) é menor que a caixa + sugestões; o teste passa por identidade algébrica | Med | **patch**: teste de que o espaço disponível ≥ caixa + rodapé; com teclado aberto e espaço curto, esconder sugestões rápidas e a barra de uso; itens no checklist (paisagem e fonte 2,0 com aviso; teclado em tela cheia em paisagem) |
+| R3 | Testes provam álgebra, não a biblioteca | Med | **patch**: spec diz que a prova é o aparelho (itens 0/1) e lista o que o teste não cobre |
+| R4 | Burlas da guarda (argumento constante, spread no `keyboardAvoidingViewProps`, `onLayout` vazio, `View` entre o contorno e o `GiftedChat`, spread nas opções da rota, `View` acima do `RootLayoutNav`) | Med | **patch**: argumento = identificador do `useState` setado com `nativeEvent.layout.y`; sem spread nos props; `<GiftedChat` filho direto do contorno; sem spread nas opções da rota; nada renderizado acima do `RootLayoutNav` |
+| R5 | Guarda e sentinela não rodam na CI; `react-native-gifted-chat` com `^` | Med | **patch**: fixar `3.3.2` exato no `package.json` e no `package-lock.json` (obrigatório com o patch do R1). CI barrar testes fica no Epic 2 |
+| R6 | `overflow: hidden` do contorno é redundante (o GiftedChat já corta); linhas da matriz descrevem defeito que não acontece | Low | **patch**: corrigir R-2 e a matriz; guarda deixa de exigir o `overflow` |
+| R7 | `CHAT_KEYBOARD_PROVIDER_PROPS` não faz nada no Android | Low | **patch**: some junto com o R1 |
+| R8 | Deslocamento atrasado quando a barra de uso aparece com teclado aberto | Low | **patch**: item no checklist |
+| R9 | Estado residual depois que o provider interno desmonta | Low | **patch**: resolvido pelo R1 |
+| R10 | Checklist só Android 16 | Low | **patch**: um aparelho Android 9/10 e tela dividida no checklist |
+| R11 | "Antes" não medido | Low | **patch**: item 0 do checklist obrigatório antes de fechar a 13.7 |
