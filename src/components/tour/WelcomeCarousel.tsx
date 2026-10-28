@@ -11,6 +11,7 @@ import {
   Platform,
   ActivityIndicator,
   Linking,
+  useWindowDimensions,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -39,9 +40,12 @@ import type { AIProvider } from "@packages/ai";
 import { appAlert } from "@/src/services/appAlert";
 import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
 import { KeyboardSheet } from "@/src/components/shared/KeyboardSheet";
+import { skipHeaderMinHeight } from "@/src/components/tour/welcomeCarouselLayout";
 
 const FIREBASE_FLAGS: PrivacyFlagId[] = ["firebaseAnalytics", "firebasePerformance", "firebaseCrashlytics"];
 const { width: SCREEN_W } = Dimensions.get("window");
+/** Topo do botão "Pular" (absoluto, no cabeçalho). */
+const SKIP_TOP = Platform.OS === "ios" ? 56 : 20;
 const TOTAL_SLIDES = 6;
 
 const PIX_KEY = "55.075.291/0001-79";
@@ -64,6 +68,9 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
   const { theme, setIsCatholic } = useAppState();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
+  // Rolagem vertical do KeyboardSheet (uma só para todos os slides).
+  const sheetScrollRef = useRef<ScrollView>(null);
+  const { fontScale } = useWindowDimensions();
   const [slide, setSlide] = useState(0);
 
   // Slide 1: católico
@@ -117,6 +124,8 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
 
   const goTo = (idx: number) => {
     scrollRef.current?.scrollTo({ x: idx * SCREEN_W, animated: true });
+    // Cada slide começa do topo, mesmo que o anterior tenha rolado (R7).
+    sheetScrollRef.current?.scrollTo({ y: 0, animated: false });
     setSlide(idx);
   };
 
@@ -235,10 +244,12 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
           basePaddingBottom={insets.bottom + 16}
           sheetStyle={[st.container, { backgroundColor: theme.cardBackground }]}
           contentContainerStyle={st.slidesContent}
+          scrollRef={sheetScrollRef}
           header={
             // O paddingTop da área segura fica no cabeçalho, para o "Pular"
-            // (absoluto) continuar na mesma posição de antes.
-            <View style={{ paddingTop: insets.top + 16 }}>
+            // (absoluto) continuar na mesma posição de antes; a altura mínima
+            // cobre o botão inteiro, para não perder área de toque (R8).
+            <View style={{ paddingTop: insets.top + 16, minHeight: skipHeaderMinHeight(SKIP_TOP, fontScale) }}>
               {/* Pular */}
               {!isLastSlide && (
                 <TouchableOpacity style={st.skipBtn} onPress={handleSkip} hitSlop={12}>
@@ -626,7 +637,7 @@ const st = StyleSheet.create({
   },
   skipBtn: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 56 : 20,
+    top: SKIP_TOP,
     right: 20,
     zIndex: 10,
     padding: 8,

@@ -121,26 +121,6 @@ export function StoreGridModal({ visible, theme, searchQuery = "", onSelectStore
     );
   }
 
-  const searchBar = (
-    <View style={[styles.searchBar, { backgroundColor: theme.cardBackground }]}>
-      <Feather name="search" size={15} color={theme.secondaryText} />
-      <TextInput
-        style={[styles.searchInput, { color: theme.textColor }]}
-        placeholder="Buscar loja..."
-        placeholderTextColor={theme.secondaryText}
-        value={query}
-        onChangeText={setQuery}
-        autoCorrect={false}
-        autoCapitalize="none"
-      />
-      {query.length > 0 && (
-        <TouchableOpacity onPress={() => setQuery("")}>
-          <Feather name="x-circle" size={15} color={theme.secondaryText} />
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-
   return (
     <Modal
       visible={visible}
@@ -155,7 +135,7 @@ export function StoreGridModal({ visible, theme, searchQuery = "", onSelectStore
           sheetStyle={[styles.sheet, { backgroundColor: theme.background }]}
           maxHeightRatio={0.75}
           basePaddingBottom={20}
-          header={
+          title={
             <>
               {/* Handle */}
               <View style={[styles.handle, { backgroundColor: theme.secondaryText + "40" }]} />
@@ -167,12 +147,27 @@ export function StoreGridModal({ visible, theme, searchQuery = "", onSelectStore
                   <Feather name="x" size={20} color={theme.secondaryText} />
                 </TouchableOpacity>
               </View>
-
-              {/* Barra de busca */}
-              {searchBar}
             </>
           }
-          compactHeader={searchBar}
+          search={
+            <View style={[styles.searchBar, { backgroundColor: theme.cardBackground }]}>
+              <Feather name="search" size={15} color={theme.secondaryText} />
+              <TextInput
+                style={[styles.searchInput, { color: theme.textColor }]}
+                placeholder="Buscar loja..."
+                placeholderTextColor={theme.secondaryText}
+                value={query}
+                onChangeText={setQuery}
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+              {query.length > 0 && (
+                <TouchableOpacity onPress={() => setQuery("")}>
+                  <Feather name="x-circle" size={15} color={theme.secondaryText} />
+                </TouchableOpacity>
+              )}
+            </View>
+          }
           list={
             // Grade de lojas; o aviso vai no rodapé da lista para rolar junto.
             <FlashList

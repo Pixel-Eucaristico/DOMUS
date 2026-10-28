@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   StyleSheet,
@@ -12,6 +12,8 @@ import { KeyboardSafeView } from "@/src/components/shared/KeyboardSafeView";
 import { useSheetKeyboardHeight } from "@/src/components/shared/KeyboardSheet";
 import {
   computeKeyboardListSheetLayout,
+  listSheetHeaderHeight,
+  listSheetSlots,
   sheetLiftDiscount,
   sheetPaddingBottomFor,
   sheetRootPadding,
@@ -20,14 +22,18 @@ import {
 type ReanimatedViewProps = React.ComponentProps<typeof Reanimated.View>;
 
 interface KeyboardListSheetProps {
-  /** Cabeçalho completo (alça, título, fechar e a busca). Sempre fixo, nunca rola. */
-  header: ReactNode;
   /**
-   * Cabeçalho de janela baixa (só a busca e o indispensável): entra no lugar
-   * do completo quando, com o teclado aberto, a lista ficaria com menos de uma
-   * linha (R-1).
+   * Parte de cima sem campo (alça, título, fechar, abas). Recolhe em janela
+   * baixa com o teclado aberto, quando a lista ficaria com menos de uma linha
+   * (R-1). Nunca põe campo aqui: ele sumiria ao recolher.
    */
-  compactHeader: ReactNode;
+  title: ReactNode;
+  /**
+   * A busca (e o que a acompanha, como a contagem). Sempre renderizada, na
+   * mesma posição da árvore: o campo é a mesma instância com o título à mostra
+   * ou recolhido, então o teclado não fecha (R1 da revisão da 13.4).
+   */
+  search: ReactNode;
   /**
    * A lista do chamador: um único elemento rolável vertical (`FlashList`,
    * `FlatList` ou `ScrollView`) com `keyboardShouldPersistTaps="handled"`. É a
@@ -36,12 +42,20 @@ interface KeyboardListSheetProps {
   list: ReactNode;
   /** Estilo da folha (cor, cantos, padding). Sem `paddingBottom`. */
   sheetStyle?: ReanimatedViewProps["style"];
-  /** Altura máxima da folha como fração da janela (0,75, 0,80). A folha segue o conteúdo. */
+  /**
+   * Altura máxima da folha como fração da janela (0,75, 0,80). Abaixo dela, a
+   * folha tem a altura do conteúdo (filtrar encolhe a folha, R-5).
+   */
   maxHeightRatio?: number;
   /** Altura fixa da folha como fração da janela (0,85 no DebugTools); encolhe com o teclado. */
   heightRatio?: number;
   /** paddingBottom mínimo da folha; vale `max(insets.bottom, base)`. */
   basePaddingBottom: number;
+  /**
+   * Muda quando o título muda de altura sem estar à mostra (ex.: a aba do
+   * DebugTools): descarta a medida antiga do título para medir de novo (R5).
+   */
+  measureKey?: string | number;
   /** Animação de entrada da folha (Reanimated), ex.: `SlideInDown`. */
   entering?: ReanimatedViewProps["entering"];
   /** Animação de saída da folha (Reanimated), ex.: `SlideOutDown`. */
@@ -51,28 +65,35 @@ interface KeyboardListSheetProps {
 /**
  * Folha de busca em lista dentro de `Modal` (Story 13.4, D-1 a). O modal
  * continua dono do `<Modal>`, do fundo escuro, do `onRequestClose` e da
- * animação do modal; aqui ficam o cabeçalho fixo com a busca e a lista que
- * encolhe acima do teclado. A folha sobe pelo espaçador do KeyboardSafeView
- * (único sistema de teclado: o KeyboardProvider da raiz), como o
- * KeyboardSheet. Sem rolagem própria nem ajuste até o campo: o campo está no
- * cabeçalho e nunca rola. As contas ficam em keyboardSheetLayout.ts.
+ * animação do modal; aqui ficam o título, a busca fixa e a lista que encolhe
+ * acima do teclado. A folha sobe pelo espaçador do KeyboardSafeView (único
+ * sistema de teclado: o KeyboardProvider da raiz), como o KeyboardSheet. Sem
+ * rolagem própria nem ajuste até o campo: o campo está na busca, que nunca
+ * rola. As contas ficam em keyboardSheetLayout.ts.
  */
 export function KeyboardListSheet({
-  header,
-  compactHeader,
+  title,
+  search,
   list,
   sheetStyle,
   maxHeightRatio = 0.8,
   heightRatio,
   basePaddingBottom,
+  measureKey,
   entering,
   exiting,
 }: KeyboardListSheetProps) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const keyboardHeight = useSheetKeyboardHeight();
-  const [headerHeight, setHeaderHeight] = useState(0);
-  const [compactHeaderHeight, setCompactHeaderHeight] = useState(0);
+  const [titleHeight, setTitleHeight] = useState(0);
+  const [searchBottom, setSearchBottom] = useState(0);
+  const [titleCollapsed, setTitleCollapsed] = useState(false);
+
+  // Título de outra altura (outra aba): mede de novo a partir do zero (R5).
+  useEffect(() => {
+    setTitleHeight(0);
+  }, [measureKey]);
 
   const ratio = heightRatio ?? maxHeightRatio;
   const sheetPaddingBottom = sheetPaddingBottomFor(insets.bottom, basePaddingBottom);
@@ -82,20 +103,35 @@ export function KeyboardListSheet({
     keyboardHeight,
     insetTop: insets.top,
     sheetPaddingBottom,
-    headerHeight,
-    compactHeaderHeight,
+    headerHeight: listSheetHeaderHeight(searchBottom, titleHeight, titleCollapsed),
     maxHeightRatio: ratio,
   });
+  // As medidas abaixo dependem de o título estar à mostra; guarda o estado em
+  // que foram feitas.
+  if (layout.titleCollapsed !== titleCollapsed) setTitleCollapsed(layout.titleCollapsed);
 
-  // Mede cada cabeçalho só quando ele está na tela; a troca usa a medida do
-  // completo (a última), então não alterna.
-  const onHeaderLayout = (e: LayoutChangeEvent) => {
+  const onTitleLayout = (e: LayoutChangeEvent) => setTitleHeight(e.nativeEvent.layout.height);
+  const onSearchLayout = (e: LayoutChangeEvent) => {
     const { y, height } = e.nativeEvent.layout;
-    setHeaderHeight(y + height);
+    setSearchBottom(y + height);
   };
-  const onCompactHeaderLayout = (e: LayoutChangeEvent) => {
-    const { y, height } = e.nativeEvent.layout;
-    setCompactHeaderHeight(y + height);
+
+  const slots = {
+    title: (
+      <View key="title" onLayout={onTitleLayout}>
+        {title}
+      </View>
+    ),
+    search: (
+      <View key="search" onLayout={onSearchLayout}>
+        {search}
+      </View>
+    ),
+    list: (
+      <View key="list" style={[s.list, heightRatio !== undefined && s.listFill]}>
+        {list}
+      </View>
+    ),
   };
 
   const size = heightRatio !== undefined ? { height: heightRatio * windowHeight } : { maxHeight: ratio * windowHeight };
@@ -111,12 +147,7 @@ export function KeyboardListSheet({
         exiting={exiting}
         style={[sheetStyle, s.sheet, size, { paddingBottom: sheetPaddingBottom }]}
       >
-        {layout.headerCompact ? (
-          <View onLayout={onCompactHeaderLayout}>{compactHeader}</View>
-        ) : (
-          <View onLayout={onHeaderLayout}>{header}</View>
-        )}
-        <View style={[s.list, heightRatio !== undefined && s.listFill]}>{list}</View>
+        {listSheetSlots(titleCollapsed).map((slot) => (slot ? slots[slot] : null))}
       </Reanimated.View>
     </KeyboardSafeView>
   );

@@ -135,25 +135,6 @@ export function CategoryPickerModal({
     );
   };
 
-  const searchBar = (
-    <View style={[s.searchBar, { backgroundColor: theme.background, borderColor: theme.border }]}>
-      <Feather name="search" size={16} color={theme.secondaryText} />
-      <TextInput
-        style={[s.searchInput, { color: theme.textColor }]}
-        placeholder="Buscar categoria ou subcategoria..."
-        placeholderTextColor={theme.secondaryText}
-        value={search}
-        onChangeText={setSearch}
-        autoFocus
-      />
-      {search.length > 0 && (
-        <Pressable onPress={() => setSearch("")}>
-          <Feather name="x-circle" size={16} color={theme.secondaryText} />
-        </Pressable>
-      )}
-    </View>
-  );
-
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={s.overlay}>
@@ -161,20 +142,32 @@ export function CategoryPickerModal({
           sheetStyle={[s.sheet, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
           maxHeightRatio={0.8}
           basePaddingBottom={30}
-          header={
-            <>
-              {/* Header */}
-              <View style={s.header}>
-                <Text style={[s.title, { color: theme.textColor }]}>Selecionar Categoria</Text>
-                <Pressable onPress={onClose} hitSlop={12}>
-                  <Feather name="x" size={22} color={theme.secondaryText} />
-                </Pressable>
-              </View>
-              {/* Search */}
-              {searchBar}
-            </>
+          title={
+            <View style={s.header}>
+              <Text style={[s.title, { color: theme.textColor }]}>Selecionar Categoria</Text>
+              <Pressable onPress={onClose} hitSlop={12}>
+                <Feather name="x" size={22} color={theme.secondaryText} />
+              </Pressable>
+            </View>
           }
-          compactHeader={searchBar}
+          search={
+            <View style={[s.searchBar, { backgroundColor: theme.background, borderColor: theme.border }]}>
+              <Feather name="search" size={16} color={theme.secondaryText} />
+              <TextInput
+                style={[s.searchInput, { color: theme.textColor }]}
+                placeholder="Buscar categoria ou subcategoria..."
+                placeholderTextColor={theme.secondaryText}
+                value={search}
+                onChangeText={setSearch}
+                autoFocus
+              />
+              {search.length > 0 && (
+                <Pressable onPress={() => setSearch("")}>
+                  <Feather name="x-circle" size={16} color={theme.secondaryText} />
+                </Pressable>
+              )}
+            </View>
+          }
           list={
             <FlashList
               data={filtered}

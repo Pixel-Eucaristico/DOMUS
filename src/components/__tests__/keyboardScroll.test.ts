@@ -112,11 +112,11 @@ const NO_BACKDROP: Record<string, string> = {
  * As buscas em lista dentro de modal (Story 13.4) e quantas rolagens cada uma
  * tem, todas no `list=` (o DebugTools alterna FlashList e ScrollView por aba).
  */
-const MODAL_LISTS: Record<string, { scrolls: number }> = {
+const MODAL_LISTS: Record<string, { scrolls: number; measureKey?: boolean }> = {
   "src/components/shared/CategoryPickerModal.tsx": { scrolls: 1 },
   "src/components/wishlist/StoreGridModal.tsx": { scrolls: 1 },
   "src/components/shared/AccountPicker.tsx": { scrolls: 1 },
-  "src/components/debug/DebugTools.tsx": { scrolls: 2 },
+  "src/components/debug/DebugTools.tsx": { scrolls: 2, measureKey: true },
 };
 
 /** Componentes com `<Modal` e campo em que nenhum campo fica dentro do modal, com o motivo. */
@@ -306,15 +306,14 @@ function plainScrollUses(source: string): string[] {
   return [...hits];
 }
 
-/** Usos em JSX de `<Name` e se cada um está dentro de um `<Modal>…</Modal>`. */
+/** Usos em JSX de `<Name` e se cada um está dentro de um `<Modal>…</Modal>` (ou de um alias do Modal). */
 function jsxUsesInsideModal(source: string, name: string): boolean[] {
   const code = stripComments(source);
+  const ranges = modalRanges(code);
   const result: boolean[] = [];
   for (const m of code.matchAll(jsxPattern(name, false))) {
-    const before = code.slice(0, (m.index ?? 0) + m[0].length);
-    const open = before.lastIndexOf("<Modal");
-    const close = before.lastIndexOf("</Modal>");
-    result.push(open !== -1 && open > close);
+    const at = (m.index ?? 0) + m[0].length;
+    result.push(ranges.some(([start, end]) => at > start && at <= end));
   }
   return result;
 }
@@ -347,11 +346,13 @@ const FIELD_TAGS = "TInput|TextInput|AppTextInput|Input|TextArea";
 
 function hasField(source: string): boolean {
   const code = stripComments(source);
-  return (
-    jsxPattern(FIELD_TAGS, false).test(code) ||
-    jsxPattern("TextInput|Input|TextArea", true).test(code) ||
-    /\bonChangeText\s*=/.test(code)
-  );
+  return hasFieldTag(code) || /\bonChangeText\s*=/.test(code);
+}
+
+/** Campo como tag JSX (`<TextInput`, `<TInput`, `<RN.TextInput`…); `onChangeText` sozinho não conta (R2). */
+function hasFieldTag(source: string): boolean {
+  const code = stripComments(source);
+  return jsxPattern(FIELD_TAGS, false).test(code) || jsxPattern("TextInput|Input|TextArea", true).test(code);
 }
 
 // ─── Modais com formulário (Story 13.3) ──────────────────────────────────────
@@ -433,10 +434,49 @@ function rendersKeyboardSafeView(source: string): boolean {
   return jsxPattern("KeyboardSafeView", false).test(code) || jsxPattern("KeyboardSafeView", true).test(code);
 }
 
-/** Componente com `<Modal` e campo. */
+/**
+ * Nomes com que o arquivo renderiza o `Modal`: `Modal` e os alias de import
+ * (`import { Modal as RNModal } from "react-native"`), R2.
+ */
+function modalNames(code: string): string[] {
+  const names = new Set(["Modal"]);
+  for (const m of code.matchAll(/(?:^|[;\n])\s*import\s+(?!type\s)[^;]*?\{([^}]*)\}[^;]*?from\s*["'][^"']+["']/g)) {
+    for (const member of m[1].split(",")) {
+      const alias = member.trim().match(/^Modal\s+as\s+([\w$]+)$/);
+      if (alias) names.add(alias[1]);
+    }
+  }
+  return [...names];
+}
+
+/** Componente com `<Modal` (ou alias, ou `<NS.Modal`) e campo. */
 function hasModalWithField(source: string): boolean {
   const code = stripComments(source);
-  return (jsxPattern("Modal", false).test(code) || jsxPattern("Modal", true).test(code)) && hasField(source);
+  const names = modalNames(code).join("|");
+  return (jsxPattern(names, false).test(code) || jsxPattern("Modal", true).test(code)) && hasField(source);
+}
+
+/** Intervalos [início, fim] dos `<Modal …>…</Modal>` do nível de cima, no código sem comentários. */
+function modalRanges(code: string): [number, number][] {
+  const names = modalNames(code).map((n) => n.replace(/\$/g, "\\$")).join("|");
+  const tag = `(?:[\\w$]+\\s*\\.\\s*)?(?:${names})`;
+  const tokens = new RegExp(`<\\s*${tag}\\b|<\\s*\\/\\s*${tag}\\s*>`, "g");
+  const ranges: [number, number][] = [];
+  let depth = 0;
+  let start = -1;
+  for (const m of code.matchAll(tokens)) {
+    const at = m.index ?? 0;
+    if (/^<\s*\//.test(m[0])) {
+      if (depth === 0) continue;
+      depth--;
+      if (depth === 0) ranges.push([start, at + m[0].length]);
+    } else {
+      if (depth === 0) start = at;
+      depth++;
+    }
+  }
+  if (depth > 0) ranges.push([start, code.length]);
+  return ranges;
 }
 
 /**
@@ -445,23 +485,7 @@ function hasModalWithField(source: string): boolean {
  */
 function modalSegments(source: string): string[] {
   const code = stripComments(source);
-  const segments: string[] = [];
-  const tokens = /<\s*Modal\b|<\s*\/\s*Modal\s*>/g;
-  let depth = 0;
-  let start = -1;
-  for (const m of code.matchAll(tokens)) {
-    const at = m.index ?? 0;
-    if (m[0].includes("/")) {
-      if (depth === 0) continue;
-      depth--;
-      if (depth === 0) segments.push(code.slice(start, at + m[0].length));
-    } else {
-      if (depth === 0) start = at;
-      depth++;
-    }
-  }
-  if (depth > 0) segments.push(code.slice(start));
-  return segments;
+  return modalRanges(code).map(([start, end]) => code.slice(start, end));
 }
 
 /** O trecho `<Modal>` que renderiza `<Name`, ou "" se nenhum. */
@@ -492,16 +516,85 @@ function balancedParens(code: string, open: number): string {
   return code.slice(open);
 }
 
+/** Corpo `{…}` balanceado a partir de `open` (índice do `{`), pulando strings. */
+function balancedBraces(code: string, open: number): string {
+  let depth = 0;
+  for (let i = open; i < code.length; i++) {
+    const ch = code[i];
+    if (ch === '"' || ch === "'" || ch === "`") {
+      let j = i + 1;
+      while (j < code.length && code[j] !== ch) {
+        if (code[j] === "\\") j++;
+        j++;
+      }
+      i = j;
+      continue;
+    }
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return code.slice(open, i + 1);
+    }
+  }
+  return code.slice(open);
+}
+
+/** Tira o conteúdo das strings (o nome dentro de um texto não é uso do identificador). */
+function withoutStrings(code: string): string {
+  return code.replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g, '""');
+}
+
+/** Profundidade máxima da resolução de identificadores locais. */
+const LOCAL_JSX_DEPTH = 3;
+
 /**
- * A expressão mais o JSX de cada `const nome = (<…>)` do arquivo que ela cita
- * (um nível), para o campo declarado à parte (`{searchBar}`) contar como dele.
+ * A expressão mais as definições locais que ela usa, em até `LOCAL_JSX_DEPTH`
+ * níveis (R2): `const nome = (<…>)` / `const nome = <…>` citados como valor
+ * (não como chave `nome:` nem `.nome`, nem dentro de string) e componentes do
+ * arquivo usados como `<Nome` (`function Nome(…) {…}` ou `const Nome = (…) =>`).
+ * Assim o campo declarado à parte (`{searchBar}`, `<SearchField />`) conta, e um
+ * nome parecido não.
  */
-function expandLocalJsx(expr: string, source: string): string {
+function expandLocalJsx(expr: string, source: string, depth = LOCAL_JSX_DEPTH): string {
   const code = stripComments(source);
+  const defs: { name: string; body: string }[] = [];
+  for (const m of code.matchAll(/\bconst\s+([\w$]+)\s*=\s*(\(\s*<|<)/g)) {
+    const at = (m.index ?? 0) + m[0].length - m[2].length;
+    const body = code[at] === "(" ? balancedParens(code, at) : code.slice(at, code.indexOf(";", at) + 1 || undefined);
+    defs.push({ name: m[1], body });
+  }
+  for (const m of code.matchAll(/\bfunction\s+([A-Z][\w$]*)\s*\(/g)) {
+    const open = code.indexOf("{", code.indexOf(")", m.index ?? 0));
+    if (open !== -1) defs.push({ name: m[1], body: balancedBraces(code, open) });
+  }
+  for (const m of code.matchAll(/\bconst\s+([A-Z][\w$]*)\s*=\s*\([^)]*\)\s*=>\s*/g)) {
+    const at = (m.index ?? 0) + m[0].length;
+    const body = code[at] === "(" ? balancedParens(code, at) : code[at] === "{" ? balancedBraces(code, at) : "";
+    defs.push({ name: m[1], body });
+  }
   let out = expr;
-  for (const m of code.matchAll(/\bconst\s+([\w$]+)\s*=\s*\(\s*</g)) {
-    if (!new RegExp(`(?<![\\w$.])${m[1].replace(/\$/g, "\\$")}(?![\\w$])`).test(expr)) continue;
-    out += `\n${balancedParens(code, code.indexOf("(", m.index ?? 0))}`;
+  let frontier = expr;
+  const seen = new Set<string>();
+  for (let level = 0; level < depth; level++) {
+    const plain = withoutStrings(frontier);
+    let next = "";
+    for (const def of defs) {
+      if (seen.has(def.name)) continue;
+      const id = def.name.replace(/\$/g, "\\$");
+      const asValue = [...plain.matchAll(new RegExp(`(?<![\\w$.])${id}(?![\\w$])`, "g"))].some((u) => {
+        // `{ nome: …}` / `, nome: …` é chave de objeto, não uso do valor.
+        const before = plain.slice(0, u.index).trimEnd().slice(-1);
+        const after = plain.slice((u.index ?? 0) + u[0].length).trimStart()[0];
+        return !((before === "{" || before === ",") && after === ":");
+      });
+      const asTag = jsxPattern(id, false).test(plain);
+      if (!asValue && !asTag) continue;
+      seen.add(def.name);
+      next += `\n${def.body}`;
+    }
+    if (!next) break;
+    out += next;
+    frontier = next;
   }
   return out;
 }
@@ -646,6 +739,13 @@ function keyboardSheetViolations(source: string): string[] {
   for (const event of ["keyboardDidShow", "keyboardDidHide"]) {
     if (!new RegExp(`KeyboardEvents\\s*\\.\\s*addListener\\(\\s*["']${event}["']`).test(code)) hits.push(`sem ${event}`);
   }
+  // Diálogo (R3 da revisão da 13.4): a raiz e o desconto do espaçador recebem o insets.bottom.
+  if (!/\bsheetRootPadding\s*\(\s*insets\.top\s*,\s*placement\s*,\s*insets\.bottom\s*\)/.test(code)) {
+    hits.push("sheetRootPadding sem insets.bottom");
+  }
+  for (const tag of safe) {
+    if (!/,\s*insets\.bottom\s*\)\s*$/.test(tag.exprs.liftDiscount ?? "")) hits.push("liftDiscount sem insets.bottom");
+  }
   // Ajuste até o campo: medido no conteúdo da rolagem, sem scrollY guardado (R3/R4).
   if (!/\.measureLayout\s*\(/.test(code)) hits.push("campo sem measureLayout");
   if (/\bonScroll\s*=|\bscrollY\b/.test(code)) hits.push("scrollY em cache");
@@ -684,6 +784,27 @@ function keyboardListSheetViolations(source: string): string[] {
     new RegExp(`KeyboardEvents\\s*\\.\\s*addListener\\(\\s*["']${event}["']`).test(code),
   );
   if (!/\buseSheetKeyboardHeight\s*\(/.test(code) && !events) hits.push("sem useSheetKeyboardHeight nem os eventos do teclado");
+  // R1: os filhos saem de listSheetSlots (busca sempre no mesmo lugar); nada de trocar cabeçalhos.
+  if (!/\blistSheetSlots\s*\(/.test(code)) hits.push("filhos fora do listSheetSlots(…)");
+  if (/\bcompactHeader\b/.test(code)) hits.push("compactHeader (troca de cabeçalho remonta o campo)");
+  // R5: a medida do título é descartada quando o measureKey muda.
+  if (!/useEffect\s*\([\s\S]*?\[\s*measureKey\s*\]\s*\)/.test(code)) hits.push("measureKey não refaz a medida");
+  return hits;
+}
+
+/** O que falta no WelcomeCarousel: voltar a rolagem ao topo ao trocar de slide (R7) e o "Pular" inteiro no cabeçalho (R8). */
+function carouselViolations(source: string): string[] {
+  const code = stripComments(source);
+  const hits: string[] = [];
+  const ref = scanJsxOpeningTags(source, "KeyboardSheet")[0]?.exprs.scrollRef;
+  if (!ref) hits.push("KeyboardSheet sem scrollRef=");
+  const goTo = code.match(/\bconst\s+goTo\s*=\s*\([^)]*\)\s*=>\s*\{/);
+  const body = goTo ? balancedBraces(code, (goTo.index ?? 0) + goTo[0].length - 1) : "";
+  if (!ref || !new RegExp(`\\b${ref.replace(/[.$]/g, "\\$&")}\\.current\\??\\.scrollTo\\(\\s*\\{\\s*y\\s*:\\s*0\\b`).test(body)) {
+    hits.push("goTo não volta a rolagem vertical ao topo");
+  }
+  const header = scanJsxOpeningTags(source, "KeyboardSheet")[0]?.exprs.header ?? "";
+  if (!/\bminHeight\s*:\s*skipHeaderMinHeight\s*\(/.test(header)) hits.push("cabeçalho sem minHeight: skipHeaderMinHeight(…)");
   return hits;
 }
 
@@ -692,6 +813,8 @@ interface ModalListOptions {
   scrolls: number;
   /** Sem fundo tocável (NO_BACKDROP). */
   noBackdrop?: boolean;
+  /** O título muda de altura sem estar à mostra (abas): exige `measureKey=` (R5). */
+  measureKey?: boolean;
 }
 
 /**
@@ -699,7 +822,10 @@ interface ModalListOptions {
  * KeyboardListSheet. Vale só no trecho do `<Modal>` (o AccountPicker em modo
  * lista tem a busca inline fora dele).
  */
-function modalListViolations(source: string, { scrolls, noBackdrop = false }: ModalListOptions): string[] {
+function modalListViolations(
+  source: string,
+  { scrolls, noBackdrop = false, measureKey = false }: ModalListOptions,
+): string[] {
   const code = stripComments(source);
   const hits: string[] = [];
 
@@ -712,14 +838,20 @@ function modalListViolations(source: string, { scrolls, noBackdrop = false }: Mo
   if (uses.length !== 1) hits.push(`${uses.length} × <KeyboardListSheet (esperado 1)`);
   if (uses.some((inside) => !inside)) hits.push("KeyboardListSheet fora de Modal");
 
-  // 2. a busca fica no header (fixo) e no compactHeader (janela baixa, R-1).
+  // 2. o campo fica no espaço único `search` (sempre renderizado, mesma
+  //    instância com o título à mostra ou recolhido, R1) e nunca no `title`,
+  //    que some em janela baixa. Campo = tag JSX, resolvendo definições locais (R2).
   const tags = scanJsxOpeningTags(source, "KeyboardListSheet");
   for (const tag of tags) {
-    for (const prop of ["header", "compactHeader"]) {
-      const expr = tag.exprs[prop];
-      if (expr === undefined) hits.push(`KeyboardListSheet sem ${prop}={…}`);
-      else if (!hasField(expandLocalJsx(expr, source))) hits.push(`${prop} sem campo`);
+    for (const prop of ["title", "search", "list"]) {
+      if (tag.exprs[prop] === undefined) hits.push(`KeyboardListSheet sem ${prop}={…}`);
     }
+    for (const prop of ["header", "compactHeader"]) {
+      if (new RegExp(`(?:^|\\s)${prop}\\s*=`).test(tag.attrs)) hits.push(`${prop}= (use title e search)`);
+    }
+    if (tag.exprs.search !== undefined && !hasFieldTag(expandLocalJsx(tag.exprs.search, source))) hits.push("search sem campo");
+    if (tag.exprs.title !== undefined && hasFieldTag(expandLocalJsx(tag.exprs.title, source))) hits.push("campo no title");
+    if (measureKey && !/(?:^|\s)measureKey\s*=/.test(tag.attrs)) hits.push("sem measureKey= (título muda de altura)");
   }
 
   // 3. nenhuma segunda compensação de teclado no modal.
@@ -940,7 +1072,7 @@ describe("modais com formulário (Story 13.3)", () => {
 
 describe("buscas e diálogos em modal (Story 13.4)", () => {
   it.each(Object.keys(MODAL_LISTS))(
-    "%s usa o KeyboardListSheet com a busca no header e as rolagens no list=, com toque persistente",
+    "%s usa o KeyboardListSheet com a busca no espaço search (único) e as rolagens no list=, com toque persistente",
     (file) => {
       expect(modalListViolations(read(file), { ...MODAL_LISTS[file], noBackdrop: file in NO_BACKDROP })).toEqual([]);
     },
@@ -948,6 +1080,10 @@ describe("buscas e diálogos em modal (Story 13.4)", () => {
 
   it("o KeyboardListSheet encolhe a lista, desconta a área segura, começa sem teclado e não tem rolagem própria", () => {
     expect(keyboardListSheetViolations(read(KEYBOARD_LIST_SHEET))).toEqual([]);
+  });
+
+  it("o carrossel volta a rolagem ao topo ao trocar de slide e mantém o \"Pular\" inteiro no cabeçalho (R7, R8)", () => {
+    expect(carouselViolations(read("src/components/tour/WelcomeCarousel.tsx"))).toEqual([]);
   });
 
   it.each(Object.keys(MODAL_FIELDS_OUTSIDE))("%s não tem campo dentro de <Modal>", (file) => {
@@ -1194,8 +1330,9 @@ describe("auto-teste dos detectores", () => {
         `const show = KeyboardEvents.addListener("keyboardDidShow", f);`,
         `const hide = KeyboardEvents.addListener("keyboardDidHide", g);`,
         `input.measureLayout(content, ok, fail);`,
+        `const rootPadding = sheetRootPadding(insets.top, placement, insets.bottom);`,
         `return (`,
-        `  <KeyboardSafeView liftDiscount={sheetLiftDiscount(pb)}>`,
+        `  <KeyboardSafeView liftDiscount={sheetLiftDiscount(pb, placement, insets.bottom)}>`,
         `    <ScrollView style={s.scroll} keyboardShouldPersistTaps="handled">{c}</ScrollView>`,
         `  </KeyboardSafeView>`,
         `);`,
@@ -1211,8 +1348,10 @@ describe("auto-teste dos detectores", () => {
         ['keyboardShouldPersistTaps="handled"', 'keyboardShouldPersistTaps="never"', 'ScrollView sem keyboardShouldPersistTaps="handled"'],
         ["sheet: { flexShrink: 1, minHeight: 0 }", "sheet: { minHeight: 0 }", "sheet sem flexShrink: 1"],
         ["scroll: { flexShrink: 1 }", "scroll: { flexGrow: 1 }", "scroll sem flexShrink: 1"],
-        ["liftDiscount={sheetLiftDiscount(pb)}", "liftDiscount={pb - 12}", "liftDiscount sem sheetLiftDiscount(…)"],
-        ["liftDiscount={sheetLiftDiscount(pb)}", "", "liftDiscount sem sheetLiftDiscount(…)"],
+        ["liftDiscount={sheetLiftDiscount(pb, placement, insets.bottom)}", "liftDiscount={pb - 12}", "liftDiscount sem sheetLiftDiscount(…)"],
+        ["liftDiscount={sheetLiftDiscount(pb, placement, insets.bottom)}", "", "liftDiscount sem sheetLiftDiscount(…)"],
+        ["sheetLiftDiscount(pb, placement, insets.bottom)", "sheetLiftDiscount(pb, placement)", "liftDiscount sem insets.bottom"],
+        ["sheetRootPadding(insets.top, placement, insets.bottom)", "sheetRootPadding(insets.top, placement)", "sheetRootPadding sem insets.bottom"],
         ['"keyboardDidShow", f', '"keyboardWillShow", f', "sem keyboardDidShow"],
         ['"keyboardDidHide", g', '"keyboardWillHide", g', "sem keyboardDidHide"],
         ["input.measureLayout(content, ok, fail);", "input.measureInWindow(ok);", "campo sem measureLayout"],
@@ -1248,13 +1387,12 @@ describe("auto-teste dos detectores", () => {
     const listBackdrop = `const onBackdrop = useSheetBackdropPress(close);\n`;
     const search = `const searchBar = (\n  <View>\n    <TextInput value={q} onChangeText={setQ} />\n  </View>\n);\n`;
     const flash = `<FlashList data={d} renderItem={r} keyboardShouldPersistTaps="handled" />`;
-    const okList = `${listImp}${listBackdrop}${search}return (\n  <Modal visible transparent>\n    <Pressable onPress={onBackdrop} />\n    <KeyboardListSheet\n      basePaddingBottom={20}\n      header={<>\n        <Text>Título</Text>\n        {searchBar}\n      </>}\n      compactHeader={searchBar}\n      list={${flash}}\n    />\n  </Modal>\n);`;
+    const okList = `${listImp}${listBackdrop}${search}return (\n  <Modal visible transparent>\n    <Pressable onPress={onBackdrop} />\n    <KeyboardListSheet\n      basePaddingBottom={20}\n      title={<Text>Título</Text>}\n      search={searchBar}\n      list={${flash}}\n    />\n  </Modal>\n);`;
     const one = { scrolls: 1 };
 
-    it("aceita o padrão (busca declarada à parte ou direto no header)", () => {
+    it("aceita o padrão (busca declarada à parte ou direto no search)", () => {
       expect(modalListViolations(okList, one)).toEqual([]);
-      const inline = okList.replace("{searchBar}\n", "<TInput value={q} />\n");
-      expect(modalListViolations(inline, one)).toEqual([]);
+      expect(modalListViolations(okList.replace("search={searchBar}", "search={<TInput value={q} />}"), one)).toEqual([]);
     });
 
     it("acusa KeyboardListSheet fora de Modal, ausente ou sem import", () => {
@@ -1267,18 +1405,60 @@ describe("auto-teste dos detectores", () => {
       );
     });
 
-    it("acusa header ou compactHeader sem campo", () => {
-      const noField = okList.replace("        {searchBar}\n", "");
-      expect(modalListViolations(noField, one)).toContain("header sem campo");
-      expect(modalListViolations(okList.replace("compactHeader={searchBar}", "compactHeader={<Text />}"), one)).toContain(
-        "compactHeader sem campo",
-      );
-      expect(modalListViolations(okList.replace("compactHeader={searchBar}", ""), one)).toContain(
-        "KeyboardListSheet sem compactHeader={…}",
-      );
-      // o nome só conta como identificador inteiro
-      const lookalike = okList.replace("        {searchBar}\n", "        {searchBarLabel}\n");
-      expect(modalListViolations(lookalike, one)).toContain("header sem campo");
+    it("acusa search sem campo, campo no title e a API antiga de cabeçalhos (R1)", () => {
+      expect(modalListViolations(okList.replace("search={searchBar}", "search={<Text />}"), one)).toContain("search sem campo");
+      expect(modalListViolations(okList.replace("search={searchBar}", ""), one)).toContain("KeyboardListSheet sem search={…}");
+      expect(modalListViolations(okList.replace("title={<Text>Título</Text>}", ""), one)).toContain("KeyboardListSheet sem title={…}");
+      const inTitle = okList.replace("title={<Text>Título</Text>}", "title={<>{searchBar}</>}").replace("search={searchBar}", "search={<Text />}");
+      expect(modalListViolations(inTitle, one)).toEqual(expect.arrayContaining(["campo no title", "search sem campo"]));
+      const old = okList.replace("search={searchBar}", "search={searchBar} header={x} compactHeader={searchBar}");
+      expect(modalListViolations(old, one)).toEqual(expect.arrayContaining(["header= (use title e search)", "compactHeader= (use title e search)"]));
+    });
+
+    it("exige o campo como tag JSX: onChangeText sozinho não conta (R2)", () => {
+      const fake = okList.replace("search={searchBar}", "search={<Busca onChangeText={setQ} />}");
+      expect(modalListViolations(fake, one)).toContain("search sem campo");
+    });
+
+    it("resolve definições locais em profundidade limitada (R2)", () => {
+      // dois níveis de const
+      const deep = okList.replace(search, `const field = <TextInput value={q} />;\nconst searchBar = (\n  <View>{field}</View>\n);\n`);
+      expect(modalListViolations(deep, one)).toEqual([]);
+      // componente local
+      const comp = okList.replace(search, `function SearchField() {\n  return <TInput value={q} />;\n}\n`).replace("search={searchBar}", "search={<SearchField />}");
+      expect(modalListViolations(comp, one)).toEqual([]);
+      // campo escondido além da profundidade máxima não conta
+      const chain = `const l0 = <TextInput />;\nconst l1 = (<View>{l0}</View>);\nconst l2 = (<View>{l1}</View>);\nconst l3 = (<View>{l2}</View>);\n`;
+      expect(modalListViolations(okList.replace(search, chain).replace("search={searchBar}", "search={l3}"), one)).toContain("search sem campo");
+    });
+
+    it("não confunde o nome com chave de objeto, texto ou nome parecido (R2)", () => {
+      const lookalike = okList.replace("search={searchBar}", "search={searchBarLabel}");
+      expect(modalListViolations(lookalike, one)).toContain("search sem campo");
+      const key = okList.replace("search={searchBar}", "search={<Busca style={{ searchBar: 1 }} />}");
+      expect(modalListViolations(key, one)).toContain("search sem campo");
+      const text = okList.replace("search={searchBar}", `search={<Text>{"searchBar"}</Text>}`);
+      expect(modalListViolations(text, one)).toContain("search sem campo");
+      // ternário continua sendo uso do valor
+      const ternary = okList.replace("search={searchBar}", "search={tab ? searchBar : null}");
+      expect(modalListViolations(ternary, one)).toEqual([]);
+    });
+
+    it("exige measureKey= quando o título muda de altura (R5)", () => {
+      expect(modalListViolations(okList, { ...one, measureKey: true })).toContain("sem measureKey= (título muda de altura)");
+      expect(modalListViolations(okList.replace("basePaddingBottom={20}", "basePaddingBottom={20}\n      measureKey={tab}"), { ...one, measureKey: true })).toEqual([]);
+    });
+
+    it("reconhece alias de import do Modal (R2)", () => {
+      const aliased = okList
+        .replace(listImp, `${listImp}import { Modal as RNModal } from "react-native";\n`)
+        .replace("<Modal visible transparent>", "<RNModal visible transparent>")
+        .replace("</Modal>", "</RNModal>");
+      expect(modalListViolations(aliased, one)).toEqual([]);
+      const probe = `import { Modal as Dialog, TextInput } from "react-native";\nreturn <Dialog visible><TextInput /></Dialog>;`;
+      expect(hasModalWithField(probe)).toBe(true);
+      expect(fieldsInsideModal(probe)).toBe(1);
+      expect(modalSegments(probe)).toHaveLength(1);
     });
 
     it("acusa FlashList sem keyboardShouldPersistTaps=\"handled\"", () => {
@@ -1323,9 +1503,10 @@ describe("auto-teste dos detectores", () => {
     describe("keyboardListSheetViolations", () => {
       const listSheet = [
         `const keyboardHeight = useSheetKeyboardHeight();`,
+        `useEffect(() => {\n  setTitleHeight(0);\n}, [measureKey]);`,
         `return (`,
         `  <KeyboardSafeView liftDiscount={sheetLiftDiscount(pb)}>`,
-        `    <Reanimated.View style={s.sheet}>{header}<View style={s.list}>{list}</View></Reanimated.View>`,
+        `    <Reanimated.View style={s.sheet}>{listSheetSlots(collapsed).map((k) => (k ? slots[k] : null))}<View style={s.list}>{list}</View></Reanimated.View>`,
         `  </KeyboardSafeView>`,
         `);`,
         `const s = StyleSheet.create({ sheet: { flexShrink: 1, minHeight: 0 }, list: { flexShrink: 1, minHeight: 0 } });`,
@@ -1349,6 +1530,9 @@ describe("auto-teste dos detectores", () => {
         ["{list}</View>", "{list}<KeyboardStickyView /></View>", "<KeyboardStickyView"],
         ["const keyboardHeight = useSheetKeyboardHeight();", "", "sem useSheetKeyboardHeight nem os eventos do teclado"],
         ["</KeyboardSafeView>", "</KeyboardSafeView><KeyboardSafeView />", "2 × <KeyboardSafeView (esperado 1)"],
+        ["{listSheetSlots(collapsed).map((k) => (k ? slots[k] : null))}", "{collapsed ? compactHeader : header}", "filhos fora do listSheetSlots(…)"],
+        ["{listSheetSlots(collapsed).map((k) => (k ? slots[k] : null))}", "{collapsed ? compactHeader : header}", "compactHeader (troca de cabeçalho remonta o campo)"],
+        ["}, [measureKey]);", "}, []);", "measureKey não refaz a medida"],
       ])("acusa %s → %s", (from, to, hit) => {
         expect(keyboardListSheetViolations(listSheet.replace(from, to))).toContain(hit);
       });
@@ -1357,6 +1541,34 @@ describe("auto-teste dos detectores", () => {
         expect(keyboardListSheetViolations(`${listSheet}\nconst h = useKeyboardState((st) => st.height);`)).toContain(
           "lê o estado global do teclado",
         );
+      });
+    });
+
+    describe("carouselViolations (R7, R8)", () => {
+      const carousel = [
+        `const goTo = (idx: number) => {`,
+        `  pager.current?.scrollTo({ x: idx * W, animated: true });`,
+        `  sheetScrollRef.current?.scrollTo({ y: 0, animated: false });`,
+        `  setSlide(idx);`,
+        `};`,
+        `return (`,
+        `  <KeyboardSheet placement="fill" scrollRef={sheetScrollRef} header={<View style={{ paddingTop: p, minHeight: skipHeaderMinHeight(SKIP_TOP, fontScale) }} />} footer={<View />}>`,
+        `    {slides}`,
+        `  </KeyboardSheet>`,
+        `);`,
+      ].join("\n");
+
+      it("aceita o padrão", () => {
+        expect(carouselViolations(carousel)).toEqual([]);
+      });
+
+      it.each([
+        [" scrollRef={sheetScrollRef}", "", "KeyboardSheet sem scrollRef="],
+        ["  sheetScrollRef.current?.scrollTo({ y: 0, animated: false });\n", "", "goTo não volta a rolagem vertical ao topo"],
+        ["sheetScrollRef.current?.scrollTo({ y: 0,", "other.current?.scrollTo({ y: 0,", "goTo não volta a rolagem vertical ao topo"],
+        [", minHeight: skipHeaderMinHeight(SKIP_TOP, fontScale)", "", "cabeçalho sem minHeight: skipHeaderMinHeight(…)"],
+      ])("acusa %s → %s", (from, to, hit) => {
+        expect(carouselViolations(carousel.replace(from, to))).toContain(hit);
       });
     });
 

@@ -55,6 +55,11 @@ interface KeyboardSheetProps {
    * segura fica com o chamador).
    */
   placement?: SheetPlacement;
+  /**
+   * Ref da rolagem vertical da folha, para o chamador voltar ao topo (ex.: o
+   * carrossel ao trocar de slide, R7 da revisão da 13.4).
+   */
+  scrollRef?: React.RefObject<ScrollView | null>;
   /** Estilo do conteúdo da rolagem. */
   contentContainerStyle?: StyleProp<ViewStyle>;
   /**
@@ -119,16 +124,18 @@ export function KeyboardSheet({
   contentContainerStyle,
   footerVisible = true,
   placement = "bottom",
+  scrollRef: externalScrollRef,
 }: KeyboardSheetProps) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const keyboardHeight = useSheetKeyboardHeight();
   const [headerHeight, setHeaderHeight] = useState(0);
   const [footerHeight, setFooterHeight] = useState(0);
-  const scrollRef = useRef<ScrollView>(null);
+  const ownScrollRef = useRef<ScrollView>(null);
+  const scrollRef = externalScrollRef ?? ownScrollRef;
 
   const sheetPaddingBottom = sheetPaddingBottomFor(insets.bottom, basePaddingBottom, placement);
-  const rootPadding = sheetRootPadding(insets.top, placement);
+  const rootPadding = sheetRootPadding(insets.top, placement, insets.bottom);
   const layout = computeKeyboardSheetLayout({
     windowHeight,
     keyboardHeight,
@@ -138,6 +145,7 @@ export function KeyboardSheet({
     footerHeight: footerVisible ? footerHeight : 0,
     maxHeightRatio,
     placement,
+    insetBottom: insets.bottom,
   });
 
   const scrollFocusedIntoView = useCallback(() => {
@@ -167,7 +175,7 @@ export function KeyboardSheet({
       },
       () => {},
     );
-  }, []);
+  }, [scrollRef]);
 
   // Fim da animação do teclado (keyboardDidShow) ou mudança de lugar do rodapé
   // ou do cabeçalho: leva o campo focado para a área visível, com folga. Trocar
@@ -204,7 +212,7 @@ export function KeyboardSheet({
           paddingHorizontal: rootPadding.horizontal,
         },
       ]}
-      liftDiscount={sheetLiftDiscount(sheetPaddingBottom, placement)}
+      liftDiscount={sheetLiftDiscount(sheetPaddingBottom, placement, insets.bottom)}
       pointerEvents="box-none"
     >
       <Animated.View

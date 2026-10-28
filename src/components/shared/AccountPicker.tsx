@@ -80,24 +80,6 @@ function CompactAccountPicker({
   // Com o teclado aberto, o 1º toque no fundo só fecha o teclado (Story 13.4).
   const onBackdrop = useSheetBackdropPress(handleClose);
 
-  const searchBox = (
-    <View style={[cs.searchBox, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-      <Feather name="search" size={15} color={theme.secondaryText} />
-      <TextInput
-        style={[cs.searchInput, { color: theme.textColor }]}
-        placeholder="Buscar conta..."
-        placeholderTextColor={theme.secondaryText}
-        value={search}
-        onChangeText={setSearch}
-      />
-      {search.length > 0 && (
-        <Pressable onPress={() => setSearch("")} hitSlop={8}>
-          <Feather name="x-circle" size={15} color={theme.secondaryText} />
-        </Pressable>
-      )}
-    </View>
-  );
-
   return (
     <>
       {/* Trigger */}
@@ -145,7 +127,7 @@ function CompactAccountPicker({
           sheetStyle={[cs.sheet, { backgroundColor: theme.background }]}
           maxHeightRatio={0.75}
           basePaddingBottom={20}
-          header={
+          title={
             <>
               {/* Handle */}
               <View style={[cs.handle, { backgroundColor: theme.border }]} />
@@ -157,12 +139,25 @@ function CompactAccountPicker({
                   <Feather name="x" size={22} color={theme.secondaryText} />
                 </Pressable>
               </View>
-
-              {/* Search */}
-              {searchBox}
             </>
           }
-          compactHeader={searchBox}
+          search={
+            <View style={[cs.searchBox, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+              <Feather name="search" size={15} color={theme.secondaryText} />
+              <TextInput
+                style={[cs.searchInput, { color: theme.textColor }]}
+                placeholder="Buscar conta..."
+                placeholderTextColor={theme.secondaryText}
+                value={search}
+                onChangeText={setSearch}
+              />
+              {search.length > 0 && (
+                <Pressable onPress={() => setSearch("")} hitSlop={8}>
+                  <Feather name="x-circle" size={15} color={theme.secondaryText} />
+                </Pressable>
+              )}
+            </View>
+          }
           list={
             <ScrollView
               style={{ flexGrow: 1 }}

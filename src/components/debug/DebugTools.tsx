@@ -177,16 +177,6 @@ export function DebugTools() {
     </View>
   );
 
-  const trophySearch = (
-    <TextInput
-      style={[st.search, { color: theme.textColor, borderColor: theme.border, backgroundColor: theme.cardBackground }]}
-      placeholder="Search trophies..."
-      placeholderTextColor={theme.secondaryText}
-      value={search}
-      onChangeText={setSearch}
-    />
-  );
-
   // Early-return DEPOIS de todos os hooks (rules-of-hooks); __DEV__ é constante
   if (!__DEV__) return null;
 
@@ -207,7 +197,8 @@ export function DebugTools() {
             sheetStyle={[st.container, { backgroundColor: theme.background }]}
             heightRatio={0.85}
             basePaddingBottom={20}
-            header={
+            measureKey={activeTab}
+            title={
               <>
                 <View style={[st.header, { borderBottomColor: theme.border }]}>
                   <Text style={[st.headerTitle, { color: theme.textColor }]}>Debug Kitchen Sink</Text>
@@ -219,39 +210,42 @@ export function DebugTools() {
                 {tabsRow}
 
                 {activeTab === "trophies" && (
-                  <>
-                    <View style={{ marginBottom: 15 }}>
-                      <Text style={[st.label, { color: theme.textColor, marginBottom: 8 }]}>Troféu do Mês - Testar Nível (Tier):</Text>
-                      <View style={{ flexDirection: 'row', gap: 8 }}>
-                        {[1, 2, 3, 4].map(tier => (
-                          <TouchableOpacity
-                            key={tier}
-                            onPress={() => setDebugTier(tier)}
-                            style={[
-                              st.tierBtn,
-                              { borderColor: getTierColor(tier) },
-                              debugTier === tier && { backgroundColor: getTierColor(tier) + '22' }
-                            ]}
-                          >
-                            <Text style={{ color: getTierColor(tier), fontWeight: '700', fontSize: 12 }}>T{tier}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
+                  <View style={{ marginBottom: 15 }}>
+                    <Text style={[st.label, { color: theme.textColor, marginBottom: 8 }]}>Troféu do Mês - Testar Nível (Tier):</Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {[1, 2, 3, 4].map(tier => (
+                        <TouchableOpacity
+                          key={tier}
+                          onPress={() => setDebugTier(tier)}
+                          style={[
+                            st.tierBtn,
+                            { borderColor: getTierColor(tier) },
+                            debugTier === tier && { backgroundColor: getTierColor(tier) + '22' }
+                          ]}
+                        >
+                          <Text style={{ color: getTierColor(tier), fontWeight: '700', fontSize: 12 }}>T{tier}</Text>
+                        </TouchableOpacity>
+                      ))}
                     </View>
-                    {trophySearch}
-
-                    <Text style={{ fontSize: 11, color: theme.secondaryText, marginBottom: 8 }}>
-                      {filteredTrophies.length} troféus encontrados
-                    </Text>
-                  </>
+                  </View>
                 )}
               </>
             }
-            compactHeader={
-              <>
-                {tabsRow}
-                {activeTab === "trophies" && trophySearch}
-              </>
+            search={
+              activeTab === "trophies" ? (
+                <>
+                  <TextInput
+                    style={[st.search, { color: theme.textColor, borderColor: theme.border, backgroundColor: theme.cardBackground }]}
+                    placeholder="Search trophies..."
+                    placeholderTextColor={theme.secondaryText}
+                    value={search}
+                    onChangeText={setSearch}
+                  />
+                  <Text style={{ fontSize: 11, color: theme.secondaryText, marginBottom: 8 }}>
+                    {filteredTrophies.length} troféus encontrados
+                  </Text>
+                </>
+              ) : null
             }
             list={
               activeTab === "trophies" ? (

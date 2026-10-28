@@ -5,6 +5,8 @@ import {
   computeFocusScrollTarget,
   computeKeyboardListSheetLayout,
   computeKeyboardSheetLayout,
+  listSheetHeaderHeight,
+  listSheetSlots,
   keyboardLift,
   sheetKeyboardHeight,
   sheetLiftDiscount,
@@ -330,14 +332,16 @@ describe("computeFocusScrollTarget (posição medida, sem scrollY guardado)", ()
 // ─── Story 13.4 ──────────────────────────────────────────────────────────────
 
 describe("placement (Story 13.4)", () => {
-  it("sheetLiftDiscount: no diálogo centrado é 0 (o espaçador é o teclado inteiro)", () => {
+  it("sheetLiftDiscount: no diálogo centrado é o insets.bottom (a raiz já reserva a barra de navegação)", () => {
     expect(sheetLiftDiscount(24, "center")).toBe(0);
-    expect(sheetLiftDiscount(48, "center")).toBe(0);
-    expect(keyboardLift(320, sheetLiftDiscount(24, "center"))).toBe(320);
+    expect(sheetLiftDiscount(24, "center", 48)).toBe(48);
+    expect(keyboardLift(320, sheetLiftDiscount(24, "center", 48))).toBe(320 - 48);
+    expect(sheetLiftDiscount(24, "center", Number.NaN)).toBe(0);
   });
 
-  it("sheetLiftDiscount: bottom (padrão) e fill descontam como na 13.3", () => {
+  it("sheetLiftDiscount: bottom (padrão) e fill descontam como na 13.3, sem olhar o insets.bottom", () => {
     expect(sheetLiftDiscount(48, "bottom")).toBe(sheetLiftDiscount(48));
+    expect(sheetLiftDiscount(48, "bottom", 48)).toBe(48 - SHEET_KEYBOARD_GAP);
     expect(sheetLiftDiscount(48, "fill")).toBe(48 - SHEET_KEYBOARD_GAP);
   });
 
@@ -349,69 +353,67 @@ describe("placement (Story 13.4)", () => {
     expect(sheetPaddingBottomFor(Number.NaN, -1)).toBe(0);
   });
 
-  it("sheetRootPadding: bottom só no topo; center com a margem do diálogo; fill sem padding", () => {
+  it("sheetRootPadding: bottom só no topo; center com a margem do diálogo mais a barra de navegação; fill sem padding", () => {
     expect(sheetRootPadding(24)).toEqual({ top: 24 + SHEET_TOP_GAP, bottom: 0, horizontal: 0 });
-    expect(sheetRootPadding(24, "center")).toEqual({
+    expect(sheetRootPadding(24, "bottom", 48)).toEqual({ top: 24 + SHEET_TOP_GAP, bottom: 0, horizontal: 0 });
+    expect(sheetRootPadding(24, "center", 48)).toEqual({
       top: 24 + SHEET_TOP_GAP,
-      bottom: DIALOG_EDGE_PADDING,
+      bottom: DIALOG_EDGE_PADDING + 48,
       horizontal: DIALOG_EDGE_PADDING,
     });
-    expect(sheetRootPadding(24, "fill")).toEqual({ top: 0, bottom: 0, horizontal: 0 });
+    expect(sheetRootPadding(24, "fill", 48)).toEqual({ top: 0, bottom: 0, horizontal: 0 });
     expect(DIALOG_EDGE_PADDING).toBeGreaterThanOrEqual(8);
   });
 
-  it('o padrão é "bottom": mesmo resultado com e sem placement', () => {
+  it('o padrão é "bottom": mesmo resultado com e sem placement, e o insetBottom não muda nada', () => {
     for (const kb of [0, 200, 320]) {
       const input = { ...portrait, keyboardHeight: kb };
-      expect(computeKeyboardSheetLayout({ ...input, placement: "bottom" })).toEqual(computeKeyboardSheetLayout(input));
+      expect(computeKeyboardSheetLayout({ ...input, placement: "bottom", insetBottom: 48 })).toEqual(
+        computeKeyboardSheetLayout(input),
+      );
     }
   });
 
-  it("center, retrato 412×900 com teclado de 320: o cartão cabe entre a barra de status e o teclado, descontando a margem da raiz", () => {
-    const pb = sheetPaddingBottomFor(48, 24, "center");
-    const r = computeKeyboardSheetLayout({
-      windowHeight: 900,
-      keyboardHeight: 320,
-      insetTop: 24,
-      sheetPaddingBottom: pb,
-      headerHeight: 120,
-      footerHeight: 56,
-      maxHeightRatio: 1,
-      placement: "center",
-    });
-    expect(r.lift).toBe(320);
-    expect(r.sheetMaxHeight).toBe(900 - 24 - SHEET_TOP_GAP - DIALOG_EDGE_PADDING - 320);
-    // Fundo do cartão no pior caso (cartão do tamanho máximo) = topo do teclado − margem.
+  // Diálogo: janela 412×900, status 24, barra de navegação 48 (3 botões), cartão com paddingBottom 24.
+  const dialog = {
+    windowHeight: 900,
+    insetTop: 24,
+    insetBottom: 48,
+    sheetPaddingBottom: sheetPaddingBottomFor(48, 24, "center"),
+    headerHeight: 120,
+    footerHeight: 56,
+    maxHeightRatio: 1,
+    placement: "center" as const,
+  };
+
+  it("center com teclado fechado: o cartão fica entre a barra de status e a barra de navegação, com as margens (R3)", () => {
+    const r = computeKeyboardSheetLayout({ ...dialog, keyboardHeight: 0 });
+    expect(r.lift).toBe(0);
+    expect(r.sheetMaxHeight).toBe(900 - 24 - SHEET_TOP_GAP - DIALOG_EDGE_PADDING - 48);
+    // Pior caso (cartão do tamanho máximo): termina a DIALOG_EDGE_PADDING da barra de navegação.
     const cardBottom = 24 + SHEET_TOP_GAP + r.sheetMaxHeight;
-    expect(900 - 320 - cardBottom).toBe(DIALOG_EDGE_PADDING);
-    expect(r.footerPinned).toBe(true);
+    expect(900 - 48 - cardBottom).toBe(DIALOG_EDGE_PADDING);
   });
 
-  it("center com teclado fechado: só a barra de status e a margem limitam o cartão", () => {
-    const r = computeKeyboardSheetLayout({
-      windowHeight: 900,
-      keyboardHeight: 0,
-      insetTop: 24,
-      sheetPaddingBottom: 24,
-      headerHeight: 120,
-      footerHeight: 56,
-      maxHeightRatio: 1,
-      placement: "center",
-    });
-    expect(r.lift).toBe(0);
-    expect(r.sheetMaxHeight).toBe(900 - 24 - SHEET_TOP_GAP - DIALOG_EDGE_PADDING);
+  it("center, retrato 412×900 com teclado de 320 (já com a barra): a barra de navegação não conta duas vezes", () => {
+    const r = computeKeyboardSheetLayout({ ...dialog, keyboardHeight: 320 });
+    expect(r.lift).toBe(320 - 48);
+    expect(r.sheetMaxHeight).toBe(900 - 24 - SHEET_TOP_GAP - DIALOG_EDGE_PADDING - 320);
+    const cardBottom = 24 + SHEET_TOP_GAP + r.sheetMaxHeight;
+    expect(900 - 320 - cardBottom).toBe(DIALOG_EDGE_PADDING);
+    // O topo desconta a barra de status uma vez só.
+    expect(cardBottom - r.sheetMaxHeight).toBe(24 + SHEET_TOP_GAP);
+    expect(r.footerPinned).toBe(true);
   });
 
   it("center, paisagem 800×360 com teclado de 200: o rodapé vai para a rolagem (D-3 da 13.3)", () => {
     const r = computeKeyboardSheetLayout({
+      ...dialog,
       windowHeight: 360,
-      keyboardHeight: 200,
       insetTop: 0,
-      sheetPaddingBottom: 24,
+      insetBottom: 0,
       headerHeight: 110,
-      footerHeight: 56,
-      maxHeightRatio: 1,
-      placement: "center",
+      keyboardHeight: 200,
     });
     expect(r.sheetMaxHeight).toBe(360 - SHEET_TOP_GAP - DIALOG_EDGE_PADDING - 200);
     expect(r.footerPinned).toBe(false);
@@ -419,27 +421,17 @@ describe("placement (Story 13.4)", () => {
 
   it("fill: a folha vai do topo da tela até o espaçador", () => {
     const pb = sheetPaddingBottomFor(48, 48 + 16, "fill");
-    const closed = computeKeyboardSheetLayout({
+    const base = {
       windowHeight: 900,
-      keyboardHeight: 0,
       insetTop: 24,
       sheetPaddingBottom: pb,
       headerHeight: 40,
       footerHeight: 64,
       maxHeightRatio: 1,
-      placement: "fill",
-    });
-    expect(closed.sheetMaxHeight).toBe(900);
-    const open = computeKeyboardSheetLayout({
-      windowHeight: 900,
-      keyboardHeight: 320,
-      insetTop: 24,
-      sheetPaddingBottom: pb,
-      headerHeight: 40,
-      footerHeight: 64,
-      maxHeightRatio: 1,
-      placement: "fill",
-    });
+      placement: "fill" as const,
+    };
+    expect(computeKeyboardSheetLayout({ ...base, keyboardHeight: 0 }).sheetMaxHeight).toBe(900);
+    const open = computeKeyboardSheetLayout({ ...base, keyboardHeight: 320 });
     expect(open.lift).toBe(320 - (pb - SHEET_KEYBOARD_GAP));
     expect(open.sheetMaxHeight).toBe(900 - open.lift);
     // Barra "Começar Tour!" logo acima do teclado, com a folga.
@@ -448,14 +440,13 @@ describe("placement (Story 13.4)", () => {
   });
 });
 
-// Busca: janela 412×900, status 24, paddingBottom 20, cabeçalho completo até
-// 130 (alça, título, busca), compacto até 62 (só a busca), 80% da janela.
+// Busca: janela 412×900, status 24, paddingBottom 20, cabeçalho com o título
+// até 130 (alça, título, busca), 80% da janela.
 const listPortrait = {
   windowHeight: 900,
   insetTop: 24,
   sheetPaddingBottom: 20,
   headerHeight: 130,
-  compactHeaderHeight: 62,
   maxHeightRatio: 0.8,
 };
 
@@ -464,60 +455,37 @@ describe("computeKeyboardListSheetLayout (Story 13.4)", () => {
     expect(MIN_LIST_SPACE).toBe(MIN_FIELD_SPACE);
   });
 
-  it("retrato 412×900 com teclado de 320: cabeçalho completo e lista com pelo menos uma linha", () => {
+  it("retrato 412×900 com teclado de 320: título à mostra e lista com pelo menos uma linha", () => {
     const r = computeKeyboardListSheetLayout({ ...listPortrait, keyboardHeight: 320 });
     expect(r.lift).toBe(320 - (20 - SHEET_KEYBOARD_GAP));
     expect(r.sheetMaxHeight).toBe(900 - 24 - SHEET_TOP_GAP - r.lift);
-    expect(r.listSpace).toBe(r.sheetMaxHeight - 130 - 20);
-    expect(r.listSpace).toBeGreaterThanOrEqual(MIN_LIST_SPACE);
-    expect(r.headerCompact).toBe(false);
+    expect(r.sheetMaxHeight - 130 - 20).toBeGreaterThanOrEqual(MIN_LIST_SPACE);
+    expect(r.titleCollapsed).toBe(false);
     // Fundo da lista = topo do teclado − folga (≥ 8 dp do FR-29).
     expect(900 - 320 - (900 - r.lift - 20)).toBe(SHEET_KEYBOARD_GAP);
   });
 
-  it("paisagem 800×360 com teclado de 200: o cabeçalho vira o compacto (R-1)", () => {
-    const r = computeKeyboardListSheetLayout({
-      ...listPortrait,
-      windowHeight: 360,
-      insetTop: 0,
-      keyboardHeight: 200,
-    });
-    // sheetMaxHeight = 360 − 8 − (200 − 8) = 160; completo: 160 − 130 − 20 = 10 < 48.
+  it("paisagem 800×360 com teclado de 200: o título recolhe (R-1)", () => {
+    const r = computeKeyboardListSheetLayout({ ...listPortrait, windowHeight: 360, insetTop: 0, keyboardHeight: 200 });
+    // sheetMaxHeight = 360 − 8 − (200 − 8) = 160; com o título: 160 − 130 − 20 = 10 < 48.
     expect(r.sheetMaxHeight).toBe(160);
-    expect(r.headerCompact).toBe(true);
-    expect(r.listSpace).toBe(160 - 62 - 20);
-    expect(r.listSpace).toBeGreaterThanOrEqual(MIN_LIST_SPACE);
+    expect(r.titleCollapsed).toBe(true);
   });
 
-  it("sem espaço nem com o compacto: a busca fica e a lista fica com 0", () => {
-    const r = computeKeyboardListSheetLayout({
-      ...listPortrait,
-      windowHeight: 300,
-      insetTop: 0,
-      keyboardHeight: 260,
-    });
-    expect(r.headerCompact).toBe(true);
-    expect(r.listSpace).toBe(0);
-  });
-
-  it("limite exato de MIN_LIST_SPACE: completo com 48, compacto com 47", () => {
+  it("limite exato de MIN_LIST_SPACE: título à mostra com 48, recolhido com 47", () => {
     // sheetMaxHeight = 900 − 24 − 8 − (320 − 8) = 556; lista = 556 − header − 20.
-    const atLimit = computeKeyboardListSheetLayout({ ...listPortrait, keyboardHeight: 320, headerHeight: 556 - 20 - 48 });
-    expect(atLimit.listSpace).toBe(48);
-    expect(atLimit.headerCompact).toBe(false);
-    const below = computeKeyboardListSheetLayout({ ...listPortrait, keyboardHeight: 320, headerHeight: 556 - 20 - 47 });
-    expect(below.headerCompact).toBe(true);
-    expect(below.listSpace).toBe(556 - 62 - 20);
+    expect(computeKeyboardListSheetLayout({ ...listPortrait, keyboardHeight: 320, headerHeight: 556 - 20 - 48 }).titleCollapsed).toBe(false);
+    expect(computeKeyboardListSheetLayout({ ...listPortrait, keyboardHeight: 320, headerHeight: 556 - 20 - 47 }).titleCollapsed).toBe(true);
   });
 
   it.each([
     { ...listPortrait },
     { ...listPortrait, windowHeight: 360, headerHeight: 400 },
     { ...listPortrait, windowHeight: 100 },
-  ])("teclado fechado: cabeçalho completo e lift 0 (%#)", (input) => {
+  ])("teclado fechado: título à mostra e lift 0 (%#)", (input) => {
     const r = computeKeyboardListSheetLayout({ ...input, keyboardHeight: 0 });
     expect(r.lift).toBe(0);
-    expect(r.headerCompact).toBe(false);
+    expect(r.titleCollapsed).toBe(false);
   });
 
   it("altura fixa (heightRatio 0,85 do DebugTools) encolhe com o teclado e volta ao fechar", () => {
@@ -525,19 +493,15 @@ describe("computeKeyboardListSheetLayout (Story 13.4)", () => {
     const closed = computeKeyboardListSheetLayout({ ...base, keyboardHeight: 0 });
     expect(closed.sheetMaxHeight).toBe(0.85 * 900);
     const open = computeKeyboardListSheetLayout({ ...base, keyboardHeight: 320 });
-    expect(open.sheetMaxHeight).toBeLessThan(closed.sheetMaxHeight);
     expect(open.sheetMaxHeight).toBe(900 - 24 - SHEET_TOP_GAP - open.lift);
+    expect(open.sheetMaxHeight).toBeLessThan(closed.sheetMaxHeight);
     expect(computeKeyboardListSheetLayout({ ...base, keyboardHeight: 0 })).toEqual(closed);
   });
 
   it("mesmas contas de lift e altura do KeyboardSheet (bottom)", () => {
     for (const kb of [0, 30, 200, 320]) {
       const list = computeKeyboardListSheetLayout({ ...listPortrait, keyboardHeight: kb });
-      const sheet = computeKeyboardSheetLayout({
-        ...listPortrait,
-        footerHeight: 0,
-        keyboardHeight: kb,
-      });
+      const sheet = computeKeyboardSheetLayout({ ...listPortrait, footerHeight: 0, keyboardHeight: kb });
       expect(list.lift).toBe(sheet.lift);
       expect(list.sheetMaxHeight).toBe(sheet.sheetMaxHeight);
     }
@@ -550,9 +514,41 @@ describe("computeKeyboardListSheetLayout (Story 13.4)", () => {
       insetTop: Number.POSITIVE_INFINITY,
       sheetPaddingBottom: -1,
       headerHeight: Number.NaN,
-      compactHeaderHeight: -3,
       maxHeightRatio: 3,
     });
-    expect(r).toEqual({ lift: 0, sheetMaxHeight: 0, listSpace: 0, headerCompact: false });
+    expect(r).toEqual({ lift: 0, sheetMaxHeight: 0, titleCollapsed: false });
+  });
+});
+
+describe("folha de busca: o campo nunca remonta ao recolher o título (R1 da revisão)", () => {
+  it("a busca e a lista ficam no mesmo índice com o título à mostra e recolhido", () => {
+    const open = listSheetSlots(false);
+    const collapsed = listSheetSlots(true);
+    expect(open).toEqual(["title", "search", "list"]);
+    expect(collapsed).toEqual([null, "search", "list"]);
+    expect(open.length).toBe(collapsed.length);
+    for (const slot of ["search", "list"] as const) expect(collapsed.indexOf(slot)).toBe(open.indexOf(slot));
+  });
+
+  it("a altura com o título vem das medidas, com ou sem o título na tela", () => {
+    // Título à mostra: a busca termina em 16 (paddingTop) + 70 (título) + 44 (busca).
+    expect(listSheetHeaderHeight(130, 70, false)).toBe(130);
+    // Recolhido: a busca sobe e termina em 16 + 44; soma a última altura do título.
+    expect(listSheetHeaderHeight(60, 70, true)).toBe(130);
+    expect(listSheetHeaderHeight(Number.NaN, -1, true)).toBe(0);
+  });
+
+  it("caminho do R1: paisagem com teclado recolhe, a decisão fica estável com as medidas do recolhido e volta ao fechar", () => {
+    const landscape = { ...listPortrait, windowHeight: 360, insetTop: 0 };
+    const step1 = computeKeyboardListSheetLayout({ ...landscape, keyboardHeight: 200, headerHeight: listSheetHeaderHeight(130, 70, false) });
+    expect(step1.titleCollapsed).toBe(true);
+    // Depois de recolher, a busca é medida mais acima: a altura com o título continua 130, não alterna.
+    const step2 = computeKeyboardListSheetLayout({ ...landscape, keyboardHeight: 200, headerHeight: listSheetHeaderHeight(60, 70, true) });
+    expect(step2.titleCollapsed).toBe(true);
+    // A busca segue no mesmo lugar da árvore nos dois estados.
+    expect(listSheetSlots(step1.titleCollapsed).indexOf("search")).toBe(listSheetSlots(false).indexOf("search"));
+    // Fechar o teclado mostra o título de novo.
+    const closed = computeKeyboardListSheetLayout({ ...landscape, keyboardHeight: 0, headerHeight: listSheetHeaderHeight(60, 70, true) });
+    expect(closed.titleCollapsed).toBe(false);
   });
 });

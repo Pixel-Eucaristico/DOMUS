@@ -2,7 +2,7 @@
 title: 'Story 13.4: fazer as buscas e diálogos em modal subirem'
 type: 'bugfix'
 created: '2026-10-28'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'a836f8b413766cd5894c1885982dde56206f7416'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -125,8 +125,9 @@ Conferido no baseline: nenhum outro arquivo de `app/`, `src/` ou `components/` c
 
 É o contêiner de folha com busca e lista dentro de `Modal`. O modal continua dono do `<Modal>`, do fundo escuro, do `onRequestClose` e da animação. Props:
 
-- `header`: alça, título, X e o campo de busca. **Sempre fixo.**
-- `compactHeader`: só o campo de busca (e o que mais for indispensável), usado em janela baixa (R-1).
+- `title`: alça, título, X (e abas), **sem campo**. Recolhe em janela baixa (R-1).
+- `search`: o campo de busca (e o que o acompanha, como a contagem). **Sempre renderizado, na mesma posição da árvore** (`listSheetSlots`), então o campo é a mesma instância com o título à mostra ou recolhido e o teclado não fecha (R1 da revisão).
+- `measureKey` opcional: quando muda (aba do `DebugTools`), a medida do título é refeita (R5 da revisão).
 - `list`: um único elemento rolável vertical (`FlashList`, `FlatList` ou `ScrollView`), com `keyboardShouldPersistTaps="handled"`.
 - `sheetStyle`: cores, cantos e padding horizontal.
 - `maxHeightRatio`: 0,80 ou 0,75, como hoje. Ou `heightRatio`, para altura fixa, como no `DebugTools`.
@@ -136,22 +137,23 @@ Conferido no baseline: nenhum outro arquivo de `app/`, `src/` ou `components/` c
 Estrutura:
 - **Raiz:** `KeyboardSafeView` com `flex: 1`, `justifyContent: "flex-end"`, `paddingTop: insets.top + SHEET_TOP_GAP`, `pointerEvents="box-none"` e `liftDiscount={sheetLiftDiscount(paddingBottom)}`, como no `KeyboardSheet`.
 - **Folha:** `flexShrink: 1`, `minHeight: 0`, `maxHeight` (ou `height`) igual a razão × janela e `paddingBottom: max(insets.bottom, base)`.
-- **Cabeçalho:** fixo, medido no `onLayout`.
+- **Título e busca:** fixos, medidos no `onLayout` (altura do título e fim da busca, `listSheetHeaderHeight`).
 - **Lista:** o `list` dentro de uma `View` com `flexShrink: 1` e `minHeight: 0`. É ela que encolhe.
 
 Diferenças em relação ao `KeyboardSheet`:
-- não tem `ScrollView` próprio nem ajuste até o campo, porque o campo está no cabeçalho fixo e nunca rola;
+- não tem `ScrollView` próprio nem ajuste até o campo, porque o campo está na busca fixa e nunca rola;
 - não tem rodapé obrigatório, porque a seleção é o toque na linha.
 
 A altura do teclado vem do mesmo padrão R6 (`sheetKeyboardHeight`, começa em 0). Para isso, o `useSheetKeyboardHeight` sai do `KeyboardSheet.tsx` e passa a ser exportado e reusado.
 
 **Conta pura nova em `keyboardSheetLayout.ts`:**
 
-`computeKeyboardListSheetLayout({ windowHeight, keyboardHeight, insetTop, sheetPaddingBottom, headerHeight, compactHeaderHeight, maxHeightRatio })` devolve `{ lift, sheetMaxHeight, listSpace, headerCompact }`.
+`computeKeyboardListSheetLayout({ windowHeight, keyboardHeight, insetTop, sheetPaddingBottom, headerHeight, maxHeightRatio })` devolve `{ lift, sheetMaxHeight, titleCollapsed }` (o `compactHeaderHeight` e o `listSpace` do primeiro rascunho saíram na revisão, R6).
 
 - `lift` e `sheetMaxHeight` são calculados como no `computeKeyboardSheetLayout`, com o mesmo código interno.
-- `listSpace = sheetMaxHeight − cabeçalho − paddingBottom`.
-- `headerCompact` só é `true` com o teclado aberto e `listSpace < MIN_LIST_SPACE`. Nesse caso o cabeçalho troca pelo `compactHeader` (R-1).
+- `headerHeight` é sempre a altura com o título à mostra (`listSheetHeaderHeight`), para a decisão não alternar.
+- `titleCollapsed` só é `true` com o teclado aberto e `sheetMaxHeight − headerHeight − paddingBottom < MIN_LIST_SPACE`. Nesse caso só o título sai; a busca fica no lugar (R-1, R1 da revisão).
+- `listSheetSlots(titleCollapsed)` devolve os filhos por posição: `["title" | null, "search", "list"]`.
 - `MIN_LIST_SPACE = MIN_FIELD_SPACE = 48`, a altura de uma linha.
 
 ### 2. Diálogo e tela cheia: `KeyboardSheet` com `placement` (D-2 a e D-3 a)
@@ -161,22 +163,23 @@ A altura do teclado vem do mesmo padrão R6 (`sheetKeyboardHeight`, começa em 0
 - **`"center"` (diálogo):**
   - a raiz centra a folha (`justifyContent: "center"`, `paddingHorizontal: 20`);
   - a folha recebe `maxWidth` do chamador (420);
-  - o espaçador é a altura inteira do teclado (`liftDiscount = 0`, porque o cartão não encosta na borda de baixo), e o cartão se centra na área acima do teclado, com a folga do padding da raiz (≥ 8 dp);
-  - `computeKeyboardSheetLayout` ganha `placement`: no centro, `sheetMaxHeight` desconta também o padding de baixo da raiz;
+  - a raiz reserva embaixo `20 + insets.bottom` (com o teclado fechado o cartão não entra sob a barra de navegação), e o espaçador desconta o `insets.bottom` (`liftDiscount = insets.bottom`; o teclado já inclui a barra), então com o teclado aberto a folga até ele é 20 (R3 da revisão). O cartão se centra na área acima do teclado;
+  - `computeKeyboardSheetLayout` ganha `placement` e `insetBottom`: no centro, `sheetMaxHeight` desconta também o padding de baixo da raiz, e o topo (`insets.top + 8`) conta uma vez só;
   - D-3 e R2 valem igual.
 - **`"fill"` (tela cheia):**
   - a raiz não tem `paddingTop` e a folha tem `flexGrow: 1`, ocupando a tela;
-  - o `paddingTop` fica no `sheetStyle` do chamador (`insets.top + 16`) e o `contentContainerStyle` usa `flexGrow: 1`;
+  - o `paddingTop` fica com o chamador (no carrossel, num `View` do `header`, com `minHeight` que cobre o "Pular", R8 da revisão) e o `contentContainerStyle` usa `flexGrow: 1`;
+  - `scrollRef` opcional expõe a rolagem vertical (o carrossel volta ao topo ao trocar de slide, R7 da revisão);
   - com o teclado, a folha encolhe pelo espaçador, como no `"bottom"`;
   - o ajuste até o campo é o mesmo (`measureLayout` no conteúdo).
-- **`sheetLiftDiscount`:** passa a receber `placement` (`"center"` → 0). Continua o único lugar dessa conta (R9 da 13.3).
+- **`sheetLiftDiscount`:** passa a receber `placement` e `insetBottom` (`"center"` → `insets.bottom`). Continua o único lugar dessa conta (R9 da 13.3).
 
 ### 3. Mudança por modal (Code Map abaixo)
 
 - **`CategoryPickerModal`:**
   - troca o `TCard` pelo `KeyboardListSheet`, com `sheetStyle` de mesma cor, cantos 20 e `paddingTop 16`;
   - `basePaddingBottom = 30`, `maxHeightRatio = 0.8`;
-  - `compactHeader` = a barra de busca;
+  - `title` = título e X; `search` = a barra de busca;
   - a `FlashList` vai como `list`.
 - **`StoreGridModal`:**
   - `KeyboardListSheet` com `maxHeightRatio = 0.75` e `basePaddingBottom = 20`;
@@ -196,7 +199,7 @@ A altura do teclado vem do mesmo padrão R6 (`sheetKeyboardHeight`, começa em 0
   - a rolagem vertical do `KeyboardSheet` passa a envolver o paginador, e em celular baixo os slides também passam a rolar na vertical (melhora, R-3);
   - "Pular" fica no cabeçalho fixo, como botão absoluto dentro dele.
 - **`DebugTools`:**
-  - `KeyboardListSheet heightRatio={0.85}`, com o cabeçalho (título, X, abas e, na TROPHIES, tier, busca e contagem) e o `compactHeader` (abas e busca);
+  - `KeyboardListSheet heightRatio={0.85} measureKey={activeTab}`, com `title` (título, X, abas e, na TROPHIES, o tier) e `search` (na TROPHIES, busca e contagem; nas outras abas, vazio);
   - `list` = a `FlashList` (TROPHIES) ou o `ScrollView` das outras abas, este agora com `keyboardShouldPersistTaps="handled"`;
   - o `Modal` de detalhe do troféu não muda.
 
@@ -258,7 +261,7 @@ A altura do teclado vem do mesmo padrão R6 (`sheetKeyboardHeight`, começa em 0
   - usa `useSheetKeyboardHeight` ou os dois eventos.
 - **`MODAL_LISTS`** = `CategoryPickerModal`, `StoreGridModal`, `AccountPicker` e `DebugTools`. Cada um:
   1. importa `KeyboardListSheet` e o renderiza uma vez, dentro de `<Modal>`;
-  2. passa `header={…}` com um campo dentro da expressão (`hasField` na expressão do `header`; no `DebugTools`, o campo pode estar no `header` ou na rolagem do `list`);
+  2. passa `title={…}`, `search={…}` e `list={…}`; o `search` tem um campo como tag JSX e o `title` não tem (R1/R2 da revisão: identificadores e componentes locais resolvidos até 3 níveis, sem contar chave de objeto, texto ou nome parecido; `onChangeText` sozinho não conta). O `DebugTools` passa também `measureKey=` (R5);
   3. não tem segunda compensação de teclado (as `SECOND_KEYBOARD_SYSTEMS` da 13.3);
   4. toda rolagem vertical (`ScrollView`/`FlatList`/`SectionList`/**`FlashList`**, que entra em `SCROLL_COMPONENTS` só neste bloco) tem `keyboardShouldPersistTaps="handled"` e fica dentro da expressão `list=`. Contagem com nome: 1 em cada, 2 no `DebugTools` (`FlashList` e `ScrollView`, alternando por aba);
   5. se houver fundo tocável, ele passa pelo `useSheetBackdropPress`. `CategoryPickerModal` e `DebugTools` ficam em `NO_BACKDROP`, com o motivo "sem fechar tocando fora hoje";
@@ -274,7 +277,8 @@ A altura do teclado vem do mesmo padrão R6 (`sheetKeyboardHeight`, começa em 0
 - **`MODAL_PENDING` sai.** A descoberta passa a exigir que todo arquivo com `<Modal` e campo esteja em `MODAL_FORMS`, `MODAL_LISTS` ou `MODAL_FIELDS_OUTSIDE`. O teste "os pendentes ainda têm <Modal e campo" vira "cada lista aponta para arquivos que existem e ainda têm `<Modal`".
 - **Auto-testes:** um trecho que deve casar e outro que não deve, para cada regra nova:
   - `KeyboardListSheet` fora de `Modal`;
-  - `header` sem campo;
+  - `search` sem campo, campo no `title`, `header=`/`compactHeader=` da API antiga;
+  - alias de import do `Modal` (`Modal as X`) na descoberta e nos trechos de modal;
   - `FlashList` sem `handled`;
   - `FlashList` fora do `list=`;
   - `KeyboardAvoidingView` dentro do modal de busca;
@@ -291,30 +295,32 @@ A altura do teclado vem do mesmo padrão R6 (`sheetKeyboardHeight`, começa em 0
 
 ## Riscos e notas para a implementação
 
-- **R-1, janela baixa nas buscas.** Paisagem 800×360 com teclado de 200: sobram cerca de 130 dp para a folha. Alça, título e busca somam ~110 dp e deixariam ~20 dp para a lista. Por isso o `compactHeader` (só a busca) entra quando `listSpace < 48`. O X sai junto, e fechar fica pelo voltar do Android ou pelo fundo, nos componentes que têm fundo. Se nem com o cabeçalho compacto houver 48 dp, a busca continua visível e a lista fica com o que sobrar (checklist).
-- **R-2, `FlashList` 2.0.2 num invólucro que encolhe.** Hoje ela já vive em contêiner com `maxHeight` (categoria). Conferir no Playwright e no aparelho que as linhas renderizam e rolam quando a área encolhe e volta. Se a v2 pedir altura definida, o invólucro recebe `height = listSpace` medido, sem ultrapassar a janela (Mali).
+- **R-1, janela baixa nas buscas.** Paisagem 800×360 com teclado de 200: sobram cerca de 130 dp para a folha. Alça, título e busca somam ~110 dp e deixariam ~20 dp para a lista. Por isso o título (alça, título, X) recolhe quando sobram menos de 48 dp para a lista, e a busca fica no lugar, sem remontar o campo (R1 da revisão). O X sai junto, e fechar fica pelo voltar do Android ou pelo fundo, nos componentes que têm fundo. Se nem sem o título houver 48 dp, a busca continua visível e a lista fica com o que sobrar (checklist).
+- **R-2, `FlashList` 2.0.2 num invólucro que encolhe.** Hoje ela já vive em contêiner com `maxHeight` (categoria). Conferir no Playwright e no aparelho que as linhas renderizam e rolam quando a área encolhe e volta. Não foi preciso: a v2 rola no invólucro que encolhe (Playwright), e não existe altura medida da lista.
 - **R-3, `WelcomeCarousel` dentro de rolagem vertical.** O paginador horizontal dentro do `ScrollView` vertical do `KeyboardSheet` tem orientações diferentes e é permitido. O `style={{ flex: 1 }}` do paginador vira `flexGrow: 1` no conteúdo. Os slides usam `Dimensions` estático (largura), sem mudança: girar fica fora do escopo, como hoje.
 - **R-4, fundo do "APAGAR TUDO".** Hoje tocar fora não fecha. Continua assim, porque não se acrescenta comportamento. Se o dono quiser, é `useSheetBackdropPress` e uma linha na guarda.
-- **R-5, a folha da busca segue o conteúdo.** Ao filtrar, a folha encolhe, e com o teclado aberto o campo desce junto com o topo. É o comportamento de hoje sem teclado. Fixar a altura ao focar fica fora do escopo.
+- **R-5, a folha da busca segue o conteúdo.** Nas buscas com `maxHeightRatio` (categoria, loja, conta), ao filtrar a folha encolhe (Playwright: 720 → 192 dp na categoria), e com o teclado aberto o campo desce junto com o topo, como hoje sem teclado. O `DebugTools` (`heightRatio`, altura fixa) não segue o conteúdo. Fixar a altura ao focar fica fora do escopo.
 
 ## Spec Change Log
+
+- 28/10, revisão (R1–R10, menos R9 adiado em D40): a API do `KeyboardListSheet` passou de `header`/`compactHeader` para `title`/`search` (busca numa posição estável); `computeKeyboardListSheetLayout` ficou sem `compactHeaderHeight`/`listSpace` e devolve `titleCollapsed`; o diálogo `"center"` reserva o `insets.bottom`; `KeyboardSheet` ganhou `scrollRef`; o `KeyboardListSheet` ganhou `measureKey`. O "Padrão proposto", a guarda e os riscos acima foram atualizados para o que foi feito. A parte congelada (Intent, Boundaries, matriz) não mudou.
 
 ## Verification
 
 **Comandos**
-- `npx vitest run` e `npx tsc --noEmit`: sem falhas novas em relação ao baseline. A 13.3 fechou com 94 arquivos e 1933 testes passando, e o `tsc` com 0 erros.
+- `npx vitest run` e `npx tsc --noEmit`: sem falhas novas em relação ao baseline. A 13.3 fechou com 94 arquivos e 1933 testes passando. O `tsc` tem hoje 5 erros dentro de `node_modules` (gifted-chat, zoom-reanimated), que já existem no commit anterior a esta story (ambiente depois de reiniciar o contêiner); a exigência é não acrescentar nenhum.
 - `npx eslint` nos arquivos tocados, sem avisos.
 - `npx expo export --platform web` com exit 0.
 - Sondas da guarda, com arquivos temporários revertidos depois. A guarda precisa acusar todas:
   - `KeyboardListSheet` trocado por `View` no `StoreGridModal`;
   - `FlashList` sem `keyboardShouldPersistTaps` no `CategoryPickerModal`;
-  - busca movida para fora do `header` no `AccountPicker`;
+  - busca movida para fora do `search` (ou para o `title`) no `AccountPicker`;
   - `KeyboardAvoidingView` no `DebugTools`;
   - `KeyboardSafeView` direto no `about.tsx`;
   - `TInput` dentro do modal do QR no `sync.tsx`;
   - `ProbeModal.tsx` novo com `<Modal` e `TextInput`.
 - Sondas das funções puras:
-  - `headerCompact = false` fixo faz falhar os casos de paisagem e de limite;
+  - `titleCollapsed = false` fixo faz falhar os casos de paisagem e de limite;
   - `sheetLiftDiscount("center")` igual ao `"bottom"` faz falhar o caso do diálogo.
 
 **Web (Playwright, Chromium headless, build exportado com fallback de SPA, 412×900 e 800×360)**
@@ -350,26 +356,29 @@ A web não simula o teclado (espaçador 0). Os testes provam o layout, a lista v
 
 **Arquivos**
 
-- Novo: `src/components/shared/KeyboardListSheet.tsx`: props `header`, `compactHeader`, `list`, `sheetStyle`, `maxHeightRatio`/`heightRatio`, `basePaddingBottom`, `entering`/`exiting`. A folha é uma `Reanimated.View`; o invólucro da lista tem `flexShrink: 1`, mais `flexGrow: 1` com `heightRatio`.
+- Novo: `src/components/shared/KeyboardListSheet.tsx`: props `title`, `search`, `list`, `sheetStyle`, `maxHeightRatio`/`heightRatio`, `basePaddingBottom`, `measureKey`, `entering`/`exiting`. Os filhos saem de `listSheetSlots` com chaves fixas, então a busca é sempre a mesma instância. A folha é uma `Reanimated.View`; o invólucro da lista tem `flexShrink: 1`, mais `flexGrow: 1` com `heightRatio`.
 - `src/components/shared/keyboardSheetLayout.ts`:
-  - novos: `SheetPlacement`, `DIALOG_EDGE_PADDING = 20`, `MIN_LIST_SPACE`, `sheetPaddingBottomFor`, `sheetRootPadding` e `computeKeyboardListSheetLayout`;
-  - `placement` entra em `sheetLiftDiscount` e em `computeKeyboardSheetLayout`;
+  - novos: `SheetPlacement`, `DIALOG_EDGE_PADDING = 20`, `MIN_LIST_SPACE`, `sheetPaddingBottomFor`, `sheetRootPadding`, `computeKeyboardListSheetLayout` (devolve `{ lift, sheetMaxHeight, titleCollapsed }`), `listSheetSlots` e `listSheetHeaderHeight`;
+  - `placement` e `insetBottom` entram em `sheetLiftDiscount`, `sheetRootPadding` e `computeKeyboardSheetLayout`;
   - `lift` e altura máxima saem de um `sheetBounds` interno, comum às duas folhas.
-- `src/components/shared/KeyboardSheet.tsx`: prop `placement`, com padrão `"bottom"`; `useSheetKeyboardHeight` passa a ser exportado.
+- `src/components/shared/KeyboardSheet.tsx`: props `placement` (padrão `"bottom"`) e `scrollRef`; `useSheetKeyboardHeight` passa a ser exportado.
+- Novo: `src/components/tour/welcomeCarouselLayout.ts` (`skipHeaderMinHeight`, R8).
 - Componentes: `CategoryPickerModal.tsx`, `StoreGridModal.tsx`, `AccountPicker.tsx` (só o compacto), `DebugTools.tsx`, `app/about.tsx` e `WelcomeCarousel.tsx`.
-- Testes: `src/components/shared/__tests__/keyboardSheetLayout.test.ts` (64 testes) e `src/components/__tests__/keyboardScroll.test.ts` (145 testes).
+- Testes: `src/components/shared/__tests__/keyboardSheetLayout.test.ts` (66), `src/components/__tests__/keyboardScroll.test.ts` (161) e `src/components/tour/__tests__/welcomeCarouselLayout.test.ts` (6, novo).
 
 **Decisões além da spec**
 
-- **Busca declarada à parte.** A busca fica numa `const searchBar = (<View>…</View>)`, usada no `header` e no `compactHeader`. A guarda resolve um nível desses identificadores (`expandLocalJsx`) antes do `hasField`. Assim a busca não é duplicada, e a sonda "busca fora do header" continua falhando.
-- **`compactHeader` obrigatório nos 4.** A guarda confere campo também no `compactHeader`, para a busca continuar visível na janela baixa (R-1).
-- **`DebugTools`.** A busca de troféus está no `header`, então não foi preciso aceitar campo no `list` (a spec permitia). `tabsRow` e `trophySearch` viraram `const` de JSX.
-- **Diálogo (`"center"`).** A raiz tem `paddingTop: insets.top + 8`, `paddingBottom: 20`, `paddingHorizontal: 20` e `alignItems: "center"`.
+- **Busca declarada uma vez, no `search`** (revisão R1). O primeiro rascunho tinha `header`/`compactHeader` com a mesma `const searchBar`; trocar de um para o outro remontava o `TextInput` e fechava o teclado. Agora o `title` recolhe e o `search` fica sempre no mesmo lugar. A guarda exige campo (tag JSX) no `search` e nenhum no `title`.
+- **Guarda mais funda** (revisão R2): `expandLocalJsx` resolve até 3 níveis de `const` de JSX e componentes locais (`function Nome`/`const Nome = () =>`), ignorando chave de objeto, conteúdo de string e nome parecido; `onChangeText` sozinho não conta como campo no `search`; `modalNames`/`modalRanges` reconhecem `import { Modal as X }` e `<NS.Modal>` na descoberta e nos trechos de modal.
+- **`DebugTools`.** `title` = título, X, abas e (TROPHIES) o tier; `search` = (TROPHIES) busca e contagem, senão vazio. Em janela baixa com teclado, as abas saem junto com o título (ferramenta só de desenvolvimento). `measureKey={activeTab}` refaz a medida do título ao trocar de aba (R5). `tabsRow` virou `const` de JSX; a busca está no `search`, então não foi preciso aceitar campo no `list`.
+- **Medidas do título.** `listSheetHeaderHeight(fimDaBusca, alturaDoTítulo, recolhido)` dá sempre a altura com o título à mostra, então a decisão não alterna quando a busca sobe ao recolher. O estado `titleCollapsed` guarda em que situação as medidas foram feitas.
+- **Diálogo (`"center"`).** A raiz tem `paddingTop: insets.top + 8`, `paddingBottom: 20 + insets.bottom` (R3), `paddingHorizontal: 20` e `alignItems: "center"`; o espaçador desconta `insets.bottom`, então com o teclado aberto a folga até ele é 20.
   - O `paddingBottom` da folha é só a `base` (24). Não entra `max(insets.bottom, …)`, porque o cartão não encosta na barra de navegação.
   - Com a raiz em `justifyContent: "center"`, o cartão e o espaçador ficam centrados juntos. Assim o centro do cartão cai no centro da área acima do teclado.
   - O cartão usa `maxHeightRatio={1}`; a altura fica limitada pelas margens da raiz.
 - **Tela cheia (`"fill"`).** A raiz tem `alignSelf: "stretch"`, porque o overlay do carrossel centra os filhos, e a folha tem `flexGrow: 1`.
-  - O `paddingTop` da área segura fica num `View` do `header`, e não no `sheetStyle`. Assim o "Pular" (absoluto) fica exatamente onde estava.
+  - O `paddingTop` da área segura fica num `View` do `header`, e não no `sheetStyle`. Assim o "Pular" (absoluto) fica exatamente onde estava. Esse `View` tem `minHeight: skipHeaderMinHeight(SKIP_TOP, fontScale)`, que cobre o botão inteiro com a fonte do sistema aumentada (R8; no Android a parte de um filho fora do pai não recebe toque). Com área segura pequena ou fonte grande, o slide desce o que for preciso.
+  - `goTo` volta a rolagem vertical do `KeyboardSheet` ao topo (`scrollRef`, R7).
   - O carrossel usa `basePaddingBottom = insets.bottom + 16`, o mesmo de antes.
 - **Espaçamentos preservados.** O rodapé do `KeyboardSheet` põe 12 em cima, então o `marginBottom` do campo do "APAGAR TUDO" foi de 20 para 8 e o `paddingTop` da barra do carrossel foi de 16 para 4.
 - **Regra 3 de `MODAL_FORMS`.** A segunda compensação é procurada só no `<Modal>` do `KeyboardSheet` (`modalSegments`). Um import só acusa se o componente não é renderizado fora desse trecho.
@@ -379,13 +388,19 @@ A web não simula o teclado (espaçador 0). Os testes provam o layout, a lista v
 
 **Verificação**
 
-- `npx vitest run`: 94 arquivos e 1988 testes passando (baseline: 1933, mais 55 novos). `npx tsc --noEmit`: 0 erros. `npx eslint` nos 11 arquivos tocados: sem avisos.
+- `npx vitest run`: 95 arquivos e 2012 testes passando (1988 do commit be77d10, mais 24 da revisão). `npx tsc --noEmit`: só os 5 erros em `node_modules` (gifted-chat, zoom-reanimated) que já existem no commit anterior; nenhum desta story. `npx eslint` nos arquivos tocados: sem avisos.
 - `npx expo export --platform web`: exit 0.
 - Sondas da guarda: as 7 da spec falham como esperado (1 ou 2 testes cada) e foram revertidas.
-- Sondas das funções: "`headerCompact` sempre `false`" e "`sheetLiftDiscount("center")` igual ao `"bottom"`" quebram 3 testes cada, e foram revertidas.
+- Sondas das funções: "`titleCollapsed` sempre `false`" e "`sheetLiftDiscount("center")` igual ao `"bottom"`" quebram testes, e foram revertidas.
+- Sondas da revisão (todas revertidas; cada uma quebra 1 a 3 testes):
+  - R1: troca condicional de cabeçalho no `KeyboardListSheet`; `listSheetSlots` sem o `null` no índice do título; campo no `title` do `AccountPicker`.
+  - R2: `<TextInput` trocado por um componente qualquer com `onChangeText` no `CategoryPickerModal`; `ProbeModal.tsx` com `Modal as Dialog` e `TextInput`.
+  - R3: raiz do diálogo sem `insets.bottom`; desconto do diálogo 0; `KeyboardSheet` sem passar `insets.bottom` à raiz ou ao desconto.
+  - R5: `DebugTools` sem `measureKey`; `KeyboardListSheet` sem refazer a medida.
+  - R7: `goTo` sem voltar a rolagem ao topo. R8: cabeçalho sem `minHeight`; fórmula sem a escala da fonte.
 - **Playwright** (build exportado com fallback de SPA, 412×900 e 800×360): tudo OK, sem erro de página nem diálogo nativo.
-  - Onboarding: no slide de IA, a chave é digitada, o ✓ fica habilitado e "Começar Tour!" fica visível sem rolar nos dois tamanhos.
-  - "APAGAR TUDO": o cartão fica centrado e inteiro na janela, com "Resetar" desabilitado até a frase certa e os botões lado a lado; "Cancelar" fecha. No baseline, em 800×360, o cartão saía da janela (top −23, bottom 384); agora vai de 8 a 340.
+  - Onboarding: no slide de IA, a chave é digitada, o ✓ fica habilitado e "Começar Tour!" fica visível sem rolar nos dois tamanhos. Antes de cada "Próximo" o slide é rolado até o fim (109 dp em 412×900, 488 dp em 800×360) e o slide seguinte abre no topo (R7).
+  - "APAGAR TUDO": o cartão fica centrado e inteiro na janela (R4: folga de cima e de baixo iguais na área da raiz, 233/232 em 412×900 e 0/0 em 800×360), com "Resetar" desabilitado até a frase certa e os botões lado a lado; "Cancelar" fecha. No baseline, em 800×360, o cartão saía da janela (top −23, bottom 384); agora vai de 8 a 340.
   - Categoria, na nova transação e no adicionar item: "Nenhuma categoria encontrada" aparece com o filtro sem resultado. Com "fru", a linha "Frutas" fica visível na janela; o toque seleciona e fecha, e a folha de baixo continua.
   - Conta de destino, no modo compacto: a lista fica visível, o fundo fecha o modal, e reabrir e selecionar funciona.
   - "Mais lojas...": a grade e o aviso ficam na janela em 412×900, e o fundo fecha.
@@ -394,16 +409,25 @@ A web não simula o teclado (espaçador 0). Os testes provam o layout, a lista v
 - **`DebugTools`** (`npx expo start --web`):
   - Na TROPHIES, a folha tem 85% da janela, presa embaixo, e a busca filtra.
   - Na STATE, "XP..." fica visível ao focar.
-  - Em 800×360, com o teclado fechado, o cabeçalho completo (tier, busca e contagem) deixa quase nada para a lista. É o mesmo de antes, já que o `compactHeader` só entra com o teclado aberto (R-1). Fica para o aparelho.
+  - Em 800×360, com o teclado fechado, o título e a busca (tier, busca e contagem) deixam quase nada para a lista. É o mesmo de antes, já que o título só recolhe com o teclado aberto (R-1). Fica para o aparelho. (Conferido antes da revisão; o `DebugTools` não está no build exportado.)
 
 **Checklist do aparelho (Story 13.7)**
 
 - Os itens 1 a 14 da seção "Aparelho" acima entram na 13.7 como estão.
 - Acréscimos:
-  - (a) Onboarding em celular baixo: rolar o slide 2 para baixo e tocar "Próximo". O slide seguinte pode abrir rolado, porque a rolagem vertical do `KeyboardSheet` é uma só para todos os slides.
+  - (a) Onboarding em celular baixo: rolar um slide para baixo e tocar "Próximo"; o slide seguinte abre no topo (R7, conferido na web).
   - (b) `DebugTools` em paisagem com o teclado fechado: a lista de troféus fica quase sem espaço, como antes.
   - (c) "Mais lojas..." em paisagem: os cartões da grade são grandes (`CARD_SIZE` vem da largura), e a grade rola.
   - (d) Na busca de categoria, conferir no aparelho que o `autoFocus` abre o teclado (na web ele não pega, como no baseline).
+- Itens da revisão (R10):
+  - (i) Busca (categoria, loja, conta, troféus) em paisagem, fonte 2,0 ou celular pequeno: focar a busca até o título recolher. O teclado continua aberto e a digitação segue sem perder letras; fechar o teclado mostra o título de novo (R1).
+  - (ii) "APAGAR TUDO" com navegação de 3 botões, teclado fechado: o cartão fica acima da barra de navegação, com margem; com o teclado aberto, a folga até ele é a mesma de antes (R3).
+  - (iii) `DebugTools`: com o teclado aberto na TROPHIES em paisagem (título recolhido), trocar para STATE e voltar; o título reaparece e recolhe na medida certa, sem sobra nem corte (R5).
+  - (iv) Onboarding com fonte 2,0 e área segura pequena: o "Pular" responde ao toque em toda a sua área, inclusive embaixo do texto (R8).
+  - (v) Busca de categoria aberta por cima do `KeyboardSheet` com o teclado aberto, em paisagem: o título recolhe na de cima sem afetar a folha de baixo; ao fechar, a folha de baixo volta sem sobra.
+  - (vi) Girar o aparelho com uma busca aberta e o teclado aberto: o título recolhe ou volta conforme o espaço novo, sem remontar o campo.
+  - (vii) Busca de categoria aberta a partir do `EditableItemRow` (revisão da nota) e busca de conta a partir da nova transação em tela e da revisão do holerite: a tela de trás usa `KeyboardAwareScrollViewCompat` e recebe os eventos de teclado do modal pelo provider da raiz; ao fechar, não sobra deslocamento.
+  - (viii) Busca de conta compacta: conferir se a animação de saída (`SlideOutDown`) chega a tocar; o `Modal` desmonta na hora (anterior à story).
 
 ## Review Triage Log
 
@@ -411,13 +435,13 @@ Revisão única com três lentes (adversarial, casos de borda, lacunas de verifi
 
 | # | Achado | Sev. | Decisão |
 |---|--------|------|---------|
-| R1 | Trocar para o cabeçalho compacto remonta o campo de busca: o teclado fecha e, em paisagem/fonte grande/celular pequeno, não dá para digitar | High | **patch**: uma só instância do `TextInput` em posição estável — API com `title` recolhível e espaço `search` sempre renderizado (some só a parte sem busca); chamadores declaram a busca uma vez; guarda exige o campo nesse espaço único; item no checklist "depois de compactar, o teclado continua aberto e a digitação segue" |
-| R2 | Detecção de campo da guarda rasa (burlas P3/P4/P6, falsos positivos P1/P2, alias de `Modal` P5) | Med | **patch**: resolver identificadores em profundidade limitada, exigir o campo como tag JSX (não `onChangeText`), resolver alias de import do `Modal`; regra do espaço único do R1 substitui a do `compactHeader` |
-| R3 | Diálogo central ignora a área segura de baixo com teclado fechado | Med | **patch**: em `"center"`, `paddingBottom` da raiz = 20 + `insets.bottom` e `liftDiscount` = `insets.bottom`; conferir topo `insets.top + 8` sem contar duas vezes; item no checklist |
-| R4 | Testes provam aritmética, não comportamento | Med | **patch**: teste da centralização real (folga de cima e de baixo) e teste puro da escolha de layout que cobre o caminho do R1; restante no checklist do aparelho |
-| R5 | DebugTools guarda a altura do cabeçalho entre abas | Low | **patch**: medir de novo ao trocar de aba |
-| R6 | Código morto (`compactHeaderHeight`, `listSpace`) e texto da spec sobre a folha "seguir o conteúdo" | Low | **patch**: remover e corrigir a spec (inclusive "tsc 0 erros") |
-| R7 | Carrossel: uma posição de rolagem para todos os slides | Low | **patch**: `KeyboardSheet` expõe ref da rolagem; `goTo` volta ao topo |
-| R8 | "Pular" perde parte da área de toque com fonte grande | Low | **patch**: `minHeight` do cabeçalho cobrindo o botão (ou `zIndex`/`elevation`) |
+| R1 | Trocar para o cabeçalho compacto remonta o campo de busca: o teclado fecha e, em paisagem/fonte grande/celular pequeno, não dá para digitar | High | **Aplicado** (patch): uma só instância do `TextInput` em posição estável — API com `title` recolhível e espaço `search` sempre renderizado (some só a parte sem busca); chamadores declaram a busca uma vez; guarda exige o campo nesse espaço único; item no checklist "depois de compactar, o teclado continua aberto e a digitação segue" |
+| R2 | Detecção de campo da guarda rasa (burlas P3/P4/P6, falsos positivos P1/P2, alias de `Modal` P5) | Med | **Aplicado** (patch): resolver identificadores em profundidade limitada, exigir o campo como tag JSX (não `onChangeText`), resolver alias de import do `Modal`; regra do espaço único do R1 substitui a do `compactHeader` |
+| R3 | Diálogo central ignora a área segura de baixo com teclado fechado | Med | **Aplicado** (patch): em `"center"`, `paddingBottom` da raiz = 20 + `insets.bottom` e `liftDiscount` = `insets.bottom`; conferir topo `insets.top + 8` sem contar duas vezes; item no checklist |
+| R4 | Testes provam aritmética, não comportamento | Med | **Aplicado** (patch): teste da centralização real (folga de cima e de baixo) e teste puro da escolha de layout que cobre o caminho do R1; restante no checklist do aparelho |
+| R5 | DebugTools guarda a altura do cabeçalho entre abas | Low | **Aplicado** (patch): medir de novo ao trocar de aba |
+| R6 | Código morto (`compactHeaderHeight`, `listSpace`) e texto da spec sobre a folha "seguir o conteúdo" | Low | **Aplicado** (patch): remover e corrigir a spec (inclusive "tsc 0 erros") |
+| R7 | Carrossel: uma posição de rolagem para todos os slides | Low | **Aplicado** (patch): `KeyboardSheet` expõe ref da rolagem; `goTo` volta ao topo |
+| R8 | "Pular" perde parte da área de toque com fonte grande | Low | **Aplicado** (patch): `minHeight` do cabeçalho cobrindo o botão (ou `zIndex`/`elevation`) |
 | R9 | "Mais lojas..." em paisagem não mostra uma linha inteira (anterior à story) | Low | **defer** (D40) |
-| R10 | Checklist do aparelho incompleto | Low | **patch**: acrescentar os itens (i)–(vi) da revisão |
+| R10 | Checklist do aparelho incompleto | Low | **Aplicado** (patch): acrescentar os itens (i)–(vi) da revisão |
