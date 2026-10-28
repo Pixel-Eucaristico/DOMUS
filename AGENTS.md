@@ -36,5 +36,6 @@ App Android de finanças pessoais com gamificação (XP, streaks, arquétipos). 
 
 - Nunca use Views maiores que a tela com animação (ex.: 30000px) — crasha GPU Mali no Android; use `absoluteFillObject`. Detalhes em `docs/tour-crash-fixes.md`.
 - O sync Nostr cifra com XOR (`xorEncryptDecrypt` em `src/modules/nostrSync.ts`), não com AES; não trate como criptografia forte.
+- `npx expo start` gera `expo-env.d.ts` (ignorado pelo git), e com ele o `tsc --noEmit` passa a acusar 5 erros dentro de `node_modules` (`react-native-gifted-chat`, `react-native-zoom-reanimated`). Não são do código: apague o arquivo antes de comparar com o baseline.
 
 <!-- /bmad:context -->
