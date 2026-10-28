@@ -14,6 +14,8 @@ export { EVENT_TYPES } from "./src/types";
 export { parseNFCeQRCode, isValidSefazUrl, extractUrlFromQRData } from "./src/qrcodeParser";
 export type { QRCodeData } from "./src/qrcodeParser";
 
+export { isValidChaveAcesso, chaveAcessoCheckDigit, CHAVE_ACESSO_LENGTH } from "./src/chaveAcesso";
+
 export { parseSefazHtml, fetchAndParseSefaz } from "./src/sefazParser";
 export type { SefazParseResult } from "./src/sefazParser";
 

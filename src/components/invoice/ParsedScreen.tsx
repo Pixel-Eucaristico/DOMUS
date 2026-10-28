@@ -7,7 +7,8 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { DatePickerField } from "@/src/components/shared/DatePickerField";
-import { KeyboardStickyView, useKeyboardState } from "react-native-keyboard-controller";
+import { KeyboardStickyView } from "react-native-keyboard-controller";
+import { useKeyboardTargetHeight } from "@/src/components/shared/useKeyboardTargetHeight";
 import {
   KeyboardAwareScrollViewCompat,
   SCROLL_BOTTOM_PADDING,
@@ -100,7 +101,7 @@ export function ParsedScreen({
   const [scrollTop, setScrollTop] = useState(0);
   const containerRef = useRef<View>(null);
   const { height: windowHeight } = useWindowDimensions();
-  const keyboardHeight = useKeyboardState((state) => state.height);
+  const keyboardHeight = useKeyboardTargetHeight();
   const footerLayout = computeParsedFooterLayout({
     windowHeight,
     keyboardHeight,

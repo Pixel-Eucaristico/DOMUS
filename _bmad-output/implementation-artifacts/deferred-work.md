@@ -119,3 +119,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-13-4-fazer-as-buscas-e-dialogos-em-modal-subirem.md`
   summary: D40 — Em "Mais lojas..." o tamanho do cartão vem do `Dimensions` estático (~145dp em paisagem): com o teclado aberto nenhuma linha cabe inteira, e girar com o modal aberto mantém a largura antiga.
   evidence: revisão da Story 13.4 (R9); usar `useWindowDimensions` e limitar o tamanho do cartão pela altura disponível.
+- source_spec: `_bmad-output/implementation-artifacts/spec-13-6-corrigir-a-digitacao-manual-da-chave-da-nf-sobre-a-camera.md`
+  summary: D41 — A chave de acesso digitada à mão aceita só dígitos; quando o CNPJ alfanumérico (jul/2026) aparecer na chave, o campo e o `normalizeChaveInput` precisam aceitar letras na posição do CNPJ (o dígito verificador já usa ASCII − 48).
+  evidence: revisão da Story 13.6 (R6); `packages/parsers/src/chaveAcesso.ts` e `src/components/invoice/qrKeyBarLayout.ts`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-13-6-corrigir-a-digitacao-manual-da-chave-da-nf-sobre-a-camera.md`
+  summary: D42 — Colar a chave com o campo já preenchido passa de 44 dígitos e o campo mantém o valor antigo; o usuário precisa limpar antes. Avaliar substituir o conteúdo quando a colagem trouxer uma sequência completa de 44 dígitos.
+  evidence: decisão da implementação no R6 da Story 13.6.

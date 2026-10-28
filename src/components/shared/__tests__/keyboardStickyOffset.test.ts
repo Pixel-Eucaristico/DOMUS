@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stickyOpenedOffset } from "../keyboardStickyOffset";
+import { keyboardTargetHeight, stickyOpenedOffset } from "../keyboardStickyOffset";
 
 describe("stickyOpenedOffset (Stories 13.2 e 13.6, R3)", () => {
   it("teclado aberto mais alto que o inset: desconta o inset inteiro", () => {
@@ -23,5 +23,14 @@ describe("stickyOpenedOffset (Stories 13.2 e 13.6, R3)", () => {
     expect(stickyOpenedOffset(24, Number.NaN)).toBe(24);
     expect(stickyOpenedOffset(24, -50)).toBe(24);
     expect(stickyOpenedOffset(Number.POSITIVE_INFINITY, 300)).toBe(0);
+  });
+});
+
+describe("keyboardTargetHeight (Story 13.6, R2/R4)", () => {
+  it("devolve a altura do evento, com não finitas ou negativas valendo 0", () => {
+    expect(keyboardTargetHeight(300)).toBe(300);
+    expect(keyboardTargetHeight(0)).toBe(0);
+    expect(keyboardTargetHeight(-12)).toBe(0);
+    expect(keyboardTargetHeight(Number.NaN)).toBe(0);
   });
 });

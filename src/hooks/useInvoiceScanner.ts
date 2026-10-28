@@ -10,6 +10,7 @@ import {
   InvoiceParser,
   OCRService,
   createHybridOCRAdapter,
+  isValidChaveAcesso,
   parseNFCeQRCode,
 } from "@packages/parsers";
 import { OCRConfigService } from "@/src/services/ocrConfigService";
@@ -169,6 +170,14 @@ export function useInvoiceScanner(
       appAlert(
         "Chave Inválida",
         "A chave de acesso deve conter exatamente 44 dígitos numéricos.",
+      );
+      return;
+    }
+    // Dígito verificador (módulo 11) antes de abrir a SEFAZ (Story 13.6, R6).
+    if (!isValidChaveAcesso(cleaned)) {
+      appAlert(
+        "Chave Inválida",
+        "O dígito verificador não confere. Confira os 44 dígitos da chave de acesso.",
       );
       return;
     }

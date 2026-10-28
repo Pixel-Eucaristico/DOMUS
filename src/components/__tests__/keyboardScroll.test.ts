@@ -1417,6 +1417,12 @@ const QR_KEY_BAR_OPENED = "keyBarLayout.openedOffset";
 const STICKY_OFFSET = "src/components/shared/keyboardStickyOffset.ts";
 const STICKY_OFFSET_MODULE = "@/src/components/shared/keyboardStickyOffset";
 const STICKY_OFFSET_USERS = ["src/components/invoice/parsedFooterLayout.ts", QR_KEY_BAR_LAYOUT];
+/** Altura-alvo do teclado (R2/R4) e as telas que a usam. */
+const KEYBOARD_TARGET_HOOK = "src/components/shared/useKeyboardTargetHeight.ts";
+const KEYBOARD_TARGET_MODULE = "@/src/components/shared/useKeyboardTargetHeight";
+const KEYBOARD_TARGET_USERS = [QR_KEY_BAR, "src/components/invoice/ParsedScreen.tsx"];
+/** Onde a chave digitada é validada antes da consulta (R6). */
+const MANUAL_CHAVE_HOOK = "src/hooks/useInvoiceScanner.ts";
 
 /** Intervalos [início, fim] de cada `<Name …>…</Name>` (ou `<Name … />`), no código sem comentários. */
 function jsxElementRanges(code: string, name: string): [number, number][] {
@@ -1479,7 +1485,8 @@ function qrKeyBarViolations(source: string): string[] {
 
   for (const tag of tags) {
     // 3. offset com o opened da conta pura (nunca o insets.bottom literal) e closed 0.
-    const offset = tag.exprs.offset;
+    // Aceita o offset por variável local (`offset={stickyOffset}`), resolvida (R9).
+    const offset = tag.exprs.offset === undefined ? undefined : resolveLocalValue(tag.exprs.offset, code);
     if (offset === undefined) hits.push("KeyboardStickyView sem offset={…}");
     else {
       const opened = offset.match(/\bopened\s*:\s*([^,}]+)/)?.[1].trim();
@@ -1506,7 +1513,135 @@ function qrKeyBarViolations(source: string): string[] {
   if (!/\bconst\s+keyBarLayout\s*=\s*computeQrKeyBarLayout\s*\(/.test(code)) {
     hits.push("sem const keyBarLayout = computeQrKeyBarLayout(…)");
   }
+  // 7. o resultado do layout não é trocado nem mutado depois (R9).
+  const plain = withoutStrings(code);
+  const assigns = [...plain.matchAll(/(?<![\w$.])keyBarLayout\s*=(?![=>])/g)].length;
+  if (assigns > 1 || /\b(?:let|var)\s+keyBarLayout\b/.test(plain)) hits.push("keyBarLayout reatribuído");
+  if (/(?<![\w$.])keyBarLayout\s*(?:\.\s*[\w$]+|\[[^\]]*\])\s*(?:[-+*/%|&]?=(?![=>])|\+\+|--)/.test(plain)) {
+    hits.push("keyBarLayout mutado");
+  }
+  if (/\bObject\s*\.\s*(?:assign|defineProperty)\s*\(\s*keyBarLayout\b/.test(plain)) hits.push("keyBarLayout mutado");
   return hits;
+}
+
+/**
+ * Fiação das decisões da 13.6 no QrScanScreen (R9): D-1 a (cabeçalho e dica
+ * condicionados ao compacto, tecla de ação consulta sem fechar o teclado, R7),
+ * D-2 b (sem `maxLength`, `normalizeChaveInput` no `onChangeText`), D-3 b com o
+ * handler de leitura sempre o mesmo e travado por ref (R1), a altura-alvo do
+ * teclado (R2) e o contêiner medido no `onLayout` (R5).
+ */
+function qrKeyBarWiringViolations(source: string): string[] {
+  const code = stripComments(source);
+  const hits: string[] = [];
+
+  // D-2 b / D-1 a / R7: o campo da chave.
+  const fields = scanJsxOpeningTags(source, "TextInput");
+  if (fields.length !== 1) hits.push(`${fields.length} × <TextInput (esperado 1)`);
+  for (const tag of fields) {
+    if (/(?:^|\s)maxLength(?=\s*=|\s|\/|$)/.test(tag.attrs)) hits.push("campo com maxLength");
+    if (!/\bnormalizeChaveInput\s*\(/.test(tag.exprs.onChangeText ?? "")) hits.push("onChangeText sem normalizeChaveInput(…)");
+    if (tag.exprs.onSubmitEditing === undefined) hits.push("campo sem onSubmitEditing");
+    if (!/(?:^|\s)returnKeyType\s*=\s*["']\w+["']/.test(tag.attrs)) hits.push("campo sem returnKeyType");
+    if (!/(?:^|\s)submitBehavior\s*=\s*["']submit["']/.test(tag.attrs)) hits.push('campo sem submitBehavior="submit"');
+  }
+
+  // D-1 a: cabeçalho e dica só fora do compacto.
+  for (const style of ["topBar", "hintWrap"]) {
+    if (!new RegExp(`\\{\\s*!\\s*compact\\s*&&\\s*\\(\\s*<\\s*View\\b[^<]{0,160}?\\bs\\.${style}\\b`).test(code)) {
+      hits.push(`s.${style} fora de {!compact && (…)}`);
+    }
+  }
+
+  // A barra fechada fica no lugar: paddingBottom com o insets.bottom.
+  const sticky = scanJsxOpeningTags(source, "KeyboardStickyView")[0];
+  if (sticky && !/\bpaddingBottom\s*:\s*insets\.bottom\s*\+/.test(sticky.exprs.style ?? "")) {
+    hits.push("barra sem paddingBottom: insets.bottom + …");
+  }
+
+  // D-3 b / R1: handler de leitura estável, travado por ref.
+  const cameras = scanJsxOpeningTags(source, "CameraView");
+  for (const tag of cameras) {
+    const handler = (tag.exprs.onBarcodeScanned ?? "").trim();
+    if (!/^[\w$]+$/.test(handler)) {
+      hits.push("onBarcodeScanned da câmera não é um handler estável (identificador)");
+      continue;
+    }
+    const def = code.match(new RegExp(`\\bconst\\s+${escapeRe(handler)}\\s*=\\s*useCallback\\s*\\(`));
+    const body = def ? balancedParens(code, (def.index ?? 0) + def[0].length - 1) : "";
+    if (!def) hits.push(`${handler} sem useCallback`);
+    else {
+      if (!/\bif\s*\(\s*showKeyInputRef\.current\s*\)\s*return\b/.test(body)) hits.push(`${handler} sem trava showKeyInputRef`);
+      if (!/,\s*\[\s*\]\s*\)$/.test(body)) hits.push(`${handler} com dependências (recria o handler)`);
+    }
+  }
+  if (cameras.length === 0) hits.push("sem <CameraView");
+  for (const value of ["true", "false"]) {
+    if (!new RegExp(`\\bshowKeyInputRef\\.current\\s*=\\s*${value}\\b`).test(code)) {
+      hits.push(`showKeyInputRef.current = ${value} ausente`);
+    }
+  }
+
+  // R2/R5: altura-alvo do teclado e contêiner medido.
+  hits.push(...keyboardTargetUserViolations(source));
+  if (/\buseWindowDimensions\b/.test(code)) hits.push("useWindowDimensions (use o onLayout do contêiner)");
+  const container = scanJsxOpeningTags(source, "View").find((t) => t.exprs.style?.trim() === "s.container");
+  if (!container || !/\bsetContainerHeight\s*\(/.test(container.exprs.onLayout ?? "")) {
+    hits.push("contêiner sem onLayout com setContainerHeight(…)");
+  }
+  if (!/\bcomputeQrKeyBarLayout\s*\(\s*\{[^}]*\bcontainerHeight\b/.test(code)) hits.push("computeQrKeyBarLayout sem containerHeight");
+  return hits;
+}
+
+/** Tela com barra que sobe com o teclado: altura-alvo pelo useKeyboardTargetHeight (R2), sem useKeyboardState. */
+function keyboardTargetUserViolations(source: string): string[] {
+  const code = stripComments(source);
+  const hits: string[] = [];
+  const imported = parseImports(code).some(
+    (imp) => imp.module === KEYBOARD_TARGET_MODULE && imp.named.includes("useKeyboardTargetHeight"),
+  );
+  if (!imported) hits.push(`não importa useKeyboardTargetHeight de ${KEYBOARD_TARGET_MODULE}`);
+  if (!/\bconst\s+keyboardHeight\s*=\s*useKeyboardTargetHeight\s*\(\s*\)/.test(code)) {
+    hits.push("sem const keyboardHeight = useKeyboardTargetHeight()");
+  }
+  if (/\buseKeyboardState\b/.test(code)) hits.push("useKeyboardState (só atualiza no fim da animação)");
+  return hits;
+}
+
+/** O hook da altura-alvo: `onStart` (e `onEnd`) em worklet, repassando ao JS por runOnJS, com a conta pura. */
+function keyboardTargetHookViolations(source: string): string[] {
+  const code = stripComments(source);
+  const hits: string[] = [];
+  if (!parseImports(code).some((imp) => imp.module === KC_MODULE && imp.named.includes("useKeyboardHandler"))) {
+    hits.push("não importa useKeyboardHandler");
+  }
+  const handler = code.match(/\buseKeyboardHandler\s*\(/);
+  const body = handler ? balancedParens(code, (handler.index ?? 0) + handler[0].length - 1) : "";
+  for (const event of ["onStart", "onEnd"]) {
+    const m = body.match(new RegExp(`\\b${event}\\s*:\\s*\\([^)]*\\)\\s*=>\\s*\\{`));
+    const fn = m ? balancedBraces(body, (m.index ?? 0) + m[0].length - 1) : "";
+    if (!m) hits.push(`sem ${event}`);
+    else {
+      if (!/^\{\s*["']worklet["']/.test(fn)) hits.push(`${event} sem "worklet"`);
+      if (!/\brunOnJS\s*\(/.test(fn)) hits.push(`${event} sem runOnJS`);
+    }
+  }
+  if (!/\bkeyboardTargetHeight\s*\(/.test(code)) hits.push("sem keyboardTargetHeight(…)");
+  if (/\buseKeyboardState\b/.test(code)) hits.push("useKeyboardState");
+  return hits;
+}
+
+/** A consulta da chave digitada confere o dígito verificador antes de abrir a SEFAZ (R6). */
+function manualChaveValidationViolations(source: string): string[] {
+  const code = stripComments(source);
+  const m = code.match(/\bconst\s+handleManualChave\s*=\s*\(\s*\)\s*=>\s*\{/);
+  if (!m) return ["sem handleManualChave"];
+  const body = balancedBraces(code, (m.index ?? 0) + m[0].length - 1);
+  const check = body.search(/\bif\s*\(\s*!\s*isValidChaveAcesso\s*\(/);
+  const go = body.search(/\bonNavigateWebView\s*\(/);
+  if (check === -1) return ["handleManualChave sem if (!isValidChaveAcesso(…))"];
+  if (go !== -1 && go < check) return ["isValidChaveAcesso depois de abrir a SEFAZ"];
+  return [];
 }
 
 /** Quem usa a conta comum do `offset.opened` importa o stickyOpenedOffset e não repete a conta. */
@@ -1807,6 +1942,22 @@ describe("barra da chave da NF (Story 13.6)", () => {
     expect(qrKeyBarViolations(read(QR_KEY_BAR))).toEqual([]);
   });
 
+  it("o QrScanScreen liga as decisões D-1/D-2/D-3: campo, cabeçalho, handler de leitura estável, altura-alvo e contêiner (R9)", () => {
+    expect(qrKeyBarWiringViolations(read(QR_KEY_BAR))).toEqual([]);
+  });
+
+  it.each(KEYBOARD_TARGET_USERS)("%s usa a altura-alvo do teclado (useKeyboardTargetHeight), sem useKeyboardState", (file) => {
+    expect(keyboardTargetUserViolations(read(file))).toEqual([]);
+  });
+
+  it("o useKeyboardTargetHeight lê o onStart/onEnd em worklet e repassa por runOnJS", () => {
+    expect(keyboardTargetHookViolations(read(KEYBOARD_TARGET_HOOK))).toEqual([]);
+  });
+
+  it("a chave digitada passa pelo dígito verificador antes da SEFAZ (R6)", () => {
+    expect(manualChaveValidationViolations(read(MANUAL_CHAVE_HOOK))).toEqual([]);
+  });
+
   it.each(STICKY_OFFSET_USERS)("%s usa o stickyOpenedOffset sem repetir a conta", (file) => {
     expect(stickyOffsetUserViolations(read(file))).toEqual([]);
   });
@@ -1943,6 +2094,155 @@ describe("auto-teste dos detectores", () => {
         "não importa computeQrKeyBarLayout de qrKeyBarLayout",
         "sem const keyBarLayout = computeQrKeyBarLayout(…)",
       ]);
+    });
+
+    it("offset por variável local é resolvido (R9): aceita o opened da conta, acusa o literal", () => {
+      const viaVar = good
+        .replace("  return (", "  const stickyOffset = { closed: 0, opened: keyBarLayout.openedOffset };\n  return (")
+        .replace("offset={{ closed: 0, opened: keyBarLayout.openedOffset }}", "offset={stickyOffset}");
+      expect(qrKeyBarViolations(viaVar)).toEqual([]);
+      expect(qrKeyBarViolations(viaVar.replace("opened: keyBarLayout.openedOffset };", "opened: insets.bottom };"))).toEqual([
+        `offset.opened = insets.bottom (esperado ${QR_KEY_BAR_OPENED})`,
+      ]);
+    });
+
+    it("resultado do layout mutado ou reatribuído acusa (R9); comparação não", () => {
+      const at = "  return (";
+      expect(qrKeyBarViolations(good.replace(at, `  keyBarLayout.openedOffset = insets.bottom;\n${at}`))).toEqual(["keyBarLayout mutado"]);
+      expect(qrKeyBarViolations(good.replace(at, `  keyBarLayout["openedOffset"] = 24;\n${at}`))).toEqual(["keyBarLayout mutado"]);
+      expect(qrKeyBarViolations(good.replace(at, `  Object.assign(keyBarLayout, { openedOffset: 24 });\n${at}`))).toEqual(["keyBarLayout mutado"]);
+      expect(qrKeyBarViolations(good.replace("const keyBarLayout =", "let keyBarLayout ="))).toEqual([
+        "sem const keyBarLayout = computeQrKeyBarLayout(…)",
+        "keyBarLayout reatribuído",
+      ]);
+      expect(qrKeyBarViolations(good.replace(at, `  if (keyBarLayout.openedOffset === 0) log("x = 1");\n${at}`))).toEqual([]);
+    });
+
+    describe("fiação das decisões (R9, R1, R2, R5, R7)", () => {
+      const wired = [
+        `import { useCallback, useRef, useState } from "react";`,
+        `import { View, TextInput } from "react-native";`,
+        `import { CameraView } from "expo-camera";`,
+        `import { KeyboardController, KeyboardStickyView } from "react-native-keyboard-controller";`,
+        `import { useKeyboardTargetHeight } from "@/src/components/shared/useKeyboardTargetHeight";`,
+        `import { computeQrKeyBarLayout, normalizeChaveInput } from "./qrKeyBarLayout";`,
+        `export function QrScanScreen() {`,
+        `  const keyboardHeight = useKeyboardTargetHeight();`,
+        `  const [containerHeight, setContainerHeight] = useState(0);`,
+        `  const keyBarLayout = computeQrKeyBarLayout({ containerHeight, keyboardHeight, insetBottom, topBarHeight, fullBarHeight });`,
+        `  const showKeyInputRef = useRef(false);`,
+        `  const handleBarcodeScanned = useCallback((event) => {`,
+        `    if (showKeyInputRef.current) return;`,
+        `    onBarcodeScannedRef.current(event);`,
+        `  }, []);`,
+        `  const openKeyInput = () => { showKeyInputRef.current = true; setShowKeyInput(true); };`,
+        `  const closeKeyInput = () => { showKeyInputRef.current = false; KeyboardController.dismiss(); setShowKeyInput(false); };`,
+        `  return (`,
+        `    <View style={s.container} onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}>`,
+        `      <CameraView style={StyleSheet.absoluteFill} onBarcodeScanned={handleBarcodeScanned} />`,
+        `      {!compact && (`,
+        `        <View style={[s.topBar, { paddingTop: insets.top + 8 }]} onLayout={(e) => setTopBarHeight(e.nativeEvent.layout.height)}>`,
+        `          <Pressable onPress={onClose} />`,
+        `        </View>`,
+        `      )}`,
+        `      {!compact && (`,
+        `        <View style={s.hintWrap} pointerEvents="none"><Text>Aponte</Text></View>`,
+        `      )}`,
+        `      <KeyboardStickyView style={[s.bar, { paddingBottom: insets.bottom + 20 }]} offset={{ closed: 0, opened: keyBarLayout.openedOffset }}>`,
+        `        <TextInput value={v} onChangeText={(t) => set(normalizeChaveInput(t, v))} returnKeyType="search" submitBehavior="submit" onSubmitEditing={submit} />`,
+        `        <TButton onPress={submit}>Consultar SEFAZ</TButton>`,
+        `      </KeyboardStickyView>`,
+        `    </View>`,
+        `  );`,
+        `}`,
+      ].join("\n");
+
+      it("o padrão passa", () => {
+        expect(qrKeyBarWiringViolations(wired)).toEqual([]);
+        expect(qrKeyBarViolations(wired)).toEqual([]);
+      });
+
+      it.each([
+        ["maxLength", (c: string) => c.replace("returnKeyType=", "maxLength={44} returnKeyType="), "campo com maxLength"],
+        ["onChangeText cru", (c: string) => c.replace("set(normalizeChaveInput(t, v))", "set(t)"), "onChangeText sem normalizeChaveInput(…)"],
+        ["sem onSubmitEditing", (c: string) => c.replace(" onSubmitEditing={submit}", ""), "campo sem onSubmitEditing"],
+        ["sem returnKeyType", (c: string) => c.replace(' returnKeyType="search"', ""), "campo sem returnKeyType"],
+        ["sem submitBehavior (R7)", (c: string) => c.replace(' submitBehavior="submit"', ""), 'campo sem submitBehavior="submit"'],
+        ["submitBehavior blurAndSubmit", (c: string) => c.replace('submitBehavior="submit"', 'submitBehavior="blurAndSubmit"'), 'campo sem submitBehavior="submit"'],
+        ["cabeçalho sempre à mostra", (c: string) => c.replace("{!compact && (\n        <View style={[s.topBar", "{true && (\n        <View style={[s.topBar"), "s.topBar fora de {!compact && (…)}"],
+        ["dica sempre à mostra", (c: string) => c.replace("{!compact && (\n        <View style={s.hintWrap}", "{(\n        <View style={s.hintWrap}"), "s.hintWrap fora de {!compact && (…)}"],
+        ["paddingBottom sem inset", (c: string) => c.replace("paddingBottom: insets.bottom + 20", "paddingBottom: 20"), "barra sem paddingBottom: insets.bottom + …"],
+        ["handler com ternário (R1)", (c: string) => c.replace("onBarcodeScanned={handleBarcodeScanned}", "onBarcodeScanned={show ? undefined : handleBarcodeScanned}"), "onBarcodeScanned da câmera não é um handler estável (identificador)"],
+        ["handler sem trava", (c: string) => c.replace("    if (showKeyInputRef.current) return;\n", ""), "handleBarcodeScanned sem trava showKeyInputRef"],
+        ["handler com deps", (c: string) => c.replace("  }, []);", "  }, [show]);"), "handleBarcodeScanned com dependências (recria o handler)"],
+        ["handler sem useCallback", (c: string) => c.replace("const handleBarcodeScanned = useCallback((event) => {", "const handleBarcodeScanned = ((event) => {"), "handleBarcodeScanned sem useCallback"],
+        ["trava sem abrir", (c: string) => c.replace("showKeyInputRef.current = true;", ""), "showKeyInputRef.current = true ausente"],
+        ["useKeyboardState (R2)", (c: string) => c.replace("const keyboardHeight = useKeyboardTargetHeight();", "const keyboardHeight = useKeyboardState((s) => s.height);"), "useKeyboardState (só atualiza no fim da animação)"],
+        ["useWindowDimensions (R5)", (c: string) => c.replace("  const [containerHeight", "  const { height } = useWindowDimensions();\n  const [containerHeight"), "useWindowDimensions (use o onLayout do contêiner)"],
+        ["contêiner sem onLayout (R5)", (c: string) => c.replace(" onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}", ""), "contêiner sem onLayout com setContainerHeight(…)"],
+        ["layout sem contêiner (R5)", (c: string) => c.replace("computeQrKeyBarLayout({ containerHeight,", "computeQrKeyBarLayout({ windowHeight,"), "computeQrKeyBarLayout sem containerHeight"],
+      ])("%s acusa", (_name, mutate, expected) => {
+        const probe = mutate(wired);
+        expect(probe).not.toBe(wired);
+        expect(qrKeyBarWiringViolations(probe)).toContain(expected);
+      });
+    });
+
+    describe("altura-alvo do teclado (R2/R4) e dígito verificador (R6)", () => {
+      const hook = [
+        `import { useState } from "react";`,
+        `import { KeyboardController, useKeyboardHandler } from "react-native-keyboard-controller";`,
+        `import { runOnJS } from "react-native-reanimated";`,
+        `import { keyboardTargetHeight } from "@/src/components/shared/keyboardStickyOffset";`,
+        `export function useKeyboardTargetHeight() {`,
+        `  const [height, setHeight] = useState(0);`,
+        `  const update = (h) => setHeight(keyboardTargetHeight(h));`,
+        `  useKeyboardHandler({`,
+        `    onStart: (e) => {`,
+        `      "worklet";`,
+        `      runOnJS(update)(e.height);`,
+        `    },`,
+        `    onEnd: (e) => {`,
+        `      "worklet";`,
+        `      runOnJS(update)(e.height);`,
+        `    },`,
+        `  }, []);`,
+        `  return height;`,
+        `}`,
+      ].join("\n");
+
+      it("o hook padrão passa; sem worklet, sem runOnJS ou sem onStart acusa", () => {
+        expect(keyboardTargetHookViolations(hook)).toEqual([]);
+        expect(keyboardTargetHookViolations(hook.replace(`"worklet";\n      runOnJS(update)(e.height);\n    },\n    onEnd`, `runOnJS(update)(e.height);\n    },\n    onEnd`))).toEqual([
+          'onStart sem "worklet"',
+        ]);
+        expect(keyboardTargetHookViolations(hook.replace("runOnJS(update)(e.height);\n    },\n    onEnd", "setHeight(e.height);\n    },\n    onEnd"))).toEqual([
+          "onStart sem runOnJS",
+        ]);
+        expect(keyboardTargetHookViolations(hook.replace("onStart:", "onMove:"))).toEqual(["sem onStart"]);
+      });
+
+      it("a tela sem o hook (useKeyboardState) acusa", () => {
+        const screen = `import { useKeyboardTargetHeight } from "${KEYBOARD_TARGET_MODULE}";\nconst keyboardHeight = useKeyboardTargetHeight();`;
+        expect(keyboardTargetUserViolations(screen)).toEqual([]);
+        expect(
+          keyboardTargetUserViolations(`import { useKeyboardState } from "react-native-keyboard-controller";\nconst keyboardHeight = useKeyboardState((s) => s.height);`),
+        ).toEqual([
+          `não importa useKeyboardTargetHeight de ${KEYBOARD_TARGET_MODULE}`,
+          "sem const keyboardHeight = useKeyboardTargetHeight()",
+          "useKeyboardState (só atualiza no fim da animação)",
+        ]);
+      });
+
+      it("handleManualChave confere o DV antes de abrir a SEFAZ", () => {
+        const ok = `const handleManualChave = () => {\n  const cleaned = x;\n  if (cleaned.length !== 44) { appAlert("a", "b"); return; }\n  if (!isValidChaveAcesso(cleaned)) { appAlert("Chave Inválida", "c"); return; }\n  onNavigateWebView(SEFAZ_SP_CONSULTA, cleaned);\n};`;
+        expect(manualChaveValidationViolations(ok)).toEqual([]);
+        expect(manualChaveValidationViolations(ok.replace(/  if \(!isValidChaveAcesso[^\n]*\n/, ""))).toEqual([
+          "handleManualChave sem if (!isValidChaveAcesso(…))",
+        ]);
+        const late = `const handleManualChave = () => {\n  onNavigateWebView(SEFAZ_SP_CONSULTA, cleaned);\n  if (!isValidChaveAcesso(cleaned)) return;\n};`;
+        expect(manualChaveValidationViolations(late)).toEqual(["isValidChaveAcesso depois de abrir a SEFAZ"]);
+      });
     });
 
     it("jsxElementRanges acha o par certo com aninhamento e com tag que fecha sozinha", () => {

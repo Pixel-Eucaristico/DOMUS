@@ -18,3 +18,14 @@ export function stickyOpenedOffset(insetBottom: number, keyboardHeight: number):
   const keyboard = nonNegative(keyboardHeight);
   return keyboard > 0 ? Math.min(inset, keyboard) : inset;
 }
+
+/**
+ * Altura-alvo do teclado a partir do evento do keyboard-controller (`onStart`
+ * já traz a altura final da animação; `onEnd` confirma). Usada pelo
+ * `useKeyboardTargetHeight` (Story 13.6, R2/R4): com a altura-alvo desde o
+ * começo da animação, o `opened` nunca passa do teclado em nenhum quadro e as
+ * decisões de layout (compacto, rodapé ligado) saem antes da barra subir.
+ */
+export function keyboardTargetHeight(eventHeight: number): number {
+  return nonNegative(eventHeight);
+}

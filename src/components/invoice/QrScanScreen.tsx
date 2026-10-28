@@ -1,16 +1,18 @@
-import React, { useState } from "react";
-import { View, Text, Pressable, TextInput, StyleSheet, useWindowDimensions } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { View, Text, Pressable, TextInput, StyleSheet } from "react-native";
 import { CameraView } from "expo-camera";
 import { Feather } from "@expo/vector-icons";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
-import { KeyboardController, KeyboardStickyView, useKeyboardState } from "react-native-keyboard-controller";
+import { KeyboardController, KeyboardStickyView } from "react-native-keyboard-controller";
 import { useIsFocused } from "@react-navigation/native";
 import { soundManager } from "@/src/services/SoundManager";
 import { TButton } from "@/src/components/tamagui";
+import { useKeyboardTargetHeight } from "@/src/components/shared/useKeyboardTargetHeight";
 import {
   computeQrKeyBarLayout,
   keyBarFullHeight,
+  nextKeyContentHeight,
   normalizeChaveInput,
   KEY_BAR_COMPACT_PADDING_TOP,
   KEY_BAR_PADDING_BOTTOM,
@@ -50,20 +52,42 @@ export function QrScanScreen({
   const digitCount = manualChave.replace(/\D/g, "").length;
 
   // Barra da chave sobre o teclado (Story 13.6): medidas de layout locais.
-  const { height: windowHeight } = useWindowDimensions();
-  const keyboardHeight = useKeyboardState((state) => state.height);
+  // Altura-alvo do teclado desde o começo da animação (R2/R4) e a área real da
+  // tela pelo onLayout do contêiner (R5).
+  const keyboardHeight = useKeyboardTargetHeight();
+  const [containerHeight, setContainerHeight] = useState(0);
   const [topBarHeight, setTopBarHeight] = useState(0);
   const [keyContentHeight, setKeyContentHeight] = useState(0);
   const keyBarLayout = computeQrKeyBarLayout({
-    windowHeight,
+    containerHeight,
     keyboardHeight,
     insetBottom: insets.bottom,
     topBarHeight,
     fullBarHeight: showKeyInput ? keyBarFullHeight(keyContentHeight, insets.bottom) : 0,
   });
   const compact = showKeyInput && keyBarLayout.compact;
+  // Nem a compacta cabe (fonte grande em paisagem): campo e botões numa linha (R3).
+  const oneRow = compact && !keyBarLayout.fits;
 
+  // D-3 b: a leitura pausa com a barra da chave aberta. O handler passado à
+  // câmera é sempre o mesmo (R1): no expo-camera 17, `onBarcodeScanned`
+  // ausente desliga `barcodeScannerEnabled` e o Android recria a câmera.
+  const showKeyInputRef = useRef(false);
+  const onBarcodeScannedRef = useRef(onBarcodeScanned);
+  useEffect(() => {
+    onBarcodeScannedRef.current = onBarcodeScanned;
+  }, [onBarcodeScanned]);
+  const handleBarcodeScanned = useCallback((event: { data: string }) => {
+    if (showKeyInputRef.current) return;
+    onBarcodeScannedRef.current(event);
+  }, []);
+
+  const openKeyInput = () => {
+    showKeyInputRef.current = true;
+    setShowKeyInput(true);
+  };
   const closeKeyInput = () => {
+    showKeyInputRef.current = false;
     KeyboardController.dismiss();
     setShowKeyInput(false);
   };
@@ -73,11 +97,11 @@ export function QrScanScreen({
   };
 
   return (
-    <View style={s.container}>
+    <View style={s.container} onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}>
       {permissionGranted && isFocused ? (
         <CameraView
           style={StyleSheet.absoluteFill}
-          onBarcodeScanned={showKeyInput ? undefined : onBarcodeScanned}
+          onBarcodeScanned={handleBarcodeScanned}
           barcodeScannerSettings={{
             barcodeTypes: scanMode === "qr" ? ["qr"] : ["code128", "code39", "pdf417"],
           }}
@@ -159,23 +183,31 @@ export function QrScanScreen({
         offset={{ closed: 0, opened: keyBarLayout.openedOffset }}
       >
         {showKeyInput ? (
-          <View style={s.keyInputArea} onLayout={(e) => setKeyContentHeight(e.nativeEvent.layout.height)}>
+          <View
+            style={[s.keyInputArea, oneRow && s.keyInputRow]}
+            onLayout={(e) => {
+              const measured = e.nativeEvent.layout.height;
+              setKeyContentHeight((prev) => nextKeyContentHeight(prev, measured, oneRow));
+            }}
+          >
+            {/* Mesma árvore nos dois layouts: o campo não remonta (nem perde o foco). */}
             <TextInput
-              style={s.keyInput}
+              style={[s.keyInput, oneRow && s.keyInputFlex]}
               value={manualChave}
-              onChangeText={(text) => onManualChaveChange(normalizeChaveInput(text))}
+              onChangeText={(text) => onManualChaveChange(normalizeChaveInput(text, manualChave))}
               placeholder="44 dígitos da chave de acesso"
               placeholderTextColor="rgba(255,255,255,0.4)"
               keyboardType="number-pad"
               returnKeyType="search"
+              submitBehavior="submit"
               onSubmitEditing={submitChave}
               autoFocus
             />
-            <Text style={s.keyCounter}>{digitCount}/44 dígitos</Text>
-            <View style={s.keyActions}>
+            {!oneRow && <Text style={s.keyCounter}>{digitCount}/44 dígitos</Text>}
+            <View style={[s.keyActions, oneRow && s.keyActionsRow]}>
               <TButton
                 variant="outline"
-                flex={1}
+                flex={oneRow ? undefined : 1}
                 borderColor={theme.border}
                 color={theme.textColor}
                 onPress={() => { soundManager.play("tap"); closeKeyInput(); }}
@@ -184,7 +216,7 @@ export function QrScanScreen({
               </TButton>
               <TButton
                 variant="primary"
-                flex={1}
+                flex={oneRow ? undefined : 1}
                 backgroundColor={theme.primaryColor}
                 onPress={submitChave}
                 icon={<Feather name="search" size={16} color="#FFF" />}
@@ -201,7 +233,7 @@ export function QrScanScreen({
               </View>
               <Text style={s.bottomBtnLabel}>Galeria</Text>
             </Pressable>
-            <Pressable style={s.bottomBtn} onPress={() => { soundManager.play("tap"); setShowKeyInput(true); }}>
+            <Pressable style={s.bottomBtn} onPress={() => { soundManager.play("tap"); openKeyInput(); }}>
               <View style={s.bottomBtnIcon}>
                 <Feather name="hash" size={24} color="#FFF" />
               </View>
@@ -268,4 +300,7 @@ const s = StyleSheet.create({
   },
   keyCounter: { color: "rgba(255,255,255,0.5)", fontSize: 12, textAlign: "right", marginTop: -4 },
   keyActions: { flexDirection: "row", gap: 10, marginTop: 4 },
+  keyInputRow: { flexDirection: "row", alignItems: "center" },
+  keyInputFlex: { flex: 1 },
+  keyActionsRow: { marginTop: 0, flexShrink: 0 },
 });
