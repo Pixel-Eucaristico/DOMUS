@@ -2,7 +2,7 @@
 title: 'Story 13.6: corrigir a digitação manual da chave da NF sobre a câmera'
 type: 'bugfix'
 created: '2026-10-28'
-status: 'ready-for-dev'
+status: 'in-progress'
 baseline_commit: '2a16009'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -162,9 +162,9 @@ Auto-testes: um trecho que casa e um que não casa para cada regra (campo fora d
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] Esperar o commit da 13.5 e atualizar o `baseline_commit` desta spec.
-- [ ] `stickyOpenedOffset` e testes; `parsedFooterLayout.ts` passa a usá-la e os 13 testes dele seguem verdes.
-- [ ] `computeQrKeyBarLayout` (e `normalizeChaveInput`, se D-2 b) e testes:
+- [x] Esperar o commit da 13.5 e atualizar o `baseline_commit` desta spec. (A 13.6 partiu do `HEAD` `5181e97`, com a 13.5 e a revisão dela commitadas; o frontmatter ficou como estava, por instrução do dono — ver Implementation Notes.)
+- [x] `stickyOpenedOffset` e testes; `parsedFooterLayout.ts` passa a usá-la e os 13 testes dele seguem verdes.
+- [x] `computeQrKeyBarLayout` (e `normalizeChaveInput`, se D-2 b) e testes:
   - retrato 412×900, teclado 300 (com a barra de navegação), inset 24, cabeçalho 84, barra 191: `openedOffset = 24`, `compact = false`, topo da barra (900 − 300 − 167 = 433) abaixo do cabeçalho;
   - teclado fechado: `openedOffset = inset` e `compact = false` mesmo em janela baixa;
   - R3: teclado 16 com inset 24 → `openedOffset = 16` (`translateY` nunca positivo);
@@ -172,9 +172,9 @@ Auto-testes: um trecho que casa e um que não casa para cada regra (campo fora d
   - limite exato: sobra igual à faixa → `false`; um a mais → `true`;
   - entradas inválidas (NaN, negativas) valem 0;
   - `normalizeChaveInput`: chave com espaços (54 caracteres) → 44 dígitos; mais de 44 dígitos → os 44 primeiros; letras e pontos saem; vazio → vazio.
-- [ ] `QrScanScreen` conforme o padrão e as decisões. Textos, validação e fluxo de consulta iguais.
-- [ ] Guarda (bloco da 13.6), com auto-testes e sondas.
-- [ ] Itens desta story na checklist da Story 13.7 (Verification).
+- [x] `QrScanScreen` conforme o padrão e as decisões. Textos, validação e fluxo de consulta iguais.
+- [x] Guarda (bloco da 13.6), com auto-testes e sondas.
+- [x] Itens desta story na checklist da Story 13.7 (Verification).
 
 **Acceptance Criteria:**
 - Given a tela de QR da importação de nota com o campo da chave em `autoFocus`, when o teclado abre, then a barra inferior com o campo, "Cancelar" e "Consultar SEFAZ" sobe acima do teclado, com folga ≥ 8 dp.
@@ -238,7 +238,31 @@ O `QrScanScreen` não abre na web (botão "QR Code" desabilitado), então não h
 
 ## Implementation Notes
 
-—
+**Base:** `HEAD` `5181e97` (13.5 e a revisão dela commitadas). O `baseline_commit` do frontmatter não foi trocado, por instrução do dono (só as tarefas e estas notas mudam aqui); o plano foi refeito sobre o `keyboardScroll.test.ts` atual (com o bloco da 13.5).
+
+**Arquivos**
+- `src/components/shared/keyboardStickyOffset.ts` (novo): `stickyOpenedOffset(insetBottom, keyboardHeight)`, sem import.
+- `src/components/invoice/qrKeyBarLayout.ts` (novo): `computeQrKeyBarLayout`, `keyBarFullHeight`, `normalizeChaveInput`, `MIN_KEY_GAP`, `KEY_BAR_PADDING_TOP` (24), `KEY_BAR_COMPACT_PADDING_TOP` (8), `KEY_BAR_PADDING_BOTTOM` (20), `CHAVE_DIGITS` (44).
+- `src/components/invoice/parsedFooterLayout.ts`: `openedOffset` passa a vir de `stickyOpenedOffset` (os 13 testes dele passam sem mudança).
+- `src/components/invoice/QrScanScreen.tsx`: `useWindowDimensions` + `useKeyboardState((s) => s.height)`; altura do cabeçalho e do conteúdo da barra no `onLayout`; `offset={{ closed: 0, opened: keyBarLayout.openedOffset }}` sem `enabled`; modo compacto (cabeçalho e dica somem, `paddingTop` 24 → 8); `returnKeyType="search"` + `onSubmitEditing` no mesmo handler do "Consultar SEFAZ"; "Cancelar" e troca de aba chamam `KeyboardController.dismiss()` antes de fechar o campo; D-2 b (`onChangeText` com `normalizeChaveInput`, sem `maxLength`); D-3 b (`onBarcodeScanned={showKeyInput ? undefined : onBarcodeScanned}`). Textos, validação (`useInvoiceScanner`) e fluxo da consulta iguais.
+- `src/components/invoice/__tests__/qrKeyBarLayout.test.ts` (novo, 14 testes) e `src/components/shared/__tests__/keyboardStickyOffset.test.ts` (novo, 4 testes).
+- `src/components/__tests__/keyboardScroll.test.ts`: bloco "barra da chave da NF (Story 13.6)" (4 testes de regra: `qrKeyBarViolations` no `QrScanScreen`, `stickyOffsetUserViolations` nos 2 usuários, `stickyOffsetModuleViolations` no módulo comum, motivo de `app/import-invoice.tsx` citando `QR_KEY_BAR` sem "Story 13.6") e 14 auto-testes (padrão passa, comentário não conta, `View` no lugar do sticky, campo fora, "Consultar SEFAZ" fora, `opened: insets.bottom`, sem `offset`, `closed ≠ 0`, `enabled`/`enabled={false}`, spread, `KeyboardAvoidingView` em volta/importado/com alias, Compat, `AvoidSoftInput`, dois sticky, alias/namespace/`KeyboardStickyView` de outro módulo, sem `computeQrKeyBarLayout`, `jsxElementRanges`, `Math.min(inset…` copiado, módulo comum com import).
+
+**Decisões além da spec**
+- **Altura não compacta pelo conteúdo, não pela barra inteira.** Em vez de medir a barra só quando não está compacta, o `onLayout` mede o conteúdo da barra da chave (campo, contador, botões), que é o mesmo nos dois modos, e `keyBarFullHeight(conteúdo, inset)` soma os paddings do modo não compacto (24 + 20 + inset). Mesmo resultado que a spec pede (`fullBarHeight` é sempre a altura não compacta), sem medida velha: com `autoFocus` a barra pode abrir já compacta, e a medida "só quando não compacta" ficaria com a altura da barra Galeria/Digitar Chave. Sem medida (0), `compact = false` (R-2). A sonda "compact com a altura atual" virou: `keyBarFullHeight` com o `paddingTop` compacto → falham 3 testes, entre eles o de não alternar.
+- `compact` também exige `fullBarHeight > 0` (primeiro quadro igual ao de hoje).
+- A guarda também exige `closed: 0` no `offset`, barra sem `{...spread}` e o `<KeyboardStickyView` pelo import nomeado sem alias (namespace e homônimo de outro módulo acusam); o módulo comum fica sem import.
+- O cabeçalho some por desmontagem (`{!compact && …}`): a última medida dele fica guardada para a decisão.
+
+**Verificação**
+- `npx vitest run`: 98 arquivos, 2145 testes passando (baseline 96/2109; +2 arquivos, +36 testes: 14 + 4 das funções puras, 18 da guarda; `keyboardScroll.test.ts` 245).
+- `npx tsc --noEmit`: 0 erros (sem `expo-env.d.ts`). `npx eslint` nos 7 arquivos tocados: sem avisos.
+- `npx expo export --platform web`: exit 0.
+- Sondas das funções puras (revertidas): `stickyOpenedOffset` sempre `inset` → 3 falhas (R3 nas duas telas e no módulo); `compact` sempre `false` → 4 falhas (paisagem, limite, entradas, não alternar); `keyBarFullHeight` com `paddingTop` compacto → 3 falhas; `normalizeChaveInput` mantendo espaços → 2 falhas.
+- Sondas da guarda (revertidas), todas falham: `KeyboardStickyView` → `View`; `opened: insets.bottom`; `enabled={false}`; `TextInput` fora da barra; `KeyboardAvoidingView` em volta da tela; `Math.min(inset…` copiado no `parsedFooterLayout.ts`.
+- Playwright (Chromium headless, build exportado com fallback de SPA, perfil novo com "Pular" no carrossel), 412×900 e 800×360: `/import-invoice` com "QR Code" desabilitado e "Disponível no app Android" (o clique não sai da tela); "Lançar manualmente" abre o `ParsedScreen` com "Total da Nota" e "Confirmar Importação" dentro da janela; sem erro de página.
+
+**Checklist para a Story 13.7 (aparelho, Android 16):** os 12 itens de "Aparelho" acima, com atenção a: 3 (R-2, primeiro teclado da sessão); 4 (R-1, editor de tela cheia em paisagem: se a barra piscar por trás, reabrir a D-1 c; girar com o teclado aberto sem alternar o compacto, R-3); 5 (fonte 1,3/2,0 e celular ≤ 640 dp: cabeçalho e dica somem e voltam ao fechar o teclado); 6 (teclado físico/flutuante, R3); 7 (`KeyboardController.dismiss()` no "Cancelar" e na troca de aba); 8 (colar com espaços, D-2); 9 (QR não lido com a barra aberta, lido depois de "Cancelar", D-3); 2 (botão de ação do teclado consulta, inclusive com menos de 44 dígitos mostrando o alerta do app).
 
 ## Review Triage Log
 

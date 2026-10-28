@@ -1,6 +1,7 @@
 // Rodapé da revisão da nota (ParsedScreen) que sobe com o teclado (Story 13.2,
 // D-1 a). Sem `react-native` aqui, para dar para testar no vitest.
 import { KEYBOARD_BOTTOM_OFFSET, MIN_FIELD_SPACE } from "@/components/keyboardScrollDefaults";
+import { stickyOpenedOffset } from "@/src/components/shared/keyboardStickyOffset";
 
 /** Espaço mínimo que sobra para o campo focado entre o topo da rolagem e o rodapé erguido. */
 export { MIN_FIELD_SPACE };
@@ -47,11 +48,9 @@ export function computeParsedFooterLayout({
   baseOffset = KEYBOARD_BOTTOM_OFFSET,
 }: ParsedFooterInput): ParsedFooterLayout {
   const keyboard = nonNegative(keyboardHeight);
-  const inset = nonNegative(insetBottom);
   // Teclado mais baixo que o inset (ex.: teclado físico com barra de sugestões)
-  // não pode empurrar o rodapé para baixo. Com o teclado fechado o valor não é
-  // usado; fica o inset para não pular no meio da animação de fechar.
-  const openedOffset = keyboard > 0 ? Math.min(inset, keyboard) : inset;
+  // não pode empurrar o rodapé para baixo (conta comum com a barra da chave da NF).
+  const openedOffset = stickyOpenedOffset(insetBottom, keyboard);
   const overlap = Math.max(0, nonNegative(footerHeight) - openedOffset);
 
   // Espaço visível da rolagem acima do teclado.

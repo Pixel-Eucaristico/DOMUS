@@ -36,6 +36,13 @@ import path from "path";
  * (só a leitura `useKeyboardState`, para esconder sugestões e barra de uso com
  * espaço curto, R2). Uma sentinela falha se o GiftedChat ou o
  * keyboard-controller mudarem o que a conta pressupõe.
+ *
+ * Story 13.6: a barra da chave da NF sobre a câmera (QR_KEY_BAR) sobe com um
+ * único `KeyboardStickyView` (nunca desligado), com o campo e o "Consultar
+ * SEFAZ" dentro dele, o `offset.opened` vindo do `computeQrKeyBarLayout` e
+ * nenhuma segunda compensação. A conta do `offset.opened` mora só no
+ * `stickyOpenedOffset` (STICKY_OFFSET), usado pelo rodapé do ParsedScreen e
+ * pela barra da chave (STICKY_OFFSET_USERS).
  */
 
 const ROOT = path.resolve(__dirname, "../../..");
@@ -74,7 +81,7 @@ const BOTTOM_OFFSET_EXCEPTIONS: Record<string, { expression: string; reason: str
 /** Rotas com campo fora da lista, com o motivo. */
 const DISCOVERY_EXCEPTIONS: Record<string, string> = {
   "app/ai-chat.tsx": "chat (CHAT_SCREENS, Story 13.5)",
-  "app/import-invoice.tsx": "campos no ParsedScreen (na lista) e no QrScanScreen (KeyboardStickyView, Story 13.6)",
+  "app/import-invoice.tsx": "campos no ParsedScreen (na lista) e no QrScanScreen (barra da chave, QR_KEY_BAR)",
   "app/payslips.tsx": "campos no PayslipReview (na lista)",
 };
 
@@ -1399,6 +1406,131 @@ function chatSentinelViolations(src: ChatSentinelSources): string[] {
   return hits.map((h) => `${h}: ${CHAT_SENTINEL_MESSAGE}`);
 }
 
+// ─── Barra da chave da NF (Story 13.6) ───────────────────────────────────────
+
+/** A tela de QR da importação de nota, com a barra da chave sobre a câmera. */
+const QR_KEY_BAR = "src/components/invoice/QrScanScreen.tsx";
+/** Módulo puro da barra da chave e o `opened` exato esperado no KeyboardStickyView. */
+const QR_KEY_BAR_LAYOUT = "src/components/invoice/qrKeyBarLayout.ts";
+const QR_KEY_BAR_OPENED = "keyBarLayout.openedOffset";
+/** A conta única do `offset.opened` e os módulos que a usam. */
+const STICKY_OFFSET = "src/components/shared/keyboardStickyOffset.ts";
+const STICKY_OFFSET_MODULE = "@/src/components/shared/keyboardStickyOffset";
+const STICKY_OFFSET_USERS = ["src/components/invoice/parsedFooterLayout.ts", QR_KEY_BAR_LAYOUT];
+
+/** Intervalos [início, fim] de cada `<Name …>…</Name>` (ou `<Name … />`), no código sem comentários. */
+function jsxElementRanges(code: string, name: string): [number, number][] {
+  const n = escapeRe(name);
+  const tokens = new RegExp(`<\\s*${n}\\b|<\\s*\\/\\s*${n}\\s*>`, "g");
+  const ranges: [number, number][] = [];
+  const stack: number[] = [];
+  for (const m of code.matchAll(tokens)) {
+    const at = m.index ?? 0;
+    if (/^<\s*\//.test(m[0])) {
+      const start = stack.pop();
+      if (start !== undefined) ranges.push([start, at + m[0].length]);
+      continue;
+    }
+    const { end, selfClosing } = openingTagEnd(code, at + m[0].length);
+    if (selfClosing) ranges.push([at, end + 1]);
+    else stack.push(at);
+  }
+  for (const start of stack) ranges.push([start, code.length]);
+  return ranges;
+}
+
+/** Motivos pelos quais a barra da chave da NF foge do padrão da Story 13.6. */
+function qrKeyBarViolations(source: string): string[] {
+  const code = stripComments(source);
+  const hits: string[] = [];
+  const imports = parseImports(code);
+
+  // 1. importa o KeyboardStickyView do keyboard-controller (sem alias) e o renderiza uma vez.
+  const kcMembers = [...code.matchAll(new RegExp(`(?:^|[;\\n])\\s*import\\s+(?!type\\s)[^;]*?\\{([^}]*)\\}[^;]*?from\\s*${KC}`, "g"))]
+    .flatMap((m) => m[1].split(","))
+    .map((x) => x.trim())
+    .filter(Boolean);
+  if (!kcMembers.includes("KeyboardStickyView")) {
+    hits.push(
+      kcMembers.some((x) => /^KeyboardStickyView\s+as\s/.test(x))
+        ? "KeyboardStickyView importado com alias"
+        : `não importa KeyboardStickyView de ${KC_MODULE}`,
+    );
+  }
+  const shadow = [...code.matchAll(/(?:^|[;\n])\s*import\s+[^;]*?\{([^}]*)\}[^;]*?from\s*["']([^"']+)["']/g)].some(
+    (m) => m[2] !== KC_MODULE && m[1].split(",").some((x) => /(?:^|\sas\s+)KeyboardStickyView$/.test(x.trim())),
+  );
+  if (shadow) hits.push("KeyboardStickyView vindo de outro módulo");
+  if (jsxPattern("KeyboardStickyView", true).test(code)) hits.push("<NS.KeyboardStickyView (use o import nomeado)");
+  const tags = scanJsxOpeningTags(source, "KeyboardStickyView");
+  if (tags.length !== 1) hits.push(`${tags.length} × <KeyboardStickyView (esperado 1)`);
+
+  // 2. o campo e o "Consultar SEFAZ" ficam dentro do <KeyboardStickyView>…</KeyboardStickyView>.
+  const ranges = jsxElementRanges(code, "KeyboardStickyView");
+  const inside = (at: number) => ranges.some(([a, b]) => at > a && at < b);
+  const fields = [...code.matchAll(jsxPattern(FIELD_TAGS, false)), ...code.matchAll(jsxPattern("TextInput|Input|TextArea", true))].map(
+    (m) => (m.index ?? 0) + m[0].length,
+  );
+  if (fields.length === 0) hits.push("sem campo da chave");
+  if (fields.some((at) => !inside(at))) hits.push("campo fora do KeyboardStickyView");
+  const consult = [...code.matchAll(/Consultar SEFAZ/g)].map((m) => m.index ?? 0);
+  if (consult.length === 0) hits.push("sem o botão \"Consultar SEFAZ\"");
+  if (consult.some((at) => !inside(at))) hits.push("\"Consultar SEFAZ\" fora do KeyboardStickyView");
+
+  for (const tag of tags) {
+    // 3. offset com o opened da conta pura (nunca o insets.bottom literal) e closed 0.
+    const offset = tag.exprs.offset;
+    if (offset === undefined) hits.push("KeyboardStickyView sem offset={…}");
+    else {
+      const opened = offset.match(/\bopened\s*:\s*([^,}]+)/)?.[1].trim();
+      if (opened !== QR_KEY_BAR_OPENED) hits.push(`offset.opened = ${opened ?? "?"} (esperado ${QR_KEY_BAR_OPENED})`);
+      if (!/\bclosed\s*:\s*0\s*[,}]/.test(offset)) hits.push("offset sem closed: 0");
+    }
+    // 4. a barra nunca é desligada (o campo mora nela) e não recebe props por spread.
+    if (/(?:^|\s)enabled(?=\s*=|\s|\/|$)/.test(tag.attrs)) hits.push("KeyboardStickyView com enabled");
+    if (/(?<!=\s*)\{\}/.test(tag.attrs)) hits.push("KeyboardStickyView com {...spread} nos props");
+  }
+
+  // 5. nenhuma segunda compensação de teclado no arquivo.
+  for (const name of SECOND_KEYBOARD_SYSTEMS.filter((n) => n !== "KeyboardStickyView")) {
+    if (jsxPattern(name, false).test(code) || jsxPattern(name, true).test(code)) hits.push(`<${name}`);
+    else if (imports.some((imp) => imp.named.includes(name))) hits.push(`import ${name}`);
+  }
+  if (/\bAvoidSoftInput|react-native-avoid-softinput/.test(code)) hits.push("AvoidSoftInput");
+
+  // 6. o layout vem do computeQrKeyBarLayout.
+  const layoutImported = imports.some(
+    (imp) => /(?:^\.\/|\/invoice\/)qrKeyBarLayout$/.test(imp.module) && imp.named.includes("computeQrKeyBarLayout"),
+  );
+  if (!layoutImported) hits.push("não importa computeQrKeyBarLayout de qrKeyBarLayout");
+  if (!/\bconst\s+keyBarLayout\s*=\s*computeQrKeyBarLayout\s*\(/.test(code)) {
+    hits.push("sem const keyBarLayout = computeQrKeyBarLayout(…)");
+  }
+  return hits;
+}
+
+/** Quem usa a conta comum do `offset.opened` importa o stickyOpenedOffset e não repete a conta. */
+function stickyOffsetUserViolations(source: string): string[] {
+  const code = stripComments(source);
+  const hits: string[] = [];
+  const imported = parseImports(code).some(
+    (imp) => imp.module === STICKY_OFFSET_MODULE && imp.named.includes("stickyOpenedOffset"),
+  );
+  if (!imported) hits.push(`não importa stickyOpenedOffset de ${STICKY_OFFSET_MODULE}`);
+  if (!/\bstickyOpenedOffset\s*\(/.test(code)) hits.push("não chama stickyOpenedOffset(…)");
+  if (/\bMath\.min\s*\([^)]*\binset/i.test(code)) hits.push("repete Math.min(inset…)");
+  return hits;
+}
+
+/** O módulo comum fica sem import (testável no vitest) e com a conta. */
+function stickyOffsetModuleViolations(source: string): string[] {
+  const code = stripComments(source);
+  const hits: string[] = [];
+  if (/(?:^|[;\n])\s*import\b|\brequire\s*\(/.test(code)) hits.push("import");
+  if (!/export\s+function\s+stickyOpenedOffset\s*\(/.test(code)) hits.push("sem export function stickyOpenedOffset");
+  return hits;
+}
+
 // ─── Arquivos ────────────────────────────────────────────────────────────────
 
 function isTestFile(file: string): boolean {
@@ -1669,7 +1801,184 @@ describe("chat da IA (Story 13.5)", () => {
   });
 });
 
+describe("barra da chave da NF (Story 13.6)", () => {
+  it("o QrScanScreen sobe a barra só com o KeyboardStickyView, com o campo dentro e o opened da conta pura", () => {
+    expect(fs.existsSync(path.join(ROOT, QR_KEY_BAR))).toBe(true);
+    expect(qrKeyBarViolations(read(QR_KEY_BAR))).toEqual([]);
+  });
+
+  it.each(STICKY_OFFSET_USERS)("%s usa o stickyOpenedOffset sem repetir a conta", (file) => {
+    expect(stickyOffsetUserViolations(read(file))).toEqual([]);
+  });
+
+  it("o keyboardStickyOffset.ts fica sem import e exporta a conta", () => {
+    expect(stickyOffsetModuleViolations(read(STICKY_OFFSET))).toEqual([]);
+  });
+
+  it("o motivo do app/import-invoice.tsx na descoberta cita a regra (sem pendência)", () => {
+    const reason = DISCOVERY_EXCEPTIONS["app/import-invoice.tsx"];
+    expect(reason).toMatch(/QR_KEY_BAR/);
+    expect(reason).not.toMatch(/Story 13\.6/);
+    expect(read("app/import-invoice.tsx")).toMatch(/\bQrScanScreen\b/);
+  });
+});
+
 describe("auto-teste dos detectores", () => {
+  describe("barra da chave da NF (Story 13.6)", () => {
+    const good = [
+      `import { View, TextInput } from "react-native";`,
+      `import { KeyboardController, KeyboardStickyView, useKeyboardState } from "react-native-keyboard-controller";`,
+      `import { computeQrKeyBarLayout } from "./qrKeyBarLayout";`,
+      `export function QrScanScreen() {`,
+      `  const keyBarLayout = computeQrKeyBarLayout({ windowHeight, keyboardHeight, insetBottom, topBarHeight, fullBarHeight });`,
+      `  return (`,
+      `    <View>`,
+      `      <View style={s.topBar} />`,
+      `      <KeyboardStickyView style={s.bar} offset={{ closed: 0, opened: keyBarLayout.openedOffset }}>`,
+      `        {show ? (`,
+      `          <View>`,
+      `            <TextInput value={v} onChangeText={set} />`,
+      `            <TButton onPress={submit}>Consultar SEFAZ</TButton>`,
+      `          </View>`,
+      `        ) : null}`,
+      `      </KeyboardStickyView>`,
+      `    </View>`,
+      `  );`,
+      `}`,
+    ].join("\n");
+
+    it("o padrão passa (comentário citando o insets.bottom não conta)", () => {
+      expect(qrKeyBarViolations(good)).toEqual([]);
+      expect(qrKeyBarViolations(`// opened: insets.bottom, <KeyboardAvoidingView>\n${good}`)).toEqual([]);
+    });
+
+    it("KeyboardStickyView trocado por View acusa", () => {
+      const probe = good.replace("<KeyboardStickyView style", "<View style").replace("</KeyboardStickyView>", "</View>");
+      const hits = qrKeyBarViolations(probe);
+      expect(hits).toContain("0 × <KeyboardStickyView (esperado 1)");
+      expect(hits).toContain("campo fora do KeyboardStickyView");
+    });
+
+    it("campo fora da barra acusa", () => {
+      const probe = good
+        .replace(`            <TextInput value={v} onChangeText={set} />\n`, "")
+        .replace(`      <View style={s.topBar} />`, `      <TextInput value={v} onChangeText={set} />`);
+      expect(qrKeyBarViolations(probe)).toEqual(["campo fora do KeyboardStickyView"]);
+    });
+
+    it("\"Consultar SEFAZ\" fora da barra acusa", () => {
+      const probe = good
+        .replace(`            <TButton onPress={submit}>Consultar SEFAZ</TButton>\n`, "")
+        .replace(`      <View style={s.topBar} />`, `      <TButton onPress={submit}>Consultar SEFAZ</TButton>`);
+      expect(qrKeyBarViolations(probe)).toEqual(["\"Consultar SEFAZ\" fora do KeyboardStickyView"]);
+    });
+
+    it("opened: insets.bottom literal (ou sem offset, ou closed ≠ 0) acusa", () => {
+      expect(qrKeyBarViolations(good.replace("opened: keyBarLayout.openedOffset", "opened: insets.bottom"))).toEqual([
+        `offset.opened = insets.bottom (esperado ${QR_KEY_BAR_OPENED})`,
+      ]);
+      expect(qrKeyBarViolations(good.replace(" offset={{ closed: 0, opened: keyBarLayout.openedOffset }}", ""))).toEqual([
+        "KeyboardStickyView sem offset={…}",
+      ]);
+      expect(qrKeyBarViolations(good.replace("closed: 0", "closed: 10"))).toEqual(["offset sem closed: 0"]);
+    });
+
+    it("enabled= (qualquer valor) e spread acusam", () => {
+      expect(qrKeyBarViolations(good.replace("<KeyboardStickyView style", "<KeyboardStickyView enabled={false} style"))).toEqual([
+        "KeyboardStickyView com enabled",
+      ]);
+      expect(qrKeyBarViolations(good.replace("<KeyboardStickyView style", "<KeyboardStickyView enabled style"))).toEqual([
+        "KeyboardStickyView com enabled",
+      ]);
+      expect(qrKeyBarViolations(good.replace("<KeyboardStickyView style", "<KeyboardStickyView {...stickyProps} style"))).toEqual([
+        "KeyboardStickyView com {...spread} nos props",
+      ]);
+    });
+
+    it("KeyboardAvoidingView em volta (ou só importado, ou com alias) e AvoidSoftInput acusam", () => {
+      const kav = good
+        .replace(`useKeyboardState }`, `useKeyboardState, KeyboardAvoidingView }`)
+        .replace("  return (\n    <View>", "  return (\n    <KeyboardAvoidingView behavior=\"padding\">")
+        .replace("    </View>\n  );", "    </KeyboardAvoidingView>\n  );");
+      expect(qrKeyBarViolations(kav)).toEqual(["<KeyboardAvoidingView"]);
+      const aliased = good.replace(`useKeyboardState }`, `useKeyboardState, KeyboardAvoidingView as KAV }`);
+      expect(qrKeyBarViolations(aliased)).toEqual(["import KeyboardAvoidingView"]);
+      const compat = `import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";\n${good}`;
+      expect(qrKeyBarViolations(compat)).toEqual(["import KeyboardAwareScrollViewCompat"]);
+      const soft = `import { AvoidSoftInputView } from "react-native-avoid-softinput";\n${good}`;
+      expect(qrKeyBarViolations(soft)).toEqual(["AvoidSoftInput"]);
+    });
+
+    it("dois KeyboardStickyView acusam", () => {
+      const probe = good.replace(`      <View style={s.topBar} />`, `      <KeyboardStickyView offset={{ closed: 0, opened: keyBarLayout.openedOffset }} />`);
+      expect(qrKeyBarViolations(probe)).toEqual(["2 × <KeyboardStickyView (esperado 1)"]);
+    });
+
+    it("alias de import, namespace e KeyboardStickyView de outro módulo acusam", () => {
+      const alias = good
+        .replace("KeyboardController, KeyboardStickyView,", "KeyboardController, KeyboardStickyView as Sticky,")
+        .replace("<KeyboardStickyView style", "<Sticky style")
+        .replace("</KeyboardStickyView>", "</Sticky>");
+      const aliasHits = qrKeyBarViolations(alias);
+      expect(aliasHits).toContain("KeyboardStickyView importado com alias");
+      expect(aliasHits).toContain("0 × <KeyboardStickyView (esperado 1)");
+      const fake = good
+        .replace("KeyboardController, KeyboardStickyView,", "KeyboardController,")
+        .replace(`import { View, TextInput } from "react-native";`, `import { View, TextInput, View as KeyboardStickyView } from "react-native";`);
+      const fakeHits = qrKeyBarViolations(fake);
+      expect(fakeHits).toContain(`não importa KeyboardStickyView de ${KC_MODULE}`);
+      expect(fakeHits).toContain("KeyboardStickyView vindo de outro módulo");
+      const ns = `import * as KC from "react-native-keyboard-controller";\n${good}`.replace(
+        "</KeyboardStickyView>",
+        "</KeyboardStickyView>\n      <KC.KeyboardStickyView />",
+      );
+      expect(qrKeyBarViolations(ns)).toContain("<NS.KeyboardStickyView (use o import nomeado)");
+    });
+
+    it("sem computeQrKeyBarLayout acusa", () => {
+      const probe = good
+        .replace(`import { computeQrKeyBarLayout } from "./qrKeyBarLayout";`, "")
+        .replace("const keyBarLayout = computeQrKeyBarLayout(", "const keyBarLayout = ({ openedOffset: insets.bottom }) ?? (");
+      expect(qrKeyBarViolations(probe)).toEqual([
+        "não importa computeQrKeyBarLayout de qrKeyBarLayout",
+        "sem const keyBarLayout = computeQrKeyBarLayout(…)",
+      ]);
+    });
+
+    it("jsxElementRanges acha o par certo com aninhamento e com tag que fecha sozinha", () => {
+      const code = `<A x={1}><B /><A><C /></A></A>\n<A y="2" />`;
+      const ranges = jsxElementRanges(code, "A").sort((a, b) => a[0] - b[0]);
+      expect(ranges.map(([a, b]) => code.slice(a, b))).toEqual([`<A x={1}><B /><A><C /></A></A>`, `<A><C /></A>`, `<A y="2" />`]);
+    });
+
+    describe("conta comum do offset.opened", () => {
+      const user = [
+        `import { stickyOpenedOffset } from "@/src/components/shared/keyboardStickyOffset";`,
+        `export function f(inset: number, keyboard: number) {`,
+        `  return stickyOpenedOffset(inset, keyboard);`,
+        `}`,
+      ].join("\n");
+
+      it("quem usa a função comum passa; a conta copiada ou sem o import acusa", () => {
+        expect(stickyOffsetUserViolations(user)).toEqual([]);
+        expect(
+          stickyOffsetUserViolations(user.replace("stickyOpenedOffset(inset, keyboard)", "keyboard > 0 ? Math.min(inset, keyboard) : inset")),
+        ).toEqual(["não chama stickyOpenedOffset(…)", "repete Math.min(inset…)"]);
+        expect(stickyOffsetUserViolations(`${user}\nconst o = Math.min(insetBottom, k);`)).toEqual(["repete Math.min(inset…)"]);
+        expect(stickyOffsetUserViolations(user.replace(/^import.*\n/, ""))).toEqual([
+          `não importa stickyOpenedOffset de ${STICKY_OFFSET_MODULE}`,
+        ]);
+      });
+
+      it("o módulo comum sem import passa; com import acusa", () => {
+        const mod = `export function stickyOpenedOffset(a: number, b: number) {\n  return b > 0 ? Math.min(a, b) : a;\n}`;
+        expect(stickyOffsetModuleViolations(mod)).toEqual([]);
+        expect(stickyOffsetModuleViolations(`import { View } from "react-native";\n${mod}`)).toEqual(["import"]);
+        expect(stickyOffsetModuleViolations("export const x = 1;")).toEqual(["sem export function stickyOpenedOffset"]);
+      });
+    });
+  });
+
   describe("chat da IA (Story 13.5)", () => {
     const KC_IMPORT = `import { KeyboardProvider } from "react-native-keyboard-controller";`;
 

@@ -1,13 +1,21 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, TextInput, StyleSheet } from "react-native";
+import { View, Text, Pressable, TextInput, StyleSheet, useWindowDimensions } from "react-native";
 import { CameraView } from "expo-camera";
 import { Feather } from "@expo/vector-icons";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
-import { KeyboardStickyView } from "react-native-keyboard-controller";
+import { KeyboardController, KeyboardStickyView, useKeyboardState } from "react-native-keyboard-controller";
 import { useIsFocused } from "@react-navigation/native";
 import { soundManager } from "@/src/services/SoundManager";
 import { TButton } from "@/src/components/tamagui";
+import {
+  computeQrKeyBarLayout,
+  keyBarFullHeight,
+  normalizeChaveInput,
+  KEY_BAR_COMPACT_PADDING_TOP,
+  KEY_BAR_PADDING_BOTTOM,
+  KEY_BAR_PADDING_TOP,
+} from "./qrKeyBarLayout";
 
 type ScanMode = "qr" | "barcode";
 
@@ -41,12 +49,35 @@ export function QrScanScreen({
   const isFocused = useIsFocused();
   const digitCount = manualChave.replace(/\D/g, "").length;
 
+  // Barra da chave sobre o teclado (Story 13.6): medidas de layout locais.
+  const { height: windowHeight } = useWindowDimensions();
+  const keyboardHeight = useKeyboardState((state) => state.height);
+  const [topBarHeight, setTopBarHeight] = useState(0);
+  const [keyContentHeight, setKeyContentHeight] = useState(0);
+  const keyBarLayout = computeQrKeyBarLayout({
+    windowHeight,
+    keyboardHeight,
+    insetBottom: insets.bottom,
+    topBarHeight,
+    fullBarHeight: showKeyInput ? keyBarFullHeight(keyContentHeight, insets.bottom) : 0,
+  });
+  const compact = showKeyInput && keyBarLayout.compact;
+
+  const closeKeyInput = () => {
+    KeyboardController.dismiss();
+    setShowKeyInput(false);
+  };
+  const submitChave = () => {
+    soundManager.play("tap");
+    onManualChaveSubmit();
+  };
+
   return (
     <View style={s.container}>
       {permissionGranted && isFocused ? (
         <CameraView
           style={StyleSheet.absoluteFill}
-          onBarcodeScanned={onBarcodeScanned}
+          onBarcodeScanned={showKeyInput ? undefined : onBarcodeScanned}
           barcodeScannerSettings={{
             barcodeTypes: scanMode === "qr" ? ["qr"] : ["code128", "code39", "pdf417"],
           }}
@@ -74,55 +105,70 @@ export function QrScanScreen({
         </View>
       )}
 
-      {/* TOP BAR: close + mode tabs */}
-      <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => { soundManager.play("tap"); onClose(); }} hitSlop={12} style={s.closeBtn}>
-          <Feather name="x" size={22} color="#FFF" />
-        </Pressable>
-        <View style={s.tabs}>
-          <Pressable
-            style={[s.tab, scanMode === "qr" && s.tabActive]}
-            onPress={() => { soundManager.play("tabSwitch"); setScanMode("qr"); setShowKeyInput(false); }}
-          >
-            <Text style={[s.tabText, scanMode === "qr" && s.tabTextActive]}>QR Code</Text>
+      {/* TOP BAR: close + mode tabs (somem no modo compacto da barra da chave) */}
+      {!compact && (
+        <View
+          style={[s.topBar, { paddingTop: insets.top + 8 }]}
+          onLayout={(e) => setTopBarHeight(e.nativeEvent.layout.height)}
+        >
+          <Pressable onPress={() => { soundManager.play("tap"); onClose(); }} hitSlop={12} style={s.closeBtn}>
+            <Feather name="x" size={22} color="#FFF" />
           </Pressable>
-          <Pressable
-            style={[s.tab, scanMode === "barcode" && s.tabActive]}
-            onPress={() => { soundManager.play("tabSwitch"); setScanMode("barcode"); setShowKeyInput(false); }}
-          >
-            <Text style={[s.tabText, scanMode === "barcode" && s.tabTextActive]}>Cód. Barras</Text>
-          </Pressable>
+          <View style={s.tabs}>
+            <Pressable
+              style={[s.tab, scanMode === "qr" && s.tabActive]}
+              onPress={() => { soundManager.play("tabSwitch"); setScanMode("qr"); closeKeyInput(); }}
+            >
+              <Text style={[s.tabText, scanMode === "qr" && s.tabTextActive]}>QR Code</Text>
+            </Pressable>
+            <Pressable
+              style={[s.tab, scanMode === "barcode" && s.tabActive]}
+              onPress={() => { soundManager.play("tabSwitch"); setScanMode("barcode"); closeKeyInput(); }}
+            >
+              <Text style={[s.tabText, scanMode === "barcode" && s.tabTextActive]}>Cód. Barras</Text>
+            </Pressable>
+          </View>
+          <View style={{ width: 40 }} />
         </View>
-        <View style={{ width: 40 }} />
-      </View>
+      )}
 
       {/* Hint below focus area */}
-      <View style={s.hintWrap} pointerEvents="none">
-        <Text style={s.hintText}>
-          {scanMode === "qr"
-            ? "Aponte para o QR Code da NF-e"
-            : "Aponte para o código de barras da nota"}
-        </Text>
-      </View>
+      {!compact && (
+        <View style={s.hintWrap} pointerEvents="none">
+          <Text style={s.hintText}>
+            {scanMode === "qr"
+              ? "Aponte para o QR Code da NF-e"
+              : "Aponte para o código de barras da nota"}
+          </Text>
+        </View>
+      )}
 
       {/* BOTTOM BAR: gallery + type key, or key input.
           KeyboardStickyView sobe a barra junto com o teclado (edge-to-edge não
-          redimensiona a janela). A altura do teclado já inclui a barra de
-          navegação, então `opened: insets.bottom` desconta o paddingBottom. */}
+          redimensiona a janela). O `opened` vem de qrKeyBarLayout.ts: desconta
+          o insets.bottom do paddingBottom, nunca mais que o teclado (R3), e a
+          barra nunca é desligada (o campo mora nela). */}
       <KeyboardStickyView
-        style={[s.bottomBar, { paddingBottom: insets.bottom + 20 }]}
-        offset={{ closed: 0, opened: insets.bottom }}
+        style={[
+          s.bottomBar,
+          {
+            paddingTop: compact ? KEY_BAR_COMPACT_PADDING_TOP : KEY_BAR_PADDING_TOP,
+            paddingBottom: insets.bottom + KEY_BAR_PADDING_BOTTOM,
+          },
+        ]}
+        offset={{ closed: 0, opened: keyBarLayout.openedOffset }}
       >
         {showKeyInput ? (
-          <View style={s.keyInputArea}>
+          <View style={s.keyInputArea} onLayout={(e) => setKeyContentHeight(e.nativeEvent.layout.height)}>
             <TextInput
               style={s.keyInput}
               value={manualChave}
-              onChangeText={onManualChaveChange}
+              onChangeText={(text) => onManualChaveChange(normalizeChaveInput(text))}
               placeholder="44 dígitos da chave de acesso"
               placeholderTextColor="rgba(255,255,255,0.4)"
               keyboardType="number-pad"
-              maxLength={44}
+              returnKeyType="search"
+              onSubmitEditing={submitChave}
               autoFocus
             />
             <Text style={s.keyCounter}>{digitCount}/44 dígitos</Text>
@@ -132,7 +178,7 @@ export function QrScanScreen({
                 flex={1}
                 borderColor={theme.border}
                 color={theme.textColor}
-                onPress={() => { soundManager.play("tap"); setShowKeyInput(false); }}
+                onPress={() => { soundManager.play("tap"); closeKeyInput(); }}
               >
                 Cancelar
               </TButton>
@@ -140,7 +186,7 @@ export function QrScanScreen({
                 variant="primary"
                 flex={1}
                 backgroundColor={theme.primaryColor}
-                onPress={() => { soundManager.play("tap"); onManualChaveSubmit(); }}
+                onPress={submitChave}
                 icon={<Feather name="search" size={16} color="#FFF" />}
               >
                 Consultar SEFAZ
@@ -204,7 +250,7 @@ const s = StyleSheet.create({
   },
   bottomBar: {
     position: "absolute", bottom: 0, left: 0, right: 0,
-    paddingHorizontal: 24, paddingTop: 24,
+    paddingHorizontal: 24,
     backgroundColor: "rgba(0,0,0,0.6)",
   },
   bottomActions: { flexDirection: "row", justifyContent: "center", gap: 56 },
