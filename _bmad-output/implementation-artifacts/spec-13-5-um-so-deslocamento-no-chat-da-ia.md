@@ -174,17 +174,17 @@ Sem `react-native` (pitfall do vitest no AGENTS.md):
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `chatKeyboardLayout.ts` e testes:
+- [x] `chatKeyboardLayout.ts` e testes:
   - Retrato 412×915: barra de status 32, `chatTop` 125 (sem banner) e 185 (com banner), navegação 48 (3 botões) e 24 (gestos), teclado 336 (já com a barra). Com o offset da função, o fim da caixa (`chatTop + altura − subida`) fica em `915 − 336 − 2`, ou seja, colado com 2 dp.
   - Paisagem 915×412, teclado 200: mesma igualdade, e a subida não passa da altura do chat.
   - `progress = 0` (teclado fechado): subida 0.
   - Regressão documentada: com `keyboardVerticalOffset = 0` (o `insets.top` interno de hoje), a caixa fica `chatTop` abaixo do topo do teclado. O caso prova o defeito.
   - `chatTop` negativo, `NaN` ou fracionário: 0 ou arredondado para cima; o offset nunca fica abaixo do gap.
   - `CHAT_KEYBOARD_PROVIDER_PROPS` com os dois translúcidos `true` e `preload: false`, sem `enabled`.
-- [ ] `app/ai-chat.tsx` conforme o padrão.
-- [ ] Guarda (abaixo), com auto-testes e sondas.
-- [ ] Playwright no build web (Verification).
-- [ ] Itens desta story na checklist da Story 13.7 (Verification).
+- [x] `app/ai-chat.tsx` conforme o padrão.
+- [x] Guarda (abaixo), com auto-testes e sondas.
+- [x] Playwright no build web (Verification).
+- [x] Itens desta story na checklist da Story 13.7 (Verification).
 
 **Guarda: bloco "chat da IA (Story 13.5)" em `keyboardScroll.test.ts`**
 
@@ -294,7 +294,83 @@ A web não simula o teclado, então os testes provam o layout e a ausência de r
 
 ## Implementation Notes
 
-—
+**Arquivos**
+
+- Novo: `src/components/ai/chatKeyboardLayout.ts` (sem import nenhum):
+  - `CHAT_KEYBOARD_GAP = 2` (D-3 a);
+  - `CHAT_KEYBOARD_PROVIDER_PROPS = { statusBarTranslucent: true, navigationBarTranslucent: true, preload: false, children: null } as const` (R-4: o `children: null` satisfaz o tipo sem `any` nem import de tipo; o filho JSX do `GiftedChatWrapper` vence o do spread);
+  - `chatKeyboardVerticalOffset(chatTop, gap)` = `ceil(max(chatTop, 0) + gap)`, com `chatTop` não finito → 0;
+  - `giftedChatLift({…})`, espelho do `relativeKeyboardHeight` do KAV 1.18.5 (`progress × max(frameY + frameHeight − (janela − teclado − offset), 0)`).
+- `app/ai-chat.tsx`:
+  - estado `chatTop` (começa em 0) e `onChatFrameLayout`, que só troca o estado quando o `y` muda;
+  - `keyboardAvoidingViewProps` memoizado pelo `chatTop`;
+  - `<View style={styles.chatFrame} onLayout={onChatFrameLayout}>` em volta só do `<GiftedChat>` (os modais continuam irmãos);
+  - `keyboardAvoidingViewProps={keyboardAvoidingViewProps}` e `keyboardProviderProps={CHAT_KEYBOARD_PROVIDER_PROPS}` sob o comentário "Keyboard & layout";
+  - `styles.chatFrame = { flex: 1, overflow: "hidden" }`. O bloco do `<GiftedChat>` foi reindentado um nível (`git diff -w` mostra só a mudança real).
+- `src/components/__tests__/keyboardScroll.test.ts`: `CHAT_SCREENS`, `CHAT_COMPONENTS`, a sentinela, os detectores (`keyboardProviderUses`, `countKeyboardProviders`, `giftedChatNames`, `viewRanges`, `resolveLocalValue`, `chatScreenViolations`, `chatLayoutModuleViolations`, `chatRouteViolations`, `chatComponentViolations`, `chatSentinelViolations`), o bloco "chat da IA (Story 13.5)" e os auto-testes. `DISCOVERY_EXCEPTIONS["app/ai-chat.tsx"]` = "chat (CHAT_SCREENS, Story 13.5)".
+- Testes: `src/components/ai/__tests__/chatKeyboardLayout.test.ts` (22, novo) e `keyboardScroll.test.ts` (161 → 210).
+
+**Decisões além da spec**
+
+- **Offset memoizado numa variável.** O prop recebe `keyboardAvoidingViewProps` (um `useMemo`), não o objeto literal. A guarda resolve o identificador local (`const x = useMemo(…)` ou `const x = {…}`) e exige `keyboardVerticalOffset: chatKeyboardVerticalOffset(` dentro dele, sem `enabled:` nem `behavior:`. O objeto literal direto no prop também passa.
+- **Folga inválida.** `chatKeyboardVerticalOffset` trata `gap` negativo ou `NaN` como 0. Com a folga padrão, o offset nunca fica abaixo de 2.
+- **`giftedChatLift`.** O `interpolate(progress, [0,1], [0, r])` do reanimated vira `progress × r`, que é igual no intervalo [0, 1].
+- **Regra do provider único.** Por namespace, default, `require` e `import()`, só acusa se o identificador `KeyboardProvider` aparece no arquivo (fora de comentário e string). Assim `KC.KeyboardController.dismiss()` não é falso positivo. `export * from` do keyboard-controller acusa sempre (ninguém faz hoje). `import type` não conta.
+- **Guarda do chat, mais estrita que a spec em três pontos:**
+  - nas telas de `CHAT_SCREENS` e nos `CHAT_COMPONENTS`, qualquer import do keyboard-controller acusa, inclusive `import type`;
+  - `Keyboard.dismiss()` continua permitido (só `Keyboard.addListener` acusa);
+  - a tela precisa importar `CHAT_KEYBOARD_PROVIDER_PROPS` e `chatKeyboardVerticalOffset` de `@/src/components/ai/chatKeyboardLayout`.
+- **Invólucro.** `viewRanges` casa as aberturas de `<View` só em posição de JSX (um `useRef<View>` não abre elemento) e ignora `<View … />`. Todo `<GiftedChat` precisa estar dentro de um `<View style={styles.chatFrame} onLayout=…>…</View>`.
+- **Rota.** Além do `Stack.Screen name="ai-chat"` (exatamente um, `headerShown: false`, sem `presentation:`), a guarda barra `presentation:` no `screenOptions` do `<Stack>`.
+- **Sentinela.** Também confere a expressão do `keyboardY` (`screenHeight - keyboard.heightWhenOpened.value - keyboardVerticalOffset`). Arquivo ausente em `node_modules` conta como mudança. Toda mensagem termina com "rever a Story 13.5 (offset do chat)".
+- **R-6 desatualizado.** O `npx tsc --noEmit` do baseline hoje tem 0 erros (não 5), e continua com 0.
+
+**Verificação**
+
+- `npx vitest run`: 96 arquivos e 2083 testes passando (baseline: 95 e 2012; +22 do `chatKeyboardLayout.test.ts`, +49 na guarda).
+- `npx tsc --noEmit`: 0 erros. `npx eslint` nos arquivos tocados: sem avisos.
+- `npx expo export --platform web`: exit 0. O `expo-env.d.ts` não foi gerado.
+- Sondas da guarda (as 9 da spec, mais 3 extras; todas acusadas e revertidas):
+  - `KeyboardProvider` de volta em `ai-chat.tsx`;
+  - `KeyboardProvider as KP` em `AIUsageBar.tsx`;
+  - `keyboardAvoidingViewProps` removido;
+  - `keyboardVerticalOffset: insets.top`;
+  - `keyboardProviderProps={{ enabled: false }}`;
+  - `KeyboardAvoidingView` do RN em volta do `<GiftedChat>`;
+  - `overflow: "hidden"` removido;
+  - `KeyboardStickyView` na `ChatInputBar`;
+  - `"version": "3.3.3"` no `package.json` do GiftedChat em `node_modules`;
+  - extras: `enabled: false` no `chatKeyboardLayout.ts`, `presentation: "modal"` na rota `ai-chat`, e a fórmula do KAV alterada em `node_modules`.
+- Sondas das funções (todas revertidas):
+  - `chatKeyboardVerticalOffset` devolvendo 0 e o espelho com o sinal do offset trocado quebram os casos de caixa colada;
+  - sem `ceil`, sem o piso em 0, subida sem `max(…, 0)`, `progress` ignorado, `preload: true` e folga 0 quebram 1 a 6 testes cada.
+- **Playwright** (Chromium headless, build exportado com fallback de SPA, 412×900 e 800×360; mesmo roteiro num build do `HEAD` b4ecf1b):
+  - Roteiro: entrar pela home (botão do robô, para o `router.back` ter pilha), com o aviso de consultas externas ("Manter ligado") e a dica "Entendi!" fechados.
+  - O banner "Configure sua chave de API…" aparece, e o cabeçalho "DOMUS IA" fica visível (top 12, bottom 34).
+  - A caixa (`ChatInputBar`) vai de 790 a 900 em 412×900 e de 250 a 360 em 800×360: inteira, com o fim no fundo da janela.
+  - O enviar começa desabilitado e fica habilitado ao digitar.
+  - Com 6 linhas, a caixa continua inteira na janela. Na web, o `textarea` multiline não cresce (56 px antes e depois), então não dá para ver a caixa crescer até o limite.
+  - Com a caixa focada, configurações abre `/ai-settings`. Voltar retorna a `/ai-chat`, e o botão de voltar do chat sai para `/`.
+  - Sem erro de página nem diálogo nativo.
+  - Todos os números são iguais aos do baseline (±0 px).
+  - O "+" não foi testado: precisa da IA ligada. Fica para o aparelho (item 6).
+
+**Checklist do aparelho (Story 13.7)**
+
+0. **Antes (APK atual, R-1):** focar a caixa no chat, com e sem o banner "Configure sua chave…", e anotar quanto dela fica atrás do teclado (esperado pela leitura do código: cerca de `chatTop`, 100 a 180 dp). Se a caixa já estiver colada, parar: a premissa da fórmula está errada, e o offset precisa ser revisto antes de instalar este build.
+1. Focar a caixa (IA ligada): ela fica colada acima do teclado, o campo visível e o enviar alcançável. Fechar o teclado: a caixa volta para cima da barra de navegação. Repetir 5 vezes.
+2. IA desligada (banner "Configure sua chave…"): repetir o item 1.
+3. Durante a abertura do teclado, o cabeçalho continua visível (a lista não passa por cima). Com o teclado aberto, voltar, lixeira e configurações funcionam no 1º toque.
+4. Texto longo (5 ou mais linhas): a caixa cresce para cima e o fim continua colado ao teclado.
+5. Enviar com o teclado aberto: a mensagem aparece acima da caixa, e a lista rola até ela. O indicador "rolar para o fim" (chevrons) e as sugestões não ficam cortados pelo recorte (R-2).
+6. "+" com o teclado aberto, depois "Escanear holerite" → câmera → cancelar e voltar ao chat: a caixa fica no lugar, sem sobra. O banner "Lendo o holerite…" aparece e some sem cortar a caixa (11.5).
+7. Paisagem, fonte 1,3 e 2,0, navegação de 3 botões e por gestos: repetir 1.
+8. Entrar e sair do chat 10 vezes (inclusive com o teclado aberto, saindo pelo voltar), em Samsung com Android 16 se houver: sem crash "null child".
+9. Depois de sair do chat: as barras de status e de navegação continuam certas nas outras telas, inclusive depois de trocar o tema (`EdgeToEdgeViewRegistry`, R-3). Um modal da 13.3 (nova transação) ainda sobe com o teclado.
+10. Glossário ("O que é…?"), troca de provedor e permissão de dados com o teclado aberto: abrem e fecham sem deixar a caixa fora do lugar.
+11. Fluidez num aparelho com GPU Mali fraca: abrir e fechar o teclado no chat sem travar nem piscar.
+
+Se os itens 8 ou 9 falharem por causa do provider aninhado, a saída é a D-1 (b).
 
 ## Review Triage Log
 

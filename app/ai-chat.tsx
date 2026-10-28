@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Animated,
   ActivityIndicator,
+  type LayoutChangeEvent,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -26,6 +27,7 @@ import { useAISettings } from "@/src/hooks/useAISettings";
 import { useVoiceRecorder } from "@/src/hooks/useVoiceRecorder";
 import { voiceOutputService } from "@/src/services/VoiceOutputService";
 import { AIUsageBar } from "@/src/components/ai/AIUsageBar";
+import { CHAT_KEYBOARD_PROVIDER_PROPS, chatKeyboardVerticalOffset } from "@/src/components/ai/chatKeyboardLayout";
 import { DataPermissionModal } from "@/src/components/ai/DataPermissionModal";
 import { detectMissingPermission } from "@/src/modules/ai/application/PermissionDetector";
 import { PROVIDER_THEME } from "@/src/modules/ai/domain/AISettings";
@@ -645,6 +647,20 @@ export default function AIChatScreen() {
     <Feather name="chevrons-down" size={20} color={theme.primaryColor} />
   ), [theme]);
 
+  // ─── GiftedChat: teclado (Story 13.5) ─────────────────────────────────
+  // Um só deslocamento: o KeyboardAvoidingView interno do GiftedChat. O
+  // offset dele recebe a distância do topo da janela até o chat (status bar,
+  // cabeçalho, banners e AIUsageBar), medida pelo onLayout do invólucro.
+  const [chatTop, setChatTop] = useState(0);
+  const onChatFrameLayout = useCallback((e: LayoutChangeEvent) => {
+    const y = e.nativeEvent.layout.y;
+    setChatTop((prev) => (prev === y ? prev : y));
+  }, []);
+  const keyboardAvoidingViewProps = useMemo(
+    () => ({ keyboardVerticalOffset: chatKeyboardVerticalOffset(chatTop) }),
+    [chatTop],
+  );
+
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
@@ -700,83 +716,88 @@ export default function AIChatScreen() {
       />
 
       {/* ═══════════════════ GiftedChat (FULL FEATURES) ═══════════════════ */}
-      <GiftedChat
-        messages={giftedMessages}
-        onSend={handleSend}
-        user={HUMAN_USER}
-        /* ── Typing indicator ── */
-        isTyping={isLoading || welcomeLoading}
-        /* ── Custom renderers ── */
-        renderBubble={renderBubble}
-        renderCustomView={renderCustomView}
-        renderInputToolbar={renderInputToolbar}
-        text={inputText}
-        textInputProps={{ onChangeText: setInputText }}
-        /* ── Avatars ── */
-        isAvatarVisibleForEveryMessage={false}
-        renderAvatar={(props) => {
-          const user = props.currentMessage?.user;
-          if (!user || user._id === HUMAN_USER._id) return null;
-          const msgId = String(props.currentMessage?._id ?? "");
-          const msgProv = msgProviderMap.current[msgId] ?? settings.provider;
-          const pTheme = PROVIDER_THEME[msgProv as keyof typeof PROVIDER_THEME] ?? PROVIDER_THEME.openai;
-          return (
-            <View style={[styles.avatar, { backgroundColor: pTheme.color }]}>
-              <MaterialCommunityIcons
-                name={pTheme.icon as keyof typeof MaterialCommunityIcons.glyphMap}
-                size={18}
-                color="#fff"
-              />
-            </View>
-          );
-        }}
-        /* ── Long press to copy ── */
-        onLongPressMessage={(_context: any, message: IMessage) => {
-          if (message.text) {
-            Clipboard.setStringAsync(message.text);
-            soundManager.play("pop");
-          }
-        }}
-        /* ── Link parsing (URLs, emails, phones) ── */
-        messageTextProps={{
-          url: true,
-          email: true,
-          phone: true,
-          hashtag: false,
-          mention: false,
-          linkStyle: {
-            left: { color: theme.primaryColor, textDecorationLine: "underline" as any },
-            right: { color: "#E0E0FF", textDecorationLine: "underline" as any },
-          },
-        }}
-        /* ── Scroll to bottom ── */
-        isScrollToBottomEnabled
-        scrollToBottomComponent={scrollToBottomComponent}
-        scrollToBottomOffset={200}
-        scrollToBottomStyle={{ backgroundColor: theme.cardBackground, borderColor: theme.border, borderWidth: 1, borderRadius: 20 }}
-        /* ── Quick suggestions as chat footer ── */
-        renderChatFooter={settings.isEnabled ? () => (
-          <QuickSuggestions onSelect={handleQuickSuggestion} hasMessages={messages.length > 0} />
-        ) : undefined}
-        /* ── Reply to messages (swipe) ── */
-        reply={{
-          swipe: {
-            isEnabled: true,
-            direction: "left" as const,
-          },
-        }}
-        /* ── Keyboard & layout ── */
-        /* ── Styles ── */
-        messagesContainerStyle={{ backgroundColor: theme.background }}
-        timeTextStyle={{
-          left: { color: theme.secondaryText, fontSize: 11 },
-          right: { color: "rgba(255,255,255,0.6)", fontSize: 11 },
-        }}
-        /* ── Localization ── */
-        dateFormat="DD/MM/YYYY"
-        timeFormat="HH:mm"
-        locale="pt-br"
-      />
+      {/* Invólucro: mede o chatTop e recorta a translação do teclado (Story 13.5). */}
+      <View style={styles.chatFrame} onLayout={onChatFrameLayout}>
+        <GiftedChat
+          messages={giftedMessages}
+          onSend={handleSend}
+          user={HUMAN_USER}
+          /* ── Typing indicator ── */
+          isTyping={isLoading || welcomeLoading}
+          /* ── Custom renderers ── */
+          renderBubble={renderBubble}
+          renderCustomView={renderCustomView}
+          renderInputToolbar={renderInputToolbar}
+          text={inputText}
+          textInputProps={{ onChangeText: setInputText }}
+          /* ── Avatars ── */
+          isAvatarVisibleForEveryMessage={false}
+          renderAvatar={(props) => {
+            const user = props.currentMessage?.user;
+            if (!user || user._id === HUMAN_USER._id) return null;
+            const msgId = String(props.currentMessage?._id ?? "");
+            const msgProv = msgProviderMap.current[msgId] ?? settings.provider;
+            const pTheme = PROVIDER_THEME[msgProv as keyof typeof PROVIDER_THEME] ?? PROVIDER_THEME.openai;
+            return (
+              <View style={[styles.avatar, { backgroundColor: pTheme.color }]}>
+                <MaterialCommunityIcons
+                  name={pTheme.icon as keyof typeof MaterialCommunityIcons.glyphMap}
+                  size={18}
+                  color="#fff"
+                />
+              </View>
+            );
+          }}
+          /* ── Long press to copy ── */
+          onLongPressMessage={(_context: any, message: IMessage) => {
+            if (message.text) {
+              Clipboard.setStringAsync(message.text);
+              soundManager.play("pop");
+            }
+          }}
+          /* ── Link parsing (URLs, emails, phones) ── */
+          messageTextProps={{
+            url: true,
+            email: true,
+            phone: true,
+            hashtag: false,
+            mention: false,
+            linkStyle: {
+              left: { color: theme.primaryColor, textDecorationLine: "underline" as any },
+              right: { color: "#E0E0FF", textDecorationLine: "underline" as any },
+            },
+          }}
+          /* ── Scroll to bottom ── */
+          isScrollToBottomEnabled
+          scrollToBottomComponent={scrollToBottomComponent}
+          scrollToBottomOffset={200}
+          scrollToBottomStyle={{ backgroundColor: theme.cardBackground, borderColor: theme.border, borderWidth: 1, borderRadius: 20 }}
+          /* ── Quick suggestions as chat footer ── */
+          renderChatFooter={settings.isEnabled ? () => (
+            <QuickSuggestions onSelect={handleQuickSuggestion} hasMessages={messages.length > 0} />
+          ) : undefined}
+          /* ── Reply to messages (swipe) ── */
+          reply={{
+            swipe: {
+              isEnabled: true,
+              direction: "left" as const,
+            },
+          }}
+          /* ── Keyboard & layout ── */
+          keyboardAvoidingViewProps={keyboardAvoidingViewProps}
+          keyboardProviderProps={CHAT_KEYBOARD_PROVIDER_PROPS}
+          /* ── Styles ── */
+          messagesContainerStyle={{ backgroundColor: theme.background }}
+          timeTextStyle={{
+            left: { color: theme.secondaryText, fontSize: 11 },
+            right: { color: "rgba(255,255,255,0.6)", fontSize: 11 },
+          }}
+          /* ── Localization ── */
+          dateFormat="DD/MM/YYYY"
+          timeFormat="HH:mm"
+          locale="pt-br"
+        />
+      </View>
 
       {/* Provider switch suggestion modal */}
       <ProviderSwitchModal
@@ -829,6 +850,7 @@ export default function AIChatScreen() {
 const s = { visionBanner: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "center" as const, gap: 8, paddingVertical: 10, backgroundColor: "#007AFF" }, visionBannerText: { color: "#FFF", fontSize: 13, fontWeight: "600" as const } };
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  chatFrame: { flex: 1, overflow: "hidden" },
   header: {
     flexDirection: "row",
     alignItems: "center",

@@ -25,6 +25,14 @@ import path from "path";
  * `placement`. Só os contêineres (KEYBOARD_CONTAINERS) renderizam o
  * `KeyboardSafeView`, e todo componente com `<Modal` e campo precisa estar em
  * MODAL_FORMS, MODAL_LISTS ou MODAL_FIELDS_OUTSIDE (com motivo).
+ *
+ * Story 13.5: só o `app/_layout.tsx` monta `KeyboardProvider` no app. O chat
+ * da IA (CHAT_SCREENS) sobe pelo `KeyboardAvoidingView` interno do GiftedChat,
+ * ajustado por `keyboardAvoidingViewProps` (offset de
+ * `chatKeyboardVerticalOffset`) e `keyboardProviderProps`
+ * (`CHAT_KEYBOARD_PROVIDER_PROPS`), dentro de um invólucro que mede o
+ * `chatTop` e recorta a translação, sem segunda compensação. Uma sentinela
+ * falha se o GiftedChat ou o keyboard-controller mudarem o que a conta pressupõe.
  */
 
 const ROOT = path.resolve(__dirname, "../../..");
@@ -62,9 +70,14 @@ const BOTTOM_OFFSET_EXCEPTIONS: Record<string, { expression: string; reason: str
 
 /** Rotas com campo fora da lista, com o motivo. */
 const DISCOVERY_EXCEPTIONS: Record<string, string> = {
-  "app/ai-chat.tsx": "chat da IA (GiftedChat) — Story 13.5",
+  "app/ai-chat.tsx": "chat (CHAT_SCREENS, Story 13.5)",
   "app/import-invoice.tsx": "campos no ParsedScreen (na lista) e no QrScanScreen (KeyboardStickyView, Story 13.6)",
   "app/payslips.tsx": "campos no PayslipReview (na lista)",
+};
+
+/** Telas de chat (Story 13.5): o GiftedChat com o KAV interno ajustado por props. */
+const CHAT_SCREENS: Record<string, string> = {
+  "app/ai-chat.tsx": "GiftedChat com o KAV interno ajustado por props",
 };
 
 /**
@@ -888,6 +901,297 @@ function isSelfManagedModal(relPath: string): boolean {
   return MODAL_FORMS.includes(relPath) || relPath in MODAL_LISTS || relPath in MODAL_FIELDS_OUTSIDE;
 }
 
+// ─── Chat da IA (Story 13.5) ─────────────────────────────────────────────────
+
+const ROOT_LAYOUT = "app/_layout.tsx";
+const CHAT_LAYOUT = "src/components/ai/chatKeyboardLayout.ts";
+const CHAT_LAYOUT_MODULE = "@/src/components/ai/chatKeyboardLayout";
+const GIFTED_CHAT_MODULE = "react-native-gifted-chat";
+
+/** Componentes dos próprios componentes do chat, que sobem com o KAV do GiftedChat (sem compensação própria). */
+const CHAT_COMPONENTS = [
+  "src/components/ai/ChatInputBar.tsx",
+  "src/components/ai/ChatActionMenu.tsx",
+  "src/components/ai/QuickSuggestions.tsx",
+  "src/components/ai/ProviderSwitchModal.tsx",
+  "src/components/ai/DataPermissionModal.tsx",
+  "src/components/ai/FinancialTooltip.tsx",
+];
+
+/** Versões que a conta do offset do chat pressupõe (sentinela). */
+const CHAT_SENTINEL_VERSIONS = { giftedChat: "3.3.2", keyboardController: "1.18.5" };
+const CHAT_SENTINEL_FILES = {
+  giftedPkg: "node_modules/react-native-gifted-chat/package.json",
+  kcPkg: "node_modules/react-native-keyboard-controller/package.json",
+  giftedIndex: "node_modules/react-native-gifted-chat/src/GiftedChat/index.tsx",
+  kav: "node_modules/react-native-keyboard-controller/src/components/KeyboardAvoidingView/index.tsx",
+};
+const CHAT_SENTINEL_MESSAGE = "rever a Story 13.5 (offset do chat)";
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** O arquivo importa algo do keyboard-controller (inclusive `import type`, `require`, `import()` e reexportação). */
+function importsKeyboardController(code: string): boolean {
+  return (
+    new RegExp(`\\bfrom\\s*${KC}`).test(code) ||
+    new RegExp(`\\b(?:require|import)\\(\\s*${KC}\\s*\\)`).test(code) ||
+    new RegExp(`\\bimport\\s*${KC}`).test(code)
+  );
+}
+
+/**
+ * Motivos pelos quais o arquivo importa ou renderiza o `KeyboardProvider`
+ * (nomeado, alias, namespace, `require`, `import()`, reexportação ou `<KeyboardProvider`).
+ */
+function keyboardProviderUses(source: string): string[] {
+  const code = stripComments(source);
+  const plain = withoutStrings(code);
+  const mentions = /(?<![\w$])KeyboardProvider(?![\w$])/.test(plain);
+  const hits: string[] = [];
+  for (const imp of parseImports(code)) {
+    if (imp.module !== KC_MODULE) continue;
+    if (imp.named.includes("KeyboardProvider")) hits.push("import nomeado");
+    if (imp.namespace && mentions) hits.push("import * as");
+    if (imp.defaultName && mentions) hits.push("import default");
+  }
+  for (const m of code.matchAll(new RegExp(`export\\s+(type\\s+)?\\{([^}]*)\\}\\s*from\\s*${KC}`, "g"))) {
+    const values = m[1] ? [] : m[2].split(",").map((x) => x.trim()).filter((x) => x && !/^type\s/.test(x));
+    if (values.some((x) => x.split(/\s+as\s+/)[0].trim() === "KeyboardProvider")) hits.push("reexportação");
+  }
+  if (new RegExp(`export\\s+\\*\\s*(?:as\\s+[\\w$]+\\s*)?from\\s*${KC}`).test(code)) hits.push("export * from");
+  if (mentions && new RegExp(`\\brequire\\(\\s*${KC}\\s*\\)`).test(code)) hits.push("require");
+  if (mentions && new RegExp(`\\bimport\\(\\s*${KC}\\s*\\)`).test(code)) hits.push("import()");
+  if (jsxPattern("KeyboardProvider", false).test(code) || jsxPattern("KeyboardProvider", true).test(code)) {
+    hits.push("<KeyboardProvider");
+  }
+  return hits;
+}
+
+/** Quantos `<KeyboardProvider` (direto ou por namespace) o arquivo renderiza. */
+function countKeyboardProviders(source: string): number {
+  const code = stripComments(source);
+  return [...code.matchAll(jsxPattern("KeyboardProvider", false))].length + [...code.matchAll(jsxPattern("KeyboardProvider", true))].length;
+}
+
+/** Nomes com que o arquivo renderiza o GiftedChat: `GiftedChat`, alias de import e default (R2 da 13.4). */
+function giftedChatNames(code: string): string[] {
+  const names = new Set(["GiftedChat"]);
+  const re = new RegExp(`(?:^|[;\\n])\\s*import\\s+(?!type\\s)([^;]*?)\\s+from\\s*["']${escapeRe(GIFTED_CHAT_MODULE)}["']`, "g");
+  for (const m of code.matchAll(re)) {
+    const clause = m[1];
+    const braces = clause.match(/\{([^}]*)\}/);
+    if (braces) {
+      for (const member of braces[1].split(",")) {
+        const alias = member.trim().match(/^GiftedChat\s+as\s+([\w$]+)$/);
+        if (alias) names.add(alias[1]);
+      }
+    }
+    const def = clause.replace(/\{[^}]*\}/, "").replace(/\*\s*as\s+[\w$]+/, "").replace(/,/g, " ").trim();
+    if (def) names.add(def);
+  }
+  return [...names];
+}
+
+/** Fim (índice do `>`) da abertura que começa em `at`, pulando strings e `{…}`; e se ela fecha sozinha (`/>`). */
+function openingTagEnd(code: string, at: number): { end: number; selfClosing: boolean } {
+  let depth = 0;
+  for (let i = at; i < code.length; i++) {
+    const ch = code[i];
+    if (ch === '"' || ch === "'" || ch === "`") {
+      let j = i + 1;
+      while (j < code.length && code[j] !== ch) {
+        if (code[j] === "\\") j++;
+        j++;
+      }
+      i = j;
+      continue;
+    }
+    if (ch === "{") depth++;
+    else if (ch === "}") depth--;
+    else if (ch === ">" && depth === 0) return { end: i, selfClosing: code[i - 1] === "/" };
+  }
+  return { end: code.length, selfClosing: false };
+}
+
+/** Intervalos [início, fim] de cada `<View …>…</View>` cuja abertura passa em `match(attrs)`. */
+function viewRanges(code: string, match: (attrs: string) => boolean): [number, number][] {
+  // Aberturas só em posição de JSX (não pega genérico como `useRef<View>`).
+  const opens = [...code.matchAll(jsxPattern("View", false))].map((m) => {
+    const at = (m.index ?? 0) + m[0].lastIndexOf("<");
+    return { at, close: false, after: (m.index ?? 0) + m[0].length };
+  });
+  const closes = [...code.matchAll(/<\s*\/\s*View\s*>/g)].map((m) => ({
+    at: m.index ?? 0,
+    close: true,
+    after: (m.index ?? 0) + m[0].length,
+  }));
+  const ranges: [number, number][] = [];
+  const stack: { start: number; wanted: boolean }[] = [];
+  for (const { at, close, after } of [...opens, ...closes].sort((a, b) => a.at - b.at)) {
+    if (close) {
+      const open = stack.pop();
+      if (open?.wanted) ranges.push([open.start, after]);
+      continue;
+    }
+    const { end, selfClosing } = openingTagEnd(code, after);
+    if (selfClosing) continue;
+    stack.push({ start: at, wanted: match(code.slice(at, end + 1)) });
+  }
+  return ranges;
+}
+
+/** A expressão de um prop, resolvendo um identificador local (`const x = useMemo(…)` ou `const x = {…}`). */
+function resolveLocalValue(expr: string, code: string): string {
+  const id = expr.trim();
+  if (!/^[\w$]+$/.test(id)) return expr;
+  const def = code.match(new RegExp(`\\bconst\\s+${escapeRe(id)}\\s*(?::[^=]+)?=\\s*`));
+  if (!def) return expr;
+  const at = (def.index ?? 0) + def[0].length;
+  const rest = code.slice(at);
+  const memo = rest.match(/^useMemo\s*\(/);
+  if (memo) return balancedParens(code, at + memo[0].length - 1);
+  if (rest.startsWith("{")) return balancedBraces(code, at);
+  return code.slice(at, code.indexOf(";", at) + 1 || undefined);
+}
+
+/** Motivos pelos quais uma tela de chat (CHAT_SCREENS) foge do padrão da Story 13.5. */
+function chatScreenViolations(source: string): string[] {
+  const code = stripComments(source);
+  const hits: string[] = [];
+  const imports = parseImports(code);
+
+  // 1. sem provider próprio nem segunda compensação.
+  if (importsKeyboardController(code)) hits.push("importa react-native-keyboard-controller");
+  for (const name of SECOND_KEYBOARD_SYSTEMS) {
+    if (jsxPattern(name, false).test(code) || jsxPattern(name, true).test(code)) hits.push(`<${name}`);
+    else if (imports.some((imp) => imp.named.includes(name))) hits.push(`import ${name}`);
+  }
+  if (/\bKeyboard\s*\.\s*addListener\s*\(/.test(code)) hits.push("Keyboard.addListener");
+  for (const hook of ["useKeyboardHandler", "useKeyboardAnimation"]) {
+    if (new RegExp(`\\b${hook}\\s*\\(`).test(code)) hits.push(hook);
+  }
+
+  // 2. exatamente um <GiftedChat (alias resolvido).
+  const names = giftedChatNames(code);
+  const tags = names.flatMap((n) => scanJsxOpeningTags(source, escapeRe(n)));
+  const nsTags = scanJsxOpeningTags(source, "GiftedChat", true);
+  const all = [...tags, ...nsTags];
+  if (all.length !== 1) hits.push(`${all.length} × <GiftedChat (esperado 1)`);
+
+  // 3. o KAV interno ajustado por props.
+  for (const tag of all) {
+    const kav = tag.exprs.keyboardAvoidingViewProps;
+    if (kav === undefined) hits.push("GiftedChat sem keyboardAvoidingViewProps={…}");
+    else {
+      const value = resolveLocalValue(kav, code);
+      if (!/\bkeyboardVerticalOffset\s*:\s*chatKeyboardVerticalOffset\s*\(/.test(value)) {
+        hits.push("keyboardVerticalOffset sem chatKeyboardVerticalOffset(…)");
+      }
+      if (/\benabled\s*:/.test(value)) hits.push("keyboardAvoidingViewProps com enabled:");
+      if (/\bbehavior\s*:/.test(value)) hits.push("keyboardAvoidingViewProps com behavior:");
+    }
+    if (tag.exprs.keyboardProviderProps?.trim() !== "CHAT_KEYBOARD_PROVIDER_PROPS") {
+      hits.push("keyboardProviderProps não é CHAT_KEYBOARD_PROVIDER_PROPS");
+    }
+  }
+  const layoutImport = imports.find((imp) => imp.module === CHAT_LAYOUT_MODULE);
+  for (const name of ["CHAT_KEYBOARD_PROVIDER_PROPS", "chatKeyboardVerticalOffset"]) {
+    if (!layoutImport?.named.includes(name)) hits.push(`não importa ${name} de ${CHAT_LAYOUT_MODULE}`);
+  }
+
+  // 4. invólucro: <View style={styles.chatFrame} onLayout=…> em volta do GiftedChat; chatFrame com flex: 1 e overflow: "hidden".
+  const frames = viewRanges(code, (attrs) => /\bstyle\s*=\s*\{\s*styles\.chatFrame\s*\}/.test(attrs) && /\bonLayout\s*=/.test(attrs));
+  const tagNames = [...names.map(escapeRe), "[\\w$]+\\s*\\.\\s*GiftedChat"].join("|");
+  const giftedAt = [...code.matchAll(new RegExp(`<\\s*(?:${tagNames})\\b`, "g"))].map((m) => m.index ?? 0);
+  if (giftedAt.length === 0 || !giftedAt.every((at) => frames.some(([s, e]) => at > s && at < e))) {
+    hits.push("GiftedChat fora de <View style={styles.chatFrame} onLayout=…>");
+  }
+  const frameStyle = code.match(/\bchatFrame\s*:\s*\{([^}]*)\}/)?.[1];
+  if (frameStyle === undefined) hits.push("sem styles.chatFrame");
+  else {
+    if (!/\boverflow\s*:\s*["']hidden["']/.test(frameStyle)) hits.push('chatFrame sem overflow: "hidden"');
+    if (!/\bflex\s*:\s*1\b/.test(frameStyle)) hits.push("chatFrame sem flex: 1");
+  }
+  return hits;
+}
+
+/** O módulo das contas do chat nunca desliga o provider interno (mataria o deslocamento). */
+function chatLayoutModuleViolations(source: string): string[] {
+  return /\benabled\s*:\s*false\b/.test(stripComments(source)) ? ["enabled: false"] : [];
+}
+
+/** A rota do chat começa no topo da janela (D-2 a): sem cabeçalho nativo e sem `presentation:`. */
+function chatRouteViolations(layoutSource: string, route = "ai-chat"): string[] {
+  const hits: string[] = [];
+  const screens = scanJsxOpeningTags(layoutSource, "Screen", true).filter((t) =>
+    new RegExp(`(?:^|\\s)name\\s*=\\s*["']${escapeRe(route)}["']`).test(t.attrs),
+  );
+  if (screens.length !== 1) return [`${screens.length} × Stack.Screen name="${route}" (esperado 1)`];
+  const options = screens[0].exprs.options ?? "";
+  if (!/\bheaderShown\s*:\s*false\b/.test(options)) hits.push(`${route} sem headerShown: false`);
+  if (/\bpresentation\s*:/.test(options)) hits.push(`${route} com presentation:`);
+  for (const stack of scanJsxOpeningTags(layoutSource, "Stack")) {
+    if (/\bpresentation\s*:/.test(stack.exprs.screenOptions ?? "")) hits.push("Stack com presentation: em screenOptions");
+  }
+  return hits;
+}
+
+/** Componente do chat sem compensação própria de teclado. */
+function chatComponentViolations(source: string): string[] {
+  const code = stripComments(source);
+  const hits: string[] = [];
+  if (importsKeyboardController(code)) hits.push("importa react-native-keyboard-controller");
+  const imports = parseImports(code);
+  for (const name of SECOND_KEYBOARD_SYSTEMS) {
+    if (jsxPattern(name, false).test(code) || jsxPattern(name, true).test(code)) hits.push(`<${name}`);
+    else if (imports.some((imp) => imp.named.includes(name))) hits.push(`import ${name}`);
+  }
+  return hits;
+}
+
+interface ChatSentinelSources {
+  giftedPkg: string;
+  kcPkg: string;
+  giftedIndex: string;
+  kav: string;
+}
+
+/** Sentinela de versão: o que a conta do offset do chat pressupõe do GiftedChat e do keyboard-controller. */
+function chatSentinelViolations(src: ChatSentinelSources): string[] {
+  const hits: string[] = [];
+  const version = (pkg: string) => {
+    try {
+      return (JSON.parse(pkg) as { version?: string }).version ?? "?";
+    } catch {
+      return "?";
+    }
+  };
+  if (version(src.giftedPkg) !== CHAT_SENTINEL_VERSIONS.giftedChat) {
+    hits.push(`react-native-gifted-chat ${version(src.giftedPkg)} (esperado ${CHAT_SENTINEL_VERSIONS.giftedChat})`);
+  }
+  if (version(src.kcPkg) !== CHAT_SENTINEL_VERSIONS.keyboardController) {
+    hits.push(`react-native-keyboard-controller ${version(src.kcPkg)} (esperado ${CHAT_SENTINEL_VERSIONS.keyboardController})`);
+  }
+  const after = (code: string, first: RegExp, second: RegExp) => {
+    const a = code.search(first);
+    const b = code.search(second);
+    return a !== -1 && b !== -1 && b > a;
+  };
+  if (!after(src.giftedIndex, /\bkeyboardVerticalOffset\s*=/, /\{\s*\.\.\.\s*props\.keyboardAvoidingViewProps\s*\}/)) {
+    hits.push("GiftedChat: {...props.keyboardAvoidingViewProps} não vem depois de keyboardVerticalOffset=");
+  }
+  if (!after(src.giftedIndex, /\bnavigationBarTranslucent\b/, /\{\s*\.\.\.\s*keyboardProviderProps\s*\}/)) {
+    hits.push("GiftedChat: {...keyboardProviderProps} não vem depois de navigationBarTranslucent");
+  }
+  if (!src.kav.includes("frame.value.y + frame.value.height - keyboardY")) {
+    hits.push("KeyboardAvoidingView: sem frame.value.y + frame.value.height - keyboardY");
+  }
+  if (!/screenHeight\s*-\s*keyboard\.heightWhenOpened\.value\s*-\s*keyboardVerticalOffset/.test(src.kav)) {
+    hits.push("KeyboardAvoidingView: keyboardY mudou");
+  }
+  return hits.map((h) => `${h}: ${CHAT_SENTINEL_MESSAGE}`);
+}
+
 // ─── Arquivos ────────────────────────────────────────────────────────────────
 
 function isTestFile(file: string): boolean {
@@ -1091,7 +1395,257 @@ describe("buscas e diálogos em modal (Story 13.4)", () => {
   });
 });
 
+describe("chat da IA (Story 13.5)", () => {
+  const files: string[] = [];
+  for (const dir of DIRS) collect(path.join(ROOT, dir), files);
+
+  it("só o app/_layout.tsx importa ou renderiza KeyboardProvider, e renderiza exatamente um", () => {
+    const hits = files
+      .filter((f) => rel(f) !== ROOT_LAYOUT)
+      .flatMap((f) => keyboardProviderUses(fs.readFileSync(f, "utf8")).map((why) => `${rel(f)}: ${why}`));
+    expect(hits).toEqual([]);
+    expect(keyboardProviderUses(read(ROOT_LAYOUT))).toContain("import nomeado");
+    expect(countKeyboardProviders(read(ROOT_LAYOUT))).toBe(1);
+  });
+
+  it.each(Object.keys(CHAT_SCREENS))(
+    "%s: sem provider próprio nem segunda compensação; o GiftedChat ajustado por props dentro do invólucro",
+    (file) => {
+      expect(chatScreenViolations(read(file))).toEqual([]);
+    },
+  );
+
+  it("o chatKeyboardLayout.ts nunca desliga o provider interno", () => {
+    expect(chatLayoutModuleViolations(read(CHAT_LAYOUT))).toEqual([]);
+  });
+
+  it("a rota ai-chat começa no topo da janela (sem cabeçalho nativo e sem presentation:, D-2 a)", () => {
+    expect(chatRouteViolations(read(ROOT_LAYOUT))).toEqual([]);
+  });
+
+  it.each(CHAT_COMPONENTS)("%s não tem compensação própria de teclado", (file) => {
+    expect(fs.existsSync(path.join(ROOT, file)), file).toBe(true);
+    expect(chatComponentViolations(read(file))).toEqual([]);
+  });
+
+  it(`sentinela de versão do GiftedChat e do keyboard-controller (${CHAT_SENTINEL_MESSAGE})`, () => {
+    const sources = Object.fromEntries(
+      Object.entries(CHAT_SENTINEL_FILES).map(([k, f]) => {
+        const full = path.join(ROOT, f);
+        return [k, fs.existsSync(full) ? fs.readFileSync(full, "utf8") : ""];
+      }),
+    ) as unknown as ChatSentinelSources;
+    expect(chatSentinelViolations(sources)).toEqual([]);
+  });
+
+  it("toda tela de CHAT_SCREENS existe e está nas exceções da descoberta", () => {
+    for (const file of Object.keys(CHAT_SCREENS)) {
+      expect(fs.existsSync(path.join(ROOT, file)), file).toBe(true);
+      expect(DISCOVERY_EXCEPTIONS[file], file).toMatch(/CHAT_SCREENS/);
+    }
+  });
+});
+
 describe("auto-teste dos detectores", () => {
+  describe("chat da IA (Story 13.5)", () => {
+    const KC_IMPORT = `import { KeyboardProvider } from "react-native-keyboard-controller";`;
+
+    it.each([
+      [KC_IMPORT, "import nomeado"],
+      [`import { KeyboardProvider as KP } from "react-native-keyboard-controller";\n<KP />`, "import nomeado"],
+      [`import * as KC from "react-native-keyboard-controller";\nreturn <KC.KeyboardProvider>{x}</KC.KeyboardProvider>;`, "import * as"],
+      [`import * as KC from "react-native-keyboard-controller";\nconst P = KC.KeyboardProvider;`, "import * as"],
+      [`const { KeyboardProvider } = require("react-native-keyboard-controller");`, "require"],
+      [`const P = require("react-native-keyboard-controller").KeyboardProvider;`, "require"],
+      [`const { KeyboardProvider } = await import("react-native-keyboard-controller");`, "import()"],
+      [`export { KeyboardProvider } from "react-native-keyboard-controller";`, "reexportação"],
+      [`return <KeyboardProvider>{x}</KeyboardProvider>;`, "<KeyboardProvider"],
+    ])("acusa KeyboardProvider fora do _layout: %s", (code, why) => {
+      expect(keyboardProviderUses(code)).toContain(why);
+    });
+
+    it.each([
+      `import { KeyboardStickyView } from "react-native-keyboard-controller";`,
+      `import type { KeyboardProviderProps } from "react-native-keyboard-controller";`,
+      `import type { KeyboardProvider } from "react-native-keyboard-controller";`,
+      `// <KeyboardProvider> fica só na raiz\nimport { View } from "react-native";`,
+      `const msg = "o KeyboardProvider da raiz";`,
+      `import * as KC from "react-native-keyboard-controller";\nKC.KeyboardController.dismiss();`,
+      `const P = require("react-native-keyboard-controller").KeyboardStickyView;`,
+    ])("não acusa: %s", (code) => {
+      expect(keyboardProviderUses(code)).toEqual([]);
+    });
+
+    it("conta os <KeyboardProvider renderizados", () => {
+      expect(countKeyboardProviders(`return <KeyboardProvider a>{x}</KeyboardProvider>;`)).toBe(1);
+      expect(countKeyboardProviders(`return <KeyboardProvider><KC.KeyboardProvider /></KeyboardProvider>;`)).toBe(2);
+      expect(countKeyboardProviders(`// <KeyboardProvider>\nreturn <View />;`)).toBe(0);
+    });
+
+    const imp = [
+      `import { View, StyleSheet } from "react-native";`,
+      `import { GiftedChat } from "react-native-gifted-chat";`,
+      `import { CHAT_KEYBOARD_PROVIDER_PROPS, chatKeyboardVerticalOffset } from "@/src/components/ai/chatKeyboardLayout";`,
+      ``,
+    ].join("\n");
+    const memo = `const kavProps = useMemo(() => ({ keyboardVerticalOffset: chatKeyboardVerticalOffset(chatTop) }), [chatTop]);\n`;
+    const chat = [
+      `${imp}${memo}return (`,
+      `  <SafeAreaView>`,
+      `    <View style={styles.header}><Text>DOMUS IA</Text></View>`,
+      `    <View style={styles.chatFrame} onLayout={onChatFrameLayout}>`,
+      `      <GiftedChat`,
+      `        messages={m}`,
+      `        renderAvatar={() => <View style={styles.avatar} />}`,
+      `        keyboardAvoidingViewProps={kavProps}`,
+      `        keyboardProviderProps={CHAT_KEYBOARD_PROVIDER_PROPS}`,
+      `      />`,
+      `    </View>`,
+      `    <SelectionModal visible={v} />`,
+      `  </SafeAreaView>`,
+      `);`,
+      `const styles = StyleSheet.create({ safe: { flex: 1 }, chatFrame: { flex: 1, overflow: "hidden" } });`,
+    ].join("\n");
+
+    it("aceita o padrão (offset memoizado ou direto no prop)", () => {
+      expect(chatScreenViolations(chat)).toEqual([]);
+      const inline = chat
+        .replace(memo, "")
+        .replace("keyboardAvoidingViewProps={kavProps}", "keyboardAvoidingViewProps={{ keyboardVerticalOffset: chatKeyboardVerticalOffset(chatTop) }}");
+      expect(chatScreenViolations(inline)).toEqual([]);
+    });
+
+    it("acusa GiftedChat sem keyboardAvoidingViewProps", () => {
+      expect(chatScreenViolations(chat.replace("        keyboardAvoidingViewProps={kavProps}\n", ""))).toContain(
+        "GiftedChat sem keyboardAvoidingViewProps={…}",
+      );
+    });
+
+    it("acusa offset literal ou insets.top em vez da função, e enabled/behavior no KAV", () => {
+      const literal = chat.replace("chatKeyboardVerticalOffset(chatTop) }", "0 }");
+      expect(chatScreenViolations(literal)).toContain("keyboardVerticalOffset sem chatKeyboardVerticalOffset(…)");
+      const insets = chat.replace("chatKeyboardVerticalOffset(chatTop) }", "insets.top }");
+      expect(chatScreenViolations(insets)).toContain("keyboardVerticalOffset sem chatKeyboardVerticalOffset(…)");
+      const enabled = chat.replace("({ keyboardVerticalOffset", "({ enabled: false, keyboardVerticalOffset");
+      expect(chatScreenViolations(enabled)).toContain("keyboardAvoidingViewProps com enabled:");
+      const behavior = chat.replace("({ keyboardVerticalOffset", `({ behavior: "padding", keyboardVerticalOffset`);
+      expect(chatScreenViolations(behavior)).toContain("keyboardAvoidingViewProps com behavior:");
+    });
+
+    it("acusa keyboardProviderProps fora do CHAT_KEYBOARD_PROVIDER_PROPS (inclusive enabled: false)", () => {
+      const off = chat.replace("keyboardProviderProps={CHAT_KEYBOARD_PROVIDER_PROPS}", "keyboardProviderProps={{ enabled: false }}");
+      expect(chatScreenViolations(off)).toContain("keyboardProviderProps não é CHAT_KEYBOARD_PROVIDER_PROPS");
+      const none = chat.replace("        keyboardProviderProps={CHAT_KEYBOARD_PROVIDER_PROPS}\n", "");
+      expect(chatScreenViolations(none)).toContain("keyboardProviderProps não é CHAT_KEYBOARD_PROVIDER_PROPS");
+      expect(chatLayoutModuleViolations(`export const P = { statusBarTranslucent: true, enabled: false };`)).toEqual(["enabled: false"]);
+      expect(chatLayoutModuleViolations(`export const P = { statusBarTranslucent: true, preload: false };`)).toEqual([]);
+    });
+
+    it("acusa o import das contas ausente", () => {
+      const noImport = chat.replace(/import \{ CHAT_KEYBOARD_PROVIDER_PROPS[^\n]*\n/, "");
+      expect(chatScreenViolations(noImport)).toEqual(
+        expect.arrayContaining([
+          "não importa CHAT_KEYBOARD_PROVIDER_PROPS de @/src/components/ai/chatKeyboardLayout",
+          "não importa chatKeyboardVerticalOffset de @/src/components/ai/chatKeyboardLayout",
+        ]),
+      );
+    });
+
+    it("acusa KeyboardAvoidingView do RN, provider próprio e listeners de teclado no chat", () => {
+      const rnKav = chat
+        .replace(`import { View, StyleSheet } from "react-native";`, `import { View, StyleSheet, KeyboardAvoidingView } from "react-native";`)
+        .replace("      <GiftedChat", "      <KeyboardAvoidingView behavior=\"padding\">\n      <GiftedChat")
+        .replace("      />\n    </View>", "      />\n      </KeyboardAvoidingView>\n    </View>");
+      expect(chatScreenViolations(rnKav)).toContain("<KeyboardAvoidingView");
+      expect(chatScreenViolations(`${KC_IMPORT}\n${chat}`)).toContain("importa react-native-keyboard-controller");
+      expect(chatScreenViolations(`${chat}\nKeyboard.addListener("keyboardDidShow", f);`)).toContain("Keyboard.addListener");
+      expect(chatScreenViolations(`${chat}\nuseKeyboardHandler({ onMove });`)).toContain("useKeyboardHandler");
+      expect(chatScreenViolations(`${chat}\nconst { height } = useKeyboardAnimation();`)).toContain("useKeyboardAnimation");
+      expect(chatScreenViolations(`${chat}\nKeyboard.dismiss();`)).toEqual([]);
+    });
+
+    it("resolve alias do GiftedChat (GiftedChat as Chat) e conta os usos", () => {
+      const aliased = chat
+        .replace("import { GiftedChat } from", "import { GiftedChat as Chat } from")
+        .replace("<GiftedChat", "<Chat");
+      expect(chatScreenViolations(aliased)).toEqual([]);
+      const bare = aliased.replace("keyboardAvoidingViewProps={kavProps}", "");
+      expect(chatScreenViolations(bare)).toContain("GiftedChat sem keyboardAvoidingViewProps={…}");
+      const two = chat.replace("    <SelectionModal", "    <GiftedChat messages={n} />\n    <SelectionModal");
+      expect(chatScreenViolations(two)).toContain("2 × <GiftedChat (esperado 1)");
+      expect(chatScreenViolations(chat.replace(/<GiftedChat[\s\S]*?\/>\n/, ""))).toContain("0 × <GiftedChat (esperado 1)");
+    });
+
+    it("acusa o GiftedChat fora do invólucro e o chatFrame sem recorte ou sem flex", () => {
+      const noHidden = chat.replace(`chatFrame: { flex: 1, overflow: "hidden" }`, "chatFrame: { flex: 1 }");
+      expect(chatScreenViolations(noHidden)).toContain('chatFrame sem overflow: "hidden"');
+      const noFlex = chat.replace(`chatFrame: { flex: 1, overflow: "hidden" }`, `chatFrame: { overflow: "hidden" }`);
+      expect(chatScreenViolations(noFlex)).toContain("chatFrame sem flex: 1");
+      const noLayout = chat.replace(" onLayout={onChatFrameLayout}", "");
+      expect(chatScreenViolations(noLayout)).toContain("GiftedChat fora de <View style={styles.chatFrame} onLayout=…>");
+      const outside = chat
+        .replace("    <View style={styles.chatFrame} onLayout={onChatFrameLayout}>\n", "    <View style={styles.chatFrame} onLayout={onChatFrameLayout} />\n")
+        .replace("      />\n    </View>", "      />");
+      expect(chatScreenViolations(outside)).toContain("GiftedChat fora de <View style={styles.chatFrame} onLayout=…>");
+      // genérico useRef<View> não abre elemento
+      expect(chatScreenViolations(`const r = useRef<View>(null);\n${chat}`)).toEqual([]);
+    });
+
+    it("rota ai-chat: exige headerShown: false e barra presentation:", () => {
+      const layout = `<Stack screenOptions={{ headerBackTitle: "Voltar" }}>\n  <Stack.Screen name="ai-chat" options={{ headerShown: false }} />\n  <Stack.Screen name="x" options={{ presentation: "modal" }} />\n</Stack>`;
+      expect(chatRouteViolations(layout)).toEqual([]);
+      expect(chatRouteViolations(layout.replace("{{ headerShown: false }}", `{{ headerShown: false, presentation: "modal" }}`))).toContain(
+        "ai-chat com presentation:",
+      );
+      expect(chatRouteViolations(layout.replace("headerShown: false", "headerShown: true"))).toContain("ai-chat sem headerShown: false");
+      expect(chatRouteViolations(layout.replace(`name="ai-chat"`, `name="chat"`))).toEqual([`0 × Stack.Screen name="ai-chat" (esperado 1)`]);
+      expect(chatRouteViolations(layout.replace(`headerBackTitle: "Voltar"`, `presentation: "modal"`))).toContain(
+        "Stack com presentation: em screenOptions",
+      );
+    });
+
+    it("componentes do chat: acusa KeyboardStickyView e o keyboard-controller", () => {
+      const bar = `import { View, TextInput } from "react-native";\nreturn <View><TextInput /></View>;`;
+      expect(chatComponentViolations(bar)).toEqual([]);
+      const sticky = `import { KeyboardStickyView } from "react-native-keyboard-controller";\nreturn <KeyboardStickyView><TextInput /></KeyboardStickyView>;`;
+      expect(chatComponentViolations(sticky)).toEqual(expect.arrayContaining(["importa react-native-keyboard-controller", "<KeyboardStickyView"]));
+      expect(chatComponentViolations(`import { KeyboardAvoidingView } from "react-native";`)).toContain("import KeyboardAvoidingView");
+    });
+
+    describe("sentinela de versão", () => {
+      const ok: ChatSentinelSources = {
+        giftedPkg: `{ "name": "react-native-gifted-chat", "version": "3.3.2" }`,
+        kcPkg: `{ "name": "react-native-keyboard-controller", "version": "1.18.5" }`,
+        giftedIndex: `<KeyboardAvoidingView behavior='translate-with-padding' keyboardVerticalOffset={insets.top} {...props.keyboardAvoidingViewProps}>\n<KeyboardProvider statusBarTranslucent navigationBarTranslucent {...keyboardProviderProps}>`,
+        kav: `const keyboardY =\n  screenHeight - keyboard.heightWhenOpened.value - keyboardVerticalOffset;\nreturn Math.max(frame.value.y + frame.value.height - keyboardY, 0);`,
+      };
+
+      it("aceita as versões e o código que a conta pressupõe", () => {
+        expect(chatSentinelViolations(ok)).toEqual([]);
+      });
+
+      it.each([
+        ["giftedPkg", `"3.3.2"`, `"3.4.0"`],
+        ["kcPkg", `"1.18.5"`, `"1.19.0"`],
+        ["giftedPkg", `"version": "3.3.2"`, `"v": 1`],
+        ["giftedIndex", ` {...props.keyboardAvoidingViewProps}>`, `>`],
+        ["giftedIndex", `keyboardVerticalOffset={insets.top} {...props.keyboardAvoidingViewProps}`, `{...props.keyboardAvoidingViewProps} keyboardVerticalOffset={insets.top}`],
+        ["giftedIndex", `navigationBarTranslucent {...keyboardProviderProps}`, `{...keyboardProviderProps} navigationBarTranslucent`],
+        ["kav", `frame.value.y + frame.value.height - keyboardY`, `frame.value.height - keyboardY`],
+        ["kav", `- keyboardVerticalOffset;`, `;`],
+      ] as [keyof ChatSentinelSources, string, string][])("acusa %s: %s → %s", (key, from, to) => {
+        const hits = chatSentinelViolations({ ...ok, [key]: ok[key].replace(from, to) });
+        expect(hits.length).toBeGreaterThan(0);
+        for (const hit of hits) expect(hit).toContain(CHAT_SENTINEL_MESSAGE);
+      });
+
+      it("acusa arquivo ausente (node_modules sem a biblioteca)", () => {
+        expect(chatSentinelViolations({ ...ok, kav: "" })).not.toEqual([]);
+        expect(chatSentinelViolations({ ...ok, giftedPkg: "" })).not.toEqual([]);
+      });
+    });
+  });
+
   const directUses = [
     `import { KeyboardAwareScrollView } from "react-native-keyboard-controller";`,
     `import { KeyboardProvider, KeyboardAwareScrollView } from 'react-native-keyboard-controller';`,
