@@ -19,7 +19,7 @@ App Android de finanças pessoais com gamificação (XP, streaks, arquétipos). 
 
 ## Running and verifying
 
-- Não há script `test` nem `typecheck` no `package.json`: use `npx vitest run` e `npx tsc --noEmit`. Ambos já falham no baseline (vitest em 6 arquivos, tsc em centenas de linhas): compare com o baseline antes de culpar sua mudança.
+- Não há script `test` nem `typecheck` no `package.json`: use `npx vitest run` e `npx tsc --noEmit`. Os dois passam limpos no `dev` (vitest sem falhas, tsc com 0 erros): qualquer falha nova é da sua mudança. A CI ainda não barra nenhum dos dois (Epic 2).
 - `npm ci` atualiza o `yarn.lock` como efeito colateral: reverta com `git checkout -- yarn.lock`.
 - `npm run android` tem `JAVA_HOME` de Windows fixo; no Mac use `npx expo run:android` (não verificado).
 - Local usa pnpm, mas a CI roda `npm ci` com Node 20 e `package-lock.json` (não há `pnpm-lock.yaml` nem `.nvmrc`): dependência nova também precisa atualizar `package-lock.json`.
