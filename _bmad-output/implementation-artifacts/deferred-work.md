@@ -116,3 +116,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-13-2-padronizar-a-rolagem-das-telas-com-campos.md`
   summary: D39 — O teste-guarda da rolagem só descobre campos um nível abaixo das rotas de `app/`; campo novo em componente aninhado ou em sub-tela de `src/` renderizada por rota isenta (ex.: IdleScreen do `import-invoice`) passa despercebido.
   evidence: revisão da Story 13.2 (R6); resolver imports recursivamente com memo, cuidando do barril do tamagui que exporta `TInput`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-13-4-fazer-as-buscas-e-dialogos-em-modal-subirem.md`
+  summary: D40 — Em "Mais lojas..." o tamanho do cartão vem do `Dimensions` estático (~145dp em paisagem): com o teclado aberto nenhuma linha cabe inteira, e girar com o modal aberto mantém a largura antiga.
+  evidence: revisão da Story 13.4 (R9); usar `useWindowDimensions` e limitar o tamanho do cartão pela altura disponível.

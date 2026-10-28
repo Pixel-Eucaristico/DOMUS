@@ -406,3 +406,18 @@ A web não simula o teclado (espaçador 0). Os testes provam o layout, a lista v
   - (d) Na busca de categoria, conferir no aparelho que o `autoFocus` abre o teclado (na web ele não pega, como no baseline).
 
 ## Review Triage Log
+
+Revisão única com três lentes (adversarial, casos de borda, lacunas de verificação), 28/10, sobre o commit be77d10. 1 High, 3 Med, 6 Low. `tsc`: 5 erros em `node_modules` (gifted-chat, zoom-reanimated) que já existem no commit anterior; nenhum vem desta story.
+
+| # | Achado | Sev. | Decisão |
+|---|--------|------|---------|
+| R1 | Trocar para o cabeçalho compacto remonta o campo de busca: o teclado fecha e, em paisagem/fonte grande/celular pequeno, não dá para digitar | High | **patch**: uma só instância do `TextInput` em posição estável — API com `title` recolhível e espaço `search` sempre renderizado (some só a parte sem busca); chamadores declaram a busca uma vez; guarda exige o campo nesse espaço único; item no checklist "depois de compactar, o teclado continua aberto e a digitação segue" |
+| R2 | Detecção de campo da guarda rasa (burlas P3/P4/P6, falsos positivos P1/P2, alias de `Modal` P5) | Med | **patch**: resolver identificadores em profundidade limitada, exigir o campo como tag JSX (não `onChangeText`), resolver alias de import do `Modal`; regra do espaço único do R1 substitui a do `compactHeader` |
+| R3 | Diálogo central ignora a área segura de baixo com teclado fechado | Med | **patch**: em `"center"`, `paddingBottom` da raiz = 20 + `insets.bottom` e `liftDiscount` = `insets.bottom`; conferir topo `insets.top + 8` sem contar duas vezes; item no checklist |
+| R4 | Testes provam aritmética, não comportamento | Med | **patch**: teste da centralização real (folga de cima e de baixo) e teste puro da escolha de layout que cobre o caminho do R1; restante no checklist do aparelho |
+| R5 | DebugTools guarda a altura do cabeçalho entre abas | Low | **patch**: medir de novo ao trocar de aba |
+| R6 | Código morto (`compactHeaderHeight`, `listSpace`) e texto da spec sobre a folha "seguir o conteúdo" | Low | **patch**: remover e corrigir a spec (inclusive "tsc 0 erros") |
+| R7 | Carrossel: uma posição de rolagem para todos os slides | Low | **patch**: `KeyboardSheet` expõe ref da rolagem; `goTo` volta ao topo |
+| R8 | "Pular" perde parte da área de toque com fonte grande | Low | **patch**: `minHeight` do cabeçalho cobrindo o botão (ou `zIndex`/`elevation`) |
+| R9 | "Mais lojas..." em paisagem não mostra uma linha inteira (anterior à story) | Low | **defer** (D40) |
+| R10 | Checklist do aparelho incompleto | Low | **patch**: acrescentar os itens (i)–(vi) da revisão |
