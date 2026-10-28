@@ -38,6 +38,7 @@ import { useAISettings } from "@/src/hooks/useAISettings";
 import type { AIProvider } from "@packages/ai";
 import { appAlert } from "@/src/services/appAlert";
 import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
+import { KeyboardSheet } from "@/src/components/shared/KeyboardSheet";
 
 const FIREBASE_FLAGS: PrivacyFlagId[] = ["firebaseAnalytics", "firebasePerformance", "firebaseCrashlytics"];
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -223,23 +224,69 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
       <View style={[st.overlay, { backgroundColor: "rgba(0,0,0,0.85)" }]}>
-        <View
-          style={[
-            st.container,
-            {
-              backgroundColor: theme.cardBackground,
-              paddingTop: insets.top + 16,
-              paddingBottom: insets.bottom + 16,
-            },
-          ]}
-        >
-          {/* Pular */}
-          {!isLastSlide && (
-            <TouchableOpacity style={st.skipBtn} onPress={handleSkip} hitSlop={12}>
-              <Text style={[st.skipText, { color: theme.secondaryText }]}>Pular</Text>
-            </TouchableOpacity>
-          )}
+        {/*
+          Tela cheia (Story 13.4, D-3 a): o KeyboardSheet "fill" encolhe com o
+          teclado; o slide rola até a chave e a barra fica logo acima do teclado
+          (ou no fim da rolagem, em janela baixa).
+        */}
+        <KeyboardSheet
+          placement="fill"
+          maxHeightRatio={1}
+          basePaddingBottom={insets.bottom + 16}
+          sheetStyle={[st.container, { backgroundColor: theme.cardBackground }]}
+          contentContainerStyle={st.slidesContent}
+          header={
+            // O paddingTop da área segura fica no cabeçalho, para o "Pular"
+            // (absoluto) continuar na mesma posição de antes.
+            <View style={{ paddingTop: insets.top + 16 }}>
+              {/* Pular */}
+              {!isLastSlide && (
+                <TouchableOpacity style={st.skipBtn} onPress={handleSkip} hitSlop={12}>
+                  <Text style={[st.skipText, { color: theme.secondaryText }]}>Pular</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          }
+          footer={
+            /* Dots + Navegação */
+            <View style={st.bottomBar}>
+              <View style={st.dots}>
+                {Array.from({ length: TOTAL_SLIDES }).map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      st.dot,
+                      {
+                        backgroundColor: i === slide ? theme.primaryColor : `${theme.primaryColor}30`,
+                        width: i === slide ? 20 : 8,
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
 
+              <TouchableOpacity
+                style={[
+                  st.nextBtn,
+                  { backgroundColor: canNext ? theme.primaryColor : `${theme.primaryColor}50` },
+                ]}
+                onPress={handleNext}
+                disabled={!canNext || finishing}
+              >
+                {finishing ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <>
+                    <Text style={st.nextBtnText}>
+                      {isLastSlide ? "Começar Tour!" : "Próximo"}
+                    </Text>
+                    <Feather name={isLastSlide ? "play" : "arrow-right"} size={16} color="#FFF" />
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          }
+        >
           {/* Slides */}
           <ScrollView
             ref={scrollRef}
@@ -247,7 +294,7 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
             pagingEnabled
             scrollEnabled={false}
             showsHorizontalScrollIndicator={false}
-            style={{ flex: 1 }}
+            style={st.pager}
           >
             {/* Slide 0: Boas-vindas */}
             <SlideWrapper>
@@ -502,45 +549,7 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
               </Text>
             </SlideWrapper>
           </ScrollView>
-
-          {/* Dots + Navegação */}
-          <View style={st.bottomBar}>
-            <View style={st.dots}>
-              {Array.from({ length: TOTAL_SLIDES }).map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    st.dot,
-                    {
-                      backgroundColor: i === slide ? theme.primaryColor : `${theme.primaryColor}30`,
-                      width: i === slide ? 20 : 8,
-                    },
-                  ]}
-                />
-              ))}
-            </View>
-
-            <TouchableOpacity
-              style={[
-                st.nextBtn,
-                { backgroundColor: canNext ? theme.primaryColor : `${theme.primaryColor}50` },
-              ]}
-              onPress={handleNext}
-              disabled={!canNext || finishing}
-            >
-              {finishing ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <>
-                  <Text style={st.nextBtnText}>
-                    {isLastSlide ? "Começar Tour!" : "Próximo"}
-                  </Text>
-                  <Feather name={isLastSlide ? "play" : "arrow-right"} size={16} color="#FFF" />
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+        </KeyboardSheet>
       </View>
       {/* Alerta customizado por cima deste Modal (ver src/services/appAlert.ts) */}
       <AppAlertHost />
@@ -605,8 +614,15 @@ const st = StyleSheet.create({
     alignItems: "center",
   },
   container: {
-    flex: 1,
     width: "100%",
+  },
+  // Conteúdo da rolagem vertical do KeyboardSheet: ocupa a altura toda, e o
+  // paginador cresce nela (antes era `flex: 1` direto no container).
+  slidesContent: {
+    flexGrow: 1,
+  },
+  pager: {
+    flexGrow: 1,
   },
   skipBtn: {
     position: "absolute",
@@ -747,7 +763,7 @@ const st = StyleSheet.create({
   },
   bottomBar: {
     paddingHorizontal: 28,
-    paddingTop: 16,
+    paddingTop: 4, // + 12 do rodapé do KeyboardSheet = 16 de antes
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

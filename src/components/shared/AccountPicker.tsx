@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
 import Animated, { SlideInDown, SlideOutDown, FadeIn, FadeOut, Easing } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
 import { soundManager } from "@/src/services/SoundManager";
+import { KeyboardListSheet } from "@/src/components/shared/KeyboardListSheet";
+import { useSheetBackdropPress } from "@/src/components/shared/KeyboardSheet";
 import type { ThemeColors } from "@packages/theme";
 import type { AccountPayload, AccountType } from "@packages/events/src/types";
 
@@ -71,10 +73,30 @@ function CompactAccountPicker({
     setSearch("");
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setOpen(false);
     setSearch("");
-  };
+  }, []);
+  // Com o teclado aberto, o 1º toque no fundo só fecha o teclado (Story 13.4).
+  const onBackdrop = useSheetBackdropPress(handleClose);
+
+  const searchBox = (
+    <View style={[cs.searchBox, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+      <Feather name="search" size={15} color={theme.secondaryText} />
+      <TextInput
+        style={[cs.searchInput, { color: theme.textColor }]}
+        placeholder="Buscar conta..."
+        placeholderTextColor={theme.secondaryText}
+        value={search}
+        onChangeText={setSearch}
+      />
+      {search.length > 0 && (
+        <Pressable onPress={() => setSearch("")} hitSlop={8}>
+          <Feather name="x-circle" size={15} color={theme.secondaryText} />
+        </Pressable>
+      )}
+    </View>
+  );
 
   return (
     <>
@@ -113,46 +135,35 @@ function CompactAccountPicker({
           exiting={FadeOut.duration(180)}
           style={cs.overlay}
         >
-          <Pressable style={{ flex: 1 }} onPress={handleClose} />
+          <Pressable style={{ flex: 1 }} onPress={onBackdrop} />
         </Animated.View>
 
         {/* Sheet */}
-        <View style={cs.sheetContainer} pointerEvents="box-none">
-          <View style={cs.spacer} pointerEvents="none" />
-          <Animated.View
-            entering={SlideInDown.duration(280).easing(Easing.out(Easing.cubic))}
-            exiting={SlideOutDown.duration(220).easing(Easing.in(Easing.cubic))}
-            style={[cs.sheet, { backgroundColor: theme.background }]}
-          >
-            {/* Handle */}
-            <View style={[cs.handle, { backgroundColor: theme.border }]} />
+        <KeyboardListSheet
+          entering={SlideInDown.duration(280).easing(Easing.out(Easing.cubic))}
+          exiting={SlideOutDown.duration(220).easing(Easing.in(Easing.cubic))}
+          sheetStyle={[cs.sheet, { backgroundColor: theme.background }]}
+          maxHeightRatio={0.75}
+          basePaddingBottom={20}
+          header={
+            <>
+              {/* Handle */}
+              <View style={[cs.handle, { backgroundColor: theme.border }]} />
 
-            {/* Header */}
-            <View style={[cs.sheetHeader, { borderBottomColor: theme.border }]}>
-              <Text style={[cs.sheetTitle, { color: theme.textColor }]}>{label}</Text>
-              <Pressable onPress={handleClose} hitSlop={10}>
-                <Feather name="x" size={22} color={theme.secondaryText} />
-              </Pressable>
-            </View>
-
-            {/* Search */}
-            <View style={[cs.searchBox, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-              <Feather name="search" size={15} color={theme.secondaryText} />
-              <TextInput
-                style={[cs.searchInput, { color: theme.textColor }]}
-                placeholder="Buscar conta..."
-                placeholderTextColor={theme.secondaryText}
-                value={search}
-                onChangeText={setSearch}
-              />
-              {search.length > 0 && (
-                <Pressable onPress={() => setSearch("")} hitSlop={8}>
-                  <Feather name="x-circle" size={15} color={theme.secondaryText} />
+              {/* Header */}
+              <View style={[cs.sheetHeader, { borderBottomColor: theme.border }]}>
+                <Text style={[cs.sheetTitle, { color: theme.textColor }]}>{label}</Text>
+                <Pressable onPress={handleClose} hitSlop={10}>
+                  <Feather name="x" size={22} color={theme.secondaryText} />
                 </Pressable>
-              )}
-            </View>
+              </View>
 
-            {/* List */}
+              {/* Search */}
+              {searchBox}
+            </>
+          }
+          compactHeader={searchBox}
+          list={
             <ScrollView
               style={{ flexGrow: 1 }}
               contentContainerStyle={{ paddingBottom: 8 }}
@@ -202,8 +213,8 @@ function CompactAccountPicker({
                 })
               )}
             </ScrollView>
-          </Animated.View>
-        </View>
+          }
+        />
       </Modal>
     </>
   );
@@ -327,16 +338,10 @@ const cs = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.45)",
   },
-  sheetContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "flex-end",
-  },
-  spacer: { flex: 1 },
   sheet: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
-    maxHeight: "75%",
   },
   handle: {
     width: 36,

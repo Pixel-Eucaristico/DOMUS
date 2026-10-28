@@ -234,17 +234,17 @@ A altura do teclado vem do mesmo padrão R6 (`sheetKeyboardHeight`, começa em 0
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `keyboardSheetLayout.ts` e testes:
+- [x] `keyboardSheetLayout.ts` e testes:
   - `computeKeyboardListSheetLayout`: retrato 412×900 com teclado de 320 (lista ≥ 48, cabeçalho cheio); paisagem 800×360 com teclado de 200 (`headerCompact = true`); limites exatos 48 e 47; teclado fechado sempre com `headerCompact = false` e `lift = 0`; `heightRatio` fixo encolhendo com o teclado.
   - `sheetLiftDiscount` com `"center"` dá 0.
   - `computeKeyboardSheetLayout` com `"center"`: o cartão cabe entre a barra de status e o teclado, descontando o padding da raiz.
   - Os testes da 13.3 passam sem mudança, com o padrão `"bottom"`.
-- [ ] `KeyboardSheet` com `placement`. Com `"bottom"`, o comportamento e a guarda da 13.3 ficam iguais.
-- [ ] `KeyboardListSheet` conforme o padrão.
-- [ ] Os 6 componentes conforme "Mudança por modal". A lógica, os textos e os modais aninhados ficam como estão.
-- [ ] Guarda (ver abaixo), com auto-testes e sondas.
-- [ ] Playwright no build web (Verification).
-- [ ] Itens desta story na checklist da Story 13.7 (Verification).
+- [x] `KeyboardSheet` com `placement`. Com `"bottom"`, o comportamento e a guarda da 13.3 ficam iguais.
+- [x] `KeyboardListSheet` conforme o padrão.
+- [x] Os 6 componentes conforme "Mudança por modal". A lógica, os textos e os modais aninhados ficam como estão.
+- [x] Guarda (ver abaixo), com auto-testes e sondas.
+- [x] Playwright no build web (Verification).
+- [x] Itens desta story na checklist da Story 13.7 (Verification).
 
 **Guarda: como a 13.4 move os pendentes para regras aplicadas**
 
@@ -347,5 +347,62 @@ A web não simula o teclado (espaçador 0). Os testes provam o layout, a lista v
 14. Busca inline do `CategorySelectorGrid` na nova transação (já coberta pelo `KeyboardSheet`, item 22 da 13.3): conferir junto do item 1.
 
 ## Implementation Notes
+
+**Arquivos**
+
+- Novo: `src/components/shared/KeyboardListSheet.tsx`: props `header`, `compactHeader`, `list`, `sheetStyle`, `maxHeightRatio`/`heightRatio`, `basePaddingBottom`, `entering`/`exiting`. A folha é uma `Reanimated.View`; o invólucro da lista tem `flexShrink: 1`, mais `flexGrow: 1` com `heightRatio`.
+- `src/components/shared/keyboardSheetLayout.ts`:
+  - novos: `SheetPlacement`, `DIALOG_EDGE_PADDING = 20`, `MIN_LIST_SPACE`, `sheetPaddingBottomFor`, `sheetRootPadding` e `computeKeyboardListSheetLayout`;
+  - `placement` entra em `sheetLiftDiscount` e em `computeKeyboardSheetLayout`;
+  - `lift` e altura máxima saem de um `sheetBounds` interno, comum às duas folhas.
+- `src/components/shared/KeyboardSheet.tsx`: prop `placement`, com padrão `"bottom"`; `useSheetKeyboardHeight` passa a ser exportado.
+- Componentes: `CategoryPickerModal.tsx`, `StoreGridModal.tsx`, `AccountPicker.tsx` (só o compacto), `DebugTools.tsx`, `app/about.tsx` e `WelcomeCarousel.tsx`.
+- Testes: `src/components/shared/__tests__/keyboardSheetLayout.test.ts` (64 testes) e `src/components/__tests__/keyboardScroll.test.ts` (145 testes).
+
+**Decisões além da spec**
+
+- **Busca declarada à parte.** A busca fica numa `const searchBar = (<View>…</View>)`, usada no `header` e no `compactHeader`. A guarda resolve um nível desses identificadores (`expandLocalJsx`) antes do `hasField`. Assim a busca não é duplicada, e a sonda "busca fora do header" continua falhando.
+- **`compactHeader` obrigatório nos 4.** A guarda confere campo também no `compactHeader`, para a busca continuar visível na janela baixa (R-1).
+- **`DebugTools`.** A busca de troféus está no `header`, então não foi preciso aceitar campo no `list` (a spec permitia). `tabsRow` e `trophySearch` viraram `const` de JSX.
+- **Diálogo (`"center"`).** A raiz tem `paddingTop: insets.top + 8`, `paddingBottom: 20`, `paddingHorizontal: 20` e `alignItems: "center"`.
+  - O `paddingBottom` da folha é só a `base` (24). Não entra `max(insets.bottom, …)`, porque o cartão não encosta na barra de navegação.
+  - Com a raiz em `justifyContent: "center"`, o cartão e o espaçador ficam centrados juntos. Assim o centro do cartão cai no centro da área acima do teclado.
+  - O cartão usa `maxHeightRatio={1}`; a altura fica limitada pelas margens da raiz.
+- **Tela cheia (`"fill"`).** A raiz tem `alignSelf: "stretch"`, porque o overlay do carrossel centra os filhos, e a folha tem `flexGrow: 1`.
+  - O `paddingTop` da área segura fica num `View` do `header`, e não no `sheetStyle`. Assim o "Pular" (absoluto) fica exatamente onde estava.
+  - O carrossel usa `basePaddingBottom = insets.bottom + 16`, o mesmo de antes.
+- **Espaçamentos preservados.** O rodapé do `KeyboardSheet` põe 12 em cima, então o `marginBottom` do campo do "APAGAR TUDO" foi de 20 para 8 e o `paddingTop` da barra do carrossel foi de 16 para 4.
+- **Regra 3 de `MODAL_FORMS`.** A segunda compensação é procurada só no `<Modal>` do `KeyboardSheet` (`modalSegments`). Um import só acusa se o componente não é renderizado fora desse trecho.
+  - A regra 4 (rolagem vertical crua) também passou a valer só no trecho do modal.
+  - `FOOTER_EXCEPTIONS` e `NO_BACKDROP` viraram listas nomeadas, com o motivo.
+- **`StoreGridModal`.** O fechar ficou num `handleCancel` (`setQuery("")` e `onCancel()`), usado no fundo, no X e no `onRequestClose`.
+
+**Verificação**
+
+- `npx vitest run`: 94 arquivos e 1988 testes passando (baseline: 1933, mais 55 novos). `npx tsc --noEmit`: 0 erros. `npx eslint` nos 11 arquivos tocados: sem avisos.
+- `npx expo export --platform web`: exit 0.
+- Sondas da guarda: as 7 da spec falham como esperado (1 ou 2 testes cada) e foram revertidas.
+- Sondas das funções: "`headerCompact` sempre `false`" e "`sheetLiftDiscount("center")` igual ao `"bottom"`" quebram 3 testes cada, e foram revertidas.
+- **Playwright** (build exportado com fallback de SPA, 412×900 e 800×360): tudo OK, sem erro de página nem diálogo nativo.
+  - Onboarding: no slide de IA, a chave é digitada, o ✓ fica habilitado e "Começar Tour!" fica visível sem rolar nos dois tamanhos.
+  - "APAGAR TUDO": o cartão fica centrado e inteiro na janela, com "Resetar" desabilitado até a frase certa e os botões lado a lado; "Cancelar" fecha. No baseline, em 800×360, o cartão saía da janela (top −23, bottom 384); agora vai de 8 a 340.
+  - Categoria, na nova transação e no adicionar item: "Nenhuma categoria encontrada" aparece com o filtro sem resultado. Com "fru", a linha "Frutas" fica visível na janela; o toque seleciona e fecha, e a folha de baixo continua.
+  - Conta de destino, no modo compacto: a lista fica visível, o fundo fecha o modal, e reabrir e selecionar funciona.
+  - "Mais lojas...": a grade e o aviso ficam na janela em 412×900, e o fundo fecha.
+    - Em 800×360, os cartões da grade medem cerca de 145 dp, porque `CARD_SIZE` vem da largura da tela (`Dimensions`). A 1ª linha começa dentro da janela, a grade rola e o aviso fica no fim da rolagem. A altura de 75% é a de antes.
+  - Na web, o `autoFocus` da busca de categoria não pega dentro do `Modal` (o foco fica no gatilho). É igual no baseline, conferido com o mesmo script num build do `HEAD`. O teste foca clicando.
+- **`DebugTools`** (`npx expo start --web`):
+  - Na TROPHIES, a folha tem 85% da janela, presa embaixo, e a busca filtra.
+  - Na STATE, "XP..." fica visível ao focar.
+  - Em 800×360, com o teclado fechado, o cabeçalho completo (tier, busca e contagem) deixa quase nada para a lista. É o mesmo de antes, já que o `compactHeader` só entra com o teclado aberto (R-1). Fica para o aparelho.
+
+**Checklist do aparelho (Story 13.7)**
+
+- Os itens 1 a 14 da seção "Aparelho" acima entram na 13.7 como estão.
+- Acréscimos:
+  - (a) Onboarding em celular baixo: rolar o slide 2 para baixo e tocar "Próximo". O slide seguinte pode abrir rolado, porque a rolagem vertical do `KeyboardSheet` é uma só para todos os slides.
+  - (b) `DebugTools` em paisagem com o teclado fechado: a lista de troféus fica quase sem espaço, como antes.
+  - (c) "Mais lojas..." em paisagem: os cartões da grade são grandes (`CARD_SIZE` vem da largura), e a grade rola.
+  - (d) Na busca de categoria, conferir no aparelho que o `autoFocus` abre o teclado (na web ele não pega, como no baseline).
 
 ## Review Triage Log

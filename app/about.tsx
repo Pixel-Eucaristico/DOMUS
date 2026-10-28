@@ -40,6 +40,7 @@ import { TText, TButton } from "@/src/components/tamagui";
 import { useExternalLookups } from "@/src/hooks/useExternalLookups";
 import { formatPrivacyFlagText, PRIVACY_FLAG_TEXTS } from "@/src/constants/privacyFlagTexts";
 import { appAlert } from "@/src/services/appAlert";
+import { KeyboardSheet } from "@/src/components/shared/KeyboardSheet";
 
 export default function AboutScreen() {
   const router = useRouter();
@@ -188,34 +189,20 @@ export default function AboutScreen() {
         animationType="fade"
         onRequestClose={() => setShowResetModal(false)}
       >
-        <View style={s.overlay}>
-          <View style={[s.resetModal, { backgroundColor: theme.cardBackground }]}>
-            <Feather name="alert-octagon" size={44} color="#DC2626" style={{ alignSelf: "center", marginBottom: 14 }} />
-            <Text style={[s.resetModalTitle, { color: theme.textColor }]}>Resetar aplicativo</Text>
-            <Text style={[s.resetModalDesc, { color: theme.secondaryText }]}>
-              Todos os seus dados serão apagados permanentemente — transações, contas, listas de desejo e configurações de segurança.{"\n\n"}Esta ação não pode ser desfeita.
-            </Text>
-            <Text style={[s.resetModalLabel, { color: theme.secondaryText }]}>
-              Digite{" "}
-              <Text style={{ color: "#DC2626", fontFamily: "DMSans_700Bold" }}>APAGAR TUDO</Text>
-              {" "}para confirmar:
-            </Text>
-            <TextInput
-              style={[
-                s.resetInput,
-                {
-                  color: theme.textColor,
-                  borderColor: resetPhrase === "APAGAR TUDO" ? "#DC2626" : theme.border,
-                  backgroundColor: theme.background,
-                },
-              ]}
-              value={resetPhrase}
-              onChangeText={setResetPhrase}
-              placeholder="APAGAR TUDO"
-              placeholderTextColor={theme.secondaryText}
-              autoCapitalize="characters"
-              autoCorrect={false}
-            />
+        {/* Fundo escuro; tocar fora continua sem fechar (R-4). */}
+        <View style={s.overlay} pointerEvents="none" />
+        <KeyboardSheet
+          placement="center"
+          maxHeightRatio={1}
+          basePaddingBottom={24}
+          sheetStyle={[s.resetModal, { backgroundColor: theme.cardBackground }]}
+          header={
+            <>
+              <Feather name="alert-octagon" size={44} color="#DC2626" style={{ alignSelf: "center", marginBottom: 14 }} />
+              <Text style={[s.resetModalTitle, { color: theme.textColor }]}>Resetar aplicativo</Text>
+            </>
+          }
+          footer={
             <View style={s.resetButtons}>
               <TButton
                 variant="outline"
@@ -237,8 +224,33 @@ export default function AboutScreen() {
                 {resetting ? "Resetando..." : "Resetar"}
               </TButton>
             </View>
-          </View>
-        </View>
+          }
+        >
+          <Text style={[s.resetModalDesc, { color: theme.secondaryText }]}>
+            Todos os seus dados serão apagados permanentemente — transações, contas, listas de desejo e configurações de segurança.{"\n\n"}Esta ação não pode ser desfeita.
+          </Text>
+          <Text style={[s.resetModalLabel, { color: theme.secondaryText }]}>
+            Digite{" "}
+            <Text style={{ color: "#DC2626", fontFamily: "DMSans_700Bold" }}>APAGAR TUDO</Text>
+            {" "}para confirmar:
+          </Text>
+          <TextInput
+            style={[
+              s.resetInput,
+              {
+                color: theme.textColor,
+                borderColor: resetPhrase === "APAGAR TUDO" ? "#DC2626" : theme.border,
+                backgroundColor: theme.background,
+              },
+            ]}
+            value={resetPhrase}
+            onChangeText={setResetPhrase}
+            placeholder="APAGAR TUDO"
+            placeholderTextColor={theme.secondaryText}
+            autoCapitalize="characters"
+            autoCorrect={false}
+          />
+        </KeyboardSheet>
       </Modal>
 
       <SelectionModal
@@ -429,12 +441,13 @@ function styles(theme: any) {
       paddingVertical: 10, paddingHorizontal: 14, alignSelf: "flex-start",
     },
     dangerBtnText: { color: "#FFF", fontFamily: "DMSans_700Bold", fontSize: 13 },
-    overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center", padding: 20 },
+    overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.6)" },
+    // Diálogo do KeyboardSheet placement="center": a margem de 20 em volta é da raiz.
     resetModal: { borderRadius: 18, padding: 24, width: "100%", maxWidth: 420 },
     resetModalTitle: { fontFamily: "DMSans_700Bold", fontSize: 18, textAlign: "center", marginBottom: 12 },
     resetModalDesc: { fontFamily: "DMSans_400Regular", fontSize: 14, lineHeight: 21, marginBottom: 18 },
     resetModalLabel: { fontFamily: "DMSans_500Medium", fontSize: 13, marginBottom: 8 },
-    resetInput: { borderWidth: 1.5, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 11, fontFamily: "DMSans_500Medium", fontSize: 15, letterSpacing: 1, marginBottom: 20 },
+    resetInput: { borderWidth: 1.5, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 11, fontFamily: "DMSans_500Medium", fontSize: 15, letterSpacing: 1, marginBottom: 8 },
     resetButtons: { flexDirection: "row", gap: 10 },
     resetCancelBtn: { flex: 1, borderWidth: 1, borderRadius: 11, paddingVertical: 13, alignItems: "center" },
     resetConfirmBtn: { flex: 1, backgroundColor: "#DC2626", borderRadius: 11, paddingVertical: 13, alignItems: "center" },

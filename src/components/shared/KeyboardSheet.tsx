@@ -21,8 +21,10 @@ import {
   computeKeyboardSheetLayout,
   sheetKeyboardHeight,
   sheetLiftDiscount,
+  sheetPaddingBottomFor,
+  sheetRootPadding,
   SHEET_KEYBOARD_GAP,
-  SHEET_TOP_GAP,
+  type SheetPlacement,
 } from "@/src/components/shared/keyboardSheetLayout";
 
 type ScrollWithInnerView = ScrollView & { getInnerViewRef?: () => View | null };
@@ -41,8 +43,18 @@ interface KeyboardSheetProps {
   sheetStyle?: React.ComponentProps<typeof Animated.View>["style"];
   /** Altura máxima da folha como fração da janela (0,85, 0,90, 0,92). */
   maxHeightRatio?: number;
-  /** paddingBottom mínimo da folha; vale `max(insets.bottom, base)`. */
+  /**
+   * paddingBottom mínimo da folha; vale `max(insets.bottom, base)` (no
+   * `"center"`, só a `base`).
+   */
   basePaddingBottom: number;
+  /**
+   * Onde a folha fica (Story 13.4). `"bottom"` (padrão): folha de baixo, como
+   * na 13.3. `"center"`: diálogo centrado na área acima do teclado (a largura
+   * máxima vem do `sheetStyle`). `"fill"`: tela cheia (o `paddingTop` da área
+   * segura fica com o chamador).
+   */
+  placement?: SheetPlacement;
   /** Estilo do conteúdo da rolagem. */
   contentContainerStyle?: StyleProp<ViewStyle>;
   /**
@@ -68,9 +80,10 @@ export function useSheetBackdropPress(onClose: () => void): () => void {
 /**
  * Altura do teclado para a folha: 0 ao montar e, depois, a do último
  * `keyboardDidShow`/`keyboardDidHide`. Não lê o estado global do teclado na
- * montagem (pode ser de antes do modal abrir).
+ * montagem (pode ser de antes do modal abrir). Usado também pelo
+ * KeyboardListSheet (Story 13.4).
  */
-function useSheetKeyboardHeight(): number {
+export function useSheetKeyboardHeight(): number {
   const [height, setHeight] = useState(() => sheetKeyboardHeight(null));
   useEffect(() => {
     const show = KeyboardEvents.addListener("keyboardDidShow", (e) =>
@@ -105,6 +118,7 @@ export function KeyboardSheet({
   basePaddingBottom,
   contentContainerStyle,
   footerVisible = true,
+  placement = "bottom",
 }: KeyboardSheetProps) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -113,7 +127,8 @@ export function KeyboardSheet({
   const [footerHeight, setFooterHeight] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
-  const sheetPaddingBottom = Math.max(insets.bottom, basePaddingBottom);
+  const sheetPaddingBottom = sheetPaddingBottomFor(insets.bottom, basePaddingBottom, placement);
+  const rootPadding = sheetRootPadding(insets.top, placement);
   const layout = computeKeyboardSheetLayout({
     windowHeight,
     keyboardHeight,
@@ -122,6 +137,7 @@ export function KeyboardSheet({
     headerHeight,
     footerHeight: footerVisible ? footerHeight : 0,
     maxHeightRatio,
+    placement,
   });
 
   const scrollFocusedIntoView = useCallback(() => {
@@ -178,14 +194,24 @@ export function KeyboardSheet({
 
   return (
     <KeyboardSafeView
-      style={[s.root, { paddingTop: insets.top + SHEET_TOP_GAP }]}
-      liftDiscount={sheetLiftDiscount(sheetPaddingBottom)}
+      style={[
+        s.root,
+        placement === "center" && s.rootCenter,
+        placement === "fill" && s.rootFill,
+        {
+          paddingTop: rootPadding.top,
+          paddingBottom: rootPadding.bottom,
+          paddingHorizontal: rootPadding.horizontal,
+        },
+      ]}
+      liftDiscount={sheetLiftDiscount(sheetPaddingBottom, placement)}
       pointerEvents="box-none"
     >
       <Animated.View
         style={[
           sheetStyle,
           s.sheet,
+          placement === "fill" && s.sheetFill,
           { maxHeight: maxHeightRatio * windowHeight, paddingBottom: sheetPaddingBottom },
         ]}
       >
@@ -209,7 +235,12 @@ export function KeyboardSheet({
 
 const s = StyleSheet.create({
   root: { flex: 1, justifyContent: "flex-end" },
+  // Diálogo: o cartão e o espaçador ficam centrados juntos, então o cartão se
+  // centra na área acima do teclado.
+  rootCenter: { justifyContent: "center", alignItems: "center" },
+  rootFill: { alignSelf: "stretch" },
   sheet: { flexShrink: 1, minHeight: 0 },
+  sheetFill: { flexGrow: 1 },
   scroll: { flexShrink: 1 },
   footer: { paddingTop: 12 },
 });

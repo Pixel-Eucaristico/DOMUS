@@ -1,14 +1,27 @@
-// Contas da folha com formulário dentro de Modal (KeyboardSheet, Story 13.3).
+// Contas das folhas dentro de Modal: com formulário (KeyboardSheet, Story 13.3)
+// e com busca em lista (KeyboardListSheet, Story 13.4).
 // Sem `react-native` aqui, para dar para testar no vitest.
 import { MIN_FIELD_SPACE } from "@/components/keyboardScrollDefaults";
 
 export { MIN_FIELD_SPACE };
+
+/** Altura mínima da lista de uma busca com o teclado aberto (uma linha), Story 13.4. */
+export const MIN_LIST_SPACE = MIN_FIELD_SPACE;
 
 /** Folga entre o conteúdo da folha e o topo do teclado (≥ 8 dp do FR-29). */
 export const SHEET_KEYBOARD_GAP = 12;
 
 /** Folga entre a barra de status e o topo da folha. */
 export const SHEET_TOP_GAP = 8;
+
+/**
+ * Onde a folha fica (Story 13.4): `"bottom"` (folha de baixo, padrão da 13.3),
+ * `"center"` (diálogo centrado, D-2) ou `"fill"` (tela cheia, D-3).
+ */
+export type SheetPlacement = "bottom" | "center" | "fill";
+
+/** Margem do diálogo centrado: laterais e embaixo (folga até o teclado), como o overlay de antes. */
+export const DIALOG_EDGE_PADDING = 20;
 
 const nonNegative = (n: number) => (Number.isFinite(n) && n > 0 ? n : 0);
 
@@ -28,11 +41,39 @@ export function keyboardLift(keyboardHeight: number, liftDiscount: number): numb
 /**
  * Quanto descontar do teclado no espaçador do KeyboardSafeView: o
  * `paddingBottom` da folha (que já cobre a barra de navegação) menos a folga
- * `SHEET_KEYBOARD_GAP`. Único lugar dessa conta (usado pelo KeyboardSheet e por
- * `computeKeyboardSheetLayout`). Nunca negativo.
+ * `SHEET_KEYBOARD_GAP`. No diálogo centrado (`"center"`) é 0: o cartão não
+ * encosta na borda de baixo, então o espaçador é o teclado inteiro e a folga é
+ * a margem de baixo da raiz. Único lugar dessa conta (usado pelo KeyboardSheet,
+ * pelo KeyboardListSheet e pelas funções de layout). Nunca negativo.
  */
-export function sheetLiftDiscount(sheetPaddingBottom: number): number {
+export function sheetLiftDiscount(sheetPaddingBottom: number, placement: SheetPlacement = "bottom"): number {
+  if (placement === "center") return 0;
   return Math.max(0, nonNegative(sheetPaddingBottom) - SHEET_KEYBOARD_GAP);
+}
+
+/**
+ * `paddingBottom` da folha: `max(insets.bottom, base)` quando a folha encosta
+ * no fundo da tela (`"bottom"`, `"fill"`); no diálogo centrado só a `base`, porque
+ * a barra de navegação fica abaixo da margem da raiz.
+ */
+export function sheetPaddingBottomFor(
+  insetBottom: number,
+  basePaddingBottom: number,
+  placement: SheetPlacement = "bottom",
+): number {
+  const base = nonNegative(basePaddingBottom);
+  return placement === "center" ? base : Math.max(nonNegative(insetBottom), base);
+}
+
+/** Padding da raiz (o KeyboardSafeView) em volta da folha, por `placement`. */
+export function sheetRootPadding(
+  insetTop: number,
+  placement: SheetPlacement = "bottom",
+): { top: number; bottom: number; horizontal: number } {
+  if (placement === "fill") return { top: 0, bottom: 0, horizontal: 0 };
+  const top = nonNegative(insetTop) + SHEET_TOP_GAP;
+  if (placement === "center") return { top, bottom: DIALOG_EDGE_PADDING, horizontal: DIALOG_EDGE_PADDING };
+  return { top, bottom: 0, horizontal: 0 };
 }
 
 /**
@@ -72,6 +113,8 @@ export interface KeyboardSheetLayoutInput {
   footerHeight: number;
   /** Altura máxima da folha como fração da janela (0,85, 0,90, 0,92). */
   maxHeightRatio: number;
+  /** Onde a folha fica; padrão `"bottom"` (Story 13.3). */
+  placement?: SheetPlacement;
 }
 
 export interface KeyboardSheetLayout {
@@ -91,11 +134,45 @@ export interface KeyboardSheetLayout {
   headerPinned: boolean;
 }
 
+interface SheetBoundsInput {
+  windowHeight: number;
+  keyboardHeight: number;
+  insetTop: number;
+  sheetPaddingBottom: number;
+  maxHeightRatio: number;
+  placement?: SheetPlacement;
+}
+
+/**
+ * Espaçador e altura máxima da folha agora: entre a margem de cima da raiz e o
+ * espaçador (e, no diálogo, a margem de baixo). Mesma conta para o
+ * KeyboardSheet e o KeyboardListSheet.
+ */
+function sheetBounds({
+  windowHeight,
+  keyboardHeight,
+  insetTop,
+  sheetPaddingBottom,
+  maxHeightRatio,
+  placement = "bottom",
+}: SheetBoundsInput): { lift: number; sheetMaxHeight: number } {
+  const window = nonNegative(windowHeight);
+  const keyboard = nonNegative(keyboardHeight);
+  const ratio = Math.min(nonNegative(maxHeightRatio), 1);
+  const root = sheetRootPadding(insetTop, placement);
+  const lift = keyboardLift(keyboard, sheetLiftDiscount(sheetPaddingBottom, placement));
+  const sheetMaxHeight = Math.max(0, Math.min(ratio * window, window - root.top - root.bottom - lift));
+  return { lift, sheetMaxHeight };
+}
+
 /**
  * Onde fica o rodapé da folha. O encolhimento em si é do Yoga (`flexShrink`);
  * aqui só se decide se, com o teclado aberto, o rodapé fixo ainda deixa ao
  * menos `MIN_FIELD_SPACE` para o campo. Se não deixa (paisagem, fonte grande),
  * o rodapé vai para o fim da rolagem, como no parsedFooterLayout da 13.2.
+ * Com `placement` `"center"` o cartão fica entre a barra de status e a margem
+ * de baixo da raiz acima do teclado; com `"fill"`, entre o topo da tela e o
+ * espaçador (Story 13.4).
  */
 export function computeKeyboardSheetLayout({
   windowHeight,
@@ -105,17 +182,18 @@ export function computeKeyboardSheetLayout({
   headerHeight,
   footerHeight,
   maxHeightRatio,
+  placement = "bottom",
 }: KeyboardSheetLayoutInput): KeyboardSheetLayout {
-  const window = nonNegative(windowHeight);
   const keyboard = nonNegative(keyboardHeight);
   const paddingBottom = nonNegative(sheetPaddingBottom);
-  const ratio = Math.min(nonNegative(maxHeightRatio), 1);
-
-  const lift = keyboardLift(keyboard, sheetLiftDiscount(paddingBottom));
-  const sheetMaxHeight = Math.max(
-    0,
-    Math.min(ratio * window, window - nonNegative(insetTop) - SHEET_TOP_GAP - lift),
-  );
+  const { lift, sheetMaxHeight } = sheetBounds({
+    windowHeight,
+    keyboardHeight: keyboard,
+    insetTop,
+    sheetPaddingBottom: paddingBottom,
+    maxHeightRatio,
+    placement,
+  });
   const header = nonNegative(headerHeight);
   const scrollSpace = Math.max(0, sheetMaxHeight - header - nonNegative(footerHeight) - paddingBottom);
   const footerPinned = !(keyboard > 0 && scrollSpace < MIN_FIELD_SPACE);
@@ -123,6 +201,67 @@ export function computeKeyboardSheetLayout({
   const spaceWithoutFooter = Math.max(0, sheetMaxHeight - header - paddingBottom);
   const headerPinned = footerPinned || spaceWithoutFooter >= MIN_FIELD_SPACE;
   return { lift, sheetMaxHeight, scrollSpace, footerPinned, headerPinned };
+}
+
+export interface KeyboardListSheetLayoutInput {
+  /** Altura da janela (useWindowDimensions). Na janela do Modal, é a tela toda. */
+  windowHeight: number;
+  /** Altura do teclado agora (0 = fechado). */
+  keyboardHeight: number;
+  /** insets.top da área segura. */
+  insetTop: number;
+  /** paddingBottom da folha: max(insets.bottom, base). */
+  sheetPaddingBottom: number;
+  /** Do topo da folha até o fim do cabeçalho completo (inclui o paddingTop da folha). */
+  headerHeight: number;
+  /** Do topo da folha até o fim do cabeçalho compacto (só a busca). */
+  compactHeaderHeight: number;
+  /** Altura (fixa ou máxima) da folha como fração da janela (0,75, 0,80, 0,85). */
+  maxHeightRatio: number;
+}
+
+export interface KeyboardListSheetLayout {
+  /** Altura do espaçador abaixo da folha. */
+  lift: number;
+  /** Altura máxima que a folha pode ter agora. */
+  sheetMaxHeight: number;
+  /** Espaço que sobra para a lista abaixo do cabeçalho em uso. */
+  listSpace: number;
+  /** `true` = o cabeçalho completo sai e fica só o compacto (a busca), R-1. */
+  headerCompact: boolean;
+}
+
+/**
+ * Folha de busca em lista (KeyboardListSheet, Story 13.4): o cabeçalho com a
+ * busca fica sempre fixo e a lista encolhe. Com o teclado aberto, se o
+ * cabeçalho completo deixa menos de `MIN_LIST_SPACE` para a lista (paisagem,
+ * fonte grande), troca pelo compacto. A decisão usa sempre o cabeçalho
+ * completo, para não alternar; `listSpace` é o do cabeçalho em uso.
+ */
+export function computeKeyboardListSheetLayout({
+  windowHeight,
+  keyboardHeight,
+  insetTop,
+  sheetPaddingBottom,
+  headerHeight,
+  compactHeaderHeight,
+  maxHeightRatio,
+}: KeyboardListSheetLayoutInput): KeyboardListSheetLayout {
+  const keyboard = nonNegative(keyboardHeight);
+  const paddingBottom = nonNegative(sheetPaddingBottom);
+  const { lift, sheetMaxHeight } = sheetBounds({
+    windowHeight,
+    keyboardHeight: keyboard,
+    insetTop,
+    sheetPaddingBottom: paddingBottom,
+    maxHeightRatio,
+  });
+  const fullListSpace = Math.max(0, sheetMaxHeight - nonNegative(headerHeight) - paddingBottom);
+  const headerCompact = keyboard > 0 && fullListSpace < MIN_LIST_SPACE;
+  const listSpace = headerCompact
+    ? Math.max(0, sheetMaxHeight - nonNegative(compactHeaderHeight) - paddingBottom)
+    : fullListSpace;
+  return { lift, sheetMaxHeight, listSpace, headerCompact };
 }
 
 export interface FocusScrollInput {

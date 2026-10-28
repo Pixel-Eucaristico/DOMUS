@@ -28,6 +28,7 @@ import { clampTier, type TrophyTier } from "@/src/components/gamification/lottie
 import { LinearGradient } from "expo-linear-gradient";
 import { appAlert } from "@/src/services/appAlert";
 import { AppAlertHost } from "@/src/components/shared/AppAlertHost";
+import { KeyboardListSheet } from "@/src/components/shared/KeyboardListSheet";
 
 const ARCHETYPES: ArchetypeType[] = [
   "EXPLORER",
@@ -154,6 +155,38 @@ export function DebugTools() {
     return <LottieTrophy trophyId={t.id} type="achievement" rarity={t.rarity || "gold"} size={size * 0.9} isStatic={isStatic} />;
   };
 
+  const tabsRow = (
+    <View style={st.tabs}>
+      {(["archetypes", "trophies", "state", "triggers"] as const).map(tab => (
+        <TouchableOpacity
+          key={tab}
+          onPress={() => setActiveTab(tab)}
+          style={[
+            st.tab,
+            activeTab === tab && { borderBottomColor: theme.primaryColor, borderBottomWidth: 2 }
+          ]}
+        >
+          <Text style={[
+            st.tabText, 
+            { color: activeTab === tab ? theme.primaryColor : theme.secondaryText }
+          ]}>
+            {tab.toUpperCase()}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+
+  const trophySearch = (
+    <TextInput
+      style={[st.search, { color: theme.textColor, borderColor: theme.border, backgroundColor: theme.cardBackground }]}
+      placeholder="Search trophies..."
+      placeholderTextColor={theme.secondaryText}
+      value={search}
+      onChangeText={setSearch}
+    />
+  );
+
   // Early-return DEPOIS de todos os hooks (rules-of-hooks); __DEV__ é constante
   if (!__DEV__) return null;
 
@@ -170,255 +203,249 @@ export function DebugTools() {
 
       <Modal visible={visible} animationType="slide" transparent>
         <View style={st.modalOverlay}>
-          <View style={[st.container, { backgroundColor: theme.background }]}>
-            <View style={[st.header, { borderBottomColor: theme.border }]}>
-              <Text style={[st.headerTitle, { color: theme.textColor }]}>Debug Kitchen Sink</Text>
-              <TouchableOpacity onPress={() => setVisible(false)}>
-                <Feather name="x" size={24} color={theme.textColor} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={st.tabs}>
-              {(["archetypes", "trophies", "state", "triggers"] as const).map(tab => (
-                <TouchableOpacity
-                  key={tab}
-                  onPress={() => setActiveTab(tab)}
-                  style={[
-                    st.tab,
-                    activeTab === tab && { borderBottomColor: theme.primaryColor, borderBottomWidth: 2 }
-                  ]}
-                >
-                  <Text style={[
-                    st.tabText, 
-                    { color: activeTab === tab ? theme.primaryColor : theme.secondaryText }
-                  ]}>
-                    {tab.toUpperCase()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {activeTab === "trophies" ? (
-              <View style={[st.content, { flex: 1 }]}>
-                <View style={{ marginBottom: 15 }}>
-                  <Text style={[st.label, { color: theme.textColor, marginBottom: 8 }]}>Troféu do Mês - Testar Nível (Tier):</Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    {[1, 2, 3, 4].map(tier => (
-                      <TouchableOpacity
-                        key={tier}
-                        onPress={() => setDebugTier(tier)}
-                        style={[
-                          st.tierBtn,
-                          { borderColor: getTierColor(tier) },
-                          debugTier === tier && { backgroundColor: getTierColor(tier) + '22' }
-                        ]}
-                      >
-                        <Text style={{ color: getTierColor(tier), fontWeight: '700', fontSize: 12 }}>T{tier}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+          <KeyboardListSheet
+            sheetStyle={[st.container, { backgroundColor: theme.background }]}
+            heightRatio={0.85}
+            basePaddingBottom={20}
+            header={
+              <>
+                <View style={[st.header, { borderBottomColor: theme.border }]}>
+                  <Text style={[st.headerTitle, { color: theme.textColor }]}>Debug Kitchen Sink</Text>
+                  <TouchableOpacity onPress={() => setVisible(false)}>
+                    <Feather name="x" size={24} color={theme.textColor} />
+                  </TouchableOpacity>
                 </View>
-                <TextInput
-                  style={[st.search, { color: theme.textColor, borderColor: theme.border, backgroundColor: theme.cardBackground }]}
-                  placeholder="Search trophies..."
-                  placeholderTextColor={theme.secondaryText}
-                  value={search}
-                  onChangeText={setSearch}
-                />
-                <Text style={{ fontSize: 11, color: theme.secondaryText, marginBottom: 8 }}>
-                  {filteredTrophies.length} troféus encontrados
-                </Text>
+
+                {tabsRow}
+
+                {activeTab === "trophies" && (
+                  <>
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={[st.label, { color: theme.textColor, marginBottom: 8 }]}>Troféu do Mês - Testar Nível (Tier):</Text>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        {[1, 2, 3, 4].map(tier => (
+                          <TouchableOpacity
+                            key={tier}
+                            onPress={() => setDebugTier(tier)}
+                            style={[
+                              st.tierBtn,
+                              { borderColor: getTierColor(tier) },
+                              debugTier === tier && { backgroundColor: getTierColor(tier) + '22' }
+                            ]}
+                          >
+                            <Text style={{ color: getTierColor(tier), fontWeight: '700', fontSize: 12 }}>T{tier}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                    {trophySearch}
+
+                    <Text style={{ fontSize: 11, color: theme.secondaryText, marginBottom: 8 }}>
+                      {filteredTrophies.length} troféus encontrados
+                    </Text>
+                  </>
+                )}
+              </>
+            }
+            compactHeader={
+              <>
+                {tabsRow}
+                {activeTab === "trophies" && trophySearch}
+              </>
+            }
+            list={
+              activeTab === "trophies" ? (
                 <FlashList
                   data={filteredTrophies}
                   keyExtractor={(item, idx) => `${item.id}-${item._debugType}-${idx}`}
                   renderItem={renderTrophyRow}
                   keyboardShouldPersistTaps="handled"
                 />
-              </View>
-            ) : (
-            <ScrollView style={st.content}>
-              {activeTab === "archetypes" && (
-                <View style={st.section}>
-                  <Text style={[st.sectionTitle, { color: theme.textColor }]}>Override Archetype</Text>
-                  <Text style={[st.sectionDesc, { color: theme.secondaryText }]}>
-                    Force application theme to any archetype regardless of transaction history.
-                  </Text>
-                  <View style={st.grid}>
-                    <TouchableOpacity
-                      style={[st.gridItem, !debugArchetype && st.gridItemActive, { borderColor: theme.border }]}
-                      onPress={() => setDebugArchetype(null)}
-                    >
-                      <Text style={[st.gridItemText, { color: !debugArchetype ? theme.primaryColor : theme.textColor }]}>
-                        Auto (Normal)
+              ) : (
+                <ScrollView style={st.content} keyboardShouldPersistTaps="handled">
+                  {activeTab === "archetypes" && (
+                    <View style={st.section}>
+                      <Text style={[st.sectionTitle, { color: theme.textColor }]}>Override Archetype</Text>
+                      <Text style={[st.sectionDesc, { color: theme.secondaryText }]}>
+                        Force application theme to any archetype regardless of transaction history.
                       </Text>
-                    </TouchableOpacity>
-                    {ARCHETYPES.map(a => {
-                      const info = getArchetypeDescription(a);
-                      return (
+                      <View style={st.grid}>
                         <TouchableOpacity
-                          key={a}
-                          style={[st.gridItem, debugArchetype === a && st.gridItemActive, { borderColor: theme.border }]}
-                          onPress={() => setDebugArchetype(a)}
+                          style={[st.gridItem, !debugArchetype && st.gridItemActive, { borderColor: theme.border }]}
+                          onPress={() => setDebugArchetype(null)}
                         >
-                          <Text style={[st.gridItemText, { color: debugArchetype === a ? theme.primaryColor : theme.textColor }]}>
-                            {info?.name || a}
+                          <Text style={[st.gridItemText, { color: !debugArchetype ? theme.primaryColor : theme.textColor }]}>
+                            Auto (Normal)
                           </Text>
                         </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              )}
-
-              {activeTab === "state" && (
-                <View style={st.section}>
-                  <Text style={[st.sectionTitle, { color: theme.textColor }]}>App State Editor</Text>
-                  <Text style={[st.sectionDesc, { color: theme.secondaryText }]}>
-                    Manualmente modifique métricas para testar a interface.
-                  </Text>
-
-                  {/* XP Editor */}
-                  <View style={[st.editorRow, { borderBottomColor: theme.border }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[st.label, { color: theme.textColor }]}>Total XP</Text>
-                      <Text style={[st.subLabel, { color: theme.secondaryText }]}>Atual: {gamification.totalXp}</Text>
-                    </View>
-                    <TextInput
-                      style={[st.input, { color: theme.textColor, borderColor: theme.border, backgroundColor: theme.cardBackground }]}
-                      keyboardType="numeric"
-                      placeholder="XP..."
-                      placeholderTextColor={theme.secondaryText}
-                      value={debugXp?.toString() || ""}
-                      onChangeText={(v) => setDebugXp(v ? parseInt(v) : null)}
-                    />
-                  </View>
-
-                  {/* Balance Editor */}
-                  <View style={[st.editorRow, { borderBottomColor: theme.border }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[st.label, { color: theme.textColor }]}>Saldo Total (R$)</Text>
-                      <Text style={[st.subLabel, { color: theme.secondaryText }]}>Atual: {totalBalance.toFixed(2)}</Text>
-                    </View>
-                    <TextInput
-                      style={[st.input, { color: theme.textColor, borderColor: theme.border, backgroundColor: theme.cardBackground }]}
-                      keyboardType="numeric"
-                      placeholder="Saldo..."
-                      placeholderTextColor={theme.secondaryText}
-                      value={debugBalance?.toString() || ""}
-                      onChangeText={(v) => setDebugBalance(v ? parseFloat(v) : null)}
-                    />
-                  </View>
-
-                  <TouchableOpacity 
-                    style={[st.resetBtn, { borderColor: theme.danger }]}
-                    onPress={() => {
-                      setDebugXp(null);
-                      setDebugBalance(null);
-                    }}
-                  >
-                    <Text style={{ color: theme.danger, fontWeight: '700' }}>Resetar Modificações</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {activeTab === "state" && (
-                <View style={st.section}>
-                  <Text style={[st.sectionTitle, { color: theme.textColor }]}>
-                    Quarentena ({quarantine.length})
-                  </Text>
-                  <Text style={[st.sectionDesc, { color: theme.secondaryText }]}>
-                    Eventos do log que não foram aplicados no replay. Continuam no log; nada é apagado.
-                  </Text>
-                  {quarantine.length === 0 ? (
-                    <Text style={[st.subLabel, { color: theme.secondaryText }]}>Nenhum evento em quarentena.</Text>
-                  ) : (
-                    quarantine.slice(0, QUARANTINE_DISPLAY_LIMIT).map((q, idx) => (
-                      <View key={`${q.id}-${idx}`} style={[st.editorRow, { borderBottomColor: theme.border }]}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[st.label, { color: theme.textColor }]}>{q.type}</Text>
-                          <Text style={[st.subLabel, { color: theme.secondaryText }]}>id: {q.id}</Text>
-                          <Text style={[st.subLabel, { color: theme.danger }]}>motivo: {q.reason}</Text>
-                        </View>
+                        {ARCHETYPES.map(a => {
+                          const info = getArchetypeDescription(a);
+                          return (
+                            <TouchableOpacity
+                              key={a}
+                              style={[st.gridItem, debugArchetype === a && st.gridItemActive, { borderColor: theme.border }]}
+                              onPress={() => setDebugArchetype(a)}
+                            >
+                              <Text style={[st.gridItemText, { color: debugArchetype === a ? theme.primaryColor : theme.textColor }]}>
+                                {info?.name || a}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
                       </View>
-                    ))
-                  )}
-                  {quarantine.length > QUARANTINE_DISPLAY_LIMIT && (
-                    <Text style={[st.subLabel, { color: theme.secondaryText, marginTop: 8 }]}>
-                      Mostrando {QUARANTINE_DISPLAY_LIMIT} de {quarantine.length} eventos.
-                    </Text>
-                  )}
-                </View>
-              )}
-
-              {activeTab === "triggers" && (
-                <View style={st.section}>
-                  <Text style={[st.sectionTitle, { color: theme.textColor }]}>UI Triggers</Text>
-
-
-                  <TouchableOpacity
-                    style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-                    onPress={() => { restartWithCarousel(); setVisible(false); }}
-                  >
-                    <Text style={{ color: theme.textColor, fontWeight: '500' }}>Iniciar Tour com Carrossel</Text>
-                    <Feather name="play-circle" size={20} color={theme.primaryColor} />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-                    onPress={() => setIsCatholic(null as any)}
-                  >
-                    <Text style={{ color: theme.textColor, fontWeight: '500' }}>Resetar Modal de Preferência Católica</Text>
-                    <MaterialCommunityIcons name="church" size={20} color={theme.primaryColor} />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-                    onPress={() => {
-                      // Revisão 23/10: createEvent (id e timestamp do mesmo instante);
-                      // sem id do aparelho, sai "local" e o dispatch carimba.
-                      dispatch(createEvent<{ type: string; payload: unknown }>(
-                        "LEVEL_UP",
-                        { previousLevel: gamification.level, newLevel: gamification.level + 1, totalXp: gamification.totalXp },
-                        deviceId || "local",
-                      ) as any);
-                      setVisible(false);
-                    }}
-                  >
-                    <Text style={{ color: theme.textColor, fontWeight: '500' }}>Simular Level Up (Real)</Text>
-                    <Feather name="trending-up" size={20} color={theme.primaryColor} />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-                    onPress={async () => {
-                      await AsyncStorage.removeItem("domus_ai_last_greeting_date_v1");
-                      setVisible(false);
-                      appAlert("Saudação IA resetada. Reabra o chat para gerar nova saudação.");
-                    }}
-                  >
-                    <Text style={{ color: theme.textColor, fontWeight: "500" }}>Reset Saudação Diária IA</Text>
-                    <Feather name="message-circle" size={20} color={theme.primaryColor} />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.danger + '44' }]}
-                    onPress={async () => {
-                      await resetApp();
-                      setVisible(false);
-                      appAlert("App resetado com sucesso.");
-                    }}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: theme.danger, fontWeight: '700' }}>Resetar TUDO (Estado Limpo)</Text>
-                      <Text style={{ color: theme.secondaryText, fontSize: 10 }}>Apaga transações, troféus e XP.</Text>
                     </View>
-                    <Feather name="trash-2" size={20} color={theme.danger} />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </ScrollView>
-            )}
-          </View>
+                  )}
+
+                  {activeTab === "state" && (
+                    <View style={st.section}>
+                      <Text style={[st.sectionTitle, { color: theme.textColor }]}>App State Editor</Text>
+                      <Text style={[st.sectionDesc, { color: theme.secondaryText }]}>
+                        Manualmente modifique métricas para testar a interface.
+                      </Text>
+
+                      {/* XP Editor */}
+                      <View style={[st.editorRow, { borderBottomColor: theme.border }]}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[st.label, { color: theme.textColor }]}>Total XP</Text>
+                          <Text style={[st.subLabel, { color: theme.secondaryText }]}>Atual: {gamification.totalXp}</Text>
+                        </View>
+                        <TextInput
+                          style={[st.input, { color: theme.textColor, borderColor: theme.border, backgroundColor: theme.cardBackground }]}
+                          keyboardType="numeric"
+                          placeholder="XP..."
+                          placeholderTextColor={theme.secondaryText}
+                          value={debugXp?.toString() || ""}
+                          onChangeText={(v) => setDebugXp(v ? parseInt(v) : null)}
+                        />
+                      </View>
+
+                      {/* Balance Editor */}
+                      <View style={[st.editorRow, { borderBottomColor: theme.border }]}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[st.label, { color: theme.textColor }]}>Saldo Total (R$)</Text>
+                          <Text style={[st.subLabel, { color: theme.secondaryText }]}>Atual: {totalBalance.toFixed(2)}</Text>
+                        </View>
+                        <TextInput
+                          style={[st.input, { color: theme.textColor, borderColor: theme.border, backgroundColor: theme.cardBackground }]}
+                          keyboardType="numeric"
+                          placeholder="Saldo..."
+                          placeholderTextColor={theme.secondaryText}
+                          value={debugBalance?.toString() || ""}
+                          onChangeText={(v) => setDebugBalance(v ? parseFloat(v) : null)}
+                        />
+                      </View>
+
+                      <TouchableOpacity 
+                        style={[st.resetBtn, { borderColor: theme.danger }]}
+                        onPress={() => {
+                          setDebugXp(null);
+                          setDebugBalance(null);
+                        }}
+                      >
+                        <Text style={{ color: theme.danger, fontWeight: '700' }}>Resetar Modificações</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {activeTab === "state" && (
+                    <View style={st.section}>
+                      <Text style={[st.sectionTitle, { color: theme.textColor }]}>
+                        Quarentena ({quarantine.length})
+                      </Text>
+                      <Text style={[st.sectionDesc, { color: theme.secondaryText }]}>
+                        Eventos do log que não foram aplicados no replay. Continuam no log; nada é apagado.
+                      </Text>
+                      {quarantine.length === 0 ? (
+                        <Text style={[st.subLabel, { color: theme.secondaryText }]}>Nenhum evento em quarentena.</Text>
+                      ) : (
+                        quarantine.slice(0, QUARANTINE_DISPLAY_LIMIT).map((q, idx) => (
+                          <View key={`${q.id}-${idx}`} style={[st.editorRow, { borderBottomColor: theme.border }]}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[st.label, { color: theme.textColor }]}>{q.type}</Text>
+                              <Text style={[st.subLabel, { color: theme.secondaryText }]}>id: {q.id}</Text>
+                              <Text style={[st.subLabel, { color: theme.danger }]}>motivo: {q.reason}</Text>
+                            </View>
+                          </View>
+                        ))
+                      )}
+                      {quarantine.length > QUARANTINE_DISPLAY_LIMIT && (
+                        <Text style={[st.subLabel, { color: theme.secondaryText, marginTop: 8 }]}>
+                          Mostrando {QUARANTINE_DISPLAY_LIMIT} de {quarantine.length} eventos.
+                        </Text>
+                      )}
+                    </View>
+                  )}
+
+                  {activeTab === "triggers" && (
+                    <View style={st.section}>
+                      <Text style={[st.sectionTitle, { color: theme.textColor }]}>UI Triggers</Text>
+
+
+                      <TouchableOpacity
+                        style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                        onPress={() => { restartWithCarousel(); setVisible(false); }}
+                      >
+                        <Text style={{ color: theme.textColor, fontWeight: '500' }}>Iniciar Tour com Carrossel</Text>
+                        <Feather name="play-circle" size={20} color={theme.primaryColor} />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                        onPress={() => setIsCatholic(null as any)}
+                      >
+                        <Text style={{ color: theme.textColor, fontWeight: '500' }}>Resetar Modal de Preferência Católica</Text>
+                        <MaterialCommunityIcons name="church" size={20} color={theme.primaryColor} />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity 
+                        style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                        onPress={() => {
+                          // Revisão 23/10: createEvent (id e timestamp do mesmo instante);
+                          // sem id do aparelho, sai "local" e o dispatch carimba.
+                          dispatch(createEvent<{ type: string; payload: unknown }>(
+                            "LEVEL_UP",
+                            { previousLevel: gamification.level, newLevel: gamification.level + 1, totalXp: gamification.totalXp },
+                            deviceId || "local",
+                          ) as any);
+                          setVisible(false);
+                        }}
+                      >
+                        <Text style={{ color: theme.textColor, fontWeight: '500' }}>Simular Level Up (Real)</Text>
+                        <Feather name="trending-up" size={20} color={theme.primaryColor} />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                        onPress={async () => {
+                          await AsyncStorage.removeItem("domus_ai_last_greeting_date_v1");
+                          setVisible(false);
+                          appAlert("Saudação IA resetada. Reabra o chat para gerar nova saudação.");
+                        }}
+                      >
+                        <Text style={{ color: theme.textColor, fontWeight: "500" }}>Reset Saudação Diária IA</Text>
+                        <Feather name="message-circle" size={20} color={theme.primaryColor} />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[st.actionBtn, { backgroundColor: theme.cardBackground, borderColor: theme.danger + '44' }]}
+                        onPress={async () => {
+                          await resetApp();
+                          setVisible(false);
+                          appAlert("App resetado com sucesso.");
+                        }}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: theme.danger, fontWeight: '700' }}>Resetar TUDO (Estado Limpo)</Text>
+                          <Text style={{ color: theme.secondaryText, fontSize: 10 }}>Apaga transações, troféus e XP.</Text>
+                        </View>
+                        <Feather name="trash-2" size={20} color={theme.danger} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </ScrollView>
+              )
+            }
+          />
         </View>
 
         {/* Detailed Trophy Modal */}
@@ -557,7 +584,6 @@ const st = StyleSheet.create({
     justifyContent: "flex-end",
   },
   container: {
-    height: "85%",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,

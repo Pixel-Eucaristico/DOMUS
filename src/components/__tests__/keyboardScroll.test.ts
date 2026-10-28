@@ -17,9 +17,14 @@ import path from "path";
  * `footer` (e só ele; "Cancelar" vai no fim da rolagem), o toque no fundo pelo
  * `useSheetBackdropPress`, sem segunda compensação de teclado nem rolagem
  * vertical crua. O próprio KeyboardSheet é checado (toque persistente,
- * `flexShrink`, desconto da área segura, estado do teclado, medida do campo). Só o
- * KeyboardSheet renderiza o `KeyboardSafeView`, e todo componente com `<Modal`
- * e campo precisa estar em MODAL_FORMS ou em MODAL_PENDING (com motivo).
+ * `flexShrink`, desconto da área segura, estado do teclado, medida do campo).
+ *
+ * Story 13.4: as buscas em lista dentro de modal usam o `KeyboardListSheet`
+ * (busca no `header` fixo, a lista rolável com toque persistente só no
+ * `list=`), e o diálogo "APAGAR TUDO" e o onboarding usam o KeyboardSheet com
+ * `placement`. Só os contêineres (KEYBOARD_CONTAINERS) renderizam o
+ * `KeyboardSafeView`, e todo componente com `<Modal` e campo precisa estar em
+ * MODAL_FORMS, MODAL_LISTS ou MODAL_FIELDS_OUTSIDE (com motivo).
  */
 
 const ROOT = path.resolve(__dirname, "../../..");
@@ -72,13 +77,52 @@ const INLINE_FIELD_COMPONENTS = ["src/components/shared/AccountPicker.tsx"];
 const KEYBOARD_SHEET = "src/components/shared/KeyboardSheet.tsx";
 const KEYBOARD_SHEET_MODULE = "@/src/components/shared/KeyboardSheet";
 
-/** Os formulários em modal da auditoria da Story 13.3. */
+/** O contêiner das buscas em lista dentro de modal (Story 13.4). */
+const KEYBOARD_LIST_SHEET = "src/components/shared/KeyboardListSheet.tsx";
+const KEYBOARD_LIST_SHEET_MODULE = "@/src/components/shared/KeyboardListSheet";
+
+/** Os únicos arquivos que renderizam o `KeyboardSafeView`. */
+const KEYBOARD_CONTAINERS = [KEYBOARD_SHEET, KEYBOARD_LIST_SHEET];
+
+/** Os formulários em modal da auditoria das Stories 13.3 e 13.4. */
 const MODAL_FORMS = [
   "src/components/transaction/TransactionBottomSheet.tsx",
   "src/components/shared/AccountFormModal.tsx",
   "src/components/wishlist/CreateListModal.tsx",
   "src/components/wishlist/AddItemModal.tsx",
+  "app/about.tsx",
+  "src/components/tour/WelcomeCarousel.tsx",
 ];
+
+/** Rodapé fora do padrão "botão principal" (Story 13.4), com o motivo. */
+const FOOTER_EXCEPTIONS: Record<string, string> = {
+  "src/components/tour/WelcomeCarousel.tsx":
+    "barra própria do carrossel (pontos e \"Próximo\"/\"Começar Tour!\"), sem TButton",
+};
+
+/** Modais sem fechar tocando fora (não se acrescenta comportamento), com o motivo. */
+const NO_BACKDROP: Record<string, string> = {
+  "app/about.tsx": "diálogo \"APAGAR TUDO\": tocar fora não fecha hoje (R-4)",
+  "src/components/tour/WelcomeCarousel.tsx": "tela cheia, sem fundo tocável",
+  "src/components/shared/CategoryPickerModal.tsx": "sem fechar tocando fora hoje",
+  "src/components/debug/DebugTools.tsx": "sem fechar tocando fora hoje",
+};
+
+/**
+ * As buscas em lista dentro de modal (Story 13.4) e quantas rolagens cada uma
+ * tem, todas no `list=` (o DebugTools alterna FlashList e ScrollView por aba).
+ */
+const MODAL_LISTS: Record<string, { scrolls: number }> = {
+  "src/components/shared/CategoryPickerModal.tsx": { scrolls: 1 },
+  "src/components/wishlist/StoreGridModal.tsx": { scrolls: 1 },
+  "src/components/shared/AccountPicker.tsx": { scrolls: 1 },
+  "src/components/debug/DebugTools.tsx": { scrolls: 2 },
+};
+
+/** Componentes com `<Modal` e campo em que nenhum campo fica dentro do modal, com o motivo. */
+const MODAL_FIELDS_OUTSIDE: Record<string, string> = {
+  "app/sync.tsx": "modal do QR sem campo; campos na tela (13.2)",
+};
 
 /**
  * Rolagem horizontal permitida num formulário em modal: o componente, quantas
@@ -96,17 +140,11 @@ const MODAL_HORIZONTAL_SCROLLS: Record<string, { component: string; count: numbe
     count: 1,
     reason: "chips de poupança vinculada",
   },
-};
-
-/** Componentes com `<Modal` e campo que ainda não usam o KeyboardSheet, com o motivo. */
-const MODAL_PENDING: Record<string, string> = {
-  "src/components/shared/CategoryPickerModal.tsx": "busca em modal — Story 13.4",
-  "src/components/wishlist/StoreGridModal.tsx": "busca em modal — Story 13.4",
-  "src/components/shared/AccountPicker.tsx": "AccountPicker compacto (busca em modal) — Story 13.4",
-  "app/about.tsx": "diálogo \"APAGAR TUDO\" — Story 13.4",
-  "src/components/tour/WelcomeCarousel.tsx": "campo no carrossel em modal — Story 13.4",
-  "src/components/debug/DebugTools.tsx": "ferramentas de depuração em modal — Story 13.4",
-  "app/sync.tsx": "modal do QR sem campo; os campos estão na tela, coberta pela Story 13.2",
+  "src/components/tour/WelcomeCarousel.tsx": {
+    component: "ScrollView",
+    count: 1,
+    reason: "paginador horizontal dos slides (R-3)",
+  },
 };
 
 /** Compensações de teclado que não podem somar com o KeyboardSheet no mesmo modal. */
@@ -401,10 +439,117 @@ function hasModalWithField(source: string): boolean {
   return (jsxPattern("Modal", false).test(code) || jsxPattern("Modal", true).test(code)) && hasField(source);
 }
 
+/**
+ * Trechos `<Modal …>…</Modal>` do nível de cima (o modal aninhado fica dentro
+ * do trecho do de fora), no código já sem comentários.
+ */
+function modalSegments(source: string): string[] {
+  const code = stripComments(source);
+  const segments: string[] = [];
+  const tokens = /<\s*Modal\b|<\s*\/\s*Modal\s*>/g;
+  let depth = 0;
+  let start = -1;
+  for (const m of code.matchAll(tokens)) {
+    const at = m.index ?? 0;
+    if (m[0].includes("/")) {
+      if (depth === 0) continue;
+      depth--;
+      if (depth === 0) segments.push(code.slice(start, at + m[0].length));
+    } else {
+      if (depth === 0) start = at;
+      depth++;
+    }
+  }
+  if (depth > 0) segments.push(code.slice(start));
+  return segments;
+}
+
+/** O trecho `<Modal>` que renderiza `<Name`, ou "" se nenhum. */
+function modalSegmentWith(source: string, name: string): string {
+  return modalSegments(source).find((seg) => jsxPattern(name, false).test(seg)) ?? "";
+}
+
+/** Corpo `(…)` balanceado a partir de `open` (índice do `(`), pulando strings. */
+function balancedParens(code: string, open: number): string {
+  let depth = 0;
+  for (let i = open; i < code.length; i++) {
+    const ch = code[i];
+    if (ch === '"' || ch === "'" || ch === "`") {
+      let j = i + 1;
+      while (j < code.length && code[j] !== ch) {
+        if (code[j] === "\\") j++;
+        j++;
+      }
+      i = j;
+      continue;
+    }
+    if (ch === "(") depth++;
+    else if (ch === ")") {
+      depth--;
+      if (depth === 0) return code.slice(open, i + 1);
+    }
+  }
+  return code.slice(open);
+}
+
+/**
+ * A expressão mais o JSX de cada `const nome = (<…>)` do arquivo que ela cita
+ * (um nível), para o campo declarado à parte (`{searchBar}`) contar como dele.
+ */
+function expandLocalJsx(expr: string, source: string): string {
+  const code = stripComments(source);
+  let out = expr;
+  for (const m of code.matchAll(/\bconst\s+([\w$]+)\s*=\s*\(\s*</g)) {
+    if (!new RegExp(`(?<![\\w$.])${m[1].replace(/\$/g, "\\$")}(?![\\w$])`).test(expr)) continue;
+    out += `\n${balancedParens(code, code.indexOf("(", m.index ?? 0))}`;
+  }
+  return out;
+}
+
+/** Os componentes do teclado de `names` usados em JSX, ou importados e não usados fora de `segment`. */
+function secondKeyboardSystems(source: string, segment: string, names: string[]): string[] {
+  const code = stripComments(source);
+  const outside = code.replace(segment, "");
+  const imports = parseImports(code);
+  const hits: string[] = [];
+  for (const name of names) {
+    if (jsxPattern(name, false).test(segment) || jsxPattern(name, true).test(segment)) hits.push(`<${name}`);
+    else if (
+      imports.some((imp) => imp.named.includes(name)) &&
+      !jsxPattern(name, false).test(outside) &&
+      !jsxPattern(name, true).test(outside)
+    ) {
+      hits.push(`import ${name}`);
+    }
+  }
+  return hits;
+}
+
+/** O toque no fundo passa pelo useSheetBackdropPress (com teclado aberto só fecha o teclado). */
+function backdropViolations(code: string): string[] {
+  const backdropImported = parseImports(code).some(
+    (imp) => imp.module === KEYBOARD_SHEET_MODULE && imp.named.includes("useSheetBackdropPress"),
+  );
+  const backdropHandler = code.match(/\bconst\s+([\w$]+)\s*=\s*useSheetBackdropPress\s*\(/)?.[1];
+  if (!backdropImported || !backdropHandler) return ["fundo sem useSheetBackdropPress"];
+  if (!new RegExp(`\\bonPress\\s*=\\s*\\{\\s*${backdropHandler.replace(/\$/g, "\\$")}\\s*\\}`).test(code)) {
+    return [`${backdropHandler} não está em nenhum onPress`];
+  }
+  return [];
+}
+
+interface ModalFormOptions {
+  /** Sem fundo tocável (NO_BACKDROP). */
+  noBackdrop?: boolean;
+  /** Rodapé próprio (FOOTER_EXCEPTIONS): só precisa ser um elemento JSX. */
+  footerException?: boolean;
+}
+
 /** Motivos pelos quais um formulário em modal foge do padrão KeyboardSheet. */
 function modalFormViolations(
   source: string,
   horizontal?: { component: string; count: number },
+  options: ModalFormOptions = {},
 ): string[] {
   const code = stripComments(source);
   const hits: string[] = [];
@@ -418,26 +563,28 @@ function modalFormViolations(
   if (uses.some((inside) => !inside)) hits.push("KeyboardSheet fora de Modal");
 
   // 2. passa ao KeyboardSheet um footer={<…>} com o botão principal (e só ele:
-  //    "Cancelar" fica no fim da rolagem), sem esconder o rodapé de vez.
+  //    "Cancelar" fica no fim da rolagem), sem esconder o rodapé de vez. No
+  //    diálogo (placement="center", D-2) o principal pode ser `danger` e
+  //    "Cancelar" fica ao lado.
   for (const tag of scanJsxOpeningTags(source, "KeyboardSheet")) {
     if (!/(?:^|\s)footer\s*=/.test(tag.attrs)) {
       hits.push("KeyboardSheet sem footer=");
       continue;
     }
-    hits.push(...footerViolations(tag.exprs.footer));
+    const dialog = /(?:^|\s)placement\s*=\s*["']center["']/.test(tag.attrs);
+    hits.push(...footerViolations(tag.exprs.footer, { dialog, exception: options.footerException }));
     if (/(?:^|\s)footerVisible\s*=\s*\{false\}/.test(tag.attrs)) hits.push("footerVisible={false}");
   }
 
-  // 3. nenhuma segunda compensação de teclado.
-  for (const name of SECOND_KEYBOARD_SYSTEMS) {
-    if (jsxPattern(name, false).test(code) || jsxPattern(name, true).test(code)) hits.push(`<${name}`);
-    else if (imports.some((imp) => imp.named.includes(name))) hits.push(`import ${name}`);
-  }
+  // 3. nenhuma segunda compensação de teclado no <Modal> do KeyboardSheet (a
+  //    tela em volta pode ter a dela, como o about.tsx com a da 13.2).
+  const segment = modalSegmentWith(source, "KeyboardSheet") || code;
+  hits.push(...secondKeyboardSystems(source, segment, SECOND_KEYBOARD_SYSTEMS));
 
-  // 4. sem rolagem vertical crua; horizontais só as da exceção, na contagem.
+  // 4. sem rolagem vertical crua no modal; horizontais só as da exceção, na contagem.
   let horizontalCount = 0;
   for (const name of SCROLL_COMPONENTS) {
-    const tags = [...jsxOpeningTags(source, name), ...jsxOpeningTags(source, name, true)];
+    const tags = [...jsxOpeningTags(segment, name), ...jsxOpeningTags(segment, name, true)];
     for (const attrs of tags) {
       if (!isHorizontal(attrs)) {
         hits.push(`${name} vertical`);
@@ -451,26 +598,24 @@ function modalFormViolations(
     hits.push(`${horizontalCount} × ${horizontal.component} horizontal (esperado ${horizontal.count})`);
   }
 
-  // 5. o toque no fundo passa pelo useSheetBackdropPress (com teclado aberto só fecha o teclado).
-  const backdropImported = imports.some(
-    (imp) => imp.module === KEYBOARD_SHEET_MODULE && imp.named.includes("useSheetBackdropPress"),
-  );
-  const backdropHandler = code.match(/\bconst\s+([\w$]+)\s*=\s*useSheetBackdropPress\s*\(/)?.[1];
-  if (!backdropImported || !backdropHandler) hits.push("fundo sem useSheetBackdropPress");
-  else if (!new RegExp(`\\bonPress\\s*=\\s*\\{\\s*${backdropHandler.replace(/\$/g, "\\$")}\\s*\\}`).test(code)) {
-    hits.push(`${backdropHandler} não está em nenhum onPress`);
-  }
+  // 5. o toque no fundo passa pelo useSheetBackdropPress (salvo NO_BACKDROP).
+  if (!options.noBackdrop) hits.push(...backdropViolations(code));
   return hits;
 }
 
 /** O que há de errado no `footer={…}` de um KeyboardSheet (expressão crua). */
-function footerViolations(expr: string | undefined): string[] {
+function footerViolations(
+  expr: string | undefined,
+  { dialog = false, exception = false }: { dialog?: boolean; exception?: boolean } = {},
+): string[] {
   if (expr === undefined) return ["footer sem expressão {…}"];
   const body = expr.replace(/^\(+\s*/, "").replace(/\s*\)+$/, "");
   if (!body.startsWith("<") || /^<\s*>\s*<\s*\/\s*>$/.test(body)) return ["footer não é um elemento JSX"];
+  if (exception) return [];
   const hits: string[] = [];
-  if (!/\bvariant\s*=\s*["']primary["']/.test(body)) hits.push("footer sem botão principal");
-  if (/Cancelar/.test(body)) hits.push("Cancelar no footer");
+  const primary = dialog ? /\bvariant\s*=\s*["'](primary|danger)["']/ : /\bvariant\s*=\s*["']primary["']/;
+  if (!primary.test(body)) hits.push("footer sem botão principal");
+  if (!dialog && /Cancelar/.test(body)) hits.push("Cancelar no footer");
   return hits;
 }
 
@@ -507,9 +652,108 @@ function keyboardSheetViolations(source: string): string[] {
   return hits;
 }
 
-/** Componente com `Modal` e campo que já cuida do teclado (padrão da 13.3 ou pendente com motivo). */
+// ─── Buscas e diálogos em modal (Story 13.4) ─────────────────────────────────
+
+/** Rolagens que contam nas buscas em lista (a FlashList entra só aqui). */
+const LIST_SCROLL_COMPONENTS = [...SCROLL_COMPONENTS, "FlashList"];
+
+const PERSIST_HANDLED = /(?:^|\s)keyboardShouldPersistTaps\s*=\s*["']handled["']/;
+
+/** O que falta no próprio KeyboardListSheet.tsx para o padrão da 13.4 valer. */
+function keyboardListSheetViolations(source: string): string[] {
+  const code = stripComments(source);
+  const hits: string[] = [];
+  for (const style of ["sheet", "list"]) {
+    if (!new RegExp(`\\b${style}\\s*:\\s*\\{[^}]*\\bflexShrink\\s*:\\s*1\\b`).test(code)) hits.push(`${style} sem flexShrink: 1`);
+  }
+  const safe = scanJsxOpeningTags(source, "KeyboardSafeView");
+  if (safe.length !== 1) hits.push(`${safe.length} × <KeyboardSafeView (esperado 1)`);
+  for (const tag of safe) {
+    if (!/^sheetLiftDiscount\s*\(/.test(tag.exprs.liftDiscount ?? "")) hits.push("liftDiscount sem sheetLiftDiscount(…)");
+  }
+  // A rolagem é a do chamador (`list`); a busca fica no cabeçalho, que nunca rola.
+  for (const name of LIST_SCROLL_COMPONENTS) {
+    if (jsxPattern(name, false).test(code) || jsxPattern(name, true).test(code)) hits.push(`<${name} próprio`);
+  }
+  for (const name of SECOND_KEYBOARD_SYSTEMS.filter((n) => n !== "KeyboardSafeView")) {
+    if (jsxPattern(name, false).test(code) || jsxPattern(name, true).test(code)) hits.push(`<${name}`);
+  }
+  // Estado do teclado: começa em 0 e só segue os eventos depois de montar (R6).
+  if (/\buseKeyboardState\b|KeyboardController\s*\.\s*state\s*\(/.test(code)) hits.push("lê o estado global do teclado");
+  const events = ["keyboardDidShow", "keyboardDidHide"].every((event) =>
+    new RegExp(`KeyboardEvents\\s*\\.\\s*addListener\\(\\s*["']${event}["']`).test(code),
+  );
+  if (!/\buseSheetKeyboardHeight\s*\(/.test(code) && !events) hits.push("sem useSheetKeyboardHeight nem os eventos do teclado");
+  return hits;
+}
+
+interface ModalListOptions {
+  /** Quantas rolagens o modal tem, todas no `list=`. */
+  scrolls: number;
+  /** Sem fundo tocável (NO_BACKDROP). */
+  noBackdrop?: boolean;
+}
+
+/**
+ * Motivos pelos quais uma busca em lista dentro de modal foge do padrão
+ * KeyboardListSheet. Vale só no trecho do `<Modal>` (o AccountPicker em modo
+ * lista tem a busca inline fora dele).
+ */
+function modalListViolations(source: string, { scrolls, noBackdrop = false }: ModalListOptions): string[] {
+  const code = stripComments(source);
+  const hits: string[] = [];
+
+  // 1. importa e renderiza o KeyboardListSheet exatamente uma vez, dentro de <Modal>.
+  const imported = parseImports(code).some(
+    (imp) => imp.module === KEYBOARD_LIST_SHEET_MODULE && imp.named.includes("KeyboardListSheet"),
+  );
+  if (!imported) hits.push(`não importa KeyboardListSheet de ${KEYBOARD_LIST_SHEET_MODULE}`);
+  const uses = jsxUsesInsideModal(source, "KeyboardListSheet");
+  if (uses.length !== 1) hits.push(`${uses.length} × <KeyboardListSheet (esperado 1)`);
+  if (uses.some((inside) => !inside)) hits.push("KeyboardListSheet fora de Modal");
+
+  // 2. a busca fica no header (fixo) e no compactHeader (janela baixa, R-1).
+  const tags = scanJsxOpeningTags(source, "KeyboardListSheet");
+  for (const tag of tags) {
+    for (const prop of ["header", "compactHeader"]) {
+      const expr = tag.exprs[prop];
+      if (expr === undefined) hits.push(`KeyboardListSheet sem ${prop}={…}`);
+      else if (!hasField(expandLocalJsx(expr, source))) hits.push(`${prop} sem campo`);
+    }
+  }
+
+  // 3. nenhuma segunda compensação de teclado no modal.
+  const segment = modalSegmentWith(source, "KeyboardListSheet") || code;
+  hits.push(...secondKeyboardSystems(source, segment, SECOND_KEYBOARD_SYSTEMS));
+
+  // 4. toda rolagem do modal tem toque persistente e fica no list=, na contagem.
+  const listExpr = tags[0]?.exprs.list ?? "";
+  let total = 0;
+  let inList = 0;
+  for (const name of LIST_SCROLL_COMPONENTS) {
+    const all = [...scanJsxOpeningTags(segment, name), ...scanJsxOpeningTags(segment, name, true)];
+    total += all.length;
+    for (const tag of all) {
+      if (!PERSIST_HANDLED.test(tag.attrs)) hits.push(`${name} sem keyboardShouldPersistTaps="handled"`);
+    }
+    inList += scanJsxOpeningTags(listExpr, name).length + scanJsxOpeningTags(listExpr, name, true).length;
+  }
+  if (total !== scrolls) hits.push(`${total} × rolagem no modal (esperado ${scrolls})`);
+  if (inList !== total) hits.push(`${total - inList} × rolagem fora do list=`);
+
+  // 5. o toque no fundo passa pelo useSheetBackdropPress (salvo NO_BACKDROP).
+  if (!noBackdrop) hits.push(...backdropViolations(code));
+  return hits;
+}
+
+/** Quantos campos ficam dentro de um `<Modal>…</Modal>` (MODAL_FIELDS_OUTSIDE exige 0). */
+function fieldsInsideModal(source: string): number {
+  return jsxUsesInsideModal(source, FIELD_TAGS).filter(Boolean).length;
+}
+
+/** Componente com `Modal` e campo que já cuida do teclado (está numa das três listas). */
 function isSelfManagedModal(relPath: string): boolean {
-  return MODAL_FORMS.includes(relPath) || relPath in MODAL_PENDING;
+  return MODAL_FORMS.includes(relPath) || relPath in MODAL_LISTS || relPath in MODAL_FIELDS_OUTSIDE;
 }
 
 // ─── Arquivos ────────────────────────────────────────────────────────────────
@@ -548,7 +792,8 @@ function resolveComponent(fromFile: string, spec: string): string | null {
 
 /**
  * Componente importado com campo que não cuida do teclado sozinho (fora de
- * MODAL_FORMS e MODAL_PENDING), ou da lista INLINE_FIELD_COMPONENTS.
+ * MODAL_FORMS, MODAL_LISTS e MODAL_FIELDS_OUTSIDE), ou da lista
+ * INLINE_FIELD_COMPONENTS.
  */
 function componentHasInlineField(file: string): boolean {
   if (INLINE_FIELD_COMPONENTS.includes(rel(file))) return true;
@@ -642,31 +887,40 @@ describe("modais com formulário (Story 13.3)", () => {
   const files: string[] = [];
   for (const dir of ["app", "src", "components"]) collect(path.join(ROOT, dir), files);
 
-  it("encontra o KeyboardSheet, os modais da lista e os pendentes", () => {
-    for (const file of [KEYBOARD_SHEET, ...MODAL_FORMS, ...Object.keys(MODAL_PENDING)]) {
+  it("encontra os contêineres e os modais das listas", () => {
+    for (const file of [...KEYBOARD_CONTAINERS, ...MODAL_FORMS, ...Object.keys(MODAL_LISTS), ...Object.keys(MODAL_FIELDS_OUTSIDE)]) {
       expect(fs.existsSync(path.join(ROOT, file)), file).toBe(true);
     }
     for (const file of Object.keys(MODAL_HORIZONTAL_SCROLLS)) expect(MODAL_FORMS, file).toContain(file);
+    for (const file of Object.keys(FOOTER_EXCEPTIONS)) expect(MODAL_FORMS, file).toContain(file);
+    for (const file of Object.keys(NO_BACKDROP)) {
+      expect(MODAL_FORMS.includes(file) || file in MODAL_LISTS, file).toBe(true);
+    }
   });
 
   it.each(MODAL_FORMS)("%s usa o KeyboardSheet com footer, sem segunda compensação nem rolagem vertical crua", (file) => {
-    expect(modalFormViolations(read(file), MODAL_HORIZONTAL_SCROLLS[file])).toEqual([]);
+    expect(
+      modalFormViolations(read(file), MODAL_HORIZONTAL_SCROLLS[file], {
+        noBackdrop: file in NO_BACKDROP,
+        footerException: file in FOOTER_EXCEPTIONS,
+      }),
+    ).toEqual([]);
   });
 
   it("o KeyboardSheet persiste o toque, encolhe, desconta a área segura, começa sem teclado e mede o campo no conteúdo", () => {
     expect(keyboardSheetViolations(read(KEYBOARD_SHEET))).toEqual([]);
   });
 
-  it("só o KeyboardSheet renderiza o KeyboardSafeView", () => {
+  it("só os contêineres (KeyboardSheet e KeyboardListSheet) renderizam o KeyboardSafeView", () => {
     const hits = files
-      .filter((f) => rel(f) !== KEYBOARD_SHEET)
+      .filter((f) => !KEYBOARD_CONTAINERS.includes(rel(f)))
       .filter((f) => rendersKeyboardSafeView(fs.readFileSync(f, "utf8")))
       .map(rel);
     expect(hits).toEqual([]);
-    expect(rendersKeyboardSafeView(read(KEYBOARD_SHEET))).toBe(true);
+    for (const file of KEYBOARD_CONTAINERS) expect(rendersKeyboardSafeView(read(file)), file).toBe(true);
   });
 
-  it("todo componente com <Modal e campo está em MODAL_FORMS ou MODAL_PENDING", () => {
+  it("todo componente com <Modal e campo está em MODAL_FORMS, MODAL_LISTS ou MODAL_FIELDS_OUTSIDE", () => {
     const missing = files
       .filter((f) => hasModalWithField(fs.readFileSync(f, "utf8")))
       .map(rel)
@@ -674,11 +928,30 @@ describe("modais com formulário (Story 13.3)", () => {
     expect(missing).toEqual([]);
   });
 
-  it("os pendentes ainda têm <Modal e campo (a 13.4 esvazia a lista)", () => {
-    for (const file of Object.keys(MODAL_PENDING)) {
+  it("cada lista aponta para arquivos que existem e ainda têm <Modal (sem repetir arquivo entre listas)", () => {
+    const all = [...MODAL_FORMS, ...Object.keys(MODAL_LISTS), ...Object.keys(MODAL_FIELDS_OUTSIDE)];
+    expect(new Set(all).size).toBe(all.length);
+    for (const file of all) {
+      expect(fs.existsSync(path.join(ROOT, file)), file).toBe(true);
       expect(hasModalWithField(read(file)), file).toBe(true);
-      expect(MODAL_FORMS, file).not.toContain(file);
     }
+  });
+});
+
+describe("buscas e diálogos em modal (Story 13.4)", () => {
+  it.each(Object.keys(MODAL_LISTS))(
+    "%s usa o KeyboardListSheet com a busca no header e as rolagens no list=, com toque persistente",
+    (file) => {
+      expect(modalListViolations(read(file), { ...MODAL_LISTS[file], noBackdrop: file in NO_BACKDROP })).toEqual([]);
+    },
+  );
+
+  it("o KeyboardListSheet encolhe a lista, desconta a área segura, começa sem teclado e não tem rolagem própria", () => {
+    expect(keyboardListSheetViolations(read(KEYBOARD_LIST_SHEET))).toEqual([]);
+  });
+
+  it.each(Object.keys(MODAL_FIELDS_OUTSIDE))("%s não tem campo dentro de <Modal>", (file) => {
+    expect(fieldsInsideModal(read(file))).toBe(0);
   });
 });
 
@@ -913,7 +1186,7 @@ describe("auto-teste dos detectores", () => {
       expect(hasModalWithField(`return <CategoryPickerModal visible />;\nreturn <TInput />;`)).toBe(false);
       expect(isSelfManagedModal("src/components/novo/NovoModal.tsx")).toBe(false);
       expect(isSelfManagedModal(MODAL_FORMS[0])).toBe(true);
-      expect(isSelfManagedModal("app/sync.tsx")).toBe(true);
+      expect(isSelfManagedModal("app/sync.tsx")).toBe(true); // MODAL_FIELDS_OUTSIDE
     });
 
     describe("keyboardSheetViolations", () => {
@@ -967,6 +1240,198 @@ describe("auto-teste dos detectores", () => {
       expect(jsxOpeningTags(`<ScrollView horizontal={true}/>`, "ScrollView")).toEqual([` horizontal={true}/`]);
       const [raw] = scanJsxOpeningTags(`<KeyboardSheet header={<A b={1} />} footer={<B onPress={() => go()} />} n>`, "KeyboardSheet");
       expect(raw.exprs).toEqual({ header: "<A b={1} />", footer: "<B onPress={() => go()} />" });
+    });
+  });
+
+  describe("buscas e diálogos em modal (Story 13.4)", () => {
+    const listImp = `import { KeyboardListSheet } from "@/src/components/shared/KeyboardListSheet";\nimport { useSheetBackdropPress } from "@/src/components/shared/KeyboardSheet";\n`;
+    const listBackdrop = `const onBackdrop = useSheetBackdropPress(close);\n`;
+    const search = `const searchBar = (\n  <View>\n    <TextInput value={q} onChangeText={setQ} />\n  </View>\n);\n`;
+    const flash = `<FlashList data={d} renderItem={r} keyboardShouldPersistTaps="handled" />`;
+    const okList = `${listImp}${listBackdrop}${search}return (\n  <Modal visible transparent>\n    <Pressable onPress={onBackdrop} />\n    <KeyboardListSheet\n      basePaddingBottom={20}\n      header={<>\n        <Text>Título</Text>\n        {searchBar}\n      </>}\n      compactHeader={searchBar}\n      list={${flash}}\n    />\n  </Modal>\n);`;
+    const one = { scrolls: 1 };
+
+    it("aceita o padrão (busca declarada à parte ou direto no header)", () => {
+      expect(modalListViolations(okList, one)).toEqual([]);
+      const inline = okList.replace("{searchBar}\n", "<TInput value={q} />\n");
+      expect(modalListViolations(inline, one)).toEqual([]);
+    });
+
+    it("acusa KeyboardListSheet fora de Modal, ausente ou sem import", () => {
+      const outside = okList.replace("<Modal visible transparent>", "<View>").replace("</Modal>", "</View>");
+      expect(modalListViolations(outside, one)).toContain("KeyboardListSheet fora de Modal");
+      const none = `${listImp}${listBackdrop}return <Modal visible><Pressable onPress={onBackdrop} /><View>${flash}<TextInput /></View></Modal>;`;
+      expect(modalListViolations(none, one)).toContain("0 × <KeyboardListSheet (esperado 1)");
+      expect(modalListViolations(okList.replace(/import \{ KeyboardListSheet \}[^\n]*\n/, ""), one)).toContain(
+        "não importa KeyboardListSheet de @/src/components/shared/KeyboardListSheet",
+      );
+    });
+
+    it("acusa header ou compactHeader sem campo", () => {
+      const noField = okList.replace("        {searchBar}\n", "");
+      expect(modalListViolations(noField, one)).toContain("header sem campo");
+      expect(modalListViolations(okList.replace("compactHeader={searchBar}", "compactHeader={<Text />}"), one)).toContain(
+        "compactHeader sem campo",
+      );
+      expect(modalListViolations(okList.replace("compactHeader={searchBar}", ""), one)).toContain(
+        "KeyboardListSheet sem compactHeader={…}",
+      );
+      // o nome só conta como identificador inteiro
+      const lookalike = okList.replace("        {searchBar}\n", "        {searchBarLabel}\n");
+      expect(modalListViolations(lookalike, one)).toContain("header sem campo");
+    });
+
+    it("acusa FlashList sem keyboardShouldPersistTaps=\"handled\"", () => {
+      expect(modalListViolations(okList.replace(' keyboardShouldPersistTaps="handled"', ""), one)).toContain(
+        'FlashList sem keyboardShouldPersistTaps="handled"',
+      );
+      expect(modalListViolations(okList.replace('"handled"', '"never"'), one)).toContain(
+        'FlashList sem keyboardShouldPersistTaps="handled"',
+      );
+    });
+
+    it("acusa FlashList fora do list= e contagem errada", () => {
+      const moved = okList
+        .replace(`list={${flash}}`, "list={null}")
+        .replace("    />\n  </Modal>", `    />\n    ${flash}\n  </Modal>`);
+      expect(modalListViolations(moved, one)).toContain("1 × rolagem fora do list=");
+      const two = okList.replace(`list={${flash}}`, `list={tab ? ${flash} : <ScrollView keyboardShouldPersistTaps="handled" />}`);
+      expect(modalListViolations(two, one)).toContain("2 × rolagem no modal (esperado 1)");
+      expect(modalListViolations(two, { scrolls: 2 })).toEqual([]);
+    });
+
+    it("acusa KeyboardAvoidingView dentro do modal de busca", () => {
+      const code = okList.replace("<Pressable onPress={onBackdrop} />", "<KeyboardAvoidingView><Pressable onPress={onBackdrop} /></KeyboardAvoidingView>");
+      expect(modalListViolations(code, one)).toContain("<KeyboardAvoidingView");
+      expect(modalListViolations(`import { KeyboardAvoidingView } from "react-native";\n${okList}`, one)).toContain(
+        "import KeyboardAvoidingView",
+      );
+    });
+
+    it("acusa fundo sem useSheetBackdropPress, salvo NO_BACKDROP", () => {
+      const raw = okList.replace("onPress={onBackdrop}", "onPress={close}");
+      expect(modalListViolations(raw, one)).toContain("onBackdrop não está em nenhum onPress");
+      expect(modalListViolations(okList.replace(listBackdrop, ""), one)).toContain("fundo sem useSheetBackdropPress");
+      expect(modalListViolations(okList.replace(listBackdrop, ""), { ...one, noBackdrop: true })).toEqual([]);
+    });
+
+    it("vale só no trecho do <Modal> (busca inline fora dele não conta)", () => {
+      const inlineOutside = `${okList}\nfunction Inline() {\n  return (\n    <View>\n      <ScrollView>{x}</ScrollView>\n      <TextInput />\n    </View>\n  );\n}`;
+      expect(modalListViolations(inlineOutside, one)).toEqual([]);
+    });
+
+    describe("keyboardListSheetViolations", () => {
+      const listSheet = [
+        `const keyboardHeight = useSheetKeyboardHeight();`,
+        `return (`,
+        `  <KeyboardSafeView liftDiscount={sheetLiftDiscount(pb)}>`,
+        `    <Reanimated.View style={s.sheet}>{header}<View style={s.list}>{list}</View></Reanimated.View>`,
+        `  </KeyboardSafeView>`,
+        `);`,
+        `const s = StyleSheet.create({ sheet: { flexShrink: 1, minHeight: 0 }, list: { flexShrink: 1, minHeight: 0 } });`,
+      ].join("\n");
+
+      it("aceita o padrão (com o hook ou com os dois eventos)", () => {
+        expect(keyboardListSheetViolations(listSheet)).toEqual([]);
+        const events = listSheet.replace(
+          "const keyboardHeight = useSheetKeyboardHeight();",
+          `KeyboardEvents.addListener("keyboardDidShow", f);\nKeyboardEvents.addListener("keyboardDidHide", g);`,
+        );
+        expect(keyboardListSheetViolations(events)).toEqual([]);
+      });
+
+      it.each([
+        ["sheet: { flexShrink: 1, minHeight: 0 }", "sheet: { minHeight: 0 }", "sheet sem flexShrink: 1"],
+        ["list: { flexShrink: 1, minHeight: 0 }", "list: { flexGrow: 1 }", "list sem flexShrink: 1"],
+        ["liftDiscount={sheetLiftDiscount(pb)}", "liftDiscount={pb - 12}", "liftDiscount sem sheetLiftDiscount(…)"],
+        ["{list}</View>", "{list}<FlashList data={d} /></View>", "<FlashList próprio"],
+        ["{list}</View>", "{list}<ScrollView /></View>", "<ScrollView próprio"],
+        ["{list}</View>", "{list}<KeyboardStickyView /></View>", "<KeyboardStickyView"],
+        ["const keyboardHeight = useSheetKeyboardHeight();", "", "sem useSheetKeyboardHeight nem os eventos do teclado"],
+        ["</KeyboardSafeView>", "</KeyboardSafeView><KeyboardSafeView />", "2 × <KeyboardSafeView (esperado 1)"],
+      ])("acusa %s → %s", (from, to, hit) => {
+        expect(keyboardListSheetViolations(listSheet.replace(from, to))).toContain(hit);
+      });
+
+      it("acusa estado global do teclado", () => {
+        expect(keyboardListSheetViolations(`${listSheet}\nconst h = useKeyboardState((st) => st.height);`)).toContain(
+          "lê o estado global do teclado",
+        );
+      });
+    });
+
+    describe("formulário com placement (D-2, D-3)", () => {
+      const imp = `import { KeyboardSheet } from "@/src/components/shared/KeyboardSheet";\nimport { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";\n`;
+      const dialogFooter = `<View>\n  <TButton variant="outline">Cancelar</TButton>\n  <TButton variant="danger" onPress={reset}>Resetar</TButton>\n</View>`;
+      const dialog = `${imp}return (\n  <>\n    <KeyboardAwareScrollViewCompat>{tela}</KeyboardAwareScrollViewCompat>\n    <Modal visible transparent>\n      <View style={s.overlay} />\n      <KeyboardSheet placement="center" header={<Text>Resetar</Text>} footer={${dialogFooter}}>\n        <TextInput />\n      </KeyboardSheet>\n    </Modal>\n  </>\n);`;
+      const noBackdrop = { noBackdrop: true };
+
+      it("aceita o diálogo com danger e Cancelar lado a lado, e a tela com a rolagem da 13.2 fora do modal", () => {
+        expect(modalFormViolations(dialog, undefined, noBackdrop)).toEqual([]);
+      });
+
+      it("fora do diálogo, danger não é principal e Cancelar não vai no footer", () => {
+        const bottom = dialog.replace(' placement="center"', "");
+        expect(modalFormViolations(bottom, undefined, noBackdrop)).toEqual(
+          expect.arrayContaining(["footer sem botão principal", "Cancelar no footer"]),
+        );
+        expect(modalFormViolations(dialog.replace('variant="danger"', 'variant="ghost"'), undefined, noBackdrop)).toContain(
+          "footer sem botão principal",
+        );
+      });
+
+      it("acusa KeyboardAwareScrollViewCompat dentro do <Modal>, não fora dele", () => {
+        const inside = dialog.replace("<TextInput />", "<KeyboardAwareScrollViewCompat><TextInput /></KeyboardAwareScrollViewCompat>");
+        expect(modalFormViolations(inside, undefined, noBackdrop)).toContain("<KeyboardAwareScrollViewCompat");
+        expect(modalFormViolations(dialog, undefined, noBackdrop)).not.toContain("<KeyboardAwareScrollViewCompat");
+        expect(modalFormViolations(dialog, undefined, noBackdrop)).not.toContain("import KeyboardAwareScrollViewCompat");
+      });
+
+      it("acusa ScrollView vertical dentro do modal, mas não a rolagem da tela fora dele", () => {
+        const inside = dialog.replace("<TextInput />", "<ScrollView><TextInput /></ScrollView>");
+        expect(modalFormViolations(inside, undefined, noBackdrop)).toContain("ScrollView vertical");
+        const screen = dialog.replace("{tela}", "<ScrollView horizontal />");
+        expect(modalFormViolations(screen, undefined, noBackdrop)).toEqual([]);
+      });
+
+      it("footer próprio (FOOTER_EXCEPTIONS) só precisa ser JSX", () => {
+        const custom = dialog.replace(' placement="center"', ' placement="fill"').replace(dialogFooter, "<View><Pressable /></View>");
+        expect(modalFormViolations(custom, undefined, noBackdrop)).toContain("footer sem botão principal");
+        expect(modalFormViolations(custom, undefined, { ...noBackdrop, footerException: true })).toEqual([]);
+        expect(modalFormViolations(custom.replace("<View><Pressable /></View>", "null"), undefined, { footerException: true, noBackdrop: true })).toContain(
+          "footer não é um elemento JSX",
+        );
+      });
+
+      it("sem NO_BACKDROP, o diálogo precisa do useSheetBackdropPress", () => {
+        expect(modalFormViolations(dialog)).toContain("fundo sem useSheetBackdropPress");
+      });
+    });
+
+    it("conta os campos dentro de <Modal> (MODAL_FIELDS_OUTSIDE)", () => {
+      const outside = `return (\n  <View>\n    <TInput value={v} />\n    <Modal visible><ScrollView><Text>QR</Text></ScrollView></Modal>\n  </View>\n);`;
+      expect(fieldsInsideModal(outside)).toBe(0);
+      const inside = outside.replace("<Text>QR</Text>", "<TInput value={code} />");
+      expect(fieldsInsideModal(inside)).toBe(1);
+    });
+
+    it("detecta <Modal + campo fora das três listas", () => {
+      const probe = `return <Modal visible><TextInput value={v} /></Modal>;`;
+      expect(hasModalWithField(probe)).toBe(true);
+      expect(isSelfManagedModal("src/components/novo/ProbeModal.tsx")).toBe(false);
+      expect(isSelfManagedModal("src/components/shared/CategoryPickerModal.tsx")).toBe(true);
+      expect(isSelfManagedModal("app/about.tsx")).toBe(true);
+    });
+
+    it("modalSegments separa os modais do nível de cima e mantém o aninhado dentro", () => {
+      const code = `<View />\n<Modal a>\n  <X />\n  <Modal b><Y /></Modal>\n</Modal>\n<Modal c><Z /></Modal>`;
+      const segs = modalSegments(code);
+      expect(segs).toHaveLength(2);
+      expect(segs[0]).toContain("<Modal b><Y /></Modal>");
+      expect(segs[0].endsWith("</Modal>")).toBe(true);
+      expect(segs[1]).toBe("<Modal c><Z /></Modal>");
+      expect(modalSegmentWith(code, "Z")).toBe(segs[1]);
+      expect(modalSegmentWith(code, "W")).toBe("");
     });
   });
 });

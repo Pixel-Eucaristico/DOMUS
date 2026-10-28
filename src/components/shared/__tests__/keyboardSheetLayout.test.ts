@@ -3,11 +3,16 @@ import {
   backdropPressAction,
   computeFocusScrollDelta,
   computeFocusScrollTarget,
+  computeKeyboardListSheetLayout,
   computeKeyboardSheetLayout,
   keyboardLift,
   sheetKeyboardHeight,
   sheetLiftDiscount,
+  sheetPaddingBottomFor,
+  sheetRootPadding,
+  DIALOG_EDGE_PADDING,
   MIN_FIELD_SPACE,
+  MIN_LIST_SPACE,
   SHEET_KEYBOARD_GAP,
   SHEET_TOP_GAP,
 } from "../keyboardSheetLayout";
@@ -319,5 +324,235 @@ describe("computeFocusScrollTarget (posição medida, sem scrollY guardado)", ()
     expect(computeFocusScrollTarget({ ...base, inputY: Number.NaN, inputHeight: 44 })).toBeNull();
     expect(computeFocusScrollTarget({ ...base, inputY: 10, inputHeight: -1 })).toBeNull();
     expect(computeFocusScrollTarget({ ...base, viewportHeight: 0, inputY: 10, inputHeight: 44 })).toBeNull();
+  });
+});
+
+// ─── Story 13.4 ──────────────────────────────────────────────────────────────
+
+describe("placement (Story 13.4)", () => {
+  it("sheetLiftDiscount: no diálogo centrado é 0 (o espaçador é o teclado inteiro)", () => {
+    expect(sheetLiftDiscount(24, "center")).toBe(0);
+    expect(sheetLiftDiscount(48, "center")).toBe(0);
+    expect(keyboardLift(320, sheetLiftDiscount(24, "center"))).toBe(320);
+  });
+
+  it("sheetLiftDiscount: bottom (padrão) e fill descontam como na 13.3", () => {
+    expect(sheetLiftDiscount(48, "bottom")).toBe(sheetLiftDiscount(48));
+    expect(sheetLiftDiscount(48, "fill")).toBe(48 - SHEET_KEYBOARD_GAP);
+  });
+
+  it("sheetPaddingBottomFor: max(insets.bottom, base) embaixo e na tela cheia; só a base no diálogo", () => {
+    expect(sheetPaddingBottomFor(48, 20)).toBe(48);
+    expect(sheetPaddingBottomFor(0, 20)).toBe(20);
+    expect(sheetPaddingBottomFor(48, 64, "fill")).toBe(64);
+    expect(sheetPaddingBottomFor(48, 24, "center")).toBe(24);
+    expect(sheetPaddingBottomFor(Number.NaN, -1)).toBe(0);
+  });
+
+  it("sheetRootPadding: bottom só no topo; center com a margem do diálogo; fill sem padding", () => {
+    expect(sheetRootPadding(24)).toEqual({ top: 24 + SHEET_TOP_GAP, bottom: 0, horizontal: 0 });
+    expect(sheetRootPadding(24, "center")).toEqual({
+      top: 24 + SHEET_TOP_GAP,
+      bottom: DIALOG_EDGE_PADDING,
+      horizontal: DIALOG_EDGE_PADDING,
+    });
+    expect(sheetRootPadding(24, "fill")).toEqual({ top: 0, bottom: 0, horizontal: 0 });
+    expect(DIALOG_EDGE_PADDING).toBeGreaterThanOrEqual(8);
+  });
+
+  it('o padrão é "bottom": mesmo resultado com e sem placement', () => {
+    for (const kb of [0, 200, 320]) {
+      const input = { ...portrait, keyboardHeight: kb };
+      expect(computeKeyboardSheetLayout({ ...input, placement: "bottom" })).toEqual(computeKeyboardSheetLayout(input));
+    }
+  });
+
+  it("center, retrato 412×900 com teclado de 320: o cartão cabe entre a barra de status e o teclado, descontando a margem da raiz", () => {
+    const pb = sheetPaddingBottomFor(48, 24, "center");
+    const r = computeKeyboardSheetLayout({
+      windowHeight: 900,
+      keyboardHeight: 320,
+      insetTop: 24,
+      sheetPaddingBottom: pb,
+      headerHeight: 120,
+      footerHeight: 56,
+      maxHeightRatio: 1,
+      placement: "center",
+    });
+    expect(r.lift).toBe(320);
+    expect(r.sheetMaxHeight).toBe(900 - 24 - SHEET_TOP_GAP - DIALOG_EDGE_PADDING - 320);
+    // Fundo do cartão no pior caso (cartão do tamanho máximo) = topo do teclado − margem.
+    const cardBottom = 24 + SHEET_TOP_GAP + r.sheetMaxHeight;
+    expect(900 - 320 - cardBottom).toBe(DIALOG_EDGE_PADDING);
+    expect(r.footerPinned).toBe(true);
+  });
+
+  it("center com teclado fechado: só a barra de status e a margem limitam o cartão", () => {
+    const r = computeKeyboardSheetLayout({
+      windowHeight: 900,
+      keyboardHeight: 0,
+      insetTop: 24,
+      sheetPaddingBottom: 24,
+      headerHeight: 120,
+      footerHeight: 56,
+      maxHeightRatio: 1,
+      placement: "center",
+    });
+    expect(r.lift).toBe(0);
+    expect(r.sheetMaxHeight).toBe(900 - 24 - SHEET_TOP_GAP - DIALOG_EDGE_PADDING);
+  });
+
+  it("center, paisagem 800×360 com teclado de 200: o rodapé vai para a rolagem (D-3 da 13.3)", () => {
+    const r = computeKeyboardSheetLayout({
+      windowHeight: 360,
+      keyboardHeight: 200,
+      insetTop: 0,
+      sheetPaddingBottom: 24,
+      headerHeight: 110,
+      footerHeight: 56,
+      maxHeightRatio: 1,
+      placement: "center",
+    });
+    expect(r.sheetMaxHeight).toBe(360 - SHEET_TOP_GAP - DIALOG_EDGE_PADDING - 200);
+    expect(r.footerPinned).toBe(false);
+  });
+
+  it("fill: a folha vai do topo da tela até o espaçador", () => {
+    const pb = sheetPaddingBottomFor(48, 48 + 16, "fill");
+    const closed = computeKeyboardSheetLayout({
+      windowHeight: 900,
+      keyboardHeight: 0,
+      insetTop: 24,
+      sheetPaddingBottom: pb,
+      headerHeight: 40,
+      footerHeight: 64,
+      maxHeightRatio: 1,
+      placement: "fill",
+    });
+    expect(closed.sheetMaxHeight).toBe(900);
+    const open = computeKeyboardSheetLayout({
+      windowHeight: 900,
+      keyboardHeight: 320,
+      insetTop: 24,
+      sheetPaddingBottom: pb,
+      headerHeight: 40,
+      footerHeight: 64,
+      maxHeightRatio: 1,
+      placement: "fill",
+    });
+    expect(open.lift).toBe(320 - (pb - SHEET_KEYBOARD_GAP));
+    expect(open.sheetMaxHeight).toBe(900 - open.lift);
+    // Barra "Começar Tour!" logo acima do teclado, com a folga.
+    expect(900 - 320 - (900 - open.lift - pb)).toBe(SHEET_KEYBOARD_GAP);
+    expect(open.footerPinned).toBe(true);
+  });
+});
+
+// Busca: janela 412×900, status 24, paddingBottom 20, cabeçalho completo até
+// 130 (alça, título, busca), compacto até 62 (só a busca), 80% da janela.
+const listPortrait = {
+  windowHeight: 900,
+  insetTop: 24,
+  sheetPaddingBottom: 20,
+  headerHeight: 130,
+  compactHeaderHeight: 62,
+  maxHeightRatio: 0.8,
+};
+
+describe("computeKeyboardListSheetLayout (Story 13.4)", () => {
+  it("MIN_LIST_SPACE é uma linha (MIN_FIELD_SPACE)", () => {
+    expect(MIN_LIST_SPACE).toBe(MIN_FIELD_SPACE);
+  });
+
+  it("retrato 412×900 com teclado de 320: cabeçalho completo e lista com pelo menos uma linha", () => {
+    const r = computeKeyboardListSheetLayout({ ...listPortrait, keyboardHeight: 320 });
+    expect(r.lift).toBe(320 - (20 - SHEET_KEYBOARD_GAP));
+    expect(r.sheetMaxHeight).toBe(900 - 24 - SHEET_TOP_GAP - r.lift);
+    expect(r.listSpace).toBe(r.sheetMaxHeight - 130 - 20);
+    expect(r.listSpace).toBeGreaterThanOrEqual(MIN_LIST_SPACE);
+    expect(r.headerCompact).toBe(false);
+    // Fundo da lista = topo do teclado − folga (≥ 8 dp do FR-29).
+    expect(900 - 320 - (900 - r.lift - 20)).toBe(SHEET_KEYBOARD_GAP);
+  });
+
+  it("paisagem 800×360 com teclado de 200: o cabeçalho vira o compacto (R-1)", () => {
+    const r = computeKeyboardListSheetLayout({
+      ...listPortrait,
+      windowHeight: 360,
+      insetTop: 0,
+      keyboardHeight: 200,
+    });
+    // sheetMaxHeight = 360 − 8 − (200 − 8) = 160; completo: 160 − 130 − 20 = 10 < 48.
+    expect(r.sheetMaxHeight).toBe(160);
+    expect(r.headerCompact).toBe(true);
+    expect(r.listSpace).toBe(160 - 62 - 20);
+    expect(r.listSpace).toBeGreaterThanOrEqual(MIN_LIST_SPACE);
+  });
+
+  it("sem espaço nem com o compacto: a busca fica e a lista fica com 0", () => {
+    const r = computeKeyboardListSheetLayout({
+      ...listPortrait,
+      windowHeight: 300,
+      insetTop: 0,
+      keyboardHeight: 260,
+    });
+    expect(r.headerCompact).toBe(true);
+    expect(r.listSpace).toBe(0);
+  });
+
+  it("limite exato de MIN_LIST_SPACE: completo com 48, compacto com 47", () => {
+    // sheetMaxHeight = 900 − 24 − 8 − (320 − 8) = 556; lista = 556 − header − 20.
+    const atLimit = computeKeyboardListSheetLayout({ ...listPortrait, keyboardHeight: 320, headerHeight: 556 - 20 - 48 });
+    expect(atLimit.listSpace).toBe(48);
+    expect(atLimit.headerCompact).toBe(false);
+    const below = computeKeyboardListSheetLayout({ ...listPortrait, keyboardHeight: 320, headerHeight: 556 - 20 - 47 });
+    expect(below.headerCompact).toBe(true);
+    expect(below.listSpace).toBe(556 - 62 - 20);
+  });
+
+  it.each([
+    { ...listPortrait },
+    { ...listPortrait, windowHeight: 360, headerHeight: 400 },
+    { ...listPortrait, windowHeight: 100 },
+  ])("teclado fechado: cabeçalho completo e lift 0 (%#)", (input) => {
+    const r = computeKeyboardListSheetLayout({ ...input, keyboardHeight: 0 });
+    expect(r.lift).toBe(0);
+    expect(r.headerCompact).toBe(false);
+  });
+
+  it("altura fixa (heightRatio 0,85 do DebugTools) encolhe com o teclado e volta ao fechar", () => {
+    const base = { ...listPortrait, maxHeightRatio: 0.85 };
+    const closed = computeKeyboardListSheetLayout({ ...base, keyboardHeight: 0 });
+    expect(closed.sheetMaxHeight).toBe(0.85 * 900);
+    const open = computeKeyboardListSheetLayout({ ...base, keyboardHeight: 320 });
+    expect(open.sheetMaxHeight).toBeLessThan(closed.sheetMaxHeight);
+    expect(open.sheetMaxHeight).toBe(900 - 24 - SHEET_TOP_GAP - open.lift);
+    expect(computeKeyboardListSheetLayout({ ...base, keyboardHeight: 0 })).toEqual(closed);
+  });
+
+  it("mesmas contas de lift e altura do KeyboardSheet (bottom)", () => {
+    for (const kb of [0, 30, 200, 320]) {
+      const list = computeKeyboardListSheetLayout({ ...listPortrait, keyboardHeight: kb });
+      const sheet = computeKeyboardSheetLayout({
+        ...listPortrait,
+        footerHeight: 0,
+        keyboardHeight: kb,
+      });
+      expect(list.lift).toBe(sheet.lift);
+      expect(list.sheetMaxHeight).toBe(sheet.sheetMaxHeight);
+    }
+  });
+
+  it("entradas inválidas não dão negativo nem NaN", () => {
+    const r = computeKeyboardListSheetLayout({
+      windowHeight: Number.NaN,
+      keyboardHeight: -5,
+      insetTop: Number.POSITIVE_INFINITY,
+      sheetPaddingBottom: -1,
+      headerHeight: Number.NaN,
+      compactHeaderHeight: -3,
+      maxHeightRatio: 3,
+    });
+    expect(r).toEqual({ lift: 0, sheetMaxHeight: 0, listSpace: 0, headerCompact: false });
   });
 });

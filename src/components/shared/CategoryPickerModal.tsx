@@ -7,7 +7,7 @@ import {
   Pressable,
   StyleSheet,
 } from "react-native";
-import { TCard } from "@/src/components/tamagui";
+import { KeyboardListSheet } from "@/src/components/shared/KeyboardListSheet";
 import { FlashList } from "@shopify/flash-list";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
@@ -135,49 +135,60 @@ export function CategoryPickerModal({
     );
   };
 
+  const searchBar = (
+    <View style={[s.searchBar, { backgroundColor: theme.background, borderColor: theme.border }]}>
+      <Feather name="search" size={16} color={theme.secondaryText} />
+      <TextInput
+        style={[s.searchInput, { color: theme.textColor }]}
+        placeholder="Buscar categoria ou subcategoria..."
+        placeholderTextColor={theme.secondaryText}
+        value={search}
+        onChangeText={setSearch}
+        autoFocus
+      />
+      {search.length > 0 && (
+        <Pressable onPress={() => setSearch("")}>
+          <Feather name="x-circle" size={16} color={theme.secondaryText} />
+        </Pressable>
+      )}
+    </View>
+  );
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[s.overlay]}>
-        <TCard borderTopLeftRadius={20} borderTopRightRadius={20} borderBottomLeftRadius={0} borderBottomRightRadius={0} paddingTop={16} paddingBottom={30} paddingHorizontal={0} maxHeight="80%" backgroundColor={theme.cardBackground} borderColor={theme.border}>
-          {/* Header */}
-          <View style={s.header}>
-            <Text style={[s.title, { color: theme.textColor }]}>Selecionar Categoria</Text>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <Feather name="x" size={22} color={theme.secondaryText} />
-            </Pressable>
-          </View>
-
-          {/* Search */}
-          <View style={[s.searchBar, { backgroundColor: theme.background, borderColor: theme.border }]}>
-            <Feather name="search" size={16} color={theme.secondaryText} />
-            <TextInput
-              style={[s.searchInput, { color: theme.textColor }]}
-              placeholder="Buscar categoria ou subcategoria..."
-              placeholderTextColor={theme.secondaryText}
-              value={search}
-              onChangeText={setSearch}
-              autoFocus
+      <View style={s.overlay}>
+        <KeyboardListSheet
+          sheetStyle={[s.sheet, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+          maxHeightRatio={0.8}
+          basePaddingBottom={30}
+          header={
+            <>
+              {/* Header */}
+              <View style={s.header}>
+                <Text style={[s.title, { color: theme.textColor }]}>Selecionar Categoria</Text>
+                <Pressable onPress={onClose} hitSlop={12}>
+                  <Feather name="x" size={22} color={theme.secondaryText} />
+                </Pressable>
+              </View>
+              {/* Search */}
+              {searchBar}
+            </>
+          }
+          compactHeader={searchBar}
+          list={
+            <FlashList
+              data={filtered}
+              keyExtractor={(item) => item.id}
+              renderItem={renderItem}
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={
+                <Text style={[s.empty, { color: theme.secondaryText }]}>
+                  Nenhuma categoria encontrada
+                </Text>
+              }
             />
-            {search.length > 0 && (
-              <Pressable onPress={() => setSearch("")}>
-                <Feather name="x-circle" size={16} color={theme.secondaryText} />
-              </Pressable>
-            )}
-          </View>
-
-          {/* List */}
-          <FlashList
-            data={filtered}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={
-              <Text style={[s.empty, { color: theme.secondaryText }]}>
-                Nenhuma categoria encontrada
-              </Text>
-            }
-          />
-        </TCard>
+          }
+        />
       </View>
     </Modal>
   );
@@ -186,8 +197,14 @@ export function CategoryPickerModal({
 const s = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  // Mesmo visual do TCard de antes: cantos de cima 20, borda de 1 e paddingTop 16.
+  sheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    paddingTop: 16,
   },
   header: {
     flexDirection: "row",
