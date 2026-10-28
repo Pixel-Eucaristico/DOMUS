@@ -307,3 +307,23 @@ Estrutura:
 **Checklist para a Story 13.7 (aparelho)**: os itens 1 a 13 da seção "Aparelho" acima, mais:
 14. Tocar no fundo escuro acima da folha fecha o modal (efeito do `pointerEvents="box-none"`), com e sem teclado aberto.
 15. Ao focar um campo no fim da nova transação, a rolagem leva o campo para cima do rodapé sem "pulo" duplo (ajuste do `KeyboardSheet` somado ao `requestChildFocus` nativo).
+
+## Review Triage Log
+
+Revisão única com três lentes (adversarial, casos de borda, lacunas de verificação), 28/10, sobre o commit 551521f. 0 High, 2 Med, 10 Low.
+
+| # | Achado | Sev. | Decisão |
+|---|--------|------|---------|
+| R1 | Toque no fundo agora fecha o modal e perde o que foi digitado, mesmo com teclado aberto | Med | **patch** (decisão do dono 28/10): com teclado aberto, o primeiro toque no fundo só chama `Keyboard.dismiss()`; com teclado fechado, fecha o modal. Lógica em função pura testada |
+| R2 | D-3 em paisagem ainda deixa ~40dp (cabeçalho fixo) | Med | **patch**: quando o rodapé já foi para a rolagem e o espaço segue abaixo de `MIN_FIELD_SPACE`, o cabeçalho também entra na rolagem; checklist cita a edição em tela cheia do Android em paisagem |
+| R3 | Deslocamento da rolagem lido de `scrollY` em cache | Low | **patch**: medir o campo relativo ao conteúdo da rolagem (`measureLayout`), sem `scrollY` |
+| R4 | Campo de modal aninhado pode rolar a folha de baixo | Low | **patch**: só rolar se o campo focado for descendente do conteúdo (o `measureLayout` do R3 falha para campos de fora) |
+| R5 | Sem proteção contra sobra de elevação com modais aninhados | Low | **reject**: depende do aparelho; itens 7 e 8 do checklist cobrem. Se aparecer, corrige-se no `KeyboardSheet` |
+| R6 | Estado do teclado velho ao montar o modal | Low | **patch**: ignorar `keyboardHeight` até o primeiro `DidShow`/`DidHide` depois de montar (ou `onShow`) |
+| R7 | Cancelar no rodapé fixo, diferente da D-1 | Low | **patch** (decisão do dono 28/10): Cancelar volta para o fim da rolagem em "Criar lista" e "Adicionar item"; rodapé só com o botão principal |
+| R8 | "Excluir conta" logo acima do Salvar fixo | Low | **reject**: tem confirmação; fim da rolagem é o lugar previsto na spec |
+| R9 | Desconto da elevação calculado em dois lugares | Low | **patch**: `sheetLiftDiscount(paddingBottom)` único, usado nos dois e testado |
+| R10 | `useWindowDimensions` pode diferir da janela do modal | Low | **patch**: item no checklist (10/12); sem mudança de código |
+| R11 | Guarda burlável (`footer={null}`, rodapé só com Cancelar, campo em componente filho) e sem checagem do próprio `KeyboardSheet` | Low | **patch**: exigir `footer={<…>}` não nulo e checagem estática do `KeyboardSheet.tsx` (`keyboardShouldPersistTaps`, `flexShrink`, `liftDiscount`). Descoberta em componentes filhos: coberta pela D39 |
+| R12 | Spec diz Android 12; o corte é o 11 | Low | **patch**: corrigir o texto da spec |
+| V1 | Checklist do aparelho incompleto | — | **patch**: acrescentar toque fora com teclado aberto, modal aberto com teclado de tela, girar com teclado aberto, tela dividida/teclado flutuante/físico, `appAlert` com teclado aberto, busca do `CategorySelectorGrid`, fluidez em Mali fraco, paisagem com `disableFullscreenUI`, Android 7–10 (folga), e registrar que o app é só Android |
