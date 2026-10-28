@@ -11,6 +11,12 @@ import path from "path";
  * `import()`), a rolagem crua (`ScrollView`/`FlatList`/`SectionList`) e as
  * props de teclado repetidas nas telas com campo, e descobre rotas novas com
  * campo que ainda não estão na lista.
+ *
+ * Story 13.3: os formulários em modal usam o contêiner único `KeyboardSheet`
+ * (src/components/shared/KeyboardSheet.tsx), com o botão principal no
+ * `footer`, sem segunda compensação de teclado nem rolagem vertical crua. Só o
+ * KeyboardSheet renderiza o `KeyboardSafeView`, e todo componente com `<Modal`
+ * e campo precisa estar em MODAL_FORMS ou em MODAL_PENDING (com motivo).
  */
 
 const ROOT = path.resolve(__dirname, "../../..");
@@ -58,6 +64,56 @@ const DISCOVERY_EXCEPTIONS: Record<string, string> = {
  * descoberta (o AccountPicker em modo lista tem a busca inline).
  */
 const INLINE_FIELD_COMPONENTS = ["src/components/shared/AccountPicker.tsx"];
+
+/** O contêiner único das folhas com formulário em modal (Story 13.3). */
+const KEYBOARD_SHEET = "src/components/shared/KeyboardSheet.tsx";
+const KEYBOARD_SHEET_MODULE = "@/src/components/shared/KeyboardSheet";
+
+/** Os formulários em modal da auditoria da Story 13.3. */
+const MODAL_FORMS = [
+  "src/components/transaction/TransactionBottomSheet.tsx",
+  "src/components/shared/AccountFormModal.tsx",
+  "src/components/wishlist/CreateListModal.tsx",
+  "src/components/wishlist/AddItemModal.tsx",
+];
+
+/**
+ * Rolagem horizontal permitida num formulário em modal: o componente, quantas
+ * vezes aparece e o motivo. Rolagem vertical crua nunca é permitida (a rolagem
+ * é a do KeyboardSheet).
+ */
+const MODAL_HORIZONTAL_SCROLLS: Record<string, { component: string; count: number; reason: string }> = {
+  "src/components/shared/AccountFormModal.tsx": {
+    component: "ScrollView",
+    count: 1,
+    reason: "contas de destino no diálogo de excluir conta (sem campo)",
+  },
+  "src/components/wishlist/AddItemModal.tsx": {
+    component: "ScrollView",
+    count: 1,
+    reason: "chips de poupança vinculada",
+  },
+};
+
+/** Componentes com `<Modal` e campo que ainda não usam o KeyboardSheet, com o motivo. */
+const MODAL_PENDING: Record<string, string> = {
+  "src/components/shared/CategoryPickerModal.tsx": "busca em modal — Story 13.4",
+  "src/components/wishlist/StoreGridModal.tsx": "busca em modal — Story 13.4",
+  "src/components/shared/AccountPicker.tsx": "AccountPicker compacto (busca em modal) — Story 13.4",
+  "app/about.tsx": "diálogo \"APAGAR TUDO\" — Story 13.4",
+  "src/components/tour/WelcomeCarousel.tsx": "campo no carrossel em modal — Story 13.4",
+  "src/components/debug/DebugTools.tsx": "ferramentas de depuração em modal — Story 13.4",
+  "app/sync.tsx": "modal do QR sem campo; os campos estão na tela, coberta pela Story 13.2",
+};
+
+/** Compensações de teclado que não podem somar com o KeyboardSheet no mesmo modal. */
+const SECOND_KEYBOARD_SYSTEMS = [
+  "KeyboardSafeView",
+  "KeyboardAwareScrollViewCompat",
+  "KeyboardAwareScrollView",
+  "KeyboardAvoidingView",
+  "KeyboardStickyView",
+];
 
 /**
  * Remove comentários sem mexer no conteúdo de strings, templates e regex
@@ -247,7 +303,6 @@ function repeatedKeyboardProps(source: string, allowedBottomOffset?: string): st
 // ─── Campos ──────────────────────────────────────────────────────────────────
 
 const FIELD_TAGS = "TInput|TextInput|AppTextInput|Input|TextArea";
-const SELF_MANAGED = /<(Modal|KeyboardSafeView)\b/;
 
 function hasField(source: string): boolean {
   const code = stripComments(source);
@@ -256,6 +311,124 @@ function hasField(source: string): boolean {
     jsxPattern("TextInput|Input|TextArea", true).test(code) ||
     /\bonChangeText\s*=/.test(code)
   );
+}
+
+// ─── Modais com formulário (Story 13.3) ──────────────────────────────────────
+
+/**
+ * Atributos do nível de cima de cada abertura `<Name …>` em JSX (o conteúdo de
+ * `{…}` vira `{}`, salvo `{true}`/`{false}`), para saber se a tag tem
+ * `footer=` ou `horizontal`.
+ */
+function jsxOpeningTags(source: string, name: string, namespaced = false): string[] {
+  const code = stripComments(source);
+  const tags: string[] = [];
+  for (const m of code.matchAll(jsxPattern(name, namespaced))) {
+    let i = (m.index ?? 0) + m[0].length;
+    let depth = 0;
+    let attrs = "";
+    let inner = "";
+    while (i < code.length) {
+      const ch = code[i];
+      if (ch === '"' || ch === "'" || ch === "`") {
+        let j = i + 1;
+        while (j < code.length && code[j] !== ch) {
+          if (code[j] === "\\") j++;
+          j++;
+        }
+        if (depth === 0) attrs += code.slice(i, j + 1);
+        else inner += code.slice(i, j + 1);
+        i = j + 1;
+        continue;
+      }
+      if (ch === "{") {
+        if (depth === 0) inner = "";
+        else inner += ch;
+        depth++;
+      } else if (ch === "}") {
+        depth--;
+        if (depth === 0) attrs += /^\s*(true|false)\s*$/.test(inner) ? `{${inner.trim()}}` : "{}";
+        else inner += ch;
+      } else if (depth > 0) {
+        inner += ch;
+      } else if (ch === ">") {
+        break;
+      } else {
+        attrs += ch;
+      }
+      i++;
+    }
+    tags.push(attrs);
+  }
+  return tags;
+}
+
+/** `horizontal` ou `horizontal={true}`; `horizontal={false}` ou `{expressão}` contam como vertical. */
+function isHorizontal(attrs: string): boolean {
+  return /(?:^|\s)horizontal(?:\s*=\s*\{true\})?(?=\s|\/|$)/.test(attrs);
+}
+
+/** O arquivo renderiza `<KeyboardSafeView` (direto ou por namespace). */
+function rendersKeyboardSafeView(source: string): boolean {
+  const code = stripComments(source);
+  return jsxPattern("KeyboardSafeView", false).test(code) || jsxPattern("KeyboardSafeView", true).test(code);
+}
+
+/** Componente com `<Modal` e campo. */
+function hasModalWithField(source: string): boolean {
+  const code = stripComments(source);
+  return (jsxPattern("Modal", false).test(code) || jsxPattern("Modal", true).test(code)) && hasField(source);
+}
+
+/** Motivos pelos quais um formulário em modal foge do padrão KeyboardSheet. */
+function modalFormViolations(
+  source: string,
+  horizontal?: { component: string; count: number },
+): string[] {
+  const code = stripComments(source);
+  const hits: string[] = [];
+  const imports = parseImports(code);
+
+  // 1. importa e renderiza o KeyboardSheet exatamente uma vez, dentro de <Modal>.
+  const imported = imports.some((imp) => imp.module === KEYBOARD_SHEET_MODULE && imp.named.includes("KeyboardSheet"));
+  if (!imported) hits.push(`não importa KeyboardSheet de ${KEYBOARD_SHEET_MODULE}`);
+  const uses = jsxUsesInsideModal(source, "KeyboardSheet");
+  if (uses.length !== 1) hits.push(`${uses.length} × <KeyboardSheet (esperado 1)`);
+  if (uses.some((inside) => !inside)) hits.push("KeyboardSheet fora de Modal");
+
+  // 2. passa footer= ao KeyboardSheet.
+  for (const attrs of jsxOpeningTags(source, "KeyboardSheet")) {
+    if (!/(?:^|\s)footer\s*=/.test(attrs)) hits.push("KeyboardSheet sem footer=");
+  }
+
+  // 3. nenhuma segunda compensação de teclado.
+  for (const name of SECOND_KEYBOARD_SYSTEMS) {
+    if (jsxPattern(name, false).test(code) || jsxPattern(name, true).test(code)) hits.push(`<${name}`);
+    else if (imports.some((imp) => imp.named.includes(name))) hits.push(`import ${name}`);
+  }
+
+  // 4. sem rolagem vertical crua; horizontais só as da exceção, na contagem.
+  let horizontalCount = 0;
+  for (const name of SCROLL_COMPONENTS) {
+    const tags = [...jsxOpeningTags(source, name), ...jsxOpeningTags(source, name, true)];
+    for (const attrs of tags) {
+      if (!isHorizontal(attrs)) {
+        hits.push(`${name} vertical`);
+        continue;
+      }
+      if (!horizontal || horizontal.component !== name) hits.push(`${name} horizontal fora da exceção`);
+      else horizontalCount++;
+    }
+  }
+  if (horizontal && horizontalCount !== horizontal.count) {
+    hits.push(`${horizontalCount} × ${horizontal.component} horizontal (esperado ${horizontal.count})`);
+  }
+  return hits;
+}
+
+/** Componente com `Modal` e campo que já cuida do teclado (padrão da 13.3 ou pendente com motivo). */
+function isSelfManagedModal(relPath: string): boolean {
+  return MODAL_FORMS.includes(relPath) || relPath in MODAL_PENDING;
 }
 
 // ─── Arquivos ────────────────────────────────────────────────────────────────
@@ -293,13 +466,13 @@ function resolveComponent(fromFile: string, spec: string): string | null {
 }
 
 /**
- * Componente importado com campo que não cuida do teclado sozinho (sem
- * `Modal`/`KeyboardSafeView`), ou da lista INLINE_FIELD_COMPONENTS.
+ * Componente importado com campo que não cuida do teclado sozinho (fora de
+ * MODAL_FORMS e MODAL_PENDING), ou da lista INLINE_FIELD_COMPONENTS.
  */
 function componentHasInlineField(file: string): boolean {
   if (INLINE_FIELD_COMPONENTS.includes(rel(file))) return true;
   const dep = fs.readFileSync(file, "utf8");
-  return hasField(dep) && !SELF_MANAGED.test(stripComments(dep));
+  return hasField(dep) && !isSelfManagedModal(rel(file));
 }
 
 /** A rota tem campo próprio, ou importa (um nível) um componente com campo inline. */
@@ -380,6 +553,46 @@ describe("rolagem padrão das telas com campo (Story 13.2)", () => {
     for (const file of Object.keys(DISCOVERY_EXCEPTIONS)) {
       expect(fs.existsSync(path.join(ROOT, file)), file).toBe(true);
       expect(routeHasField(path.join(ROOT, file)), file).toBe(true);
+    }
+  });
+});
+
+describe("modais com formulário (Story 13.3)", () => {
+  const files: string[] = [];
+  for (const dir of ["app", "src", "components"]) collect(path.join(ROOT, dir), files);
+
+  it("encontra o KeyboardSheet, os modais da lista e os pendentes", () => {
+    for (const file of [KEYBOARD_SHEET, ...MODAL_FORMS, ...Object.keys(MODAL_PENDING)]) {
+      expect(fs.existsSync(path.join(ROOT, file)), file).toBe(true);
+    }
+    for (const file of Object.keys(MODAL_HORIZONTAL_SCROLLS)) expect(MODAL_FORMS, file).toContain(file);
+  });
+
+  it.each(MODAL_FORMS)("%s usa o KeyboardSheet com footer, sem segunda compensação nem rolagem vertical crua", (file) => {
+    expect(modalFormViolations(read(file), MODAL_HORIZONTAL_SCROLLS[file])).toEqual([]);
+  });
+
+  it("só o KeyboardSheet renderiza o KeyboardSafeView", () => {
+    const hits = files
+      .filter((f) => rel(f) !== KEYBOARD_SHEET)
+      .filter((f) => rendersKeyboardSafeView(fs.readFileSync(f, "utf8")))
+      .map(rel);
+    expect(hits).toEqual([]);
+    expect(rendersKeyboardSafeView(read(KEYBOARD_SHEET))).toBe(true);
+  });
+
+  it("todo componente com <Modal e campo está em MODAL_FORMS ou MODAL_PENDING", () => {
+    const missing = files
+      .filter((f) => hasModalWithField(fs.readFileSync(f, "utf8")))
+      .map(rel)
+      .filter((f) => !isSelfManagedModal(f));
+    expect(missing).toEqual([]);
+  });
+
+  it("os pendentes ainda têm <Modal e campo (a 13.4 esvazia a lista)", () => {
+    for (const file of Object.keys(MODAL_PENDING)) {
+      expect(hasModalWithField(read(file)), file).toBe(true);
+      expect(MODAL_FORMS, file).not.toContain(file);
     }
   });
 });
@@ -513,5 +726,85 @@ describe("auto-teste dos detectores", () => {
     expect(a).toEqual({ module: "react", named: ["useState"], namespace: null, defaultName: "React" });
     expect(b).toEqual({ module: "react-native", named: [], namespace: "RN", defaultName: null });
     expect(c).toEqual({ module: "d", named: [], namespace: null, defaultName: "Def" });
+  });
+  describe("modais com formulário (Story 13.3)", () => {
+    const imp = `import { KeyboardSheet } from "@/src/components/shared/KeyboardSheet";\n`;
+    const ok = `${imp}return (\n  <Modal visible transparent>\n    <View>\n      <KeyboardSheet\n        header={<Text>Título</Text>}\n        footer={<TButton onPress={() => save()}>Salvar</TButton>}\n      >\n        <TInput />\n      </KeyboardSheet>\n    </View>\n  </Modal>\n);`;
+    const horizontal = { component: "ScrollView", count: 1 };
+
+    it("aceita o padrão", () => {
+      expect(modalFormViolations(ok)).toEqual([]);
+    });
+
+    it("acusa KeyboardSheet fora de Modal", () => {
+      const code = `${imp}return (\n  <View>\n    <KeyboardSheet header={null} footer={<B />}><TInput /></KeyboardSheet>\n  </View>\n);`;
+      expect(modalFormViolations(code)).toContain("KeyboardSheet fora de Modal");
+    });
+
+    it("acusa modal sem KeyboardSheet ou sem o import", () => {
+      const none = `return <Modal visible><TInput /></Modal>;`;
+      expect(modalFormViolations(none)).toContain("0 × <KeyboardSheet (esperado 1)");
+      expect(modalFormViolations(ok.replace(imp, ""))).toContain(
+        "não importa KeyboardSheet de @/src/components/shared/KeyboardSheet",
+      );
+    });
+
+    it("acusa KeyboardSheet sem footer", () => {
+      const code = ok.replace("footer={<TButton onPress={() => save()}>Salvar</TButton>}", "");
+      expect(modalFormViolations(code)).toContain("KeyboardSheet sem footer=");
+      // footer só dentro de um filho não conta
+      const nested = ok.replace("footer={", "header2={<X footer={1} />} data-x={");
+      expect(modalFormViolations(nested)).toContain("KeyboardSheet sem footer=");
+    });
+
+    it("acusa KeyboardAwareScrollViewCompat dentro do modal", () => {
+      const code = ok.replace("<TInput />", "<KeyboardAwareScrollViewCompat><TInput /></KeyboardAwareScrollViewCompat>");
+      expect(modalFormViolations(code)).toContain("<KeyboardAwareScrollViewCompat");
+    });
+
+    it.each(["KeyboardSafeView", "KeyboardAvoidingView", "KeyboardStickyView", "KeyboardAwareScrollView"])(
+      "acusa %s junto do KeyboardSheet",
+      (name) => {
+        expect(modalFormViolations(ok.replace("<TInput />", `<${name}><TInput /></${name}>`))).toContain(`<${name}`);
+        expect(modalFormViolations(`import { ${name} } from "react-native";\n${ok}`)).toContain(`import ${name}`);
+      },
+    );
+
+    it("acusa ScrollView vertical; o horizontal da exceção passa", () => {
+      const vertical = ok.replace("<TInput />", "<ScrollView><TInput /></ScrollView>");
+      expect(modalFormViolations(vertical)).toContain("ScrollView vertical");
+      const flat = ok.replace("<TInput />", "<RN.FlatList data={d} />");
+      expect(modalFormViolations(flat)).toContain("FlatList vertical");
+      const off = ok.replace("<TInput />", "<ScrollView horizontal={false} />");
+      expect(modalFormViolations(off, horizontal)).toContain("ScrollView vertical");
+      const h = ok.replace("<TInput />", "<ScrollView horizontal showsHorizontalScrollIndicator={false}>{x}</ScrollView>");
+      expect(modalFormViolations(h, horizontal)).toEqual([]);
+      expect(modalFormViolations(h.replace("horizontal ", "horizontal={true} "), horizontal)).toEqual([]);
+      expect(modalFormViolations(h)).toContain("ScrollView horizontal fora da exceção");
+      expect(modalFormViolations(ok, horizontal)).toContain("0 × ScrollView horizontal (esperado 1)");
+    });
+
+    it("detecta <KeyboardSafeView num arquivo", () => {
+      expect(rendersKeyboardSafeView(`return <KeyboardSafeView style={s}>{x}</KeyboardSafeView>;`)).toBe(true);
+      expect(rendersKeyboardSafeView(`return (\n  <Shared.KeyboardSafeView />\n);`)).toBe(true);
+      expect(rendersKeyboardSafeView(`import { KeyboardSafeView } from "./KeyboardSafeView";`)).toBe(false);
+      expect(rendersKeyboardSafeView(`// <KeyboardSafeView />`)).toBe(false);
+    });
+
+    it("detecta <Modal com campo e decide se está nas listas", () => {
+      expect(hasModalWithField(`return <Modal visible><TInput value={v} /></Modal>;`)).toBe(true);
+      expect(hasModalWithField(`return <Modal visible><Text>oi</Text></Modal>;`)).toBe(false);
+      expect(hasModalWithField(`return <TInput value={v} />;`)).toBe(false);
+      expect(hasModalWithField(`return <CategoryPickerModal visible />;\nreturn <TInput />;`)).toBe(false);
+      expect(isSelfManagedModal("src/components/novo/NovoModal.tsx")).toBe(false);
+      expect(isSelfManagedModal(MODAL_FORMS[0])).toBe(true);
+      expect(isSelfManagedModal("app/sync.tsx")).toBe(true);
+    });
+
+    it("jsxOpeningTags lê só o nível de cima da tag", () => {
+      const [tag] = jsxOpeningTags(`<KeyboardSheet a="x>y" footer={<B onPress={() => go()} />} h={a > b} n>{c}</KeyboardSheet>`, "KeyboardSheet");
+      expect(tag).toBe(` a="x>y" footer={} h={} n`);
+      expect(jsxOpeningTags(`<ScrollView horizontal={true}/>`, "ScrollView")).toEqual([` horizontal={true}/`]);
+    });
   });
 });

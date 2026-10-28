@@ -10,8 +10,7 @@ import {
   Modal,
   Animated,
 } from "react-native";
-import { KeyboardSafeView } from "@/src/components/shared/KeyboardSafeView";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardSheet } from "@/src/components/shared/KeyboardSheet";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { createAccountEvent, updateAccountEvent, deleteAccountEvent } from "@packages/domain/src/accounts";
@@ -44,7 +43,6 @@ export function AccountFormModal({
   dispatchDomainEvent,
   onClose,
 }: AccountFormModalProps) {
-  const insets = useSafeAreaInsets();
   const [name, setName] = useState("");
   const [accType, setAccType] = useState<AccountType>("checking");
   const [balance, setBalance] = useState("");
@@ -237,307 +235,303 @@ export function AccountFormModal({
           />
         </Animated.View>
 
-        <KeyboardSafeView
-          style={s.modalRoot}
+        <KeyboardSheet
+          sheetStyle={[
+            s.modalContent,
+            {
+              backgroundColor: theme.cardBackground,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+          maxHeightRatio={0.9}
+          basePaddingBottom={24}
+          header={
+            <>
+              <View style={[s.handle, { backgroundColor: theme.border }]} />
+
+              <View style={s.modalHeader}>
+                <Text style={[s.modalTitle, { color: theme.textColor }]}>
+                  {editingAccount ? "Editar conta" : "Nova conta"}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    soundManager.play("tap");
+                    closeModal();
+                  }}
+                  hitSlop={12}
+                >
+                  <Feather name="x" size={22} color={theme.secondaryText} />
+                </Pressable>
+              </View>
+            </>
+          }
+          footer={
+            <TButton
+              variant="primary"
+              backgroundColor={theme.primaryColor}
+              icon={<Feather name="check" size={18} color="#FFF" />}
+              onPress={handleSaveAccount}
+            >
+              {editingAccount ? "Salvar" : "Criar conta"}
+            </TButton>
+          }
         >
-          <View style={s.flex} pointerEvents="none" />
-          <Animated.View
-            style={[
-              s.modalContent,
-              {
-                backgroundColor: theme.cardBackground,
-                transform: [{ translateY: slideAnim }],
-                paddingBottom: Math.max(insets.bottom, 24),
-              },
-            ]}
-          >
-            <View style={[s.handle, { backgroundColor: theme.border }]} />
+          <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Nome</Text>
+          <TInput
+            value={name}
+            onChangeText={setName}
+            placeholder="Ex: Nubank"
+            color={theme.textColor}
+            backgroundColor={theme.cardBackground}
+            borderColor={theme.border}
+          />
 
-            <View style={s.modalHeader}>
-              <Text style={[s.modalTitle, { color: theme.textColor }]}>
-                {editingAccount ? "Editar conta" : "Nova conta"}
-              </Text>
-              <Pressable
-                onPress={() => {
-                  soundManager.play("tap");
-                  closeModal();
-                }}
-                hitSlop={12}
-              >
-                <Feather name="x" size={22} color={theme.secondaryText} />
-              </Pressable>
-            </View>
+          <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Tipo</Text>
+          <View style={s.typePicker}>
+            {ACCOUNT_TYPES.map((t) => {
+              const selected = accType === t.key;
+              return (
+                <Pressable
+                  key={t.key}
+                  style={[
+                    s.typeChip,
+                    selected
+                      ? { backgroundColor: t.color, borderColor: t.color }
+                      : { backgroundColor: t.color + "18", borderColor: t.color + "60" },
+                  ]}
+                  onPress={() => {
+                    soundManager.play("tap");
+                    setAccType(t.key);
+                  }}
+                >
+                  <Feather name={t.icon as any} size={13} color={selected ? "#FFF" : t.color} />
+                  <Text style={[s.typeChipText, { color: selected ? "#FFF" : t.color }]}>{t.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Nome</Text>
+          {accType !== "credit_card" ? (
+            <>
+              <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Saldo inicial (R$)</Text>
               <TInput
-                value={name}
-                onChangeText={setName}
-                placeholder="Ex: Nubank"
+                value={balance}
+                onChangeText={setBalance}
+                placeholder="0,00"
+                keyboardType="decimal-pad"
                 color={theme.textColor}
                 backgroundColor={theme.cardBackground}
                 borderColor={theme.border}
               />
+            </>
+          ) : (
+            <>
+              <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Limite do cartão (R$)</Text>
+              <TInput
+                value={creditLimit}
+                onChangeText={setCreditLimit}
+                placeholder="5000,00"
+                keyboardType="decimal-pad"
+                color={theme.textColor}
+                backgroundColor={theme.cardBackground}
+                borderColor={theme.border}
+              />
+              <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Dia de fechamento (ex: 10)</Text>
+              <TInput
+                value={closingDay}
+                onChangeText={setClosingDay}
+                placeholder="10"
+                keyboardType="number-pad"
+                color={theme.textColor}
+                backgroundColor={theme.cardBackground}
+                borderColor={theme.border}
+              />
+              <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Dia de vencimento (ex: 15)</Text>
+              <TInput
+                value={dueDay}
+                onChangeText={setDueDay}
+                placeholder="15"
+                keyboardType="number-pad"
+                color={theme.textColor}
+                backgroundColor={theme.cardBackground}
+                borderColor={theme.border}
+              />
+            </>
+          )}
 
-              <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Tipo</Text>
-              <View style={s.typePicker}>
-                {ACCOUNT_TYPES.map((t) => {
-                  const selected = accType === t.key;
-                  return (
-                    <Pressable
-                      key={t.key}
-                      style={[
-                        s.typeChip,
-                        selected
-                          ? { backgroundColor: t.color, borderColor: t.color }
-                          : { backgroundColor: t.color + "18", borderColor: t.color + "60" },
-                      ]}
-                      onPress={() => {
-                        soundManager.play("tap");
-                        setAccType(t.key);
-                      }}
-                    >
-                      <Feather name={t.icon as any} size={13} color={selected ? "#FFF" : t.color} />
-                      <Text style={[s.typeChipText, { color: selected ? "#FFF" : t.color }]}>{t.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+          {accType === "savings" && (
+            <SavingsGoalSection
+              theme={theme}
+              savingsGoalEnabled={savingsGoalEnabled}
+              onToggle={setSavingsGoalEnabled}
+              savingsRecurrence={savingsRecurrence}
+              onRecurrenceChange={setSavingsRecurrence}
+              savingsContribution={savingsContribution}
+              onContributionChange={setSavingsContribution}
+              contributionDay={contributionDay}
+              onContributionDayChange={setContributionDay}
+              editingAccountId={editingAccount?.id ?? null}
+              linkedWishlistItems={linkedWishlistItems}
+              editingAccountBalance={editingAccount?.balance ?? 0}
+            />
+          )}
 
-              {accType !== "credit_card" ? (
-                <>
-                  <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Saldo inicial (R$)</Text>
-                  <TInput
-                    value={balance}
-                    onChangeText={setBalance}
-                    placeholder="0,00"
-                    keyboardType="decimal-pad"
-                    color={theme.textColor}
-                    backgroundColor={theme.cardBackground}
-                    borderColor={theme.border}
-                  />
-                </>
-              ) : (
-                <>
-                  <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Limite do cartão (R$)</Text>
-                  <TInput
-                    value={creditLimit}
-                    onChangeText={setCreditLimit}
-                    placeholder="5000,00"
-                    keyboardType="decimal-pad"
-                    color={theme.textColor}
-                    backgroundColor={theme.cardBackground}
-                    borderColor={theme.border}
-                  />
-                  <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Dia de fechamento (ex: 10)</Text>
-                  <TInput
-                    value={closingDay}
-                    onChangeText={setClosingDay}
-                    placeholder="10"
-                    keyboardType="number-pad"
-                    color={theme.textColor}
-                    backgroundColor={theme.cardBackground}
-                    borderColor={theme.border}
-                  />
-                  <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>Dia de vencimento (ex: 15)</Text>
-                  <TInput
-                    value={dueDay}
-                    onChangeText={setDueDay}
-                    placeholder="15"
-                    keyboardType="number-pad"
-                    color={theme.textColor}
-                    backgroundColor={theme.cardBackground}
-                    borderColor={theme.border}
-                  />
-                </>
-              )}
-
-              {accType === "savings" && (
-                <SavingsGoalSection
-                  theme={theme}
-                  savingsGoalEnabled={savingsGoalEnabled}
-                  onToggle={setSavingsGoalEnabled}
-                  savingsRecurrence={savingsRecurrence}
-                  onRecurrenceChange={setSavingsRecurrence}
-                  savingsContribution={savingsContribution}
-                  onContributionChange={setSavingsContribution}
-                  contributionDay={contributionDay}
-                  onContributionDayChange={setContributionDay}
-                  editingAccountId={editingAccount?.id ?? null}
-                  linkedWishlistItems={linkedWishlistItems}
-                  editingAccountBalance={editingAccount?.balance ?? 0}
-                />
-              )}
-
-              {accType === "savings" && (() => {
-                const creditCards = (Object.values(domain.accounts) as AccountPayload[]).filter(
-                  (a) => a.type === "credit_card",
-                );
-                if (creditCards.length === 0) return null;
-                return (
-                  <View style={{ marginTop: 8 }}>
-                    <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
-                      Vincular como CDB ao cartão
+          {accType === "savings" && (() => {
+            const creditCards = (Object.values(domain.accounts) as AccountPayload[]).filter(
+              (a) => a.type === "credit_card",
+            );
+            if (creditCards.length === 0) return null;
+            return (
+              <View style={{ marginTop: 8 }}>
+                <Text style={[s.fieldLabel, { color: theme.secondaryText }]}>
+                  Vincular como CDB ao cartão
+                </Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
+                  <Pressable
+                    style={[
+                      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+                      {
+                        backgroundColor: !linkedCreditCardId ? `${theme.primaryColor}18` : theme.cardBackground,
+                        borderColor: !linkedCreditCardId ? theme.primaryColor : theme.border,
+                      },
+                    ]}
+                    onPress={() => setLinkedCreditCardId(undefined)}
+                  >
+                    <Text style={{ color: !linkedCreditCardId ? theme.primaryColor : theme.secondaryText, fontSize: 13 }}>
+                      Nenhum
                     </Text>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
+                  </Pressable>
+                  {creditCards.map((card) => {
+                    const active = linkedCreditCardId === card.id;
+                    return (
                       <Pressable
+                        key={card.id}
                         style={[
                           { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
                           {
-                            backgroundColor: !linkedCreditCardId ? `${theme.primaryColor}18` : theme.cardBackground,
-                            borderColor: !linkedCreditCardId ? theme.primaryColor : theme.border,
+                            backgroundColor: active ? `${theme.primaryColor}18` : theme.cardBackground,
+                            borderColor: active ? theme.primaryColor : theme.border,
                           },
                         ]}
-                        onPress={() => setLinkedCreditCardId(undefined)}
+                        onPress={() => setLinkedCreditCardId(active ? undefined : card.id)}
                       >
-                        <Text style={{ color: !linkedCreditCardId ? theme.primaryColor : theme.secondaryText, fontSize: 13 }}>
-                          Nenhum
+                        <Text style={{ color: active ? theme.primaryColor : theme.textColor, fontSize: 13 }}>
+                          {card.name}
                         </Text>
                       </Pressable>
-                      {creditCards.map((card) => {
-                        const active = linkedCreditCardId === card.id;
-                        return (
-                          <Pressable
-                            key={card.id}
-                            style={[
-                              { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
-                              {
-                                backgroundColor: active ? `${theme.primaryColor}18` : theme.cardBackground,
-                                borderColor: active ? theme.primaryColor : theme.border,
-                              },
-                            ]}
-                            onPress={() => setLinkedCreditCardId(active ? undefined : card.id)}
-                          >
-                            <Text style={{ color: active ? theme.primaryColor : theme.textColor, fontSize: 13 }}>
-                              {card.name}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </View>
-                );
-              })()}
-
-              <View style={{ marginTop: 16, marginBottom: 8 }}>
-                <TButton
-                  variant="primary"
-                  backgroundColor={theme.primaryColor}
-                  icon={<Feather name="check" size={18} color="#FFF" />}
-                  onPress={handleSaveAccount}
-                >
-                  {editingAccount ? "Salvar" : "Criar conta"}
-                </TButton>
-              </View>
-
-              {editingAccount && (
-                <View style={{ marginBottom: 8 }}>
-                  <TButton
-                    variant="danger"
-                    backgroundColor={theme.danger ?? "#DC2626"}
-                    icon={<Feather name="trash-2" size={15} color="#FFF" />}
-                    onPress={() => {
-                      soundManager.play("tap");
-                      setTransferAccountId(null);
-                      setShowDeleteConfirm(true);
-                    }}
-                  >
-                    Excluir conta
-                  </TButton>
+                    );
+                  })}
                 </View>
-              )}
-            </ScrollView>
+              </View>
+            );
+          })()}
 
-            {/* Delete confirmation modal */}
-            <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
-              <View style={s.deleteOverlay}>
-                <View style={[s.deleteCard, { backgroundColor: theme.cardBackground }]}>
-                  <Feather name="alert-triangle" size={36} color="#DC2626" style={{ alignSelf: "center" }} />
-                  <Text style={[s.deleteTitle, { color: theme.textColor }]}>
-                    Excluir &quot;{editingAccount?.name}&quot;?
+          {editingAccount && (
+            <View style={{ marginTop: 16, marginBottom: 8 }}>
+              <TButton
+                variant="danger"
+                backgroundColor={theme.danger ?? "#DC2626"}
+                icon={<Feather name="trash-2" size={15} color="#FFF" />}
+                onPress={() => {
+                  soundManager.play("tap");
+                  setTransferAccountId(null);
+                  setShowDeleteConfirm(true);
+                }}
+              >
+                Excluir conta
+              </TButton>
+            </View>
+          )}
+        </KeyboardSheet>
+
+        {/* Delete confirmation modal */}
+        <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
+          <View style={s.deleteOverlay}>
+            <View style={[s.deleteCard, { backgroundColor: theme.cardBackground }]}>
+              <Feather name="alert-triangle" size={36} color="#DC2626" style={{ alignSelf: "center" }} />
+              <Text style={[s.deleteTitle, { color: theme.textColor }]}>
+                Excluir &quot;{editingAccount?.name}&quot;?
+              </Text>
+
+              {accountTransactions.length > 0 ? (
+                <>
+                  <Text style={[s.deleteDesc, { color: theme.secondaryText }]}>
+                    Esta conta possui {accountTransactions.length} transaç{accountTransactions.length === 1 ? "ão" : "ões"}.
+                    Você pode transferi-las para outra conta ou perder todos os dados.
                   </Text>
 
-                  {accountTransactions.length > 0 ? (
-                    <>
-                      <Text style={[s.deleteDesc, { color: theme.secondaryText }]}>
-                        Esta conta possui {accountTransactions.length} transaç{accountTransactions.length === 1 ? "ão" : "ões"}.
-                        Você pode transferi-las para outra conta ou perder todos os dados.
-                      </Text>
+                  <Text style={[s.deleteFieldLabel, { color: theme.secondaryText }]}>
+                    Transferir transações para:
+                  </Text>
 
-                      <Text style={[s.deleteFieldLabel, { color: theme.secondaryText }]}>
-                        Transferir transações para:
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.deleteAccountScroll}>
+                    <Pressable
+                      style={[
+                        s.deleteAccountChip,
+                        {
+                          backgroundColor: transferAccountId === null ? "#DC262620" : theme.background,
+                          borderColor: transferAccountId === null ? "#DC2626" : theme.border,
+                        },
+                      ]}
+                      onPress={() => { soundManager.play("tap"); setTransferAccountId(null); }}
+                    >
+                      <Feather name="x" size={12} color={transferAccountId === null ? "#DC2626" : theme.secondaryText} />
+                      <Text style={{ color: transferAccountId === null ? "#DC2626" : theme.secondaryText, fontFamily: "DMSans_600SemiBold", fontSize: 12 }}>
+                        Não transferir (perder dados)
                       </Text>
-
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.deleteAccountScroll}>
+                    </Pressable>
+                    {otherAccounts.map((acc) => {
+                      const selected = transferAccountId === acc.id;
+                      return (
                         <Pressable
+                          key={acc.id}
                           style={[
                             s.deleteAccountChip,
                             {
-                              backgroundColor: transferAccountId === null ? "#DC262620" : theme.background,
-                              borderColor: transferAccountId === null ? "#DC2626" : theme.border,
+                              backgroundColor: selected ? (acc.color ?? theme.primaryColor) + "20" : theme.background,
+                              borderColor: selected ? (acc.color ?? theme.primaryColor) : theme.border,
                             },
                           ]}
-                          onPress={() => { soundManager.play("tap"); setTransferAccountId(null); }}
+                          onPress={() => { soundManager.play("tap"); setTransferAccountId(acc.id); }}
                         >
-                          <Feather name="x" size={12} color={transferAccountId === null ? "#DC2626" : theme.secondaryText} />
-                          <Text style={{ color: transferAccountId === null ? "#DC2626" : theme.secondaryText, fontFamily: "DMSans_600SemiBold", fontSize: 12 }}>
-                            Não transferir (perder dados)
+                          <Feather name="credit-card" size={12} color={selected ? (acc.color ?? theme.primaryColor) : theme.secondaryText} />
+                          <Text style={{ color: selected ? (acc.color ?? theme.primaryColor) : theme.textColor, fontFamily: "DMSans_600SemiBold", fontSize: 12 }}>
+                            {acc.name}
                           </Text>
                         </Pressable>
-                        {otherAccounts.map((acc) => {
-                          const selected = transferAccountId === acc.id;
-                          return (
-                            <Pressable
-                              key={acc.id}
-                              style={[
-                                s.deleteAccountChip,
-                                {
-                                  backgroundColor: selected ? (acc.color ?? theme.primaryColor) + "20" : theme.background,
-                                  borderColor: selected ? (acc.color ?? theme.primaryColor) : theme.border,
-                                },
-                              ]}
-                              onPress={() => { soundManager.play("tap"); setTransferAccountId(acc.id); }}
-                            >
-                              <Feather name="credit-card" size={12} color={selected ? (acc.color ?? theme.primaryColor) : theme.secondaryText} />
-                              <Text style={{ color: selected ? (acc.color ?? theme.primaryColor) : theme.textColor, fontFamily: "DMSans_600SemiBold", fontSize: 12 }}>
-                                {acc.name}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </ScrollView>
-                    </>
-                  ) : (
-                    <Text style={[s.deleteDesc, { color: theme.secondaryText }]}>
-                      Esta conta não possui transações. Ela será excluída permanentemente.
-                    </Text>
-                  )}
+                      );
+                    })}
+                  </ScrollView>
+                </>
+              ) : (
+                <Text style={[s.deleteDesc, { color: theme.secondaryText }]}>
+                  Esta conta não possui transações. Ela será excluída permanentemente.
+                </Text>
+              )}
 
-                  <View style={s.deleteActions}>
-                    <TButton
-                      variant="outline"
-                      flex={1}
-                      borderColor={theme.border}
-                      color={theme.textColor}
-                      onPress={() => { soundManager.play("tap"); setShowDeleteConfirm(false); }}
-                    >
-                      Cancelar
-                    </TButton>
-                    <TButton
-                      variant="danger"
-                      flex={1}
-                      backgroundColor={theme.danger ?? "#DC2626"}
-                      icon={<Feather name="trash-2" size={14} color="#FFF" />}
-                      onPress={handleDeleteAccount}
-                    >
-                      {transferAccountId ? "Transferir e excluir" : "Excluir"}
-                    </TButton>
-                  </View>
-                </View>
+              <View style={s.deleteActions}>
+                <TButton
+                  variant="outline"
+                  flex={1}
+                  borderColor={theme.border}
+                  color={theme.textColor}
+                  onPress={() => { soundManager.play("tap"); setShowDeleteConfirm(false); }}
+                >
+                  Cancelar
+                </TButton>
+                <TButton
+                  variant="danger"
+                  flex={1}
+                  backgroundColor={theme.danger ?? "#DC2626"}
+                  icon={<Feather name="trash-2" size={14} color="#FFF" />}
+                  onPress={handleDeleteAccount}
+                >
+                  {transferAccountId ? "Transferir e excluir" : "Excluir"}
+                </TButton>
               </View>
-            </Modal>
-          </Animated.View>
-        </KeyboardSafeView>
+            </View>
+          </View>
+        </Modal>
       </View>
       {/* Alerta customizado por cima deste Modal (ver src/services/appAlert.ts) */}
       <AppAlertHost />
@@ -737,7 +731,7 @@ const s = StyleSheet.create({
   modalRoot: { flex: 1, justifyContent: "flex-end" },
   flex: { flex: 1 },
   modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
-  modalContent: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, maxHeight: "90%", width: "100%" },
+  modalContent: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, width: "100%" },
   handle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 16 },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   modalTitle: { fontFamily: "DMSans_700Bold", fontSize: 20 },

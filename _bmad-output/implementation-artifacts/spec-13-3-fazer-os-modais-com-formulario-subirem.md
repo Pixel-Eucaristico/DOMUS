@@ -195,17 +195,17 @@ Estrutura:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `keyboardSheetLayout.ts` e testes:
+- [x] `keyboardSheetLayout.ts` e testes:
   - `keyboardLift`: teclado 0 dá 0; desconto maior que o teclado dá 0; valores negativos, `NaN` e `Infinity` dão 0; a curva é contínua e monótona.
   - `computeKeyboardSheetLayout`: retrato 412×900 com teclado de 320; paisagem 800×360 com teclado de 200 (`footerPinned = false`); limite exato de 48; teclado fechado sempre com `footerPinned = true` e `lift = 0`.
   - `computeFocusScrollDelta`: campo abaixo, acima, já visível, maior que a área; a folga é respeitada.
-- [ ] `MIN_FIELD_SPACE` em `keyboardScrollDefaults.ts`, reexportado pelo `parsedFooterLayout.ts`; os testes da 13.2 continuam passando sem mudança.
-- [ ] `KeyboardSafeView` com `liftDiscount` (opcional; sem a prop, igual a hoje)
-- [ ] `KeyboardSheet` conforme o padrão; rodapé no lugar decidido por `footerPinned` (D-3)
-- [ ] Os quatro modais com o `KeyboardSheet` e o botão principal no `footer` (D-1); fundo, animação, `AppAlertHost` e modais aninhados como estão
-- [ ] Guarda (`keyboardScroll.test.ts`, bloco novo; ver "Guarda")
-- [ ] Playwright no build web (ver Verification)
-- [ ] Itens desta story na checklist da Story 13.7 (ver Verification)
+- [x] `MIN_FIELD_SPACE` em `keyboardScrollDefaults.ts`, reexportado pelo `parsedFooterLayout.ts`; os testes da 13.2 continuam passando sem mudança.
+- [x] `KeyboardSafeView` com `liftDiscount` (opcional; sem a prop, igual a hoje)
+- [x] `KeyboardSheet` conforme o padrão; rodapé no lugar decidido por `footerPinned` (D-3)
+- [x] Os quatro modais com o `KeyboardSheet` e o botão principal no `footer` (D-1); fundo, animação, `AppAlertHost` e modais aninhados como estão
+- [x] Guarda (`keyboardScroll.test.ts`, bloco novo; ver "Guarda")
+- [x] Playwright no build web (ver Verification)
+- [x] Itens desta story na checklist da Story 13.7 (ver Verification)
 
 **Guarda: como a 13.3 aperta o `SELF_MANAGED` (só nestes arquivos)**
 
@@ -282,3 +282,28 @@ Estrutura:
 13. Se houver aparelho com Android 7 a 10, repetir 1, 5 e 7 (no Android < 12 os eventos vêm da janela principal).
 
 ## Implementation Notes
+
+**Arquivos**
+- Novos: `src/components/shared/KeyboardSheet.tsx`, `src/components/shared/keyboardSheetLayout.ts`, `src/components/shared/__tests__/keyboardSheetLayout.test.ts`.
+- Alterados: `src/components/shared/KeyboardSafeView.tsx` (`liftDiscount` e espaçador por `keyboardLift`), `components/keyboardScrollDefaults.ts` (recebe `MIN_FIELD_SPACE`), `src/components/invoice/parsedFooterLayout.ts` (reexporta; teste da 13.2 sem mudança), os quatro modais (`TransactionBottomSheet`, `AccountFormModal`, `CreateListModal`, `AddItemModal`) e `src/components/__tests__/keyboardScroll.test.ts` (bloco "modais com formulário (Story 13.3)" e auto-testes).
+- Os modais só trocaram o contêiner: `header` (alça/título/fechar), campos como `children`, botão principal no `footer`. Fundo `absoluteFillObject`, animação de entrada/saída, `AppAlertHost`, `return null` da nova transação e modais aninhados (`WishlistSearchWebView`, `SelectionModal`, `StoreGridModal`, `CategoryPickerModal`, diálogo de excluir conta) ficaram como estavam. "Excluir conta" ficou no fim da rolagem; "Cancelar" foi junto com o botão principal no rodapé em `CreateListModal` e `AddItemModal` (era a mesma linha de ações).
+
+**Testes**
+- `keyboardSheetLayout.test.ts`: 27 testes (`keyboardLift`, `computeKeyboardSheetLayout` com retrato 412×900/teclado 320, paisagem 800×360/teclado 200, limite exato 48/47, teclado fechado; `computeFocusScrollDelta`).
+- `keyboardScroll.test.ts`: de 74 para 95 testes (bloco da 13.3 + auto-testes dos detectores).
+- Suite: 94 arquivos, 1901 testes, todos passando (baseline 93/1853). `npx tsc --noEmit`: 0 erros. `npx eslint` nos arquivos tocados: sem avisos. `npx expo export --platform web`: exit 0.
+- Sondas da guarda (arquivos temporários, revertidos): `<KeyboardSafeView` direto no `CreateListModal` (acusado no bloco do modal e em "só o KeyboardSheet renderiza o KeyboardSafeView"); `KeyboardAwareScrollViewCompat` no `AddItemModal`; `ScrollView` vertical no `CreateListModal` ("ScrollView vertical"); `KeyboardSheet` sem `footer` no `AccountFormModal`; `ProbeModal.tsx` novo com `<Modal` + `TInput` ("todo componente com <Modal e campo…"). Todas acusadas.
+- Sonda da função pura: `footerPinned = true` fixo faz falhar "paisagem 800×360" e "limite exato".
+- Playwright (Chromium headless, build exportado, 412×900 e 800×360): nova transação ("Salvar" visível sem rolar, foco em Valor e Descrição, toque em "Salvar" vazio mostra o `appAlert` "Valor inválido"), nova conta (cartão, depois poupança com objetivo; "Criar conta" visível; conta criada aparece), criar lista (campo com foco; "Criar Lista" visível; lista criada), adicionar item (nome e preço; "Adicionar à lista" visível; avançado + foco no NCM; item adicionado). Em todas: topo da folha ≥ 0, fundo da folha = fundo da janela (±1 px), sem erro de página e sem diálogo nativo.
+
+**Decisões além da spec**
+- `KeyboardSafeView` ganhou também a prop `pointerEvents`; o `KeyboardSheet` passa `"box-none"` na raiz, e o espaçador é `pointerEvents="none"`. Antes a raiz do `KeyboardSafeView` cobria a tela acima da folha e engolia o toque no fundo escuro (fechar tocando fora).
+- O ajuste até o campo usa o `useKeyboardState` (atualiza no `keyboardDidShow`, fim da animação) com um atraso de 60 ms para o espaçador e o Yoga assentarem, em vez de um segundo `useKeyboardHandler`: o `KeyboardSafeView` continua o único com handler. Só rola se o campo focado estiver dentro do conteúdo desta rolagem (campo de modal aninhado fica de fora).
+- `headerHeight` é medido como `y + height` do cabeçalho (inclui o `paddingTop` da folha).
+- `CreateListModal` não tinha `maxHeight`; passa `maxHeightRatio={1}` (a folha fica limitada só pela barra de status + `SHEET_TOP_GAP`).
+- Rodapé com `paddingTop: 12` no `KeyboardSheet`; saíram os `marginTop` dos botões e o `paddingBottom: 32` do corpo da nova transação.
+- Guarda: `horizontal={expressão}` ou `horizontal={false}` conta como rolagem vertical; só `horizontal` e `horizontal={true}` passam.
+
+**Checklist para a Story 13.7 (aparelho)**: os itens 1 a 13 da seção "Aparelho" acima, mais:
+14. Tocar no fundo escuro acima da folha fecha o modal (efeito do `pointerEvents="box-none"`), com e sem teclado aberto.
+15. Ao focar um campo no fim da nova transação, a rolagem leva o campo para cima do rodapé sem "pulo" duplo (ajuste do `KeyboardSheet` somado ao `requestChildFocus` nativo).

@@ -1,9 +1,9 @@
 // Rodapé da revisão da nota (ParsedScreen) que sobe com o teclado (Story 13.2,
 // D-1 a). Sem `react-native` aqui, para dar para testar no vitest.
-import { KEYBOARD_BOTTOM_OFFSET } from "@/components/keyboardScrollDefaults";
+import { KEYBOARD_BOTTOM_OFFSET, MIN_FIELD_SPACE } from "@/components/keyboardScrollDefaults";
 
 /** Espaço mínimo que sobra para o campo focado entre o topo da rolagem e o rodapé erguido. */
-export const MIN_FIELD_SPACE = 48;
+export { MIN_FIELD_SPACE };
 
 export interface ParsedFooterInput {
   /** Altura da janela (useWindowDimensions). */

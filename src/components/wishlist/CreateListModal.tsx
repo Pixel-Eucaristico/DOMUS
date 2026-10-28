@@ -7,9 +7,8 @@ import {
   Text,
   Pressable,
 } from "react-native";
-import { KeyboardSafeView } from "@/src/components/shared/KeyboardSafeView";
+import { KeyboardSheet } from "@/src/components/shared/KeyboardSheet";
 import { Feather } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
 import { soundManager } from "@/src/services/SoundManager";
 import { TButton, TInput } from "@/src/components/tamagui";
@@ -22,7 +21,6 @@ interface Props {
 }
 
 export function CreateListModal({ visible, theme, onConfirm, onCancel }: Props) {
-  const insets = useSafeAreaInsets();
   const [name, setName] = useState("");
   const isValid = name.trim().length >= 2;
 
@@ -78,40 +76,26 @@ export function CreateListModal({ visible, theme, onConfirm, onCancel }: Props) 
           <Pressable style={styles.flex} onPress={handleCancel} />
         </Animated.View>
 
-        <KeyboardSafeView
-          style={styles.kav}
-        >
-          <View style={styles.flex} pointerEvents="none" />
-          <Animated.View
-            style={[
-              styles.card,
-              {
-                backgroundColor: theme.background,
-                transform: [{ translateY: slideAnim }],
-                paddingBottom: Math.max(insets.bottom, 24),
-              },
-            ]}
-          >
-            <View style={[styles.handle, { backgroundColor: theme.border }]} />
-            
-            <Text style={[styles.title, { color: theme.textColor }]}>
-              Nova Lista de Desejos
-            </Text>
-            <Text style={[styles.label, { color: theme.secondaryText }]}>
-              Nome da lista
-            </Text>
-            <TInput
-              placeholder="Ex: Eletrônicos, Casa Nova..."
-              value={name}
-              onChangeText={setName}
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={handleConfirm}
-              maxLength={50}
-              color={theme.textColor}
-              backgroundColor={theme.cardBackground}
-              borderColor={theme.border}
-            />
+        <KeyboardSheet
+          sheetStyle={[
+            styles.card,
+            {
+              backgroundColor: theme.background,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+          maxHeightRatio={1}
+          basePaddingBottom={24}
+          contentContainerStyle={styles.body}
+          header={
+            <>
+              <View style={[styles.handle, { backgroundColor: theme.border }]} />
+              <Text style={[styles.title, { color: theme.textColor }]}>
+                Nova Lista de Desejos
+              </Text>
+            </>
+          }
+          footer={
             <View style={styles.actions}>
               <TButton
                 variant="outline"
@@ -133,8 +117,24 @@ export function CreateListModal({ visible, theme, onConfirm, onCancel }: Props) 
                 Criar Lista
               </TButton>
             </View>
-          </Animated.View>
-        </KeyboardSafeView>
+          }
+        >
+          <Text style={[styles.label, { color: theme.secondaryText }]}>
+            Nome da lista
+          </Text>
+          <TInput
+            placeholder="Ex: Eletrônicos, Casa Nova..."
+            value={name}
+            onChangeText={setName}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={handleConfirm}
+            maxLength={50}
+            color={theme.textColor}
+            backgroundColor={theme.cardBackground}
+            borderColor={theme.border}
+          />
+        </KeyboardSheet>
       </View>
     </Modal>
   );
@@ -154,20 +154,22 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     padding: 24,
-    gap: 12,
     width: "100%",
+  },
+  body: {
+    gap: 12,
   },
   handle: {
     width: 36,
     height: 4,
     borderRadius: 2,
     alignSelf: "center",
-    marginBottom: 12,
+    marginBottom: 24,
   },
   title: {
     fontSize: 18,
     fontFamily: "DMSans_700Bold",
-    marginBottom: 4,
+    marginBottom: 16,
   },
   label: {
     fontSize: 12,
@@ -178,6 +180,5 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 4,
   },
 });

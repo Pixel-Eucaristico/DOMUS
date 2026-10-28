@@ -11,9 +11,8 @@ import {
   Animated,
   Pressable,
 } from "react-native";
-import { KeyboardSafeView } from "@/src/components/shared/KeyboardSafeView";
+import { KeyboardSheet } from "@/src/components/shared/KeyboardSheet";
 import { Feather } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@packages/theme";
 import { URGENCY_ORDER } from "@packages/wishlist";
 import type { UrgencyLevel, WishlistItem } from "@packages/wishlist";
@@ -54,7 +53,6 @@ interface Props {
 }
 
 export function AddItemModal({ visible, listId, theme, accounts = [], editItem, onConfirm, onCancel }: Props) {
-  const insets = useSafeAreaInsets();
   const [storeGridVisible, setStoreGridVisible] = React.useState(false);
   const [catPickerVisible, setCatPickerVisible] = useState(false);
   const {
@@ -103,18 +101,17 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
           <Pressable style={s.flex} onPress={handleCancel} />
         </Animated.View>
 
-        <KeyboardSafeView style={s.kav}>
-          <View style={s.flex} pointerEvents="none" />
-          <Animated.View
-            style={[
-              s.card,
-              {
-                backgroundColor: theme.background,
-                transform: [{ translateY: slideAnim }],
-                paddingBottom: Math.max(insets.bottom, 20),
-              },
-            ]}
-          >
+        <KeyboardSheet
+          sheetStyle={[
+            s.card,
+            {
+              backgroundColor: theme.background,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+          maxHeightRatio={0.92}
+          basePaddingBottom={20}
+          header={
             <View style={s.headerRow}>
               <Text style={[s.title, { color: theme.textColor }]}>
                 {editItem ? "Editar Item" : "Adicionar Item"}
@@ -123,339 +120,337 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                 <Feather name="x" size={22} color={theme.secondaryText} />
               </TouchableOpacity>
             </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              {/* URL — oculto no modo kit */}
-              {!isBundleMode && (
-                <>
-                  <Text style={[s.label, { color: theme.secondaryText }]}>Link do produto (opcional)</Text>
-                  <View style={s.urlRow}>
-                    <TInput
-                      flex={1}
-                      placeholder="Cole o link ou use a lupa para pesquisar"
-                      value={form.url}
-                      onChangeText={(v) => updateField("url", v)}
-                      onBlur={handleUrlBlur}
-                      autoCapitalize="none"
-                      keyboardType="url"
-                      color={theme.textColor}
-                      backgroundColor={theme.cardBackground}
-                      borderColor={theme.border}
-                    />
-                    {hasUrl && (
-                      <TouchableOpacity style={s.clearBtn} onPress={() => { soundManager.play("tap"); clearUrl(); }} activeOpacity={0.7}>
-                        <Feather name="x" size={16} color={theme.secondaryText} />
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                      style={[s.scrapeBtn, { backgroundColor: hasUrl ? theme.primaryColor : theme.primaryColor + "CC" }]}
-                      onPress={() => { soundManager.play("pop"); handleSearchOrImport(); }}
-                      disabled={scraping}
-                      activeOpacity={0.7}
-                    >
-                      {scraping ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : hasUrl ? (
-                        <Feather name="download" size={16} color="#fff" />
-                      ) : (
-                        <Feather name="search" size={16} color="#fff" />
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                  <View style={s.affiliateNote}>
-                    <Feather name="heart" size={10} color={theme.secondaryText} />
-                    <Text style={[s.affiliateNoteText, { color: theme.secondaryText }]}>
-                      Links da Amazon são convertidos para afiliados — isso ajuda a manter o app gratuito
-                    </Text>
-                  </View>
-                </>
+          }
+          footer={
+            <View style={s.actions}>
+              <TButton
+                variant="outline"
+                flex={1}
+                borderColor={theme.border}
+                color={theme.textColor}
+                onPress={() => { soundManager.play("tap"); handleCancel(); }}
+              >
+                Cancelar
+              </TButton>
+              {isValid && (
+                <TButton
+                  variant="primary"
+                  flex={1}
+                  backgroundColor={theme.primaryColor}
+                  icon={<Feather name={editItem ? "check" : "plus"} size={16} color="#fff" />}
+                  onPress={() => { soundManager.play("success"); handleConfirm(); }}
+                >
+                  {editItem ? "Salvar alterações" : "Adicionar à lista"}
+                </TButton>
               )}
+            </View>
+          }
+        >
+          {/* URL — oculto no modo kit */}
+          {!isBundleMode && (
+            <>
+              <Text style={[s.label, { color: theme.secondaryText }]}>Link do produto (opcional)</Text>
+              <View style={s.urlRow}>
+                <TInput
+                  flex={1}
+                  placeholder="Cole o link ou use a lupa para pesquisar"
+                  value={form.url}
+                  onChangeText={(v) => updateField("url", v)}
+                  onBlur={handleUrlBlur}
+                  autoCapitalize="none"
+                  keyboardType="url"
+                  color={theme.textColor}
+                  backgroundColor={theme.cardBackground}
+                  borderColor={theme.border}
+                />
+                {hasUrl && (
+                  <TouchableOpacity style={s.clearBtn} onPress={() => { soundManager.play("tap"); clearUrl(); }} activeOpacity={0.7}>
+                    <Feather name="x" size={16} color={theme.secondaryText} />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[s.scrapeBtn, { backgroundColor: hasUrl ? theme.primaryColor : theme.primaryColor + "CC" }]}
+                  onPress={() => { soundManager.play("pop"); handleSearchOrImport(); }}
+                  disabled={scraping}
+                  activeOpacity={0.7}
+                >
+                  {scraping ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : hasUrl ? (
+                    <Feather name="download" size={16} color="#fff" />
+                  ) : (
+                    <Feather name="search" size={16} color="#fff" />
+                  )}
+                </TouchableOpacity>
+              </View>
+              <View style={s.affiliateNote}>
+                <Feather name="heart" size={10} color={theme.secondaryText} />
+                <Text style={[s.affiliateNoteText, { color: theme.secondaryText }]}>
+                  Links da Amazon são convertidos para afiliados — isso ajuda a manter o app gratuito
+                </Text>
+              </View>
+            </>
+          )}
 
-              {/* Name */}
-              <Text style={[s.label, { color: theme.secondaryText }]}>Nome *</Text>
+          {/* Name */}
+          <Text style={[s.label, { color: theme.secondaryText }]}>Nome *</Text>
+          <TInput
+            placeholder="Nome do produto..."
+            value={form.name}
+            onChangeText={(v) => updateField("name", v)}
+            maxLength={100}
+            color={theme.textColor}
+            backgroundColor={theme.cardBackground}
+            borderColor={theme.border}
+          />
+
+          {/* Urgency */}
+          <Text style={[s.label, { color: theme.secondaryText }]}>Urgência</Text>
+          <View style={s.urgencyRow}>
+            {URGENCY_ORDER.map((level) => {
+              const selected = form.urgencyLevel === level;
+              return (
+                <TouchableOpacity
+                  key={level}
+                  style={[s.urgencyChip, { backgroundColor: selected ? URGENCY_COLORS[level] : URGENCY_COLORS[level] + "20", borderColor: URGENCY_COLORS[level] }]}
+                  onPress={() => { soundManager.play("tap"); updateField("urgencyLevel", level); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[s.urgencyText, { color: selected ? "#fff" : URGENCY_COLORS[level] }]}>
+                    {URGENCY_LABELS[level]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Preço — manual quando item simples, automático (soma das peças) no modo kit */}
+          {isBundleMode ? (
+            <View style={[s.bundlePriceDisplay, { backgroundColor: theme.cardBackground }]}>
+              <Feather name="layers" size={13} color={theme.secondaryText} />
+              <Text style={[s.bundlePriceLabel, { color: theme.secondaryText }]}>Preço total (automático)</Text>
+              <Text style={[s.bundlePriceValue, { color: bundleTotalPrice > 0 ? theme.primaryColor : theme.secondaryText }]}>
+                {bundleTotalPrice > 0
+                  ? `R$ ${bundleTotalPrice.toFixed(2).replace(".", ",")}`
+                  : "—"}
+              </Text>
+            </View>
+          ) : (
+            <>
+              <Text style={[s.label, { color: theme.secondaryText }]}>Preço (R$)</Text>
               <TInput
-                placeholder="Nome do produto..."
-                value={form.name}
-                onChangeText={(v) => updateField("name", v)}
-                maxLength={100}
+                placeholder="0,00"
+                value={form.price}
+                onChangeText={(v) => updateField("price", v)}
+                keyboardType="decimal-pad"
                 color={theme.textColor}
                 backgroundColor={theme.cardBackground}
                 borderColor={theme.border}
               />
+            </>
+          )}
 
-              {/* Urgency */}
-              <Text style={[s.label, { color: theme.secondaryText }]}>Urgência</Text>
-              <View style={s.urgencyRow}>
-                {URGENCY_ORDER.map((level) => {
-                  const selected = form.urgencyLevel === level;
-                  return (
-                    <TouchableOpacity
-                      key={level}
-                      style={[s.urgencyChip, { backgroundColor: selected ? URGENCY_COLORS[level] : URGENCY_COLORS[level] + "20", borderColor: URGENCY_COLORS[level] }]}
-                      onPress={() => { soundManager.play("tap"); updateField("urgencyLevel", level); }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[s.urgencyText, { color: selected ? "#fff" : URGENCY_COLORS[level] }]}>
-                        {URGENCY_LABELS[level]}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+          {/* Quantidade */}
+          <Text style={[s.label, { color: theme.secondaryText }]}>Quantidade</Text>
+          <View style={s.stepperRow}>
+            <TouchableOpacity
+              style={[s.stepperBtn, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}
+              onPress={() => { soundManager.play("tap"); updateField("quantity", Math.max(1, form.quantity - 1)); }}
+            >
+              <Feather name="minus" size={16} color={theme.textColor} />
+            </TouchableOpacity>
+            <TextInput
+              style={[s.stepperInput, { color: theme.textColor, borderColor: theme.border, backgroundColor: theme.cardBackground }]}
+              value={String(form.quantity)}
+              onChangeText={(v) => {
+                const n = parseInt(v.replace(/[^0-9]/g, ""), 10);
+                updateField("quantity", isNaN(n) || n < 1 ? 1 : n);
+              }}
+              keyboardType="number-pad"
+            />
+            <TouchableOpacity
+              style={[s.stepperBtn, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}
+              onPress={() => { soundManager.play("tap"); updateField("quantity", form.quantity + 1); }}
+            >
+              <Feather name="plus" size={16} color={theme.textColor} />
+            </TouchableOpacity>
+            {form.quantity > 1 && form.price !== "" && !isNaN(parseFloat(form.price.replace(",", "."))) && (
+              <Text style={[s.stepperTotal, { color: theme.primaryColor }]}>
+                {`= R$ ${(form.quantity * parseFloat(form.price.replace(",", "."))).toFixed(2).replace(".", ",")}`}
+              </Text>
+            )}
+          </View>
 
-              {/* Preço — manual quando item simples, automático (soma das peças) no modo kit */}
-              {isBundleMode ? (
-                <View style={[s.bundlePriceDisplay, { backgroundColor: theme.cardBackground }]}>
-                  <Feather name="layers" size={13} color={theme.secondaryText} />
-                  <Text style={[s.bundlePriceLabel, { color: theme.secondaryText }]}>Preço total (automático)</Text>
-                  <Text style={[s.bundlePriceValue, { color: bundleTotalPrice > 0 ? theme.primaryColor : theme.secondaryText }]}>
-                    {bundleTotalPrice > 0
-                      ? `R$ ${bundleTotalPrice.toFixed(2).replace(".", ",")}`
-                      : "—"}
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  <Text style={[s.label, { color: theme.secondaryText }]}>Preço (R$)</Text>
-                  <TInput
-                    placeholder="0,00"
-                    value={form.price}
-                    onChangeText={(v) => updateField("price", v)}
-                    keyboardType="decimal-pad"
-                    color={theme.textColor}
-                    backgroundColor={theme.cardBackground}
-                    borderColor={theme.border}
-                  />
-                </>
-              )}
+          {/* Category */}
+          <Text style={[s.label, { color: theme.secondaryText }]}>Categoria</Text>
+          <TouchableOpacity
+            onPress={() => setCatPickerVisible(true)}
+            style={[s.catPickerBtn, {
+              borderColor: form.category ? (GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === form.category)?.group ?? "wants")] ?? "#FF9800") : theme.border,
+              backgroundColor: form.category ? `${GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === form.category)?.group ?? "wants")] ?? "#FF9800"}10` : theme.cardBackground,
+            }]}
+            activeOpacity={0.7}
+          >
+            <View style={[s.catDot, { backgroundColor: form.category ? (GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === form.category)?.group ?? "wants")] ?? "#FF9800") : theme.secondaryText }]} />
+            <Text style={[s.catPickerText, { color: theme.textColor }]}>
+              {form.category
+                ? (NCM_SUBCATEGORIES.find((s) => s.id === form.category)?.name
+                  ?? CATEGORY_OPTIONS.find((c) => c.id === form.category)?.name
+                  ?? "Selecionar")
+                : "Selecionar categoria..."}
+            </Text>
+            <Feather name="chevron-right" size={14} color={theme.secondaryText} />
+          </TouchableOpacity>
+          <CategoryPickerModal
+            visible={catPickerVisible}
+            onClose={() => setCatPickerVisible(false)}
+            onSelect={(catId) => { updateField("category", catId); }}
+            theme={theme}
+            selectedId={form.category}
+          />
 
-              {/* Quantidade */}
-              <Text style={[s.label, { color: theme.secondaryText }]}>Quantidade</Text>
-              <View style={s.stepperRow}>
+          {/* Savings goal link */}
+          {accounts.filter((a) => a.type === "savings").length > 0 && (
+            <>
+              <Text style={[s.label, { color: theme.secondaryText }]}>Vincular à poupança</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.savingsScroll}>
                 <TouchableOpacity
-                  style={[s.stepperBtn, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}
-                  onPress={() => { soundManager.play("tap"); updateField("quantity", Math.max(1, form.quantity - 1)); }}
+                  style={[s.savingsChip, { backgroundColor: !savingsGoal.enabled ? theme.primaryColor + "20" : theme.cardBackground, borderColor: !savingsGoal.enabled ? theme.primaryColor : theme.cardBackground }]}
+                  onPress={() => { soundManager.play("tap"); setSavingsGoal({ enabled: false }); }}
+                  activeOpacity={0.7}
                 >
-                  <Feather name="minus" size={16} color={theme.textColor} />
-                </TouchableOpacity>
-                <TextInput
-                  style={[s.stepperInput, { color: theme.textColor, borderColor: theme.border, backgroundColor: theme.cardBackground }]}
-                  value={String(form.quantity)}
-                  onChangeText={(v) => {
-                    const n = parseInt(v.replace(/[^0-9]/g, ""), 10);
-                    updateField("quantity", isNaN(n) || n < 1 ? 1 : n);
-                  }}
-                  keyboardType="number-pad"
-                />
-                <TouchableOpacity
-                  style={[s.stepperBtn, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}
-                  onPress={() => { soundManager.play("tap"); updateField("quantity", form.quantity + 1); }}
-                >
-                  <Feather name="plus" size={16} color={theme.textColor} />
-                </TouchableOpacity>
-                {form.quantity > 1 && form.price !== "" && !isNaN(parseFloat(form.price.replace(",", "."))) && (
-                  <Text style={[s.stepperTotal, { color: theme.primaryColor }]}>
-                    {`= R$ ${(form.quantity * parseFloat(form.price.replace(",", "."))).toFixed(2).replace(".", ",")}`}
+                  <Text style={[s.savingsChipText, { color: !savingsGoal.enabled ? theme.primaryColor : theme.secondaryText }]}>
+                    Nenhuma
                   </Text>
-                )}
-              </View>
+                </TouchableOpacity>
+                {accounts
+                  .filter((a) => a.type === "savings")
+                  .map((acc) => {
+                    const selected = savingsGoal.enabled && savingsGoal.linkedAccountId === acc.id;
+                    return (
+                      <TouchableOpacity
+                        key={acc.id}
+                        style={[s.savingsChip, { backgroundColor: selected ? "#10B98120" : theme.cardBackground, borderColor: selected ? "#10B981" : theme.cardBackground }]}
+                        onPress={() => { soundManager.play("tap"); setSavingsGoal({ enabled: true, linkedAccountId: acc.id }); }}
+                        activeOpacity={0.7}
+                      >
+                        <Feather name="trending-up" size={11} color={selected ? "#10B981" : theme.secondaryText} />
+                        <Text style={[s.savingsChipText, { color: selected ? "#10B981" : theme.textColor }]}>
+                          {acc.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+              </ScrollView>
+            </>
+          )}
 
-              {/* Category */}
-              <Text style={[s.label, { color: theme.secondaryText }]}>Categoria</Text>
-              <TouchableOpacity
-                onPress={() => setCatPickerVisible(true)}
-                style={[s.catPickerBtn, {
-                  borderColor: form.category ? (GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === form.category)?.group ?? "wants")] ?? "#FF9800") : theme.border,
-                  backgroundColor: form.category ? `${GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === form.category)?.group ?? "wants")] ?? "#FF9800"}10` : theme.cardBackground,
-                }]}
-                activeOpacity={0.7}
-              >
-                <View style={[s.catDot, { backgroundColor: form.category ? (GROUP_COLORS[(CATEGORY_OPTIONS.find((c) => c.id === form.category)?.group ?? "wants")] ?? "#FF9800") : theme.secondaryText }]} />
-                <Text style={[s.catPickerText, { color: theme.textColor }]}>
-                  {form.category
-                    ? (NCM_SUBCATEGORIES.find((s) => s.id === form.category)?.name
-                      ?? CATEGORY_OPTIONS.find((c) => c.id === form.category)?.name
-                      ?? "Selecionar")
-                    : "Selecionar categoria..."}
-                </Text>
-                <Feather name="chevron-right" size={14} color={theme.secondaryText} />
-              </TouchableOpacity>
-              <CategoryPickerModal
-                visible={catPickerVisible}
-                onClose={() => setCatPickerVisible(false)}
-                onSelect={(catId) => { updateField("category", catId); }}
-                theme={theme}
-                selectedId={form.category}
+          {/* Advanced */}
+          <TouchableOpacity style={s.advancedToggle} onPress={() => { soundManager.play("tap"); setShowAdvanced((v) => !v); }} activeOpacity={0.7}>
+            <Text style={[s.advancedText, { color: theme.secondaryText }]}>Dados avançados (EAN, NCM)</Text>
+            <Feather name={showAdvanced ? "chevron-up" : "chevron-down"} size={14} color={theme.secondaryText} />
+          </TouchableOpacity>
+
+          {showAdvanced && (
+            <View>
+              <Text style={[s.label, { color: theme.secondaryText }]}>EAN</Text>
+              <TInput
+                placeholder="Código de barras"
+                value={form.ean}
+                onChangeText={(v) => updateField("ean", v)}
+                keyboardType="numeric"
+                color={theme.textColor}
+                backgroundColor={theme.cardBackground}
+                borderColor={theme.border}
               />
+              <Text style={[s.label, { color: theme.secondaryText }]}>NCM</Text>
+              <TInput
+                placeholder="Ex: 8517.12.31"
+                value={form.ncm}
+                onChangeText={(v) => updateField("ncm", v)}
+                color={theme.textColor}
+                backgroundColor={theme.cardBackground}
+                borderColor={theme.border}
+              />
+            </View>
+          )}
 
-              {/* Savings goal link */}
-              {accounts.filter((a) => a.type === "savings").length > 0 && (
-                <>
-                  <Text style={[s.label, { color: theme.secondaryText }]}>Vincular à poupança</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.savingsScroll}>
-                    <TouchableOpacity
-                      style={[s.savingsChip, { backgroundColor: !savingsGoal.enabled ? theme.primaryColor + "20" : theme.cardBackground, borderColor: !savingsGoal.enabled ? theme.primaryColor : theme.cardBackground }]}
-                      onPress={() => { soundManager.play("tap"); setSavingsGoal({ enabled: false }); }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[s.savingsChipText, { color: !savingsGoal.enabled ? theme.primaryColor : theme.secondaryText }]}>
-                        Nenhuma
-                      </Text>
-                    </TouchableOpacity>
-                    {accounts
-                      .filter((a) => a.type === "savings")
-                      .map((acc) => {
-                        const selected = savingsGoal.enabled && savingsGoal.linkedAccountId === acc.id;
-                        return (
-                          <TouchableOpacity
-                            key={acc.id}
-                            style={[s.savingsChip, { backgroundColor: selected ? "#10B98120" : theme.cardBackground, borderColor: selected ? "#10B981" : theme.cardBackground }]}
-                            onPress={() => { soundManager.play("tap"); setSavingsGoal({ enabled: true, linkedAccountId: acc.id }); }}
-                            activeOpacity={0.7}
-                          >
-                            <Feather name="trending-up" size={11} color={selected ? "#10B981" : theme.secondaryText} />
-                            <Text style={[s.savingsChipText, { color: selected ? "#10B981" : theme.textColor }]}>
-                              {acc.name}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                  </ScrollView>
-                </>
-              )}
+          {/* Kit / Montagem */}
+          <TouchableOpacity
+            style={[s.bundleToggle, { borderColor: isBundleMode ? theme.primaryColor : theme.cardBackground, backgroundColor: isBundleMode ? theme.primaryColor + "15" : theme.cardBackground }]}
+            onPress={() => { soundManager.play("tap"); setIsBundleMode((v) => !v); }}
+            activeOpacity={0.7}
+          >
+            <Feather name="layers" size={15} color={isBundleMode ? theme.primaryColor : theme.secondaryText} />
+            <Text style={[s.bundleToggleText, { color: isBundleMode ? theme.primaryColor : theme.secondaryText }]}>
+              {isBundleMode ? "Modo Kit ativado" : "Adicionar como kit / montagem"}
+            </Text>
+            {isBundleMode && bundleTotalPrice > 0 && (
+              <Text style={[s.bundleTotal, { color: theme.primaryColor }]}>
+                {`R$ ${bundleTotalPrice.toFixed(2).replace(".", ",")}`}
+              </Text>
+            )}
+          </TouchableOpacity>
 
-              {/* Advanced */}
-              <TouchableOpacity style={s.advancedToggle} onPress={() => { soundManager.play("tap"); setShowAdvanced((v) => !v); }} activeOpacity={0.7}>
-                <Text style={[s.advancedText, { color: theme.secondaryText }]}>Dados avançados (EAN, NCM)</Text>
-                <Feather name={showAdvanced ? "chevron-up" : "chevron-down"} size={14} color={theme.secondaryText} />
-              </TouchableOpacity>
-
-              {showAdvanced && (
-                <View>
-                  <Text style={[s.label, { color: theme.secondaryText }]}>EAN</Text>
-                  <TInput
-                    placeholder="Código de barras"
-                    value={form.ean}
-                    onChangeText={(v) => updateField("ean", v)}
-                    keyboardType="numeric"
-                    color={theme.textColor}
-                    backgroundColor={theme.cardBackground}
-                    borderColor={theme.border}
-                  />
-                  <Text style={[s.label, { color: theme.secondaryText }]}>NCM</Text>
-                  <TInput
-                    placeholder="Ex: 8517.12.31"
-                    value={form.ncm}
-                    onChangeText={(v) => updateField("ncm", v)}
-                    color={theme.textColor}
-                    backgroundColor={theme.cardBackground}
-                    borderColor={theme.border}
-                  />
-                </View>
-              )}
-
-              {/* Kit / Montagem */}
-              <TouchableOpacity
-                style={[s.bundleToggle, { borderColor: isBundleMode ? theme.primaryColor : theme.cardBackground, backgroundColor: isBundleMode ? theme.primaryColor + "15" : theme.cardBackground }]}
-                onPress={() => { soundManager.play("tap"); setIsBundleMode((v) => !v); }}
-                activeOpacity={0.7}
-              >
-                <Feather name="layers" size={15} color={isBundleMode ? theme.primaryColor : theme.secondaryText} />
-                <Text style={[s.bundleToggleText, { color: isBundleMode ? theme.primaryColor : theme.secondaryText }]}>
-                  {isBundleMode ? "Modo Kit ativado" : "Adicionar como kit / montagem"}
-                </Text>
-                {isBundleMode && bundleTotalPrice > 0 && (
-                  <Text style={[s.bundleTotal, { color: theme.primaryColor }]}>
-                    {`R$ ${bundleTotalPrice.toFixed(2).replace(".", ",")}`}
-                  </Text>
-                )}
-              </TouchableOpacity>
-
-              {isBundleMode && (
-                <View style={s.bundleSection}>
-                  {bundleItems.map((bItem, idx) => (
-                    <View key={bItem.id}>
-                      <ProductFormCard
-                        data={{
-                          name: bItem.name,
-                          qty: String(bItem.quantity ?? 1),
-                          unit: "UN",
-                          unitPrice: bItem.price !== undefined ? String(bItem.price) : "",
-                          categoryId: bItem.category ?? "",
-                          ean: bItem.ean ?? "",
-                          ncm: bItem.ncm ?? "",
-                        }}
-                        onChange={(field, value) => {
-                          switch (field) {
-                            case "name": updateBundleItem(idx, { name: value }); break;
-                            case "qty": {
-                              const n = parseInt(value.replace(/[^0-9]/g, ""), 10);
-                              updateBundleItem(idx, { quantity: isNaN(n) || n < 1 ? 1 : n });
-                              break;
-                            }
-                            case "unitPrice": {
-                              const p = parseFloat(value.replace(",", "."));
-                              updateBundleItem(idx, { price: isNaN(p) ? undefined : p });
-                              break;
-                            }
-                            case "categoryId": updateBundleItem(idx, { category: value }); break;
-                            case "ean": updateBundleItem(idx, { ean: value }); break;
-                            case "ncm": updateBundleItem(idx, { ncm: value }); break;
-                          }
-                        }}
-                        theme={theme}
-                        namePlaceholder={`Peça ${idx + 1}...`}
-                        showRemove
-                        onRemove={() => { soundManager.play("tap"); removeBundleItem(idx); }}
-                        compact
-                        extraActions={
-                          <Pressable
-                            style={[s.bundleSearchBtn, { backgroundColor: theme.primaryColor + "20" }]}
-                            onPress={() => {
-                              soundManager.play("pop");
-                              setSearchModalVisible(true);
-                              setWebView((prev) => ({ ...prev, bundleIndex: idx }));
-                            }}
-                          >
-                            <Feather name="search" size={14} color={theme.primaryColor} />
-                          </Pressable>
+          {isBundleMode && (
+            <View style={s.bundleSection}>
+              {bundleItems.map((bItem, idx) => (
+                <View key={bItem.id}>
+                  <ProductFormCard
+                    data={{
+                      name: bItem.name,
+                      qty: String(bItem.quantity ?? 1),
+                      unit: "UN",
+                      unitPrice: bItem.price !== undefined ? String(bItem.price) : "",
+                      categoryId: bItem.category ?? "",
+                      ean: bItem.ean ?? "",
+                      ncm: bItem.ncm ?? "",
+                    }}
+                    onChange={(field, value) => {
+                      switch (field) {
+                        case "name": updateBundleItem(idx, { name: value }); break;
+                        case "qty": {
+                          const n = parseInt(value.replace(/[^0-9]/g, ""), 10);
+                          updateBundleItem(idx, { quantity: isNaN(n) || n < 1 ? 1 : n });
+                          break;
                         }
-                      />
-                    </View>
-                  ))}
-                  <TouchableOpacity style={[s.bundleAddBtn, { borderColor: theme.primaryColor + "50" }]} onPress={() => { soundManager.play("tap"); addBundleItem(); }} activeOpacity={0.7}>
-                    <Feather name="plus" size={14} color={theme.primaryColor} />
-                    <Text style={[s.bundleAddText, { color: theme.primaryColor }]}>Adicionar peça</Text>
-                  </TouchableOpacity>
+                        case "unitPrice": {
+                          const p = parseFloat(value.replace(",", "."));
+                          updateBundleItem(idx, { price: isNaN(p) ? undefined : p });
+                          break;
+                        }
+                        case "categoryId": updateBundleItem(idx, { category: value }); break;
+                        case "ean": updateBundleItem(idx, { ean: value }); break;
+                        case "ncm": updateBundleItem(idx, { ncm: value }); break;
+                      }
+                    }}
+                    theme={theme}
+                    namePlaceholder={`Peça ${idx + 1}...`}
+                    showRemove
+                    onRemove={() => { soundManager.play("tap"); removeBundleItem(idx); }}
+                    compact
+                    extraActions={
+                      <Pressable
+                        style={[s.bundleSearchBtn, { backgroundColor: theme.primaryColor + "20" }]}
+                        onPress={() => {
+                          soundManager.play("pop");
+                          setSearchModalVisible(true);
+                          setWebView((prev) => ({ ...prev, bundleIndex: idx }));
+                        }}
+                      >
+                        <Feather name="search" size={14} color={theme.primaryColor} />
+                      </Pressable>
+                    }
+                  />
                 </View>
-              )}
-
-              {/* Actions */}
-              <View style={s.actions}>
-                <TButton
-                  variant="outline"
-                  flex={1}
-                  borderColor={theme.border}
-                  color={theme.textColor}
-                  onPress={() => { soundManager.play("tap"); handleCancel(); }}
-                >
-                  Cancelar
-                </TButton>
-                {isValid && (
-                  <TButton
-                    variant="primary"
-                    flex={1}
-                    backgroundColor={theme.primaryColor}
-                    icon={<Feather name={editItem ? "check" : "plus"} size={16} color="#fff" />}
-                    onPress={() => { soundManager.play("success"); handleConfirm(); }}
-                  >
-                    {editItem ? "Salvar alterações" : "Adicionar à lista"}
-                  </TButton>
-                )}
-              </View>
-            </ScrollView>
-          </Animated.View>
-        </KeyboardSafeView>
+              ))}
+              <TouchableOpacity style={[s.bundleAddBtn, { borderColor: theme.primaryColor + "50" }]} onPress={() => { soundManager.play("tap"); addBundleItem(); }} activeOpacity={0.7}>
+                <Feather name="plus" size={14} color={theme.primaryColor} />
+                <Text style={[s.bundleAddText, { color: theme.primaryColor }]}>Adicionar peça</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </KeyboardSheet>
 
         <WishlistSearchWebView
           visible={webView.visible}
@@ -519,7 +514,7 @@ const s = StyleSheet.create({
   kav: { flex: 1, justifyContent: "flex-end" },
   flex: { flex: 1 },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" },
-  card: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, maxHeight: "92%", width: "100%" },
+  card: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, width: "100%" },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
   title: { fontSize: 18, fontFamily: "DMSans_700Bold" },
   label: { fontSize: 11, fontFamily: "DMSans_500Medium", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, marginTop: 10 },
@@ -563,5 +558,5 @@ const s = StyleSheet.create({
   bundlePrice: { fontSize: 11, fontFamily: "DMSans_600SemiBold" },
   bundleAddBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1.5, borderRadius: 10, borderStyle: "dashed", paddingVertical: 10 },
   bundleAddText: { fontSize: 13, fontFamily: "DMSans_600SemiBold" },
-  actions: { flexDirection: "row", gap: 10, marginTop: 16, marginBottom: 8 },
+  actions: { flexDirection: "row", gap: 10 },
 });

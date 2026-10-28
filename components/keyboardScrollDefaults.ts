@@ -10,6 +10,13 @@ export const KEYBOARD_BOTTOM_OFFSET = 50;
  */
 export const SCROLL_BOTTOM_PADDING = 32;
 
+/**
+ * Espaço mínimo que precisa sobrar para o campo focado quando um rodapé fixo
+ * fica acima do teclado. Abaixo disso o rodapé deixa de ficar fixo (rodapé da
+ * revisão da nota, Story 13.2, e rodapé das folhas em modal, Story 13.3 D-3).
+ */
+export const MIN_FIELD_SPACE = 48;
+
 /** Props que só o KeyboardAwareScrollView entende; não chegam ao ScrollView da web. */
 export const KEYBOARD_ONLY_PROPS = [
   "bottomOffset",
