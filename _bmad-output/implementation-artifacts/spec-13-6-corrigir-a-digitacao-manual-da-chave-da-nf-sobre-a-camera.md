@@ -266,4 +266,18 @@ O `QrScanScreen` não abre na web (botão "QR Code" desabilitado), então não h
 
 ## Review Triage Log
 
-—
+Revisão única com três lentes (adversarial, casos de borda, lacunas de verificação), 28/10, sobre o commit 956f1f0. 1 High, 4 Med, 6 Low.
+
+| # | Achado | Sev. | Decisão |
+|---|--------|------|---------|
+| R1 | Pausa da D-3 com `onBarcodeScanned={… ? undefined : …}` liga/desliga `barcodeScannerEnabled` e recria a câmera (CameraX `unbindAll`) a cada abertura e fechamento da barra | High | **patch**: handler estável sempre passado, com trava por `ref` (`showKeyInputRef`); a câmera não é recriada; item no checklist "sem piscar a imagem ao abrir/fechar a barra" |
+| R2 | `useKeyboardState` só atualiza no `didShow`/`didHide`: o compacto é decidido depois da animação e a barra pula | Med | **patch**: altura-alvo do teclado vinda de `useKeyboardHandler({ onStart })` (via `runOnJS`) num hook compartilhado, usado pela barra da chave e pelo `ParsedScreen`; corrigir o texto da spec (R-2, §3) |
+| R3 | Compacto não garante que o campo caiba (640×360, fonte 1,3: topo em −8) | Med | **patch**: função devolve `fits`; sem caber, layout de uma linha (campo e botões lado a lado) e contador oculto; testes com fonte 1,3 e 2,0 a 360dp de altura |
+| R4 | "Nunca desce" só vale com o teclado parado (altura 0 durante a abertura) | Low | **patch**: resolvido pela altura do `onStart` do R2 (vale também para o `ParsedScreen`); corrigir o comentário |
+| R5 | Limite do compacto mistura `useWindowDimensions` com a área real (Android ≤14 com barra de 3 botões; tela dividida) | Low | **patch**: medir o contêiner com `onLayout` em vez de `useWindowDimensions`; itens no checklist (Android 10–14 com 3 botões; tela dividida) |
+| R6 | `normalizeChaveInput` monta chave errada quando o texto colado tem outros dígitos; digitar no meio com 44 descarta o último | Low | **patch**: com mais de 44 dígitos, usar a sequência de 44 dígitos seguidos (ignorando espaços e pontos) se houver, senão manter o valor anterior; digitação além de 44 mantém o valor anterior; validar o dígito verificador (módulo 11) antes da consulta, com "Chave Inválida"; testes |
+| R7 | `onSubmitEditing` fecha o teclado mesmo com chave incompleta | Low | **patch**: `submitBehavior="submit"` |
+| R8 | Compacto pode alternar depois de girar com teclado aberto | Low | **patch**: coberto pelo R2/R5; item no checklist |
+| R9 | Guarda não cobre a fiação da D-1/D-2/D-3; burla por mutação e falso positivo com variável | Med | **patch**: guarda exige sem `maxLength`, `normalizeChaveInput` no `onChangeText`, handler de scan estável com trava, `onSubmitEditing` + `returnKeyType`, cabeçalho condicionado ao `compact`, `paddingBottom` com `insets.bottom`; aceitar `offset` por variável local resolvida; recusar atribuição ao resultado do layout |
+| R10 | Checklist do aparelho incompleto | Low | **patch**: itens da revisão (piscar da câmera, pulo do compacto, Android 7–14/3 botões, tela dividida, colar com prefixo numérico, Enter do teclado físico, envio de chave inválida pela tecla de ação); corrigir o item 3 |
+| R11 | Texto da spec desatualizado | Low | **patch**: corrigir R-2, §3 e as notas; `baseline_commit` passa a `5181e97` |
