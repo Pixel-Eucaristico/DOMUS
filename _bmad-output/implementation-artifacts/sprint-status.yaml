@@ -171,7 +171,7 @@ development_status:
   epic-13: in-progress
   13-1-ligar-o-sistema-único-de-teclado-na-raiz: done
   13-2-padronizar-a-rolagem-das-telas-com-campos: done
-  13-3-fazer-os-modais-com-formulário-subirem: in-progress
+  13-3-fazer-os-modais-com-formulário-subirem: done
   13-4-fazer-as-buscas-e-diálogos-em-modal-subirem: backlog
   13-5-um-só-deslocamento-no-chat-da-ia: backlog
   13-6-corrigir-a-digitação-manual-da-chave-da-nf-sobre-a-câmera: backlog

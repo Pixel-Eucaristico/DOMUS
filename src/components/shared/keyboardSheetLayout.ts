@@ -25,6 +25,38 @@ export function keyboardLift(keyboardHeight: number, liftDiscount: number): numb
   return keyboard > discount ? keyboard - discount : 0;
 }
 
+/**
+ * Quanto descontar do teclado no espaçador do KeyboardSafeView: o
+ * `paddingBottom` da folha (que já cobre a barra de navegação) menos a folga
+ * `SHEET_KEYBOARD_GAP`. Único lugar dessa conta (usado pelo KeyboardSheet e por
+ * `computeKeyboardSheetLayout`). Nunca negativo.
+ */
+export function sheetLiftDiscount(sheetPaddingBottom: number): number {
+  return Math.max(0, nonNegative(sheetPaddingBottom) - SHEET_KEYBOARD_GAP);
+}
+
+/**
+ * Altura do teclado que a folha usa. A folha começa em 0 ao montar e só passa a
+ * seguir o teclado no primeiro `keyboardDidShow`/`keyboardDidHide` depois de
+ * montar (`null` = nenhum evento ainda), para não herdar um estado velho do
+ * teclado de antes do modal abrir.
+ */
+export function sheetKeyboardHeight(
+  event: { type: "keyboardDidShow" | "keyboardDidHide"; height: number } | null,
+): number {
+  if (!event || event.type === "keyboardDidHide") return 0;
+  return nonNegative(event.height);
+}
+
+/**
+ * O que fazer ao tocar no fundo escuro do modal: com o teclado aberto, o
+ * primeiro toque só fecha o teclado (não perde o que foi digitado); com o
+ * teclado fechado, fecha o modal.
+ */
+export function backdropPressAction(keyboardVisible: boolean): "dismissKeyboard" | "close" {
+  return keyboardVisible ? "dismissKeyboard" : "close";
+}
+
 export interface KeyboardSheetLayoutInput {
   /** Altura da janela (useWindowDimensions). Na janela do Modal, é a tela toda. */
   windowHeight: number;
@@ -51,6 +83,12 @@ export interface KeyboardSheetLayout {
   scrollSpace: number;
   /** O rodapé fica fixo acima do teclado; `false` = vai para o fim da rolagem (D-3). */
   footerPinned: boolean;
+  /**
+   * O cabeçalho fica fixo no topo da folha; `false` = entra no começo da
+   * rolagem. Só acontece quando o rodapé já foi para a rolagem e o espaço
+   * ainda fica abaixo de `MIN_FIELD_SPACE` (paisagem com teclado alto).
+   */
+  headerPinned: boolean;
 }
 
 /**
@@ -73,17 +111,18 @@ export function computeKeyboardSheetLayout({
   const paddingBottom = nonNegative(sheetPaddingBottom);
   const ratio = Math.min(nonNegative(maxHeightRatio), 1);
 
-  const lift = keyboardLift(keyboard, paddingBottom - SHEET_KEYBOARD_GAP);
+  const lift = keyboardLift(keyboard, sheetLiftDiscount(paddingBottom));
   const sheetMaxHeight = Math.max(
     0,
     Math.min(ratio * window, window - nonNegative(insetTop) - SHEET_TOP_GAP - lift),
   );
-  const scrollSpace = Math.max(
-    0,
-    sheetMaxHeight - nonNegative(headerHeight) - nonNegative(footerHeight) - paddingBottom,
-  );
+  const header = nonNegative(headerHeight);
+  const scrollSpace = Math.max(0, sheetMaxHeight - header - nonNegative(footerHeight) - paddingBottom);
   const footerPinned = !(keyboard > 0 && scrollSpace < MIN_FIELD_SPACE);
-  return { lift, sheetMaxHeight, scrollSpace, footerPinned };
+  // Com o rodapé já na rolagem, o espaço que sobra entre o cabeçalho e o fundo da folha.
+  const spaceWithoutFooter = Math.max(0, sheetMaxHeight - header - paddingBottom);
+  const headerPinned = footerPinned || spaceWithoutFooter >= MIN_FIELD_SPACE;
+  return { lift, sheetMaxHeight, scrollSpace, footerPinned, headerPinned };
 }
 
 export interface FocusScrollInput {
@@ -119,4 +158,47 @@ export function computeFocusScrollDelta({
   if (inputTop < top) return inputTop - top;
   if (inputBottom > bottom) return inputBottom - bottom;
   return 0;
+}
+
+export interface FocusScrollTargetInput {
+  /** Topo do campo focado no conteúdo da rolagem (`measureLayout` relativo ao conteúdo). */
+  inputY: number;
+  /** Altura do campo focado. */
+  inputHeight: number;
+  /** Topo do conteúdo da rolagem na janela (`measureInWindow`; já descontada a rolagem atual). */
+  contentWindowY: number;
+  /** Topo da área visível da rolagem na janela (`measureInWindow`). */
+  viewportWindowY: number;
+  /** Altura da área visível da rolagem. */
+  viewportHeight: number;
+  /** Folga mínima entre o campo e a borda da área. */
+  gap: number;
+}
+
+/**
+ * Para onde rolar (deslocamento absoluto) para o campo focado ficar visível
+ * com folga, ou `null` se não precisa rolar. A posição atual da rolagem vem das
+ * medidas (topo da área − topo do conteúdo na janela), nunca de um `scrollY`
+ * guardado de `onScroll`.
+ */
+export function computeFocusScrollTarget({
+  inputY,
+  inputHeight,
+  contentWindowY,
+  viewportWindowY,
+  viewportHeight,
+  gap,
+}: FocusScrollTargetInput): number | null {
+  const values = [inputY, inputHeight, contentWindowY, viewportWindowY, viewportHeight];
+  if (!values.every(Number.isFinite) || inputHeight < 0 || viewportHeight <= 0) return null;
+  const offset = Math.max(0, viewportWindowY - contentWindowY);
+  const delta = computeFocusScrollDelta({
+    inputTop: inputY - offset,
+    inputBottom: inputY + inputHeight - offset,
+    viewportTop: 0,
+    viewportBottom: viewportHeight,
+    gap,
+  });
+  if (delta === 0) return null;
+  return Math.max(0, offset + delta);
 }

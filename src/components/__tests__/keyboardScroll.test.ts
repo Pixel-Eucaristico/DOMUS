@@ -14,7 +14,10 @@ import path from "path";
  *
  * Story 13.3: os formulários em modal usam o contêiner único `KeyboardSheet`
  * (src/components/shared/KeyboardSheet.tsx), com o botão principal no
- * `footer`, sem segunda compensação de teclado nem rolagem vertical crua. Só o
+ * `footer` (e só ele; "Cancelar" vai no fim da rolagem), o toque no fundo pelo
+ * `useSheetBackdropPress`, sem segunda compensação de teclado nem rolagem
+ * vertical crua. O próprio KeyboardSheet é checado (toque persistente,
+ * `flexShrink`, desconto da área segura, estado do teclado, medida do campo). Só o
  * KeyboardSheet renderiza o `KeyboardSafeView`, e todo componente com `<Modal`
  * e campo precisa estar em MODAL_FORMS ou em MODAL_PENDING (com motivo).
  */
@@ -315,19 +318,28 @@ function hasField(source: string): boolean {
 
 // ─── Modais com formulário (Story 13.3) ──────────────────────────────────────
 
+interface JsxOpeningTag {
+  /** Atributos do nível de cima (o conteúdo de `{…}` vira `{}`, salvo `{true}`/`{false}`). */
+  attrs: string;
+  /** Expressão crua de cada atributo `nome={…}` do nível de cima. */
+  exprs: Record<string, string>;
+}
+
 /**
- * Atributos do nível de cima de cada abertura `<Name …>` em JSX (o conteúdo de
- * `{…}` vira `{}`, salvo `{true}`/`{false}`), para saber se a tag tem
- * `footer=` ou `horizontal`.
+ * Cada abertura `<Name …>` em JSX, com os atributos do nível de cima e a
+ * expressão crua de cada `nome={…}` (para saber se a tag tem `footer=`,
+ * `horizontal` e o que vai no `footer`).
  */
-function jsxOpeningTags(source: string, name: string, namespaced = false): string[] {
+function scanJsxOpeningTags(source: string, name: string, namespaced = false): JsxOpeningTag[] {
   const code = stripComments(source);
-  const tags: string[] = [];
+  const tags: JsxOpeningTag[] = [];
   for (const m of code.matchAll(jsxPattern(name, namespaced))) {
     let i = (m.index ?? 0) + m[0].length;
     let depth = 0;
     let attrs = "";
     let inner = "";
+    let attrName: string | null = null;
+    const exprs: Record<string, string> = {};
     while (i < code.length) {
       const ch = code[i];
       if (ch === '"' || ch === "'" || ch === "`") {
@@ -342,13 +354,17 @@ function jsxOpeningTags(source: string, name: string, namespaced = false): strin
         continue;
       }
       if (ch === "{") {
-        if (depth === 0) inner = "";
-        else inner += ch;
+        if (depth === 0) {
+          inner = "";
+          attrName = attrs.match(/([\w$-]+)\s*=\s*$/)?.[1] ?? null;
+        } else inner += ch;
         depth++;
       } else if (ch === "}") {
         depth--;
-        if (depth === 0) attrs += /^\s*(true|false)\s*$/.test(inner) ? `{${inner.trim()}}` : "{}";
-        else inner += ch;
+        if (depth === 0) {
+          attrs += /^\s*(true|false)\s*$/.test(inner) ? `{${inner.trim()}}` : "{}";
+          if (attrName) exprs[attrName] = inner.trim();
+        } else inner += ch;
       } else if (depth > 0) {
         inner += ch;
       } else if (ch === ">") {
@@ -358,9 +374,14 @@ function jsxOpeningTags(source: string, name: string, namespaced = false): strin
       }
       i++;
     }
-    tags.push(attrs);
+    tags.push({ attrs, exprs });
   }
   return tags;
+}
+
+/** Atributos do nível de cima de cada abertura `<Name …>` (ver scanJsxOpeningTags). */
+function jsxOpeningTags(source: string, name: string, namespaced = false): string[] {
+  return scanJsxOpeningTags(source, name, namespaced).map((t) => t.attrs);
 }
 
 /** `horizontal` ou `horizontal={true}`; `horizontal={false}` ou `{expressão}` contam como vertical. */
@@ -396,9 +417,15 @@ function modalFormViolations(
   if (uses.length !== 1) hits.push(`${uses.length} × <KeyboardSheet (esperado 1)`);
   if (uses.some((inside) => !inside)) hits.push("KeyboardSheet fora de Modal");
 
-  // 2. passa footer= ao KeyboardSheet.
-  for (const attrs of jsxOpeningTags(source, "KeyboardSheet")) {
-    if (!/(?:^|\s)footer\s*=/.test(attrs)) hits.push("KeyboardSheet sem footer=");
+  // 2. passa ao KeyboardSheet um footer={<…>} com o botão principal (e só ele:
+  //    "Cancelar" fica no fim da rolagem), sem esconder o rodapé de vez.
+  for (const tag of scanJsxOpeningTags(source, "KeyboardSheet")) {
+    if (!/(?:^|\s)footer\s*=/.test(tag.attrs)) {
+      hits.push("KeyboardSheet sem footer=");
+      continue;
+    }
+    hits.push(...footerViolations(tag.exprs.footer));
+    if (/(?:^|\s)footerVisible\s*=\s*\{false\}/.test(tag.attrs)) hits.push("footerVisible={false}");
   }
 
   // 3. nenhuma segunda compensação de teclado.
@@ -423,6 +450,60 @@ function modalFormViolations(
   if (horizontal && horizontalCount !== horizontal.count) {
     hits.push(`${horizontalCount} × ${horizontal.component} horizontal (esperado ${horizontal.count})`);
   }
+
+  // 5. o toque no fundo passa pelo useSheetBackdropPress (com teclado aberto só fecha o teclado).
+  const backdropImported = imports.some(
+    (imp) => imp.module === KEYBOARD_SHEET_MODULE && imp.named.includes("useSheetBackdropPress"),
+  );
+  const backdropHandler = code.match(/\bconst\s+([\w$]+)\s*=\s*useSheetBackdropPress\s*\(/)?.[1];
+  if (!backdropImported || !backdropHandler) hits.push("fundo sem useSheetBackdropPress");
+  else if (!new RegExp(`\\bonPress\\s*=\\s*\\{\\s*${backdropHandler.replace(/\$/g, "\\$")}\\s*\\}`).test(code)) {
+    hits.push(`${backdropHandler} não está em nenhum onPress`);
+  }
+  return hits;
+}
+
+/** O que há de errado no `footer={…}` de um KeyboardSheet (expressão crua). */
+function footerViolations(expr: string | undefined): string[] {
+  if (expr === undefined) return ["footer sem expressão {…}"];
+  const body = expr.replace(/^\(+\s*/, "").replace(/\s*\)+$/, "");
+  if (!body.startsWith("<") || /^<\s*>\s*<\s*\/\s*>$/.test(body)) return ["footer não é um elemento JSX"];
+  const hits: string[] = [];
+  if (!/\bvariant\s*=\s*["']primary["']/.test(body)) hits.push("footer sem botão principal");
+  if (/Cancelar/.test(body)) hits.push("Cancelar no footer");
+  return hits;
+}
+
+/** O que falta no próprio KeyboardSheet.tsx para o padrão da 13.3 valer. */
+function keyboardSheetViolations(source: string): string[] {
+  const code = stripComments(source);
+  const hits: string[] = [];
+  const scrolls = scanJsxOpeningTags(source, "ScrollView");
+  if (scrolls.length !== 1) hits.push(`${scrolls.length} × <ScrollView (esperado 1)`);
+  for (const tag of scrolls) {
+    if (!/(?:^|\s)keyboardShouldPersistTaps\s*=\s*["']handled["']/.test(tag.attrs)) {
+      hits.push('ScrollView sem keyboardShouldPersistTaps="handled"');
+    }
+  }
+  for (const style of ["sheet", "scroll"]) {
+    if (!new RegExp(`\\b${style}\\s*:\\s*\\{[^}]*\\bflexShrink\\s*:\\s*1\\b`).test(code)) hits.push(`${style} sem flexShrink: 1`);
+  }
+  const safe = scanJsxOpeningTags(source, "KeyboardSafeView");
+  if (safe.length !== 1) hits.push(`${safe.length} × <KeyboardSafeView (esperado 1)`);
+  for (const tag of safe) {
+    if (!/^sheetLiftDiscount\s*\(/.test(tag.exprs.liftDiscount ?? "")) hits.push("liftDiscount sem sheetLiftDiscount(…)");
+  }
+  for (const name of SECOND_KEYBOARD_SYSTEMS.filter((n) => n !== "KeyboardSafeView")) {
+    if (jsxPattern(name, false).test(code) || jsxPattern(name, true).test(code)) hits.push(`<${name}`);
+  }
+  // Estado do teclado: começa em 0 e só segue os eventos depois de montar (R6).
+  if (/\buseKeyboardState\b|KeyboardController\s*\.\s*state\s*\(/.test(code)) hits.push("lê o estado global do teclado");
+  for (const event of ["keyboardDidShow", "keyboardDidHide"]) {
+    if (!new RegExp(`KeyboardEvents\\s*\\.\\s*addListener\\(\\s*["']${event}["']`).test(code)) hits.push(`sem ${event}`);
+  }
+  // Ajuste até o campo: medido no conteúdo da rolagem, sem scrollY guardado (R3/R4).
+  if (!/\.measureLayout\s*\(/.test(code)) hits.push("campo sem measureLayout");
+  if (/\bonScroll\s*=|\bscrollY\b/.test(code)) hits.push("scrollY em cache");
   return hits;
 }
 
@@ -570,6 +651,10 @@ describe("modais com formulário (Story 13.3)", () => {
 
   it.each(MODAL_FORMS)("%s usa o KeyboardSheet com footer, sem segunda compensação nem rolagem vertical crua", (file) => {
     expect(modalFormViolations(read(file), MODAL_HORIZONTAL_SCROLLS[file])).toEqual([]);
+  });
+
+  it("o KeyboardSheet persiste o toque, encolhe, desconta a área segura, começa sem teclado e mede o campo no conteúdo", () => {
+    expect(keyboardSheetViolations(read(KEYBOARD_SHEET))).toEqual([]);
   });
 
   it("só o KeyboardSheet renderiza o KeyboardSafeView", () => {
@@ -728,8 +813,9 @@ describe("auto-teste dos detectores", () => {
     expect(c).toEqual({ module: "d", named: [], namespace: null, defaultName: "Def" });
   });
   describe("modais com formulário (Story 13.3)", () => {
-    const imp = `import { KeyboardSheet } from "@/src/components/shared/KeyboardSheet";\n`;
-    const ok = `${imp}return (\n  <Modal visible transparent>\n    <View>\n      <KeyboardSheet\n        header={<Text>Título</Text>}\n        footer={<TButton onPress={() => save()}>Salvar</TButton>}\n      >\n        <TInput />\n      </KeyboardSheet>\n    </View>\n  </Modal>\n);`;
+    const imp = `import { KeyboardSheet, useSheetBackdropPress } from "@/src/components/shared/KeyboardSheet";\n`;
+    const backdrop = `const onBackdrop = useSheetBackdropPress(close);\n`;
+    const ok = `${imp}${backdrop}return (\n  <Modal visible transparent>\n    <Pressable onPress={onBackdrop} />\n    <View>\n      <KeyboardSheet\n        header={<Text>Título</Text>}\n        footer={<TButton variant="primary" onPress={() => save()}>Salvar</TButton>}\n      >\n        <TInput />\n      </KeyboardSheet>\n    </View>\n  </Modal>\n);`;
     const horizontal = { component: "ScrollView", count: 1 };
 
     it("aceita o padrão", () => {
@@ -744,17 +830,46 @@ describe("auto-teste dos detectores", () => {
     it("acusa modal sem KeyboardSheet ou sem o import", () => {
       const none = `return <Modal visible><TInput /></Modal>;`;
       expect(modalFormViolations(none)).toContain("0 × <KeyboardSheet (esperado 1)");
+      expect(modalFormViolations(none)).toContain("fundo sem useSheetBackdropPress");
       expect(modalFormViolations(ok.replace(imp, ""))).toContain(
         "não importa KeyboardSheet de @/src/components/shared/KeyboardSheet",
       );
     });
 
     it("acusa KeyboardSheet sem footer", () => {
-      const code = ok.replace("footer={<TButton onPress={() => save()}>Salvar</TButton>}", "");
+      const code = ok.replace('footer={<TButton variant="primary" onPress={() => save()}>Salvar</TButton>}', "");
       expect(modalFormViolations(code)).toContain("KeyboardSheet sem footer=");
       // footer só dentro de um filho não conta
       const nested = ok.replace("footer={", "header2={<X footer={1} />} data-x={");
       expect(modalFormViolations(nested)).toContain("KeyboardSheet sem footer=");
+    });
+
+    it("acusa footer nulo, vazio, sem botão principal ou com Cancelar", () => {
+      const primary = '<TButton variant="primary" onPress={() => save()}>Salvar</TButton>';
+      const withFooter = (footer: string) => ok.replace(`footer={${primary}}`, `footer={${footer}}`);
+      expect(modalFormViolations(withFooter("null"))).toContain("footer não é um elemento JSX");
+      expect(modalFormViolations(withFooter("undefined"))).toContain("footer não é um elemento JSX");
+      expect(modalFormViolations(withFooter("<></>"))).toContain("footer não é um elemento JSX");
+      expect(modalFormViolations(withFooter("ok ? <B /> : null"))).toContain("footer não é um elemento JSX");
+      expect(modalFormViolations(ok.replace(`footer={${primary}}`, 'footer="x"'))).toContain("footer sem expressão {…}");
+      expect(modalFormViolations(withFooter('<TButton variant="outline">Cancelar</TButton>'))).toEqual(
+        expect.arrayContaining(["footer sem botão principal", "Cancelar no footer"]),
+      );
+      const both = `(\n  <View>\n    <TButton variant="outline">Cancelar</TButton>\n    ${primary}\n  </View>\n)`;
+      expect(modalFormViolations(withFooter(both))).toEqual(["Cancelar no footer"]);
+      expect(modalFormViolations(withFooter(`(\n  ${primary}\n)`))).toEqual([]);
+      expect(modalFormViolations(ok.replace("footer={", "footerVisible={false} footer={"))).toContain("footerVisible={false}");
+      expect(modalFormViolations(ok.replace("footer={", "footerVisible={isValid} footer={"))).toEqual([]);
+    });
+
+    it("acusa fundo que não passa pelo useSheetBackdropPress", () => {
+      expect(modalFormViolations(ok.replace(backdrop, ""))).toContain("fundo sem useSheetBackdropPress");
+      expect(modalFormViolations(ok.replace("useSheetBackdropPress } from", "x } from"))).toContain(
+        "fundo sem useSheetBackdropPress",
+      );
+      expect(modalFormViolations(ok.replace("onPress={onBackdrop}", "onPress={close}"))).toContain(
+        "onBackdrop não está em nenhum onPress",
+      );
     });
 
     it("acusa KeyboardAwareScrollViewCompat dentro do modal", () => {
@@ -801,10 +916,57 @@ describe("auto-teste dos detectores", () => {
       expect(isSelfManagedModal("app/sync.tsx")).toBe(true);
     });
 
+    describe("keyboardSheetViolations", () => {
+      const sheet = [
+        `const show = KeyboardEvents.addListener("keyboardDidShow", f);`,
+        `const hide = KeyboardEvents.addListener("keyboardDidHide", g);`,
+        `input.measureLayout(content, ok, fail);`,
+        `return (`,
+        `  <KeyboardSafeView liftDiscount={sheetLiftDiscount(pb)}>`,
+        `    <ScrollView style={s.scroll} keyboardShouldPersistTaps="handled">{c}</ScrollView>`,
+        `  </KeyboardSafeView>`,
+        `);`,
+        `const s = StyleSheet.create({ sheet: { flexShrink: 1, minHeight: 0 }, scroll: { flexShrink: 1 } });`,
+      ].join("\n");
+
+      it("aceita o padrão", () => {
+        expect(keyboardSheetViolations(sheet)).toEqual([]);
+      });
+
+      it.each([
+        ['keyboardShouldPersistTaps="handled"', "", 'ScrollView sem keyboardShouldPersistTaps="handled"'],
+        ['keyboardShouldPersistTaps="handled"', 'keyboardShouldPersistTaps="never"', 'ScrollView sem keyboardShouldPersistTaps="handled"'],
+        ["sheet: { flexShrink: 1, minHeight: 0 }", "sheet: { minHeight: 0 }", "sheet sem flexShrink: 1"],
+        ["scroll: { flexShrink: 1 }", "scroll: { flexGrow: 1 }", "scroll sem flexShrink: 1"],
+        ["liftDiscount={sheetLiftDiscount(pb)}", "liftDiscount={pb - 12}", "liftDiscount sem sheetLiftDiscount(…)"],
+        ["liftDiscount={sheetLiftDiscount(pb)}", "", "liftDiscount sem sheetLiftDiscount(…)"],
+        ['"keyboardDidShow", f', '"keyboardWillShow", f', "sem keyboardDidShow"],
+        ['"keyboardDidHide", g', '"keyboardWillHide", g', "sem keyboardDidHide"],
+        ["input.measureLayout(content, ok, fail);", "input.measureInWindow(ok);", "campo sem measureLayout"],
+        ["{c}</ScrollView>", "{c}<ScrollView /></ScrollView>", "2 × <ScrollView (esperado 1)"],
+      ])("acusa %s → %s", (from, to, hit) => {
+        expect(keyboardSheetViolations(sheet.replace(from, to))).toContain(hit);
+      });
+
+      it("acusa estado global do teclado, scrollY em cache e segunda compensação", () => {
+        expect(keyboardSheetViolations(`${sheet}\nconst h = useKeyboardState((st) => st.height);`)).toContain(
+          "lê o estado global do teclado",
+        );
+        expect(keyboardSheetViolations(`${sheet}\nconst h = KeyboardController.state().height;`)).toContain(
+          "lê o estado global do teclado",
+        );
+        expect(keyboardSheetViolations(sheet.replace('="handled"', '="handled" onScroll={f}'))).toContain("scrollY em cache");
+        expect(keyboardSheetViolations(`${sheet}\nconst scrollY = useRef(0);`)).toContain("scrollY em cache");
+        expect(keyboardSheetViolations(sheet.replace("{c}", "<KeyboardStickyView />"))).toContain("<KeyboardStickyView");
+      });
+    });
+
     it("jsxOpeningTags lê só o nível de cima da tag", () => {
       const [tag] = jsxOpeningTags(`<KeyboardSheet a="x>y" footer={<B onPress={() => go()} />} h={a > b} n>{c}</KeyboardSheet>`, "KeyboardSheet");
       expect(tag).toBe(` a="x>y" footer={} h={} n`);
       expect(jsxOpeningTags(`<ScrollView horizontal={true}/>`, "ScrollView")).toEqual([` horizontal={true}/`]);
+      const [raw] = scanJsxOpeningTags(`<KeyboardSheet header={<A b={1} />} footer={<B onPress={() => go()} />} n>`, "KeyboardSheet");
+      expect(raw.exprs).toEqual({ header: "<A b={1} />", footer: "<B onPress={() => go()} />" });
     });
   });
 });

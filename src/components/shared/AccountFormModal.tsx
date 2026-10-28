@@ -10,7 +10,7 @@ import {
   Modal,
   Animated,
 } from "react-native";
-import { KeyboardSheet } from "@/src/components/shared/KeyboardSheet";
+import { KeyboardSheet, useSheetBackdropPress } from "@/src/components/shared/KeyboardSheet";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { createAccountEvent, updateAccountEvent, deleteAccountEvent } from "@packages/domain/src/accounts";
@@ -222,17 +222,16 @@ export function AccountFormModal({
     closeModal();
   }, [editingAccount, transferAccountId, accountTransactions, dispatchDomainEvent, closeModal]);
 
+  const handleBackdropPress = useSheetBackdropPress(() => {
+    soundManager.play("tap");
+    closeModal();
+  });
+
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={closeModal}>
       <View style={s.modalRoot}>
         <Animated.View style={[s.modalOverlay, { opacity: fadeAnim }]}>
-          <Pressable
-            style={s.flex}
-            onPress={() => {
-              soundManager.play("tap");
-              closeModal();
-            }}
-          />
+          <Pressable style={s.flex} onPress={handleBackdropPress} />
         </Animated.View>
 
         <KeyboardSheet

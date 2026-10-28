@@ -2,32 +2,36 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Animated,
+  Keyboard,
   ScrollView,
   StyleSheet,
   TextInput,
   View,
   useWindowDimensions,
   type LayoutChangeEvent,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useKeyboardState } from "react-native-keyboard-controller";
+import { KeyboardController, KeyboardEvents } from "react-native-keyboard-controller";
 import { KeyboardSafeView } from "@/src/components/shared/KeyboardSafeView";
 import {
-  computeFocusScrollDelta,
+  backdropPressAction,
+  computeFocusScrollTarget,
   computeKeyboardSheetLayout,
+  sheetKeyboardHeight,
+  sheetLiftDiscount,
   SHEET_KEYBOARD_GAP,
   SHEET_TOP_GAP,
 } from "@/src/components/shared/keyboardSheetLayout";
+
+type ScrollWithInnerView = ScrollView & { getInnerViewRef?: () => View | null };
 
 /** Espera o espaçador e o Yoga assentarem antes de medir o campo focado. */
 const FOCUS_SCROLL_DELAY_MS = 60;
 
 interface KeyboardSheetProps {
-  /** Cabeçalho fixo (alça, título, fechar). */
+  /** Cabeçalho fixo (alça, título, fechar); se nem sem o rodapé sobrar espaço para o campo, entra na rolagem. */
   header: ReactNode;
   /** Campos do formulário, dentro da rolagem. */
   children: ReactNode;
@@ -41,6 +45,46 @@ interface KeyboardSheetProps {
   basePaddingBottom: number;
   /** Estilo do conteúdo da rolagem. */
   contentContainerStyle?: StyleProp<ViewStyle>;
+  /**
+   * Mostra o rodapé. `false` esconde o botão principal (ex.: "Adicionar à
+   * lista" só aparece quando o formulário é válido). Padrão: `true`.
+   */
+  footerVisible?: boolean;
+}
+
+/**
+ * Toque no fundo escuro de um modal com `KeyboardSheet` (Story 13.3, R1): com o
+ * teclado aberto, o primeiro toque só fecha o teclado e mantém o que foi
+ * digitado; com o teclado fechado (e na web, que não tem evento de teclado),
+ * fecha o modal.
+ */
+export function useSheetBackdropPress(onClose: () => void): () => void {
+  return useCallback(() => {
+    if (backdropPressAction(KeyboardController.isVisible()) === "dismissKeyboard") Keyboard.dismiss();
+    else onClose();
+  }, [onClose]);
+}
+
+/**
+ * Altura do teclado para a folha: 0 ao montar e, depois, a do último
+ * `keyboardDidShow`/`keyboardDidHide`. Não lê o estado global do teclado na
+ * montagem (pode ser de antes do modal abrir).
+ */
+function useSheetKeyboardHeight(): number {
+  const [height, setHeight] = useState(() => sheetKeyboardHeight(null));
+  useEffect(() => {
+    const show = KeyboardEvents.addListener("keyboardDidShow", (e) =>
+      setHeight(sheetKeyboardHeight({ type: "keyboardDidShow", height: e.height })),
+    );
+    const hide = KeyboardEvents.addListener("keyboardDidHide", (e) =>
+      setHeight(sheetKeyboardHeight({ type: "keyboardDidHide", height: e.height })),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return height;
 }
 
 /**
@@ -60,15 +104,14 @@ export function KeyboardSheet({
   maxHeightRatio = 0.9,
   basePaddingBottom,
   contentContainerStyle,
+  footerVisible = true,
 }: KeyboardSheetProps) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
-  const keyboardHeight = useKeyboardState((state) => state.height);
+  const keyboardHeight = useSheetKeyboardHeight();
   const [headerHeight, setHeaderHeight] = useState(0);
   const [footerHeight, setFooterHeight] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
-  const scrollY = useRef(0);
-  const contentHeight = useRef(0);
 
   const sheetPaddingBottom = Math.max(insets.bottom, basePaddingBottom);
   const layout = computeKeyboardSheetLayout({
@@ -77,63 +120,66 @@ export function KeyboardSheet({
     insetTop: insets.top,
     sheetPaddingBottom,
     headerHeight,
-    footerHeight,
+    footerHeight: footerVisible ? footerHeight : 0,
     maxHeightRatio,
   });
 
   const scrollFocusedIntoView = useCallback(() => {
     const input = TextInput.State.currentlyFocusedInput?.();
-    const scroll = scrollRef.current?.getNativeScrollRef?.();
-    if (!input || !scroll) return;
-    scroll.measureInWindow((sx, sy, sw, sh) => {
-      input.measureInWindow((ix, iy, _iw, ih) => {
-        // Só campos desta rolagem (um campo de modal aninhado fica de fora).
-        const contentTop = sy - scrollY.current;
-        const insideX = ix >= sx - 1 && ix <= sx + sw;
-        const insideY = iy >= contentTop - 1 && iy + ih <= contentTop + contentHeight.current + 1;
-        if (!insideX || !insideY) return;
-        const delta = computeFocusScrollDelta({
-          inputTop: iy,
-          inputBottom: iy + ih,
-          viewportTop: sy,
-          viewportBottom: sy + sh,
-          gap: SHEET_KEYBOARD_GAP,
+    // getInnerViewRef existe no ScrollView do RN 0.81, mas falta nos tipos legados.
+    const content = (scrollRef.current as ScrollWithInnerView | null)?.getInnerViewRef?.();
+    const viewport = scrollRef.current?.getNativeScrollRef?.();
+    if (!input || !content || !viewport) return;
+    // Posição do campo no conteúdo desta rolagem. Falha (e não rola) quando o
+    // campo não está dentro dela, como o de um modal aninhado.
+    input.measureLayout(
+      content,
+      (_x, inputY, _w, inputHeight) => {
+        content.measureInWindow((_cx, contentWindowY) => {
+          viewport.measureInWindow((_vx, viewportWindowY, _vw, viewportHeight) => {
+            const target = computeFocusScrollTarget({
+              inputY,
+              inputHeight,
+              contentWindowY,
+              viewportWindowY,
+              viewportHeight,
+              gap: SHEET_KEYBOARD_GAP,
+            });
+            if (target !== null) scrollRef.current?.scrollTo({ y: target, animated: true });
+          });
         });
-        if (delta !== 0) {
-          scrollRef.current?.scrollTo({ y: Math.max(0, scrollY.current + delta), animated: true });
-        }
-      });
-    });
+      },
+      () => {},
+    );
   }, []);
 
-  // Fim da animação do teclado (keyboardDidShow) ou mudança de lugar do rodapé:
-  // leva o campo focado para a área visível, com folga. Trocar de campo com o
-  // teclado aberto fica com o requestChildFocus nativo do ScrollView.
+  // Fim da animação do teclado (keyboardDidShow) ou mudança de lugar do rodapé
+  // ou do cabeçalho: leva o campo focado para a área visível, com folga. Trocar
+  // de campo com o teclado aberto fica com o requestChildFocus nativo.
   useEffect(() => {
     if (keyboardHeight <= 0) return;
     const timer = setTimeout(scrollFocusedIntoView, FOCUS_SCROLL_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [keyboardHeight, layout.footerPinned, scrollFocusedIntoView]);
+  }, [keyboardHeight, layout.footerPinned, layout.headerPinned, scrollFocusedIntoView]);
 
+  // Mede o cabeçalho só quando ele está fixo: dentro da rolagem a medida muda
+  // (sem o paddingTop da folha) e faria o cabeçalho alternar de lugar.
   const onHeaderLayout = (e: LayoutChangeEvent) => {
     const { y, height } = e.nativeEvent.layout;
     setHeaderHeight(y + height);
   };
   const onFooterLayout = (e: LayoutChangeEvent) => setFooterHeight(e.nativeEvent.layout.height);
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollY.current = e.nativeEvent.contentOffset.y;
-  };
 
-  const footerNode = (
+  const footerNode = footerVisible ? (
     <View style={s.footer} onLayout={onFooterLayout}>
       {footer}
     </View>
-  );
+  ) : null;
 
   return (
     <KeyboardSafeView
       style={[s.root, { paddingTop: insets.top + SHEET_TOP_GAP }]}
-      liftDiscount={sheetPaddingBottom - SHEET_KEYBOARD_GAP}
+      liftDiscount={sheetLiftDiscount(sheetPaddingBottom)}
       pointerEvents="box-none"
     >
       <Animated.View
@@ -143,19 +189,15 @@ export function KeyboardSheet({
           { maxHeight: maxHeightRatio * windowHeight, paddingBottom: sheetPaddingBottom },
         ]}
       >
-        <View onLayout={onHeaderLayout}>{header}</View>
+        {layout.headerPinned && <View onLayout={onHeaderLayout}>{header}</View>}
         <ScrollView
           ref={scrollRef}
           style={s.scroll}
           contentContainerStyle={contentContainerStyle}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          scrollEventThrottle={16}
-          onScroll={onScroll}
-          onContentSizeChange={(_w, h) => {
-            contentHeight.current = h;
-          }}
         >
+          {!layout.headerPinned && <View>{header}</View>}
           {children}
           {!layout.footerPinned && footerNode}
         </ScrollView>

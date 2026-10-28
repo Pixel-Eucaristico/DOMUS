@@ -7,7 +7,7 @@ import {
   Text,
   Pressable,
 } from "react-native";
-import { KeyboardSheet } from "@/src/components/shared/KeyboardSheet";
+import { KeyboardSheet, useSheetBackdropPress } from "@/src/components/shared/KeyboardSheet";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import { soundManager } from "@/src/services/SoundManager";
@@ -64,6 +64,8 @@ export function CreateListModal({ visible, theme, onConfirm, onCancel }: Props) 
     });
   };
 
+  const handleBackdropPress = useSheetBackdropPress(handleCancel);
+
   return (
     <Modal
       visible={visible}
@@ -73,7 +75,7 @@ export function CreateListModal({ visible, theme, onConfirm, onCancel }: Props) 
     >
       <View style={styles.kav}>
         <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
-          <Pressable style={styles.flex} onPress={handleCancel} />
+          <Pressable style={styles.flex} onPress={handleBackdropPress} />
         </Animated.View>
 
         <KeyboardSheet
@@ -96,27 +98,15 @@ export function CreateListModal({ visible, theme, onConfirm, onCancel }: Props) 
             </>
           }
           footer={
-            <View style={styles.actions}>
-              <TButton
-                variant="outline"
-                flex={1}
-                borderColor={theme.border}
-                color={theme.textColor}
-                onPress={handleCancel}
-              >
-                Cancelar
-              </TButton>
-              <TButton
-                variant="primary"
-                flex={1}
-                backgroundColor={theme.primaryColor}
-                icon={<Feather name="plus" size={16} color="#fff" />}
-                onPress={handleConfirm}
-                disabled={!isValid}
-              >
-                Criar Lista
-              </TButton>
-            </View>
+            <TButton
+              variant="primary"
+              backgroundColor={theme.primaryColor}
+              icon={<Feather name="plus" size={16} color="#fff" />}
+              onPress={handleConfirm}
+              disabled={!isValid}
+            >
+              Criar Lista
+            </TButton>
           }
         >
           <Text style={[styles.label, { color: theme.secondaryText }]}>
@@ -134,6 +124,14 @@ export function CreateListModal({ visible, theme, onConfirm, onCancel }: Props) 
             backgroundColor={theme.cardBackground}
             borderColor={theme.border}
           />
+          <TButton
+            variant="outline"
+            borderColor={theme.border}
+            color={theme.textColor}
+            onPress={handleCancel}
+          >
+            Cancelar
+          </TButton>
         </KeyboardSheet>
       </View>
     </Modal>
@@ -176,9 +174,5 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_500Medium",
     textTransform: "uppercase",
     letterSpacing: 0.5,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: 10,
   },
 });

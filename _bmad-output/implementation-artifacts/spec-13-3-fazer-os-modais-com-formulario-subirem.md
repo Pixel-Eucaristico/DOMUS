@@ -2,7 +2,7 @@
 title: 'Story 13.3: fazer os modais com formulário subirem'
 type: 'bugfix'
 created: '2026-10-27'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'd569c98d4380f156163c1cdb1df3e7aae547b7a4'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -83,7 +83,7 @@ As contas ficam em funções puras testadas, como o `parsedFooterLayout.ts` da 1
 
 - O `Modal` do RN abre em outra janela (um `Dialog`), mas o conteúdo dele continua na árvore React, debaixo do provider da raiz. O `useKeyboardHandler` do `KeyboardSafeView` lê o contexto normalmente.
 - Os eventos nativos chegam pelo `ModalAttachedWatcher` (`android/.../modal/ModalAttachedWatcher.kt`). Ele escuta o `topShow` de cada `Modal`, liga um `KeyboardAnimationCallback` no `decorView` da janela do diálogo e repassa os eventos para o `KeyboardControllerView` da raiz.
-  - No Android 12 ou mais, o callback principal fica suspenso enquanto o modal está aberto. Abaixo do 12, os eventos já vêm da janela principal.
+  - No Android 11 ou mais (API 30, `!Keyboard.IS_ANIMATION_EMULATED`), o callback principal fica suspenso enquanto o modal está aberto. Abaixo do 11, os eventos já vêm da janela principal.
   - Ao abrir o modal, a posição do teclado é sincronizada em 0. Ao fechar (`setOnDismissListener`), ela é sincronizada de novo e o callback principal volta.
 - O mesmo watcher põe a janela do modal em `SOFT_INPUT_ADJUST_NOTHING`. A janela do modal **nunca encolhe**, então só o app pode fazer o conteúdo subir. Hoje isso é o espaçador do `KeyboardSafeView`.
 - `statusBarTranslucent` e `navigationBarTranslucent` do `Modal`: no RN 0.81 os getters devolvem `field || isEdgeToEdgeFeatureFlagOn` (`ReactModalHostView.kt`). Com o `edgeToEdgeEnabled=true` do SDK 54 (conferido na 13.1), o modal já é de tela inteira, de ponta a ponta. Passar as props não muda nada e não é preciso. As coordenadas da janela do modal são as da tela, e a altura do teclado já inclui a barra de navegação.
@@ -107,8 +107,8 @@ Sem o espaçador, as folhas curtas (criar lista, conta comum) ficariam com a ár
 |---|---|---|---|---|---|---|---|---|
 | `src/components/transaction/TransactionBottomSheet.tsx` | Início → FAB "Cadastro" (e atalho de transferência) — `app/(tabs)/index.tsx` | `Modal transparent` > `View flex` > fundo `absoluteFill` + `KeyboardSafeView style={flex}` (sem `justifyContent`) > `View flex` + `Animated.View` | folha de baixo, `maxHeight: "85%"`, `paddingBottom: max(insets.bottom, 20)`; desliza de `Dimensions.get("window").height` | Valor, Descrição, dízimo (Percentual, dias), itens (`ItemsSection`: descrição, qtd, UN, preço), busca de categoria inline (`CategorySelectorGrid`), parcelas (`InstallmentSelector`), "Repetir a cada (dias)"; `AccountPicker` compacto e `DatePickerField` abrem modal próprio (13.4 / sem campo) | "Salvar" no **fim** da rolagem | `ScrollView` **sem** `keyboardShouldPersistTaps` | folha não encolhe; com `flex-start` o excesso vai para baixo (fundo da folha atrás do teclado); faixa de `insets.bottom` | `KeyboardSheet`; "Salvar" no rodapé; `return null` quando invisível continua |
 | `src/components/shared/AccountFormModal.tsx` | aba Contas → "+" ou tocar numa conta — `app/(tabs)/accounts.tsx` | `Modal transparent` > `View modalRoot (flex-end)` > fundo + `KeyboardSafeView style={modalRoot}` > `View flex` + `Animated.View` | folha de baixo, `maxHeight: "90%"`, `padding: 24`, `paddingBottom: max(insets.bottom, 24)` | Nome, Saldo inicial **ou** Limite/Fechamento/Vencimento (cartão), Aporte e Dia do aporte (`SavingsGoalSection`) | "Criar conta"/"Salvar" no fim da rolagem; "Excluir conta" logo abaixo (edição) | `ScrollView` com `handled` | com cartão + objetivo, folha alta: com `flex-end` o excesso sai por cima (cabeçalho fora da tela); faixa de `insets.bottom` | `KeyboardSheet`; "Criar conta"/"Salvar" no rodapé; "Excluir conta" fica no fim da rolagem; o `Modal` de excluir (sem campo, com `ScrollView` horizontal) fica |
-| `src/components/wishlist/CreateListModal.tsx` | aba Lista de desejos e `/wishlist` → "Criar primeira lista" ou "+" | `Modal transparent` > `View kav (flex-end)` > fundo + `KeyboardSafeView style={kav}` > `View flex` + `Animated.View` | cartão de baixo, sem `maxHeight`, `paddingBottom: max(insets.bottom, 24)`; mola de 600 | Nome da lista (`autoFocus`, Enter confirma) | "Cancelar" + "Criar Lista" logo abaixo do campo (sem rolagem) | nenhuma | provavelmente já sobe; faixa de `insets.bottom` | `KeyboardSheet`: botões no rodapé; corpo com um campo |
-| `src/components/wishlist/AddItemModal.tsx` | `/wishlist/[listId]` → "+" (ou `?addItem=1`); editar item | `Modal transparent` > `View kav (flex-end)` > fundo + `KeyboardSafeView style={kav}` > `View flex` + `Animated.View`; `WishlistSearchWebView`, `SelectionModal` e `StoreGridModal` fora do `KeyboardSafeView` | folha de baixo, `maxHeight: "92%"`, `paddingBottom: max(insets.bottom, 20)` | Link, Nome, Preço, Quantidade (`TextInput` do RN), EAN e NCM (avançado), peças do kit (`ProductFormCard`); `CategoryPickerModal`/`StoreGridModal` (13.4) | "Cancelar" + "Adicionar à lista"/"Salvar alterações" (só quando válido) no fim da rolagem | `ScrollView` com `handled`; um `ScrollView` horizontal (poupança) | folha alta: excesso sai por cima; faixa de `insets.bottom` | `KeyboardSheet`; ações no rodapé; o horizontal fica |
+| `src/components/wishlist/CreateListModal.tsx` | aba Lista de desejos e `/wishlist` → "Criar primeira lista" ou "+" | `Modal transparent` > `View kav (flex-end)` > fundo + `KeyboardSafeView style={kav}` > `View flex` + `Animated.View` | cartão de baixo, sem `maxHeight`, `paddingBottom: max(insets.bottom, 24)`; mola de 600 | Nome da lista (`autoFocus`, Enter confirma) | "Cancelar" + "Criar Lista" logo abaixo do campo (sem rolagem) | nenhuma | provavelmente já sobe; faixa de `insets.bottom` | `KeyboardSheet`: "Criar Lista" no rodapé, "Cancelar" no fim da rolagem (R7); corpo com um campo |
+| `src/components/wishlist/AddItemModal.tsx` | `/wishlist/[listId]` → "+" (ou `?addItem=1`); editar item | `Modal transparent` > `View kav (flex-end)` > fundo + `KeyboardSafeView style={kav}` > `View flex` + `Animated.View`; `WishlistSearchWebView`, `SelectionModal` e `StoreGridModal` fora do `KeyboardSafeView` | folha de baixo, `maxHeight: "92%"`, `paddingBottom: max(insets.bottom, 20)` | Link, Nome, Preço, Quantidade (`TextInput` do RN), EAN e NCM (avançado), peças do kit (`ProductFormCard`); `CategoryPickerModal`/`StoreGridModal` (13.4) | "Cancelar" + "Adicionar à lista"/"Salvar alterações" (só quando válido) no fim da rolagem | `ScrollView` com `handled`; um `ScrollView` horizontal (poupança) | folha alta: excesso sai por cima; faixa de `insets.bottom` | `KeyboardSheet`; botão principal no rodapé (`footerVisible={isValid}`), "Cancelar" no fim da rolagem (R7); o horizontal fica |
 
 Sobre "espaço em branco ao fechar":
 - Nos quatro modais, o espaçador volta a 0 no `onEnd` com altura 0, e o `Modal` do RN desmonta os filhos quando fica invisível. Por isso cada abertura começa com o espaçador em 0.
@@ -132,10 +132,10 @@ Estrutura:
 - **Rolagem:** `ScrollView` vertical, com `keyboardShouldPersistTaps="handled"`, `flexShrink: 1`, `onScroll`/`onLayout` para a posição.
 - **Rodapé:** fixo, abaixo da rolagem, medido no `onLayout`. Com a folha erguida, ele fica logo acima do teclado. Quando `computeKeyboardSheetLayout` disser que não cabe, o mesmo `footer` é renderizado no fim da rolagem (D-3).
 - **Ajuste até o campo:** no `onEnd` do teclado com altura > 0, o `KeyboardSheet` mede:
-  - o campo focado (`TextInput.State.currentlyFocusedInput()` → `measureInWindow`);
-  - a área rolável (`measureInWindow`).
+  - o campo focado relativo ao conteúdo da rolagem (`TextInput.State.currentlyFocusedInput()` → `measureLayout(conteúdo)`; falha, e não rola, para campo fora desta rolagem — R3/R4);
+  - o conteúdo e a área rolável (`measureInWindow`): a posição atual da rolagem é a diferença entre os dois, sem `scrollY` guardado de `onScroll` (R3).
 
-  Em seguida rola `computeFocusScrollDelta(...)`. A troca de campo com o teclado aberto fica com o `requestChildFocus` nativo, e o ajuste do `onEnd` não faz nada se o campo já estiver visível.
+  Em seguida rola até `computeFocusScrollTarget(...)` (que usa `computeFocusScrollDelta`). A troca de campo com o teclado aberto fica com o `requestChildFocus` nativo, e o ajuste do `onEnd` não faz nada se o campo já estiver visível.
 
 **`src/components/shared/KeyboardSafeView.tsx` (ajuste, sem mudar o uso)**
 
@@ -154,7 +154,7 @@ Estrutura:
   - `sheetMaxHeight` = `min(maxHeightRatio × windowHeight, windowHeight − insetTop − SHEET_TOP_GAP − lift)`;
   - `footerPinned` = `false` só quando o teclado está aberto e `scrollSpace < MIN_FIELD_SPACE`.
 
-  O `KeyboardSheet` usa o resultado (com `useKeyboardState` e `useWindowDimensions`, como o `ParsedScreen`) para decidir onde fica o rodapé. O encolhimento em si fica com o Yoga (`flexShrink`), sem conta por quadro.
+  O `KeyboardSheet` usa o resultado (com a altura do teclado dos eventos `keyboardDidShow`/`keyboardDidHide` recebidos depois de montar — começa em 0, R6 — e `useWindowDimensions`) para decidir onde ficam o rodapé e o cabeçalho (`headerPinned`, R2). O encolhimento em si fica com o Yoga (`flexShrink`), sem conta por quadro.
 - `computeFocusScrollDelta({ inputTop, inputBottom, viewportTop, viewportBottom, gap })` devolve quanto rolar:
   - positivo se o campo passa do fundo da área menos a folga;
   - negativo se ele está acima do topo mais a folga;
@@ -237,11 +237,6 @@ Estrutura:
 
 ## Spec Change Log
 
-## Review Triage Log
-
-| Achado | Veredito | Evidência |
-|---|---|---|
-
 ## Verification
 
 **Comandos**
@@ -259,12 +254,12 @@ Estrutura:
 - Sonda da função pura: trocar `computeKeyboardSheetLayout` pela regra "rodapé sempre fixo" faz os casos de paisagem e de limite falharem.
 
 **Web (Playwright, Chromium headless, build exportado com fallback de SPA, `localStorage` com carrossel, introduções e aviso de consultas já vistos; 412×900 e 800×360)**
-- `/` → FAB → "Cadastro": a folha "Nova Transação" abre; "Salvar" visível dentro da janela sem rolar; focar "Valor" e "Descrição"; clicar em "Salvar" com o formulário vazio mostra o `appAlert` de validação, e não o alerta nativo.
-- `/accounts` → "+": "Nova conta"; trocar para cartão e ligar o objetivo de poupança; "Criar conta" visível sem rolar; criar a conta e conferir que ela aparece na lista.
-- `/wishlist` → "Criar primeira lista" (ou o "+" do cabeçalho): o campo recebe o foco; "Criar Lista" visível; criar.
-- `/wishlist/<id>?addItem=1` (ou "+" na lista criada): "Adicionar Item"; preencher nome e preço; "Adicionar à lista" visível sem rolar; abrir "avançado" e focar NCM; adicionar e conferir o item na lista.
+- `/` → FAB → "Cadastro": a folha "Nova Transação" abre; "Salvar" visível dentro da janela sem rolar; focar "Valor" e "Descrição"; clicar em "Salvar" com o formulário vazio mostra o `appAlert` de validação, e não o alerta nativo; digitar na Descrição e tocar no fundo fecha a folha (na web não há teclado, então o 1º toque fecha — R1).
+- `/accounts` → "+": "Nova conta"; trocar para cartão e ligar o objetivo de poupança; "Criar conta" visível sem rolar; criar a conta e conferir que ela aparece na lista; reabrir, digitar um nome e tocar no fundo: o modal fecha e a conta não é criada.
+- `/wishlist` → "Criar primeira lista" (ou o "+" do cabeçalho): digitar e tocar no fundo fecha sem criar; reabrir: o campo recebe o foco; "Criar Lista" visível, no rodapé (fora da rolagem); "Cancelar" dentro da rolagem, acima do rodapé (R7); criar.
+- `/wishlist/<id>?addItem=1` (ou "+" na lista criada): "Adicionar Item"; vazio, sem botão principal e com "Cancelar" na rolagem; preencher nome e preço; "Adicionar à lista" visível sem rolar, no rodapé, e "Cancelar" no fim da rolagem, acima dele (R7); abrir "avançado" e focar NCM; adicionar e conferir o item na lista; reabrir, digitar e tocar no fundo fecha sem adicionar.
 - Em todas: o topo da folha fica abaixo do topo da janela, a folha não passa do fundo e não há faixa vazia entre a folha e o fim da janela. Sem erro de página.
-- A web não simula o teclado (espaçador 0). O teste prova o rodapé, o primeiro toque e o layout, não a subida.
+- A web não simula o teclado (espaçador 0). O teste prova o rodapé, o primeiro toque, o toque no fundo sem teclado e o layout, não a subida nem o 1º toque no fundo com teclado aberto (só fecha o teclado — aparelho).
 
 **Aparelho (itens para a checklist da Story 13.7, Android 16)**
 1. Nova transação (Início → "Cadastro"): focar Valor, Descrição, os campos dos itens (com 3 ou mais itens), Parcelas e "Repetir a cada (dias)". O campo fica acima do rodapé, "Salvar" fica logo acima do teclado, sem faixa entre eles, e responde no 1º toque.
@@ -279,34 +274,56 @@ Estrutura:
 10. Paisagem, fonte do sistema 1,3 e 2,0, e celular com até 640 dp: repetir 1, 3 e 6. O campo focado fica visível, e o botão de salvar fica no rodapé ou, se não couber, no fim da rolagem (D-3).
 11. Trocar de campo numérico para texto (e o contrário) com o teclado aberto. A folha acompanha a altura do teclado sem pular.
 12. Navegação de 3 botões e por gestos: sem faixa entre a folha e o teclado e sem conteúdo sob a barra de navegação com o teclado fechado.
-13. Se houver aparelho com Android 7 a 10, repetir 1, 5 e 7 (no Android < 12 os eventos vêm da janela principal).
+13. Se houver aparelho com Android 7 a 10, repetir 1, 5 e 7 (no Android < 11 os eventos vêm da janela principal).
 
 ## Implementation Notes
 
 **Arquivos**
 - Novos: `src/components/shared/KeyboardSheet.tsx`, `src/components/shared/keyboardSheetLayout.ts`, `src/components/shared/__tests__/keyboardSheetLayout.test.ts`.
 - Alterados: `src/components/shared/KeyboardSafeView.tsx` (`liftDiscount` e espaçador por `keyboardLift`), `components/keyboardScrollDefaults.ts` (recebe `MIN_FIELD_SPACE`), `src/components/invoice/parsedFooterLayout.ts` (reexporta; teste da 13.2 sem mudança), os quatro modais (`TransactionBottomSheet`, `AccountFormModal`, `CreateListModal`, `AddItemModal`) e `src/components/__tests__/keyboardScroll.test.ts` (bloco "modais com formulário (Story 13.3)" e auto-testes).
-- Os modais só trocaram o contêiner: `header` (alça/título/fechar), campos como `children`, botão principal no `footer`. Fundo `absoluteFillObject`, animação de entrada/saída, `AppAlertHost`, `return null` da nova transação e modais aninhados (`WishlistSearchWebView`, `SelectionModal`, `StoreGridModal`, `CategoryPickerModal`, diálogo de excluir conta) ficaram como estavam. "Excluir conta" ficou no fim da rolagem; "Cancelar" foi junto com o botão principal no rodapé em `CreateListModal` e `AddItemModal` (era a mesma linha de ações).
+- Os modais só trocaram o contêiner: `header` (alça/título/fechar), campos como `children`, botão principal no `footer`. Fundo `absoluteFillObject`, animação de entrada/saída, `AppAlertHost`, `return null` da nova transação e modais aninhados (`WishlistSearchWebView`, `SelectionModal`, `StoreGridModal`, `CategoryPickerModal`, diálogo de excluir conta) ficaram como estavam. "Excluir conta" ficou no fim da rolagem. Depois da revisão (R7), "Cancelar" de `CreateListModal` e `AddItemModal` voltou para o fim da rolagem, e o rodapé tem só o botão principal.
+
+**Patches da revisão (28/10)**
+- R1: `useSheetBackdropPress(onClose)` (no `KeyboardSheet.tsx`) com a função pura `backdropPressAction(teclado visível)`: com o teclado aberto (`KeyboardController.isVisible()`), o toque no fundo só chama `Keyboard.dismiss()`; fechado, fecha o modal. Os quatro modais passam o fundo por ele (o som de toque do `AccountFormModal` continua só no fechamento).
+- R2: `computeKeyboardSheetLayout` devolve `headerPinned`. É `false` só quando o rodapé já foi para a rolagem e, sem ele, o espaço ainda fica abaixo de `MIN_FIELD_SPACE`; aí o cabeçalho entra no começo da rolagem. O cabeçalho só é medido enquanto está fixo (dentro da rolagem a medida perde o `paddingTop` da folha e faria ele alternar de lugar). Os campos seguem no mesmo lugar da árvore, sem remontar.
+- R3/R4: o ajuste até o campo mede o campo com `measureLayout` relativo ao conteúdo da rolagem (`getInnerViewRef`). No Fabric, `measureLayout` não soma a rolagem (`includeTransform = false`) e chama o `onFail` quando o campo não descende do conteúdo, então um campo de modal aninhado não rola a folha de baixo. A posição atual vem de `measureInWindow` do conteúdo e da área (`computeFocusScrollTarget`). Saíram `onScroll`, `scrollY` e `onContentSizeChange`.
+- R6: a folha não usa mais o `useKeyboardState` (cujo valor inicial é o último estado global). A altura começa em 0 e só segue os `keyboardDidShow`/`keyboardDidHide` recebidos depois de montar (`sheetKeyboardHeight`).
+- R7: "Cancelar" no fim da rolagem em "Criar lista" e "Adicionar item". Como "Adicionar à lista" só aparece com o formulário válido, o `KeyboardSheet` ganhou `footerVisible` (padrão `true`); o `AddItemModal` passa `footerVisible={isValid}`, e o rodapé some inteiro (sem a faixa de `paddingTop`) quando inválido.
+- R9: `sheetLiftDiscount(paddingBottom)` é o único lugar da conta, usado pelo `KeyboardSheet` e por `computeKeyboardSheetLayout`.
+- R11: a guarda exige `footer={<…>}` (elemento JSX, não `null`, `undefined`, fragmento vazio nem condicional), com `variant="primary"` e sem "Cancelar"; acusa `footerVisible={false}`; exige o fundo via `useSheetBackdropPress` (e o handler num `onPress`). O próprio `KeyboardSheet.tsx` é checado: uma `ScrollView` com `keyboardShouldPersistTaps="handled"`, `flexShrink: 1` na folha e na rolagem, um `KeyboardSafeView` com `liftDiscount={sheetLiftDiscount(…)}`, nenhuma outra compensação, sem `useKeyboardState`/`KeyboardController.state()`, com os dois eventos, com `measureLayout` e sem `onScroll`/`scrollY`.
+- R12: o corte do watcher nativo é o Android 11 (API 30), corrigido na pesquisa e no item 13.
+- R10 e V1: só checklist (abaixo).
 
 **Testes**
-- `keyboardSheetLayout.test.ts`: 27 testes (`keyboardLift`, `computeKeyboardSheetLayout` com retrato 412×900/teclado 320, paisagem 800×360/teclado 200, limite exato 48/47, teclado fechado; `computeFocusScrollDelta`).
-- `keyboardScroll.test.ts`: de 74 para 95 testes (bloco da 13.3 + auto-testes dos detectores).
-- Suite: 94 arquivos, 1901 testes, todos passando (baseline 93/1853). `npx tsc --noEmit`: 0 erros. `npx eslint` nos arquivos tocados: sem avisos. `npx expo export --platform web`: exit 0.
+- `keyboardSheetLayout.test.ts`: de 27 para 44 testes (`keyboardLift`, `sheetLiftDiscount`, `sheetKeyboardHeight`, `backdropPressAction`, `computeKeyboardSheetLayout` com retrato 412×900/teclado 320, paisagem 800×360/teclado 200 e 240, limites exatos 48/47 do rodapé e do cabeçalho, teclado fechado; `computeFocusScrollDelta`; `computeFocusScrollTarget`).
+- `keyboardScroll.test.ts`: de 95 para 110 testes (rodapé, fundo, `keyboardSheetViolations` e auto-testes).
+- Suite: 94 arquivos, 1933 testes, todos passando (antes da revisão 94/1901; baseline 93/1853). `npx tsc --noEmit`: 0 erros. `npx eslint` nos arquivos tocados: sem avisos. `npx expo export --platform web`: exit 0.
 - Sondas da guarda (arquivos temporários, revertidos): `<KeyboardSafeView` direto no `CreateListModal` (acusado no bloco do modal e em "só o KeyboardSheet renderiza o KeyboardSafeView"); `KeyboardAwareScrollViewCompat` no `AddItemModal`; `ScrollView` vertical no `CreateListModal` ("ScrollView vertical"); `KeyboardSheet` sem `footer` no `AccountFormModal`; `ProbeModal.tsx` novo com `<Modal` + `TInput` ("todo componente com <Modal e campo…"). Todas acusadas.
 - Sonda da função pura: `footerPinned = true` fixo faz falhar "paisagem 800×360" e "limite exato".
-- Playwright (Chromium headless, build exportado, 412×900 e 800×360): nova transação ("Salvar" visível sem rolar, foco em Valor e Descrição, toque em "Salvar" vazio mostra o `appAlert` "Valor inválido"), nova conta (cartão, depois poupança com objetivo; "Criar conta" visível; conta criada aparece), criar lista (campo com foco; "Criar Lista" visível; lista criada), adicionar item (nome e preço; "Adicionar à lista" visível; avançado + foco no NCM; item adicionado). Em todas: topo da folha ≥ 0, fundo da folha = fundo da janela (±1 px), sem erro de página e sem diálogo nativo.
+- Sondas dos patches da revisão (cada uma aplicada sozinha e revertida; todas acusadas): R1 `backdropPressAction` sempre "close"; fundo com `onPress={handleClose}`/`{closeModal}` direto (nova transação, conta). R2 `headerPinned = true` fixo. R3 posição atual ignorada (offset 0); `onScroll` com `scrollY` de volta no `KeyboardSheet`. R4 campo medido com `measureInWindow` em vez de `measureLayout`. R6 `useKeyboardState` de volta; `sheetKeyboardHeight(null)` herdando altura. R7 "Cancelar" no `footer` do `CreateListModal`; rodapé só com botão `outline` no `AddItemModal`. R9 `liftDiscount={sheetPaddingBottom - SHEET_KEYBOARD_GAP}`; `sheetLiftDiscount` sem o piso 0. R11 `footer={null}`; `footerVisible={false}`; sem `keyboardShouldPersistTaps`; sem `flexShrink` na folha; sem `flexShrink` na rolagem.
+- Playwright (Chromium headless, build exportado, 412×900 e 800×360): nova transação ("Salvar" visível sem rolar, foco em Valor e Descrição, toque em "Salvar" vazio mostra o `appAlert` "Valor inválido", fundo fecha), nova conta (cartão, depois poupança com objetivo; "Criar conta" visível; conta criada aparece; fundo fecha sem criar), criar lista (fundo fecha sem criar; campo com foco; "Criar Lista" no rodapé e "Cancelar" na rolagem acima dele; lista criada), adicionar item (sem botão principal quando vazio; nome e preço; "Adicionar à lista" no rodapé e "Cancelar" na rolagem acima dele; avançado + foco no NCM; item adicionado; fundo fecha sem adicionar). Em todas: topo da folha ≥ 0, fundo da folha = fundo da janela (±1 px), sem erro de página e sem diálogo nativo. 8/8 casos passando.
 
 **Decisões além da spec**
 - `KeyboardSafeView` ganhou também a prop `pointerEvents`; o `KeyboardSheet` passa `"box-none"` na raiz, e o espaçador é `pointerEvents="none"`. Antes a raiz do `KeyboardSafeView` cobria a tela acima da folha e engolia o toque no fundo escuro (fechar tocando fora).
-- O ajuste até o campo usa o `useKeyboardState` (atualiza no `keyboardDidShow`, fim da animação) com um atraso de 60 ms para o espaçador e o Yoga assentarem, em vez de um segundo `useKeyboardHandler`: o `KeyboardSafeView` continua o único com handler. Só rola se o campo focado estiver dentro do conteúdo desta rolagem (campo de modal aninhado fica de fora).
+- O ajuste até o campo dispara no `keyboardDidShow` (fim da animação) com um atraso de 60 ms para o espaçador e o Yoga assentarem, em vez de um segundo `useKeyboardHandler`: o `KeyboardSafeView` continua o único com handler. Também dispara quando o rodapé ou o cabeçalho mudam de lugar.
 - `headerHeight` é medido como `y + height` do cabeçalho (inclui o `paddingTop` da folha).
 - `CreateListModal` não tinha `maxHeight`; passa `maxHeightRatio={1}` (a folha fica limitada só pela barra de status + `SHEET_TOP_GAP`).
 - Rodapé com `paddingTop: 12` no `KeyboardSheet`; saíram os `marginTop` dos botões e o `paddingBottom: 32` do corpo da nova transação.
 - Guarda: `horizontal={expressão}` ou `horizontal={false}` conta como rolagem vertical; só `horizontal` e `horizontal={true}` passam.
+- Revisão: `footerVisible` no `KeyboardSheet` (R7, para manter "só quando válido"); `getInnerViewRef` lido por um tipo local, porque falta nos tipos legados do RN 0.81 (existe em tempo de execução); no R1 o estado do teclado vem de `KeyboardController.isVisible()` (atualizado nos mesmos `keyboardDidShow`/`keyboardDidHide`), e durante a animação de abertura do teclado o toque no fundo ainda fecha o modal.
 
-**Checklist para a Story 13.7 (aparelho)**: os itens 1 a 13 da seção "Aparelho" acima, mais:
-14. Tocar no fundo escuro acima da folha fecha o modal (efeito do `pointerEvents="box-none"`), com e sem teclado aberto.
+**Checklist para a Story 13.7 (aparelho)**: o app é só Android. Os itens 1 a 13 da seção "Aparelho" acima, mais:
+14. Tocar no fundo escuro acima da folha com o teclado aberto: o 1º toque só fecha o teclado e mantém o que foi digitado; o 2º (teclado fechado) fecha o modal (R1). Nos quatro modais.
 15. Ao focar um campo no fim da nova transação, a rolagem leva o campo para cima do rodapé sem "pulo" duplo (ajuste do `KeyboardSheet` somado ao `requestChildFocus` nativo).
+16. Paisagem com teclado alto: quando nem sem o rodapé sobram 48 dp, o cabeçalho (título e X) entra na rolagem (R2). Conferir também a edição em tela cheia do Android em paisagem (teclado "extract" sem `disableFullscreenUI`): o modal não deve ficar com sobra ao voltar.
+17. `useWindowDimensions` × janela do modal (R10): em retrato, paisagem e navegação de 3 botões/gestos (itens 10 e 12), conferir que o limite de altura da folha bate com a janela do modal (folha não passa da barra de status nem deixa faixa embaixo).
+18. Abrir um dos modais com o teclado de outra tela ainda aberto (ex.: focar a busca e tocar no "+"): a folha abre no tamanho normal, sem sobra (R6).
+19. Girar o aparelho com o teclado aberto num dos modais: a folha se ajusta à nova janela e o campo segue visível.
+20. Tela dividida, teclado flutuante e teclado físico: a folha não sobe (ou sobe só o que o teclado ocupa) e não fica faixa.
+21. `appAlert` com o teclado aberto (ex.: "Salvar" vazio na nova transação): o alerta aparece por cima e, ao fechar, a folha volta sem sobra.
+22. Busca inline do `CategorySelectorGrid` na nova transação: focar a busca leva o campo para cima do rodapé.
+23. Fluidez num aparelho com GPU Mali fraca: abrir/fechar o teclado nos quatro modais sem travar nem piscar (espaçador nunca maior que o teclado).
+24. Android 7 a 10 (item 13): conferir também a folga de 12 dp entre o conteúdo da folha e o teclado.
 
 ## Review Triage Log
 
@@ -314,16 +331,16 @@ Revisão única com três lentes (adversarial, casos de borda, lacunas de verifi
 
 | # | Achado | Sev. | Decisão |
 |---|--------|------|---------|
-| R1 | Toque no fundo agora fecha o modal e perde o que foi digitado, mesmo com teclado aberto | Med | **patch** (decisão do dono 28/10): com teclado aberto, o primeiro toque no fundo só chama `Keyboard.dismiss()`; com teclado fechado, fecha o modal. Lógica em função pura testada |
-| R2 | D-3 em paisagem ainda deixa ~40dp (cabeçalho fixo) | Med | **patch**: quando o rodapé já foi para a rolagem e o espaço segue abaixo de `MIN_FIELD_SPACE`, o cabeçalho também entra na rolagem; checklist cita a edição em tela cheia do Android em paisagem |
-| R3 | Deslocamento da rolagem lido de `scrollY` em cache | Low | **patch**: medir o campo relativo ao conteúdo da rolagem (`measureLayout`), sem `scrollY` |
-| R4 | Campo de modal aninhado pode rolar a folha de baixo | Low | **patch**: só rolar se o campo focado for descendente do conteúdo (o `measureLayout` do R3 falha para campos de fora) |
+| R1 | Toque no fundo agora fecha o modal e perde o que foi digitado, mesmo com teclado aberto | Med | **patch** (decisão do dono 28/10): com teclado aberto, o primeiro toque no fundo só chama `Keyboard.dismiss()`; com teclado fechado, fecha o modal. Lógica em função pura testada. **Aplicado** (ver Implementation Notes) |
+| R2 | D-3 em paisagem ainda deixa ~40dp (cabeçalho fixo) | Med | **patch**: quando o rodapé já foi para a rolagem e o espaço segue abaixo de `MIN_FIELD_SPACE`, o cabeçalho também entra na rolagem; checklist cita a edição em tela cheia do Android em paisagem. **Aplicado** (ver Implementation Notes) |
+| R3 | Deslocamento da rolagem lido de `scrollY` em cache | Low | **patch**: medir o campo relativo ao conteúdo da rolagem (`measureLayout`), sem `scrollY`. **Aplicado** (ver Implementation Notes) |
+| R4 | Campo de modal aninhado pode rolar a folha de baixo | Low | **patch**: só rolar se o campo focado for descendente do conteúdo (o `measureLayout` do R3 falha para campos de fora). **Aplicado** (ver Implementation Notes) |
 | R5 | Sem proteção contra sobra de elevação com modais aninhados | Low | **reject**: depende do aparelho; itens 7 e 8 do checklist cobrem. Se aparecer, corrige-se no `KeyboardSheet` |
-| R6 | Estado do teclado velho ao montar o modal | Low | **patch**: ignorar `keyboardHeight` até o primeiro `DidShow`/`DidHide` depois de montar (ou `onShow`) |
-| R7 | Cancelar no rodapé fixo, diferente da D-1 | Low | **patch** (decisão do dono 28/10): Cancelar volta para o fim da rolagem em "Criar lista" e "Adicionar item"; rodapé só com o botão principal |
+| R6 | Estado do teclado velho ao montar o modal | Low | **patch**: ignorar `keyboardHeight` até o primeiro `DidShow`/`DidHide` depois de montar (ou `onShow`). **Aplicado** (ver Implementation Notes) |
+| R7 | Cancelar no rodapé fixo, diferente da D-1 | Low | **patch** (decisão do dono 28/10): Cancelar volta para o fim da rolagem em "Criar lista" e "Adicionar item"; rodapé só com o botão principal. **Aplicado** (ver Implementation Notes) |
 | R8 | "Excluir conta" logo acima do Salvar fixo | Low | **reject**: tem confirmação; fim da rolagem é o lugar previsto na spec |
-| R9 | Desconto da elevação calculado em dois lugares | Low | **patch**: `sheetLiftDiscount(paddingBottom)` único, usado nos dois e testado |
-| R10 | `useWindowDimensions` pode diferir da janela do modal | Low | **patch**: item no checklist (10/12); sem mudança de código |
-| R11 | Guarda burlável (`footer={null}`, rodapé só com Cancelar, campo em componente filho) e sem checagem do próprio `KeyboardSheet` | Low | **patch**: exigir `footer={<…>}` não nulo e checagem estática do `KeyboardSheet.tsx` (`keyboardShouldPersistTaps`, `flexShrink`, `liftDiscount`). Descoberta em componentes filhos: coberta pela D39 |
-| R12 | Spec diz Android 12; o corte é o 11 | Low | **patch**: corrigir o texto da spec |
-| V1 | Checklist do aparelho incompleto | — | **patch**: acrescentar toque fora com teclado aberto, modal aberto com teclado de tela, girar com teclado aberto, tela dividida/teclado flutuante/físico, `appAlert` com teclado aberto, busca do `CategorySelectorGrid`, fluidez em Mali fraco, paisagem com `disableFullscreenUI`, Android 7–10 (folga), e registrar que o app é só Android |
+| R9 | Desconto da elevação calculado em dois lugares | Low | **patch**: `sheetLiftDiscount(paddingBottom)` único, usado nos dois e testado. **Aplicado** (ver Implementation Notes) |
+| R10 | `useWindowDimensions` pode diferir da janela do modal | Low | **patch**: item no checklist (10/12); sem mudança de código. **Aplicado** (ver Implementation Notes) |
+| R11 | Guarda burlável (`footer={null}`, rodapé só com Cancelar, campo em componente filho) e sem checagem do próprio `KeyboardSheet` | Low | **patch**: exigir `footer={<…>}` não nulo e checagem estática do `KeyboardSheet.tsx` (`keyboardShouldPersistTaps`, `flexShrink`, `liftDiscount`). Descoberta em componentes filhos: coberta pela D39. **Aplicado** (ver Implementation Notes) |
+| R12 | Spec diz Android 12; o corte é o 11 | Low | **patch**: corrigir o texto da spec. **Aplicado** (ver Implementation Notes) |
+| V1 | Checklist do aparelho incompleto | — | **patch**: acrescentar toque fora com teclado aberto, modal aberto com teclado de tela, girar com teclado aberto, tela dividida/teclado flutuante/físico, `appAlert` com teclado aberto, busca do `CategorySelectorGrid`, fluidez em Mali fraco, paisagem com `disableFullscreenUI`, Android 7–10 (folga), e registrar que o app é só Android. **Aplicado** (ver Implementation Notes) |

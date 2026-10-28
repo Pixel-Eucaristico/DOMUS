@@ -11,7 +11,7 @@ import {
   Easing,
   Dimensions,
 } from "react-native";
-import { KeyboardSheet } from "@/src/components/shared/KeyboardSheet";
+import { KeyboardSheet, useSheetBackdropPress } from "@/src/components/shared/KeyboardSheet";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import { useTransactionForm } from "@/src/hooks/useTransactionForm";
@@ -78,6 +78,7 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
     soundManager.play("tap");
     onClose();
   };
+  const handleBackdropPress = useSheetBackdropPress(handleClose);
 
   // Subcategoria e override de grupo vivem no form para serem persistidos no save
   const selectedSubcategoryId = form.subcategoryId;
@@ -110,7 +111,7 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
         <Animated.View
           style={[s.overlay, { opacity: fadeAnim }]}
         >
-          <Pressable style={s.flex} onPress={handleClose} />
+          <Pressable style={s.flex} onPress={handleBackdropPress} />
         </Animated.View>
         <KeyboardSheet
           sheetStyle={[

@@ -11,7 +11,7 @@ import {
   Animated,
   Pressable,
 } from "react-native";
-import { KeyboardSheet } from "@/src/components/shared/KeyboardSheet";
+import { KeyboardSheet, useSheetBackdropPress } from "@/src/components/shared/KeyboardSheet";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import { URGENCY_ORDER } from "@packages/wishlist";
@@ -93,12 +93,13 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
   }, [isBundleMode, bundleItems]);
 
   const productName = form.name.trim();
+  const handleBackdropPress = useSheetBackdropPress(handleCancel);
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleCancel}>
       <View style={s.kav}>
         <Animated.View style={[s.backdrop, { opacity: fadeAnim }]}>
-          <Pressable style={s.flex} onPress={handleCancel} />
+          <Pressable style={s.flex} onPress={handleBackdropPress} />
         </Animated.View>
 
         <KeyboardSheet
@@ -121,29 +122,16 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
               </TouchableOpacity>
             </View>
           }
+          footerVisible={isValid}
           footer={
-            <View style={s.actions}>
-              <TButton
-                variant="outline"
-                flex={1}
-                borderColor={theme.border}
-                color={theme.textColor}
-                onPress={() => { soundManager.play("tap"); handleCancel(); }}
-              >
-                Cancelar
-              </TButton>
-              {isValid && (
-                <TButton
-                  variant="primary"
-                  flex={1}
-                  backgroundColor={theme.primaryColor}
-                  icon={<Feather name={editItem ? "check" : "plus"} size={16} color="#fff" />}
-                  onPress={() => { soundManager.play("success"); handleConfirm(); }}
-                >
-                  {editItem ? "Salvar alterações" : "Adicionar à lista"}
-                </TButton>
-              )}
-            </View>
+            <TButton
+              variant="primary"
+              backgroundColor={theme.primaryColor}
+              icon={<Feather name={editItem ? "check" : "plus"} size={16} color="#fff" />}
+              onPress={() => { soundManager.play("success"); handleConfirm(); }}
+            >
+              {editItem ? "Salvar alterações" : "Adicionar à lista"}
+            </TButton>
           }
         >
           {/* URL — oculto no modo kit */}
@@ -450,6 +438,16 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
               </TouchableOpacity>
             </View>
           )}
+
+          <TButton
+            variant="outline"
+            marginTop={16}
+            borderColor={theme.border}
+            color={theme.textColor}
+            onPress={() => { soundManager.play("tap"); handleCancel(); }}
+          >
+            Cancelar
+          </TButton>
         </KeyboardSheet>
 
         <WishlistSearchWebView
@@ -558,5 +556,4 @@ const s = StyleSheet.create({
   bundlePrice: { fontSize: 11, fontFamily: "DMSans_600SemiBold" },
   bundleAddBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1.5, borderRadius: 10, borderStyle: "dashed", paddingVertical: 10 },
   bundleAddText: { fontSize: 13, fontFamily: "DMSans_600SemiBold" },
-  actions: { flexDirection: "row", gap: 10 },
 });
