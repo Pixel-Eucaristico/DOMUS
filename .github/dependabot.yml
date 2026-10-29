@@ -1,0 +1,11 @@
+# Atualiza as actions fixadas por SHA nos workflows (o comentário `# vX.Y.Z`
+# ao lado do SHA é atualizado junto). Só GitHub Actions: as dependências npm
+# seguem o SDK do Expo e são atualizadas à mão.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci

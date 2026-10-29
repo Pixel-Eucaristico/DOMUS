@@ -23,3 +23,12 @@ As Stories 2.1 a 2.4 descrevem falhas da suíte medidas antes do commit `ab93203
 
 - `npx vitest run`: 99 arquivos e 2190 testes passando, nenhuma falha.
 - `npx tsc --noEmit`: 0 erros.
+
+## Critérios de aparelho transferidos para a Story 1.3
+
+A revisão em party de 29/10 (`revisao-party-29-10.md`, P6) apontou que as Stories 2.2 e 2.3 foram fechadas só com a suíte verde: os critérios que pedem o app rodando não foram conferidos num aparelho. Eles passam para a checklist do Android 16 da Story 1.3 (ainda em backlog; a checklist vai para `docs/`, conforme o AC da 1.3, e os itens pendentes estão no D6 do `deferred-work.md`):
+
+- **2.2:** ler uma NF-e real no app (câmera/QR ou chave digitada) e conferir emitente, itens, total e data.
+- **2.3:** provocar um erro HTTP de IA (ex.: chave inválida ou sem rede no chat) e ver a mensagem de erro amigável na tela, sem travar o chat.
+
+Até a 1.3 passar, esses dois critérios ficam como não conferidos no aparelho.

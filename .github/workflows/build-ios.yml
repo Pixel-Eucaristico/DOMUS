@@ -9,18 +9,33 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
+  # Lint, tipos e testes (gate.yml) antes do build, como no build-android.yml.
+  gate:
+    name: Gate
+    permissions:
+      contents: read
+    uses: ./.github/workflows/gate.yml
+
   build-ios:
     name: Build iOS Archive
+    needs: gate
     runs-on: macos-latest
+    permissions:
+      contents: read
     timeout-minutes: 45
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -54,7 +69,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
       - name: Upload iOS archive
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: domus-ios-archive
           path: build/domus.xcarchive
@@ -67,8 +82,10 @@ jobs:
   #   timeout-minutes: 60
   #   if: startsWith(github.ref, 'refs/tags/v')
   #   steps:
-  #     - uses: actions/checkout@v5
-  #     - uses: actions/setup-node@v5
+  #     - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+  #       with:
+  #         persist-credentials: false
+  #     - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
   #       with:
   #         node-version-file: .nvmrc
   #         cache: npm
@@ -79,7 +96,7 @@ jobs:
   #
   #     # Import Apple certificates and provisioning profiles
   #     - name: Install Apple Certificate
-  #       uses: apple-actions/import-codesign-certs@v2
+  #       uses: apple-actions/import-codesign-certs@8f3fb608891dd2244cdab3d69cd68c0d37a7fe93 # v2.0.0
   #       with:
   #         p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
   #         p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -108,7 +125,7 @@ jobs:
   #           -exportOptionsPlist ios/ExportOptions.plist \
   #           -exportPath build/
   #
-  #     - uses: actions/upload-artifact@v6
+  #     - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
   #       with:
   #         name: domus-ios-ipa
   #         path: build/*.ipa

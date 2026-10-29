@@ -1,5 +1,5 @@
 <!-- bmad:context -->
-<!-- Verified 2026-10-15 against b2a2c4c. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
+<!-- Verified 2026-10-29 against d2e688d. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
 ## DOMUS
 
@@ -19,9 +19,9 @@ App Android de finanças pessoais com gamificação (XP, streaks, arquétipos). 
 
 ## Running and verifying
 
-- Não há script `test` nem `typecheck` no `package.json`: use `npx vitest run` e `npx tsc --noEmit`. Os dois passam limpos no `dev` (vitest sem falhas, tsc com 0 erros): qualquer falha nova é da sua mudança. O workflow `Gate` (`.github/workflows/gate.yml`) roda `npx eslint .`, `npx vitest run` e `npx tsc --noEmit` em todo PR e em push na `dev`/`main`, e o `build-android.yml` só builda com ele verde.
+- Não há script `test` nem `typecheck` no `package.json`: use `npx vitest run` e `npx tsc --noEmit`. Os dois passam limpos no `dev` (vitest sem falhas, tsc com 0 erros): qualquer falha nova é da sua mudança. O workflow `Gate` (`.github/workflows/gate.yml`) roda `npx eslint .`, `npx vitest run` e `npx tsc --noEmit` em todo PR e em push na `dev`/`main`, e o `build-android.yml` e o `build-ios.yml` só buildam com ele verde.
 - `npm run android` tem `JAVA_HOME` de Windows fixo; no Mac use `npx expo run:android` (não verificado).
-- Local usa pnpm, mas a CI roda `npm ci` com o Node de `.nvmrc` (repetido nos perfis do `eas.json`) e `package-lock.json` (não há `pnpm-lock.yaml`): dependência nova também precisa atualizar `package-lock.json`.
+- Local usa pnpm, mas a CI do GitHub roda `npm ci` com o Node de `.nvmrc` (repetido nos perfis do `eas.json`) e `package-lock.json` (não há `pnpm-lock.yaml`): dependência nova também precisa atualizar `package-lock.json`. O `.gitlab-ci.yml` (legado) segue no Node 20.
 
 ## Conventions that differ from defaults
 
@@ -32,9 +32,8 @@ App Android de finanças pessoais com gamificação (XP, streaks, arquétipos). 
 ## Known pitfalls
 
 - `vi.mock("react-native")` não funciona no vitest (o `react-native` real é carregado e quebra no parse). Para testar, use `process.env.EXPO_OS` no lugar de `Platform.OS` ou extraia a lógica para um módulo sem `react-native`.
-
 - Nunca use Views maiores que a tela com animação (ex.: 30000px) — crasha GPU Mali no Android; use `absoluteFillObject`. Detalhes em `docs/tour-crash-fixes.md`.
 - O sync Nostr cifra com XOR (`xorEncryptDecrypt` em `src/modules/nostrSync.ts`), não com AES; não trate como criptografia forte.
-- `npx expo start` gera `expo-env.d.ts` (ignorado pelo git), e com ele o `tsc --noEmit` passa a acusar 5 erros dentro de `node_modules` (`react-native-gifted-chat`, `react-native-zoom-reanimated`). Não são do código: apague o arquivo antes de comparar com o baseline.
+- `npx expo start` gera `expo-env.d.ts` (ignorado pelo git), e com ele o `tsc --noEmit` passa a acusar 5 erros dentro de `node_modules` (`react-native-gifted-chat`, `react-native-zoom-reanimated`). Não são do código: apague o arquivo antes de rodar o `tsc`.
 
 <!-- /bmad:context -->

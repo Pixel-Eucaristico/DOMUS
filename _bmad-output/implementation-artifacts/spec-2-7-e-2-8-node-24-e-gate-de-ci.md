@@ -216,6 +216,13 @@ jobs:
 
 ## Spec Change Log
 
+- **29/10, desvio registrado do AC da 2.8 (decisão do dono D-2 b).** O AC da Story 2.8 pede `npx expo lint` e deixa o `tsc` de fora "até o baseline de tipos ser zerado". O gate roda `npx eslint .` (superconjunto do `expo lint`: inclui `scripts/`) e `npx tsc --noEmit` (baseline já zerado). É desvio consciente do texto do AC, aprovado pelo dono em 29/10; apontado na revisão em party de 29/10 (P6).
+- **29/10, revisão em party (`revisao-party-29-10.md`, P1 a P4).** Depois do fechamento:
+  - P1: todas as actions fixadas por SHA de commit (versão em comentário `# vX.Y.Z`), `persist-credentials: false` em todo `actions/checkout`, `permissions: contents: read` por padrão e nos jobs que não publicam, `contents: write` só no `build-android` (publica as releases pela API, sem `git push`); `.github/dependabot.yml` atualiza as actions toda semana.
+  - P2: o `workflow_dispatch` do `build-android.yml` ganhou o input `publish` (boolean, padrão `true`); desmarcado, o disparo manual só gera o APK e o AAB como artefatos do run. Push na `main` e tags continuam iguais. Vale para o item 2 da checklist do dono acima.
+  - P3: `nodeVersion.test.ts` deixou o `require("semver")` (dependência não declarada): compara versão com código próprio e lê os workflows com o parser `yaml` (agora em `devDependencies`, `^1.10.2`, a mesma versão que já estava no `package-lock.json`), olhando só os passos `actions/setup-node` (e actions locais em `.github/actions/*`, se houver).
+  - P4: o `build-ios.yml` também tem o job `gate` e `needs: gate` (vira a opção c do D-3 para o iOS).
+
 ## Verification
 
 **Comandos (local, Node do `.nvmrc`, numa cópia limpa do `HEAD`)**

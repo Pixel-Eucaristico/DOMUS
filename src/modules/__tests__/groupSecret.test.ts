@@ -108,6 +108,18 @@ describe("generateGroupSecret", () => {
     expect(s).not.toBe(rng.mock.results[0].value);
   });
 
+  it("zera o buffer do gerador depois de copiar (o segredo devolvido fica intacto)", () => {
+    const buffers: Uint8Array[] = [];
+    const s = generateGroupSecret((n) => {
+      const b = Uint8Array.from({ length: n }, (_, i) => i + 1);
+      buffers.push(b);
+      return b;
+    });
+    expect(buffers).toHaveLength(1);
+    expect(Array.from(buffers[0])).toEqual(new Array(32).fill(0));
+    expect(s).toEqual(Uint8Array.from({ length: 32 }, (_, i) => i + 1));
+  });
+
   it("lança erro se o gerador injetado devolve tamanho errado", () => {
     expect(() => generateGroupSecret(() => new Uint8Array(16))).toThrow();
   });
@@ -152,6 +164,52 @@ describe("encodeGroupSecret / parseGroupSecret", () => {
     ["misturado", `domus1 ${body.slice(0, 20).toLowerCase()}\n${body.slice(20)}`],
   ])("aceita o texto %s", (_label, input) => {
     expect(parseGroupSecret(input)).toEqual({ ok: true, secret });
+  });
+
+  it.each([
+    ["meia-risca (U+2013)", "–"],
+    ["travessão (U+2014)", "—"],
+    ["hífen Unicode (U+2010)", "‐"],
+    ["hífen sem quebra (U+2011)", "‑"],
+    ["sinal de menos (U+2212)", "−"],
+    ["espaço de largura zero (U+200B)", "​"],
+    ["word joiner (U+2060)", "⁠"],
+    ["hífen suave (U+00AD)", "­"],
+    ["BOM (U+FEFF)", "﻿"],
+    ["espaço sem quebra (U+00A0)", " "],
+  ])("aceita %s no lugar dos hífens ou no meio de um bloco", (_label, sep) => {
+    expect(parseGroupSecret(text.replace(/-/g, sep))).toEqual({ ok: true, secret });
+    const middle = GROUP_SECRET_PREFIX + sep + body.slice(0, 5) + sep + body.slice(5);
+    expect(parseGroupSecret(sep + middle + sep)).toEqual({ ok: true, secret });
+  });
+
+  it.each([
+    ["ı (i sem ponto, vira I)", "ı", "I"],
+    ["ſ (s longo, vira S)", "ſ", "S"],
+    ["ß (vira SS)", "ß", "SS"],
+  ])("recusa %s mesmo onde a maiúscula daria um texto válido", (_label, ch, upper) => {
+    // Segredo determinístico cujo corpo tem `upper` (o PATTERN não tem "SS").
+    let found: { secret: Uint8Array; body: string } | null = null;
+    for (let seed = 1; seed < 5000 && !found; seed++) {
+      const candidate = Uint8Array.from({ length: 32 }, (_, k) => (k * seed + seed) & 0xff);
+      const candidateBody = encodeGroupSecret(candidate).slice(GROUP_SECRET_PREFIX.length).replace(/-/g, "");
+      if (candidateBody.includes(upper)) found = { secret: candidate, body: candidateBody };
+    }
+    expect(found, `nenhum corpo com ${upper}`).not.toBeNull();
+    const { secret: s2, body: b2 } = found as { secret: Uint8Array; body: string };
+    const i = b2.indexOf(upper);
+    const lowered = (GROUP_SECRET_PREFIX + b2.slice(0, i) + ch + b2.slice(i + upper.length)).toLowerCase();
+    // Sem a recusa, a dobra de caixa transformaria o texto no segredo válido.
+    expect(lowered.toUpperCase()).toBe(GROUP_SECRET_PREFIX + b2);
+    expect(parseGroupSecret(GROUP_SECRET_PREFIX + b2)).toEqual({ ok: true, secret: s2 });
+    expectRejected(lowered, "invalid-char");
+  });
+
+  it("recusa qualquer caractere fora do ASCII que não seja separador, sem repetir o texto", () => {
+    expectRejected(text.replace("DOMUS1", "DOMUſ1"), "invalid-char");
+    expectRejected("K7M2Qı", "invalid-char");
+    expectRejected(text + "‎", "invalid-char");
+    expect(JSON.stringify(parseGroupSecret("ı" + text))).not.toContain(body.slice(0, 8));
   });
 
   it("recusa vazio ou só espaços", () => {

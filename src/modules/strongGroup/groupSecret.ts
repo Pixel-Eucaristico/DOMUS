@@ -117,6 +117,8 @@ export function generateGroupSecret(rng: (n: number) => Uint8Array = randomBytes
       throw new Error("O gerador aleatório devolveu um tamanho inesperado.");
     }
     const secret = Uint8Array.from(bytes);
+    // O buffer do gerador não fica com uma cópia do segredo.
+    bytes.fill(0);
     const nostrKey = deriveKey(secret, STRONG_GROUP_LABELS.nostrIdentityInfo);
     const valid = isValidNostrPrivateKey(nostrKey);
     nostrKey.fill(0);
@@ -138,6 +140,21 @@ export function encodeGroupSecret(secret: Uint8Array): string {
   return `${GROUP_SECRET_PREFIX}-${blocks.join("-")}`;
 }
 
+/**
+ * Separadores ignorados na leitura: espaços e quebras (`\s`, que já inclui o
+ * espaço sem quebra e o BOM U+FEFF), `-` e os traços que teclados, editores e
+ * apps de mensagem põem no lugar do hífen (U+2010–U+2015: hífen sem quebra
+ * U+2011, meia-risca –, travessão —; e o sinal de menos U+2212), mais os invisíveis
+ * (hífen suave U+00AD, U+200B–U+200D e U+2060).
+ */
+const SEPARATORS = /[\s\-\u00AD\u2010-\u2015\u2212\u200B-\u200D\u2060\uFEFF]+/g;
+
+/** Só ASCII depois de tirar os separadores (antes de passar para maiúsculas). */
+function isAscii(text: string): boolean {
+  for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) > 127) return false;
+  return true;
+}
+
 function isLegacyCode(normalized: string): boolean {
   if (normalized.length !== LEGACY_CODE_LENGTH) return false;
   for (const ch of normalized) if (!LEGACY_CODE_ALPHABET.includes(ch)) return false;
@@ -145,13 +162,19 @@ function isLegacyCode(normalized: string): boolean {
 }
 
 /**
- * Lê o texto do segredo com tolerância: ignora espaços, quebras de linha e
- * `-`, e aceita minúsculas. Recusa com um motivo fixo, que nunca repete o
- * texto recebido. A mensagem em pt-BR de cada motivo é da Story 4.4.
+ * Lê o texto do segredo com tolerância: ignora espaços, quebras de linha,
+ * hífens e traços parecidos e caracteres invisíveis (`SEPARATORS`), e aceita
+ * minúsculas. Qualquer outro caractere fora do ASCII é recusado
+ * (`invalid-char`) antes de passar para maiúsculas, porque a dobra de caixa
+ * transformaria `ı`, `ſ` e `ß` em `I`, `S` e `SS`. Recusa com um motivo fixo,
+ * que nunca repete o texto recebido. A mensagem em pt-BR de cada motivo é da
+ * Story 4.4.
  */
 export function parseGroupSecret(text: string): GroupSecretParseResult {
-  const normalized = (typeof text === "string" ? text : "").replace(/[\s-]+/g, "").toUpperCase();
-  if (normalized.length === 0) return { ok: false, reason: "empty" };
+  const stripped = (typeof text === "string" ? text : "").replace(SEPARATORS, "");
+  if (stripped.length === 0) return { ok: false, reason: "empty" };
+  if (!isAscii(stripped)) return { ok: false, reason: "invalid-char" };
+  const normalized = stripped.toUpperCase();
   if (isLegacyCode(normalized)) return { ok: false, reason: "legacy-code" };
   if (!normalized.startsWith(DOMUS_MARKER)) return { ok: false, reason: "not-domus" };
   // A versão é o símbolo logo após "DOMUS" (o corpo pode começar por 2–7,
