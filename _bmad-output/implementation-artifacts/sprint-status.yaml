@@ -68,8 +68,8 @@ development_status:
   3-8-evoluir-o-formato-dos-eventos-sem-quebrar-versões-publicadas: done
   epic-3-retrospective: optional
 
-  epic-4: backlog
-  4-1-gerar-o-segredo-de-grupo-forte-e-derivar-as-chaves: backlog
+  epic-4: in-progress
+  4-1-gerar-o-segredo-de-grupo-forte-e-derivar-as-chaves: in-progress
   4-2-cifrar-e-decifrar-eventos-com-cifra-autenticada: backlog
   4-3-criar-um-grupo-forte-e-mostrá-lo-por-qr-e-por-texto: backlog
   4-4-parear-um-aparelho-por-qr-ou-colagem: backlog
