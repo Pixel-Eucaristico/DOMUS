@@ -201,13 +201,13 @@ export function isSameGroupSecret(a: Uint8Array, b: Uint8Array): boolean;
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] 4.1-1 `base32.ts`: `encodeBase32`/`decodeBase32` (RFC 4648, sem padding, maiúsculo; `decode` devolve `null` em símbolo inválido ou em bits finais diferentes de zero). Testes com os vetores da RFC 4648 §10 (`""`, `f`→`MY`, `fo`→`MZXQ`, `foo`→`MZXW6`, `foob`→`MZXW6YQ`, `fooba`→`MZXW6YTB`, `foobar`→`MZXW6YTBOI`) e ida e volta de 1.000 entradas aleatórias de 0 a 64 bytes.
-- [ ] 4.1-2 `groupSecret.ts`: constantes, `generateGroupSecret`, `encodeGroupSecret`, `parseGroupSecret`, `deriveStrongGroupKeys`, `isSameGroupSecret`, conforme o padrão e D-1/D-2. Sem `console.*`.
-- [ ] 4.1-3 Testes de geração: 10.000 segredos e textos distintos; cada um volta igual por `parseGroupSecret`; `vi.spyOn(Math, "random")` nunca chamado; `rng` injetado recebe `32`; sem `globalThis.crypto` (`vi.stubGlobal`) lança erro.
-- [ ] 4.1-4 Testes de texto: todas as linhas da matriz de I/O; a mensagem de cada erro lançado e cada `reason` não contêm o texto recebido.
-- [ ] 4.1-5 Vetores de derivação: (a) RFC 5869 caso A.1 pelo `hkdf` do `@noble/hashes` (confere a ligação da biblioteca); (b) para 100 segredos aleatórios, `encryptionKey` e `nostrPrivateKey` iguais às do `hkdfSync` do `node:crypto` com os mesmos `salt` e `info` (implementação independente); (c) vetor de ouro com segredo `00 01 … 1f`: texto, `nostrPublicKey` e `encryptionKey` em hex fixos no teste (calculados na implementação e anotados no Spec Change Log).
-- [ ] 4.1-6 Testes de separação: `encryptionKey ≠ nostrPrivateKey`; os `info`/`salt` do Grupo forte não aparecem entre os de `deriveKeysFromCode` (lidos do fonte de `nostrSync.ts`, como texto); para o texto `encodeGroupSecret(s)`, `deriveKeysFromCode(texto)` e `deriveStrongGroupKeys(s)` dão chaves públicas e de cifra diferentes; o fonte de `groupSecret.ts` não importa `react-native`, `expo*` nem `@scure/base`, e não contém `console.` nem `Math.random`.
-- [ ] 4.1-7 `deferred-work.md`: registrar R-5.
+- [x] 4.1-1 `base32.ts`: `encodeBase32`/`decodeBase32` (RFC 4648, sem padding, maiúsculo; `decode` devolve `null` em símbolo inválido ou em bits finais diferentes de zero). Testes com os vetores da RFC 4648 §10 (`""`, `f`→`MY`, `fo`→`MZXQ`, `foo`→`MZXW6`, `foob`→`MZXW6YQ`, `fooba`→`MZXW6YTB`, `foobar`→`MZXW6YTBOI`) e ida e volta de 1.000 entradas aleatórias de 0 a 64 bytes.
+- [x] 4.1-2 `groupSecret.ts`: constantes, `generateGroupSecret`, `encodeGroupSecret`, `parseGroupSecret`, `deriveStrongGroupKeys`, `isSameGroupSecret`, conforme o padrão e D-1/D-2. Sem `console.*`.
+- [x] 4.1-3 Testes de geração: 10.000 segredos e textos distintos; cada um volta igual por `parseGroupSecret`; `vi.spyOn(Math, "random")` nunca chamado; `rng` injetado recebe `32`; sem `globalThis.crypto` (`vi.stubGlobal`) lança erro.
+- [x] 4.1-4 Testes de texto: todas as linhas da matriz de I/O; a mensagem de cada erro lançado e cada `reason` não contêm o texto recebido.
+- [x] 4.1-5 Vetores de derivação: (a) RFC 5869 caso A.1 pelo `hkdf` do `@noble/hashes` (confere a ligação da biblioteca); (b) para 100 segredos aleatórios, `encryptionKey` e `nostrPrivateKey` iguais às do `hkdfSync` do `node:crypto` com os mesmos `salt` e `info` (implementação independente); (c) vetor de ouro com segredo `00 01 … 1f`: texto, `nostrPublicKey` e `encryptionKey` em hex fixos no teste (calculados na implementação e anotados no Spec Change Log).
+- [x] 4.1-6 Testes de separação: `encryptionKey ≠ nostrPrivateKey`; os `info`/`salt` do Grupo forte não aparecem entre os de `deriveKeysFromCode` (lidos do fonte de `nostrSync.ts`, como texto); para o texto `encodeGroupSecret(s)`, `deriveKeysFromCode(texto)` e `deriveStrongGroupKeys(s)` dão chaves públicas e de cifra diferentes; o fonte de `groupSecret.ts` não importa `react-native`, `expo*` nem `@scure/base`, e não contém `console.` nem `Math.random`.
+- [x] 4.1-7 `deferred-work.md`: registrar R-5.
 
 **Acceptance Criteria:**
 - Given o gerador criptográfico disponível, when gero 10.000 Segredos de grupo, then nenhum se repete e cada um tem 256 bits (D-1) vindos de `crypto.getRandomValues`, sem `Math.random`.
@@ -232,6 +232,12 @@ export function isSameGroupSecret(a: Uint8Array, b: Uint8Array): boolean;
 
 ## Spec Change Log
 
+- 29/10/2026 (implementação, 4.1-5c): vetor de ouro do segredo de padrão `00 01 … 1f`, fixado em `groupSecret.test.ts`. Verificação = `26a1b58a`; texto conferido com o `base64.b32encode` do Python; `nostrPrivateKey` e `encryptionKey` conferidas com o `hkdfSync` do Node.
+  - texto: `DOMUS1-AAAQ-EAYE-AUDA-OCAJ-BIFQ-YDIO-B4IB-CEQT-CQKR-MFYY-DENB-WHA5-DYPS-NINV-RI`
+  - `nostrPrivateKey`: `987ba7253dad451882a63d06d5064173a041fe99c9b65d6bf94b41b546d05b64`
+  - `nostrPublicKey`: `edf43ce4ae9c7460b04706940003e4c591c4de7442ee978621683450a64f8e03`
+  - `encryptionKey`: `6896799c5613acea16ce6dba3d551b34c4367ef0ec1d445bc93e20d3e66e809a`
+
 ## Verification
 
 **Comandos (local)**
@@ -245,3 +251,31 @@ export function isSameGroupSecret(a: Uint8Array, b: Uint8Array): boolean;
 **Revisão manual**
 - Nenhum valor de segredo real em teste, fixture ou commit; os vetores usam bytes de padrão.
 - Os rótulos `salt`/`info` da tabela de Derivação estão no código exatamente como na spec (eles são parte do formato: mudar depois quebra o pareamento entre versões).
+
+## Implementation Notes
+
+**Arquivos**
+- `src/modules/strongGroup/base32.ts` (novo): `encodeBase32`/`decodeBase32` e `BASE32_ALPHABET`; a tabela de decodificação é um `Int8Array` por código de caractere (sem lookup em objeto).
+- `src/modules/strongGroup/groupSecret.ts` (novo): API da spec, mais `STRONG_GROUP_LABELS` exportado.
+- `src/modules/__tests__/base32.test.ts` (novo, 19 testes) e `src/modules/__tests__/groupSecret.test.ts` (novo, 47 testes).
+- `_bmad-output/implementation-artifacts/deferred-work.md`: R-5 registrado como D43.
+- Nenhuma mudança em `nostrSync.ts`, `syncStorage.ts`, `useSyncEngine.ts`, `app/`, `packages/`, `vitest.config.ts`, `package.json` nem `package-lock.json`.
+
+**Decisões além da spec**
+- `STRONG_GROUP_LABELS` é exportado para os testes de separação e do Node lerem os rótulos de um lugar só; um teste fixa os três valores literais da tabela de Derivação.
+- Versão: é o símbolo logo após `DOMUS`. Como a leitura tira os hífens e o corpo pode começar por `2`–`7`, não dá para ler uma sequência de dígitos. Qualquer coisa diferente de `1` ali (outro dígito, letra ou nada, como `DOMUS` sozinho) é `unsupported-version`. Um futuro `DOMUS10` precisaria de outra regra (a v1 o leria como `invalid-char`).
+- Bits finais diferentes de zero no último símbolo (só acontece com símbolo trocado no fim) são recusados como `checksum`; `decodeBase32` os recusa, então cada segredo tem um só texto aceito.
+- `parseGroupSecret` com entrada que não é `string` devolve `empty` em vez de lançar.
+- `generateGroupSecret` copia os bytes do gerador e lança se o gerador devolver tamanho diferente de 32; o laço do R-3 desiste depois de 8 sorteios (só um gerador defeituoso chega lá) e lança.
+- O teste do intervalo do secp256k1 (1 ≤ k < n) compara os bytes com a ordem `n` fixa no módulo, sem importar o `@noble/curves` (dependência só do `nostr-tools`). Não é tempo constante: é uma checagem de faixa, não comparação de segredo.
+- Buffers internos (entrada do SHA-256 da verificação, corpo decodificado, chave do Nostr descartada no laço) são zerados com `fill(0)`, sem promessa além disso (R-4).
+- A checagem estática de imports olha os especificadores de `import`/`require`; os comentários podem citar `react-native`, `expo` e `@scure/base`. `console.` e `Math.random` são procurados no texto inteiro (inclusive comentários).
+
+**Sondas** (quebras temporárias, revertidas e conferidas com `diff`): queda para `Math.random` sem gerador (3 testes falham), `salt` `v2` (3), mesmo `info` para as duas chaves (3), sem conferir a verificação (2), sem conferir os bits finais do base32 (2), mensagem de erro com os bytes (2, depois de reforçar o teste do `deriveStrongGroupKeys` para valores decimais), motivo com o texto recebido (1).
+
+**Verificação**
+- `npx vitest run src/modules/__tests__/groupSecret.test.ts src/modules/__tests__/base32.test.ts`: 66 passam.
+- `npx vitest run`: 102 arquivos, 2262 testes passando (baseline 100 / 2196 + 2 arquivos / 66 testes novos), 0 falhas.
+- `npx tsc --noEmit`: 0 erros (sem `expo-env.d.ts`).
+- `npx eslint .`: 0 erros (12 avisos, todos de antes; os arquivos novos não têm aviso).
+- `grep -n "console\.\|Math.random" src/modules/strongGroup/*.ts`: nada.

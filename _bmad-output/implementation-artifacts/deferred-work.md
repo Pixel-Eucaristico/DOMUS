@@ -125,3 +125,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-13-6-corrigir-a-digitacao-manual-da-chave-da-nf-sobre-a-camera.md`
   summary: D42 — Colar a chave com o campo já preenchido passa de 44 dígitos e o campo mantém o valor antigo; o usuário precisa limpar antes. Avaliar substituir o conteúdo quando a colagem trouxer uma sequência completa de 44 dígitos.
   evidence: decisão da implementação no R6 da Story 13.6.
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-gerar-o-segredo-de-grupo-forte-e-derivar-as-chaves.md`
+  summary: D43 — O Grupo antigo ainda usa `Math.random`: `getRandomBytes` em `src/modules/nostrSync.ts` cai para `Math.random` sem `crypto` (nonce do XOR) e `generateGroupCode` (`src/context/syncStorage.ts`) sorteia o código curto com `Math.random`.
+  evidence: R-5 da Story 4.1 (o Never da 4.1 proíbe mexer no Grupo antigo); os dois somem com o Grupo antigo (a 4.3 deixa de criar código curto; a 4.9 corta). Se o Grupo antigo durar mais que isso, trocar por `randomBytes` do `@noble/hashes` e lançar erro sem gerador.
