@@ -196,12 +196,12 @@ domus-gcm-v1.<base64( nonce(12) ‖ cifra(n) ‖ tag(16) )>
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] 4.2-1 `base64.ts` (D-4 a): `encodeBase64`/`decodeBase64` (RFC 4648 §4, com `=`; `decode` devolve `null` em símbolo inválido, espaço, padding errado ou bits de sobra diferentes de zero). Testes com os vetores da RFC 4648 §10 (`""`, `f`→`Zg==`, `fo`→`Zm8=`, `foo`→`Zm9v`, `foob`→`Zm9vYg==`, `fooba`→`Zm9vYmE=`, `foobar`→`Zm9vYmFy`) e ida e volta de 1.000 entradas aleatórias de 0 a 300 bytes conferidas com o `Buffer` do Node.
-- [ ] 4.2-2 `eventCipher.ts`: constantes, `encryptStrongPayload`, `decryptStrongPayload`, `strongPlaintextBytes`, conforme o padrão e D-4/D-5/D-6. Sem `console.*`; todo `catch` devolve motivo fixo; buffers temporários (texto claro em bytes) zerados com `fill(0)` depois do uso, sem promessa além disso.
-- [ ] 4.2-3 Testes de ida e volta: todas as linhas de sucesso da matriz; textos com acentos pt-BR, emoji (pares substitutos), `""` e exatamente `STRONG_MAX_PLAINTEXT_BYTES`; dois textos cifrados do mesmo texto diferem; `rng` injetado recebe `12`; `vi.spyOn(Math, "random")` nunca chamado; sem `globalThis.crypto` (`vi.stubGlobal`) lança erro.
-- [ ] 4.2-4 Testes de recusa: trocar cada byte (amostra cobrindo nonce, cifra e tag) → `auth-failed`; cortar 1 byte e acrescentar 1 byte → `auth-failed`; chave de outro grupo e chave pública de outro grupo → `auth-failed`; conteúdo do helper XOR do `nostrSync.test.ts` → `legacy-xor`; `domus-gcm-v2.` → `unsupported-version`; vazio, número, `null` → `unknown-format`; base64 inválido e menos de 28 bytes → `malformed`; conteúdo acima do teto → `too-large`. Em toda recusa, `plaintext` não existe no resultado.
-- [ ] 4.2-5 Vetores: (a) NIST GCM caso 16 (chave `feffe992…`, IV `cafebabefacedbaddecaf888`, AAD `feedfacedeadbeef…abaddad2`, tag `76fc6ece0f4e1768cddf8853bb2d551b`) pelo `gcm` do noble (confere a ligação da biblioteca); (b) para 100 textos e nonces aleatórios, o `content` de `encryptStrongPayload` decifra no `aes-256-gcm` do `node:crypto` com o mesmo AAD (implementação independente), e o inverso; (c) vetor de ouro com as chaves do segredo de padrão `00 01 … 1f` da 4.1 (`encryptionKey` `6896799c…809a`, `nostrPublicKey` `edf43ce4…8e03`), nonce `00 01 … 0b` e um lote JSON fixo de um envelope: `content` em texto fixo no teste (calculado na implementação e anotado no Spec Change Log).
-- [ ] 4.2-6 Testes de vazamento e isolamento: nenhum `reason` nem mensagem de erro lançada contém o texto claro, a chave (hex) ou o conteúdo recebido; o fonte de `eventCipher.ts` não importa `react-native`, `expo*`, `@scure/base` nem `nostr-tools/pool`, e não contém `console.` nem `Math.random`; o fonte de `nostrSync.ts` não importa `strongGroup/eventCipher` (o Grupo antigo não usa a cifra nova nesta story).
+- [x] 4.2-1 `base64.ts` (D-4 a): `encodeBase64`/`decodeBase64` (RFC 4648 §4, com `=`; `decode` devolve `null` em símbolo inválido, espaço, padding errado ou bits de sobra diferentes de zero). Testes com os vetores da RFC 4648 §10 (`""`, `f`→`Zg==`, `fo`→`Zm8=`, `foo`→`Zm9v`, `foob`→`Zm9vYg==`, `fooba`→`Zm9vYmE=`, `foobar`→`Zm9vYmFy`) e ida e volta de 1.000 entradas aleatórias de 0 a 300 bytes conferidas com o `Buffer` do Node.
+- [x] 4.2-2 `eventCipher.ts`: constantes, `encryptStrongPayload`, `decryptStrongPayload`, `strongPlaintextBytes`, conforme o padrão e D-4/D-5/D-6. Sem `console.*`; todo `catch` devolve motivo fixo; buffers temporários (texto claro em bytes) zerados com `fill(0)` depois do uso, sem promessa além disso.
+- [x] 4.2-3 Testes de ida e volta: todas as linhas de sucesso da matriz; textos com acentos pt-BR, emoji (pares substitutos), `""` e exatamente `STRONG_MAX_PLAINTEXT_BYTES`; dois textos cifrados do mesmo texto diferem; `rng` injetado recebe `12`; `vi.spyOn(Math, "random")` nunca chamado; sem `globalThis.crypto` (`vi.stubGlobal`) lança erro.
+- [x] 4.2-4 Testes de recusa: trocar cada byte (amostra cobrindo nonce, cifra e tag) → `auth-failed`; cortar 1 byte e acrescentar 1 byte → `auth-failed`; chave de outro grupo e chave pública de outro grupo → `auth-failed`; conteúdo do helper XOR do `nostrSync.test.ts` → `legacy-xor`; `domus-gcm-v2.` → `unsupported-version`; vazio, número, `null` → `unknown-format`; base64 inválido e menos de 28 bytes → `malformed`; conteúdo acima do teto → `too-large`. Em toda recusa, `plaintext` não existe no resultado.
+- [x] 4.2-5 Vetores: (a) NIST GCM caso 16 (chave `feffe992…`, IV `cafebabefacedbaddecaf888`, AAD `feedfacedeadbeef…abaddad2`, tag `76fc6ece0f4e1768cddf8853bb2d551b`) pelo `gcm` do noble (confere a ligação da biblioteca); (b) para 100 textos e nonces aleatórios, o `content` de `encryptStrongPayload` decifra no `aes-256-gcm` do `node:crypto` com o mesmo AAD (implementação independente), e o inverso; (c) vetor de ouro com as chaves do segredo de padrão `00 01 … 1f` da 4.1 (`encryptionKey` `6896799c…809a`, `nostrPublicKey` `edf43ce4…8e03`), nonce `00 01 … 0b` e um lote JSON fixo de um envelope: `content` em texto fixo no teste (calculado na implementação e anotado no Spec Change Log).
+- [x] 4.2-6 Testes de vazamento e isolamento: nenhum `reason` nem mensagem de erro lançada contém o texto claro, a chave (hex) ou o conteúdo recebido; o fonte de `eventCipher.ts` não importa `react-native`, `expo*`, `@scure/base` nem `nostr-tools/pool`, e não contém `console.` nem `Math.random`; o fonte de `nostrSync.ts` não importa `strongGroup/eventCipher` (o Grupo antigo não usa a cifra nova nesta story).
 
 **Acceptance Criteria:**
 - Given um texto e as chaves de um Grupo forte, when cifro com `encryptStrongPayload` e decifro com `decryptStrongPayload`, then recebo o texto original, e o `content` começa com `domus-gcm-v1.`.
@@ -225,6 +225,9 @@ domus-gcm-v1.<base64( nonce(12) ‖ cifra(n) ‖ tag(16) )>
 ## Spec Change Log
 
 - 29/10/2026: rascunho. Vetores NIST GCM caso 16 e RFC 8452 C.2 conferidos no `@noble/ciphers` 2.1.1 e no `node:crypto` durante a pesquisa.
+- 29/10/2026 (implementação, 4.2-5c): vetor de ouro fixado em `eventCipher.test.ts` (`GOLDEN_CONTENT`). Chaves do segredo de padrão `00 01 … 1f` da 4.1 (`encryptionKey` `6896799c…809a`, `nostrPublicKey` `edf43ce4…8e03`), nonce `00 01 … 0b`, AAD `utf8("domus-gcm-v1|edf43ce4…8e03")`. Calculado no `aes-256-gcm` do `node:crypto` (implementação independente) e conferido igual no `encryptStrongPayload`.
+  - texto claro (208 bytes UTF-8): `[{"id":"evt-0001","type":"TRANSACTION_CREATED","payload":{"amount":12345,"description":"Pão de queijo ☕","category":"alimentação"},"timestamp":1700000000000,"deviceId":"device-a","signature":"sig-0001"}]`
+  - `content`: `domus-gcm-v1.AAECAwQFBgcICQoLvTgp2q/Wjr4/niJu3g+5HyvT02GX/ct8c4swKDOlysdiYIL+MlR0g5QKTJ3XTw/3hBX4Xbb6+mF5/w+OY8KGOHHDTNMsxmovx+wzK/haCNtZq4m2c+i0g+Oi42ersTbN0moKvQfoDQeg55uLiyT1I5DLfWBZ3qRzVWga/VfJQ9XcRbUvK51vnooxLxODn55fcefMLq/FJ/lNkPnP+CnthsuetLHtGNl06JZmRyN6i1PXXgZyKTeXj4qQdMepsK1Eei9JPS6dlAnTDOJjaN3MK79nI9OZL25FGGaRNhGeDS8=`
 
 ## Verification
 
@@ -239,3 +242,31 @@ domus-gcm-v1.<base64( nonce(12) ‖ cifra(n) ‖ tag(16) )>
 **Revisão manual**
 - O marcador, o separador e a montagem do AAD estão no código exatamente como na spec (fazem parte do formato: mudar depois quebra a leitura entre versões).
 - Nenhuma chave real em teste; os vetores usam o segredo de padrão da 4.1 e os vetores públicos do NIST.
+
+## Implementation Notes
+
+**Arquivos**
+- `src/modules/strongGroup/base64.ts` (novo): `encodeBase64`/`decodeBase64` e `BASE64_ALPHABET`, no estilo do `base32.ts` (tabela `Int8Array` por código de caractere). `decodeBase64` devolve `null` para tamanho fora de múltiplo de 4, símbolo fora do alfabeto (espaço, quebra, variante URL, não ASCII), `=` fora do fim ou em excesso e bits de sobra diferentes de zero.
+- `src/modules/strongGroup/eventCipher.ts` (novo): API da spec, mais `STRONG_KEY_BYTES` e o tipo `StrongDecryptResult` exportados. `STRONG_MAX_CONTENT_CHARS` = 43.741 (13 + base64 de 12 + 32.768 + 16 bytes).
+- `src/modules/__tests__/base64.test.ts` (novo, 30 testes) e `src/modules/__tests__/eventCipher.test.ts` (novo, 80 testes).
+- Nenhuma mudança em `nostrSync.ts`, `syncPayload.ts`, `groupSecret.ts`, `nostrSync.test.ts`, `src/context/`, `app/`, `packages/`, `vitest.config.ts`, `package.json` nem `package-lock.json`.
+
+**Decisões além da spec**
+- Nonce pelo `randomBytes` do `@noble/hashes/utils.js` (o mesmo da 4.1; o do `@noble/ciphers` é idêntico). Os bytes do gerador são copiados, e o gerador que devolve tamanho diferente de 12 ou algo que não é `Uint8Array` faz lançar erro. As conferências de texto, chaves e teto vêm antes do gerador: entrada inválida não consome nonce.
+- `strongPlaintextBytes` conta os bytes UTF-8 sem alocar, com a mesma regra do `TextEncoder` (substituto solto = 3 bytes, de U+FFFD); um teste confere contra o `TextEncoder`, inclusive com substitutos soltos.
+- Ordem da leitura como na spec, com dois detalhes: `legacy-xor` é reconhecido em qualquer tamanho (um lote antigo grande continua `legacy-xor`, não `unknown-format`); `too-large` só se aplica ao `domus-gcm-v1.` (os outros formatos já são recusados sem decodificar). `domus-gcm-v1:` (separador errado) e `domus-gcm-v` sozinho caem em `unsupported-version`.
+- `decryptStrongPayload` com chaves inválidas (tamanho ≠ 32, chave pública que não é hex de 64, `null`) devolve `auth-failed` em vez de lançar, para manter "nunca lança" no caminho do relay; a conferência vem depois da decodificação, então `malformed`/`too-large` não dependem da chave.
+- Texto decifrado com tag válida mas bytes que não são UTF-8 (só um cliente defeituoso com a chave produziria isso) vira U+FFFD pelo `bytesToUtf8` do noble (`TextDecoder` sem `fatal`), em vez de motivo novo; o `JSON.parse` da 4.5 recusa depois. Não usei `fatal: true` porque não está conferido no Hermes.
+- Buffers zerados com `fill(0)`: o texto claro em bytes na cifragem (em `finally`) e na decifração (depois de virar string). O AAD não é segredo e não é zerado.
+- Comentário do módulo registra R-2 (repetição), R-4 (não é key-committing) e R-5 (metadados em claro).
+- Testes além da matriz: 2.000 nonces distintos; 50 grupos aleatórios em que cada `content` só abre no próprio grupo; troca de cada byte com dois padrões de bit (`0x01` e `0x80`) em todas as posições; o vetor de ouro não abre sem AAD nem com `.` no lugar de `|`; checagem estática de que o marcador, o separador e a montagem do AAD estão no fonte como na spec e de que não há `gcmsiv`/`managedNonce`.
+
+**Sondas** (quebras temporárias, revertidas e conferidas com `diff`): AAD sem a chave pública (4 testes falham), queda para `Math.random` sem gerador, escrita de forma a escapar da checagem estática (2), motivo com a mensagem da biblioteca (7), sem o teto do conteúdo (1), sem reconhecer o XOR (1), nonce fixo (5), teto contado em caracteres em vez de bytes (1), base64 sem conferir bits de sobra (3), sem o tamanho mínimo de 28 bytes (3).
+
+**Verificação**
+- `npx vitest run src/modules/__tests__/eventCipher.test.ts src/modules/__tests__/base64.test.ts`: 110 passam.
+- `npx vitest run`: 104 arquivos, 2390 testes passando (baseline 102 / 2280 + 2 arquivos / 110 testes novos), 0 falhas.
+- `npx tsc --noEmit`: 0 erros (sem `expo-env.d.ts`).
+- `npx eslint .`: 0 erros (12 avisos, todos de antes; os arquivos novos não têm aviso).
+- `git diff 5456447 -- src/modules/nostrSync.ts src/modules/syncPayload.ts src/modules/strongGroup/groupSecret.ts src/modules/__tests__/nostrSync.test.ts src/context app packages vitest.config.ts package.json package-lock.json replit.md replit.nix .replit`: vazio.
+- `grep -n "console\.\|Math.random" src/modules/strongGroup/*.ts`: nada.
