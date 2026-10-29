@@ -2,7 +2,7 @@
 title: 'Story 4.1: Gerar o Segredo de grupo forte e derivar as chaves'
 type: 'feature'
 created: '2026-10-29'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'd9886b7'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -279,3 +279,7 @@ export function isSameGroupSecret(a: Uint8Array, b: Uint8Array): boolean;
 - `npx tsc --noEmit`: 0 erros (sem `expo-env.d.ts`).
 - `npx eslint .`: 0 erros (12 avisos, todos de antes; os arquivos novos não têm aviso).
 - `grep -n "console\.\|Math.random" src/modules/strongGroup/*.ts`: nada.
+
+## Revisão
+
+Revisada na revisão em party de 29/10 (`revisao-party-29-10.md`): vetores conferidos de forma independente em Python (Grumbal); gerador, HKDF e comparação aprovados (Vex). Correção aplicada no P5 (traços e invisíveis colados aceitos, não-ASCII recusado, buffer do gerador zerado). D46 (trocar base32 e ordem da curva por bibliotecas) recusado.
