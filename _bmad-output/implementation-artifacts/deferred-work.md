@@ -128,3 +128,15 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-1-gerar-o-segredo-de-grupo-forte-e-derivar-as-chaves.md`
   summary: D43 — O Grupo antigo ainda usa `Math.random`: `getRandomBytes` em `src/modules/nostrSync.ts` cai para `Math.random` sem `crypto` (nonce do XOR) e `generateGroupCode` (`src/context/syncStorage.ts`) sorteia o código curto com `Math.random`.
   evidence: R-5 da Story 4.1 (o Never da 4.1 proíbe mexer no Grupo antigo); os dois somem com o Grupo antigo (a 4.3 deixa de criar código curto; a 4.9 corta). Se o Grupo antigo durar mais que isso, trocar por `randomBytes` do `@noble/hashes` e lançar erro sem gerador.
+- source_spec: `_bmad-output/implementation-artifacts/revisao-party-29-10.md`
+  summary: D44 — O limite de envios do formulário de suporte do site fica em memória por instância (zera em cold start e multiplica por instâncias no Vercel) e não há captcha.
+  evidence: revisão em party de 29/10 (Vex, Grumbal); usar Vercel KV/Upstash ou o rate limit do Vercel Firewall, e Turnstile se aparecer spam.
+- source_spec: `_bmad-output/implementation-artifacts/revisao-party-29-10.md`
+  summary: D45 — A política de privacidade no site (`pixel-eucaristico/app/domus/privacy/page.tsx`) é a 5ª cópia do texto, transcrita à mão, sem teste que compare as frases "Envia:/Sem isso:" com `docs/politica-de-privacidade.md`.
+  evidence: revisão em party de 29/10 (Yui); gerar a página a partir do `.md` no build ou um script de sincronia com verificação.
+- source_spec: `_bmad-output/implementation-artifacts/revisao-party-29-10.md`
+  summary: D47 — A página de suporte do site é inteira client component (`"use client"`); só o formulário precisa de estado.
+  evidence: revisão em party de 29/10 (Yui); separar `SupportForm.tsx` e deixar o resto como server component.
+- source_spec: `_bmad-output/implementation-artifacts/revisao-party-29-10.md`
+  summary: D48 — Um push na `main` roda o Gate duas vezes (pelo próprio `gate.yml` e pelo `workflow_call` do build Android).
+  evidence: revisão em party de 29/10 (Yui, Grumbal, Boundary); tirar `main` do push do `gate.yml` ou depender de status check obrigatório.
