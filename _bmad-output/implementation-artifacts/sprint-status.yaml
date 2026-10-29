@@ -70,7 +70,7 @@ development_status:
 
   epic-4: in-progress
   4-1-gerar-o-segredo-de-grupo-forte-e-derivar-as-chaves: done
-  4-2-cifrar-e-decifrar-eventos-com-cifra-autenticada: backlog
+  4-2-cifrar-e-decifrar-eventos-com-cifra-autenticada: in-progress
   4-3-criar-um-grupo-forte-e-mostrá-lo-por-qr-e-por-texto: backlog
   4-4-parear-um-aparelho-por-qr-ou-colagem: backlog
   4-5-publicar-e-ler-eventos-no-grupo-forte: backlog
