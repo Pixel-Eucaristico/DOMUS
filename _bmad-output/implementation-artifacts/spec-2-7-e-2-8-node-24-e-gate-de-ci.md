@@ -2,7 +2,7 @@
 title: 'Stories 2.7 e 2.8: Node 24 nos workflows e gate de lint e testes na CI'
 type: 'chore'
 created: '2026-10-29'
-status: 'in-progress'
+status: 'review'
 baseline_commit: 'ec1e0fa'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -270,3 +270,8 @@ jobs:
 5. PR descartável a partir da `dev`: `expect(1).toBe(2)` num teste → vermelho em "Testes"; um `no-undef` → vermelho em "Lint". Fechar sem merge.
 6. (Opcional) Regra de branch exigindo `Gate / Lint e testes` em `dev` e `main`.
 
+
+## Resultado na CI (29/10/2026)
+
+- Gate run 1 (push na `dev`, commit `78cd444`): **verde** em ~1,5 min — https://github.com/Pixel-Eucaristico/DOMUS/actions/runs/40886617208. Story 2.8 concluída.
+- Story 2.7 fica em `review` até o dono confirmar o build Android/Web por disparo manual (Gate + build juntos) e um build `preview` no EAS com Node 24.
