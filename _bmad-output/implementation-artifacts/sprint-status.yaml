@@ -53,8 +53,8 @@ development_status:
   2-4-resolver-o-teste-de-importinvoice-e-o-teste-de-season: done
   2-5-configurar-o-eslint-para-scripts-e-pastas-de-ferramentas: done
   2-6-corrigir-os-erros-de-lint-reais-em-src-e-app: done
-  2-7-usar-node-24-nos-workflows-e-declarar-a-versão: backlog
-  2-8-barrar-lint-e-testes-na-ci: backlog
+  2-7-usar-node-24-nos-workflows-e-declarar-a-versão: in-progress
+  2-8-barrar-lint-e-testes-na-ci: in-progress
   epic-2-retrospective: optional
 
   epic-3: done
