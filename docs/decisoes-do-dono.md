@@ -48,3 +48,14 @@ fica fora do alcance do desenvolvedor, e as estatísticas do Firebase são opcio
 (desligadas por padrão) e anônimas. Não haverá story para mostrar o ID da instalação.
 O reset do app apaga os dados do aparelho, como a política explica.
 
+
+## 2026-10-29
+
+### Valores de XP (Story 2.1)
+
+Valem os valores que o motor usa hoje (`packages/gamification`), que os testes passaram a
+esperar no commit `ab93203` (15/07/2026) sem decisão registrada: transação lançada 5,
+aderência ao orçamento 10, missão concluída 30, consistência diária 10, bônus de streak 15,
+bônus de temporada 50; na aderência 50/30/20, +5 de saúde (necessidades ≤ 50% e desejos ≤ 30%),
++10 com poupança ≥ 20% e −10 com necessidades acima de 50%. Nada muda no app nem no XP de
+quem já usa.
