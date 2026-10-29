@@ -180,17 +180,17 @@ jobs:
 ## Tasks & Acceptance
 
 **Execution (2.7):**
-- [ ] 2.7-1 `.nvmrc`, `engines` e `eas.json` conforme D-1; `package-lock.json` sincronizado só no `engines` da raiz (conferir com `git diff --stat`).
-- [ ] 2.7-2 `node-version-file: .nvmrc` em todos os `setup-node` do GitHub; versões das ações atualizadas.
-- [ ] 2.7-3 `scripts/__tests__/nodeVersion.test.ts` com as três regras e sondas (revertidas): perfil do `eas.json` sem `node`; `.nvmrc` fora do `engines`; `node-version: 20` de volta num workflow. Cada sonda falha; `.gitlab-ci.yml` com `NODE_VERSION: "20"` não acusa.
-- [ ] 2.7-4 Ensaio local com o Node do `.nvmrc` (`npx node@<versão>` + `npx npm@<npm dele>`), numa cópia do `HEAD` como na Auditoria: `npm ci` sem mudar arquivo versionado, lint, `vitest`, `tsc`, `expo export --platform web`, `expo prebuild --platform android --clean --no-install`.
+- [x] 2.7-1 `.nvmrc`, `engines` e `eas.json` conforme D-1; `package-lock.json` sincronizado só no `engines` da raiz (conferir com `git diff --stat`).
+- [x] 2.7-2 `node-version-file: .nvmrc` em todos os `setup-node` do GitHub; versões das ações atualizadas.
+- [x] 2.7-3 `scripts/__tests__/nodeVersion.test.ts` com as três regras e sondas (revertidas): perfil do `eas.json` sem `node`; `.nvmrc` fora do `engines`; `node-version: 20` de volta num workflow. Cada sonda falha; `.gitlab-ci.yml` com `NODE_VERSION: "20"` não acusa.
+- [x] 2.7-4 Ensaio local com o Node do `.nvmrc` (`npx node@<versão>` + `npx npm@<npm dele>`), numa cópia do `HEAD` como na Auditoria: `npm ci` sem mudar arquivo versionado, lint, `vitest`, `tsc`, `expo export --platform web`, `expo prebuild --platform android --clean --no-install`.
 
 **Execution (2.8):**
-- [ ] 2.8-1 `gate.yml` conforme o padrão e D-2.
-- [ ] 2.8-2 Com D-3 (b): job `gate` e `needs: gate` em `build-android.yml`.
-- [ ] 2.8-3 Rodar localmente, em sequência e com Node do `.nvmrc`, exatamente os passos do gate; todos com exit 0.
-- [ ] 2.8-4 `AGENTS.md`: tirar "A CI ainda não barra nenhum dos dois (Epic 2)" e a nota do `yarn.lock` (o arquivo não existe desde `760245d`); dizer que o workflow `Gate` roda lint, `vitest` (e `tsc`, se D-2) em PR e push na `dev`/`main`, e que a versão do Node está em `.nvmrc`.
-- [ ] 2.8-5 `deferred-work.md`: marcar D4 (só a parte "o CI de build não roda lint nem vitest") e D27 como resolvidos pela 2.8.
+- [x] 2.8-1 `gate.yml` conforme o padrão e D-2.
+- [x] 2.8-2 Com D-3 (b): job `gate` e `needs: gate` em `build-android.yml`.
+- [x] 2.8-3 Rodar localmente, em sequência e com Node do `.nvmrc`, exatamente os passos do gate; todos com exit 0.
+- [x] 2.8-4 `AGENTS.md`: tirar "A CI ainda não barra nenhum dos dois (Epic 2)" e a nota do `yarn.lock` (o arquivo não existe desde `760245d`); dizer que o workflow `Gate` roda lint, `vitest` (e `tsc`, se D-2) em PR e push na `dev`/`main`, e que a versão do Node está em `.nvmrc`.
+- [x] 2.8-5 `deferred-work.md`: marcar D4 (só a parte "o CI de build não roda lint nem vitest") e D27 como resolvidos pela 2.8.
 - [ ] 2.8-6 Depois do push (dono): ver o `Gate` verde no push da `dev` e num PR de teste; disparar o `build-android.yml` na `dev` e ver os dois jobs verdes, sem a anotação de Node 20 (sabendo que o disparo publica uma pré-release `pre-<sha>`, como em 28/10); disparar o `build-ios.yml` (R-2); rodar um build EAS `preview` e conferir no log a versão do Node.
 - [ ] 2.8-7 Prova de que o gate barra (dono, num PR descartável a partir da `dev`): um `expect(1).toBe(2)` num teste → `Gate` vermelho no passo "Testes"; um erro de lint (ex.: `no-undef`) → vermelho no passo "Lint". Fechar o PR sem merge.
 
@@ -234,3 +234,39 @@ jobs:
 4. `Build iOS` disparado: verde, ou bloqueado por cobrança (R-2), anotado.
 5. Build EAS `preview`: o log mostra a versão do `.nvmrc`; termina verde.
 6. Regra de branch exigindo `Gate / Lint e testes` em `dev` e `main` (opcional, do dono).
+
+## Implementation Notes
+
+**Arquivos (sem commit):**
+- `.nvmrc` (novo): `24.22.2` (LTS "Krypton", 27/10/2026, conferido em `nodejs.org/dist/index.json`; traz npm 11.19.1).
+- `package.json`: `"engines": { "node": "^22.12.0 || ^24.0.0" }` (D-1 b). `package-lock.json`: só o `engines` da raiz (`npm install --package-lock-only --ignore-scripts`, 3 linhas).
+- `eas.json`: `"node": "24.22.2"` em `development`, `preview` e `production`.
+- `.github/workflows/gate.yml` (novo): conforme o padrão, com D-2 (b): passos `Instalar dependências` → `Lint` (`npx eslint .`) → `Testes` (`npx vitest run`) → `Tipos` (`npx tsc --noEmit`).
+- `.github/workflows/build-android.yml`: job `gate` (`uses: ./.github/workflows/gate.yml`, nome `Gate`) e `needs: gate` em `build-android` e `build-web` (D-3 b); `node-version-file: .nvmrc` nos 2 jobs; versões das ações. Assinatura, gatilhos e publicação da pré-release sem mudança.
+- `.github/workflows/build-ios.yml`: `node-version-file: .nvmrc` (job ativo e bloco comentado) e versões das ações; sem gate (D-3 b).
+- `scripts/__tests__/nodeVersion.test.ts` (novo; já entra no `vitest run`, que não tem `include` restrito): 6 testes; as três regras e casos do próprio verificador de workflow (linha comentada e formato do `.gitlab-ci.yml` não acusam).
+- `AGENTS.md` (Task 2.8-4) e `deferred-work.md` (D4 resolvido em parte, D27 resolvido).
+
+**Versões das ações** (primeira maior com `runs.using: node24`, lida no `action.yml` de cada tag maior em 29/10): `actions/checkout@v5`, `actions/setup-node@v5`, `actions/upload-artifact@v6` (a v5 ainda é node20), `actions/cache@v5`, `actions/setup-java@v5`. `android-actions/setup-android@v4` já é node24 e fica.
+
+**Decisões além da spec:**
+- `softprops/action-gh-release@v2` → `@v3`. A v2 está congelada na 2.6.2 com `runs.using: node20` (daria a anotação de Node 20 no passo de publicação); a 3.0.0 só troca o runtime para Node 24 (CHANGELOG), sem mudar entradas. A spec mandava manter "salvo se o run apontar aviso": o aviso é certo pelo `action.yml`, então foi trocado já.
+- O teste lê o `semver` 6.3.1 (dependência transitiva, já no topo de `node_modules`) por `require`, com tipo mínimo declarado no teste: não há `@types/semver` e a spec proíbe dependência nova.
+- O teste também confere que o `.nvmrc` é versão exata da linha 24 e que o número de `actions/setup-node` ativos é igual ao de `node-version-file: .nvmrc` (pega um `setup-node` sem versão nenhuma, que cairia no Node do runner).
+- O ensaio com Node 24 usou o tarball oficial `node-v24.22.2-linux-x64.tar.xz` (sha256 conferido com `SHASUMS256.txt`) e o npm 11.19.1 que vem com ele, não `npx node@24`/`npx npm@11`.
+
+**Verificação local (29/10):**
+- Node 22.22.0 da sessão, no repositório: `npx vitest run` 100 arquivos / 2196 testes, 0 falhas (95 s); `npx tsc --noEmit` exit 0; `npx eslint .` 0 erros, 12 avisos.
+- Node 24.22.2 + npm 11.19.1, cópia limpa da árvore de trabalho (`git archive` de uma `write-tree` com índice temporário) no scratchpad, `CI=true`, passos do gate em sequência: `npm ci` exit 0 (1454 pacotes, 5 patches ✔, aviso `allowScripts` do R-3, `git status` limpo); `npx eslint .` 0 erros, 12 avisos (38 s); `npx vitest run` 100/2196, 0 falhas (86 s); `npx tsc --noEmit` exit 0 (32 s). Também `npx expo export --platform web` e `npx expo prebuild --platform android --clean --no-install`: exit 0; nenhum gerou `expo-env.d.ts`.
+- Sondas do teste de versão (todas revertidas): `preview` sem `node` → falha a regra do `eas.json`; `engines` `^22.12.0` → falha só a regra do `engines`; `.nvmrc` 20.19.0 e 26.0.0 → falham `.nvmrc`/`eas.json`/`engines`; `node-version: 20` de volta no `build-web` → falha a regra dos workflows. O `.gitlab-ci.yml` (`NODE_VERSION: "20"`) não é lido nem acusado.
+- YAML: os 3 workflows abrem no PyYAML; `actionlint` 1.7.12 (instalado por `go install` no scratchpad, sem shellcheck) sem achados.
+- `git diff ec1e0fa -- .gitlab-ci.yml packages/sync ios android replit.md replit.nix .replit`: vazio.
+
+**Checklist do dono depois do push (2.8-6, 2.8-7 e Verification):**
+1. `Gate` verde no push da `dev` (Actions → Gate); abrir um PR e ver o check `Gate / Lint e testes`.
+2. Disparar `Build Android & Web` na `dev`: `Gate`, `Build Release APK` e `Build Web` verdes; log do `Setup Node.js` com `v24.22.2`; sem anotação "Node.js 20 is deprecated". Lembrar que o disparo publica a pré-release `pre-<sha>`.
+3. Disparar `Build iOS` (R-2): verde ou bloqueado por cobrança, anotar.
+4. Build EAS `preview`: log com Node 24.22.2 e build verde.
+5. PR descartável a partir da `dev`: `expect(1).toBe(2)` num teste → vermelho em "Testes"; um `no-undef` → vermelho em "Lint". Fechar sem merge.
+6. (Opcional) Regra de branch exigindo `Gate / Lint e testes` em `dev` e `main`.
+

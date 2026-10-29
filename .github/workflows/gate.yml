@@ -1,0 +1,50 @@
+# GitHub Actions - Gate (DOMUS)
+# Lint, tipos e testes em todo PR e em todo push na dev e na main.
+# Também é chamado pelo build-android.yml (workflow_call): o build só começa
+# com o gate verde. Sem secrets e só leitura, para rodar igual em PR de fork.
+
+name: Gate
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: Lint e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # No job (e não no topo) e com o nome do workflow na chave: chamado pelo
+    # build-android.yml, o grupo leva o nome dele e não cancela o Gate de um PR.
+    concurrency:
+      group: gate-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      # Só erro barra; avisos de lint não falham o passo.
+      - name: Lint
+        run: npx eslint .
+
+      - name: Testes
+        run: npx vitest run
+
+      - name: Tipos
+        run: npx tsc --noEmit
