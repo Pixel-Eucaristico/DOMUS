@@ -9,7 +9,8 @@ const SECRET_MESSAGE =
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ["dist/*", "node_modules/*", "packages/*"],
+    // Pastas de ferramentas (skills, BMAD, tipos gerados pelo Expo) não são código do app.
+    ignores: ["dist/*", "node_modules/*", "packages/*", ".claude/**", ".agent/**", ".agents/**", "_bmad/**", "_bmad-output/**", ".expo/**"],
   },
   {
     rules: {
