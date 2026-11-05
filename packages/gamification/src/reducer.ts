@@ -1,5 +1,6 @@
 import { GAMIFICATION_EVENTS } from "./types";
 import type { GamificationEvent, GamificationState } from "./types";
+import { calculateLevel } from "./levelEngine";
 
 export function createInitialGamificationState(): GamificationState {
   return {
@@ -15,6 +16,8 @@ export function createInitialGamificationState(): GamificationState {
     selectedSeasonalTrophies: [],
     completedSeasonalTrophies: [],
     completionCounts: {},
+    processedEventIds: [],
+    processedTransactionIds: [],
   };
 }
 
@@ -22,24 +25,54 @@ export function gamificationReducer(
   state: GamificationState,
   event: GamificationEvent,
 ): GamificationState {
+  const processedEventIds = state.processedEventIds ?? [];
+  const processedTransactionIds = state.processedTransactionIds ?? [];
+
+  // Idempotência estrita por event.id
+  if (event.id && processedEventIds.includes(event.id)) {
+    return state;
+  }
+
+  // Idempotência por transactionId em XP_GAINED
+  if (
+    event.type === GAMIFICATION_EVENTS.XP_GAINED &&
+    event.payload.transactionId &&
+    processedTransactionIds.includes(event.payload.transactionId)
+  ) {
+    return state;
+  }
+
+  const nextProcessedEventIds = event.id
+    ? [...processedEventIds.slice(-999), event.id]
+    : processedEventIds;
+
   switch (event.type) {
     case GAMIFICATION_EVENTS.XP_GAINED: {
-      const { amount, source } = event.payload;
+      const { amount, source, transactionId } = event.payload;
+      const nextTotalXp = Math.max(0, state.totalXp + amount);
+      const nextTransactionIds = transactionId
+        ? [...processedTransactionIds.slice(-999), transactionId]
+        : processedTransactionIds;
+
       return {
         ...state,
-        totalXp: Math.max(0, state.totalXp + amount),
+        totalXp: nextTotalXp,
         seasonXp: Math.max(0, state.seasonXp + amount),
+        level: calculateLevel(nextTotalXp),
         xpHistory: [
           ...state.xpHistory,
           { amount, source, timestamp: event.timestamp },
         ],
+        processedEventIds: nextProcessedEventIds,
+        processedTransactionIds: nextTransactionIds,
       };
     }
 
     case GAMIFICATION_EVENTS.LEVEL_UP: {
       return {
         ...state,
-        level: event.payload.newLevel,
+        level: Math.max(state.level, event.payload.newLevel, calculateLevel(state.totalXp)),
+        processedEventIds: nextProcessedEventIds,
       };
     }
 
@@ -49,23 +82,30 @@ export function gamificationReducer(
         currentStreak: event.payload.currentStreak,
         longestStreak: event.payload.longestStreak,
         lastActiveDate: event.payload.lastActiveDate,
+        processedEventIds: nextProcessedEventIds,
       };
     }
 
     case GAMIFICATION_EVENTS.ACHIEVEMENT_UNLOCKED: {
       const { achievementId, rarity, xpReward } = event.payload;
+      // Previne desbloquear a mesma conquista repetida se já estiver desbloqueada
+      const existingAchs = state.unlockedAchievements ?? [];
+      const nextTotalXp = state.totalXp + xpReward;
+
       return {
         ...state,
-        totalXp: state.totalXp + xpReward,
+        totalXp: nextTotalXp,
         seasonXp: state.seasonXp + xpReward,
+        level: calculateLevel(nextTotalXp),
         unlockedAchievements: [
-          ...state.unlockedAchievements,
+          ...existingAchs,
           { id: achievementId, unlockedAt: event.timestamp, rarity },
         ],
         completionCounts: {
           ...state.completionCounts,
           [achievementId]: (state.completionCounts[achievementId] ?? 0) + 1,
         },
+        processedEventIds: nextProcessedEventIds,
       };
     }
 
@@ -75,10 +115,13 @@ export function gamificationReducer(
       // Avoid duplicate for same trophy+month
       const alreadyDone = existing.some(c => c.id === trophyId && c.monthKey === monthKey);
       if (alreadyDone) return state;
+      const nextTotalXp = state.totalXp + xpReward;
+
       return {
         ...state,
-        totalXp: state.totalXp + xpReward,
+        totalXp: nextTotalXp,
         seasonXp: state.seasonXp + xpReward,
+        level: calculateLevel(nextTotalXp),
         completedMonthlyTrophies: [
           ...existing,
           { id: trophyId, monthKey, completedAt: event.timestamp },
@@ -87,6 +130,7 @@ export function gamificationReducer(
           ...state.completionCounts,
           [trophyId]: (state.completionCounts[trophyId] ?? 0) + 1,
         },
+        processedEventIds: nextProcessedEventIds,
       };
     }
 
@@ -99,6 +143,7 @@ export function gamificationReducer(
       return {
         ...state,
         selectedSeasonalTrophies: [...existing, { trophyId, monthKey, tier }],
+        processedEventIds: nextProcessedEventIds,
       };
     }
 
@@ -108,10 +153,13 @@ export function gamificationReducer(
       // Avoid duplicate
       const alreadyDone = existing.some(c => c.trophyId === trophyId && c.monthKey === monthKey);
       if (alreadyDone) return state;
+      const nextTotalXp = state.totalXp + xpReward;
+
       return {
         ...state,
-        totalXp: state.totalXp + xpReward,
+        totalXp: nextTotalXp,
         seasonXp: state.seasonXp + xpReward,
+        level: calculateLevel(nextTotalXp),
         completedSeasonalTrophies: [
           ...existing,
           { trophyId, monthKey, tier, completedAt: event.timestamp },
@@ -120,6 +168,7 @@ export function gamificationReducer(
           ...state.completionCounts,
           [trophyId]: (state.completionCounts[trophyId] ?? 0) + 1,
         },
+        processedEventIds: nextProcessedEventIds,
       };
     }
 

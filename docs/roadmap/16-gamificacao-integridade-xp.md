@@ -33,9 +33,9 @@ Premissas do produto: app individual, offline-first, um usuário; objetivo é di
 - **Fase Futura:** Protocolo de atestação e sincronização social descentralizada via relay P2P/Nostr.
 
 ## Critérios de aceite
-- [ ] Replay de eventos duplicados (mesmo `event.id` ou mesmo `transactionId`) não credita XP duplicado.
-- [ ] Transações geram XP normalmente até a cota diária (5 registros/dia com XP); além disso, salvam sem pontuar e sem mensagens de bloqueio.
-- [ ] Excluir transação não subtrai XP do usuário.
-- [ ] Nível reflete com exatidão a função de `totalXp`.
-- [ ] Streak correto atravessando a virada de horário de verão e rejeita datas retroativas.
-- [ ] Testes do pacote `gamification` cobrindo todos esses cenários passando com 100% de sucesso.
+- [x] Replay de eventos duplicados (mesmo `event.id` ou mesmo `transactionId`) não credita XP duplicado.
+- [x] Transações geram XP normalmente até a cota diária (5 registros/dia com XP); além disso, salvam sem pontuar e sem mensagens de bloqueio.
+- [x] Excluir transação não subtrai XP do usuário.
+- [x] Nível reflete com exatidão a função de `totalXp`.
+- [x] Streak correto atravessando a virada de horário de verão e rejeita datas retroativas.
+- [x] Testes do pacote `gamification` cobrindo todos esses cenários passando com 100% de sucesso.

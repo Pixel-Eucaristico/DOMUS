@@ -264,17 +264,34 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
           now.getFullYear(),
         );
 
-        // XP: create grants, delete deducts, update is neutral
-        const sign = event.type === EVENT_TYPES.TRANSACTION_DELETED ? -1 : 1;
-        const isCreatedOrDeleted =
-          event.type === EVENT_TYPES.TRANSACTION_CREATED ||
-          event.type === EVENT_TYPES.TRANSACTION_DELETED;
-        const baseXp = isCreatedOrDeleted ? sign * getXpForAction("transaction_logged") : 0;
-        const budgetBonus = isCreatedOrDeleted ? sign * calculateBudgetAdherenceXp(nextBudget) : 0;
-        const totalXpGain = baseXp + budgetBonus;
+        // XP e Anti-farm:
+        // 1. TRANSACTION_DELETED nunca desconta XP (não pune correção de erros do usuário).
+        // 2. TRANSACTION_CREATED concede XP apenas até a cota diária de 5 registros de hábito.
+        // 3. Cadastros além da cota salvam normalmente sem XP adicional.
+        let totalXpGain = 0;
+        if (event.type === EVENT_TYPES.TRANSACTION_CREATED) {
+          const todayPrefix = todayStr();
+          const todayXpEntries = (gamification.xpHistory ?? []).filter((entry) => {
+            if (entry.source !== "transaction_logged") return false;
+            const entryDate = new Date(entry.timestamp);
+            const y = entryDate.getFullYear();
+            const m = String(entryDate.getMonth() + 1).padStart(2, "0");
+            const d = String(entryDate.getDate()).padStart(2, "0");
+            return `${y}-${m}-${d}` === todayPrefix;
+          });
 
-        if (totalXpGain !== 0) {
-          const xpPayload = createXpPayload("transaction_logged", totalXpGain);
+          if (todayXpEntries.length < 5) {
+            const baseXp = getXpForAction("transaction_logged");
+            const budgetBonus = calculateBudgetAdherenceXp(nextBudget);
+            totalXpGain = Math.max(0, baseXp + budgetBonus);
+          }
+        }
+
+        if (totalXpGain > 0) {
+          const xpPayload = {
+            ...createXpPayload("transaction_logged", totalXpGain),
+            transactionId: event.payload.id,
+          };
           dispatchGamEvent({
             id: generateId(),
             type: GAMIFICATION_EVENTS.XP_GAINED,

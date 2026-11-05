@@ -24,6 +24,7 @@ export interface XpGainedPayload {
   source: XpSource;
   description?: string;
   seasonId?: string;
+  transactionId?: string;
 }
 
 export interface LevelUpPayload {
@@ -160,4 +161,6 @@ export interface GamificationState {
   selectedSeasonalTrophies: SelectedSeasonalTrophy[];
   completedSeasonalTrophies: CompletedSeasonalTrophy[];
   completionCounts: Record<string, number>;
+  processedEventIds?: string[];
+  processedTransactionIds?: string[];
 }

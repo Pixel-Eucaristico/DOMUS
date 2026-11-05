@@ -414,6 +414,12 @@ yarn add react-native-smart-tooltip
 - **Escopo:** reducer idempotente por `event.id` e `transactionId`; nível derivado de `totalXp` com curva suave; cota diária de hábito (até 5 registros pontuam XP/dia, sem teto para cadastros reais e sem penalidade na exclusão); streak por datas `YYYY-MM-DD` com testes de horário de verão.
 - **Fora de escopo:** recompensas funcionais por nível (tarefa 18), penalidade 50/30/20 (tarefa 17).
 - **Detalhes:** [docs/roadmap/16-gamificacao-integridade-xp.md](docs/roadmap/16-gamificacao-integridade-xp.md)
+- **Implementado:**
+  - [x] Reducer idempotente com deduplicação por `event.id` e `transactionId`
+  - [x] Nível derivado funcionalmente de `totalXp` com curva suave
+  - [x] Cota diária de 5 transações pontuáveis por dia e eliminação da dedução punitiva de XP na exclusão
+  - [x] Cálculo de streak com aritmética UTC (`Date.UTC`), imune a fusos/DST e ignorando datas retroativas
+  - [x] Testes unitários completos cobrindo idempotência, DST e nível derivado (100% aprovados)
 
 ---
 
