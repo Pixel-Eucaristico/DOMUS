@@ -1,0 +1,15 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Pixel Agents",
+      "type": "shell",
+      "command": "npx --yes pixel-agents --port 33917 --allowed-host codeserver.custodioquintino.com.br",
+      "isBackground": true,
+      "problemMatcher": [],
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    }
+  ]
+}

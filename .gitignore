@@ -52,7 +52,8 @@ dev-debug.log
 # Environment variables
 # Editor directories and files
 .idea
-.vscode
+.vscode/*
+!.vscode/tasks.json
 *.suo
 *.ntvs*
 *.njsproj
@@ -64,3 +65,6 @@ dev-debug.log
 # tasks.json
 # tasks/ 
 .claude/scheduled_tasks.lock
+
+# BMad render cache
+_bmad/render/
