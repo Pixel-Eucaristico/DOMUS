@@ -21,6 +21,12 @@ export type {
   SelectedSeasonalTrophy,
   CompletedSeasonalTrophy,
   XpSource,
+  BudgetFeedback,
+  FeatureKey,
+  LevelReward,
+  QuickAnalysisData,
+  MonthSummary,
+  AnnualReportData,
 } from "./src/types";
 export { GAMIFICATION_EVENTS } from "./src/types";
 
@@ -50,6 +56,7 @@ export {
   calculateBudgetAdherenceXp,
   calculateStreakBonusXp,
   createXpPayload,
+  getBudgetFeedback,
 } from "./src/xpEngine";
 
 export {
@@ -75,3 +82,29 @@ export {
 
 export type { LiturgicalTrophy } from "./src/liturgicalTrophies";
 export { ALL_LITURGICAL_TROPHIES } from "./src/liturgicalTrophies";
+
+export type {
+  PrimaryMotion,
+  SecondaryEffect,
+  EntryAnimation,
+  ParticleType,
+  TrophyAnimationConfig,
+  GetTrophyAnimationOptions,
+} from "./src/trophyAnimationConfigs";
+export {
+  DEFAULT_TROPHY_ANIMATION_CONFIG,
+  CATEGORY_ANIMATION_PRESETS,
+  TROPHY_ANIMATION_CONFIGS,
+  getTrophyAnimationConfig,
+  resolveActiveParticleCount,
+} from "./src/trophyAnimationConfigs";
+
+export {
+  LEVEL_REWARDS_CONFIG,
+  getLevelRewards,
+  isFeatureUnlocked,
+  calculateQuickAnalysis,
+  calculateAnnualReport,
+} from "./src/rewardsEngine";
+
+

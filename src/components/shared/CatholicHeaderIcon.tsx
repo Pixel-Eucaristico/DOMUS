@@ -7,8 +7,10 @@ interface Props {
   theme: ThemeColors;
   size?: number;
   opacity?: number;
+  /** User level: unlocks additional sacred icons when >= 5 */
+  level?: number;
   /** Which icon to show. Rotates daily if not specified. */
-  icon?: "cross" | "heart" | "dove" | "chalice" | "fish";
+  icon?: "cross" | "heart" | "dove" | "chalice" | "fish" | "rosary" | "candle" | "celtic_cross" | "crown";
 }
 
 // Minimal hand-crafted SVG paths for subtle liturgical icons (viewBox 0 0 24 24)
@@ -44,24 +46,58 @@ const ICONS = {
       <Circle cx={17} cy={11.5} r={0.8} />
     </>
   ),
+  // Nível 5: Expansão Litúrgica
+  rosary: (
+    <>
+      <Circle cx={12} cy={9} r={5} strokeWidth={1} fill="none" />
+      <Path d="M12 14v6M10 17h4" strokeWidth={1.2} strokeLinecap="round" />
+      <Circle cx={12} cy={4} r={0.8} />
+      <Circle cx={17} cy={9} r={0.8} />
+      <Circle cx={7} cy={9} r={0.8} />
+    </>
+  ),
+  candle: (
+    <>
+      <Path d="M9 10h6v11H9z" strokeWidth={1.2} fill="none" />
+      <Path d="M12 4c-1 1.5-1.5 3 0 4 1.5-1 1-2.5 0-4z" strokeWidth={1} fill="none" />
+      <Path d="M12 8v2" strokeWidth={1} strokeLinecap="round" />
+    </>
+  ),
+  celtic_cross: (
+    <>
+      <Path d="M12 2v20M4 9h16" strokeWidth={1.5} strokeLinecap="round" />
+      <Circle cx={12} cy={9} r={4} strokeWidth={1} fill="none" />
+    </>
+  ),
+  crown: (
+    <>
+      <Path d="M4 17h16l2-10-5 4-5-6-5 6-5-4z" strokeWidth={1.2} fill="none" strokeLinejoin="round" />
+      <Circle cx={12} cy={6} r={0.8} />
+      <Circle cx={6} cy={8} r={0.8} />
+      <Circle cx={18} cy={8} r={0.8} />
+    </>
+  ),
 };
 
-const ICON_KEYS = Object.keys(ICONS) as (keyof typeof ICONS)[];
+const BASE_ICON_KEYS: (keyof typeof ICONS)[] = ["cross", "heart", "dove", "chalice", "fish"];
+const ALL_ICON_KEYS: (keyof typeof ICONS)[] = [
+  "cross", "heart", "dove", "chalice", "fish", "rosary", "candle", "celtic_cross", "crown"
+];
 
 /**
  * Renders a subtle liturgical icon for Catholic users.
- * Rotates the icon daily by default so the header feels fresh.
+ * Rotates daily based on day of year. Level >= 5 expands to 9 sacred icons.
  */
-export function CatholicHeaderIcon({ theme, size = 18, opacity = 0.25, icon }: Props) {
+export function CatholicHeaderIcon({ theme, size = 18, opacity = 0.25, icon, level = 1 }: Props) {
   const selectedIcon = useMemo(() => {
     if (icon) return icon;
-    // Rotate daily based on day of year
+    const pool = level >= 5 ? ALL_ICON_KEYS : BASE_ICON_KEYS;
     const now = new Date();
     const dayOfYear = Math.floor(
       (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000,
     );
-    return ICON_KEYS[dayOfYear % ICON_KEYS.length]!;
-  }, [icon]);
+    return pool[dayOfYear % pool.length]!;
+  }, [icon, level]);
 
   return (
     <View style={[s.container, { opacity }]}>

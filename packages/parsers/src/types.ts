@@ -59,3 +59,21 @@ export interface OCRAdapter {
 export interface SefazFetcher {
   fetchPage(url: string): Promise<string>;
 }
+
+export interface OleriteReading {
+  value: number;
+  unit: string;
+  confidence: number;
+  imageUri: string;
+  timestamp: Date;
+  location?: string;
+}
+
+export interface OleriteParseOptions {
+  confidence?: number;
+  imageUri?: string;
+  timestamp?: Date;
+  location?: string;
+  defaultUnit?: string;
+}
+

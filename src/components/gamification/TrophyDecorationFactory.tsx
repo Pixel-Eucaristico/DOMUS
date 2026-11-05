@@ -1,9 +1,11 @@
 import React from "react";
 import { G, Path, Circle, Rect, Line, Polygon } from "react-native-svg";
+import type { TrophyAnimationConfig } from "@/src/constants/trophyAnimationConfigs";
 
 interface TrophyDecorationProps {
   id?: string;
   color: string;
+  animationConfig?: TrophyAnimationConfig;
 }
 
 /**
@@ -310,7 +312,40 @@ const SeasonalDecorations: React.FC<TrophyDecorationProps> = ({ id, color }) => 
 
 export const TrophyDecorationFactory: React.FC<TrophyDecorationProps & { isLiturgical: boolean }> = ({ 
   isLiturgical, 
+  animationConfig,
   ...props 
 }) => {
-  return isLiturgical ? <LiturgicalDecorations {...props} /> : <SeasonalDecorations {...props} />;
+  const accentColor = animationConfig?.effectColor ?? props.color;
+  const secondaryEffect = animationConfig?.secondaryEffect;
+
+  return (
+    <G>
+      {secondaryEffect === "ripple" && (
+        <Circle
+          cx="50"
+          cy="50"
+          r="42"
+          stroke={accentColor}
+          strokeWidth="1"
+          strokeDasharray="3 3"
+          fill="none"
+          opacity={0.35}
+        />
+      )}
+      {secondaryEffect === "trail" && (
+        <Path
+          d="M16 50 A34 34 0 0 1 84 50"
+          stroke={accentColor}
+          strokeWidth="1.2"
+          fill="none"
+          opacity={0.3}
+        />
+      )}
+      {isLiturgical ? (
+        <LiturgicalDecorations {...props} animationConfig={animationConfig} />
+      ) : (
+        <SeasonalDecorations {...props} animationConfig={animationConfig} />
+      )}
+    </G>
+  );
 };

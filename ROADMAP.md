@@ -237,19 +237,19 @@ LONGO PRAZO (quando houver tempo):
 - **Total:** 40 conquistas + 6 mensais + 48 sazonais + 73 litúrgicos = 167 troféus
 - **Solução:** Criar config map por troféu/categoria com parâmetros de animação customizados
 - **Detalhes:** [docs/roadmap/08-animacao-trofeus.md](docs/roadmap/08-animacao-trofeus.md) (lista completa de todos os 167 troféus)
-- [ ] Criar `trophyAnimationConfigs.ts` com mapa de configs
-- [ ] Refatorar AnimatedTrophy e AnimatedSeasonalTrophy para aceitar config
+- [x] Criar `trophyAnimationConfigs.ts` com mapa de configs
+- [x] Refatorar AnimatedTrophy e AnimatedSeasonalTrophy para aceitar config
 - [ ] Implementar um a um com aprovação individual
 
-### 09 — Leitor de Olerite por OCR (Parcial)
+### 09 — Leitor de Olerite por OCR ✅ CONCLUÍDA
 - **Dificuldade:** COMPLEXO | **Urgência:** MÉDIA | **~6-10h**
 - **Depende de:** Tarefa 05 (OCR Android — CONCLUÍDA)
 - **Já implementado:** Payslip OCR schema (Zod) + VisionOCRService + scan_payslip no chat
-- **Falta:**
-- [ ] Criar `oleriteParser.ts` (parser dedicado para medidores)
-- [ ] Criar tela de captura dedicada reutilizando OcrScanScreen
-- [ ] Implementar histórico com gráfico de evolução
-- [ ] Testes unitários
+- **Concluído:**
+- [x] Criar `oleriteParser.ts` (parser dedicado para medidores)
+- [x] Criar tela de captura dedicada reutilizando OcrScanScreen
+- [x] Implementar histórico com gráfico de evolução
+- [x] Testes unitários
 - **Detalhes:** [docs/roadmap/09-olerite-ocr.md](docs/roadmap/09-olerite-ocr.md)
 
 ### 10 — ~~Bug: Tour Sumindo / Saindo Fora da Tela~~ ✅ RESOLVIDO
@@ -406,3 +406,44 @@ yarn add react-native-smart-tooltip
   - [x] UI: checkbox "É dividendo" ao adicionar receita na conta CDB
   - [x] UI: exibir breakdown do limite no card do cartão
  
+---
+
+### 16 — Gamificação: Integridade do XP, Nível Derivado e Streak Robusto
+- **Dificuldade:** MÉDIO | **Urgência:** MÉDIA | **~4-6h**
+- **Contexto:** Análise GDS (Game Designer + Game Architect) revisada em party-mode. App individual/offline-first; foco em hábito e aprendizado do 50/30/20.
+- **Escopo:** reducer idempotente por `event.id` e `transactionId`; nível derivado de `totalXp` com curva suave; cota diária de hábito (até 5 registros pontuam XP/dia, sem teto para cadastros reais e sem penalidade na exclusão); streak por datas `YYYY-MM-DD` com testes de horário de verão.
+- **Fora de escopo:** recompensas funcionais por nível (tarefa 18), penalidade 50/30/20 (tarefa 17).
+- **Detalhes:** [docs/roadmap/16-gamificacao-integridade-xp.md](docs/roadmap/16-gamificacao-integridade-xp.md)
+- **Implementado:**
+  - [x] Reducer idempotente com deduplicação por `event.id` e `transactionId`
+  - [x] Nível derivado funcionalmente de `totalXp` com curva suave
+  - [x] Cota diária de 5 transações pontuáveis por dia e eliminação da dedução punitiva de XP na exclusão
+  - [x] Cálculo de streak com aritmética UTC (`Date.UTC`), imune a fusos/DST e ignorando datas retroativas
+  - [x] Testes unitários completos cobrindo idempotência, DST e nível derivado (100% aprovados)
+
+---
+
+### 17 — Gamificação: Feedback 50/30/20 sem Penalidade
+- **Dificuldade:** FÁCIL | **Urgência:** MÉDIA | **~2-3h**
+- **Escopo:** remover a perda de XP por estourar necessidades/desejos em `calculateBudgetAdherenceXp` (`packages/gamification/src/xpEngine.ts`); exibir aviso educativo explicando a regra 50/30/20; bônus de XP quando o mês melhora em relação ao anterior.
+- **Depende de:** tarefa 16.
+- **Implementado:**
+  - [x] Remoção da perda punitiva de XP em `calculateBudgetAdherenceXp` (resultado sempre $\ge 0$)
+  - [x] Bônus de evolução mensal (+5 XP) ao superar a pontuação de aderência do mês anterior
+  - [x] Helper `getBudgetFeedback` fornecendo orientações estruturadas e acolhedoras por status
+  - [x] Componente `BudgetFeedbackCard` integrado à tela Home com link explicativo da regra 50/30/20
+  - [x] Testes unitários atualizados e aprovados com 100% de sucesso
+
+---
+
+### 18 — Gamificação: Recompensas Funcionais por Nível
+- **Dificuldade:** MÉDIO | **Urgência:** BAIXA | **~4-6h**
+- **Escopo:** vincular progresso de níveis a utilidades reais do app (Nível 2: Card de Análise Rápida de Desejos vs Necessidades; Nível 5: Temas e ícones litúrgicos/santos católicos adicionais; Nível 10: Relatório Anual e personalização de metas orçamentárias).
+- **Depende de:** tarefas 16 e 17.
+- **Implementado:**
+  - [x] Motor de recompensas `rewardsEngine.ts` com trilha progressiva nos níveis 2, 5 e 10
+  - [x] Card de Análise Rápida de Desejos vs Necessidades (Nível 2) integrado à tela Home
+  - [x] Expansão Litúrgica com 4 novos ícones sagrados (Nível 5) no `CatholicHeaderIcon`
+  - [x] Relatório Anual de 12 meses e Personalização de Metas Orçamentárias (Nível 10)
+  - [x] Componente `LevelRewardsTrack` na tela de Temporada exibindo status de cada recompensa
+  - [x] Testes unitários do motor de recompensas passando com 100% de sucesso

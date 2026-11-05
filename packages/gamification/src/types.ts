@@ -24,6 +24,7 @@ export interface XpGainedPayload {
   source: XpSource;
   description?: string;
   seasonId?: string;
+  transactionId?: string;
 }
 
 export interface LevelUpPayload {
@@ -160,4 +161,62 @@ export interface GamificationState {
   selectedSeasonalTrophies: SelectedSeasonalTrophy[];
   completedSeasonalTrophies: CompletedSeasonalTrophy[];
   completionCounts: Record<string, number>;
+  processedEventIds?: string[];
+  processedTransactionIds?: string[];
 }
+
+export interface BudgetFeedback {
+  status: "perfect" | "good" | "needs_attention" | "empty";
+  title: string;
+  message: string;
+  tips: string[];
+  improved: boolean;
+}
+
+export type FeatureKey =
+  | "quick_analysis"
+  | "liturgical_expansion"
+  | "annual_report_and_custom_budget";
+
+export interface LevelReward {
+  level: number;
+  title: string;
+  description: string;
+  featureKey: FeatureKey;
+  icon: string;
+  isUnlocked: boolean;
+}
+
+export interface QuickAnalysisData {
+  status: "empty" | "frugal" | "balanced" | "lifestyle_heavy" | "critical";
+  needsAmount: number;
+  wantsAmount: number;
+  needsPercent: number;
+  wantsPercent: number;
+  ratio: number;
+  ratioFormatted: string;
+  diagnosis: string;
+  tip: string;
+}
+
+export interface MonthSummary {
+  month: number;
+  monthName: string;
+  totalIncome: number;
+  totalExpenses: number;
+  savings: number;
+  adherenceScore: number;
+}
+
+export interface AnnualReportData {
+  year: number;
+  totalIncome: number;
+  totalExpenses: number;
+  totalSavings: number;
+  averageAdherenceScore: number;
+  bestSavingMonth?: string;
+  lowestExpenseMonth?: string;
+  months: MonthSummary[];
+}
+
+

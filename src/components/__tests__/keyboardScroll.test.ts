@@ -115,6 +115,7 @@ const MODAL_FORMS = [
   "src/components/wishlist/AddItemModal.tsx",
   "app/about.tsx",
   "src/components/tour/WelcomeCarousel.tsx",
+  "src/components/olerite/OleriteCapturePreviewModal.tsx",
 ];
 
 /** Rodapé fora do padrão "botão principal" (Story 13.4), com o motivo. */

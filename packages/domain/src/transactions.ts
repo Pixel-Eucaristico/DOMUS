@@ -334,3 +334,5 @@ function addMonths(dateStr: string, months: number): string {
   d.setMonth(d.getMonth() + months);
   return d.toISOString().split("T")[0]!;
 }
+
+export type { TransactionPayload, CategoryGroup };

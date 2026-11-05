@@ -65,3 +65,14 @@ export type {
   PayslipHistoryWindow,
   PayslipDeductionReport,
 } from "./src/payslipHistory";
+
+export {
+  createOleriteReadingEvent,
+  getChronologicalOleriteReadings,
+  calculateAverageOleriteConsumption,
+  getOleriteEvolutionSeries,
+} from "./src/olerite";
+export type {
+  CreateOleriteReadingParams,
+  OleriteEvolutionPoint,
+} from "./src/olerite";

@@ -25,6 +25,7 @@
     },
     "production": {
       "node": "24.22.2",
+      "autoIncrement": true,
       "android": {
         "credentialsSource": "remote",
         "buildType": "app-bundle",
@@ -36,6 +37,12 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal",
+        "releaseStatus": "completed"
+      }
+    }
   }
 }

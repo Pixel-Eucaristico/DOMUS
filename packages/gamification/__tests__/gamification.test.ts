@@ -4,6 +4,7 @@ import {
   calculateBudgetAdherenceXp,
   calculateStreakBonusXp,
   createXpPayload,
+  getBudgetFeedback,
 } from "../src/xpEngine";
 import {
   calculateLevel,
@@ -83,20 +84,36 @@ describe("XP Engine", () => {
       })).toBe(15); // 5 (health: needs<=50 && wants<=30) + 10 (savings >= 20%)
     });
 
-    it("penalizes Needs only if income is present", () => {
-      // With income: 60% needs -> -10 penalty; sem bônus de saúde (needs > 50)
+    it("does not penalize Needs or Wants overspending (Tarefa 17 sem penalidade)", () => {
+      // With income: 60% needs -> sem dedução; savings >= 20% garante 10 XP
       expect(calculateBudgetAdherenceXp({
         needs: 600, wants: 200, savings: 200,
         needsPercent: 60, wantsPercent: 20, savingsPercent: 20,
         totalIncome: 1000, adherenceScore: 80
-      })).toBe(0); // 10 (savings) - 10 (needs 60% -> -10)
+      })).toBe(10); // 10 (savings >= 20%), zero penalidade
 
-      // Without income: no penalties
+      // Overspending in wants (45%), savings 15%: receives 3 XP for savings > 0, zero deduction
       expect(calculateBudgetAdherenceXp({
-        needs: 600, wants: 200, savings: 200,
-        needsPercent: 60, wantsPercent: 20, savingsPercent: 20,
-        totalIncome: 0, adherenceScore: 80
-      })).toBe(10); // 10 (savings >= 20%), sem penalidade porque totalIncome = 0
+        needs: 400, wants: 450, savings: 150,
+        needsPercent: 40, wantsPercent: 45, savingsPercent: 15,
+        totalIncome: 1000, adherenceScore: 70
+      })).toBe(3); // 3 (savings > 0), zero penalidade
+    });
+
+    it("awards monthly improvement bonus (+5xp) when adherenceScore increases compared to previous month", () => {
+      const currentMonth = {
+        needs: 550, wants: 250, savings: 200,
+        needsPercent: 55, wantsPercent: 25, savingsPercent: 20,
+        totalIncome: 1000, adherenceScore: 90
+      };
+      const previousMonth = {
+        needs: 650, wants: 250, savings: 100,
+        needsPercent: 65, wantsPercent: 25, savingsPercent: 10,
+        totalIncome: 1000, adherenceScore: 70
+      };
+
+      // 10 (savings >= 20%) + 5 (bônus de evolução mensal) = 15 XP
+      expect(calculateBudgetAdherenceXp(currentMonth, previousMonth)).toBe(15);
     });
 
     it("returns 0 if no data is present", () => {
@@ -105,6 +122,62 @@ describe("XP Engine", () => {
         needsPercent: 0, wantsPercent: 0, savingsPercent: 0, 
         totalIncome: 0, adherenceScore: 0
       })).toBe(0);
+    });
+  });
+
+  describe("getBudgetFeedback", () => {
+    it("returns empty feedback when no transactions exist", () => {
+      const feedback = getBudgetFeedback({
+        needs: 0, wants: 0, savings: 0,
+        needsPercent: 0, wantsPercent: 0, savingsPercent: 0,
+        totalIncome: 0, adherenceScore: 0,
+      });
+      expect(feedback.status).toBe("empty");
+    });
+
+    it("returns perfect feedback when balanced with >= 20% savings", () => {
+      const feedback = getBudgetFeedback({
+        needs: 500, wants: 300, savings: 200,
+        needsPercent: 50, wantsPercent: 30, savingsPercent: 20,
+        totalIncome: 1000, adherenceScore: 100,
+      });
+      expect(feedback.status).toBe("perfect");
+      expect(feedback.title).toContain("Perfeito Equilíbrio");
+    });
+
+    it("returns good feedback when balanced with < 20% savings", () => {
+      const feedback = getBudgetFeedback({
+        needs: 500, wants: 300, savings: 100,
+        needsPercent: 50, wantsPercent: 30, savingsPercent: 10,
+        totalIncome: 1000, adherenceScore: 80,
+      });
+      expect(feedback.status).toBe("good");
+      expect(feedback.title).toContain("Gastos sob Controle");
+    });
+
+    it("returns needs_attention feedback without negative tone when overspent", () => {
+      const feedback = getBudgetFeedback({
+        needs: 650, wants: 250, savings: 100,
+        needsPercent: 65, wantsPercent: 25, savingsPercent: 10,
+        totalIncome: 1000, adherenceScore: 70,
+      });
+      expect(feedback.status).toBe("needs_attention");
+      expect(feedback.message).toContain("Não há desconto de pontos");
+    });
+
+    it("flags improved=true when current month adherence exceeds previous month", () => {
+      const current = {
+        needs: 500, wants: 300, savings: 200,
+        needsPercent: 50, wantsPercent: 30, savingsPercent: 20,
+        totalIncome: 1000, adherenceScore: 100,
+      };
+      const previous = {
+        needs: 600, wants: 300, savings: 100,
+        needsPercent: 60, wantsPercent: 30, savingsPercent: 10,
+        totalIncome: 1000, adherenceScore: 80,
+      };
+      const feedback = getBudgetFeedback(current, previous);
+      expect(feedback.improved).toBe(true);
     });
   });
 
@@ -183,23 +256,21 @@ describe("Level Engine", () => {
       expect(calculateLevel(100)).toBe(2);
     });
 
-    it("returns level 2 for 249 XP (100 * 1.5 = 150, so 100 + 150 = 250)", () => {
-      expect(calculateLevel(249)).toBe(2);
+    it("returns level 2 for 199 XP (100 XP per level in levels 1-5)", () => {
+      expect(calculateLevel(199)).toBe(2);
     });
 
-    it("returns level 3 for 250 XP", () => {
-      expect(calculateLevel(250)).toBe(3);
+    it("returns level 3 for 200 XP", () => {
+      expect(calculateLevel(200)).toBe(3);
     });
 
     it("correctly calculates level for higher XP values", () => {
-      // Level 1: 0-99 (100 xp needed)
-      // Level 2: 100-249 (150 xp needed)
-      // Level 3: 250-474 (225 xp needed)
-      // Level 4: 475-812 (337 xp needed)
-      // Level 5: 813+ (506 xp needed)
-      expect(calculateLevel(475)).toBe(4);
-      expect(calculateLevel(812)).toBe(5);
-      expect(calculateLevel(813)).toBe(5);
+      // Levels 1-5: 100 XP each (L1: 0-99, L2: 100-199, L3: 200-299, L4: 300-399, L5: 400-499)
+      // Level 6+: requires 500 XP total to reach L6, then 150 XP per level
+      expect(calculateLevel(300)).toBe(4);
+      expect(calculateLevel(400)).toBe(5);
+      expect(calculateLevel(500)).toBe(6);
+      expect(calculateLevel(650)).toBe(7);
     });
   });
 
@@ -227,21 +298,21 @@ describe("Level Engine", () => {
       expect(info.level).toBe(2);
       expect(info.currentXp).toBe(0);
       expect(info.xpForCurrentLevel).toBe(100);
-      expect(info.xpForNextLevel).toBe(150);
+      expect(info.xpForNextLevel).toBe(100);
       expect(info.progress).toBe(0);
     });
 
-    it("returns correct level info for 175 XP (halfway through level 2)", () => {
-      const info = getLevelInfo(175);
+    it("returns correct level info for 150 XP (halfway through level 2)", () => {
+      const info = getLevelInfo(150);
       expect(info.level).toBe(2);
-      expect(info.currentXp).toBe(75);
+      expect(info.currentXp).toBe(50);
       expect(info.xpForCurrentLevel).toBe(100);
-      expect(info.xpForNextLevel).toBe(150);
+      expect(info.xpForNextLevel).toBe(100);
       expect(info.progress).toBeCloseTo(0.5);
     });
 
     it("returns correct progress percentage", () => {
-      const info = getLevelInfo(175);
+      const info = getLevelInfo(150);
       expect(info.progress).toBeCloseTo(0.5, 1);
     });
   });
@@ -265,14 +336,14 @@ describe("Level Engine", () => {
       const result = shouldLevelUp(100, 300);
       expect(result.leveledUp).toBe(true);
       expect(result.previousLevel).toBe(2);
-      expect(result.newLevel).toBe(3);
+      expect(result.newLevel).toBe(4);
     });
 
     it("tracks correct levels for large jumps", () => {
       const result = shouldLevelUp(0, 500);
       expect(result.leveledUp).toBe(true);
       expect(result.previousLevel).toBe(1);
-      expect(result.newLevel).toBe(4);
+      expect(result.newLevel).toBe(6);
     });
 
     it("returns false when already at same level", () => {
@@ -288,23 +359,20 @@ describe("Level Engine", () => {
       expect(getXpForLevel(1)).toBe(100);
     });
 
-    it("returns 150 XP required for level 2", () => {
-      expect(getXpForLevel(2)).toBe(150);
+    it("returns 100 XP required for level 2", () => {
+      expect(getXpForLevel(2)).toBe(100);
     });
 
-    it("returns 225 XP required for level 3", () => {
-      expect(getXpForLevel(3)).toBeCloseTo(225, 0);
+    it("returns 100 XP required for level 5", () => {
+      expect(getXpForLevel(5)).toBe(100);
     });
 
-    it("returns 337 XP required for level 4", () => {
-      expect(getXpForLevel(4)).toBeCloseTo(337, 0);
+    it("returns 150 XP required for level 6", () => {
+      expect(getXpForLevel(6)).toBe(150);
     });
 
-    it("follows 100 * 1.5^(level-1) formula", () => {
-      for (let level = 1; level <= 5; level++) {
-        const expected = Math.floor(100 * Math.pow(1.5, level - 1));
-        expect(getXpForLevel(level)).toBe(expected);
-      }
+    it("returns 200 XP required for level 11", () => {
+      expect(getXpForLevel(11)).toBe(200);
     });
   });
 });
@@ -815,6 +883,103 @@ describe("Gamification Reducer", () => {
 
       expect(state.xpHistory.length).toBe(historyBefore);
       expect(newState.xpHistory.length).toBe(historyBefore + 1);
+    });
+  });
+
+  describe("Idempotency & Robustness (Tarefa 16)", () => {
+    it("ignores duplicate events with the same event.id", () => {
+      const state = createInitialGamificationState();
+      const event = makeGamEvent(GAMIFICATION_EVENTS.XP_GAINED, {
+        amount: 50,
+        source: "mission_completed",
+      });
+
+      const state1 = gamificationReducer(state, event);
+      expect(state1.totalXp).toBe(50);
+      expect(state1.processedEventIds).toContain(event.id);
+
+      const state2 = gamificationReducer(state1, event);
+      expect(state2.totalXp).toBe(50);
+      expect(state2.xpHistory).toHaveLength(1);
+    });
+
+    it("ignores duplicate transaction XP with the same transactionId", () => {
+      const state = createInitialGamificationState();
+      const event1 = makeGamEvent(GAMIFICATION_EVENTS.XP_GAINED, {
+        amount: 15,
+        source: "transaction_logged",
+        transactionId: "tx-abc-123",
+      });
+      const event2 = makeGamEvent(GAMIFICATION_EVENTS.XP_GAINED, {
+        amount: 15,
+        source: "transaction_logged",
+        transactionId: "tx-abc-123",
+      });
+
+      const state1 = gamificationReducer(state, event1);
+      expect(state1.totalXp).toBe(15);
+      expect(state1.processedTransactionIds).toContain("tx-abc-123");
+
+      const state2 = gamificationReducer(state1, event2);
+      expect(state2.totalXp).toBe(15);
+      expect(state2.xpHistory).toHaveLength(1);
+    });
+
+    it("derives level automatically in XP_GAINED and ACHIEVEMENT_UNLOCKED", () => {
+      let state = createInitialGamificationState();
+      expect(state.level).toBe(1);
+
+      // 100 XP -> Nível 2
+      const eventXp = makeGamEvent(GAMIFICATION_EVENTS.XP_GAINED, {
+        amount: 100,
+        source: "mission_completed",
+      });
+      state = gamificationReducer(state, eventXp);
+      expect(state.level).toBe(2);
+
+      // +400 XP (500 XP total) -> Nível 6
+      const eventAch = makeGamEvent(GAMIFICATION_EVENTS.ACHIEVEMENT_UNLOCKED, {
+        achievementId: "ach_super",
+        rarity: "diamond",
+        xpReward: 400,
+      });
+      state = gamificationReducer(state, eventAch);
+      expect(state.totalXp).toBe(500);
+      expect(state.level).toBe(6);
+    });
+
+    it("maintains correct streak across daylight saving time transition dates", () => {
+      let streak = createInitialStreak();
+      // Transição simulada (ex: dias com 23h ou 25h de relógio de parede)
+      const res1 = updateStreak(streak, "2026-10-17");
+      expect(res1.currentStreak).toBe(1);
+      expect(res1.broken).toBe(false);
+
+      const res2 = updateStreak(res1, "2026-10-18");
+      expect(res2.currentStreak).toBe(2);
+      expect(res2.broken).toBe(false);
+
+      const res3 = updateStreak(res2, "2026-10-19");
+      expect(res3.currentStreak).toBe(3);
+      expect(res3.broken).toBe(false);
+    });
+
+    it("ignores retroactive dates without breaking the current streak", () => {
+      let streak = createInitialStreak();
+      const res1 = updateStreak(streak, "2026-11-05");
+      expect(res1.currentStreak).toBe(1);
+
+      // Data retroativa (ex: lançamento atrasado com data de 2 dias atrás)
+      const resRetro = updateStreak(res1, "2026-11-03");
+      expect(resRetro.currentStreak).toBe(1);
+      expect(resRetro.lastActiveDate).toBe("2026-11-05");
+      expect(resRetro.broken).toBe(false);
+
+      // Próximo dia consecutivo normal
+      const res2 = updateStreak(resRetro, "2026-11-06");
+      expect(res2.currentStreak).toBe(2);
+      expect(res2.lastActiveDate).toBe("2026-11-06");
+      expect(res2.broken).toBe(false);
     });
   });
 });

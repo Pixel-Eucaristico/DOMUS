@@ -8,8 +8,16 @@ export type {
   OCRResult,
   OCRAdapter,
   SefazFetcher,
+  OleriteReading,
+  OleriteParseOptions,
 } from "./src/types";
 export { EVENT_TYPES } from "./src/types";
+
+export {
+  parseOleriteFromOCR,
+  parseOleriteFromImage,
+  parseMeterNumber,
+} from "./src/oleriteParser";
 
 export { parseNFCeQRCode, isValidSefazUrl, extractUrlFromQRData } from "./src/qrcodeParser";
 export type { QRCodeData } from "./src/qrcodeParser";

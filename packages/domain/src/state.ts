@@ -10,6 +10,7 @@ import type {
   AccountDeletedEvent,
   TransactionUpdatedEvent,
   TransactionDeletedEvent,
+  OleriteReadingPayload,
 } from "../../events/src/types";
 
 export interface StoredInvoice extends InvoiceImportedPayload {
@@ -67,6 +68,7 @@ export interface AppState {
   invoices: Record<string, StoredInvoice>;
   /** Story 11.4: holerites por id (uma competência por empregador). */
   payslips: Record<string, StoredPayslip>;
+  oleriteReadings: Record<string, OleriteReadingPayload>;
   /**
    * Story 3.7: controle interno do replay (ver `OutOfOrderState`). Só existe
    * quando alguma edição/exclusão chegou antes do alvo; telas e seletores não
@@ -92,5 +94,6 @@ export function createInitialState(): AppState {
     categories: {},
     invoices: {},
     payslips: {},
+    oleriteReadings: {},
   };
 }

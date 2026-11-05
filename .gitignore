@@ -40,6 +40,10 @@ yarn-error.*
 
 .env
 credentials.json
+*service-account*.json
+google-service-account.json
+pc-api-*.json
+*.keystore
 
 # Logs
 logs
@@ -52,7 +56,8 @@ dev-debug.log
 # Environment variables
 # Editor directories and files
 .idea
-.vscode
+.vscode/*
+!.vscode/tasks.json
 *.suo
 *.ntvs*
 *.njsproj
@@ -69,3 +74,6 @@ _bmad/config.user.toml
 _bmad/custom/*.user.toml
 _bmad-output/party-mode/
 .claude/scheduled_tasks.lock
+
+# BMad render cache
+_bmad/render/

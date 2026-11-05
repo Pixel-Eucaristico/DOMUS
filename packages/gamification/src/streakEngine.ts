@@ -6,23 +6,14 @@ export interface StreakState {
   lastActiveDate: string;
 }
 
-function parseDate(dateStr: string): Date {
+function toDays(dateStr: string): number {
   const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y!, m! - 1, d!);
-}
-
-function formatDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  // Usa UTC em milissegundos para obter dias exatos sem influência de fusos ou horário de verão
+  return Math.floor(Date.UTC(y!, m! - 1, d!) / (1000 * 60 * 60 * 24));
 }
 
 function daysBetween(a: string, b: string): number {
-  const dateA = parseDate(a);
-  const dateB = parseDate(b);
-  const diffMs = Math.abs(dateB.getTime() - dateA.getTime());
-  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  return toDays(b) - toDays(a);
 }
 
 export function updateStreak(
@@ -39,6 +30,16 @@ export function updateStreak(
   }
 
   if (current.lastActiveDate === activeDate) {
+    return {
+      currentStreak: current.currentStreak,
+      longestStreak: current.longestStreak,
+      lastActiveDate: current.lastActiveDate,
+      broken: false,
+    };
+  }
+
+  // Datas retroativas não alteram nem quebram o streak existente
+  if (activeDate < current.lastActiveDate) {
     return {
       currentStreak: current.currentStreak,
       longestStreak: current.longestStreak,
@@ -81,5 +82,5 @@ export function isStreakActive(
 ): boolean {
   if (!lastActiveDate) return false;
   const diff = daysBetween(lastActiveDate, todayDate);
-  return diff <= 1;
+  return diff >= 0 && diff <= 1;
 }

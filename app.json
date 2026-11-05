@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "br.com.pixeleucaristico.domus",
-      "versionCode": 10,
+      "versionCode": 11,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#F5F7FA",

@@ -31,6 +31,8 @@ import {
 
 // Extracted sub-components
 import { BudgetBar } from "@/src/components/shared/BudgetBar";
+import { BudgetFeedbackCard } from "@/src/components/budget/BudgetFeedbackCard";
+import { QuickAnalysisCard } from "@/src/components/budget/QuickAnalysisCard";
 import { GamificationWidget } from "@/src/components/gamification/GamificationWidget";
 import { AccountsStrip } from "@/src/components/shared/AccountsStrip";
 import { PendingTransactionsList } from "@/src/components/transaction/PendingTransactionsList";
@@ -83,6 +85,17 @@ export default function HomeScreen() {
     ),
     [domain.transactions, domain.categories, selectedMonth, selectedYear]
   );
+
+  const previousBudget = useMemo(() => {
+    const prevMonth = selectedMonth === 0 ? 11 : selectedMonth - 1;
+    const prevYear = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
+    return calculate503020(
+      Object.values(domain.transactions),
+      domain.categories,
+      prevMonth,
+      prevYear
+    );
+  }, [domain.transactions, domain.categories, selectedMonth, selectedYear]);
 
   const accountCount = Object.keys(domain.accounts).length;
   const txCount = Object.values(domain.transactions).filter((tx) => tx.status !== "pending").length;
@@ -226,6 +239,13 @@ export default function HomeScreen() {
         color: "#06B6D4",
         onPress: () => { soundManager.play("pop"); setAddSheetType("transfer"); setShowAddSheet(true); },
       },
+      {
+        id: "olerite",
+        icon: "activity" as const,
+        label: "Medidor",
+        color: "#10B981",
+        onPress: () => { soundManager.play("tap"); router.push("/olerite"); },
+      },
     ];
     return all;
   }, [theme.primaryColor, router, aiSettings.isEnabled, wishlistLists.length]);
@@ -285,7 +305,7 @@ export default function HomeScreen() {
           <View style={[s.header]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <DomusLogo size={36} theme={theme} />
-              {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
+              {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} level={levelInfo.level} />}
               <View>
                 <PixelText size={16} color={theme.textColor}>DOMUS</PixelText>
                 <TText variant="caption" color={theme.secondaryText}>
@@ -465,6 +485,8 @@ export default function HomeScreen() {
                     <BudgetBar label="Necessidades" percent={budget.needsPercent} ideal={50} idealAmount={incomeBase * 0.5} color={theme.primaryColor} amount={budget.needs} group="needs" theme={theme} onPress={handleBudgetPress} />
                     <BudgetBar label="Desejos" percent={budget.wantsPercent} ideal={30} idealAmount={incomeBase * 0.3} color={theme.accentColor} amount={budget.wants} group="wants" theme={theme} onPress={handleBudgetPress} />
                     <BudgetBar label="Poupança" percent={budget.savingsPercent} ideal={20} idealAmount={incomeBase * 0.2} color={theme.success} amount={budget.savings} group="savings" theme={theme} onPress={handleBudgetPress} />
+                    <BudgetFeedbackCard budget={budget} previousBudget={previousBudget} theme={theme} />
+                    <QuickAnalysisCard budget={budget} level={levelInfo.level} theme={theme} />
                   </View>
                 ) : (
                   <View style={s.emptyState}>

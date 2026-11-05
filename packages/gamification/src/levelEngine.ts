@@ -6,8 +6,20 @@ export interface LevelInfo {
   progress: number;
 }
 
+/**
+ * Progressão suave e sustentável:
+ * - Níveis 1 a 5: 100 XP por nível (500 XP total para chegar ao nível 5)
+ * - Níveis 6 a 10: 150 XP por nível (750 XP adicional para chegar ao nível 10)
+ * - Níveis 11 a 20: 200 XP por nível (2000 XP adicional para chegar ao nível 20)
+ * - Níveis 21 a 50: 300 XP por nível (9000 XP adicional para chegar ao nível 50)
+ * - Nível 51+: 500 XP por nível
+ */
 function xpRequiredForLevel(level: number): number {
-  return Math.floor(100 * Math.pow(1.5, level - 1));
+  if (level <= 5) return 100;
+  if (level <= 10) return 150;
+  if (level <= 20) return 200;
+  if (level <= 50) return 300;
+  return 500;
 }
 
 /** XP não finito (NaN/Infinity) ou negativo vira 0 — evita laço infinito no cálculo de nível. */

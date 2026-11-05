@@ -17,6 +17,9 @@ interface Props {
   onRequestPermission: () => void;
   onProcessPhotos: (uris: string[]) => void;
   onClose: () => void;
+  title?: string;
+  hintText?: string;
+  showMeterGuide?: boolean;
 }
 
 export function OcrScanScreen({
@@ -26,6 +29,9 @@ export function OcrScanScreen({
   onRequestPermission,
   onProcessPhotos,
   onClose,
+  title = "OCR — Foto da Nota",
+  hintText = "Enquadre a nota fiscal na câmera",
+  showMeterGuide = false,
 }: Props) {
   const router = useRouter();
   const isFocused = useIsFocused();
@@ -89,16 +95,29 @@ export function OcrScanScreen({
         <Pressable onPress={() => { soundManager.play("tap"); onClose(); }} hitSlop={12} style={s.closeBtn}>
           <Feather name="x" size={22} color="#FFF" />
         </Pressable>
-        <Text style={s.topTitle}>OCR — Foto da Nota</Text>
+        <Text style={s.topTitle}>{title}</Text>
         <View style={{ width: 40 }} />
       </View>
 
+      {/* Guia visual de medidor (modo olerite/medidor) */}
+      {showMeterGuide && (
+        <View style={s.meterGuideWrap} pointerEvents="none">
+          <View style={[s.meterGuideBox, { borderColor: theme.primaryColor }]}>
+            <View style={[s.meterCorner, s.meterCornerTL, { borderColor: "#FFF" }]} />
+            <View style={[s.meterCorner, s.meterCornerTR, { borderColor: "#FFF" }]} />
+            <View style={[s.meterCorner, s.meterCornerBL, { borderColor: "#FFF" }]} />
+            <View style={[s.meterCorner, s.meterCornerBR, { borderColor: "#FFF" }]} />
+            <Text style={s.meterGuideDigits}>0 0 0 0 , 0</Text>
+          </View>
+        </View>
+      )}
+
       {/* Hint */}
-      <View style={s.hintWrap} pointerEvents="none">
+      <View style={[s.hintWrap, showMeterGuide && s.hintWrapBelowGuide]} pointerEvents="none">
         <View style={s.hintBubble}>
           <Text style={s.hintText}>
             {photoCount === 0
-              ? "Enquadre a nota fiscal na câmera"
+              ? hintText
               : `${photoCount} foto${photoCount > 1 ? "s" : ""} capturada${photoCount > 1 ? "s" : ""} — adicione mais ou processe`}
           </Text>
         </View>
@@ -186,6 +205,29 @@ const s = StyleSheet.create({
     position: "absolute", left: 0, right: 0, top: "50%", marginTop: -60,
     alignItems: "center",
   },
+  hintWrapBelowGuide: {
+    marginTop: 72,
+  },
+  meterGuideWrap: {
+    position: "absolute", left: 24, right: 24, top: "50%", marginTop: -70,
+    alignItems: "center", justifyContent: "center",
+  },
+  meterGuideBox: {
+    width: "88%", maxWidth: 320, height: 110,
+    borderWidth: 2, borderRadius: 16,
+    backgroundColor: "rgba(0,0,0,0.28)",
+    alignItems: "center", justifyContent: "center",
+  },
+  meterGuideDigits: {
+    color: "rgba(255,255,255,0.35)", fontSize: 24, fontWeight: "700", letterSpacing: 4,
+  },
+  meterCorner: {
+    position: "absolute", width: 18, height: 18,
+  },
+  meterCornerTL: { top: -2, left: -2, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 12 },
+  meterCornerTR: { top: -2, right: -2, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 12 },
+  meterCornerBL: { bottom: -2, left: -2, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 12 },
+  meterCornerBR: { bottom: -2, right: -2, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 12 },
   hintBubble: {
     backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
     maxWidth: "80%",

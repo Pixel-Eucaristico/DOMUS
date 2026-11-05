@@ -27,6 +27,8 @@ import { useScreenIntro } from "@/src/hooks/useScreenIntro";
 import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
 import { PixelText } from "@/src/components/pixel";
+import { LevelRewardsTrack } from "@/src/components/gamification/LevelRewardsTrack";
+import { AnnualReportModal } from "@/src/components/budget/AnnualReportModal";
 
 
 export default function SeasonScreen() {
@@ -35,6 +37,7 @@ export default function SeasonScreen() {
     useAppState();
   const [selectedAch, setSelectedAch] = useState<Achievement | null>(null);
   const [activeTab, setActiveTab] = useState<"current" | "collection">("current");
+  const [showAnnualReport, setShowAnnualReport] = useState(false);
   const seasonScrollRef = useRef<ScrollView>(null);
   const { showIntro, dismissIntro } = useScreenIntro("season");
 
@@ -65,7 +68,7 @@ export default function SeasonScreen() {
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <Text style={[st.title, { color: theme.textColor }]}>Temporada</Text>
               <PixelText size={7} color={theme.primaryColor} style={{ opacity: 0.5 }}>PE</PixelText>
-              {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
+              {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} level={levelInfo.level} />}
             </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 }}>
               <Text style={[st.subtitle, { color: theme.secondaryText }]}>{MONTHS[sd.currentMonth - 1]}</Text>
@@ -205,6 +208,12 @@ export default function SeasonScreen() {
               challengesCardRef={sd.challengesCardRef}
               onShareChallenges={sd.handleShareMonthlyChallenges}
             />
+
+            <LevelRewardsTrack
+              level={levelInfo.level}
+              theme={theme}
+              onOpenAnnualReport={() => setShowAnnualReport(true)}
+            />
           </>
         ) : (
           <AchievementGrid
@@ -217,6 +226,16 @@ export default function SeasonScreen() {
           />
         )}
       </ScrollView>
+
+      {/* Annual report modal (Level 10) */}
+      <AnnualReportModal
+        visible={showAnnualReport}
+        onClose={() => setShowAnnualReport(false)}
+        transactions={Object.values(domain.transactions)}
+        categories={domain.categories}
+        year={sd.currentYear}
+        theme={theme}
+      />
 
       {/* Trophy detail modal */}
       <TrophyDetailModal

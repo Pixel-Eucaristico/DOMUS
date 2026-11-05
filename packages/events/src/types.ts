@@ -10,6 +10,7 @@ export const EVENT_TYPES = {
   INVOICE_CONFIRMED: "INVOICE_CONFIRMED",
   PAYSLIP_RECORDED: "PAYSLIP_RECORDED",
   PAYSLIP_DELETED: "PAYSLIP_DELETED",
+  OLERITE_READING_ADDED: "OLERITE_READING_ADDED",
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
@@ -190,6 +191,16 @@ export interface PayslipDeletedPayload {
   id: string;
 }
 
+export interface OleriteReadingPayload {
+  id: string;
+  value: number;
+  unit: string;
+  confidence: number;
+  imageUri: string;
+  timestamp: string;
+  location?: string;
+}
+
 interface BaseEvent {
   id: string;
   type: EventType;
@@ -253,6 +264,11 @@ export interface PayslipDeletedEvent extends BaseEvent {
   payload: PayslipDeletedPayload;
 }
 
+export interface OleriteReadingAddedEvent extends BaseEvent {
+  type: typeof EVENT_TYPES.OLERITE_READING_ADDED;
+  payload: OleriteReadingPayload;
+}
+
 export type DomainEvent =
   | AccountCreatedEvent
   | AccountUpdatedEvent
@@ -264,4 +280,5 @@ export type DomainEvent =
   | InvoiceImportedEvent
   | InvoiceConfirmedEvent
   | PayslipRecordedEvent
-  | PayslipDeletedEvent;
+  | PayslipDeletedEvent
+  | OleriteReadingAddedEvent;

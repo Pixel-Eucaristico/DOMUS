@@ -156,6 +156,15 @@ export const PAYLOAD_SPECS: Readonly<Record<string, PayloadSpec>> = {
     transactionId: optStr,
   },
   PAYSLIP_DELETED: { id: PAYSLIP_ID },
+  OLERITE_READING_ADDED: {
+    id: str,
+    value: num,
+    unit: str,
+    confidence: num,
+    imageUri: str,
+    timestamp: str,
+    location: optStr,
+  },
   // Gamificação
   XP_GAINED: { amount: num, source: optStr },
   LEVEL_UP: { newLevel: num },
