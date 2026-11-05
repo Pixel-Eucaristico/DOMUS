@@ -2,7 +2,8 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { AnimatedSeasonalTrophy } from "./AnimatedSeasonalTrophy";
+import { LottieTrophy } from "./LottieTrophy";
+import { albumLottieTier, detailLottieTier, type TrophyTier } from "./lottieTierSelection";
 import {
   ALL_SEASONAL_TROPHIES,
   getTierColor,
@@ -27,6 +28,8 @@ export interface AlbumTrophySelection {
   tierLabel: string;
   isCompleted: boolean;
   isLiturgical: boolean;
+  /** Nível do Lottie no detalhe (detailLottieTier: mês atual → nível em jogo). */
+  lottieTier: TrophyTier;
 }
 
 interface TrophyAlbumViewProps {
@@ -131,6 +134,7 @@ export function TrophyAlbumView({
                     tierLabel: tl!,
                     isCompleted: isComp,
                     isLiturgical: isLit,
+                    lottieTier: detailLottieTier(gamification, t.id, mk, isCurrent),
                   });
                 }
               }}
@@ -153,9 +157,11 @@ export function TrophyAlbumView({
             >
               <View style={[s.albumTrophyWrapper, !isComp && { opacity: 0.35 }]}>
                 {sel && t ? (
-                  <AnimatedSeasonalTrophy
+                  <LottieTrophy
+                    trophyId={t.id}
+                    type={isLit ? "liturgical" : "seasonal"}
+                    tier={albumLottieTier(gamification, t.id, mk)}
                     icon={t.icon}
-                    id={t.id}
                     size={36}
                     color={isComp ? (tc ?? theme.secondaryText) : theme.secondaryText}
                     isLiturgical={isLit}

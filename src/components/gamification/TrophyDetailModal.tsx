@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, TouchableOpacity, Modal } from "reac
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { TCard } from "@/src/components/tamagui";
-import { AnimatedSeasonalTrophy } from "./AnimatedSeasonalTrophy";
+import { LottieTrophy } from "./LottieTrophy";
 import { getSeasonalXp } from "@packages/gamification/src/seasonalTrophies";
 import { soundManager } from "@/src/services/SoundManager";
 import type { SeasonalTier } from "@packages/gamification/src/seasonalTrophies";
@@ -19,7 +19,7 @@ interface TrophyDetailModalProps {
 export function TrophyDetailModal({ selection, onClose, theme, completionCount }: TrophyDetailModalProps) {
   if (!selection) return null;
 
-  const { trophy, tier, tierColor, tierLabel, isCompleted, isLiturgical } = selection;
+  const { trophy, tier, tierColor, tierLabel, isCompleted, isLiturgical, lottieTier } = selection;
 
   return (
     <Modal visible={!!selection} transparent animationType="fade" onRequestClose={onClose}>
@@ -42,9 +42,12 @@ export function TrophyDetailModal({ selection, onClose, theme, completionCount }
           </View>
 
           <View style={s.modalAnimatedWrapper}>
-            <AnimatedSeasonalTrophy
+            <LottieTrophy
+              trophyId={trophy?.id}
+              type={isLiturgical ? "liturgical" : "seasonal"}
+              // detailLottieTier: mês atual → nível em jogo; passado não concluído → bronze
+              tier={lottieTier}
               icon={trophy?.icon}
-              id={trophy?.id}
               size={140}
               color={tierColor}
               isLiturgical={isLiturgical}
