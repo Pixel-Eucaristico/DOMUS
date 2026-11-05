@@ -1,5 +1,5 @@
 import type { BudgetBreakdown } from "../../domain/src/transactions";
-import type { XpSource, XpGainedPayload } from "./types";
+import type { XpSource, XpGainedPayload, BudgetFeedback } from "./types";
 
 const XP_TABLE: Record<XpSource, number> = {
   transaction_logged: 5,
@@ -14,7 +14,10 @@ export function getXpForAction(source: XpSource): number {
   return XP_TABLE[source] ?? 0;
 }
 
-export function calculateBudgetAdherenceXp(budget: BudgetBreakdown): number {
+export function calculateBudgetAdherenceXp(
+  budget: BudgetBreakdown,
+  previousBudget?: BudgetBreakdown,
+): number {
   const { needsPercent, wantsPercent, savingsPercent, totalIncome } = budget;
 
   // If no transactions at all, no XP.
@@ -39,22 +42,83 @@ export function calculateBudgetAdherenceXp(budget: BudgetBreakdown): number {
     xp += 3;
   }
 
-  // 3. Penalties - ONLY apply if income has been recorded AND is greater than 0.
-  if (totalIncome > 0) {
-    // Penalty for overspending in Needs (> 50%)
-    if (needsPercent > 50) {
-      const diff = needsPercent - 50;
-      xp -= diff * 1; 
-    }
-
-    // Penalty for overspending in Wants (> 30%)
-    if (wantsPercent > 30) {
-      const diff = wantsPercent - 30;
-      xp -= diff * 2; // Reduced from 4 to 2 for better balance
+  // 3. Monthly Improvement Bonus:
+  // If previous budget exists and current month improved adherence
+  if (
+    previousBudget &&
+    (previousBudget.needs > 0 || previousBudget.wants > 0 || previousBudget.savings > 0 || previousBudget.totalIncome > 0)
+  ) {
+    if (budget.adherenceScore > previousBudget.adherenceScore) {
+      xp += 5; // +5 XP bonus for month-over-month improvement
     }
   }
 
-  return Math.round(xp);
+  // Penalties removed in Tarefa 17: overspending in Needs (>50%) or Wants (>30%)
+  // never deducts XP. Minimum XP is always 0.
+  return Math.max(0, Math.round(xp));
+}
+
+export function getBudgetFeedback(
+  budget: BudgetBreakdown,
+  previousBudget?: BudgetBreakdown,
+): BudgetFeedback {
+  const { needsPercent, wantsPercent, savingsPercent, totalIncome } = budget;
+  const hasData = budget.needs > 0 || budget.wants > 0 || budget.savings > 0 || totalIncome > 0;
+
+  if (!hasData) {
+    return {
+      status: "empty",
+      title: "Sem registros no mês",
+      message: "Comece a registrar suas receitas e despesas para acompanhar seu orçamento 50/30/20.",
+      tips: ["Cadastre despesas fixas como moradia e contas no grupo Necessidades."],
+      improved: false,
+    };
+  }
+
+  const hasPrevious = !!(
+    previousBudget &&
+    (previousBudget.needs > 0 || previousBudget.wants > 0 || previousBudget.savings > 0 || previousBudget.totalIncome > 0)
+  );
+  const improved = hasPrevious && budget.adherenceScore > previousBudget.adherenceScore;
+
+  const isBalanced = needsPercent <= 50 && wantsPercent <= 30;
+  const isSavingsGoalMet = savingsPercent >= 20;
+
+  if (isBalanced && isSavingsGoalMet) {
+    return {
+      status: "perfect",
+      title: "Orçamento em Perfeito Equilíbrio!",
+      message: "Parabéns! Suas finanças estão exatamente alinhadas com a regra 50/30/20.",
+      tips: ["Mantenha a consistência nos próximos meses para acumular bônus de streak."],
+      improved,
+    };
+  }
+
+  if (isBalanced) {
+    return {
+      status: "good",
+      title: "Gastos sob Controle",
+      message: "Suas necessidades e desejos estão dentro das metas! Seu próximo passo é alcançar 20% em poupança.",
+      tips: ["Tente direcionar uma fatia maior de receitas para a reserva de emergência ou investimentos."],
+      improved,
+    };
+  }
+
+  // Needs attention: overspent in needs (>50%) or wants (>30%)
+  const overspentParts: string[] = [];
+  if (needsPercent > 50) overspentParts.push(`Necessidades (${needsPercent}% / meta 50%)`);
+  if (wantsPercent > 30) overspentParts.push(`Desejos (${wantsPercent}% / meta 30%)`);
+
+  return {
+    status: "needs_attention",
+    title: "Atenção ao Equilíbrio 50/30/20",
+    message: `Os gastos com ${overspentParts.join(" e ")} ultrapassaram a meta sugerida. Não há desconto de pontos — aproveite para calibrar seus próximos dias!`,
+    tips: [
+      "A regra 50/30/20 recomenda destinar até 50% para despesas essenciais, 30% para lazer e 20% para o futuro.",
+      "Revisar assinaturas e gastos de impulso é uma ótima forma de recuperar o equilíbrio sem sacrifícios.",
+    ],
+    improved,
+  };
 }
 
 export function calculateStreakBonusXp(currentStreak: number): number {

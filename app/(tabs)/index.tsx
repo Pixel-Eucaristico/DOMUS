@@ -30,6 +30,7 @@ import {
 
 // Extracted sub-components
 import { BudgetBar } from "@/src/components/shared/BudgetBar";
+import { BudgetFeedbackCard } from "@/src/components/budget/BudgetFeedbackCard";
 import { GamificationWidget } from "@/src/components/gamification/GamificationWidget";
 import { AccountsStrip } from "@/src/components/shared/AccountsStrip";
 import { PendingTransactionsList } from "@/src/components/transaction/PendingTransactionsList";
@@ -82,6 +83,17 @@ export default function HomeScreen() {
     ),
     [domain.transactions, domain.categories, selectedMonth, selectedYear]
   );
+
+  const previousBudget = useMemo(() => {
+    const prevMonth = selectedMonth === 0 ? 11 : selectedMonth - 1;
+    const prevYear = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
+    return calculate503020(
+      Object.values(domain.transactions),
+      domain.categories,
+      prevMonth,
+      prevYear
+    );
+  }, [domain.transactions, domain.categories, selectedMonth, selectedYear]);
 
   const accountCount = Object.keys(domain.accounts).length;
   const txCount = Object.values(domain.transactions).filter((tx) => tx.status !== "pending").length;
@@ -461,6 +473,7 @@ export default function HomeScreen() {
                     <BudgetBar label="Necessidades" percent={budget.needsPercent} ideal={50} idealAmount={incomeBase * 0.5} color={theme.primaryColor} amount={budget.needs} group="needs" theme={theme} onPress={handleBudgetPress} />
                     <BudgetBar label="Desejos" percent={budget.wantsPercent} ideal={30} idealAmount={incomeBase * 0.3} color={theme.accentColor} amount={budget.wants} group="wants" theme={theme} onPress={handleBudgetPress} />
                     <BudgetBar label="Poupança" percent={budget.savingsPercent} ideal={20} idealAmount={incomeBase * 0.2} color={theme.success} amount={budget.savings} group="savings" theme={theme} onPress={handleBudgetPress} />
+                    <BudgetFeedbackCard budget={budget} previousBudget={previousBudget} theme={theme} />
                   </View>
                 ) : (
                   <View style={s.emptyState}>

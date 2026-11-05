@@ -164,3 +164,12 @@ export interface GamificationState {
   processedEventIds?: string[];
   processedTransactionIds?: string[];
 }
+
+export interface BudgetFeedback {
+  status: "perfect" | "good" | "needs_attention" | "empty";
+  title: string;
+  message: string;
+  tips: string[];
+  improved: boolean;
+}
+

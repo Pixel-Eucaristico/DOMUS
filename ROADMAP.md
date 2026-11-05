@@ -427,6 +427,12 @@ yarn add react-native-smart-tooltip
 - **Dificuldade:** FÁCIL | **Urgência:** MÉDIA | **~2-3h**
 - **Escopo:** remover a perda de XP por estourar necessidades/desejos em `calculateBudgetAdherenceXp` (`packages/gamification/src/xpEngine.ts`); exibir aviso educativo explicando a regra 50/30/20; bônus de XP quando o mês melhora em relação ao anterior.
 - **Depende de:** tarefa 16.
+- **Implementado:**
+  - [x] Remoção da perda punitiva de XP em `calculateBudgetAdherenceXp` (resultado sempre $\ge 0$)
+  - [x] Bônus de evolução mensal (+5 XP) ao superar a pontuação de aderência do mês anterior
+  - [x] Helper `getBudgetFeedback` fornecendo orientações estruturadas e acolhedoras por status
+  - [x] Componente `BudgetFeedbackCard` integrado à tela Home com link explicativo da regra 50/30/20
+  - [x] Testes unitários atualizados e aprovados com 100% de sucesso
 
 ---
 

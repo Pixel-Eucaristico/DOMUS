@@ -21,6 +21,7 @@ export type {
   SelectedSeasonalTrophy,
   CompletedSeasonalTrophy,
   XpSource,
+  BudgetFeedback,
 } from "./src/types";
 export { GAMIFICATION_EVENTS } from "./src/types";
 
@@ -50,6 +51,7 @@ export {
   calculateBudgetAdherenceXp,
   calculateStreakBonusXp,
   createXpPayload,
+  getBudgetFeedback,
 } from "./src/xpEngine";
 
 export {

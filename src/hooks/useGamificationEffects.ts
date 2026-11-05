@@ -282,7 +282,15 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
 
           if (todayXpEntries.length < 5) {
             const baseXp = getXpForAction("transaction_logged");
-            const budgetBonus = calculateBudgetAdherenceXp(nextBudget);
+            const prevMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+            const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+            const prevBudget = calculate503020(
+              Object.values(nextTransactions),
+              domain.categories,
+              prevMonth,
+              prevYear,
+            );
+            const budgetBonus = calculateBudgetAdherenceXp(nextBudget, prevBudget);
             totalXpGain = Math.max(0, baseXp + budgetBonus);
           }
         }

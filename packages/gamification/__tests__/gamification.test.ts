@@ -4,6 +4,7 @@ import {
   calculateBudgetAdherenceXp,
   calculateStreakBonusXp,
   createXpPayload,
+  getBudgetFeedback,
 } from "../src/xpEngine";
 import {
   calculateLevel,
@@ -83,20 +84,36 @@ describe("XP Engine", () => {
       })).toBe(15); // 5 (health: needs<=50 && wants<=30) + 10 (savings >= 20%)
     });
 
-    it("penalizes Needs only if income is present", () => {
-      // With income: 60% needs -> -10 penalty; sem bônus de saúde (needs > 50)
+    it("does not penalize Needs or Wants overspending (Tarefa 17 sem penalidade)", () => {
+      // With income: 60% needs -> sem dedução; savings >= 20% garante 10 XP
       expect(calculateBudgetAdherenceXp({
         needs: 600, wants: 200, savings: 200,
         needsPercent: 60, wantsPercent: 20, savingsPercent: 20,
         totalIncome: 1000, adherenceScore: 80
-      })).toBe(0); // 10 (savings) - 10 (needs 60% -> -10)
+      })).toBe(10); // 10 (savings >= 20%), zero penalidade
 
-      // Without income: no penalties
+      // Overspending in wants (45%), savings 15%: receives 3 XP for savings > 0, zero deduction
       expect(calculateBudgetAdherenceXp({
-        needs: 600, wants: 200, savings: 200,
-        needsPercent: 60, wantsPercent: 20, savingsPercent: 20,
-        totalIncome: 0, adherenceScore: 80
-      })).toBe(10); // 10 (savings >= 20%), sem penalidade porque totalIncome = 0
+        needs: 400, wants: 450, savings: 150,
+        needsPercent: 40, wantsPercent: 45, savingsPercent: 15,
+        totalIncome: 1000, adherenceScore: 70
+      })).toBe(3); // 3 (savings > 0), zero penalidade
+    });
+
+    it("awards monthly improvement bonus (+5xp) when adherenceScore increases compared to previous month", () => {
+      const currentMonth = {
+        needs: 550, wants: 250, savings: 200,
+        needsPercent: 55, wantsPercent: 25, savingsPercent: 20,
+        totalIncome: 1000, adherenceScore: 90
+      };
+      const previousMonth = {
+        needs: 650, wants: 250, savings: 100,
+        needsPercent: 65, wantsPercent: 25, savingsPercent: 10,
+        totalIncome: 1000, adherenceScore: 70
+      };
+
+      // 10 (savings >= 20%) + 5 (bônus de evolução mensal) = 15 XP
+      expect(calculateBudgetAdherenceXp(currentMonth, previousMonth)).toBe(15);
     });
 
     it("returns 0 if no data is present", () => {
@@ -105,6 +122,62 @@ describe("XP Engine", () => {
         needsPercent: 0, wantsPercent: 0, savingsPercent: 0, 
         totalIncome: 0, adherenceScore: 0
       })).toBe(0);
+    });
+  });
+
+  describe("getBudgetFeedback", () => {
+    it("returns empty feedback when no transactions exist", () => {
+      const feedback = getBudgetFeedback({
+        needs: 0, wants: 0, savings: 0,
+        needsPercent: 0, wantsPercent: 0, savingsPercent: 0,
+        totalIncome: 0, adherenceScore: 0,
+      });
+      expect(feedback.status).toBe("empty");
+    });
+
+    it("returns perfect feedback when balanced with >= 20% savings", () => {
+      const feedback = getBudgetFeedback({
+        needs: 500, wants: 300, savings: 200,
+        needsPercent: 50, wantsPercent: 30, savingsPercent: 20,
+        totalIncome: 1000, adherenceScore: 100,
+      });
+      expect(feedback.status).toBe("perfect");
+      expect(feedback.title).toContain("Perfeito Equilíbrio");
+    });
+
+    it("returns good feedback when balanced with < 20% savings", () => {
+      const feedback = getBudgetFeedback({
+        needs: 500, wants: 300, savings: 100,
+        needsPercent: 50, wantsPercent: 30, savingsPercent: 10,
+        totalIncome: 1000, adherenceScore: 80,
+      });
+      expect(feedback.status).toBe("good");
+      expect(feedback.title).toContain("Gastos sob Controle");
+    });
+
+    it("returns needs_attention feedback without negative tone when overspent", () => {
+      const feedback = getBudgetFeedback({
+        needs: 650, wants: 250, savings: 100,
+        needsPercent: 65, wantsPercent: 25, savingsPercent: 10,
+        totalIncome: 1000, adherenceScore: 70,
+      });
+      expect(feedback.status).toBe("needs_attention");
+      expect(feedback.message).toContain("Não há desconto de pontos");
+    });
+
+    it("flags improved=true when current month adherence exceeds previous month", () => {
+      const current = {
+        needs: 500, wants: 300, savings: 200,
+        needsPercent: 50, wantsPercent: 30, savingsPercent: 20,
+        totalIncome: 1000, adherenceScore: 100,
+      };
+      const previous = {
+        needs: 600, wants: 300, savings: 100,
+        needsPercent: 60, wantsPercent: 30, savingsPercent: 10,
+        totalIncome: 1000, adherenceScore: 80,
+      };
+      const feedback = getBudgetFeedback(current, previous);
+      expect(feedback.improved).toBe(true);
     });
   });
 
