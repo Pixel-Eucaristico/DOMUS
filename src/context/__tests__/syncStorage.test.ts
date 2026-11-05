@@ -1,4 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  GROUP_CODE_KEY,
+  STRONG_GROUP_SECRET_KEY,
+  loadGroupCode,
+  saveGroupCode,
+  clearGroupCode,
+  loadStrongGroupSecret,
+  saveStrongGroupSecret,
+  clearStrongGroupSecret,
+} from "../syncStorage";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 // Módulos nativos substituídos por stubs em memória. vi.hoisted garante que o
@@ -49,8 +59,6 @@ vi.mock("@/src/modules/security/infrastructure/webSecrets", () => ({
     }),
   },
 }));
-
-import { GROUP_CODE_KEY, loadGroupCode, saveGroupCode, clearGroupCode } from "../syncStorage";
 
 const { secure, legacy, secureFails, web } = mocks;
 
@@ -108,6 +116,45 @@ describe("group code no nativo", () => {
   });
 });
 
+describe("segredo do grupo forte no nativo (Story 4.3)", () => {
+  const SAMPLE_SECRET = "DOMUS1-AAAQ-EAYE-AUDA-OCAJ-BIFQ-YDIO-B4IB-CEQT-CQKR-MFYY-DENB-WHA5-DYPS-NINV-RI";
+
+  it("grava em SecureStore e NUNCA grava em AsyncStorage", async () => {
+    await saveStrongGroupSecret(SAMPLE_SECRET);
+    expect(secure.get(STRONG_GROUP_SECRET_KEY)).toBe(SAMPLE_SECRET);
+    expect(legacy.has(STRONG_GROUP_SECRET_KEY)).toBe(false);
+  });
+
+  it("lê exclusivamente do SecureStore", async () => {
+    secure.set(STRONG_GROUP_SECRET_KEY, SAMPLE_SECRET);
+    expect(await loadStrongGroupSecret()).toBe(SAMPLE_SECRET);
+  });
+
+  it("devolve null quando não há segredo gravado", async () => {
+    expect(await loadStrongGroupSecret()).toBeNull();
+  });
+
+  it("devolve null se SecureStore falhar na leitura e NÃO tenta ler de AsyncStorage", async () => {
+    legacy.set(STRONG_GROUP_SECRET_KEY, SAMPLE_SECRET);
+    secureFails.value = true;
+    expect(await loadStrongGroupSecret()).toBeNull();
+  });
+
+  it("lança erro se SecureStore falhar ao gravar e NUNCA grava em AsyncStorage", async () => {
+    secureFails.value = true;
+    await expect(saveStrongGroupSecret(SAMPLE_SECRET)).rejects.toThrow("keystore indisponível");
+    expect(legacy.has(STRONG_GROUP_SECRET_KEY)).toBe(false);
+  });
+
+  it("clearStrongGroupSecret remove do SecureStore e limpa resquício de AsyncStorage", async () => {
+    secure.set(STRONG_GROUP_SECRET_KEY, SAMPLE_SECRET);
+    legacy.set(STRONG_GROUP_SECRET_KEY, SAMPLE_SECRET);
+    await clearStrongGroupSecret();
+    expect(secure.has(STRONG_GROUP_SECRET_KEY)).toBe(false);
+    expect(legacy.has(STRONG_GROUP_SECRET_KEY)).toBe(false);
+  });
+});
+
 describe("group code na web", () => {
   beforeEach(() => {
     process.env.EXPO_OS = "web";
@@ -125,5 +172,31 @@ describe("group code na web", () => {
     web.set(GROUP_CODE_KEY, "WEB234");
     await clearGroupCode();
     expect(web.has(GROUP_CODE_KEY)).toBe(false);
+  });
+});
+
+describe("segredo do grupo forte na web (Story 4.3)", () => {
+  const SAMPLE_SECRET = "DOMUS1-AAAQ-EAYE-AUDA-OCAJ-BIFQ-YDIO-B4IB-CEQT-CQKR-MFYY-DENB-WHA5-DYPS-NINV-RI";
+
+  beforeEach(() => {
+    process.env.EXPO_OS = "web";
+  });
+
+  it("grava em webSecrets e nunca toca AsyncStorage nem SecureStore", async () => {
+    await saveStrongGroupSecret(SAMPLE_SECRET);
+    expect(web.get(STRONG_GROUP_SECRET_KEY)).toBe(SAMPLE_SECRET);
+    expect(legacy.has(STRONG_GROUP_SECRET_KEY)).toBe(false);
+    expect(secure.size).toBe(0);
+  });
+
+  it("lê de webSecrets", async () => {
+    web.set(STRONG_GROUP_SECRET_KEY, SAMPLE_SECRET);
+    expect(await loadStrongGroupSecret()).toBe(SAMPLE_SECRET);
+  });
+
+  it("clearStrongGroupSecret remove de webSecrets", async () => {
+    web.set(STRONG_GROUP_SECRET_KEY, SAMPLE_SECRET);
+    await clearStrongGroupSecret();
+    expect(web.has(STRONG_GROUP_SECRET_KEY)).toBe(false);
   });
 });

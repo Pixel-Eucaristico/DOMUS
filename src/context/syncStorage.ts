@@ -6,6 +6,7 @@ import type { SyncEvent } from "@packages/storage/src/eventStore";
 export const DEVICE_ID_KEY = "domus_device_id";
 export const LAST_SYNC_KEY = "domus_last_sync_ts";
 export const GROUP_CODE_KEY = "domus_nostr_group_code";
+export const STRONG_GROUP_SECRET_KEY = "domus_strong_group_secret_v1";
 export const LAST_PUSH_HASH_KEY = "domus_nostr_last_push_hash";
 
 export const PULL_INTERVAL_MS = 8_000;
@@ -92,6 +93,50 @@ export async function clearGroupCode(): Promise<void> {
     // chave pode não existir
   }
   await AsyncStorage.removeItem(GROUP_CODE_KEY);
+}
+
+// ── Strong group secret (Story 4.3) ──────────────────────────────────────────
+// O segredo do Grupo forte é gerado com 256 bits de aleatoriedade criptográfica.
+// Guardado estritamente em SecureStore (nativo) ou webSecrets (web).
+// NUNCA cai para AsyncStorage nem em caso de falha (Story 6.3).
+
+/** Lê o segredo do Grupo forte de SecureStore (nativo) ou webSecrets (web). */
+export async function loadStrongGroupSecret(): Promise<string | null> {
+  if (isWeb()) return webSecrets.get(STRONG_GROUP_SECRET_KEY);
+
+  try {
+    return await SecureStore.getItemAsync(STRONG_GROUP_SECRET_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Grava o segredo do Grupo forte exclusivamente em SecureStore ou webSecrets. */
+export async function saveStrongGroupSecret(secret: string): Promise<void> {
+  if (isWeb()) {
+    const ok = await webSecrets.set(STRONG_GROUP_SECRET_KEY, secret);
+    if (!ok) {
+      throw new Error("Falha ao salvar segredo forte em webSecrets.");
+    }
+    return;
+  }
+  await SecureStore.setItemAsync(STRONG_GROUP_SECRET_KEY, secret);
+}
+
+/** Remove o segredo do Grupo forte de todos os armazenamentos seguros. */
+export async function clearStrongGroupSecret(): Promise<void> {
+  if (isWeb()) {
+    await webSecrets.remove(STRONG_GROUP_SECRET_KEY);
+    return;
+  }
+  try {
+    await SecureStore.deleteItemAsync(STRONG_GROUP_SECRET_KEY);
+  } catch {
+    // chave pode não existir
+  }
+  try {
+    await AsyncStorage.removeItem(STRONG_GROUP_SECRET_KEY);
+  } catch {}
 }
 
 export function computeEventHash(events: SyncEvent[]): string {

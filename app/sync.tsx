@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -9,16 +9,17 @@ import {
   ActivityIndicator,
   Modal,
   Dimensions,
-  Share,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
 import { useSync } from "@/src/context/SyncProvider";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
+import { appAlert } from "@/src/services/appAlert";
 import { QRScannerModal } from "@/src/components/sync/QRScannerModal";
 import { TButton, TCard, TInput, TText } from "@/src/components/tamagui";
 import { ScreenIntroModal } from "@/src/components/tour/ScreenIntroModal";
@@ -68,7 +69,7 @@ function SyncScreen() {
   const router = useRouter();
   const { theme } = useAppState();
   const {
-    groupId, syncStatus, lastSyncTime, errorMessage,
+    groupId, isStrongGroup, syncStatus, lastSyncTime, errorMessage,
     eventCount, relayCount, isAutoSyncEnabled,
     createGroup, joinGroup, leaveGroup, pushNow, pullNow, resetStatus,
   } = useSync();
@@ -78,6 +79,8 @@ function SyncScreen() {
   const [actionLoading, setActionLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { showIntro, dismissIntro } = useScreenIntro("sync");
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
@@ -117,24 +120,34 @@ function SyncScreen() {
 
   const handleLeaveGroup = useCallback(async () => { haptic(); soundManager.play("tap"); await leaveGroup(); }, [leaveGroup]);
 
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleCopyCode = useCallback(async () => {
     if (!groupId) return;
     haptic();
-    soundManager.play("tap");
+    soundManager.play("pop");
     try {
-      if (Platform.OS === "web" && navigator?.clipboard) {
-        await navigator.clipboard.writeText(groupId);
-      } else if (Platform.OS !== "web") {
-        await Share.share({ message: `domus://${groupId}` });
-      }
-    } catch {}
+      const ok = await Clipboard.setStringAsync(groupId);
+      if (!ok) throw new Error("Falha ao copiar para a área de transferência.");
+      setCopied(true);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
+    } catch {
+      appAlert("Aviso", "Não foi possível copiar para a área de transferência.");
+    }
   }, [groupId]);
 
   const handlePush = useCallback(async () => { haptic(); soundManager.play("pop"); await pushNow(); }, [pushNow]);
   const handlePull = useCallback(async () => { haptic(); soundManager.play("pop"); await pullNow(); }, [pullNow]);
 
   const isBusy = syncStatus === "syncing" || actionLoading;
-  const qrValue = groupId ? `domus://${groupId}` : "";
+  const qrValue = groupId ? (isStrongGroup ? groupId : `domus://${groupId}`) : "";
 
   return (
     <View style={[s.root, { backgroundColor: theme.background }]}>
@@ -160,7 +173,15 @@ function SyncScreen() {
                 <StatusDot status={syncStatus} />
                 <Text style={[s.statusLabelText, { color: theme.textColor }]}>{statusLabel(syncStatus)}</Text>
               </View>
-              {groupId ? <Text style={[s.groupIdText, { color: theme.secondaryText }]}>Grupo: {groupId}</Text> : null}
+              {groupId ? (
+                <Text
+                  style={[s.groupIdText, { color: theme.secondaryText }]}
+                  numberOfLines={1}
+                  ellipsizeMode="middle"
+                >
+                  Grupo: {groupId}
+                </Text>
+              ) : null}
             </View>
           </View>
           <View style={s.statsRow}>
@@ -210,7 +231,7 @@ function SyncScreen() {
                   <>
                     <View style={s.actionCardIcon}><Feather name="plus" size={24} color="#FFFFFF" /></View>
                     <Text style={s.actionCardTitle}>Criar grupo</Text>
-                    <Text style={s.actionCardDesc}>Novo código</Text>
+                    <Text style={s.actionCardDesc}>Segredo forte</Text>
                   </>
                 )}
               </Pressable>
@@ -290,22 +311,83 @@ function SyncScreen() {
         ) : (
           <>
             <View style={[s.connectedCard, { backgroundColor: theme.cardBackground }]}>
-              <View style={s.connectedRow}>
-                <View style={[s.codeBadge, { backgroundColor: `${theme.primaryColor}12` }]}>
-                  <Text style={[s.codeText, { color: theme.primaryColor }]}>{groupId}</Text>
-                </View>
-                <View style={s.connectedActions}>
-                  <Pressable onPress={() => { haptic(); soundManager.play("tap"); setShowQRModal(true); }} hitSlop={10}>
-                    <MaterialCommunityIcons name="qrcode" size={22} color={theme.secondaryText} />
-                  </Pressable>
-                  <Pressable onPress={handleCopyCode} hitSlop={10}>
-                    <Feather name="share-2" size={18} color={theme.secondaryText} />
-                  </Pressable>
-                </View>
-              </View>
-              <Text style={[s.connectedHint, { color: theme.secondaryText }]}>
-                Compartilhe o código ou mostre o QR para parear outro celular
-              </Text>
+              {isStrongGroup ? (
+                <>
+                  <View style={s.connectedHeaderRow}>
+                    <View style={[s.strongBadge, { backgroundColor: `${theme.primaryColor}15` }]}>
+                      <Feather name="shield" size={14} color={theme.primaryColor} />
+                      <Text style={[s.strongBadgeText, { color: theme.primaryColor }]}>Grupo seguro</Text>
+                    </View>
+                    <View style={s.connectedActions}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Exibir QR Code"
+                        onPress={() => { haptic(); soundManager.play("tap"); setShowQRModal(true); }}
+                        hitSlop={10}
+                      >
+                        <MaterialCommunityIcons name="qrcode" size={22} color={theme.secondaryText} />
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Copiar segredo"
+                        onPress={handleCopyCode}
+                        hitSlop={10}
+                      >
+                        {copied ? (
+                          <Feather name="check" size={18} color="#10B981" />
+                        ) : (
+                          <Feather name="copy" size={18} color={theme.secondaryText} />
+                        )}
+                      </Pressable>
+                    </View>
+                  </View>
+                  <View style={[s.strongSecretBox, { borderColor: theme.border }]}>
+                    <Text selectable style={[s.strongSecretText, { color: theme.textColor }]}>
+                      {groupId}
+                    </Text>
+                  </View>
+                  <Text style={[s.connectedHint, { color: theme.secondaryText }]}>
+                    {copied
+                      ? "Segredo copiado para a área de transferência!"
+                      : "Compartilhe o segredo ou mostre o QR Code para parear outro aparelho com segurança."}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <View style={s.connectedRow}>
+                    <View style={[s.codeBadge, { backgroundColor: `${theme.primaryColor}12` }]}>
+                      <Text style={[s.codeText, { color: theme.primaryColor }]}>{groupId}</Text>
+                    </View>
+                    <View style={s.connectedActions}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Exibir QR Code"
+                        onPress={() => { haptic(); soundManager.play("tap"); setShowQRModal(true); }}
+                        hitSlop={10}
+                      >
+                        <MaterialCommunityIcons name="qrcode" size={22} color={theme.secondaryText} />
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Copiar código"
+                        onPress={handleCopyCode}
+                        hitSlop={10}
+                      >
+                        {copied ? (
+                          <Feather name="check" size={18} color="#10B981" />
+                        ) : (
+                          <Feather name="copy" size={18} color={theme.secondaryText} />
+                        )}
+                      </Pressable>
+                    </View>
+                  </View>
+                  <Text style={[s.connectedHint, { color: theme.secondaryText }]}>
+                    {copied
+                      ? "Código copiado para a área de transferência!"
+                      : "Compartilhe o código ou mostre o QR para parear outro celular"}
+                  </Text>
+                </>
+              )}
             </View>
 
             <View style={s.sectionHeader}>
@@ -393,9 +475,32 @@ function SyncScreen() {
               <View style={s.qrCodeWrap}>
                 <QRCode value={qrValue || "domus://"} size={QR_SIZE} backgroundColor="#FFFFFF" color="#000000" />
               </View>
-              <View style={[s.qrCodeLabel, { backgroundColor: `${theme.primaryColor}12` }]}>
-                <Text style={[s.qrCodeLabelText, { color: theme.primaryColor }]}>{groupId}</Text>
-              </View>
+              {isStrongGroup ? (
+                <Pressable
+                  accessibilityRole="button"
+                  style={[s.qrStrongBox, { backgroundColor: `${theme.primaryColor}0C`, borderColor: theme.border }]}
+                  onPress={handleCopyCode}
+                  accessibilityLabel="Copiar segredo do grupo"
+                >
+                  <Text selectable style={[s.qrStrongText, { color: theme.textColor }]}>
+                    {groupId}
+                  </Text>
+                  <View style={s.qrCopyRow}>
+                    <Feather
+                      name={copied ? "check" : "copy"}
+                      size={14}
+                      color={copied ? "#10B981" : theme.primaryColor}
+                    />
+                    <Text style={[s.qrCopyLabel, { color: copied ? "#10B981" : theme.primaryColor }]}>
+                      {copied ? "Copiado!" : "Copiar segredo"}
+                    </Text>
+                  </View>
+                </Pressable>
+              ) : (
+                <View style={[s.qrCodeLabel, { backgroundColor: `${theme.primaryColor}12` }]}>
+                  <Text style={[s.qrCodeLabelText, { color: theme.primaryColor }]}>{groupId}</Text>
+                </View>
+              )}
               <Text style={[s.qrModalHint, { color: theme.secondaryText }]}>Escaneie com o outro celular para parear</Text>
               <TButton variant="primary" backgroundColor={theme.primaryColor} onPress={() => { soundManager.play("tap"); setShowQRModal(false); }}>
                 Fechar
@@ -444,6 +549,16 @@ const s = StyleSheet.create({
   joinBtn: { width: 48, height: 48, borderRadius: 14, justifyContent: "center", alignItems: "center" },
   cancelText: { fontFamily: "DMSans_500Medium", fontSize: 13, textAlign: "center" as const },
   connectedCard: { borderRadius: 16, padding: 18, gap: 10 },
+  connectedHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  strongBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  strongBadgeText: { fontFamily: "DMSans_600SemiBold", fontSize: 12 },
+  strongSecretBox: { padding: 12, borderRadius: 10, borderWidth: 1, marginTop: 4 },
+  strongSecretText: {
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    fontSize: 12,
+    lineHeight: 18,
+    letterSpacing: 0.5,
+  },
   connectedRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   connectedActions: { flexDirection: "row", alignItems: "center", gap: 16 },
   codeBadge: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
@@ -458,6 +573,22 @@ const s = StyleSheet.create({
   qrCodeWrap: { backgroundColor: "#FFFFFF", padding: 20, borderRadius: 16 },
   qrCodeLabel: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 10 },
   qrCodeLabelText: { fontFamily: "DMSans_700Bold", fontSize: 20, letterSpacing: 4 },
+  qrStrongBox: {
+    width: "100%",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+    gap: 8,
+  },
+  qrStrongText: {
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: "center" as const,
+  },
+  qrCopyRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  qrCopyLabel: { fontFamily: "DMSans_600SemiBold", fontSize: 12 },
   qrModalHint: { fontFamily: "DMSans_400Regular", fontSize: 13, textAlign: "center" as const },
   backupBtn: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 14, padding: 14 },
   backupBtnIcon: { width: 44, height: 44, borderRadius: 14, justifyContent: "center", alignItems: "center" },

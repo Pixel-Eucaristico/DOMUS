@@ -1,8 +1,7 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { AppState as RNAppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-  deriveKeysFromCode,
   publishSyncEvents,
   pullSyncEvents,
   subscribeToSyncEvents,
@@ -14,15 +13,18 @@ import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { SubCloser } from "nostr-tools/pool";
 import { createSyncCoordinator } from "@/src/modules/syncCoordinator";
 import { selectOldGroupPushEvents } from "@/src/modules/syncPayload";
+import { parseGroupSecret } from "@/src/modules/strongGroup/groupSecret";
+import {
+  createStrongSyncGroup,
+  loadActiveSyncGroup,
+  clearAllSyncGroupSecrets,
+  resolveJoinSyncGroup,
+} from "./strongGroupSync";
 import {
   LAST_SYNC_KEY,
   LAST_PUSH_HASH_KEY,
   PULL_INTERVAL_MS,
-  generateGroupCode,
   computeEventHash,
-  loadGroupCode,
-  saveGroupCode,
-  clearGroupCode,
 } from "./syncStorage";
 
 export type SyncStatus = "idle" | "syncing" | "connected" | "offline" | "error";
@@ -113,13 +115,12 @@ export function useSyncEngine({
     coordinator
       .load()
       .catch(() => null)
-      .then(() => loadGroupCode())
-      .then(async (val) => {
-        if (val) {
-          setGroupCode(val);
-          const derived = await deriveKeysFromCode(val);
-          setKeys(derived);
-          keysRef.current = derived;
+      .then(async () => {
+        const active = await loadActiveSyncGroup();
+        if (active) {
+          setGroupCode(active.code);
+          setKeys(active.keys);
+          keysRef.current = active.keys;
         }
       })
       .catch((err) => {
@@ -331,24 +332,23 @@ export function useSyncEngine({
         return null;
       }
 
-      const code = generateGroupCode();
-      const derivedKeys = await deriveKeysFromCode(code);
+      // Grupo forte (Story 4.3): 256 bits criptográficos, DOMUS1-...
+      const group = await createStrongSyncGroup();
 
       // Grupo novo: cursor e fila do grupo anterior não valem mais.
       await coordinator.reset();
-      setKeys(derivedKeys);
-      setGroupCode(code);
-      await saveGroupCode(code);
+      setKeys(group.keys);
+      setGroupCode(group.code);
       lastPushHashRef.current = "empty";
       initialSyncDoneRef.current = false;
 
       try {
-        await pushMyEvents(derivedKeys, deviceId, true);
+        await pushMyEvents(group.keys, deviceId, true);
       } catch {}
 
       setSyncStatus("connected");
       await saveLastSync(Date.now());
-      return code;
+      return group.code;
     } catch {
       setSyncStatus("error");
       setErrorMessage("Falha ao criar grupo. Tente novamente.");
@@ -373,23 +373,21 @@ export function useSyncEngine({
           return false;
         }
 
-        const normalizedCode = code.trim().toUpperCase();
-        const derivedKeys = await deriveKeysFromCode(normalizedCode);
+        const activeGroup = await resolveJoinSyncGroup(code);
 
         // Grupo novo: cursor e fila do grupo anterior não valem mais.
         await coordinator.reset();
-        setKeys(derivedKeys);
-        setGroupCode(normalizedCode);
-        await saveGroupCode(normalizedCode);
+        setKeys(activeGroup.keys);
+        setGroupCode(activeGroup.code);
         lastPushHashRef.current = "empty";
         initialSyncDoneRef.current = false;
 
         try {
-          await pushMyEvents(derivedKeys, deviceId, true);
+          await pushMyEvents(activeGroup.keys, deviceId, true);
         } catch {}
 
         try {
-          await pullFromRelays(derivedKeys, deviceId);
+          await pullFromRelays(activeGroup.keys, deviceId);
         } catch {}
 
         setSyncStatus("connected");
@@ -419,7 +417,7 @@ export function useSyncEngine({
     setErrorMessage(null);
     lastPushHashRef.current = "empty";
     initialSyncDoneRef.current = false;
-    await clearGroupCode();
+    await clearAllSyncGroupSecrets();
     await resetting;
     await AsyncStorage.removeItem(LAST_PUSH_HASH_KEY);
   }, [coordinator]);
@@ -454,8 +452,14 @@ export function useSyncEngine({
     setErrorMessage(null);
   }, [groupCode]);
 
+  const isStrongGroup = useMemo(
+    () => Boolean(groupCode && parseGroupSecret(groupCode).ok),
+    [groupCode],
+  );
+
   return {
     groupCode,
+    isStrongGroup,
     syncStatus,
     lastSyncTime,
     errorMessage,
