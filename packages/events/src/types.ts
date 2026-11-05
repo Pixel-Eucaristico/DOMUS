@@ -8,6 +8,7 @@ export const EVENT_TYPES = {
   CATEGORY_CREATED: "CATEGORY_CREATED",
   INVOICE_IMPORTED: "INVOICE_IMPORTED",
   INVOICE_CONFIRMED: "INVOICE_CONFIRMED",
+  OLERITE_READING_ADDED: "OLERITE_READING_ADDED",
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
@@ -142,6 +143,16 @@ export interface InvoiceConfirmedPayload {
   totalAmount: number;
 }
 
+export interface OleriteReadingPayload {
+  id: string;
+  value: number;
+  unit: string;
+  confidence: number;
+  imageUri: string;
+  timestamp: string;
+  location?: string;
+}
+
 interface BaseEvent {
   id: string;
   type: EventType;
@@ -195,6 +206,11 @@ export interface InvoiceConfirmedEvent extends BaseEvent {
   payload: InvoiceConfirmedPayload;
 }
 
+export interface OleriteReadingAddedEvent extends BaseEvent {
+  type: typeof EVENT_TYPES.OLERITE_READING_ADDED;
+  payload: OleriteReadingPayload;
+}
+
 export type DomainEvent =
   | AccountCreatedEvent
   | AccountUpdatedEvent
@@ -204,4 +220,5 @@ export type DomainEvent =
   | TransactionDeletedEvent
   | CategoryCreatedEvent
   | InvoiceImportedEvent
-  | InvoiceConfirmedEvent;
+  | InvoiceConfirmedEvent
+  | OleriteReadingAddedEvent;

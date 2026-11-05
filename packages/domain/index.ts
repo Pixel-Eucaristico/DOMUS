@@ -22,3 +22,15 @@ export {
   getIdeal503020,
 } from "./src/transactions";
 export type { CreateTransactionParams, BudgetBreakdown } from "./src/transactions";
+
+export {
+  createOleriteReadingEvent,
+  getChronologicalOleriteReadings,
+  calculateAverageOleriteConsumption,
+  getOleriteEvolutionSeries,
+} from "./src/olerite";
+export type {
+  CreateOleriteReadingParams,
+  OleriteEvolutionPoint,
+} from "./src/olerite";
+

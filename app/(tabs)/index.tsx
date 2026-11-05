@@ -218,6 +218,13 @@ export default function HomeScreen() {
         color: "#06B6D4",
         onPress: () => { soundManager.play("pop"); setAddSheetType("transfer"); setShowAddSheet(true); },
       },
+      {
+        id: "olerite",
+        icon: "activity" as const,
+        label: "Medidor",
+        color: "#10B981",
+        onPress: () => { soundManager.play("tap"); router.push("/olerite"); },
+      },
     ];
     return all;
   }, [theme.primaryColor, router, aiSettings.isEnabled, wishlistLists.length]);

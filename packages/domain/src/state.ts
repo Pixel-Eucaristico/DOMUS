@@ -3,6 +3,7 @@ import type {
   TransactionPayload,
   CategoryPayload,
   InvoiceImportedPayload,
+  OleriteReadingPayload,
 } from "../../events/src/types";
 
 export interface StoredInvoice extends InvoiceImportedPayload {
@@ -16,6 +17,7 @@ export interface AppState {
   transactions: Record<string, TransactionPayload>;
   categories: Record<string, CategoryPayload>;
   invoices: Record<string, StoredInvoice>;
+  oleriteReadings: Record<string, OleriteReadingPayload>;
 }
 
 export function createInitialState(): AppState {
@@ -24,5 +26,6 @@ export function createInitialState(): AppState {
     transactions: {},
     categories: {},
     invoices: {},
+    oleriteReadings: {},
   };
 }

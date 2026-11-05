@@ -135,6 +135,17 @@ export function domainReducer(state: AppState, event: DomainEvent): AppState {
       };
     }
 
+    case EVENT_TYPES.OLERITE_READING_ADDED: {
+      const reading = event.payload;
+      return {
+        ...state,
+        oleriteReadings: {
+          ...(state.oleriteReadings ?? {}),
+          [reading.id]: reading,
+        },
+      };
+    }
+
     default:
       return state;
   }

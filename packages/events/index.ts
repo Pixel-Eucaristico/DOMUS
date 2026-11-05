@@ -7,6 +7,7 @@ export type {
   TransactionUpdatedEvent,
   TransactionDeletedEvent,
   CategoryCreatedEvent,
+  OleriteReadingAddedEvent,
   EventType,
   AccountType,
   TransactionType,
@@ -15,6 +16,7 @@ export type {
   TransactionPayload,
   InstallmentInfo,
   CategoryPayload,
+  OleriteReadingPayload,
 } from "./src/types";
 
 export {
