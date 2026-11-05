@@ -22,6 +22,11 @@ export type {
   CompletedSeasonalTrophy,
   XpSource,
   BudgetFeedback,
+  FeatureKey,
+  LevelReward,
+  QuickAnalysisData,
+  MonthSummary,
+  AnnualReportData,
 } from "./src/types";
 export { GAMIFICATION_EVENTS } from "./src/types";
 
@@ -93,4 +98,13 @@ export {
   getTrophyAnimationConfig,
   resolveActiveParticleCount,
 } from "./src/trophyAnimationConfigs";
+
+export {
+  LEVEL_REWARDS_CONFIG,
+  getLevelRewards,
+  isFeatureUnlocked,
+  calculateQuickAnalysis,
+  calculateAnnualReport,
+} from "./src/rewardsEngine";
+
 

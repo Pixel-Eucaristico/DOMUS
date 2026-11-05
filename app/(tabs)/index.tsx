@@ -31,6 +31,7 @@ import {
 // Extracted sub-components
 import { BudgetBar } from "@/src/components/shared/BudgetBar";
 import { BudgetFeedbackCard } from "@/src/components/budget/BudgetFeedbackCard";
+import { QuickAnalysisCard } from "@/src/components/budget/QuickAnalysisCard";
 import { GamificationWidget } from "@/src/components/gamification/GamificationWidget";
 import { AccountsStrip } from "@/src/components/shared/AccountsStrip";
 import { PendingTransactionsList } from "@/src/components/transaction/PendingTransactionsList";
@@ -296,7 +297,7 @@ export default function HomeScreen() {
           <View style={[s.header]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <DomusLogo size={36} theme={theme} />
-              {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} />}
+              {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} level={levelInfo.level} />}
               <View>
                 <PixelText size={16} color={theme.textColor}>DOMUS</PixelText>
                 <TText variant="caption" color={theme.secondaryText}>
@@ -474,6 +475,7 @@ export default function HomeScreen() {
                     <BudgetBar label="Desejos" percent={budget.wantsPercent} ideal={30} idealAmount={incomeBase * 0.3} color={theme.accentColor} amount={budget.wants} group="wants" theme={theme} onPress={handleBudgetPress} />
                     <BudgetBar label="Poupança" percent={budget.savingsPercent} ideal={20} idealAmount={incomeBase * 0.2} color={theme.success} amount={budget.savings} group="savings" theme={theme} onPress={handleBudgetPress} />
                     <BudgetFeedbackCard budget={budget} previousBudget={previousBudget} theme={theme} />
+                    <QuickAnalysisCard budget={budget} level={levelInfo.level} theme={theme} />
                   </View>
                 ) : (
                   <View style={s.emptyState}>

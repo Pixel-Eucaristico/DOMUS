@@ -440,3 +440,10 @@ yarn add react-native-smart-tooltip
 - **Dificuldade:** MÉDIO | **Urgência:** BAIXA | **~4-6h**
 - **Escopo:** vincular progresso de níveis a utilidades reais do app (Nível 2: Card de Análise Rápida de Desejos vs Necessidades; Nível 5: Temas e ícones litúrgicos/santos católicos adicionais; Nível 10: Relatório Anual e personalização de metas orçamentárias).
 - **Depende de:** tarefas 16 e 17.
+- **Implementado:**
+  - [x] Motor de recompensas `rewardsEngine.ts` com trilha progressiva nos níveis 2, 5 e 10
+  - [x] Card de Análise Rápida de Desejos vs Necessidades (Nível 2) integrado à tela Home
+  - [x] Expansão Litúrgica com 4 novos ícones sagrados (Nível 5) no `CatholicHeaderIcon`
+  - [x] Relatório Anual de 12 meses e Personalização de Metas Orçamentárias (Nível 10)
+  - [x] Componente `LevelRewardsTrack` na tela de Temporada exibindo status de cada recompensa
+  - [x] Testes unitários do motor de recompensas passando com 100% de sucesso
