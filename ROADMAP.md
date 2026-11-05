@@ -406,3 +406,25 @@ yarn add react-native-smart-tooltip
   - [x] UI: checkbox "É dividendo" ao adicionar receita na conta CDB
   - [x] UI: exibir breakdown do limite no card do cartão
  
+---
+
+### 16 — Gamificação: Integridade do XP, Nível Derivado e Streak Robusto
+- **Dificuldade:** MÉDIO | **Urgência:** MÉDIA | **~4-6h**
+- **Contexto:** Análise GDS (Game Designer + Game Architect) revisada em party-mode. App individual/offline-first; foco em hábito e aprendizado do 50/30/20.
+- **Escopo:** reducer idempotente por `event.id` e `transactionId`; nível derivado de `totalXp` com curva suave; cota diária de hábito (até 5 registros pontuam XP/dia, sem teto para cadastros reais e sem penalidade na exclusão); streak por datas `YYYY-MM-DD` com testes de horário de verão.
+- **Fora de escopo:** recompensas funcionais por nível (tarefa 18), penalidade 50/30/20 (tarefa 17).
+- **Detalhes:** [docs/roadmap/16-gamificacao-integridade-xp.md](docs/roadmap/16-gamificacao-integridade-xp.md)
+
+---
+
+### 17 — Gamificação: Feedback 50/30/20 sem Penalidade
+- **Dificuldade:** FÁCIL | **Urgência:** MÉDIA | **~2-3h**
+- **Escopo:** remover a perda de XP por estourar necessidades/desejos em `calculateBudgetAdherenceXp` (`packages/gamification/src/xpEngine.ts`); exibir aviso educativo explicando a regra 50/30/20; bônus de XP quando o mês melhora em relação ao anterior.
+- **Depende de:** tarefa 16.
+
+---
+
+### 18 — Gamificação: Recompensas Funcionais por Nível
+- **Dificuldade:** MÉDIO | **Urgência:** BAIXA | **~4-6h**
+- **Escopo:** vincular progresso de níveis a utilidades reais do app (Nível 2: Card de Análise Rápida de Desejos vs Necessidades; Nível 5: Temas e ícones litúrgicos/santos católicos adicionais; Nível 10: Relatório Anual e personalização de metas orçamentárias).
+- **Depende de:** tarefas 16 e 17.
