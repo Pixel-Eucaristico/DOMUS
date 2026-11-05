@@ -75,3 +75,20 @@ export {
 
 export type { LiturgicalTrophy } from "./src/liturgicalTrophies";
 export { ALL_LITURGICAL_TROPHIES } from "./src/liturgicalTrophies";
+
+export type {
+  PrimaryMotion,
+  SecondaryEffect,
+  EntryAnimation,
+  ParticleType,
+  TrophyAnimationConfig,
+  GetTrophyAnimationOptions,
+} from "./src/trophyAnimationConfigs";
+export {
+  DEFAULT_TROPHY_ANIMATION_CONFIG,
+  CATEGORY_ANIMATION_PRESETS,
+  TROPHY_ANIMATION_CONFIGS,
+  getTrophyAnimationConfig,
+  resolveActiveParticleCount,
+} from "./src/trophyAnimationConfigs";
+

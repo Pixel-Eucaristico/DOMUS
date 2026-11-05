@@ -4,6 +4,7 @@ import LottieView from "lottie-react-native";
 import { AnimatedTrophy } from "./AnimatedTrophy";
 import { AnimatedSeasonalTrophy } from "./AnimatedSeasonalTrophy";
 import type { AchievementRarity } from "@packages/gamification/src/achievements";
+import { getTrophyAnimationConfig } from "@/src/constants/trophyAnimationConfigs";
 
 /**
  * Mapa de troféus com Lottie aprovados.
@@ -557,21 +558,38 @@ export function LottieTrophy({
     return lottieView;
   }
 
-  // Fallback: SVG animado existente
-  if (type === "achievement") {
-    return <AnimatedTrophy rarity={rarity} size={Math.round(size * 0.75) + 2} spinning={!isStatic} />;
+  // Fallback: SVG animado existente com configuração individual por troféu
+  const trophyConfig = getTrophyAnimationConfig(trophyId, {
+    rarity,
+    isLiturgical,
+  });
+
+  const fallbackElement =
+    type === "achievement" ? (
+      <AnimatedTrophy
+        id={trophyId}
+        rarity={rarity}
+        size={Math.round(size * 0.75) + 2}
+        spinning={!isStatic}
+        config={trophyConfig}
+      />
+    ) : (
+      <AnimatedSeasonalTrophy
+        icon={icon}
+        id={trophyId}
+        size={size}
+        color={color}
+        isLiturgical={isLiturgical}
+        isStatic={isStatic}
+        config={trophyConfig}
+      />
+    );
+
+  if (onPress) {
+    return <Pressable onPress={onPress}>{fallbackElement}</Pressable>;
   }
 
-  return (
-    <AnimatedSeasonalTrophy
-      icon={icon}
-      id={trophyId}
-      size={size}
-      color={color}
-      isLiturgical={isLiturgical}
-      isStatic={isStatic}
-    />
-  );
+  return fallbackElement;
 }
 
 const s = StyleSheet.create({

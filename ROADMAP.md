@@ -237,19 +237,19 @@ LONGO PRAZO (quando houver tempo):
 - **Total:** 40 conquistas + 6 mensais + 48 sazonais + 73 litúrgicos = 167 troféus
 - **Solução:** Criar config map por troféu/categoria com parâmetros de animação customizados
 - **Detalhes:** [docs/roadmap/08-animacao-trofeus.md](docs/roadmap/08-animacao-trofeus.md) (lista completa de todos os 167 troféus)
-- [ ] Criar `trophyAnimationConfigs.ts` com mapa de configs
-- [ ] Refatorar AnimatedTrophy e AnimatedSeasonalTrophy para aceitar config
+- [x] Criar `trophyAnimationConfigs.ts` com mapa de configs
+- [x] Refatorar AnimatedTrophy e AnimatedSeasonalTrophy para aceitar config
 - [ ] Implementar um a um com aprovação individual
 
-### 09 — Leitor de Olerite por OCR (Parcial)
+### 09 — Leitor de Olerite por OCR ✅ CONCLUÍDA
 - **Dificuldade:** COMPLEXO | **Urgência:** MÉDIA | **~6-10h**
 - **Depende de:** Tarefa 05 (OCR Android — CONCLUÍDA)
 - **Já implementado:** Payslip OCR schema (Zod) + VisionOCRService + scan_payslip no chat
-- **Falta:**
-- [ ] Criar `oleriteParser.ts` (parser dedicado para medidores)
-- [ ] Criar tela de captura dedicada reutilizando OcrScanScreen
-- [ ] Implementar histórico com gráfico de evolução
-- [ ] Testes unitários
+- **Concluído:**
+- [x] Criar `oleriteParser.ts` (parser dedicado para medidores)
+- [x] Criar tela de captura dedicada reutilizando OcrScanScreen
+- [x] Implementar histórico com gráfico de evolução
+- [x] Testes unitários
 - **Detalhes:** [docs/roadmap/09-olerite-ocr.md](docs/roadmap/09-olerite-ocr.md)
 
 ### 10 — ~~Bug: Tour Sumindo / Saindo Fora da Tela~~ ✅ RESOLVIDO
