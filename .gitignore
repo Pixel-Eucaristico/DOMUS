@@ -40,6 +40,10 @@ yarn-error.*
 
 .env
 credentials.json
+*service-account*.json
+google-service-account.json
+pc-api-*.json
+*.keystore
 
 # Logs
 logs
