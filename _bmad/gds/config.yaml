@@ -1,0 +1,12 @@
+# BMGD (Game Dev Studio) - isolado do BMM: artefatos em _bmad-output/gds/
+project_name: DOMUS
+user_name: Willian
+communication_language: Português (Brasil)
+document_output_language: Português (Brasil)
+output_folder: "{project-root}/_bmad-output/gds"
+game_dev_experience: intermediate
+planning_artifacts: "{project-root}/_bmad-output/gds/planning-artifacts"
+implementation_artifacts: "{project-root}/_bmad-output/gds/implementation-artifacts"
+sprint_artifacts: "{project-root}/_bmad-output/gds/implementation-artifacts"
+project_knowledge: "{project-root}/docs"
+primary_platform: other
