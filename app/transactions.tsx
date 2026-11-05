@@ -296,7 +296,7 @@ export default function TransactionsScreen() {
                           <Text style={s.pendingBadgeText}>Pendente</Text>
                         </View>
                       ) : null}
-                      {tx.type === "transfer" && tx.returnDate && !tx.isReturnTransfer && tx.returnDate > new Date().toISOString().split("T")[0]! ? (
+                      {tx.type === "transfer" && tx.returnDate && !tx.isReturnTransfer && tx.returnDate >= new Date().toISOString().split("T")[0]! ? (
                         <View style={[s.returnBadge, { borderColor: theme.warning, backgroundColor: `${theme.warning}12` }]}>
                           <Feather name="corner-up-left" size={9} color={theme.warning} />
                           <Text style={[s.returnBadgeText, { color: theme.warning }]}>
