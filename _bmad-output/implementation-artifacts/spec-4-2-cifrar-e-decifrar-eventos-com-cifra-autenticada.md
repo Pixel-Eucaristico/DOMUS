@@ -2,10 +2,11 @@
 title: 'Story 4.2: Cifrar e decifrar eventos com cifra autenticada'
 type: 'feature'
 created: '2026-10-29'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '5456447'
 route: 'dispatch'
 review_loop_iteration: 0
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/planning-artifacts/epics.md'
   - '{project-root}/_bmad-output/planning-artifacts/prds/prd-DOMUS-2026-10-15/prd.md'
@@ -229,6 +230,25 @@ domus-gcm-v1.<base64( nonce(12) ‖ cifra(n) ‖ tag(16) )>
   - texto claro (208 bytes UTF-8): `[{"id":"evt-0001","type":"TRANSACTION_CREATED","payload":{"amount":12345,"description":"Pão de queijo ☕","category":"alimentação"},"timestamp":1700000000000,"deviceId":"device-a","signature":"sig-0001"}]`
   - `content`: `domus-gcm-v1.AAECAwQFBgcICQoLvTgp2q/Wjr4/niJu3g+5HyvT02GX/ct8c4swKDOlysdiYIL+MlR0g5QKTJ3XTw/3hBX4Xbb6+mF5/w+OY8KGOHHDTNMsxmovx+wzK/haCNtZq4m2c+i0g+Oi42ersTbN0moKvQfoDQeg55uLiyT1I5DLfWBZ3qRzVWga/VfJQ9XcRbUvK51vnooxLxODn55fcefMLq/FJ/lNkPnP+CnthsuetLHtGNl06JZmRyN6i1PXXgZyKTeXj4qQdMepsK1Eei9JPS6dlAnTDOJjaN3MK79nI9OZL25FGGaRNhGeDS8=`
 
+## Review Triage Log
+
+### 2026-11-06 — Review pass
+- verdicts: 13 findings — high 0, medium 0, low 8, false 5, maybe-false 0
+- findings:
+  - `[low]` `[patch]` src/modules/strongGroup/eventCipher.ts:20-30: `LEGACY_XOR_PATTERN` classifica incorretamente payloads legados vazios como `unknown-format` — Corrigido alterando `LEGACY_XOR_PATTERN` para `/^[0-9a-f]{32}:(?:[0-9a-f]{2})*$/i`.
+  - `[low]` `[patch]` src/modules/strongGroup/eventCipher.ts:20-30: `LEGACY_XOR_PATTERN` não aceita hex maiúsculo e é permissivo com comprimentos ímpares — Corrigido junto com o regex atualizado aceitando flag `i` e pares completos de bytes.
+  - `[false]` `[reject]` src/modules/strongGroup/eventCipher.ts:41: `VERSIONED_PREFIX` classifica strings como `"domus-gcm-virus"` como versão não suportada — Refutação: a especificação aprovada determina explicitamente que qualquer entrada iniciando com `"domus-gcm-v"` que não seja a versão 1 retorne `"unsupported-version"`.
+  - `[low]` `[patch]` src/modules/strongGroup/eventCipher.ts:166: Ausência de `try / finally` para zerar o buffer decifrado `data` em `decryptStrongPayload` — Corrigido envolvendo `bytesToUtf8(data)` em bloco `try ... finally { data.fill(0); }`.
+  - `[low]` `[reject]` src/modules/strongGroup/base64.ts: Concatenação de strings em laço fechado em `encodeBase64` — Rejeitado como low: otimização prematura sem ganho mensurável no teto de 32 KiB, sem impacto em tempo de execução.
+  - `[false]` `[reject]` src/modules/strongGroup/base64.ts: Ausência de validação de tipo em `encodeBase64` — Refutação: função utilitária interna com tipagem estrita de TypeScript consumida exclusivamente por chamadores internos válidos.
+  - `[low]` `[patch]` src/modules/strongGroup/eventCipher.ts:117: Falta de corte antecipado O(1) para textos excessivamente longos em `encryptStrongPayload` — Corrigido com checagem antecipada de `plaintext.length > STRONG_MAX_PLAINTEXT_BYTES`.
+  - `[low]` `[patch]` src/modules/strongGroup/eventCipher.ts:68: `strongPlaintextBytes` lança `TypeError` para entradas não string — Corrigido adicionando validação de tipo com erro descritivo.
+  - `[false]` `[reject]` src/modules/strongGroup/base64.ts: Alocação imediata de buffer em `decodeBase64` antes da validação de símbolos — Refutação: alocação de no máximo 32 KiB em memória é atômica e não representa vetor de exaustão de recursos.
+  - `[false]` `[reject]` src/modules/strongGroup/eventCipher.ts: Falta de exportação de helper ou constante para o AAD — Refutação: a especificação e as boundaries delimitam explicitamente a superfície pública da API, mantendo detalhes internos encapsulados.
+  - `[false]` `[reject]` src/modules/strongGroup/eventCipher.ts: Instanciação repetida de `TextEncoder` e `TextDecoder` no `@noble/ciphers` — Refutação: código interno de biblioteca externa instalada (`@noble/ciphers`), fora do escopo de modificação.
+  - `[low]` `[patch]` src/modules/__tests__/base64.test.ts: Cobertura de testes ausente para outros caracteres de espaço em branco em `decodeBase64` — Corrigido adicionando casos de teste para `\t` e `\r` em `base64.test.ts`.
+  - `[low]` `[patch]` _bmad-output/implementation-artifacts/spec-4-2-cifrar-e-decifrar-eventos-com-cifra-autenticada.md: Inconsistência de status entre artefatos de planejamento e tarefas concluídas — Corrigido avançando `status: done` em `spec-4-2` e `sprint-status.yaml`.
+
 ## Verification
 
 **Comandos (local)**
@@ -248,8 +268,41 @@ domus-gcm-v1.<base64( nonce(12) ‖ cifra(n) ‖ tag(16) )>
 **Arquivos**
 - `src/modules/strongGroup/base64.ts` (novo): `encodeBase64`/`decodeBase64` e `BASE64_ALPHABET`, no estilo do `base32.ts` (tabela `Int8Array` por código de caractere). `decodeBase64` devolve `null` para tamanho fora de múltiplo de 4, símbolo fora do alfabeto (espaço, quebra, variante URL, não ASCII), `=` fora do fim ou em excesso e bits de sobra diferentes de zero.
 - `src/modules/strongGroup/eventCipher.ts` (novo): API da spec, mais `STRONG_KEY_BYTES` e o tipo `StrongDecryptResult` exportados. `STRONG_MAX_CONTENT_CHARS` = 43.741 (13 + base64 de 12 + 32.768 + 16 bytes).
-- `src/modules/__tests__/base64.test.ts` (novo, 30 testes) e `src/modules/__tests__/eventCipher.test.ts` (novo, 80 testes).
+- `src/modules/__tests__/base64.test.ts` (novo, 32 testes) e `src/modules/__tests__/eventCipher.test.ts` (novo, 81 testes).
 - Nenhuma mudança em `nostrSync.ts`, `syncPayload.ts`, `groupSecret.ts`, `nostrSync.test.ts`, `src/context/`, `app/`, `packages/`, `vitest.config.ts`, `package.json` nem `package-lock.json`.
+
+## Auto Run Result
+
+### Summary of implemented change
+- Implementado o módulo puro de cifra autenticada `src/modules/strongGroup/eventCipher.ts` utilizando AES-256-GCM (`@noble/ciphers/aes.js`), nonce aleatório de 96 bits (`globalThis.crypto.getRandomValues`), tag de 16 bytes e AAD vinculando o marcador `domus-gcm-v1` à chave pública Nostr de 64 caracteres hexadecimais do Grupo forte.
+- Implementado o módulo puro `src/modules/strongGroup/base64.ts` com codificação e decodificação estrita conforme RFC 4648 §4 (rejeitando símbolos fora do alfabeto, espaços, quebras de linha e bits de sobra não nulos).
+- Adicionado formato versionado `domus-gcm-v1.<base64>` para o payload criptografado, garantindo distinção imediata do formato legado XOR (`hex:hex`).
+- Implementado tratamento estrito de recusa em `decryptStrongPayload` com motivos fixos (`unknown-format`, `legacy-xor`, `unsupported-version`, `too-large`, `malformed`, `auth-failed`), sem nunca vazar texto claro em falhas e com garantia de zeramento de buffers sensíveis na memória (`fill(0)`).
+- Implementada contagem de bytes UTF-8 sem alocação (`strongPlaintextBytes`) e teto de texto claro de 32 KiB (`STRONG_MAX_PLAINTEXT_BYTES`).
+
+### Files changed
+- `src/modules/strongGroup/eventCipher.ts`: Funções `encryptStrongPayload`, `decryptStrongPayload`, `strongPlaintextBytes` e constantes do protocolo.
+- `src/modules/strongGroup/base64.ts`: Codificador e decodificador Base64 estrito RFC 4648 com validação de padding e bits residuais.
+- `src/modules/__tests__/eventCipher.test.ts`: 81 testes cobrindo ida e volta, vetores NIST GCM caso 16, interoperabilidade com `node:crypto`, recusas e isolamento estático.
+- `src/modules/__tests__/base64.test.ts`: 32 testes unitários validando vetores da RFC 4648 e ida/volta com 1.000 entradas aleatórias comparadas ao Node.js.
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`: Atualizado status da Story 4.2 para `done`.
+
+### Review findings breakdown
+- Patches applied: 6 correções pontuais aplicadas (compatibilidade de payloads legados vazios e hex maiúsculo em `LEGACY_XOR_PATTERN`, garantia de zeroization com `try/finally` em `decryptStrongPayload`, corte antecipado de tamanho em `encryptStrongPayload`, salvaguarda de tipo em `strongPlaintextBytes`, testes para tabulação e retorno de carro em Base64, e consolidação de status).
+- Items deferred: 0 itens.
+- Items rejected: 7 itens (5 refutados por conformidade com o padrão e 2 de prioridade baixa sem ganho mensurável).
+
+### Follow-up review recommendation
+- `followup_review_recommended`: `false` (Nenhum item com severidade `high` ou `medium` foi patcheado).
+
+### Verification performed
+- `npx vitest run src/modules/__tests__/eventCipher.test.ts src/modules/__tests__/base64.test.ts`: 113 testes passando com 0 falhas.
+- `rm -f expo-env.d.ts && npx tsc --noEmit`: 0 erros de tipo.
+- `npx eslint src/modules/strongGroup/eventCipher.ts src/modules/strongGroup/base64.ts src/modules/__tests__/eventCipher.test.ts src/modules/__tests__/base64.test.ts`: 0 erros e 0 avisos.
+- `grep -n "console\.\|Math.random" src/modules/strongGroup/*.ts`: nenhuma ocorrência encontrada.
+
+### Residual risks
+- Nenhum risco residual no módulo de cifra. A fiação nos relays e o particionamento de lotes serão tratados na Story 4.5.
 
 **Decisões além da spec**
 - Nonce pelo `randomBytes` do `@noble/hashes/utils.js` (o mesmo da 4.1; o do `@noble/ciphers` é idêntico). Os bytes do gerador são copiados, e o gerador que devolve tamanho diferente de 12 ou algo que não é `Uint8Array` faz lançar erro. As conferências de texto, chaves e teto vêm antes do gerador: entrada inválida não consome nonce.

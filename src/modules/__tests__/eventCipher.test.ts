@@ -277,6 +277,11 @@ describe("strongPlaintextBytes", () => {
   ])("igual ao TextEncoder para %j", (t) => {
     expect(strongPlaintextBytes(t)).toBe(new TextEncoder().encode(t).length);
   });
+
+  it("lança erro se a entrada não for string", () => {
+    expect(() => strongPlaintextBytes(null as unknown as string)).toThrow();
+    expect(() => strongPlaintextBytes(undefined as unknown as string)).toThrow();
+  });
 });
 
 describe("decryptStrongPayload: recusas", () => {
@@ -328,7 +333,9 @@ describe("decryptStrongPayload: recusas", () => {
     const legacy = legacyXorEncrypt(LOTE, k.encryptionKey);
     expect(legacy).toMatch(/^[0-9a-f]{32}:[0-9a-f]+$/);
     expectRejected(legacy, "legacy-xor");
+    expectRejected(legacyXorEncrypt("", k.encryptionKey), "legacy-xor");
     expectRejected(legacyXorEncrypt("", k.encryptionKey).concat("00"), "legacy-xor");
+    expectRejected("A".repeat(32) + ":BBAA", "legacy-xor");
     // Lote antigo grande (acima do teto do v1) continua reconhecido como legado.
     expectRejected(legacyXorEncrypt(asciiOf(40_000), k.encryptionKey), "legacy-xor");
   });

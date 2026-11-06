@@ -42,7 +42,7 @@ const VERSIONED_PREFIX = "domus-gcm-v";
 /** Separador do AAD entre o marcador e a chave pública do grupo. */
 const AAD_SEPARATOR = "|";
 /** Formato `hex(nonce):hex(cifra)` do `encryptPayload` do Grupo antigo. */
-const LEGACY_XOR_PATTERN = /^[0-9a-f]+:[0-9a-f]+$/;
+const LEGACY_XOR_PATTERN = /^[0-9a-f]{32}:(?:[0-9a-f]{2})*$/i;
 const NOSTR_PUBLIC_KEY_PATTERN = /^[0-9a-f]{64}$/;
 const MIN_PACKED_BYTES = STRONG_NONCE_BYTES + STRONG_TAG_BYTES;
 
@@ -66,6 +66,9 @@ export type StrongDecryptResult =
 
 /** Tamanho em bytes UTF-8, para a 4.5 dividir o lote antes de cifrar. */
 export function strongPlaintextBytes(plaintext: string): number {
+  if (typeof plaintext !== "string") {
+    throw new Error("O texto precisa ser uma string.");
+  }
   // Conta sem alocar: 1 byte até U+007F, 2 até U+07FF, 4 para par substituto
   // válido e 3 para o resto (substituto solto vira U+FFFD, 3 bytes, como no
   // `TextEncoder`).
@@ -114,7 +117,7 @@ export function encryptStrongPayload(
 ): string {
   if (typeof plaintext !== "string") throw new Error("O texto a cifrar precisa ser uma string.");
   if (!isValidKeys(keys)) throw new Error("Chaves do Grupo forte inválidas para a cifra.");
-  if (strongPlaintextBytes(plaintext) > STRONG_MAX_PLAINTEXT_BYTES) {
+  if (plaintext.length > STRONG_MAX_PLAINTEXT_BYTES || strongPlaintextBytes(plaintext) > STRONG_MAX_PLAINTEXT_BYTES) {
     throw new Error("Texto grande demais para um lote cifrado; divida o lote antes de cifrar.");
   }
 
@@ -163,7 +166,11 @@ export function decryptStrongPayload(content: unknown, keys: StrongCipherKeys): 
   }
   // A tag conferiu: o texto veio de quem tem a chave. Bytes que não são UTF-8
   // (só um cliente defeituoso os cifraria) viram U+FFFD, como no `TextDecoder`.
-  const plaintext = bytesToUtf8(data);
-  data.fill(0);
+  let plaintext: string;
+  try {
+    plaintext = bytesToUtf8(data);
+  } finally {
+    data.fill(0);
+  }
   return { ok: true, plaintext };
 }

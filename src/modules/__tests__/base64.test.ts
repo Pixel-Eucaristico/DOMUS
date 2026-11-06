@@ -47,6 +47,8 @@ describe("base64 (RFC 4648 §4)", () => {
     ["variante URL (-)", "-_8="],
     ["espaço", "Zm9v Zg=="],
     ["quebra de linha", "Zm9v\nZg=="],
+    ["tabulação", "Zm9v\tZg=="],
+    ["retorno de carro", "Zm9v\rZg=="],
     ["espaço no fim", "Zm8= "],
     ["= no meio", "Zg==Zm9v"],
     ["= demais", "Z==="],
