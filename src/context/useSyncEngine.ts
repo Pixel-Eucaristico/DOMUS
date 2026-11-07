@@ -12,6 +12,7 @@ import {
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { SubCloser } from "nostr-tools/pool";
 import { createSyncCoordinator } from "@/src/modules/syncCoordinator";
+import { createSyncGroupTracker } from "@/src/modules/syncGroupTracking";
 import { selectOldGroupPushEvents, selectStrongGroupPushEvents } from "@/src/modules/syncPayload";
 import { parseGroupSecret } from "@/src/modules/strongGroup/groupSecret";
 import {
@@ -23,6 +24,7 @@ import {
 import {
   LAST_SYNC_KEY,
   LAST_PUSH_HASH_KEY,
+  SYNC_GROUP_TRACKING_KEY,
   PULL_INTERVAL_MS,
   computeEventHash,
 } from "./syncStorage";
@@ -93,10 +95,29 @@ export function useSyncEngine({
     importEventsRef.current = importEvents;
   }, [importEvents]);
 
+  const [tracker] = useState(() =>
+    createSyncGroupTracker({
+      storage: AsyncStorage,
+      key: SYNC_GROUP_TRACKING_KEY,
+    }),
+  );
+
   const [coordinator] = useState(() =>
     createSyncCoordinator<{ keys: NostrSyncKeys; deviceId: string; isRecovery: boolean }>({
       storage: AsyncStorage,
-      pull: (req) => pullSyncEvents(req.keys, req.deviceId, req.isRecovery),
+      pull: async (req) => {
+        const result = await pullSyncEvents(req.keys, req.deviceId, req.isRecovery);
+        const foreignEvents = result.events.filter((e) => e.deviceId !== req.deviceId);
+        if (foreignEvents.length > 0) {
+          tracker
+            .markReceived(
+              foreignEvents.map((e) => e.id),
+              req.keys.publicKey,
+            )
+            .catch(() => {});
+        }
+        return result;
+      },
       importEvents: (events) => {
         if (pushDebounceRef.current) {
           clearTimeout(pushDebounceRef.current);
@@ -121,9 +142,12 @@ export function useSyncEngine({
     });
     // O cursor carrega antes das chaves: a assinatura só nasce com as chaves e
     // já monta o `since` com o cursor salvo. A chave antiga (`lastPullTs`) é apagada.
-    coordinator
-      .load()
-      .catch(() => null)
+    Promise.all([
+      coordinator.load().catch(() => null),
+      tracker.load().catch((err) => {
+        console.warn("[Sync] Falha ao carregar tracker de grupos:", err);
+      }),
+    ])
       .then(async () => {
         const active = await loadActiveSyncGroup();
         if (active) {
@@ -143,33 +167,40 @@ export function useSyncEngine({
     return () => {
       closePool();
     };
-  }, [coordinator]);
+  }, [coordinator, tracker]);
 
   // --- Core sync operations ---
 
   // Story 11.4 e Story 4.5: só o que o grupo ativo publica entra no hash e no
   // push; no Grupo antigo, holerites (`PAYSLIP_*`) são excluídos; no Grupo forte,
   // todos os eventos deste aparelho são transmitidos e compõem o hash.
+  // Story 4.6: filtra eventos que já foram publicados ou recebidos no grupo atual.
   const getMyEvents = useCallback(
     (did: string): SyncEvent[] => {
-      if (isStrongGroupRef.current) {
-        return selectStrongGroupPushEvents(allEventsRef.current, did);
-      }
-      return selectOldGroupPushEvents(allEventsRef.current, did);
+      return isStrongGroupRef.current
+        ? selectStrongGroupPushEvents(allEventsRef.current, did)
+        : selectOldGroupPushEvents(allEventsRef.current, did);
     },
     [],
   );
 
   const pushMyEvents = useCallback(
     async (k: NostrSyncKeys, did: string, force: boolean = false) => {
+      const groupId = k.publicKey;
       const myEvents = getMyEvents(did);
       if (myEvents.length === 0) return;
 
+      // Story 4.6: Se todos os eventos já foram publicados neste grupo e o hash não mudou, evita push redundante
+      const pendingEvents = tracker.filterEventsToPublish(myEvents, groupId);
       const hash = computeEventHash(myEvents);
-      if (!force && hash === lastPushHashRef.current) return;
+      if (!force && pendingEvents.length === 0 && hash === lastPushHashRef.current) return;
 
       try {
         await publishSyncEvents(k, did, myEvents);
+        await tracker.markPublished(
+          myEvents.map((e) => e.id),
+          groupId,
+        );
         lastPushHashRef.current = hash;
         try {
           await AsyncStorage.setItem(LAST_PUSH_HASH_KEY, hash);
@@ -178,7 +209,7 @@ export function useSyncEngine({
         throw err;
       }
     },
-    [getMyEvents],
+    [getMyEvents, tracker],
   );
 
   const pullFromRelays = useCallback(
@@ -253,11 +284,15 @@ export function useSyncEngine({
     pullTimerRef.current = setInterval(doSync, PULL_INTERVAL_MS);
 
     try {
+      const currentGroupId = keys.publicKey;
       subRef.current = subscribeToSyncEvents(
         keys,
         deviceId,
         coordinator.liveSince(),
         (event, createdAt) => {
+          if (event.deviceId !== deviceId) {
+            tracker.markReceived(event.id, currentGroupId).catch(() => {});
+          }
           // Story 3.6: o evento entra na fila e é importado quando o mutex permitir (sem descarte).
           coordinator.enqueueLive(event, createdAt);
         },
@@ -275,7 +310,7 @@ export function useSyncEngine({
       }
     };
     // O cursor não entra nas deps: ele muda a cada pull e recriaria a assinatura (lido do coordenador ao assinar).
-  }, [groupCode, deviceId, keys, loading, doSync, pullFromRelays, pushMyEvents, coordinator]);
+  }, [groupCode, deviceId, keys, loading, doSync, pullFromRelays, pushMyEvents, coordinator, tracker]);
 
   // --- Auto-push on local event changes ---
 
@@ -291,6 +326,8 @@ export function useSyncEngine({
       if (!keys || !deviceId) return;
 
       const myEvents = getMyEvents(deviceId);
+      if (myEvents.length === 0) return;
+
       const hash = computeEventHash(myEvents);
 
       if (hash === lastPushHashRef.current && initialSyncDoneRef.current) return;
@@ -431,6 +468,11 @@ export function useSyncEngine({
     // Nova época já (síncrono): pull e drenagem em curso do grupo antigo são ignorados.
     const resetting = coordinator.reset();
 
+    const previousGroupId = keysRef.current?.publicKey;
+    if (previousGroupId) {
+      await tracker.clearGroup(previousGroupId).catch(() => {});
+    }
+
     isStrongGroupRef.current = false;
     setGroupCode(null);
     setKeys(null);
@@ -441,7 +483,7 @@ export function useSyncEngine({
     await clearAllSyncGroupSecrets();
     await resetting;
     await AsyncStorage.removeItem(LAST_PUSH_HASH_KEY);
-  }, [coordinator]);
+  }, [coordinator, tracker]);
 
   const pushNow = useCallback(async () => {
     if (!groupCode || !deviceId || !keys) return;
@@ -487,5 +529,6 @@ export function useSyncEngine({
     pushNow,
     pullNow,
     resetStatus,
+    tracker,
   };
 }

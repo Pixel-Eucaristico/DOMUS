@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   GROUP_CODE_KEY,
   STRONG_GROUP_SECRET_KEY,
+  SYNC_GROUP_TRACKING_KEY,
   loadGroupCode,
   saveGroupCode,
   clearGroupCode,
@@ -158,6 +159,10 @@ describe("segredo do grupo forte no nativo (Story 4.3)", () => {
 describe("group code na web", () => {
   beforeEach(() => {
     process.env.EXPO_OS = "web";
+  });
+
+  it("define a chave correta para o rastreamento de grupos", () => {
+    expect(SYNC_GROUP_TRACKING_KEY).toBe("domus_sync_group_tracking_v1");
   });
 
   it("usa webSecrets (cifrado) e nunca AsyncStorage em texto puro", async () => {

@@ -74,7 +74,7 @@ development_status:
   4-3-criar-um-grupo-forte-e-mostra-lo-por-qr-e-por-texto: done
   4-4-parear-um-aparelho-por-qr-ou-colagem: done
   4-5-publicar-e-ler-eventos-no-grupo-forte: done
-  4-6-registrar-em-qual-grupo-cada-evento-já-foi-publicado: backlog
+  4-6-registrar-em-qual-grupo-cada-evento-já-foi-publicado: done
   4-7-manter-o-grupo-antigo-e-o-forte-ao-mesmo-tempo: backlog
   4-8-migrar-um-aparelho-do-grupo-antigo-para-o-forte: backlog
   4-9-cortar-o-grupo-antigo-na-versão-mínima-e-na-data: backlog
