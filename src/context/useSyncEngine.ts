@@ -393,9 +393,13 @@ export function useSyncEngine({
         setSyncStatus("connected");
         await saveLastSync(Date.now());
         return true;
-      } catch {
+      } catch (err: unknown) {
         setSyncStatus("error");
-        setErrorMessage("Falha ao entrar no grupo. Verifique o código e tente novamente.");
+        const msg =
+          err instanceof Error && err.message
+            ? err.message
+            : "Falha ao entrar no grupo. Verifique o código e tente novamente.";
+        setErrorMessage(msg);
         return false;
       }
     },

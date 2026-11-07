@@ -13,7 +13,6 @@ import {
   saveStrongGroupSecret,
   clearStrongGroupSecret,
   loadGroupCode,
-  saveGroupCode,
   clearGroupCode,
 } from "./syncStorage";
 import { deriveKeysFromCode, type NostrSyncKeys } from "@/src/modules/nostrSync";
@@ -23,6 +22,9 @@ export interface ActiveSyncGroup {
   isStrong: boolean;
   keys: NostrSyncKeys;
 }
+
+export const LEGACY_CODE_DISCONTINUED_MESSAGE =
+  "Códigos de 6 caracteres foram descontinuados. Use o QR Code ou cole o Segredo de 79 caracteres do aparelho principal.";
 
 /**
  * Cria exclusivamente um novo Grupo forte (Story 4.3).
@@ -49,21 +51,29 @@ export async function createStrongSyncGroup(): Promise<ActiveSyncGroup> {
 }
 
 /**
- * Resolve o ingresso em um grupo (Grupo forte ou legado).
- * Rejeita códigos vazios. Se o código começar com "DOMUS" e for inválido, lança erro
- * imediatamente sem cair para o armazenamento de grupo legado.
+ * Resolve o ingresso em um Grupo forte (Story 4.4).
+ * Rejeita códigos vazios. Normaliza qualquer prefixo domus:// antes do parsing.
+ * Recusa tentativas de pareamento com o código antigo de 6 caracteres com mensagem
+ * amigável que orienta o uso do QR Code ou do segredo forte do aparelho principal.
+ * Em caso de segredo inválido ou truncado, emite erro claro e nunca grava dados no armazenamento.
  */
 export async function resolveJoinSyncGroup(code: string): Promise<ActiveSyncGroup> {
-  const normalized = (code ?? "").trim().toUpperCase();
+  const raw = (code ?? "").trim();
+  if (!raw) {
+    throw new Error("Código de grupo vazio.");
+  }
+
+  let normalized = raw;
+  if (normalized.toLowerCase().startsWith("domus://")) {
+    normalized = normalized.slice("domus://".length).trim();
+  }
+
   if (!normalized) {
     throw new Error("Código de grupo vazio.");
   }
 
-  if (normalized.startsWith("DOMUS")) {
-    const parsed = parseGroupSecret(normalized);
-    if (!parsed.ok) {
-      throw new Error("Segredo de grupo inválido.");
-    }
+  const parsed = parseGroupSecret(normalized);
+  if (parsed.ok) {
     const finalCode = encodeGroupSecret(parsed.secret);
     const strongKeys = deriveStrongGroupKeys(parsed.secret);
     parsed.secret.fill(0);
@@ -77,10 +87,13 @@ export async function resolveJoinSyncGroup(code: string): Promise<ActiveSyncGrou
     return { code: finalCode, isStrong: true, keys };
   }
 
-  const keys = await deriveKeysFromCode(normalized);
-  await saveGroupCode(normalized);
-  await clearStrongGroupSecret();
-  return { code: normalized, isStrong: false, keys };
+  // Recusa códigos legados de 6 caracteres com erro explícito instrutivo
+  const stripped = normalized.replace(/[\s\-\u00AD\u2010-\u2015\u2212\u200B-\u200D\u2060\uFEFF]+/g, "");
+  if (parsed.reason === "legacy-code" || (!normalized.startsWith("DOMUS") && stripped.length === 6)) {
+    throw new Error(LEGACY_CODE_DISCONTINUED_MESSAGE);
+  }
+
+  throw new Error("Segredo de grupo inválido.");
 }
 
 /**

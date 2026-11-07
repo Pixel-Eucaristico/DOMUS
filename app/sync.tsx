@@ -18,6 +18,7 @@ import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
 import { useSync } from "@/src/context/SyncProvider";
 import { useAppState } from "@/src/context/AppStateProvider";
+import { LEGACY_CODE_DISCONTINUED_MESSAGE } from "@/src/context/strongGroupSync";
 import { soundManager } from "@/src/services/SoundManager";
 import { appAlert } from "@/src/services/appAlert";
 import { QRScannerModal } from "@/src/components/sync/QRScannerModal";
@@ -100,9 +101,21 @@ function SyncScreen() {
   const handleJoinGroup = useCallback(async () => {
     haptic();
     soundManager.play("pop");
-    if (joinCode.trim().length < 4) return;
+    const raw = joinCode.trim();
+    if (raw.length < 4) return;
+
+    let normalized = raw;
+    if (normalized.toLowerCase().startsWith("domus://")) {
+      normalized = normalized.slice("domus://".length).trim();
+    }
+    const stripped = normalized.replace(/[\s\-\u00AD\u2010-\u2015\u2212\u200B-\u200D\u2060\uFEFF]+/g, "");
+    if (!normalized.toUpperCase().startsWith("DOMUS") && stripped.length === 6) {
+      appAlert("Código descontinuado", LEGACY_CODE_DISCONTINUED_MESSAGE);
+      return;
+    }
+
     setActionLoading(true);
-    const ok = await joinGroup(joinCode.trim().toUpperCase());
+    const ok = await joinGroup(raw);
     setActionLoading(false);
     if (ok) { setJoinCode(""); setShowJoinInput(false); }
   }, [joinGroup, joinCode]);
@@ -112,6 +125,17 @@ function SyncScreen() {
     setShowScanner(false);
     setJoinCode(code);
     setShowJoinInput(true);
+
+    let normalized = code.trim();
+    if (normalized.toLowerCase().startsWith("domus://")) {
+      normalized = normalized.slice("domus://".length).trim();
+    }
+    const stripped = normalized.replace(/[\s\-\u00AD\u2010-\u2015\u2212\u200B-\u200D\u2060\uFEFF]+/g, "");
+    if (!normalized.toUpperCase().startsWith("DOMUS") && stripped.length === 6) {
+      appAlert("Código descontinuado", LEGACY_CODE_DISCONTINUED_MESSAGE);
+      return;
+    }
+
     setActionLoading(true);
     const ok = await joinGroup(code);
     setActionLoading(false);
@@ -264,27 +288,31 @@ function SyncScreen() {
 
             {showJoinInput && (
               <View style={[s.joinCard, { backgroundColor: theme.cardBackground }]}>
-                <Text style={[s.joinLabel, { color: theme.textColor }]}>Código do grupo</Text>
+                <Text style={[s.joinLabel, { color: theme.textColor }]}>Segredo do grupo</Text>
                 <View style={s.joinInputRow}>
                   <TInput
                     flex={1}
                     value={joinCode}
                     onChangeText={(text: string) => setJoinCode(text.toUpperCase())}
-                    placeholder="EX: ABC123"
+                    placeholder="DOMUS1-XXXX-XXXX-..."
                     autoCapitalize="characters"
-                    maxLength={8}
+                    autoCorrect={false}
+                    spellCheck={false}
+                    maxLength={100}
                     autoFocus
-                    fontFamily="$body"
-                    fontWeight="600"
-                    fontSize={18}
-                    letterSpacing={3}
-                    textAlign="center"
+                    fontFamily={Platform.OS === "ios" ? "Menlo" : "monospace"}
+                    fontWeight="500"
+                    fontSize={12}
+                    letterSpacing={0.5}
+                    textAlign={joinCode.length > 20 ? "left" : "center"}
                     height={48}
                     color={theme.textColor}
                     backgroundColor={theme.cardBackground}
                     borderColor={theme.border}
                   />
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Entrar no grupo"
                     style={[s.joinBtn, { backgroundColor: joinCode.trim().length >= 4 ? theme.primaryColor : theme.border }]}
                     onPress={handleJoinGroup}
                     disabled={joinCode.trim().length < 4 || isBusy}
@@ -292,7 +320,11 @@ function SyncScreen() {
                     {isBusy ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Feather name="check" size={20} color="#FFFFFF" />}
                   </Pressable>
                 </View>
-                <Pressable onPress={() => { soundManager.play("tap"); setShowJoinInput(false); setJoinCode(""); }}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancelar entrada no grupo"
+                  onPress={() => { soundManager.play("tap"); setShowJoinInput(false); setJoinCode(""); }}
+                >
                   <Text style={[s.cancelText, { color: theme.secondaryText }]}>Cancelar</Text>
                 </Pressable>
               </View>

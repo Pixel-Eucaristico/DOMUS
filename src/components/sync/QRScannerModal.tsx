@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useRef, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -13,6 +13,9 @@ import { Feather } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { soundManager } from "@/src/services/SoundManager";
+import { extractScannedCode } from "./qrScannerUtils";
+
+export { extractScannedCode };
 
 interface QRScannerModalProps {
   visible: boolean;
@@ -26,15 +29,18 @@ export function QRScannerModal({ visible, onClose, onScanned, theme }: QRScanner
   const insets = useSafeAreaInsets();
   const scannedRef = useRef(false);
 
+  useEffect(() => {
+    if (visible) {
+      scannedRef.current = false;
+    }
+  }, [visible]);
+
   const handleBarCodeScanned = useCallback(
     (result: any) => {
       if (scannedRef.current) return;
       const data = result?.data;
-      if (!data) return;
-
-      const code = data.startsWith("domus://") ? data.replace("domus://", "") : data;
-      const cleaned = code.trim().toUpperCase();
-      if (cleaned.length >= 4 && cleaned.length <= 8) {
+      const cleaned = extractScannedCode(data);
+      if (cleaned) {
         scannedRef.current = true;
         soundManager.play("share");
         if (Platform.OS !== "web") {

@@ -207,19 +207,48 @@ describe("Story 4.3: resolveJoinSyncGroup", () => {
     expect(legacy.has(GROUP_CODE_KEY)).toBe(false);
   });
 
-  it("aceita código legado válido e o persiste em armazenamento legado", async () => {
+  it("aceita e normaliza segredo forte com prefixo domus:// (comum em QR codes)", async () => {
+    const strongGroup = await createStrongSyncGroup();
+    secure.clear();
+    legacy.clear();
+
+    const resolved = await resolveJoinSyncGroup(`domus://${strongGroup.code}`);
+    expect(resolved.isStrong).toBe(true);
+    expect(resolved.code).toBe(strongGroup.code);
+    expect(secure.get(STRONG_GROUP_SECRET_KEY)).toBe(strongGroup.code);
+    expect(legacy.has(STRONG_GROUP_SECRET_KEY)).toBe(false);
+  });
+
+  it("rejeita código legado de 6 caracteres no pareamento com mensagem explicativa e não salva nada (Story 4.4)", async () => {
     const legacyCode = "ABC234";
 
-    const resolved = await resolveJoinSyncGroup(legacyCode);
-    expect(resolved.isStrong).toBe(false);
-    expect(resolved.code).toBe("ABC234");
-    expect(secure.get(GROUP_CODE_KEY)).toBe("ABC234");
+    await expect(resolveJoinSyncGroup(legacyCode)).rejects.toThrow(
+      "Códigos de 6 caracteres foram descontinuados. Use o QR Code ou cole o Segredo de 79 caracteres do aparelho principal.",
+    );
+    expect(secure.has(GROUP_CODE_KEY)).toBe(false);
+    expect(legacy.has(GROUP_CODE_KEY)).toBe(false);
     expect(secure.has(STRONG_GROUP_SECRET_KEY)).toBe(false);
+  });
+
+  it("rejeita código legado com prefixo domus:// e não salva nada", async () => {
+    await expect(resolveJoinSyncGroup("domus://ABC234")).rejects.toThrow(
+      "Códigos de 6 caracteres foram descontinuados. Use o QR Code ou cole o Segredo de 79 caracteres do aparelho principal.",
+    );
+    expect(secure.has(GROUP_CODE_KEY)).toBe(false);
+    expect(legacy.has(GROUP_CODE_KEY)).toBe(false);
+  });
+
+  it("rejeita 'DOMUS1' incompleto (6 caracteres) com erro padrão de segredo inválido e NÃO com mensagem legada (Story 4.4)", async () => {
+    await expect(resolveJoinSyncGroup("DOMUS1")).rejects.toThrow("Segredo de grupo inválido.");
+    expect(secure.has(STRONG_GROUP_SECRET_KEY)).toBe(false);
+    expect(legacy.has(STRONG_GROUP_SECRET_KEY)).toBe(false);
+    expect(legacy.has(GROUP_CODE_KEY)).toBe(false);
   });
 
   it("rejeita string vazia ou apenas espaços", async () => {
     await expect(resolveJoinSyncGroup("")).rejects.toThrow("Código de grupo vazio.");
     await expect(resolveJoinSyncGroup("   ")).rejects.toThrow("Código de grupo vazio.");
+    await expect(resolveJoinSyncGroup("domus://")).rejects.toThrow("Código de grupo vazio.");
   });
 });
 
@@ -271,13 +300,33 @@ describe("Story 4.3: Interface app/sync.tsx e conformidade", () => {
   it("atribui accessibilityRole='button' aos pressables de QR e cópia", () => {
     expect(syncScreenSource).toContain('accessibilityRole="button"');
   });
+
+  it("removeu maxLength={8} do campo de entrada e suporta segredo forte de até 100 caracteres (Story 4.4)", () => {
+    expect(syncScreenSource).not.toContain("maxLength={8}");
+    expect(syncScreenSource).toContain("maxLength={100}");
+  });
+
+  it("trata recusa de código legado de 6 caracteres com appAlert informativo e retorno antecipado (Story 4.4)", () => {
+    expect(syncScreenSource).toContain("Código descontinuado");
+    expect(syncScreenSource).toContain("LEGACY_CODE_DISCONTINUED_MESSAGE");
+    expect(syncScreenSource).toContain("return;");
+  });
+
+  it("configura autoCorrect={false} e spellCheck={false} no campo de segredo (Story 4.4)", () => {
+    expect(syncScreenSource).toContain("autoCorrect={false}");
+    expect(syncScreenSource).toContain("spellCheck={false}");
+  });
 });
 
-describe("Story 4.3: useSyncEngine e tratamento de falhas (Matriz)", () => {
+describe("Story 4.3 / 4.4: useSyncEngine e tratamento de falhas (Matriz)", () => {
   const engineSource = readFileSync(
     path.resolve(__dirname, "../useSyncEngine.ts"),
     "utf8",
   );
+
+  it("propaga mensagem de erro de resolveJoinSyncGroup para errorMessage (Story 4.4)", () => {
+    expect(engineSource).toContain("err instanceof Error && err.message");
+  });
 
   it("testa conexão com relays antes de criar grupo e não grava segredo se relays falharem (Matriz Linha 2)", () => {
     // Verifica que o teste de relay ocorre antes de createStrongSyncGroup
