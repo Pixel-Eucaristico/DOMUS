@@ -16,6 +16,7 @@ import {
   isOldGroupPublishable,
   partitionOldGroupEvents,
   selectOldGroupPushEvents,
+  selectStrongGroupPushEvents,
 } from "../syncPayload";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -336,5 +337,54 @@ describe("revisão 11.4 — R6: hash do push só do publicável no Grupo antigo"
     expect(hashes.length).toBeGreaterThan(0);
     for (const call of hashes) expect(call).toBe("computeEventHash(myEvents)");
     expect(src.match(/const myEvents = getMyEvents\(/g)?.length).toBe(hashes.length);
+  });
+});
+
+describe("Story 4.5: importEvents e push no Grupo forte", () => {
+  const salary = { id: "p1", period: "2026-09", company: "ACME", grossSalary: 98765, netSalary: 87654, deductions: [] };
+  const events = [
+    valid({ id: "a" }),
+    valid({ id: "p", type: "PAYSLIP_RECORDED", payload: salary }),
+    valid({ id: "d", type: "PAYSLIP_DELETED", payload: { id: "p1" } }),
+    valid({ id: "b", type: "XP_GAINED", payload: { amount: 10 } }),
+  ];
+
+  it("selectEventsToImport com isStrongGroup: true aceita e grava PAYSLIP_* normalmente", () => {
+    const warn = vi.fn();
+    const r = selectEventsToImport(events, new Set(), warn, { isStrongGroup: true });
+    expect(r.toAppend.map((e) => e.id)).toEqual(["a", "p", "d", "b"]);
+    expect(r).toMatchObject({ discarded: 0, duplicates: 0, excluded: 0 });
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("selectEventsToImport com warn=undefined e options no 4º argumento aceita PAYSLIP_* (chamada do useEventStore)", () => {
+    const r = selectEventsToImport(events, new Set(), undefined, { isStrongGroup: true });
+    expect(r.toAppend.map((e) => e.id)).toEqual(["a", "p", "d", "b"]);
+    expect(r).toMatchObject({ discarded: 0, duplicates: 0, excluded: 0 });
+  });
+
+  it("selectEventsToImport com options direto no 3º argumento aceita PAYSLIP_*", () => {
+    const r = selectEventsToImport(events, new Set(), { isStrongGroup: true });
+    expect(r.toAppend.map((e) => e.id)).toEqual(["a", "p", "d", "b"]);
+    expect(r).toMatchObject({ discarded: 0, duplicates: 0, excluded: 0 });
+  });
+
+  it("selectEventsToImport com isStrongGroup: false continua descartando PAYSLIP_*", () => {
+    const warn = vi.fn();
+    const r = selectEventsToImport(events, new Set(), warn, { isStrongGroup: false });
+    expect(r.toAppend.map((e) => e.id)).toEqual(["a", "b"]);
+    expect(r).toMatchObject({ discarded: 0, duplicates: 0, excluded: 2 });
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("selectStrongGroupPushEvents retorna todos os eventos do deviceId (inclusive PAYSLIP_*)", () => {
+    const log = [
+      valid({ id: "a", deviceId: "dev-a" }),
+      valid({ id: "p", deviceId: "dev-a", type: "PAYSLIP_RECORDED", payload: salary }),
+      valid({ id: "other", deviceId: "dev-b" }),
+      valid({ id: "d", deviceId: "dev-a", type: "PAYSLIP_DELETED", payload: { id: "p1" } }),
+    ];
+    const pushed = selectStrongGroupPushEvents(log, "dev-a");
+    expect(pushed.map((e) => e.id)).toEqual(["a", "p", "d"]);
   });
 });

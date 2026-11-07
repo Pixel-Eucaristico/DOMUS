@@ -90,6 +90,17 @@ export function selectOldGroupPushEvents<T extends { deviceId?: unknown; type?: 
   return events.filter((e) => e.deviceId === deviceId && isOldGroupPublishable(e.type));
 }
 
+/**
+ * Eventos deste aparelho que o push do Grupo forte publica (Story 4.5): todos
+ * os eventos do `deviceId` (inclusive `PAYSLIP_*`).
+ */
+export function selectStrongGroupPushEvents<T extends { deviceId?: unknown }>(
+  events: readonly T[],
+  deviceId: string,
+): T[] {
+  return events.filter((e) => e.deviceId === deviceId);
+}
+
 export interface ImportSelection {
   /** Eventos a gravar, na ordem recebida, já validados e sem repetidos. */
   toAppend: SyncEvent[];
@@ -101,23 +112,64 @@ export interface ImportSelection {
   excluded: number;
 }
 
+export interface SelectEventsOptions {
+  isStrongGroup?: boolean;
+}
+
 /**
  * Laço puro do `importEvents`: valida cada evento, ignora ids já gravados e
  * repetidos dentro do lote, e preserva a ordem. Não muta `existingIds`.
+ * Aceita `options?: { isStrongGroup?: boolean }` para permitir eventos `PAYSLIP_*`
+ * exclusivamente quando originados do Grupo forte (Story 4.5).
  */
 export function selectEventsToImport(
   events: readonly unknown[],
   existingIds: ReadonlySet<string>,
-  warn: (message: string) => void = (m) => console.warn(m),
+  warn?: (message: string) => void,
+  options?: SelectEventsOptions,
+): ImportSelection;
+export function selectEventsToImport(
+  events: readonly unknown[],
+  existingIds: ReadonlySet<string>,
+  options?: SelectEventsOptions,
+): ImportSelection;
+export function selectEventsToImport(
+  events: readonly unknown[],
+  existingIds: ReadonlySet<string>,
+  warnOrOptions?: ((...args: any[]) => any) | SelectEventsOptions,
+  options?: SelectEventsOptions,
 ): ImportSelection {
-  const { valid: envelopes, discarded } = filterImportableEvents(events, warn);
-  // Revisão R5: o `importEvents` só serve ao sync do Grupo antigo; `PAYSLIP_*`
-  // não entra por ele, mesmo que escape do filtro do pull/assinatura. O restore
-  // de backup não passa por aqui. Só id/type no aviso, nunca o payload.
-  const { allowed: valid, excluded } = partitionOldGroupEvents(envelopes);
-  for (const e of excluded) {
-    warn(`[EventStore] Evento ignorado na importação (não aceito no Grupo antigo): id=${e.id} type=${e.type}`);
+  let warn: (message: string) => void = (m) => console.warn(m);
+  let opts: SelectEventsOptions = {};
+
+  if (options && typeof options === "object") {
+    opts = options;
+  } else if (warnOrOptions && typeof warnOrOptions === "object") {
+    opts = warnOrOptions;
   }
+  if (typeof warnOrOptions === "function") {
+    warn = warnOrOptions;
+  }
+
+  const { valid: envelopes, discarded } = filterImportableEvents(events, warn);
+  const isStrong = Boolean(opts.isStrongGroup);
+  let valid: SyncEvent[];
+  let excludedCount = 0;
+
+  if (isStrong) {
+    valid = envelopes;
+    excludedCount = 0;
+  } else {
+    // Revisão R5: o Grupo antigo não aceita `PAYSLIP_*`, mesmo que escape do filtro
+    // do pull/assinatura. Só id/type no aviso, nunca o payload.
+    const partitioned = partitionOldGroupEvents(envelopes);
+    valid = partitioned.allowed;
+    excludedCount = partitioned.excluded.length;
+    for (const e of partitioned.excluded) {
+      warn(`[EventStore] Evento ignorado na importação (não aceito no Grupo antigo): id=${e.id} type=${e.type}`);
+    }
+  }
+
   const seen = new Set(existingIds);
   const toAppend: SyncEvent[] = [];
   let duplicates = 0;
@@ -129,7 +181,7 @@ export function selectEventsToImport(
     seen.add(evt.id);
     toAppend.push(evt);
   }
-  return { toAppend, discarded, duplicates, excluded: excluded.length };
+  return { toAppend, discarded, duplicates, excluded: excludedCount };
 }
 
 /**

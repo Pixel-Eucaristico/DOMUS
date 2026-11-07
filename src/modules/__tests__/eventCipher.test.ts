@@ -530,9 +530,13 @@ describe("fonte do módulo", () => {
     expect(src).toContain("STRONG_CIPHER_MARKER + AAD_SEPARATOR + nostrPublicKey");
   });
 
-  it("o Grupo antigo não usa a cifra nova nesta story", () => {
+  it("o Grupo antigo não usa a cifra nova (código legado de cifra permanece em XOR)", () => {
     const nostrSync = readFileSync(path.resolve(__dirname, "../nostrSync.ts"), "utf8");
-    expect(nostrSync).not.toMatch(/strongGroup\/eventCipher|eventCipher/);
-    expect(nostrSync).not.toContain("domus-gcm");
+    const legacyCipherSection = nostrSync.slice(
+      nostrSync.indexOf("async function encryptPayload"),
+      nostrSync.indexOf("export function getRelays"),
+    );
+    expect(legacyCipherSection).not.toMatch(/strongGroup\/eventCipher|eventCipher/);
+    expect(legacyCipherSection).not.toContain("domus-gcm");
   });
 });

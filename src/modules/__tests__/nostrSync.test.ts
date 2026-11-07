@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from "vitest";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { subscriptionSince } from "../syncPayload";
+import { generateGroupSecret, deriveStrongGroupKeys } from "../strongGroup/groupSecret";
+import { decryptStrongPayload } from "../strongGroup/eventCipher";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
@@ -37,6 +39,7 @@ vi.mock("nostr-tools/pool", () => ({
   },
 }));
 
+// eslint-disable-next-line import/first
 import {
   parseSyncPayload,
   pullSyncEvents,
@@ -44,6 +47,7 @@ import {
   subscribeToSyncEvents,
   deriveKeysFromCode,
   closePool,
+  type NostrSyncKeys,
 } from "../nostrSync";
 
 const valid = (over: Record<string, unknown> = {}) => ({
@@ -365,5 +369,291 @@ describe("revisão 11.4 — R12: publicador único do Grupo antigo", () => {
       .filter((f) => /finalizeEvent|\.publish\(|new SimplePool/.test(readFileSync(f, "utf8")))
       .map((f) => path.relative(root, f));
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("Story 4.5: Publicar e ler eventos no Grupo forte", () => {
+  function makeStrongKeys(): NostrSyncKeys {
+    const secret = generateGroupSecret();
+    const strong = deriveStrongGroupKeys(secret);
+    return {
+      privateKey: strong.nostrPrivateKey,
+      publicKey: strong.nostrPublicKey,
+      encryptionKey: strong.encryptionKey,
+      isStrong: true,
+    };
+  }
+
+  const payslip = (id: string, type = "PAYSLIP_RECORDED") =>
+    valid({
+      id,
+      type,
+      payload:
+        type === "PAYSLIP_RECORDED"
+          ? { id: "p1", period: "2026-09", company: "ACME", grossSalary: 9876.54, netSalary: 7654.32, deductions: [], schemaVersion: 1 }
+          : { id: "p1", schemaVersion: 1 },
+    });
+
+  it("publicação no Grupo forte: cifra com AES-GCM (domus-gcm-v1.), assina com pubkey forte e transmite PAYSLIP_*", async () => {
+    const keys = makeStrongKeys();
+    const events = [
+      valid({ id: "tx-1" }),
+      payslip("rec-1", "PAYSLIP_RECORDED"),
+      payslip("del-1", "PAYSLIP_DELETED"),
+    ] as any[];
+
+    const count = await publishSyncEvents(keys, "dev-a", events);
+    expect(count).toBe(3);
+    expect(published).toHaveLength(1);
+
+    const ev = published[0];
+    expect(ev.pubkey).toBe(keys.publicKey);
+    expect(ev.content.startsWith("domus-gcm-v1.")).toBe(true);
+
+    // Decifra com decryptStrongPayload e verifica presença de holerite
+    const res = decryptStrongPayload(ev.content, {
+      encryptionKey: keys.encryptionKey,
+      nostrPublicKey: keys.publicKey,
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) throw new Error("Falha inesperada na decifra");
+
+    const batch = JSON.parse(res.plaintext) as { id: string; type: string }[];
+    expect(batch.map((e) => [e.id, e.type])).toEqual([
+      ["tx-1", "TRANSACTION_CREATED"],
+      ["rec-1", "PAYSLIP_RECORDED"],
+      ["del-1", "PAYSLIP_DELETED"],
+    ]);
+  });
+
+  it("lote grande no Grupo forte (> 32 KB): particiona em múltiplos lotes respeitando STRONG_MAX_PLAINTEXT_BYTES", async () => {
+    const keys = makeStrongKeys();
+    // 10 eventos com payload de 4 KB cada -> ~42 KB total (> 32 KB)
+    const longText = "x".repeat(4000);
+    const largeEvents = Array.from({ length: 10 }, (_, i) =>
+      valid({
+        id: `large-${i}`,
+        payload: { note: longText, index: i },
+      }),
+    ) as any[];
+
+    const count = await publishSyncEvents(keys, "dev-a", largeEvents);
+    expect(count).toBe(10);
+    expect(published.length).toBeGreaterThan(1); // Particionado em ao menos 2 lotes
+
+    // Cada lote publicado deve ser um evento Nostr com domus-gcm-v1. válido
+    for (const p of published) {
+      expect(p.content.startsWith("domus-gcm-v1.")).toBe(true);
+      const dec = decryptStrongPayload(p.content, {
+        encryptionKey: keys.encryptionKey,
+        nostrPublicKey: keys.publicKey,
+      });
+      expect(dec.ok).toBe(true);
+    }
+
+    // Pull traz todos os 10 eventos
+    relayEvents = published.map((ev, idx) => ({ ...ev, id: `relay-${idx}` }));
+    const { events: pulled } = await pullSyncEvents(keys, "dev-b", true);
+    expect(pulled).toHaveLength(10);
+    expect(pulled.map((e) => e.id)).toEqual(largeEvents.map((e) => e.id));
+  });
+
+  it("leitura / pull no Grupo forte: decifra domus-gcm-v1. e importa todos os eventos (inclusive PAYSLIP_*)", async () => {
+    const keys = makeStrongKeys();
+    const events = [
+      valid({ id: "tx-2" }),
+      payslip("rec-2", "PAYSLIP_RECORDED"),
+      payslip("del-2", "PAYSLIP_DELETED"),
+    ] as any[];
+
+    await publishSyncEvents(keys, "dev-a", events);
+    relayEvents = published.map((ev, idx) => ({ ...ev, id: `pub-${idx}` }));
+
+    const { events: pulled, maxCreatedAt } = await pullSyncEvents(keys, "dev-b", true);
+    expect(pulled.map((e) => e.id)).toEqual(["tx-2", "rec-2", "del-2"]);
+    expect(pulled.find((e) => e.id === "rec-2")?.type).toBe("PAYSLIP_RECORDED");
+    expect(pulled.find((e) => e.id === "del-2")?.type).toBe("PAYSLIP_DELETED");
+    expect(typeof maxCreatedAt).toBe("number");
+  });
+
+  it("terceiro sem o Segredo forte falha na decifra nos relays", async () => {
+    const keys = makeStrongKeys();
+    const otherKeys = makeStrongKeys();
+
+    await publishSyncEvents(keys, "dev-a", [valid({ id: "secret-tx" }), payslip("rec-3")]);
+    // Mesmo que o relay entregue o evento para o terceiro:
+    relayEvents = published.map((ev, idx) => ({ ...ev, id: `leak-${idx}` }));
+
+    const { events: pulledByThirdParty } = await pullSyncEvents(otherKeys, "dev-third", true);
+    expect(pulledByThirdParty).toEqual([]);
+
+    // Decifra manual com chave do terceiro falha com auth-failed
+    const attempt = decryptStrongPayload(published[0].content, {
+      encryptionKey: otherKeys.encryptionKey,
+      nostrPublicKey: otherKeys.publicKey,
+    });
+    expect(attempt).toEqual({ ok: false, reason: "auth-failed" });
+
+    // Tentativa de decifrar o content domus-gcm-v1. com XOR legado também falha
+    expect(() => decrypt(published[0].content, keys.encryptionKey)).toThrow();
+  });
+
+  it("evento adulterado no relay é descartado silenciosamente no Grupo forte", async () => {
+    const keys = makeStrongKeys();
+    await publishSyncEvents(keys, "dev-a", [valid({ id: "tx-valid" })]);
+
+    // Adultera um caractere do texto cifrado
+    const originalContent = published[0].content;
+    const tamperedContent =
+      originalContent.slice(0, originalContent.length - 5) +
+      (originalContent.endsWith("A") ? "B" : "A") +
+      originalContent.slice(originalContent.length - 4);
+
+    relayEvents = [{ ...published[0], id: "tampered-1", content: tamperedContent }];
+    const { events: pulled } = await pullSyncEvents(keys, "dev-b", true);
+    expect(pulled).toEqual([]);
+  });
+
+  it("isolamento total entre Grupo antigo e Grupo forte", async () => {
+    const strongKeys = makeStrongKeys();
+    const oldKeys = await deriveKeysFromCode("ANTIGO-1");
+
+    // Publica no Grupo forte
+    await publishSyncEvents(strongKeys, "dev-strong", [valid({ id: "strong-evt" })]);
+
+    // O filtro de pull do Grupo antigo consulta estritamente authors: [oldKeys.publicKey]
+    expect(oldKeys.publicKey).not.toBe(strongKeys.publicKey);
+
+    // Se o relay do Grupo antigo recebesse o evento forte (adulteração de relay):
+    relayEvents = published.map((ev, idx) => ({ ...ev, id: `relay-cross-${idx}` }));
+    const { events: pulledOld } = await pullSyncEvents(oldKeys, "dev-old", true);
+    expect(pulledOld).toEqual([]); // Ignorado pelo Grupo antigo
+
+    // Se o relay do Grupo antigo recebesse um PAYSLIP_* em XOR, é descartado
+    relayEvents = [
+      relayEvent("rogue-slip", encrypt(JSON.stringify([payslip("rogue-rec")]), oldKeys.encryptionKey)),
+    ];
+    const { events: pulledRogue } = await pullSyncEvents(oldKeys, "dev-old", true);
+    expect(pulledRogue).toEqual([]);
+  });
+
+  it("assinatura ao vivo (subscribeToSyncEvents) no Grupo forte decifra e repassa PAYSLIP_*", async () => {
+    const keys = makeStrongKeys();
+    const got: string[] = [];
+    subscribeToSyncEvents(keys, "dev-b", 0, (evt) => got.push(evt.id));
+
+    // Publica evento para obter o content cifrado domus-gcm-v1.
+    await publishSyncEvents(keys, "dev-a", [payslip("live-slip", "PAYSLIP_RECORDED")]);
+    const liveNostrEvent = published[0];
+
+    lastSubHandler.onevent({
+      id: "live-strong-evt",
+      created_at: 1_700_000_100,
+      tags: [["t", "domus-sync"]],
+      content: liveNostrEvent.content,
+    });
+
+    await vi.waitFor(() => expect(got).toEqual(["live-slip"]));
+  });
+
+  it("teto de 20 itens por lote no Grupo forte: 25 eventos geram 2 lotes (20 e 5)", async () => {
+    const keys = makeStrongKeys();
+    const events = Array.from({ length: 25 }, (_, i) => valid({ id: `item-${i}` }));
+
+    const count = await publishSyncEvents(keys, "dev-a", events);
+    expect(count).toBe(25);
+    expect(published).toHaveLength(2);
+
+    expect(published[0].tags).toContainEqual(["batch", "20"]);
+    expect(published[1].tags).toContainEqual(["batch", "5"]);
+
+    const dec1 = decryptStrongPayload(published[0].content, {
+      encryptionKey: keys.encryptionKey,
+      nostrPublicKey: keys.publicKey,
+    });
+    const dec2 = decryptStrongPayload(published[1].content, {
+      encryptionKey: keys.encryptionKey,
+      nostrPublicKey: keys.publicKey,
+    });
+    expect(dec1.ok).toBe(true);
+    expect(dec2.ok).toBe(true);
+    if (!dec1.ok || !dec2.ok) throw new Error("Falha na decifra");
+
+    expect(JSON.parse(dec1.plaintext)).toHaveLength(20);
+    expect(JSON.parse(dec2.plaintext)).toHaveLength(5);
+  });
+
+  it("envelope individual acima de 32 KB é descartado com aviso e os demais são publicados", async () => {
+    const keys = makeStrongKeys();
+    // Um evento individual sozinho com payload de 35 KB (> STRONG_MAX_PLAINTEXT_BYTES = 32 KB)
+    const giantEvent = valid({ id: "giant", payload: { data: "y".repeat(35 * 1024) } });
+    const normalEvent = valid({ id: "normal-ok" });
+
+    const count = await publishSyncEvents(keys, "dev-a", [giantEvent, normalEvent]);
+    expect(count).toBe(1);
+    expect(published).toHaveLength(1);
+
+    const res = decryptStrongPayload(published[0].content, {
+      encryptionKey: keys.encryptionKey,
+      nostrPublicKey: keys.publicKey,
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) throw new Error("Falha na decifra");
+    expect(JSON.parse(res.plaintext).map((e: any) => e.id)).toEqual(["normal-ok"]);
+
+    // Confere aviso emitido sem expor payload
+    const logs = warn.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logs).toContain("id=giant");
+    expect(logs).not.toContain("yyyy");
+  });
+
+  it("assinatura ao vivo (subscribeToSyncEvents) no Grupo forte ignora eventos corrompidos ou em formato desconhecido", async () => {
+    const keys = makeStrongKeys();
+    const got: string[] = [];
+    subscribeToSyncEvents(keys, "dev-b", 0, (evt) => got.push(evt.id));
+
+    // 1. Formato desconhecido (texto aleatório)
+    lastSubHandler.onevent({
+      id: "live-unknown",
+      created_at: 1_700_000_200,
+      tags: [["t", "domus-sync"]],
+      content: "formato_desconhecido",
+    });
+
+    // 2. Formato legado XOR em canal forte
+    lastSubHandler.onevent({
+      id: "live-legacy-xor",
+      created_at: 1_700_000_201,
+      tags: [["t", "domus-sync"]],
+      content: encrypt(JSON.stringify([valid({ id: "xor-in-strong" })]), keys.encryptionKey),
+    });
+
+    // 3. Formato domus-gcm-v1 com base64 adulterado (auth-failed)
+    await publishSyncEvents(keys, "dev-a", [valid({ id: "valid-live" })]);
+    const validContent = published[published.length - 1].content;
+    const tamperedContent =
+      validContent.slice(0, validContent.length - 5) +
+      (validContent.endsWith("X") ? "Y" : "X") +
+      validContent.slice(validContent.length - 4);
+
+    lastSubHandler.onevent({
+      id: "live-tampered",
+      created_at: 1_700_000_202,
+      tags: [["t", "domus-sync"]],
+      content: tamperedContent,
+    });
+
+    // Nenhuma das mensagens corrompidas deve invocar o callback
+    expect(got).toEqual([]);
+
+    // Agora entrega evento válido e confirma que é recebido normalmente
+    lastSubHandler.onevent({
+      id: "live-valid",
+      created_at: 1_700_000_203,
+      tags: [["t", "domus-sync"]],
+      content: validContent,
+    });
+
+    await vi.waitFor(() => expect(got).toEqual(["valid-live"]));
   });
 });

@@ -11,6 +11,12 @@ import {
   partitionOldGroupEvents,
   type ParsedSyncPayload,
 } from "./syncPayload";
+import {
+  encryptStrongPayload,
+  decryptStrongPayload,
+  strongPlaintextBytes,
+  STRONG_MAX_PLAINTEXT_BYTES,
+} from "./strongGroup/eventCipher";
 
 const DOMUS_KIND = 30333;
 const DOMUS_APP_TAG = "domus-sync";
@@ -32,6 +38,7 @@ export interface NostrSyncKeys {
   privateKey: Uint8Array;
   publicKey: string;
   encryptionKey: Uint8Array;
+  isStrong?: boolean;
 }
 
 function bytesToHex(bytes: Uint8Array): string {
@@ -262,7 +269,7 @@ export async function deriveKeysFromCode(
 
   const publicKey = getPublicKey(privateKey);
 
-  return { privateKey, publicKey, encryptionKey };
+  return { privateKey, publicKey, encryptionKey, isStrong: false };
 }
 
 function xorEncryptDecrypt(data: Uint8Array, key: Uint8Array): Uint8Array {
@@ -396,6 +403,63 @@ export async function testRelayConnection(): Promise<{ connected: string[]; fail
   return { connected, failed };
 }
 
+function formatEnvelope(evt: SyncEvent) {
+  return {
+    id: evt.id,
+    type: evt.type,
+    payload: evt.payload,
+    timestamp: evt.timestamp,
+    deviceId: evt.deviceId,
+    signature: evt.signature || "",
+  };
+}
+
+/**
+ * No Grupo forte (Story 4.5): agrupa até BATCH_SIZE (20) eventos desde que
+ * a serialização em JSON UTF-8 não exceda STRONG_MAX_PLAINTEXT_BYTES (32 KB).
+ * Caso atinja o limite, fecha o lote atual e inicia outro.
+ */
+function partitionStrongBatches(
+  events: SyncEvent[],
+  maxBytes: number = STRONG_MAX_PLAINTEXT_BYTES,
+  maxItems: number = BATCH_SIZE,
+): SyncEvent[][] {
+  const batches: SyncEvent[][] = [];
+  let currentBatch: SyncEvent[] = [];
+
+  for (const evt of events) {
+    const formatted = formatEnvelope(evt);
+    const singleBytes = strongPlaintextBytes(JSON.stringify([formatted]));
+    if (singleBytes > maxBytes) {
+      console.warn(`[NostrSync] Envelope excede ${maxBytes} bytes e não pode ser publicado: id=${evt.id}`);
+      continue;
+    }
+
+    if (currentBatch.length >= maxItems) {
+      batches.push(currentBatch);
+      currentBatch = [evt];
+      continue;
+    }
+
+    const candidate = [...currentBatch, evt];
+    const candidateJson = JSON.stringify(candidate.map(formatEnvelope));
+    const candidateBytes = strongPlaintextBytes(candidateJson);
+
+    if (candidateBytes > maxBytes) {
+      batches.push(currentBatch);
+      currentBatch = [evt];
+    } else {
+      currentBatch = candidate;
+    }
+  }
+
+  if (currentBatch.length > 0) {
+    batches.push(currentBatch);
+  }
+
+  return batches;
+}
+
 export async function publishSyncEvents(
   keys: NostrSyncKeys,
   deviceId: string,
@@ -403,10 +467,14 @@ export async function publishSyncEvents(
 ): Promise<number> {
   if (events.length === 0) return 0;
 
-  // Story 11.4: este é o Grupo antigo (cifra XOR): holerite (`PAYSLIP_*`) nunca
-  // sai por aqui. Filtrado antes da validação e da cifra.
-  events = partitionOldGroupEvents(events).allowed;
-  if (events.length === 0) return 0;
+  const isStrong = Boolean(keys.isStrong);
+
+  // Story 11.4 e Story 4.5: no Grupo antigo (cifra XOR), holerite (`PAYSLIP_*`)
+  // nunca sai por aqui. No Grupo forte, PAYSLIP_* é transmitido normalmente.
+  if (!isStrong) {
+    events = partitionOldGroupEvents(events).allowed;
+    if (events.length === 0) return 0;
+  }
 
   // Revisão 23/10: eventos próprios com deviceId "local"/vazio saem com o id deste
   // aparelho (a validação recusaria "local" e eles nunca chegariam aos outros).
@@ -422,23 +490,27 @@ export async function publishSyncEvents(
   const relays = getRelays();
   let published = 0;
 
-  for (let batchStart = 0; batchStart < events.length; batchStart += BATCH_SIZE) {
-    const batch = events.slice(batchStart, batchStart + BATCH_SIZE);
-    const batchIndex = Math.floor(batchStart / BATCH_SIZE);
+  const batches: SyncEvent[][] = isStrong
+    ? partitionStrongBatches(events)
+    : (() => {
+        const result: SyncEvent[][] = [];
+        for (let batchStart = 0; batchStart < events.length; batchStart += BATCH_SIZE) {
+          result.push(events.slice(batchStart, batchStart + BATCH_SIZE));
+        }
+        return result;
+      })();
 
-    const batchPayload = JSON.stringify(
-      batch.map((evt) => ({
-        id: evt.id,
-        type: evt.type,
-        payload: evt.payload,
-        timestamp: evt.timestamp,
-        deviceId: evt.deviceId,
-        signature: evt.signature || "",
-      })),
-    );
-
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+    const batch = batches[batchIndex];
     const batchId = `sync-${deviceId}-${batchIndex}`;
-    const encrypted = await encryptPayload(batchPayload, keys.encryptionKey);
+
+    const batchPayload = JSON.stringify(batch.map(formatEnvelope));
+    const encrypted = isStrong
+      ? encryptStrongPayload(batchPayload, {
+          encryptionKey: keys.encryptionKey,
+          nostrPublicKey: keys.publicKey,
+        })
+      : await encryptPayload(batchPayload, keys.encryptionKey);
 
     const nostrEvent = {
       kind: DOMUS_KIND,
@@ -477,8 +549,9 @@ const warnOncePerRelayEvent = createWarnOnce(1000);
 // Story 11.4 (decisão 3a): aviso único por evento `PAYSLIP_*` recebido do Grupo antigo.
 const warnOncePerExcludedEvent = createWarnOnce(1000);
 
-function parseAndReport(decrypted: string, relayEventId?: string): ParsedSyncPayload {
-  const parsed = dropOldGroupExcluded(parseSyncPayloadDetailed(decrypted));
+function parseAndReport(decrypted: string, relayEventId?: string, isStrong?: boolean): ParsedSyncPayload {
+  const raw = parseSyncPayloadDetailed(decrypted);
+  const parsed = isStrong ? raw : dropOldGroupExcluded(raw);
   const hasProblem = parsed.malformedJson || parsed.rejected.length > 0;
   if (hasProblem && (relayEventId === undefined || warnOncePerRelayEvent(relayEventId))) {
     if (parsed.malformedJson) {
@@ -508,8 +581,8 @@ function dropOldGroupExcluded(parsed: ParsedSyncPayload): ParsedSyncPayload {
 }
 
 /** Valida cada item sozinho; JSON malformado vira lista vazia. Exportado para teste. */
-export function parseSyncPayload(decrypted: string, relayEventId?: string): SyncEvent[] {
-  return parseAndReport(decrypted, relayEventId).events;
+export function parseSyncPayload(decrypted: string, relayEventId?: string, isStrong?: boolean): SyncEvent[] {
+  return parseAndReport(decrypted, relayEventId, isStrong).events;
 }
 
 export interface PullResult {
@@ -535,6 +608,7 @@ export async function pullSyncEvents(
 ): Promise<PullResult> {
   const pool = getPool();
   const relays = getRelays();
+  const isStrong = Boolean(keys.isStrong);
 
   const filter = {
     kinds: [DOMUS_KIND],
@@ -575,16 +649,33 @@ export async function pullSyncEvents(
       const hasAppTag = ne.tags.some((t: string[]) => t[0] === "t" && t[1] === DOMUS_APP_TAG);
       if (!hasAppTag) continue;
 
-      try {
-        const decrypted = await decryptPayload(ne.content, keys.encryptionKey);
+      if (isStrong) {
+        const res = decryptStrongPayload(ne.content, {
+          encryptionKey: keys.encryptionKey,
+          nostrPublicKey: keys.publicKey,
+        });
+        if (!res.ok) {
+          // Ignorar falhas de decriptação (eventos de outros grupos ou adulterados)
+          continue;
+        }
         maxCreatedAt = advanceRelayCursor(maxCreatedAt, [ne.created_at]);
-        const parsed = parseAndReport(decrypted, ne.id);
+        const parsed = parseAndReport(res.plaintext, ne.id, true);
         if (parsed.malformedJson) malformedRelayEvents++;
         discarded += parsed.rejected.length;
         total += parsed.events.length + parsed.rejected.length;
         syncEvents.push(...parsed.events);
-      } catch {
-        // Ignorar falhas de decriptação (eventos de outros grupos)
+      } else {
+        try {
+          const decrypted = await decryptPayload(ne.content, keys.encryptionKey);
+          maxCreatedAt = advanceRelayCursor(maxCreatedAt, [ne.created_at]);
+          const parsed = parseAndReport(decrypted, ne.id, false);
+          if (parsed.malformedJson) malformedRelayEvents++;
+          discarded += parsed.rejected.length;
+          total += parsed.events.length + parsed.rejected.length;
+          syncEvents.push(...parsed.events);
+        } catch {
+          // Ignorar falhas de decriptação (eventos de outros grupos)
+        }
       }
     }
   }
@@ -602,6 +693,7 @@ export function subscribeToSyncEvents(
   onEvent: (event: SyncEvent, createdAt: number) => void,
 ): SubCloser {
   const pool = getPool();
+  const isStrong = Boolean(keys.isStrong);
 
   // Story 3.6: `since` (segundos) vem do cursor dos relays com folga, via
   // `subscriptionSince` (o `useSyncEngine` usa `coordinator.liveSince()`).
@@ -614,14 +706,26 @@ export function subscribeToSyncEvents(
 
   const sub = pool.subscribeMany(getRelays(), filter as any, {
     onevent(nostrEvent: any) {
-      decryptPayload(nostrEvent.content, keys.encryptionKey)
-        .then((decrypted) => {
-          const events = parseSyncPayload(decrypted, nostrEvent.id);
-          for (const evt of events) {
-            onEvent(evt, nostrEvent.created_at);
-          }
-        })
-        .catch(() => {});
+      if (isStrong) {
+        const res = decryptStrongPayload(nostrEvent.content, {
+          encryptionKey: keys.encryptionKey,
+          nostrPublicKey: keys.publicKey,
+        });
+        if (!res.ok) return;
+        const events = parseSyncPayload(res.plaintext, nostrEvent.id, true);
+        for (const evt of events) {
+          onEvent(evt, nostrEvent.created_at);
+        }
+      } else {
+        decryptPayload(nostrEvent.content, keys.encryptionKey)
+          .then((decrypted) => {
+            const events = parseSyncPayload(decrypted, nostrEvent.id, false);
+            for (const evt of events) {
+              onEvent(evt, nostrEvent.created_at);
+            }
+          })
+          .catch(() => {});
+      }
     },
   });
 

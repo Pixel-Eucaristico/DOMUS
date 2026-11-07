@@ -12,7 +12,7 @@ import {
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { SubCloser } from "nostr-tools/pool";
 import { createSyncCoordinator } from "@/src/modules/syncCoordinator";
-import { selectOldGroupPushEvents } from "@/src/modules/syncPayload";
+import { selectOldGroupPushEvents, selectStrongGroupPushEvents } from "@/src/modules/syncPayload";
 import { parseGroupSecret } from "@/src/modules/strongGroup/groupSecret";
 import {
   createStrongSyncGroup,
@@ -31,7 +31,7 @@ export type SyncStatus = "idle" | "syncing" | "connected" | "offline" | "error";
 
 interface UseSyncEngineArgs {
   getAllEvents: () => SyncEvent[];
-  importEvents: (events: SyncEvent[]) => Promise<number>;
+  importEvents: (events: SyncEvent[], options?: { isStrongGroup?: boolean }) => Promise<number>;
   localEventCount: number;
   deviceId: string | null;
   loading: boolean;
@@ -48,6 +48,15 @@ export function useSyncEngine({
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const isStrongGroup = useMemo(
+    () => Boolean(groupCode && parseGroupSecret(groupCode).ok),
+    [groupCode],
+  );
+  const isStrongGroupRef = useRef(isStrongGroup);
+  useEffect(() => {
+    isStrongGroupRef.current = isStrongGroup;
+  }, [isStrongGroup]);
 
   const allEvents = getAllEvents();
   const allEventsRef = useRef(allEvents);
@@ -93,7 +102,7 @@ export function useSyncEngine({
           clearTimeout(pushDebounceRef.current);
           pushDebounceRef.current = null;
         }
-        return importEventsRef.current(events);
+        return importEventsRef.current(events, { isStrongGroup: isStrongGroupRef.current });
       },
       onLiveImported: () => {
         const ts = Date.now();
@@ -118,6 +127,7 @@ export function useSyncEngine({
       .then(async () => {
         const active = await loadActiveSyncGroup();
         if (active) {
+          isStrongGroupRef.current = active.isStrong;
           setGroupCode(active.code);
           setKeys(active.keys);
           keysRef.current = active.keys;
@@ -137,10 +147,14 @@ export function useSyncEngine({
 
   // --- Core sync operations ---
 
-  // Revisão R6 (Story 11.4): só o que o Grupo antigo publica entra no hash e no
-  // push; um holerite novo não muda o hash nem republica o log inteiro.
+  // Story 11.4 e Story 4.5: só o que o grupo ativo publica entra no hash e no
+  // push; no Grupo antigo, holerites (`PAYSLIP_*`) são excluídos; no Grupo forte,
+  // todos os eventos deste aparelho são transmitidos e compõem o hash.
   const getMyEvents = useCallback(
     (did: string): SyncEvent[] => {
+      if (isStrongGroupRef.current) {
+        return selectStrongGroupPushEvents(allEventsRef.current, did);
+      }
       return selectOldGroupPushEvents(allEventsRef.current, did);
     },
     [],
@@ -337,6 +351,7 @@ export function useSyncEngine({
 
       // Grupo novo: cursor e fila do grupo anterior não valem mais.
       await coordinator.reset();
+      isStrongGroupRef.current = true;
       setKeys(group.keys);
       setGroupCode(group.code);
       lastPushHashRef.current = "empty";
@@ -377,6 +392,7 @@ export function useSyncEngine({
 
         // Grupo novo: cursor e fila do grupo anterior não valem mais.
         await coordinator.reset();
+        isStrongGroupRef.current = activeGroup.isStrong;
         setKeys(activeGroup.keys);
         setGroupCode(activeGroup.code);
         lastPushHashRef.current = "empty";
@@ -415,6 +431,7 @@ export function useSyncEngine({
     // Nova época já (síncrono): pull e drenagem em curso do grupo antigo são ignorados.
     const resetting = coordinator.reset();
 
+    isStrongGroupRef.current = false;
     setGroupCode(null);
     setKeys(null);
     setSyncStatus("idle");
@@ -455,11 +472,6 @@ export function useSyncEngine({
     setSyncStatus(groupCode ? "connected" : "idle");
     setErrorMessage(null);
   }, [groupCode]);
-
-  const isStrongGroup = useMemo(
-    () => Boolean(groupCode && parseGroupSecret(groupCode).ok),
-    [groupCode],
-  );
 
   return {
     groupCode,

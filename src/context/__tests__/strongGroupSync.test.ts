@@ -93,6 +93,7 @@ describe("Story 4.3: Criação de Grupo forte e persistência segura", () => {
     expect(group.keys.publicKey).toMatch(/^[0-9a-f]{64}$/);
     expect(group.keys.privateKey).toHaveLength(32);
     expect(group.keys.encryptionKey).toHaveLength(32);
+    expect(group.keys.isStrong).toBe(true);
   });
 
   it("nunca chama generateGroupCode para criar novos grupos", async () => {
@@ -145,6 +146,7 @@ describe("Story 4.3: Carregamento do grupo ativo no boot", () => {
     const active = await loadActiveSyncGroup();
     expect(active).not.toBeNull();
     expect(active?.isStrong).toBe(true);
+    expect(active?.keys.isStrong).toBe(true);
     expect(active?.code).toBe(strongGroup.code);
   });
 
@@ -155,6 +157,7 @@ describe("Story 4.3: Carregamento do grupo ativo no boot", () => {
     const active = await loadActiveSyncGroup();
     expect(active).not.toBeNull();
     expect(active?.isStrong).toBe(false);
+    expect(active?.keys.isStrong).toBe(false);
     expect(active?.code).toBe(legacyCode);
     expect(active?.keys.publicKey).toBeDefined();
   });
@@ -191,6 +194,7 @@ describe("Story 4.3: resolveJoinSyncGroup", () => {
 
     const resolved = await resolveJoinSyncGroup(strongGroup.code);
     expect(resolved.isStrong).toBe(true);
+    expect(resolved.keys.isStrong).toBe(true);
     expect(resolved.code).toBe(strongGroup.code);
     expect(secure.get(STRONG_GROUP_SECRET_KEY)).toBe(strongGroup.code);
     expect(legacy.has(STRONG_GROUP_SECRET_KEY)).toBe(false);

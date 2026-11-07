@@ -40,6 +40,7 @@ export async function createStrongSyncGroup(): Promise<ActiveSyncGroup> {
     privateKey: strongKeys.nostrPrivateKey,
     publicKey: strongKeys.nostrPublicKey,
     encryptionKey: strongKeys.encryptionKey,
+    isStrong: true,
   };
 
   // Persiste de forma segura; se falhar no nativo, lança erro e não conclui
@@ -81,6 +82,7 @@ export async function resolveJoinSyncGroup(code: string): Promise<ActiveSyncGrou
       privateKey: strongKeys.nostrPrivateKey,
       publicKey: strongKeys.nostrPublicKey,
       encryptionKey: strongKeys.encryptionKey,
+      isStrong: true,
     };
     await saveStrongGroupSecret(finalCode);
     await clearGroupCode();
@@ -114,6 +116,7 @@ export async function loadActiveSyncGroup(): Promise<ActiveSyncGroup | null> {
           privateKey: strongKeys.nostrPrivateKey,
           publicKey: strongKeys.nostrPublicKey,
           encryptionKey: strongKeys.encryptionKey,
+          isStrong: true,
         },
       };
     }
@@ -125,7 +128,10 @@ export async function loadActiveSyncGroup(): Promise<ActiveSyncGroup | null> {
     return {
       code: legacy,
       isStrong: false,
-      keys,
+      keys: {
+        ...keys,
+        isStrong: false,
+      },
     };
   }
 

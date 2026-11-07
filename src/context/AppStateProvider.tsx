@@ -60,7 +60,7 @@ interface AppStateContextValue {
   dispatchDomainEvent: (event: DomainEvent) => void;
   setThemeMode: (mode: ThemeMode) => void;
   setSoundEnabled: (enabled: boolean) => void;
-  importEvents: (events: SyncEvent[]) => Promise<number>;
+  importEvents: (events: SyncEvent[], options?: { isStrongGroup?: boolean }) => Promise<number>;
   restoreFromBackup: (events: SyncEvent[]) => Promise<void>;
   resetApp: () => Promise<void>;
   getAllEvents: () => SyncEvent[];

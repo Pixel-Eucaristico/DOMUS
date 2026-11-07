@@ -64,7 +64,7 @@ export interface EventStoreState {
   localEventCount: number;
   setLocalEventCount: React.Dispatch<React.SetStateAction<number>>;
   dispatch: (event: SyncEvent) => void;
-  importEvents: (events: SyncEvent[]) => Promise<number>;
+  importEvents: (events: SyncEvent[], options?: { isStrongGroup?: boolean }) => Promise<number>;
   restoreFromBackup: (events: SyncEvent[]) => Promise<void>;
   resetApp: () => Promise<void>;
   getAllEvents: () => SyncEvent[];
@@ -187,12 +187,13 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
   );
 
   const importEvents = useCallback(
-    async (events: SyncEvent[]): Promise<number> => {
+    async (events: SyncEvent[], options?: { isStrongGroup?: boolean }): Promise<number> => {
       if (isDemoActive) return 0;
       const store = await getEventStore();
       const existingIds = new Set(allEventsRef.current.map((e) => e.id));
       // Story 3.1: revalida o envelope antes de gravar; malformados são descartados.
-      const { toAppend: newEvents } = selectEventsToImport(events, existingIds);
+      // Story 4.5: repassa options para aceitar PAYSLIP_* sob isStrongGroup: true.
+      const { toAppend: newEvents } = selectEventsToImport(events, existingIds, undefined, options);
       for (const evt of newEvents) {
         store?.appendEvent(evt);
       }
