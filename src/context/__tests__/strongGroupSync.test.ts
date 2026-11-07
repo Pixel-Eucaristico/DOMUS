@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   createStrongSyncGroup,
   loadActiveSyncGroup,
+  loadCoexistingGroups,
   clearAllSyncGroupSecrets,
   resolveJoinSyncGroup,
 } from "../strongGroupSync";
@@ -109,7 +110,7 @@ describe("Story 4.3: Criação de Grupo forte e persistência segura", () => {
     expect(legacy.has(STRONG_GROUP_SECRET_KEY)).toBe(false);
   });
 
-  it("limpa código legado anterior ao criar novo Grupo forte", async () => {
+  it("limpa código legado anterior ao criar novo Grupo forte por padrão", async () => {
     secure.set(GROUP_CODE_KEY, "OLD123");
     legacy.set(GROUP_CODE_KEY, "OLD123");
 
@@ -117,6 +118,18 @@ describe("Story 4.3: Criação de Grupo forte e persistência segura", () => {
 
     expect(secure.has(GROUP_CODE_KEY)).toBe(false);
     expect(legacy.has(GROUP_CODE_KEY)).toBe(false);
+  });
+
+  it("preserva código legado ao criar Grupo forte com keepLegacy: true (Story 4.7)", async () => {
+    secure.set(GROUP_CODE_KEY, "OLD123");
+    legacy.set(GROUP_CODE_KEY, "OLD123");
+
+    const group = await createStrongSyncGroup({ keepLegacy: true });
+
+    expect(group.isStrong).toBe(true);
+    expect(secure.get(GROUP_CODE_KEY)).toBe("OLD123");
+    expect(legacy.get(GROUP_CODE_KEY)).toBe("OLD123");
+    expect(secure.get(STRONG_GROUP_SECRET_KEY)).toBe(group.code);
   });
 
   it("se o SecureStore falhar ao salvar, lança erro e NUNCA grava em AsyncStorage", async () => {
@@ -168,6 +181,47 @@ describe("Story 4.3: Carregamento do grupo ativo no boot", () => {
   });
 });
 
+describe("Story 4.7: loadCoexistingGroups e convivência de canais", () => {
+  it("carrega ambos os grupos quando forte e legado coexistem", async () => {
+    const strongGroup = await createStrongSyncGroup({ keepLegacy: true });
+    secure.set(GROUP_CODE_KEY, "LEG123");
+    legacy.set(GROUP_CODE_KEY, "LEG123");
+
+    const coexisting = await loadCoexistingGroups();
+    expect(coexisting.strong).not.toBeNull();
+    expect(coexisting.strong?.isStrong).toBe(true);
+    expect(coexisting.strong?.code).toBe(strongGroup.code);
+    expect(coexisting.legacy).not.toBeNull();
+    expect(coexisting.legacy?.isStrong).toBe(false);
+    expect(coexisting.legacy?.code).toBe("LEG123");
+  });
+
+  it("carrega apenas strong quando não há código legado", async () => {
+    const strongGroup = await createStrongSyncGroup();
+
+    const coexisting = await loadCoexistingGroups();
+    expect(coexisting.strong).not.toBeNull();
+    expect(coexisting.strong?.code).toBe(strongGroup.code);
+    expect(coexisting.legacy).toBeNull();
+  });
+
+  it("carrega apenas legacy quando não há segredo forte", async () => {
+    const legacyCode = generateGroupCode();
+    secure.set(GROUP_CODE_KEY, legacyCode);
+
+    const coexisting = await loadCoexistingGroups();
+    expect(coexisting.strong).toBeNull();
+    expect(coexisting.legacy).not.toBeNull();
+    expect(coexisting.legacy?.code).toBe(legacyCode);
+  });
+
+  it("retorna { strong: null, legacy: null } quando nenhum grupo existe", async () => {
+    const coexisting = await loadCoexistingGroups();
+    expect(coexisting.strong).toBeNull();
+    expect(coexisting.legacy).toBeNull();
+  });
+});
+
 describe("Story 4.3: Limpeza total ao sair do grupo", () => {
   it("remove segredo forte e código legado de todos os armazenamentos", async () => {
     const strongGroup = await createStrongSyncGroup();
@@ -199,6 +253,20 @@ describe("Story 4.3: resolveJoinSyncGroup", () => {
     expect(secure.get(STRONG_GROUP_SECRET_KEY)).toBe(strongGroup.code);
     expect(legacy.has(STRONG_GROUP_SECRET_KEY)).toBe(false);
     expect(legacy.has(GROUP_CODE_KEY)).toBe(false);
+  });
+
+  it("preserva código legado ao ingressar com keepLegacy: true (Story 4.7)", async () => {
+    const strongGroup = await createStrongSyncGroup();
+    secure.clear();
+    legacy.clear();
+    secure.set(GROUP_CODE_KEY, "OLD123");
+    legacy.set(GROUP_CODE_KEY, "OLD123");
+
+    const resolved = await resolveJoinSyncGroup(strongGroup.code, { keepLegacy: true });
+    expect(resolved.isStrong).toBe(true);
+    expect(secure.get(STRONG_GROUP_SECRET_KEY)).toBe(strongGroup.code);
+    expect(secure.get(GROUP_CODE_KEY)).toBe("OLD123");
+    expect(legacy.get(GROUP_CODE_KEY)).toBe("OLD123");
   });
 
   it("rejeita segredo 'DOMUS...' corrompido e NÃO grava em AsyncStorage nem como grupo legado", async () => {
@@ -335,7 +403,7 @@ describe("Story 4.3 / 4.4: useSyncEngine e tratamento de falhas (Matriz)", () =>
   it("testa conexão com relays antes de criar grupo e não grava segredo se relays falharem (Matriz Linha 2)", () => {
     // Verifica que o teste de relay ocorre antes de createStrongSyncGroup
     const relayCheckIdx = engineSource.indexOf("testRelayConnection()");
-    const createStrongIdx = engineSource.indexOf("createStrongSyncGroup()");
+    const createStrongIdx = engineSource.indexOf("createStrongSyncGroup(");
     expect(relayCheckIdx).toBeGreaterThan(0);
     expect(createStrongIdx).toBeGreaterThan(relayCheckIdx);
 

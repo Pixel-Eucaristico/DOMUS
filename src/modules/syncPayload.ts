@@ -54,7 +54,11 @@ export function filterImportableEvents(
 // O restore de backup não passa por aqui.
 
 /** Prefixos de tipo que nunca saem nem entram pelo Grupo antigo. */
-export const OLD_GROUP_EXCLUDED_PREFIXES: readonly string[] = ["PAYSLIP_"];
+export const OLD_GROUP_EXCLUDED_PREFIXES: readonly string[] = [
+  "PAYSLIP_",
+  "RELIGIOUS_",
+  "CONFESSIONAL_",
+];
 
 /** `true` quando o tipo pode ser publicado/aceito no Grupo antigo. */
 export function isOldGroupPublishable(type: unknown): boolean {

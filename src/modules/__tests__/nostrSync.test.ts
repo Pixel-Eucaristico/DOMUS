@@ -631,10 +631,12 @@ describe("Story 4.5: Publicar e ler eventos no Grupo forte", () => {
     // 3. Formato domus-gcm-v1 com base64 adulterado (auth-failed)
     await publishSyncEvents(keys, "dev-a", [valid({ id: "valid-live" })]);
     const validContent = published[published.length - 1].content;
+    const targetIdx = validContent.length - 5;
+    const flippedChar = validContent.charAt(targetIdx) === "X" ? "Y" : "X";
     const tamperedContent =
-      validContent.slice(0, validContent.length - 5) +
-      (validContent.endsWith("X") ? "Y" : "X") +
-      validContent.slice(validContent.length - 4);
+      validContent.slice(0, targetIdx) +
+      flippedChar +
+      validContent.slice(targetIdx + 1);
 
     lastSubHandler.onevent({
       id: "live-tampered",

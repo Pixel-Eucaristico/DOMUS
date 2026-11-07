@@ -7,6 +7,7 @@ import React, {
 import { useAppState } from "@/src/context/AppStateProvider";
 import { getRelays } from "@/src/modules/nostrSync";
 import { useSyncEngine, type SyncStatus } from "./useSyncEngine";
+import type { CoexistingGroups } from "./strongGroupSync";
 
 interface SyncContextValue {
   deviceId: string | null;
@@ -18,12 +19,13 @@ interface SyncContextValue {
   eventCount: number;
   relayCount: number;
   isAutoSyncEnabled: boolean;
-  createGroup: () => Promise<string | null>;
-  joinGroup: (code: string) => Promise<boolean>;
+  createGroup: (options?: { keepLegacy?: boolean }) => Promise<string | null>;
+  joinGroup: (code: string, options?: { keepLegacy?: boolean }) => Promise<boolean>;
   leaveGroup: () => Promise<void>;
   pushNow: () => Promise<void>;
   pullNow: () => Promise<number>;
   resetStatus: () => void;
+  coexistingGroups: CoexistingGroups;
 }
 
 const SyncContext = createContext<SyncContextValue | null>(null);
@@ -58,6 +60,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       pushNow: engine.pushNow,
       pullNow: engine.pullNow,
       resetStatus: engine.resetStatus,
+      coexistingGroups: engine.coexistingGroups,
     }),
     [
       deviceId,
@@ -75,6 +78,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       engine.pushNow,
       engine.pullNow,
       engine.resetStatus,
+      engine.coexistingGroups,
     ],
   );
 

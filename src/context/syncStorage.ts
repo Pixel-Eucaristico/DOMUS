@@ -8,6 +8,7 @@ export const LAST_SYNC_KEY = "domus_last_sync_ts";
 export const GROUP_CODE_KEY = "domus_nostr_group_code";
 export const STRONG_GROUP_SECRET_KEY = "domus_strong_group_secret_v1";
 export const LAST_PUSH_HASH_KEY = "domus_nostr_last_push_hash";
+export const GROUP_PUSH_HASHES_KEY = "domus_group_push_hashes_v1";
 export const SYNC_GROUP_TRACKING_KEY = "domus_sync_group_tracking_v1";
 
 export const PULL_INTERVAL_MS = 8_000;

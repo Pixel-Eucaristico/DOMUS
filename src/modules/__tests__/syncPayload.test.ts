@@ -259,12 +259,14 @@ describe("Story 3.6: cursor dos relays", () => {
   });
 });
 
-describe("Story 11.4: isOldGroupPublishable / partitionOldGroupEvents", () => {
-  it("PAYSLIP_* não é publicável no Grupo antigo; o resto é", () => {
-    expect(OLD_GROUP_EXCLUDED_PREFIXES).toEqual(["PAYSLIP_"]);
+describe("Story 11.4 e Story 4.7: isOldGroupPublishable / partitionOldGroupEvents", () => {
+  it("PAYSLIP_*, RELIGIOUS_* e CONFESSIONAL_* não são publicáveis no Grupo antigo; o resto é", () => {
+    expect(OLD_GROUP_EXCLUDED_PREFIXES).toEqual(["PAYSLIP_", "RELIGIOUS_", "CONFESSIONAL_"]);
     expect(isOldGroupPublishable("PAYSLIP_RECORDED")).toBe(false);
     expect(isOldGroupPublishable("PAYSLIP_DELETED")).toBe(false);
     expect(isOldGroupPublishable("PAYSLIP_QUALQUER_FUTURO")).toBe(false);
+    expect(isOldGroupPublishable("RELIGIOUS_AFFILIATION_UPDATED")).toBe(false);
+    expect(isOldGroupPublishable("CONFESSIONAL_NOTE_ADDED")).toBe(false);
     for (const t of ["TRANSACTION_CREATED", "ACCOUNT_CREATED", "XP_GAINED", "WISHLIST_ITEM_ADDED", "FUTURE_EVENT_X", "payslip_recorded"]) {
       expect(isOldGroupPublishable(t), t).toBe(true);
     }
@@ -289,23 +291,27 @@ describe("Story 11.4: isOldGroupPublishable / partitionOldGroupEvents", () => {
   });
 });
 
-describe("revisão 11.4 — R5: importEvents do sync não grava PAYSLIP_*", () => {
-  it("selectEventsToImport descarta PAYSLIP_* válidos, conta em excluded e avisa só com id/type", () => {
+describe("revisão 11.4 e Story 4.7 — R5: importEvents do sync não grava PAYSLIP_*, RELIGIOUS_* nem CONFESSIONAL_* no Grupo antigo", () => {
+  it("selectEventsToImport descarta PAYSLIP_*, RELIGIOUS_* e CONFESSIONAL_* válidos, conta em excluded e avisa só com id/type", () => {
     const warn = vi.fn();
     const salary = { id: "p1", period: "2026-09", company: "ACME", grossSalary: 98765, netSalary: 87654, deductions: [] };
     const events = [
       valid({ id: "a" }),
       valid({ id: "p", type: "PAYSLIP_RECORDED", payload: salary }),
       valid({ id: "d", type: "PAYSLIP_DELETED", payload: { id: "p1" } }),
+      valid({ id: "r", type: "RELIGIOUS_AFFILIATION_SET", payload: { faith: "catholic" } }),
+      valid({ id: "c", type: "CONFESSIONAL_NOTE_ADDED", payload: { text: "confidential" } }),
       valid({ id: "b", type: "XP_GAINED", payload: { amount: 10 } }),
     ];
     const r = selectEventsToImport(events, new Set(), warn);
     expect(r.toAppend.map((e) => e.id)).toEqual(["a", "b"]);
-    expect(r).toMatchObject({ discarded: 0, duplicates: 0, excluded: 2 });
+    expect(r).toMatchObject({ discarded: 0, duplicates: 0, excluded: 4 });
     const logged = warn.mock.calls.map((c) => String(c[0])).join("\n");
     expect(logged).toContain("id=p type=PAYSLIP_RECORDED");
     expect(logged).toContain("id=d type=PAYSLIP_DELETED");
-    expect(logged).not.toMatch(/98765|87654|ACME/);
+    expect(logged).toContain("id=r type=RELIGIOUS_AFFILIATION_SET");
+    expect(logged).toContain("id=c type=CONFESSIONAL_NOTE_ADDED");
+    expect(logged).not.toMatch(/98765|87654|ACME|catholic|confidential/);
   });
 });
 

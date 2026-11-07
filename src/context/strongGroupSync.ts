@@ -23,6 +23,11 @@ export interface ActiveSyncGroup {
   keys: NostrSyncKeys;
 }
 
+export interface CoexistingGroups {
+  strong: ActiveSyncGroup | null;
+  legacy: ActiveSyncGroup | null;
+}
+
 export const LEGACY_CODE_DISCONTINUED_MESSAGE =
   "Códigos de 6 caracteres foram descontinuados. Use o QR Code ou cole o Segredo de 79 caracteres do aparelho principal.";
 
@@ -30,8 +35,9 @@ export const LEGACY_CODE_DISCONTINUED_MESSAGE =
  * Cria exclusivamente um novo Grupo forte (Story 4.3).
  * Nunca mais utiliza o gerador legado de 6 caracteres.
  * Persiste o segredo em SecureStore (nativo) ou webSecrets (web) sem queda para AsyncStorage.
+ * Aceita a opção keepLegacy para não apagar o código do grupo legado durante a convivência (Story 4.7).
  */
-export async function createStrongSyncGroup(): Promise<ActiveSyncGroup> {
+export async function createStrongSyncGroup(options?: { keepLegacy?: boolean }): Promise<ActiveSyncGroup> {
   const secret = generateGroupSecret();
   const code = encodeGroupSecret(secret);
   const strongKeys = deriveStrongGroupKeys(secret);
@@ -45,8 +51,10 @@ export async function createStrongSyncGroup(): Promise<ActiveSyncGroup> {
 
   // Persiste de forma segura; se falhar no nativo, lança erro e não conclui
   await saveStrongGroupSecret(code);
-  // Limpa código legado anterior se houver
-  await clearGroupCode();
+  // Limpa código legado anterior se keepLegacy não foi explicitamente solicitado
+  if (!options?.keepLegacy) {
+    await clearGroupCode();
+  }
 
   return { code, isStrong: true, keys };
 }
@@ -57,8 +65,12 @@ export async function createStrongSyncGroup(): Promise<ActiveSyncGroup> {
  * Recusa tentativas de pareamento com o código antigo de 6 caracteres com mensagem
  * amigável que orienta o uso do QR Code ou do segredo forte do aparelho principal.
  * Em caso de segredo inválido ou truncado, emite erro claro e nunca grava dados no armazenamento.
+ * Suporta opção keepLegacy para preservar o código legado existente durante a convivência (Story 4.7).
  */
-export async function resolveJoinSyncGroup(code: string): Promise<ActiveSyncGroup> {
+export async function resolveJoinSyncGroup(
+  code: string,
+  options?: { keepLegacy?: boolean },
+): Promise<ActiveSyncGroup> {
   const raw = (code ?? "").trim();
   if (!raw) {
     throw new Error("Código de grupo vazio.");
@@ -85,7 +97,9 @@ export async function resolveJoinSyncGroup(code: string): Promise<ActiveSyncGrou
       isStrong: true,
     };
     await saveStrongGroupSecret(finalCode);
-    await clearGroupCode();
+    if (!options?.keepLegacy) {
+      await clearGroupCode();
+    }
     return { code: finalCode, isStrong: true, keys };
   }
 
@@ -99,17 +113,18 @@ export async function resolveJoinSyncGroup(code: string): Promise<ActiveSyncGrou
 }
 
 /**
- * Carrega o grupo ativo durante o boot do sync engine.
- * Prioriza o segredo do Grupo forte. Se ausente, cai para o grupo legado
- * para manter compatibilidade durante a janela de transição.
+ * Carrega todos os grupos configurados no dispositivo (Story 4.7).
+ * Retorna tanto o Grupo forte quanto o grupo legado quando coexistindo.
  */
-export async function loadActiveSyncGroup(): Promise<ActiveSyncGroup | null> {
+export async function loadCoexistingGroups(): Promise<CoexistingGroups> {
+  let strong: ActiveSyncGroup | null = null;
   const strongSecret = await loadStrongGroupSecret();
   if (strongSecret) {
     const parsed = parseGroupSecret(strongSecret);
     if (parsed.ok) {
       const strongKeys = deriveStrongGroupKeys(parsed.secret);
-      return {
+      parsed.secret.fill(0);
+      strong = {
         code: strongSecret,
         isStrong: true,
         keys: {
@@ -122,11 +137,12 @@ export async function loadActiveSyncGroup(): Promise<ActiveSyncGroup | null> {
     }
   }
 
-  const legacy = await loadGroupCode();
-  if (legacy) {
-    const keys = await deriveKeysFromCode(legacy);
-    return {
-      code: legacy,
+  let legacy: ActiveSyncGroup | null = null;
+  const legacyCode = await loadGroupCode();
+  if (legacyCode) {
+    const keys = await deriveKeysFromCode(legacyCode);
+    legacy = {
+      code: legacyCode,
       isStrong: false,
       keys: {
         ...keys,
@@ -135,7 +151,18 @@ export async function loadActiveSyncGroup(): Promise<ActiveSyncGroup | null> {
     };
   }
 
-  return null;
+  return { strong, legacy };
+}
+
+/**
+ * Carrega o grupo ativo durante o boot do sync engine.
+ * Prioriza o segredo do Grupo forte. Se ausente, cai para o grupo legado
+ * para manter compatibilidade durante a janela de transição.
+ * Delega para loadCoexistingGroups().
+ */
+export async function loadActiveSyncGroup(): Promise<ActiveSyncGroup | null> {
+  const { strong, legacy } = await loadCoexistingGroups();
+  return strong ?? legacy;
 }
 
 /**
