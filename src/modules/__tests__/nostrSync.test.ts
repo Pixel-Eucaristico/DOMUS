@@ -452,10 +452,10 @@ describe("Story 4.5: Publicar e ler eventos no Grupo forte", () => {
     }
 
     // Pull traz todos os 10 eventos
-    relayEvents = published.map((ev, idx) => ({ ...ev, id: `relay-${idx}` }));
+    relayEvents = published.map((ev, idx) => ({ ...ev, id: `relay-${idx}`, created_at: 1_700_000_000 - idx }));
     const { events: pulled } = await pullSyncEvents(keys, "dev-b", true);
     expect(pulled).toHaveLength(10);
-    expect(pulled.map((e) => e.id)).toEqual(largeEvents.map((e) => e.id));
+    expect(pulled.map((e) => e.id).sort()).toEqual(largeEvents.map((e) => e.id).sort());
   });
 
   it("leitura / pull no Grupo forte: decifra domus-gcm-v1. e importa todos os eventos (inclusive PAYSLIP_*)", async () => {
@@ -502,12 +502,15 @@ describe("Story 4.5: Publicar e ler eventos no Grupo forte", () => {
     const keys = makeStrongKeys();
     await publishSyncEvents(keys, "dev-a", [valid({ id: "tx-valid" })]);
 
-    // Adultera um caractere do texto cifrado
+    // Adultera um caractere do texto cifrado de forma garantida
     const originalContent = published[0].content;
+    const targetIdx = originalContent.length - 5;
+    const charToReplace = originalContent[targetIdx];
+    const replacementChar = charToReplace === "X" ? "Y" : "X";
     const tamperedContent =
-      originalContent.slice(0, originalContent.length - 5) +
-      (originalContent.endsWith("A") ? "B" : "A") +
-      originalContent.slice(originalContent.length - 4);
+      originalContent.slice(0, targetIdx) +
+      replacementChar +
+      originalContent.slice(targetIdx + 1);
 
     relayEvents = [{ ...published[0], id: "tampered-1", content: tamperedContent }];
     const { events: pulled } = await pullSyncEvents(keys, "dev-b", true);

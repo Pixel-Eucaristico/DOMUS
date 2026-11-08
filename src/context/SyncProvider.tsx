@@ -13,6 +13,8 @@ interface SyncContextValue {
   deviceId: string | null;
   groupId: string | null;
   isStrongGroup: boolean;
+  canMigrate: boolean;
+  migrateToStrongGroup: () => Promise<string | null>;
   syncStatus: SyncStatus;
   lastSyncTime: number | null;
   errorMessage: string | null;
@@ -48,6 +50,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       deviceId,
       groupId: engine.groupCode,
       isStrongGroup: engine.isStrongGroup,
+      canMigrate: engine.canMigrate,
+      migrateToStrongGroup: engine.migrateToStrongGroup,
       syncStatus: engine.syncStatus,
       lastSyncTime: engine.lastSyncTime,
       errorMessage: engine.errorMessage,
@@ -66,6 +70,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       deviceId,
       engine.groupCode,
       engine.isStrongGroup,
+      engine.canMigrate,
+      engine.migrateToStrongGroup,
       engine.syncStatus,
       engine.lastSyncTime,
       engine.errorMessage,

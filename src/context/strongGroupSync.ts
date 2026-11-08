@@ -171,3 +171,16 @@ export async function loadActiveSyncGroup(): Promise<ActiveSyncGroup | null> {
 export async function clearAllSyncGroupSecrets(): Promise<void> {
   await Promise.all([clearGroupCode(), clearStrongGroupSecret()]);
 }
+
+/**
+ * Determina se um aparelho é elegível para migrar para o Grupo forte (Story 4.8).
+ * Elegível se e somente se conectado a um canal legado e ainda sem Grupo forte ativo.
+ */
+export function canMigrateToStrongGroup(
+  coexisting: CoexistingGroups,
+  isStrongGroup?: boolean,
+  groupCode?: string | null,
+): boolean {
+  if (coexisting.strong || isStrongGroup) return false;
+  return Boolean(coexisting.legacy || groupCode);
+}

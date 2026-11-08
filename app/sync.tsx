@@ -20,7 +20,7 @@ import { useSync } from "@/src/context/SyncProvider";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { LEGACY_CODE_DISCONTINUED_MESSAGE } from "@/src/context/strongGroupSync";
 import { soundManager } from "@/src/services/SoundManager";
-import { appAlert } from "@/src/services/appAlert";
+import { appAlert, appConfirm } from "@/src/services/appAlert";
 import { QRScannerModal } from "@/src/components/sync/QRScannerModal";
 import { TButton, TCard, TInput, TText } from "@/src/components/tamagui";
 import { ScreenIntroModal } from "@/src/components/tour/ScreenIntroModal";
@@ -70,9 +70,10 @@ function SyncScreen() {
   const router = useRouter();
   const { theme } = useAppState();
   const {
-    groupId, isStrongGroup, syncStatus, lastSyncTime, errorMessage,
+    groupId, isStrongGroup, canMigrate, migrateToStrongGroup, syncStatus, lastSyncTime, errorMessage,
     eventCount, relayCount, isAutoSyncEnabled,
     createGroup, joinGroup, leaveGroup, pushNow, pullNow, resetStatus,
+    coexistingGroups,
   } = useSync();
 
   const [joinCode, setJoinCode] = useState("");
@@ -115,10 +116,10 @@ function SyncScreen() {
     }
 
     setActionLoading(true);
-    const ok = await joinGroup(raw);
+    const ok = await joinGroup(raw, { keepLegacy: Boolean(coexistingGroups.legacy) });
     setActionLoading(false);
     if (ok) { setJoinCode(""); setShowJoinInput(false); }
-  }, [joinGroup, joinCode]);
+  }, [joinGroup, joinCode, coexistingGroups.legacy]);
 
   const handleScanResult = useCallback(async (code: string) => {
     soundManager.play("pop");
@@ -137,10 +138,10 @@ function SyncScreen() {
     }
 
     setActionLoading(true);
-    const ok = await joinGroup(code);
+    const ok = await joinGroup(code, { keepLegacy: Boolean(coexistingGroups.legacy) });
     setActionLoading(false);
     if (ok) { setJoinCode(""); setShowJoinInput(false); }
-  }, [joinGroup]);
+  }, [joinGroup, coexistingGroups.legacy]);
 
   const handleLeaveGroup = useCallback(async () => { haptic(); soundManager.play("tap"); await leaveGroup(); }, [leaveGroup]);
 
@@ -169,6 +170,36 @@ function SyncScreen() {
 
   const handlePush = useCallback(async () => { haptic(); soundManager.play("pop"); await pushNow(); }, [pushNow]);
   const handlePull = useCallback(async () => { haptic(); soundManager.play("pop"); await pullNow(); }, [pullNow]);
+
+  const handleMigrate = useCallback(async () => {
+    haptic();
+    soundManager.play("tap");
+    const confirmed = await appConfirm({
+      title: "Migrar para o sync seguro?",
+      message:
+        "Seu aparelho passará a usar criptografia de ponta a ponta com chave forte (AES-256-GCM). Aparelhos antigos continuarão funcionando durante a transição e você poderá parear novos aparelhos pelo novo QR Code.",
+      confirmLabel: "Migrar agora",
+      cancelLabel: "Cancelar",
+    });
+    if (!confirmed) return;
+
+    setActionLoading(true);
+    try {
+      const newCode = await migrateToStrongGroup();
+      if (newCode) {
+        soundManager.play("pop");
+        setShowQRModal(true);
+      } else {
+        appAlert(
+          "Aviso",
+          errorMessage ||
+            "Não foi possível migrar no momento. Verifique sua conexão com a internet e tente novamente.",
+        );
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  }, [migrateToStrongGroup, errorMessage]);
 
   const isBusy = syncStatus === "syncing" || actionLoading;
   const qrValue = groupId ? (isStrongGroup ? groupId : `domus://${groupId}`) : "";
@@ -422,6 +453,50 @@ function SyncScreen() {
               )}
             </View>
 
+            {canMigrate && (
+              <View
+                testID="migration-card"
+                style={[
+                  s.migrationCard,
+                  {
+                    backgroundColor: `${theme.primaryColor}10`,
+                    borderColor: `${theme.primaryColor}30`,
+                  },
+                ]}
+              >
+                <View style={s.migrationHeaderRow}>
+                  <View style={[s.migrationIconCircle, { backgroundColor: `${theme.primaryColor}20` }]}>
+                    <Feather name="shield" size={20} color={theme.primaryColor} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.migrationTitle, { color: theme.textColor }]}>
+                      Migrar para o sync seguro
+                    </Text>
+                    <Text style={[s.migrationDesc, { color: theme.secondaryText }]}>
+                      Atualize para a criptografia autenticada de 256 bits (AES-GCM). Aparelhos antigos continuam funcionando durante a transição.
+                    </Text>
+                  </View>
+                </View>
+                <TButton
+                  testID="migrate-to-strong-group-button"
+                  accessibilityLabel="Migrar para o sync seguro"
+                  variant="primary"
+                  backgroundColor={theme.primaryColor}
+                  icon={
+                    actionLoading ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Feather name="shield" size={16} color="#FFFFFF" />
+                    )
+                  }
+                  onPress={handleMigrate}
+                  disabled={isBusy}
+                >
+                  {actionLoading ? "Migrando..." : "Migrar para o sync seguro"}
+                </TButton>
+              </View>
+            )}
+
             <View style={s.sectionHeader}>
               <TText variant="subtitle" color={theme.textColor} fontSize={15}>Sync automático</TText>
               <Text style={[s.sectionDesc, { color: theme.secondaryText }]}>
@@ -503,7 +578,9 @@ function SyncScreen() {
         <Pressable style={s.qrModalOverlay} onPress={() => setShowQRModal(false)}>
           <ScrollView contentContainerStyle={s.qrModalScrollContent} showsVerticalScrollIndicator={false}>
             <Pressable style={[s.qrModalContent, { backgroundColor: theme.cardBackground }]} onPress={(e) => e.stopPropagation()}>
-              <Text style={[s.qrModalTitle, { color: theme.textColor }]}>QR Code do Grupo</Text>
+              <Text style={[s.qrModalTitle, { color: theme.textColor }]}>
+                {isStrongGroup ? "QR Code do Grupo Seguro" : "QR Code do Grupo"}
+              </Text>
               <View style={s.qrCodeWrap}>
                 <QRCode value={qrValue || "domus://"} size={QR_SIZE} backgroundColor="#FFFFFF" color="#000000" />
               </View>
@@ -627,6 +704,35 @@ const s = StyleSheet.create({
   backupBtnText: { flex: 1 },
   backupBtnTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 15 },
   backupBtnDesc: { fontFamily: "DMSans_400Regular", fontSize: 12, marginTop: 2 },
+  migrationCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    gap: 14,
+  },
+  migrationHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  migrationIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  migrationTitle: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 15,
+    marginBottom: 4,
+  },
+  migrationDesc: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    lineHeight: 18,
+  },
 });
 
 /** Tela com `presentation: "modal"`: tem o próprio host do alerta customizado (ver src/services/appAlert.ts). */

@@ -20,6 +20,7 @@ import {
   loadCoexistingGroups,
   clearAllSyncGroupSecrets,
   resolveJoinSyncGroup,
+  canMigrateToStrongGroup,
   type ActiveSyncGroup,
   type CoexistingGroups,
 } from "./strongGroupSync";
@@ -71,6 +72,12 @@ export function useSyncEngine({
   useEffect(() => {
     isStrongGroupRef.current = isStrongGroup;
   }, [isStrongGroup]);
+
+  // Story 4.8: Elegível para migração se estiver conectado a um grupo legado e não possuir grupo forte
+  const canMigrate = useMemo(
+    () => canMigrateToStrongGroup(coexistingGroups, isStrongGroup, groupCode),
+    [coexistingGroups, isStrongGroup, groupCode],
+  );
 
   const allEvents = getAllEvents();
   const allEventsRef = useRef(allEvents);
@@ -306,35 +313,41 @@ export function useSyncEngine({
       if (!currentDeviceId) return;
       const { strong, legacy } = coexistingRef.current;
       if (!strong && !legacy) return;
+      if (isPushingRef.current) return;
 
-      let anyAttempted = false;
-      let anySuccess = false;
-      let lastError: unknown = null;
+      isPushingRef.current = true;
+      try {
+        let anyAttempted = false;
+        let anySuccess = false;
+        let lastError: unknown = null;
 
-      if (strong) {
-        anyAttempted = true;
-        try {
-          await pushToGroup(strong, currentDeviceId, force);
-          anySuccess = true;
-        } catch (err) {
-          lastError = err;
-          console.warn("[Sync] Push no Grupo forte falhou:", err);
+        if (strong) {
+          anyAttempted = true;
+          try {
+            await pushToGroup(strong, currentDeviceId, force);
+            anySuccess = true;
+          } catch (err) {
+            lastError = err;
+            console.warn("[Sync] Push no Grupo forte falhou:", err);
+          }
         }
-      }
 
-      if (legacy) {
-        anyAttempted = true;
-        try {
-          await pushToGroup(legacy, currentDeviceId, force);
-          anySuccess = true;
-        } catch (err) {
-          lastError = err;
-          console.warn("[Sync] Push no Grupo antigo falhou:", err);
+        if (legacy) {
+          anyAttempted = true;
+          try {
+            await pushToGroup(legacy, currentDeviceId, force);
+            anySuccess = true;
+          } catch (err) {
+            lastError = err;
+            console.warn("[Sync] Push no Grupo antigo falhou:", err);
+          }
         }
-      }
 
-      if (anyAttempted && !anySuccess && lastError) {
-        throw lastError;
+        if (anyAttempted && !anySuccess && lastError) {
+          throw lastError;
+        }
+      } finally {
+        isPushingRef.current = false;
       }
     },
     [deviceId, pushToGroup],
@@ -536,14 +549,11 @@ export function useSyncEngine({
       const current = coexistingRef.current;
       if (!current.strong && !current.legacy) return;
 
-      isPushingRef.current = true;
       pushAllGroups(false)
         .then(() => {
-          isPushingRef.current = false;
           setSyncStatus("connected");
         })
         .catch(() => {
-          isPushingRef.current = false;
           setSyncStatus("offline");
         });
     }, 500);
@@ -611,9 +621,12 @@ export function useSyncEngine({
 
       try {
         await pushAllGroups(true);
-      } catch {}
+        setSyncStatus("connected");
+      } catch (err) {
+        console.warn("[Sync] Initial push after group creation failed:", err);
+        setSyncStatus("offline");
+      }
 
-      setSyncStatus("connected");
       await saveLastSync(Date.now());
       return group.code;
     } catch {
@@ -622,6 +635,14 @@ export function useSyncEngine({
       return null;
     }
   }, [deviceId, pushAllGroups, saveLastSync, coordinator]);
+
+  // Story 4.8: Migra aparelho do Grupo antigo para o Grupo forte mantendo coexistência (keepLegacy: true)
+  const migrateToStrongGroup = useCallback(async (): Promise<string | null> => {
+    if (!canMigrateToStrongGroup(coexistingRef.current, isStrongGroupRef.current, groupCode)) {
+      return null;
+    }
+    return createGroup({ keepLegacy: true });
+  }, [groupCode, createGroup]);
 
   const joinGroup = useCallback(
     async (code: string, options?: { keepLegacy?: boolean }): Promise<boolean> => {
@@ -771,6 +792,8 @@ export function useSyncEngine({
   return {
     groupCode,
     isStrongGroup,
+    canMigrate,
+    migrateToStrongGroup,
     syncStatus,
     lastSyncTime,
     errorMessage,
