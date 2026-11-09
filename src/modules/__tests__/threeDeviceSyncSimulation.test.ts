@@ -29,7 +29,7 @@ import {
   encodeGroupSecret,
   deriveStrongGroupKeys,
 } from "../strongGroup/groupSecret";
-import type { NostrSyncKeys } from "../nostrSync";
+import { computeStrongBatchId, type NostrSyncKeys } from "../nostrSync";
 
 function makeEvent(overrides: Partial<SyncEvent> = {}): SyncEvent {
   const id = overrides.id ?? "evt-1";
@@ -1034,8 +1034,10 @@ describe("Story 5.2 - Confirmação por lote, reenvio e resiliência a relay der
     }
     expect(deviceA.getAllEvents()).toHaveLength(25);
 
-    // Rejeita o Lote 1 no relay
-    relay.rejectBatch("sync-dev-A-1");
+    // Rejeita o Lote 1 no relay com a tag content-addressed
+    const batch1Events = deviceA.getAllEvents().slice(20);
+    const batch1Id = computeStrongBatchId(deviceA.deviceId, batch1Events);
+    relay.rejectBatch(batch1Id);
 
     // Dispara push: Lote 0 confirma, Lote 1 falha
     const partialPush = await deviceA.push();
@@ -1061,13 +1063,13 @@ describe("Story 5.2 - Confirmação por lote, reenvio e resiliência a relay der
     expect(deviceB.getAllEvents()).toHaveLength(20);
 
     // Agora o relay aceita o Lote 1
-    relay.allowBatch("sync-dev-A-1");
+    relay.allowBatch(batch1Id);
 
-    // Próximo ciclo de push: detecta pendências no tracker e reenvia
+    // Próximo ciclo de push: detecta pendências no tracker e reenvia APENAS os 5 pendentes (Story 5.3)
     const retryPush = await deviceA.push();
     expect(retryPush.pushed).toBe(true);
-    expect(retryPush.count).toBe(25);
-    expect(retryPush.confirmedEventIds).toHaveLength(25);
+    expect(retryPush.count).toBe(5);
+    expect(retryPush.confirmedEventIds).toHaveLength(5);
     expect(retryPush.failedEventIds).toHaveLength(0);
 
     // Agora que todos os lotes foram confirmados, o hash avança
@@ -1224,5 +1226,237 @@ describe("processPushResult (syncDecisions)", () => {
     expect(outcome.eventsToMark).toEqual(["bad-only"]);
     expect(outcome.shouldAdvanceHash).toBe(false);
     expect(outcome.shouldThrow).toBe(false);
+  });
+});
+
+describe("Story 5.3 - Publicar só os lotes novos no Grupo forte (lotes imutáveis content-addressed)", () => {
+  let relay: FakeMemoryRelay;
+  let sharedSecret: string;
+  let sharedKeys: NostrSyncKeys;
+  let deviceA: SimulatedSyncDevice;
+  let deviceB: SimulatedSyncDevice;
+
+  beforeEach(async () => {
+    relay = new FakeMemoryRelay();
+    const rawSecret = generateGroupSecret();
+    sharedSecret = encodeGroupSecret(rawSecret);
+    const strongKeys = deriveStrongGroupKeys(rawSecret);
+    sharedKeys = {
+      privateKey: strongKeys.nostrPrivateKey,
+      publicKey: strongKeys.nostrPublicKey,
+      encryptionKey: strongKeys.encryptionKey,
+      isStrong: true,
+    };
+
+    deviceA = await createSimulatedDevice({
+      deviceId: "dev-A",
+      relay,
+      keys: sharedKeys,
+      groupSecret: sharedSecret,
+    });
+
+    deviceB = await createSimulatedDevice({
+      deviceId: "dev-B",
+      relay,
+      keys: sharedKeys,
+      groupSecret: sharedSecret,
+    });
+  });
+
+  it("adicionar 1 evento a um log de 100 publica só 1 novo lote", async () => {
+    // 1. Gera 100 eventos no Aparelho A
+    deviceA.appendLocalEvent({
+      id: "acc-base",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-base", name: "Conta", type: "checking", balance: 10000 },
+      timestamp: 1_700_000_000_000,
+    });
+    for (let i = 1; i <= 99; i++) {
+      deviceA.appendLocalEvent({
+        id: `tx-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `tx-${i}`, accountId: "acc-base", type: "expense", amount: 10, date: "2026-10-01" },
+        timestamp: 1_700_000_000_000 + i * 1000,
+      });
+    }
+    expect(deviceA.getAllEvents()).toHaveLength(100);
+
+    // 2. Aparelho A publica os 100 eventos (5 lotes de até 20 eventos)
+    const initialPush = await deviceA.push();
+    expect(initialPush.pushed).toBe(true);
+    expect(initialPush.count).toBe(100);
+    expect(initialPush.confirmedEventIds).toHaveLength(100);
+
+    // No relay, temos exatamente 5 eventos Nostr publicados (kind 30333)
+    const initialRelayEvents = relay.getAllEvents();
+    expect(initialRelayEvents).toHaveLength(5);
+    const initialPublicationLogLength = relay.getPublicationLog().length;
+    expect(initialPublicationLogLength).toBe(5);
+
+    // Todas as tags 'd' são content-addressed
+    for (const re of initialRelayEvents) {
+      const dTag = re.tags.find((t) => t[0] === "d")?.[1];
+      expect(dTag).toMatch(/^sync-dev-A-[0-9a-f]{16}$/);
+    }
+
+    // 3. Adiciona 1 novo evento ao log de 100 no Aparelho A
+    deviceA.appendLocalEvent({
+      id: "tx-101",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-101", accountId: "acc-base", type: "expense", amount: 99, date: "2026-10-02" },
+      timestamp: 1_700_000_200_000,
+    });
+    expect(deviceA.getAllEvents()).toHaveLength(101);
+
+    // 4. Aparelho A dispara push novamente
+    const secondPush = await deviceA.push();
+    expect(secondPush.pushed).toBe(true);
+    expect(secondPush.count).toBe(1);
+    expect(secondPush.confirmedEventIds).toEqual(["tx-101"]);
+
+    // No relay, foi adicionado ESTRITAMENTE 1 novo lote (total = 6 eventos)
+    const updatedRelayEvents = relay.getAllEvents();
+    expect(updatedRelayEvents).toHaveLength(6);
+    expect(relay.getPublicationLog()).toHaveLength(6);
+
+    // O novo lote contém exclusivamente a tag content-addressed do novo evento
+    const newBatchEvent = updatedRelayEvents.find((e) => {
+      const dTag = e.tags.find((t) => t[0] === "d")?.[1];
+      return dTag === computeStrongBatchId("dev-A", [deviceA.getAllEvents()[100]]);
+    });
+    expect(newBatchEvent).toBeDefined();
+
+    // 5. Aparelho B puxa do relay e recebe todos os 101 eventos, convergindo perfeitamente
+    const pullB = await deviceB.pull();
+    expect(pullB.importedCount).toBe(101);
+    expect(deviceB.getAllEvents()).toHaveLength(101);
+    expect(deviceB.getState()).toEqual(deviceA.getState());
+  });
+
+  it("um evento de timestamp antigo criado localmente não faz os outros lotes serem republicados", async () => {
+    // 1. Gera 100 eventos com timestamps modernos
+    deviceA.appendLocalEvent({
+      id: "acc-base-old",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-base-old", name: "Conta", type: "checking", balance: 5000 },
+      timestamp: 1_700_000_100_000,
+    });
+    for (let i = 1; i <= 99; i++) {
+      deviceA.appendLocalEvent({
+        id: `tx-mod-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `tx-mod-${i}`, accountId: "acc-base-old", type: "expense", amount: 5, date: "2026-10-01" },
+        timestamp: 1_700_000_100_000 + i * 1000,
+      });
+    }
+
+    // Publica os 100 eventos
+    await deviceA.push();
+    expect(relay.getAllEvents()).toHaveLength(5);
+    const pubCountBefore = relay.getPublicationLog().length;
+    expect(pubCountBefore).toBe(5);
+
+    // 2. Insere localmente um evento com timestamp do PASSADO (anterior a todos os outros)
+    const pastEvent: SyncEvent = {
+      id: "tx-past-1",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-past-1", accountId: "acc-base-old", type: "expense", amount: 1, date: "2020-01-01" },
+      timestamp: 1_600_000_000_000, // No passado
+      deviceId: "dev-A",
+      signature: "sig-past",
+    };
+    deviceA.appendLocalEvent(pastEvent);
+
+    // O EventStore ordena por timestamp: o evento do passado fica na primeira posição (índice 0)
+    expect(deviceA.getAllEvents()[0].id).toBe("tx-past-1");
+
+    // 3. Executa push: deve publicar APENAS o novo evento do passado em 1 lote novo
+    const pushPast = await deviceA.push();
+    expect(pushPast.pushed).toBe(true);
+    expect(pushPast.count).toBe(1);
+    expect(pushPast.confirmedEventIds).toEqual(["tx-past-1"]);
+
+    // Exatamente 1 nova publicação no log do relay (total = 6)
+    expect(relay.getPublicationLog().length).toBe(6);
+    expect(relay.getAllEvents()).toHaveLength(6);
+
+    // Aparelho B puxa e recebe todos os 101 eventos, convergindo com ordenação determinística
+    await deviceB.pull();
+    expect(deviceB.getAllEvents()).toHaveLength(101);
+    expect(deviceB.getState()).toEqual(deviceA.getState());
+  });
+
+  it("evento de timestamp antigo recebido de peer via pull não gera republicação de lotes", async () => {
+    // Aparelho A tem 40 eventos publicados (2 lotes)
+    deviceA.appendLocalEvent({
+      id: "acc-peer",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-peer", name: "Conta", type: "checking", balance: 1000 },
+      timestamp: 1_700_000_000_000,
+    });
+    for (let i = 1; i <= 39; i++) {
+      deviceA.appendLocalEvent({
+        id: `tx-a-peer-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `tx-a-peer-${i}`, accountId: "acc-peer", type: "expense", amount: 10, date: "2026-10-01" },
+        timestamp: 1_700_000_000_000 + i * 1000,
+      });
+    }
+    await deviceA.push();
+    expect(relay.getAllEvents()).toHaveLength(2);
+
+    // Aparelho B cria um evento antigo e publica
+    deviceB.appendLocalEvent({
+      id: "tx-b-old",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-b-old", accountId: "acc-peer", type: "income", amount: 500, date: "2026-09-01" },
+      timestamp: 1_650_000_000_000, // Mais antigo que os eventos de A
+    });
+    await deviceB.push();
+    expect(relay.getAllEvents()).toHaveLength(3); // 2 de A + 1 de B
+
+    // Aparelho A recebe o evento antigo de B via pull
+    const pullA = await deviceA.pull();
+    expect(pullA.importedCount).toBe(1);
+    expect(deviceA.getAllEvents().some((e) => e.id === "tx-b-old")).toBe(true);
+
+    // Aparelho A tenta publicar: NENHUM lote é gerado nem publicado
+    const logLengthBefore = relay.getPublicationLog().length;
+    const pushAfterPull = await deviceA.push();
+    expect(pushAfterPull.pushed).toBe(false);
+    expect(pushAfterPull.reason).toBe("up-to-date");
+    expect(relay.getPublicationLog().length).toBe(logLengthBefore);
+  });
+
+  it("lote com conteúdo idêntico publicado novamente é idempotente no relay (mesma tag d)", async () => {
+    const singleEvent: SyncEvent = {
+      id: "tx-idem",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-idem", accountId: "acc-base", type: "expense", amount: 50, date: "2026-10-01" },
+      timestamp: 1_700_000_000_000,
+      deviceId: "dev-A",
+      signature: "sig-idem",
+    };
+    deviceA.appendLocalEvent(singleEvent);
+
+    const firstPush = await deviceA.push();
+    expect(firstPush.pushed).toBe(true);
+    expect(relay.getPublicationLog()).toHaveLength(1);
+    expect(relay.getAllEvents()).toHaveLength(1);
+    const dTag1 = relay.getAllEvents()[0].tags.find((t) => t[0] === "d")?.[1];
+
+    // Limpa o tracker do grupo para simular retransmissão do lote idêntico
+    await deviceA.tracker.clearGroup(deviceA.keys.publicKey);
+
+    // Segundo envio com o lote idêntico
+    const secondPush = await deviceA.push();
+    expect(secondPush.pushed).toBe(true);
+    expect(secondPush.count).toBe(1);
+
+    // O relay registrou a 2ª publicação no log, mas deduplicou por NIP-33 na mesma tag "d"
+    expect(relay.getPublicationLog()).toHaveLength(2);
+    expect(relay.getAllEvents()).toHaveLength(1);
+    const dTag2 = relay.getAllEvents()[0].tags.find((t) => t[0] === "d")?.[1];
+    expect(dTag1).toBe(dTag2);
   });
 });

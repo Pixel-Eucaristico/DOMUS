@@ -325,9 +325,10 @@ export function useSyncEngine({
       });
       if (!decision.shouldPublish) return;
 
-      const { myEvents, hash } = decision;
-      const result = await publishSyncEvents(group.keys, did, myEvents);
-      const outcome = processPushResult({ result, myEvents, currentHash: hash });
+      const { myEvents, pendingEvents, hash } = decision;
+      const eventsToPublish = group.isStrong ? pendingEvents : myEvents;
+      const result = await publishSyncEvents(group.keys, did, eventsToPublish);
+      const outcome = processPushResult({ result, myEvents: eventsToPublish, currentHash: hash });
 
       if (outcome.eventsToMark.length > 0) {
         await tracker.markPublished(outcome.eventsToMark, groupId);
@@ -366,8 +367,10 @@ export function useSyncEngine({
       });
       if (!decision.shouldPublish) return;
 
-      const result = await publishSyncEvents(k, did, myEvents);
-      const outcome = processPushResult({ result, myEvents, currentHash: hash });
+      const { pendingEvents } = decision;
+      const eventsToPublish = isStrong ? pendingEvents : myEvents;
+      const result = await publishSyncEvents(k, did, eventsToPublish);
+      const outcome = processPushResult({ result, myEvents: eventsToPublish, currentHash: hash });
 
       if (outcome.eventsToMark.length > 0) {
         await tracker.markPublished(outcome.eventsToMark, groupId);

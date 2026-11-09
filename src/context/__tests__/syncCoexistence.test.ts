@@ -460,7 +460,9 @@ describe("Story 4.7: Verificação do contrato de useSyncEngine", () => {
   });
 
   it("pushToGroup e pushMyEvents utilizam processPushResult para tratar o desfecho do push", () => {
-    expect(engineSource).toContain("processPushResult({ result, myEvents, currentHash: hash })");
+    expect(engineSource).toContain("processPushResult({ result, myEvents: eventsToPublish, currentHash: hash })");
+    expect(engineSource).toContain("const eventsToPublish = group.isStrong ? pendingEvents : myEvents;");
+    expect(engineSource).toContain("publishSyncEvents(group.keys, did, eventsToPublish)");
   });
 
   it("discrimina eventos do canal legado com isStrongGroup: false na importação", () => {

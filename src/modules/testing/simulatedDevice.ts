@@ -26,7 +26,7 @@ import {
   encodeGroupSecret,
   parseGroupSecret,
 } from "../strongGroup/groupSecret";
-import { partitionStrongBatches, type NostrSyncKeys } from "../nostrSync";
+import { partitionStrongBatches, computeStrongBatchId, type NostrSyncKeys } from "../nostrSync";
 import {
   shouldPublishGroupEvents,
   processIncomingEvents,
@@ -164,14 +164,14 @@ export class SimulatedSyncDevice {
       return { pushed: false, count: 0, reason: decision.reason, confirmedEventIds: [], failedEventIds: [] };
     }
 
-    const eventsToPublish = decision.myEvents;
+    const eventsToPublish = decision.pendingEvents;
     const batches = partitionStrongBatches(eventsToPublish);
     const confirmedEventIds: string[] = [];
     const failedEventIds: string[] = [];
 
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       const batch = batches[batchIndex];
-      const batchId = `sync-${this.deviceId}-${batchIndex}`;
+      const batchId = computeStrongBatchId(this.deviceId, batch);
       const batchEventIds = batch.map((e) => e.id);
 
       const batchPayload = JSON.stringify(

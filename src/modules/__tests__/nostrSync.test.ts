@@ -52,6 +52,7 @@ import {
   publishSyncEvents,
   subscribeToSyncEvents,
   deriveKeysFromCode,
+  computeStrongBatchId,
   closePool,
   type NostrSyncKeys,
 } from "../nostrSync";
@@ -698,11 +699,13 @@ describe("Story 5.2 - Confirmação de envio por lote e relatório discriminado 
     expect(result.batches).toHaveLength(2);
     expect(result.batches[0].success).toBe(true);
     expect(result.batches[0].batchIndex).toBe(0);
-    expect(result.batches[0].batchId).toBe("sync-dev-a-0");
+    expect(result.batches[0].batchId).toBe(computeStrongBatchId("dev-a", events.slice(0, 20)));
+    expect(result.batches[0].batchId).toMatch(/^sync-dev-a-[0-9a-f]{16}$/);
     expect(result.batches[0].eventIds).toHaveLength(20);
     expect(result.batches[1].success).toBe(true);
     expect(result.batches[1].batchIndex).toBe(1);
-    expect(result.batches[1].batchId).toBe("sync-dev-a-1");
+    expect(result.batches[1].batchId).toBe(computeStrongBatchId("dev-a", events.slice(20, 40)));
+    expect(result.batches[1].batchId).toMatch(/^sync-dev-a-[0-9a-f]{16}$/);
     expect(result.batches[1].eventIds).toHaveLength(20);
   });
 
@@ -770,5 +773,58 @@ describe("Story 5.2 - Confirmação de envio por lote e relatório discriminado 
     expect(result.batches).toEqual([]);
     expect(publishCalls).toBe(0);
     expect(published).toHaveLength(0);
+  });
+
+  describe("Story 5.3: Lotes imutáveis content-addressed no Grupo forte e preservação do Grupo antigo", () => {
+    it("computeStrongBatchId: determinismo, unicidade por conteúdo e formato", () => {
+      const e1 = valid({ id: "evt-1" });
+      const e2 = valid({ id: "evt-2" });
+      const batchA = [e1, e2];
+      const batchB = [e1, valid({ id: "evt-2", payload: { amount: 999 } })];
+
+      const id1 = computeStrongBatchId("dev-x", batchA);
+      const id2 = computeStrongBatchId("dev-x", batchA);
+      const idDifferentContent = computeStrongBatchId("dev-x", batchB);
+      const idDifferentDevice = computeStrongBatchId("dev-y", batchA);
+
+      expect(id1).toBe(id2);
+      expect(id1).toMatch(/^sync-dev-x-[0-9a-f]{16}$/);
+      expect(idDifferentContent).toMatch(/^sync-dev-x-[0-9a-f]{16}$/);
+      expect(id1).not.toBe(idDifferentContent);
+      // Mesmo conteúdo em aparelho diferente tem o mesmo hash de conteúdo
+      const hashA = id1.replace("sync-dev-x-", "");
+      const hashDevY = idDifferentDevice.replace("sync-dev-y-", "");
+      expect(hashA).toBe(hashDevY);
+    });
+
+    it("Grupo antigo: preserva estritamente formato indexado substituível (sync-${deviceId}-${batchIndex})", async () => {
+      const oldKeys = await deriveKeysFromCode("GRUPO-ANTIGO-53");
+      const events = Array.from({ length: 25 }, (_, i) => valid({ id: `legacy-${i}` }));
+
+      const result = await publishSyncEvents(oldKeys, "dev-legacy", events);
+      expect(result.published).toBe(25);
+      expect(result.batches).toHaveLength(2);
+      expect(result.batches[0].batchId).toBe("sync-dev-legacy-0");
+      expect(result.batches[1].batchId).toBe("sync-dev-legacy-1");
+
+      expect(published).toHaveLength(2);
+      expect(published[0].tags.find((t: string[]) => t[0] === "d")?.[1]).toBe("sync-dev-legacy-0");
+      expect(published[1].tags.find((t: string[]) => t[0] === "d")?.[1]).toBe("sync-dev-legacy-1");
+    });
+
+    it("Grupo forte: tag 'd' do Nostr contém o batchId content-addressed", async () => {
+      const strongKeys = makeStrongKeys();
+      const events = [valid({ id: "strong-1" }), valid({ id: "strong-2" })];
+
+      const result = await publishSyncEvents(strongKeys, "dev-strong", events);
+      expect(result.published).toBe(2);
+      expect(result.batches).toHaveLength(1);
+
+      const expectedBatchId = computeStrongBatchId("dev-strong", events);
+      expect(result.batches[0].batchId).toBe(expectedBatchId);
+
+      expect(published).toHaveLength(1);
+      expect(published[0].tags.find((t: string[]) => t[0] === "d")?.[1]).toBe(expectedBatchId);
+    });
   });
 });

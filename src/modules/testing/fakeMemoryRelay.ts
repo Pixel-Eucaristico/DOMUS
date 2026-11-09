@@ -119,7 +119,7 @@ export class FakeMemoryRelay {
 
     const dTag = event.tags.find((t) => t[0] === "d")?.[1];
     if (dTag) {
-      const match = /^sync-(.+)-\d+$/.exec(dTag);
+      const match = /^sync-(.+)-[^-]+$/.exec(dTag);
       if (match && match[1]) return match[1];
     }
     return undefined;

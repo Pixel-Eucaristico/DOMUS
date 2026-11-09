@@ -460,6 +460,19 @@ export function partitionStrongBatches(
   return batches;
 }
 
+/**
+ * Story 5.3: Calcula o identificador de lote no Grupo forte determinístico pelo conteúdo
+ * (content-addressed), garantindo imutabilidade e impedindo substituição indevida no relay Nostr.
+ */
+export function computeStrongBatchId(deviceId: string, batch: readonly SyncEvent[]): string {
+  const batchPayload = JSON.stringify(batch.map(formatEnvelope));
+  const contentHash = Array.from(jsSha256(new TextEncoder().encode(batchPayload)))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 16);
+  return `sync-${deviceId}-${contentHash}`;
+}
+
 export interface BatchPublishResult {
   batchIndex: number;
   batchId: string;
@@ -541,7 +554,9 @@ export async function publishSyncEvents(
 
   for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
     const batch = batches[batchIndex];
-    const batchId = `sync-${deviceId}-${batchIndex}`;
+    const batchId = isStrong
+      ? computeStrongBatchId(deviceId, batch)
+      : `sync-${deviceId}-${batchIndex}`;
     const eventIds = batch.map((e) => e.id);
 
     const batchPayload = JSON.stringify(batch.map(formatEnvelope));
