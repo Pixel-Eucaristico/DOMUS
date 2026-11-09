@@ -68,7 +68,7 @@ development_status:
   3-8-evoluir-o-formato-dos-eventos-sem-quebrar-versões-publicadas: done
   epic-3-retrospective: optional
 
-  epic-4: in-progress
+  epic-4: done
   4-1-gerar-o-segredo-de-grupo-forte-e-derivar-as-chaves: done
   4-2-cifrar-e-decifrar-eventos-com-cifra-autenticada: done
   4-3-criar-um-grupo-forte-e-mostra-lo-por-qr-e-por-texto: done
@@ -78,7 +78,7 @@ development_status:
   4-7-manter-o-grupo-antigo-e-o-forte-ao-mesmo-tempo: done
   4-8-migrar-um-aparelho-do-grupo-antigo-para-o-forte: done
   4-9-cortar-o-grupo-antigo-na-versão-mínima-e-na-data: done
-  4-10-reativar-ponta-a-ponta-no-texto-público-depois-do-corte: backlog
+  4-10-reativar-ponta-a-ponta-no-texto-público-depois-do-corte: done
   epic-4-retrospective: optional
 
   epic-5: backlog

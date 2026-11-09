@@ -55,7 +55,7 @@ ASSISTENTE FINANCEIRO COM IA
 Converse com a IA sobre suas finanças usando a sua própria chave de API. O assistente recebe a conversa e um resumo do mês e, só se você liberar, suas transações, contas e outros dados, para sugerir metas e responder dúvidas. Voz e leitura de fotos pela IA são opcionais e ficam desligadas até você ligar. Compatível com OpenAI, Google Gemini, Claude, DeepSeek, Qwen e OpenRouter.
 
 SINCRONIZAÇÃO ENTRE APARELHOS (OPCIONAL)
-Sincronize seus aparelhos por relays Nostr públicos, com os dados cifrados por uma chave simples, derivada do código do grupo. Sem servidor do DOMUS. Os registros publicados continuam nos relays mesmo depois de sair do grupo.
+Sincronize seus aparelhos por relays Nostr públicos, com criptografia ponta a ponta (AES-256-GCM). Sem servidor do DOMUS. Os registros publicados continuam nos relays mesmo depois de sair do grupo.
 
 BACKUP CRIPTOGRAFADO
 Exporte todos os dados em arquivo .domusbackup protegido por senha (AES-256-GCM). Restaure em qualquer dispositivo. O app grava uma cópia cifrada no aparelho todo dia; conecte o Google Drive para enviá-la também à sua conta, automaticamente.
@@ -90,7 +90,8 @@ Comece hoje a construir uma vida financeira mais organizada com o DOMUS.
 ```
 controle financeiro, finanças pessoais, controle de gastos, orçamento 50 30 20,
 nota fiscal, gamificação, poupança, metas financeiras, backup criptografado,
-organizador financeiro, despesas, receitas, cartão de crédito
+organizador financeiro, despesas, receitas, cartão de crédito,
+criptografia ponta a ponta
 ```
 
 ---
@@ -110,7 +111,7 @@ Fonte única: `docs/politica-de-privacidade.md` (publicada em
 ````markdown
 # Política de Privacidade — DOMUS
 
-Última atualização: 21 de outubro de 2026
+Última atualização: 9 de novembro de 2026
 
 Esta política descreve o que o DOMUS faz hoje com os seus dados. O DOMUS não tem servidor
 próprio que receba seus dados: eles ficam no seu aparelho. Alguns recursos, quando você os
@@ -127,7 +128,7 @@ busca na Amazon ou no Mercado Livre) só acontecem quando você os pede.
   desejos ficam no banco de dados local do aparelho (SQLite). Esse banco não é cifrado pelo
   DOMUS; ele conta com a proteção do próprio sistema, que isola os dados de cada app. Na
   versão web, os dados ficam no armazenamento do navegador, sem cifra.
-- **Segredos:** chaves de API, o código do grupo de sincronização e o acesso ao Google Drive
+- **Segredos:** chaves de API, o segredo ou código do grupo de sincronização e o acesso ao Google Drive
   ficam no armazenamento seguro do sistema (Keystore no Android, Keychain no iOS). Na web,
   ficam cifrados com uma chave do próprio navegador. Exceções: a chave do Google Cloud Vision
   e a chave da cópia automática de backup ficam no armazenamento comum do app, sem cifra.
@@ -140,18 +141,22 @@ busca na Amazon ou no Mercado Livre) só acontecem quando você os pede.
 
 ## 2. Sincronização entre aparelhos (opcional)
 
-- Fica desligada até você criar ou entrar num grupo com um código.
+- Fica desligada até você criar ou entrar num grupo com um código ou segredo.
 - Quando ligada, o app publica seus registros em seis relays Nostr públicos, mantidos por
   terceiros: relay.damus.io, nos.lol, relay.snort.social, relay.primal.net,
   relay.nostr.com.br e nostr.bitcoiner.social.
-- O conteúdo vai cifrado com uma chave derivada do código do grupo. É uma proteção simples:
-  quem souber o código, ou descobri-lo por tentativa, consegue ler os registros publicados.
+- O conteúdo vai protegido por criptografia de ponta a ponta autenticada (AES-256-GCM),
+  com chave derivada de um Segredo de grupo de 256 bits gerado no aparelho e compartilhado
+  exclusivamente entre os seus dispositivos (via QR Code ou texto). O canal legado anterior
+  (baseado em código curto de 6 caracteres e cifra XOR) foi integralmente descontinuado; o
+  histórico pretérito trafegado no formato antigo permanece documentado como risco residual
+  em docs/risco-residual-xor.md.
 - Ficam visíveis sem cifra: o identificador do aparelho gerado pelo app, o horário de
   publicação, a quantidade de registros de cada lote e a chave pública do grupo. Os relays
   também veem o endereço IP do aparelho.
 - Os registros publicados continuam nos relays depois que você sai do grupo, reseta o app
   ou o desinstala. O DOMUS não consegue apagá-los.
-- **Sincronização.** Envia: seus registros a seis relays Nostr públicos, cifrados com uma chave derivada do código do grupo, uma proteção simples; o identificador do aparelho, o horário, o tamanho de cada lote e a chave pública do grupo vão sem cifra, os relays veem o endereço IP e os registros continuam lá depois que você sai do grupo. Sem isso: seus dados ficam só neste aparelho, sem cópia nos seus outros aparelhos.
+- **Sincronização.** Envia: seus registros a seis relays Nostr públicos, com criptografia ponta a ponta (AES-256-GCM); o identificador do aparelho, o horário, o tamanho de cada lote e a chave pública do grupo vão sem cifra, os relays veem o endereço IP e os registros continuam lá depois que você sai do grupo. Sem isso: seus dados ficam só neste aparelho, sem cópia nos seus outros aparelhos.
 
 ## 3. Assistente de IA (opcional)
 

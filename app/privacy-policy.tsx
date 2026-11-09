@@ -15,7 +15,7 @@ import { soundManager } from "@/src/services/SoundManager";
 import { TCard, TText } from "@/src/components/tamagui";
 import { appAlert } from "@/src/services/appAlert";
 
-const LAST_UPDATED = "21 de outubro de 2026";
+const LAST_UPDATED = "9 de novembro de 2026";
 const EXTERNAL_POLICY_URL =
   "https://pixel-eucaristico.com.br/domus/privacy";
 
@@ -105,7 +105,7 @@ export default function PrivacyPolicyScreen() {
           </PolicyItem>
           <PolicyItem theme={theme}>
             <BoldText theme={theme}>Segredos:</BoldText>
-            {" "}chaves de API, o código do grupo de sincronização e o acesso ao
+            {" "}chaves de API, o segredo ou código do grupo de sincronização e o acesso ao
             Google Drive ficam no armazenamento seguro do sistema (Keystore no
             Android, Keychain no iOS). Na web, ficam cifrados com uma chave do
             próprio navegador. Exceções: a chave do Google Cloud Vision e a chave
@@ -129,7 +129,7 @@ export default function PrivacyPolicyScreen() {
         {/* 2. Sincronização */}
         <PolicySection icon="refresh-cw" title="Sincronização entre aparelhos (opcional)" theme={theme}>
           <PolicyItem theme={theme}>
-            Fica desligada até você criar ou entrar num grupo com um código.
+            Fica desligada até você criar ou entrar num grupo com um código ou segredo.
           </PolicyItem>
           <PolicyItem theme={theme}>
             Quando ligada, o app publica seus registros em seis{" "}
@@ -138,9 +138,12 @@ export default function PrivacyPolicyScreen() {
             relay.primal.net, relay.nostr.com.br e nostr.bitcoiner.social.
           </PolicyItem>
           <PolicyItem theme={theme}>
-            O conteúdo vai cifrado com uma chave derivada do código do grupo. É uma
-            proteção simples: quem souber o código, ou descobri-lo por tentativa,
-            consegue ler os registros publicados.
+            O conteúdo vai protegido por criptografia de ponta a ponta autenticada (AES-256-GCM),
+            com chave derivada de um Segredo de grupo de 256 bits gerado no aparelho e compartilhado
+            exclusivamente entre os seus dispositivos (via QR Code ou texto). O canal legado anterior
+            (baseado em código curto de 6 caracteres e cifra XOR) foi integralmente descontinuado; o
+            histórico pretérito trafegado no formato antigo permanece documentado como risco residual
+            em docs/risco-residual-xor.md.
           </PolicyItem>
           <PolicyItem theme={theme}>
             Ficam visíveis sem cifra: o identificador do aparelho gerado pelo app, o
@@ -157,7 +160,7 @@ export default function PrivacyPolicyScreen() {
           <FlagItem
             theme={theme}
             title="Sincronização"
-            sends="seus registros a seis relays Nostr públicos, cifrados com uma chave derivada do código do grupo, uma proteção simples; o identificador do aparelho, o horário, o tamanho de cada lote e a chave pública do grupo vão sem cifra, os relays veem o endereço IP e os registros continuam lá depois que você sai do grupo."
+            sends="seus registros a seis relays Nostr públicos, com criptografia ponta a ponta (AES-256-GCM); o identificador do aparelho, o horário, o tamanho de cada lote e a chave pública do grupo vão sem cifra, os relays veem o endereço IP e os registros continuam lá depois que você sai do grupo."
             loses="seus dados ficam só neste aparelho, sem cópia nos seus outros aparelhos."
           />
         </PolicySection>

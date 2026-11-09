@@ -305,7 +305,7 @@ function SyncScreen() {
                   <Feather name="log-in" size={24} color={theme.primaryColor} />
                 </View>
                 <Text style={[s.actionCardTitle, { color: theme.textColor }]}>Entrar</Text>
-                <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Com código</Text>
+                <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Com segredo</Text>
               </Pressable>
             </View>
 
@@ -371,7 +371,7 @@ function SyncScreen() {
               <Feather name="info" size={16} color={theme.secondaryText} />
               <View style={{ flex: 1 }}>
                 <Text style={[s.infoText, { color: theme.secondaryText, flex: 0 }]}>
-                  Crie um grupo no celular A, depois entre com o código ou escaneie o QR Code no celular B. Os dados são sincronizados por relays públicos Nostr, sem servidor do DOMUS.
+                  Crie um grupo no celular A, depois entre com o segredo ou escaneie o QR Code no celular B. Os dados são sincronizados por relays públicos Nostr com criptografia ponta a ponta (AES-256-GCM), sem servidor do DOMUS.
                 </Text>
                 <PrivacyFlagNote flag="sync" color={theme.secondaryText} />
               </View>
@@ -597,7 +597,9 @@ function SyncScreen() {
               <Feather name="info" size={16} color={theme.secondaryText} />
               <View style={{ flex: 1 }}>
                 <Text style={[s.infoText, { color: theme.secondaryText, flex: 0 }]}>
-                  Sync descentralizado via Nostr. Os eventos são publicados em relays públicos e buscados automaticamente, sem servidor do DOMUS. Seus dados continuam no aparelho e funcionam offline.
+                  {isStrongGroup
+                    ? "Sync descentralizado via Nostr com criptografia ponta a ponta (AES-256-GCM). Os eventos são publicados em relays públicos e buscados automaticamente, sem servidor do DOMUS. Seus dados continuam no aparelho e funcionam offline."
+                    : "Canal legado descontinuado. Os dados anteriores permanecem no aparelho. Migre para o Grupo seguro para ativar a criptografia ponta a ponta (AES-256-GCM)."}
                 </Text>
                 <PrivacyFlagNote flag="sync" color={theme.secondaryText} />
               </View>

@@ -75,7 +75,7 @@ export const PRIVACY_FLAG_TEXTS: Record<PrivacyFlagId, PrivacyFlagText> = {
   sync: {
     title: "Sincronização",
     sends:
-      "seus registros a seis relays Nostr públicos, cifrados com uma chave derivada do código do grupo, uma proteção simples; o identificador do aparelho, o horário, o tamanho de cada lote e a chave pública do grupo vão sem cifra, os relays veem o endereço IP e os registros continuam lá depois que você sai do grupo.",
+      "seus registros a seis relays Nostr públicos, com criptografia ponta a ponta (AES-256-GCM); o identificador do aparelho, o horário, o tamanho de cada lote e a chave pública do grupo vão sem cifra, os relays veem o endereço IP e os registros continuam lá depois que você sai do grupo.",
     loses: "seus dados ficam só neste aparelho, sem cópia nos seus outros aparelhos.",
   },
   googleDrive: {
