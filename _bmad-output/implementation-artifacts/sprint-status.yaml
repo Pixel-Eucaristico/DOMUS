@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-09-2026 16:36
+last_updated: 11-09-2026 16:56
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -66,7 +66,7 @@ development_status:
   3-6-separar-o-cursor-de-leitura-dos-relays-do-timestamp-do-event: done
   3-7-aplicar-edição-e-exclusão-que-chegam-antes-do-alvo: done
   3-8-evoluir-o-formato-dos-eventos-sem-quebrar-versões-publicadas: done
-  epic-3-retrospective: optional
+  epic-3-retrospective: done
 
   epic-4: done
   4-1-gerar-o-segredo-de-grupo-forte-e-derivar-as-chaves: done
@@ -205,3 +205,21 @@ action_items:
     owner: "domus-architect"
     status: open
     ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-4-retro-2026-11-09.md"
+  - id: "epic-3-retro-item-5-blindar-account_updated-contra-sobrescri"
+    epic: 3
+    action: "Blindar ACCOUNT_UPDATED contra sobrescrita de saldo no reducer e formulario"
+    owner: "domus-dev"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-3-retro-2026-11-09.md"
+  - id: "epic-3-retro-item-6-deduplicar-conquistas-no-reducer-de-gami"
+    epic: 3
+    action: "Deduplicar conquistas no reducer de gamificacao na Story 7.1 (D31)"
+    owner: "domus-dev"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-3-retro-2026-11-09.md"
+  - id: "epic-3-retro-item-7-introduzir-politica-de-descarte-para-orf"
+    epic: 3
+    action: "Introduzir politica de descarte para orfaos e toombstones em OutOfOrderState"
+    owner: "domus-architect"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-3-retro-2026-11-09.md"
