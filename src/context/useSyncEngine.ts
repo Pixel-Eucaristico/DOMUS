@@ -21,6 +21,11 @@ import {
   clearAllSyncGroupSecrets,
   resolveJoinSyncGroup,
   canMigrateToStrongGroup,
+  isLegacySyncDisabled,
+  createLegacyCutoffWarningEvent,
+  LEGACY_CUTOFF_MESSAGE,
+  LEGACY_VERSION_TOO_OLD_MESSAGE,
+  LEGACY_CUTOFF_WARNING_STORAGE_KEY_PREFIX,
   type ActiveSyncGroup,
   type CoexistingGroups,
 } from "./strongGroupSync";
@@ -41,6 +46,8 @@ interface UseSyncEngineArgs {
   localEventCount: number;
   deviceId: string | null;
   loading: boolean;
+  now?: () => number;
+  version?: string;
 }
 
 export function useSyncEngine({
@@ -49,10 +56,14 @@ export function useSyncEngine({
   localEventCount,
   deviceId,
   loading,
+  now = () => Date.now(),
+  version,
 }: UseSyncEngineArgs) {
   const [coexistingGroups, setCoexistingGroups] = useState<CoexistingGroups>({
     strong: null,
     legacy: null,
+    legacyCutoff: false,
+    legacyCode: null,
   });
   const coexistingRef = useRef<CoexistingGroups>(coexistingGroups);
   useEffect(() => {
@@ -124,6 +135,38 @@ export function useSyncEngine({
   );
 
   const legacyEventIdsRef = useRef<Set<string>>(new Set());
+  const isPublishingWarningRef = useRef(false);
+
+  // Story 4.9: Publica evento de aviso prévio no canal legado uma única vez antes da data de corte
+  const publishLegacyCutoffWarningIfNeeded = useCallback(
+    async (legacyGroup: ActiveSyncGroup, did: string) => {
+      const currentNow = now();
+      if (isLegacySyncDisabled({ now: currentNow, version })) return;
+      if (isPublishingWarningRef.current) return;
+
+      const legacyGroupId = legacyGroup.keys.publicKey;
+      const warnKey = `${LEGACY_CUTOFF_WARNING_STORAGE_KEY_PREFIX}${legacyGroupId}`;
+      try {
+        isPublishingWarningRef.current = true;
+        const alreadyWarned = await AsyncStorage.getItem(warnKey);
+        if (alreadyWarned) return;
+
+        // Namespace dedicado para evitar colisão NIP-33 com o lote 0 de transações do usuário
+        const noticeDeviceId = `notice-${did}`;
+        const warnEvent = createLegacyCutoffWarningEvent(noticeDeviceId);
+        const published = await publishSyncEvents(legacyGroup.keys, noticeDeviceId, [warnEvent]);
+        if (published > 0) {
+          await tracker.markPublished([warnEvent.id], legacyGroupId);
+          await AsyncStorage.setItem(warnKey, "1");
+        }
+      } catch (err) {
+        console.warn("[Sync] Falha ao enviar aviso prévio no canal legado:", err);
+      } finally {
+        isPublishingWarningRef.current = false;
+      }
+    },
+    [now, version, tracker],
+  );
 
   const [coordinator] = useState(() =>
     createSyncCoordinator<{ keys: NostrSyncKeys; deviceId: string; isRecovery: boolean }>({
@@ -201,7 +244,7 @@ export function useSyncEngine({
       }),
     ])
       .then(async () => {
-        const coexisting = await loadCoexistingGroups();
+        const coexisting = await loadCoexistingGroups({ now: now(), version });
         coexistingRef.current = coexisting;
         setCoexistingGroups(coexisting);
         const active = coexisting.strong ?? coexisting.legacy;
@@ -210,6 +253,20 @@ export function useSyncEngine({
           setGroupCode(active.code);
           setKeys(active.keys);
           keysRef.current = active.keys;
+          if (!active.isStrong && deviceId) {
+            await publishLegacyCutoffWarningIfNeeded(active, deviceId);
+          }
+        } else if (coexisting.legacyCutoff && coexisting.legacyCode) {
+          isStrongGroupRef.current = false;
+          setGroupCode(coexisting.legacyCode);
+          setKeys(null);
+          keysRef.current = null;
+          setSyncStatus("offline");
+          setErrorMessage(
+            coexisting.legacyCutoffReason === "version_deprecated"
+              ? LEGACY_VERSION_TOO_OLD_MESSAGE
+              : LEGACY_CUTOFF_MESSAGE,
+          );
         }
       })
       .catch((err) => {
@@ -222,7 +279,7 @@ export function useSyncEngine({
     return () => {
       closePool();
     };
-  }, [coordinator, tracker]);
+  }, [coordinator, tracker, deviceId, now, version, publishLegacyCutoffWarningIfNeeded]);
 
   // --- Core sync operations ---
 
@@ -333,13 +390,16 @@ export function useSyncEngine({
         }
 
         if (legacy) {
-          anyAttempted = true;
-          try {
-            await pushToGroup(legacy, currentDeviceId, force);
-            anySuccess = true;
-          } catch (err) {
-            lastError = err;
-            console.warn("[Sync] Push no Grupo antigo falhou:", err);
+          const legacyDisabled = isLegacySyncDisabled({ now: now(), version });
+          if (!legacyDisabled) {
+            anyAttempted = true;
+            try {
+              await pushToGroup(legacy, currentDeviceId, force);
+              anySuccess = true;
+            } catch (err) {
+              lastError = err;
+              console.warn("[Sync] Push no Grupo antigo falhou:", err);
+            }
           }
         }
 
@@ -350,7 +410,7 @@ export function useSyncEngine({
         isPushingRef.current = false;
       }
     },
-    [deviceId, pushToGroup],
+    [deviceId, pushToGroup, now, version],
   );
 
   const pullFromRelays = useCallback(
@@ -391,18 +451,21 @@ export function useSyncEngine({
     }
 
     if (legacy) {
-      try {
-        const isRecovery = allEventsRef.current.length === 0;
-        const imported = await coordinator.runPull({
-          keys: legacy.keys,
-          deviceId: currentDeviceId,
-          isRecovery,
-        });
-        totalImported += imported;
-        anySuccess = true;
-      } catch (err) {
-        lastError = err;
-        console.warn("[Sync] Pull do Grupo antigo falhou:", err);
+      const legacyDisabled = isLegacySyncDisabled({ now: now(), version });
+      if (!legacyDisabled) {
+        try {
+          const isRecovery = allEventsRef.current.length === 0;
+          const imported = await coordinator.runPull({
+            keys: legacy.keys,
+            deviceId: currentDeviceId,
+            isRecovery,
+          });
+          totalImported += imported;
+          anySuccess = true;
+        } catch (err) {
+          lastError = err;
+          console.warn("[Sync] Pull do Grupo antigo falhou:", err);
+        }
       }
     }
 
@@ -415,13 +478,47 @@ export function useSyncEngine({
       throw lastError;
     }
     return 0;
-  }, [deviceId, coordinator, saveLastSync]);
+  }, [deviceId, coordinator, saveLastSync, now, version]);
 
   const doSync = useCallback(async () => {
     const currentDeviceId = deviceId;
-    const { strong, legacy } = coexistingRef.current;
-    if (!currentDeviceId || (!strong && !legacy)) return;
+    const currentCoexisting = coexistingRef.current;
+    if (
+      !currentDeviceId ||
+      (!currentCoexisting.strong && !currentCoexisting.legacy && !currentCoexisting.legacyCutoff)
+    ) {
+      return;
+    }
     if (coordinator.isImporting()) return;
+
+    // Story 4.9: Se o canal legado atingiu data de corte ou versão mínima enquanto o app rodava
+    const legacyDisabled = isLegacySyncDisabled({ now: now(), version });
+    if (currentCoexisting.legacy && legacyDisabled) {
+      if (legacySubRef.current) {
+        legacySubRef.current.close();
+        legacySubRef.current = null;
+      }
+      const updated = await loadCoexistingGroups({ now: now(), version });
+      coexistingRef.current = updated;
+      setCoexistingGroups(updated);
+      if (!updated.strong) {
+        setSyncStatus("offline");
+        setErrorMessage(
+          updated.legacyCutoffReason === "version_deprecated"
+            ? LEGACY_VERSION_TOO_OLD_MESSAGE
+            : LEGACY_CUTOFF_MESSAGE,
+        );
+        return;
+      }
+    }
+
+    if (currentCoexisting.legacy && !legacyDisabled) {
+      await publishLegacyCutoffWarningIfNeeded(currentCoexisting.legacy, currentDeviceId);
+    }
+
+    if (!coexistingRef.current.strong && !coexistingRef.current.legacy) {
+      return;
+    }
 
     try {
       setSyncStatus("syncing");
@@ -437,7 +534,15 @@ export function useSyncEngine({
       console.warn("[Sync] periodic sync failed (offline):", err);
       setSyncStatus("offline");
     }
-  }, [deviceId, pushAllGroups, pullAllGroups, coordinator]);
+  }, [
+    deviceId,
+    pushAllGroups,
+    pullAllGroups,
+    coordinator,
+    now,
+    version,
+    publishLegacyCutoffWarningIfNeeded,
+  ]);
 
   // --- Main sync effect ---
 
@@ -499,7 +604,9 @@ export function useSyncEngine({
     }
 
     // Assinatura ao vivo para o Grupo antigo (Story 4.7 Convivência)
-    if (legacy) {
+    // Story 4.9: Bloqueada se o canal legado estiver descontinuado
+    const legacyDisabled = isLegacySyncDisabled({ now: now(), version });
+    if (legacy && !legacyDisabled) {
       try {
         const legacyGroupId = legacy.keys.publicKey;
         legacySubRef.current = subscribeToSyncEvents(
@@ -507,6 +614,11 @@ export function useSyncEngine({
           deviceId,
           coordinator.liveSince(),
           (event, createdAt) => {
+            if (isLegacySyncDisabled({ now: now(), version })) {
+              legacySubRef.current?.close();
+              legacySubRef.current = null;
+              return;
+            }
             legacyEventIdsRef.current.add(event.id);
             if (event.deviceId !== deviceId) {
               tracker.markReceived(event.id, legacyGroupId).catch(() => {});
@@ -531,7 +643,7 @@ export function useSyncEngine({
         legacySubRef.current = null;
       }
     };
-  }, [coexistingGroups, deviceId, loading, doSync, pullAllGroups, pushAllGroups, coordinator, tracker]);
+  }, [coexistingGroups, deviceId, loading, doSync, pullAllGroups, pushAllGroups, coordinator, tracker, now, version]);
 
   // --- Auto-push on local event changes ---
 
@@ -599,7 +711,7 @@ export function useSyncEngine({
 
       // Grupo forte (Story 4.3): 256 bits criptográficos, DOMUS1-...
       const group = await createStrongSyncGroup(options);
-      const coexisting = await loadCoexistingGroups();
+      const coexisting = await loadCoexistingGroups({ now: now(), version });
       coexistingRef.current = coexisting;
       setCoexistingGroups(coexisting);
 
@@ -634,7 +746,7 @@ export function useSyncEngine({
       setErrorMessage("Falha ao criar grupo. Tente novamente.");
       return null;
     }
-  }, [deviceId, pushAllGroups, saveLastSync, coordinator]);
+  }, [deviceId, pushAllGroups, saveLastSync, coordinator, now, version]);
 
   // Story 4.8: Migra aparelho do Grupo antigo para o Grupo forte mantendo coexistência (keepLegacy: true)
   const migrateToStrongGroup = useCallback(async (): Promise<string | null> => {
@@ -662,7 +774,7 @@ export function useSyncEngine({
         }
 
         const activeGroup = await resolveJoinSyncGroup(code, options);
-        const coexisting = await loadCoexistingGroups();
+        const coexisting = await loadCoexistingGroups({ now: now(), version });
         coexistingRef.current = coexisting;
         setCoexistingGroups(coexisting);
 
@@ -705,7 +817,7 @@ export function useSyncEngine({
         return false;
       }
     },
-    [deviceId, pushAllGroups, pullAllGroups, saveLastSync, coordinator],
+    [deviceId, pushAllGroups, pullAllGroups, saveLastSync, coordinator, now, version],
   );
 
   const leaveGroup = useCallback(async () => {
@@ -740,8 +852,8 @@ export function useSyncEngine({
     }
 
     isStrongGroupRef.current = false;
-    setCoexistingGroups({ strong: null, legacy: null });
-    coexistingRef.current = { strong: null, legacy: null };
+    setCoexistingGroups({ strong: null, legacy: null, legacyCutoff: false, legacyCode: null });
+    coexistingRef.current = { strong: null, legacy: null, legacyCutoff: false, legacyCode: null };
     setGroupCode(null);
     setKeys(null);
     setSyncStatus("idle");

@@ -18,7 +18,11 @@ import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
 import { useSync } from "@/src/context/SyncProvider";
 import { useAppState } from "@/src/context/AppStateProvider";
-import { LEGACY_CODE_DISCONTINUED_MESSAGE } from "@/src/context/strongGroupSync";
+import {
+  LEGACY_CODE_DISCONTINUED_MESSAGE,
+  LEGACY_CUTOFF_MESSAGE,
+  LEGACY_VERSION_TOO_OLD_MESSAGE,
+} from "@/src/context/strongGroupSync";
 import { soundManager } from "@/src/services/SoundManager";
 import { appAlert, appConfirm } from "@/src/services/appAlert";
 import { QRScannerModal } from "@/src/components/sync/QRScannerModal";
@@ -75,6 +79,8 @@ function SyncScreen() {
     createGroup, joinGroup, leaveGroup, pushNow, pullNow, resetStatus,
     coexistingGroups,
   } = useSync();
+
+  const isLegacyCutoff = Boolean(coexistingGroups.legacyCutoff && !isStrongGroup);
 
   const [joinCode, setJoinCode] = useState("");
   const [showJoinInput, setShowJoinInput] = useState(false);
@@ -418,18 +424,35 @@ function SyncScreen() {
               ) : (
                 <>
                   <View style={s.connectedRow}>
-                    <View style={[s.codeBadge, { backgroundColor: `${theme.primaryColor}12` }]}>
-                      <Text style={[s.codeText, { color: theme.primaryColor }]}>{groupId}</Text>
+                    <View
+                      style={[
+                        s.codeBadge,
+                        {
+                          backgroundColor:
+                            isLegacyCutoff ? `${theme.danger}15` : `${theme.primaryColor}12`,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          s.codeText,
+                          { color: isLegacyCutoff ? theme.danger : theme.primaryColor },
+                        ]}
+                      >
+                        {groupId}
+                      </Text>
                     </View>
                     <View style={s.connectedActions}>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Exibir QR Code"
-                        onPress={() => { haptic(); soundManager.play("tap"); setShowQRModal(true); }}
-                        hitSlop={10}
-                      >
-                        <MaterialCommunityIcons name="qrcode" size={22} color={theme.secondaryText} />
-                      </Pressable>
+                      {!isLegacyCutoff && (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Exibir QR Code"
+                          onPress={() => { haptic(); soundManager.play("tap"); setShowQRModal(true); }}
+                          hitSlop={10}
+                        >
+                          <MaterialCommunityIcons name="qrcode" size={22} color={theme.secondaryText} />
+                        </Pressable>
+                      )}
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel="Copiar código"
@@ -453,6 +476,35 @@ function SyncScreen() {
               )}
             </View>
 
+            {isLegacyCutoff && (
+              <View
+                testID="legacy-cutoff-banner"
+                style={[
+                  s.cutoffCard,
+                  {
+                    backgroundColor: `${theme.danger}12`,
+                    borderColor: `${theme.danger}40`,
+                  },
+                ]}
+              >
+                <View style={s.cutoffHeaderRow}>
+                  <View style={[s.cutoffIconCircle, { backgroundColor: `${theme.danger}20` }]}>
+                    <Feather name="alert-triangle" size={20} color={theme.danger} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.cutoffTitle, { color: theme.danger }]}>
+                      Sincronização legada encerrada
+                    </Text>
+                    <Text style={[s.cutoffDesc, { color: theme.textColor }]}>
+                      {coexistingGroups.legacyCutoffReason === "version_deprecated"
+                        ? LEGACY_VERSION_TOO_OLD_MESSAGE
+                        : LEGACY_CUTOFF_MESSAGE}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
             {canMigrate && (
               <View
                 testID="migration-card"
@@ -473,7 +525,9 @@ function SyncScreen() {
                       Migrar para o sync seguro
                     </Text>
                     <Text style={[s.migrationDesc, { color: theme.secondaryText }]}>
-                      Atualize para a criptografia autenticada de 256 bits (AES-GCM). Aparelhos antigos continuam funcionando durante a transição.
+                      {isLegacyCutoff
+                        ? "Atualize para a criptografia autenticada de 256 bits (AES-GCM) para restabelecer a sincronização segura."
+                        : "Atualize para a criptografia autenticada de 256 bits (AES-GCM). Aparelhos antigos continuam funcionando durante a transição."}
                     </Text>
                   </View>
                 </View>
@@ -497,37 +551,41 @@ function SyncScreen() {
               </View>
             )}
 
-            <View style={s.sectionHeader}>
-              <TText variant="subtitle" color={theme.textColor} fontSize={15}>Sync automático</TText>
-              <Text style={[s.sectionDesc, { color: theme.secondaryText }]}>
-                Seus dados sincronizam via relays Nostr a cada 8 segundos e ao criar eventos
-              </Text>
-            </View>
-
-            <View style={s.actionsRow}>
-              <Pressable
-                style={({ pressed }) => [s.actionCard, { backgroundColor: theme.primaryColor }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
-                onPress={handlePush} disabled={isBusy}
-              >
-                {isBusy ? <ActivityIndicator size="small" color="#FFFFFF" /> : (
-                  <>
-                    <View style={s.actionCardIcon}><Feather name="upload-cloud" size={24} color="#FFFFFF" /></View>
-                    <Text style={s.actionCardTitle}>Enviar tudo</Text>
-                    <Text style={s.actionCardDesc}>Push manual</Text>
-                  </>
-                )}
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [s.actionCard, { backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.border }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
-                onPress={handlePull} disabled={isBusy}
-              >
-                <View style={[s.actionCardIcon, { backgroundColor: `${theme.primaryColor}15` }]}>
-                  <Feather name="download-cloud" size={24} color={theme.primaryColor} />
+            {!isLegacyCutoff && (
+              <>
+                <View style={s.sectionHeader}>
+                  <TText variant="subtitle" color={theme.textColor} fontSize={15}>Sync automático</TText>
+                  <Text style={[s.sectionDesc, { color: theme.secondaryText }]}>
+                    Seus dados sincronizam via relays Nostr a cada 8 segundos e ao criar eventos
+                  </Text>
                 </View>
-                <Text style={[s.actionCardTitle, { color: theme.textColor }]}>Buscar</Text>
-                <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Pull manual</Text>
-              </Pressable>
-            </View>
+
+                <View style={s.actionsRow}>
+                  <Pressable
+                    style={({ pressed }) => [s.actionCard, { backgroundColor: theme.primaryColor }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                    onPress={handlePush} disabled={isBusy}
+                  >
+                    {isBusy ? <ActivityIndicator size="small" color="#FFFFFF" /> : (
+                      <>
+                        <View style={s.actionCardIcon}><Feather name="upload-cloud" size={24} color="#FFFFFF" /></View>
+                        <Text style={s.actionCardTitle}>Enviar tudo</Text>
+                        <Text style={s.actionCardDesc}>Push manual</Text>
+                      </>
+                    )}
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [s.actionCard, { backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.border }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                    onPress={handlePull} disabled={isBusy}
+                  >
+                    <View style={[s.actionCardIcon, { backgroundColor: `${theme.primaryColor}15` }]}>
+                      <Feather name="download-cloud" size={24} color={theme.primaryColor} />
+                    </View>
+                    <Text style={[s.actionCardTitle, { color: theme.textColor }]}>Buscar</Text>
+                    <Text style={[s.actionCardDesc, { color: theme.secondaryText }]}>Pull manual</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
 
             <View style={{ marginTop: 4 }}>
               <TButton variant="outline" borderColor={theme.border} color={theme.textColor} icon={<Feather name="log-out" size={16} color={theme.danger} />} onPress={handleLeaveGroup}>
@@ -729,6 +787,35 @@ const s = StyleSheet.create({
     marginBottom: 4,
   },
   migrationDesc: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  cutoffCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+  },
+  cutoffHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  cutoffIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  cutoffTitle: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 15,
+    marginBottom: 4,
+  },
+  cutoffDesc: {
     fontFamily: "DMSans_400Regular",
     fontSize: 12,
     lineHeight: 18,

@@ -433,7 +433,7 @@ describe("Story 4.7: Verificação do contrato de useSyncEngine", () => {
   );
 
   it("carrega grupos no boot usando loadCoexistingGroups", () => {
-    expect(engineSource).toContain("loadCoexistingGroups()");
+    expect(engineSource).toContain("loadCoexistingGroups(");
   });
 
   it("mantém subscrições e fechamentos para ambos os canais", () => {

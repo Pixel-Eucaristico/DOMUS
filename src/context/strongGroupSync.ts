@@ -1,6 +1,7 @@
 // Orquestração do Grupo forte (Story 4.3): criação de novos grupos com segredo
 // de 256 bits, persistência segura sem queda para AsyncStorage e carregamento
 // priorizado no boot com compatibilidade para grupos legados.
+// Story 4.9: Corte definitivo do canal legado por data e versão mínima.
 
 import {
   generateGroupSecret,
@@ -16,6 +17,7 @@ import {
   clearGroupCode,
 } from "./syncStorage";
 import { deriveKeysFromCode, type NostrSyncKeys } from "@/src/modules/nostrSync";
+import type { SyncEvent } from "@packages/storage/src/eventStore";
 
 export interface ActiveSyncGroup {
   code: string;
@@ -26,10 +28,111 @@ export interface ActiveSyncGroup {
 export interface CoexistingGroups {
   strong: ActiveSyncGroup | null;
   legacy: ActiveSyncGroup | null;
+  legacyCutoff?: boolean;
+  legacyCutoffReason?: "cutoff_date" | "version_deprecated" | null;
+  legacyCode?: string | null;
 }
 
 export const LEGACY_CODE_DISCONTINUED_MESSAGE =
   "Códigos de 6 caracteres foram descontinuados. Use o QR Code ou cole o Segredo de 79 caracteres do aparelho principal.";
+
+// ── Constantes de Corte do Grupo Antigo (Story 4.9) ─────────────────────────
+
+export const LEGACY_CUTOFF_DATE_ISO = "2026-11-20T00:00:00.000Z";
+export const LEGACY_CUTOFF_TIMESTAMP = Date.parse(LEGACY_CUTOFF_DATE_ISO); // 1795132800000
+export const LEGACY_MIN_APP_VERSION = "1.8.0";
+
+export const LEGACY_CUTOFF_MESSAGE =
+  "A sincronização pelo código antigo foi encerrada por segurança. Migre para o Grupo seguro ou atualize o aplicativo.";
+
+export const LEGACY_VERSION_TOO_OLD_MESSAGE =
+  "Esta versão do aplicativo não suporta mais o formato legado de sincronização. Atualize o aplicativo para continuar.";
+
+export const LEGACY_GROUP_CUTOFF_WARNING_TYPE = "LEGACY_GROUP_CUTOFF_WARNING";
+export const LEGACY_CUTOFF_WARNING_STORAGE_KEY_PREFIX = "domus_legacy_cutoff_warning_sent_";
+
+/**
+ * Compara duas versões semver (ex.: "1.8.0" vs "1.7.9").
+ * Retorna 1 se v1 > v2, -1 se v1 < v2, 0 se iguais.
+ */
+export function compareSemver(v1: string, v2: string): number {
+  const parse = (v: string) => {
+    const [main, prerelease] = (v || "").replace(/^v/i, "").trim().split("-");
+    const parts = (main || "").split(".").map((n) => parseInt(n, 10) || 0);
+    return { parts, isPrerelease: Boolean(prerelease) };
+  };
+  const p1 = parse(v1);
+  const p2 = parse(v2);
+  const len = Math.max(p1.parts.length, p2.parts.length);
+  for (let i = 0; i < len; i++) {
+    const a = p1.parts[i] ?? 0;
+    const b = p2.parts[i] ?? 0;
+    if (a > b) return 1;
+    if (a < b) return -1;
+  }
+  if (p1.isPrerelease && !p2.isPrerelease) return -1;
+  if (!p1.isPrerelease && p2.isPrerelease) return 1;
+  return 0;
+}
+
+/**
+ * Verifica se a data limite de corte do Grupo legado foi atingida.
+ */
+export function isLegacyCutoffReached(now?: number): boolean {
+  const current = typeof now === "number" ? now : Date.now();
+  return current >= LEGACY_CUTOFF_TIMESTAMP;
+}
+
+/**
+ * Verifica se a versão do aplicativo está abaixo da versão mínima para o legado.
+ */
+export function isAppVersionDeprecatedForLegacy(version?: string): boolean {
+  const v = version ?? process.env.EXPO_PUBLIC_APP_VERSION ?? "1.8.0";
+  return compareSemver(v, LEGACY_MIN_APP_VERSION) < 0;
+}
+
+/**
+ * Retorna se o canal legado deve ser completamente desativado (por data ou versão).
+ */
+export function isLegacySyncDisabled(options?: { now?: number; version?: string }): boolean {
+  return isLegacyCutoffReached(options?.now) || isAppVersionDeprecatedForLegacy(options?.version);
+}
+
+/**
+ * Retorna a razão específica pela qual o canal legado foi desativado.
+ */
+export function getLegacySyncDisabledReason(options?: {
+  now?: number;
+  version?: string;
+}): "cutoff_date" | "version_deprecated" | null {
+  if (isAppVersionDeprecatedForLegacy(options?.version)) return "version_deprecated";
+  if (isLegacyCutoffReached(options?.now)) return "cutoff_date";
+  return null;
+}
+
+/**
+ * Cria o evento de aviso prévio de corte a ser publicado no canal legado (Story 4.9).
+ */
+export function createLegacyCutoffWarningEvent(
+  deviceId: string,
+  cutoffDate: string = LEGACY_CUTOFF_DATE_ISO,
+): SyncEvent {
+  return {
+    id: `legacy-cutoff-warning-${deviceId}`,
+    type: LEGACY_GROUP_CUTOFF_WARNING_TYPE,
+    payload: {
+      cutoffDate,
+      minVersion: LEGACY_MIN_APP_VERSION,
+      message:
+        "O canal de sincronização legado será encerrado em " +
+        cutoffDate +
+        ". Atualize o aplicativo e migre para o Grupo seguro com criptografia de ponta a ponta.",
+    },
+    timestamp: Date.now(),
+    deviceId,
+    signature: "",
+  };
+}
 
 /**
  * Cria exclusivamente um novo Grupo forte (Story 4.3).
@@ -113,10 +216,15 @@ export async function resolveJoinSyncGroup(
 }
 
 /**
- * Carrega todos os grupos configurados no dispositivo (Story 4.7).
- * Retorna tanto o Grupo forte quanto o grupo legado quando coexistindo.
+ * Carrega todos os grupos configurados no dispositivo (Story 4.7 e Story 4.9).
+ * Retorna o Grupo forte e o Grupo legado quando coexistindo.
+ * Se a data de corte for atingida ou a versão for incompatível (Story 4.9), o canal legado
+ * não é ativado (legacy = null) e sinaliza legacyCutoff = true.
  */
-export async function loadCoexistingGroups(): Promise<CoexistingGroups> {
+export async function loadCoexistingGroups(options?: {
+  now?: number;
+  version?: string;
+}): Promise<CoexistingGroups> {
   let strong: ActiveSyncGroup | null = null;
   const strongSecret = await loadStrongGroupSecret();
   if (strongSecret) {
@@ -139,7 +247,11 @@ export async function loadCoexistingGroups(): Promise<CoexistingGroups> {
 
   let legacy: ActiveSyncGroup | null = null;
   const legacyCode = await loadGroupCode();
-  if (legacyCode) {
+  const disabled = isLegacySyncDisabled(options);
+  const legacyCutoff = Boolean(legacyCode && disabled);
+  const legacyCutoffReason = legacyCutoff ? getLegacySyncDisabledReason(options) : null;
+
+  if (legacyCode && !disabled) {
     const keys = await deriveKeysFromCode(legacyCode);
     legacy = {
       code: legacyCode,
@@ -151,7 +263,13 @@ export async function loadCoexistingGroups(): Promise<CoexistingGroups> {
     };
   }
 
-  return { strong, legacy };
+  return {
+    strong,
+    legacy,
+    legacyCutoff,
+    legacyCutoffReason,
+    legacyCode: legacyCode ?? null,
+  };
 }
 
 /**
@@ -160,8 +278,11 @@ export async function loadCoexistingGroups(): Promise<CoexistingGroups> {
  * para manter compatibilidade durante a janela de transição.
  * Delega para loadCoexistingGroups().
  */
-export async function loadActiveSyncGroup(): Promise<ActiveSyncGroup | null> {
-  const { strong, legacy } = await loadCoexistingGroups();
+export async function loadActiveSyncGroup(options?: {
+  now?: number;
+  version?: string;
+}): Promise<ActiveSyncGroup | null> {
+  const { strong, legacy } = await loadCoexistingGroups(options);
   return strong ?? legacy;
 }
 
@@ -173,8 +294,8 @@ export async function clearAllSyncGroupSecrets(): Promise<void> {
 }
 
 /**
- * Determina se um aparelho é elegível para migrar para o Grupo forte (Story 4.8).
- * Elegível se e somente se conectado a um canal legado e ainda sem Grupo forte ativo.
+ * Determina se um aparelho é elegível para migrar para o Grupo forte (Story 4.8 e 4.9).
+ * Elegível se e somente se conectado a um canal legado (inclusive pós-corte) e ainda sem Grupo forte ativo.
  */
 export function canMigrateToStrongGroup(
   coexisting: CoexistingGroups,
@@ -182,5 +303,10 @@ export function canMigrateToStrongGroup(
   groupCode?: string | null,
 ): boolean {
   if (coexisting.strong || isStrongGroup) return false;
-  return Boolean(coexisting.legacy || groupCode);
+  return Boolean(
+    coexisting.legacy ||
+      coexisting.legacyCutoff ||
+      coexisting.legacyCode ||
+      groupCode,
+  );
 }

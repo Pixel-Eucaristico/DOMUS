@@ -4,6 +4,7 @@ import React, {
   useMemo,
   type ReactNode,
 } from "react";
+import Constants from "expo-constants";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { getRelays } from "@/src/modules/nostrSync";
 import { useSyncEngine, type SyncStatus } from "./useSyncEngine";
@@ -35,12 +36,16 @@ const SyncContext = createContext<SyncContextValue | null>(null);
 export function SyncProvider({ children }: { children: ReactNode }) {
   const { getAllEvents, importEvents, localEventCount, deviceId, loading } = useAppState();
 
+  const appVersion =
+    Constants.expoConfig?.version ?? process.env.EXPO_PUBLIC_APP_VERSION ?? "1.8.0";
+
   const engine = useSyncEngine({
     getAllEvents,
     importEvents,
     localEventCount,
     deviceId,
     loading,
+    version: appVersion,
   });
 
   const relayCount = getRelays().length;
