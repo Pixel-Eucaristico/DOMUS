@@ -1,7 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { webSecrets } from "@/src/modules/security/infrastructure/webSecrets";
-import type { SyncEvent } from "@packages/storage/src/eventStore";
 
 export const DEVICE_ID_KEY = "domus_device_id";
 export const LAST_SYNC_KEY = "domus_last_sync_ts";
@@ -141,13 +140,4 @@ export async function clearStrongGroupSecret(): Promise<void> {
   } catch {}
 }
 
-export function computeEventHash(events: SyncEvent[]): string {
-  if (events.length === 0) return "empty";
-  const ids = events.map((e) => e.id).sort().join(",");
-  let hash = 0;
-  for (let i = 0; i < ids.length; i++) {
-    const c = ids.charCodeAt(i);
-    hash = ((hash << 5) - hash + c) | 0;
-  }
-  return `${events.length}-${hash.toString(36)}`;
-}
+export { computeEventHash } from "@/src/modules/syncDecisions";

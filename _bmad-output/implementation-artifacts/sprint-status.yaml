@@ -81,8 +81,8 @@ development_status:
   4-10-reativar-ponta-a-ponta-no-texto-público-depois-do-corte: done
   epic-4-retrospective: done
 
-  epic-5: backlog
-  5-1-testar-o-sync-com-três-aparelhos-simulados: backlog
+  epic-5: in-progress
+  5-1-testar-o-sync-com-três-aparelhos-simulados: done
   5-2-confirmar-o-envio-por-lote-e-reenviar-os-perdidos: backlog
   5-3-publicar-só-os-lotes-novos-no-grupo-forte: backlog
   5-4-ler-o-histórico-de-forma-incremental-e-paginada: backlog

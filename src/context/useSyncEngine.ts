@@ -13,6 +13,10 @@ import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { SubCloser } from "nostr-tools/pool";
 import { createSyncCoordinator } from "@/src/modules/syncCoordinator";
 import { createSyncGroupTracker } from "@/src/modules/syncGroupTracking";
+import {
+  shouldPublishGroupEvents,
+  processIncomingEvents,
+} from "@/src/modules/syncDecisions";
 import { selectOldGroupPushEvents, selectStrongGroupPushEvents } from "@/src/modules/syncPayload";
 import { parseGroupSecret } from "@/src/modules/strongGroup/groupSecret";
 import {
@@ -39,6 +43,8 @@ import {
 } from "./syncStorage";
 
 export type SyncStatus = "idle" | "syncing" | "connected" | "offline" | "error";
+
+const EMPTY_SET = new Set<string>();
 
 interface UseSyncEngineArgs {
   getAllEvents: () => SyncEvent[];
@@ -178,11 +184,15 @@ export function useSyncEngine({
             legacyEventIdsRef.current.add(e.id);
           }
         }
-        const foreignEvents = result.events.filter((e) => e.deviceId !== req.deviceId);
-        if (foreignEvents.length > 0) {
+        const incoming = processIncomingEvents({
+          incomingEvents: result.events,
+          currentDeviceId: req.deviceId,
+          existingIds: new Set(allEventsRef.current.map((e) => e.id)),
+        });
+        if (incoming.foreignEventIds.length > 0) {
           tracker
             .markReceived(
-              foreignEvents.map((e) => e.id),
+              incoming.foreignEventIds,
               req.keys.publicKey,
             )
             .catch(() => {});
@@ -301,14 +311,18 @@ export function useSyncEngine({
   const pushToGroup = useCallback(
     async (group: ActiveSyncGroup, did: string, force: boolean = false) => {
       const groupId = group.keys.publicKey;
-      const myEvents = getMyEvents(did, group.isStrong);
-      if (myEvents.length === 0) return;
+      const decision = shouldPublishGroupEvents({
+        events: allEventsRef.current,
+        groupId,
+        isStrong: group.isStrong,
+        tracker,
+        lastHash: groupPushHashesRef.current[groupId],
+        force,
+        deviceId: did,
+      });
+      if (!decision.shouldPublish) return;
 
-      const pendingEvents = tracker.filterEventsToPublish(myEvents, groupId);
-      const hash = computeEventHash(myEvents);
-      const lastHash = groupPushHashesRef.current[groupId];
-      if (!force && pendingEvents.length === 0 && hash === lastHash) return;
-
+      const { myEvents, hash } = decision;
       try {
         const published = await publishSyncEvents(group.keys, did, myEvents);
         if (published === 0 && myEvents.length > 0) {
@@ -328,19 +342,25 @@ export function useSyncEngine({
         throw err;
       }
     },
-    [getMyEvents, tracker],
+    [tracker],
   );
 
   const pushMyEvents = useCallback(
     async (k: NostrSyncKeys, did: string, force: boolean = false) => {
       const groupId = k.publicKey;
-      const myEvents = getMyEvents(did, k.isStrong);
-      if (myEvents.length === 0) return;
-
-      // Story 4.6: Se todos os eventos já foram publicados neste grupo e o hash não mudou, evita push redundante
-      const pendingEvents = tracker.filterEventsToPublish(myEvents, groupId);
+      const isStrong = typeof k.isStrong === "boolean" ? k.isStrong : isStrongGroupRef.current;
+      const myEvents = getMyEvents(did, isStrong);
       const hash = computeEventHash(myEvents);
-      if (!force && pendingEvents.length === 0 && hash === lastPushHashRef.current) return;
+      const decision = shouldPublishGroupEvents({
+        events: allEventsRef.current,
+        groupId,
+        isStrong,
+        tracker,
+        lastHash: lastPushHashRef.current,
+        force,
+        deviceId: did,
+      });
+      if (!decision.shouldPublish) return;
 
       try {
         const published = await publishSyncEvents(k, did, myEvents);
@@ -594,8 +614,13 @@ export function useSyncEngine({
           deviceId,
           coordinator.liveSince(),
           (event, createdAt) => {
-            if (event.deviceId !== deviceId) {
-              tracker.markReceived(event.id, strongGroupId).catch(() => {});
+            const incoming = processIncomingEvents({
+              incomingEvents: [event],
+              currentDeviceId: deviceId,
+              existingIds: EMPTY_SET,
+            });
+            if (incoming.foreignEventIds.length > 0) {
+              tracker.markReceived(incoming.foreignEventIds, strongGroupId).catch(() => {});
             }
             coordinator.enqueueLive(event, createdAt);
           },
@@ -620,8 +645,13 @@ export function useSyncEngine({
               return;
             }
             legacyEventIdsRef.current.add(event.id);
-            if (event.deviceId !== deviceId) {
-              tracker.markReceived(event.id, legacyGroupId).catch(() => {});
+            const incoming = processIncomingEvents({
+              incomingEvents: [event],
+              currentDeviceId: deviceId,
+              existingIds: EMPTY_SET,
+            });
+            if (incoming.foreignEventIds.length > 0) {
+              tracker.markReceived(incoming.foreignEventIds, legacyGroupId).catch(() => {});
             }
             coordinator.enqueueLive(event, createdAt);
           },

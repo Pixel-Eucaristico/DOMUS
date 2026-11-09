@@ -341,7 +341,7 @@ describe("revisão 11.4 — R12: publicador único do Grupo antigo", () => {
 
   function sourceFiles(dir: string, out: string[] = []): string[] {
     for (const name of readdirSync(dir)) {
-      if (name === "node_modules" || name === "__tests__") continue;
+      if (name === "node_modules" || name === "__tests__" || name === "testing") continue;
       const full = path.join(dir, name);
       if (statSync(full).isDirectory()) sourceFiles(full, out);
       else if (/\.(ts|tsx)$/.test(name)) out.push(full);

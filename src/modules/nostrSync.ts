@@ -419,7 +419,7 @@ function formatEnvelope(evt: SyncEvent) {
  * a serialização em JSON UTF-8 não exceda STRONG_MAX_PLAINTEXT_BYTES (32 KB).
  * Caso atinja o limite, fecha o lote atual e inicia outro.
  */
-function partitionStrongBatches(
+export function partitionStrongBatches(
   events: SyncEvent[],
   maxBytes: number = STRONG_MAX_PLAINTEXT_BYTES,
   maxItems: number = BATCH_SIZE,
