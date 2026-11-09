@@ -337,7 +337,7 @@ describe("Story 4.9: Evento de Aviso Prévio no Canal Legado (LEGACY_GROUP_CUTOF
     const warnEvent = createLegacyCutoffWarningEvent("dev-pub-warn");
     const count = await publishSyncEvents(legacyGroup.keys, "dev-pub-warn", [warnEvent]);
 
-    expect(count).toBeGreaterThan(0);
+    expect(count.published).toBeGreaterThan(0);
     expect(publishedNostrEvents.length).toBeGreaterThan(0);
     const nostrEvent = publishedNostrEvents[publishedNostrEvents.length - 1];
     expect(nostrEvent.pubkey).toBe(legacyGroup.keys.publicKey);
@@ -409,7 +409,7 @@ describe("Story 4.9: Preservação Integral dos Eventos Locais e Migração com 
     // Publica no Grupo forte com cifra AES-GCM
     publishedNostrEvents.length = 0;
     const publishedCount = await publishSyncEvents(strongGroup.keys, "dev-local-cutoff", eventsToPublish);
-    expect(publishedCount).toBe(20);
+    expect(publishedCount.published).toBe(20);
 
     // Confirma que os eventos publicados no relay foram cifrados com AES-GCM
     const nostrEvent = publishedNostrEvents[publishedNostrEvents.length - 1];

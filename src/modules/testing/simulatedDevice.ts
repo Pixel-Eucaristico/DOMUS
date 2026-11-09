@@ -30,6 +30,7 @@ import { partitionStrongBatches, type NostrSyncKeys } from "../nostrSync";
 import {
   shouldPublishGroupEvents,
   processIncomingEvents,
+  processPushResult,
 } from "../syncDecisions";
 import { replayAllEvents, type ReplayResult } from "@/src/context/replay";
 import type { AppState } from "@packages/domain/src/state";
@@ -49,6 +50,14 @@ export class MemoryTrackingStorage implements SyncGroupTrackingStorage {
   async removeItem(key: string): Promise<void> {
     this.map.delete(key);
   }
+}
+
+export interface DevicePushResult {
+  pushed: boolean;
+  count: number;
+  reason?: string;
+  confirmedEventIds: string[];
+  failedEventIds: string[];
 }
 
 export interface CreateSimulatedDeviceOptions {
@@ -134,14 +143,11 @@ export class SimulatedSyncDevice {
   /**
    * Publica os eventos locais deste aparelho para o relay Nostr em memória.
    * Utiliza shouldPublishGroupEvents para garantir idempotência e supressão de loops.
+   * Atualiza o tracker apenas para lotes confirmados e retém o hash se houver falha de lote.
    */
-  async push(options?: { force?: boolean }): Promise<{
-    pushed: boolean;
-    count: number;
-    reason?: string;
-  }> {
+  async push(options?: { force?: boolean }): Promise<DevicePushResult> {
     if (!this.isOnline) {
-      return { pushed: false, count: 0, reason: "offline" };
+      return { pushed: false, count: 0, reason: "offline", confirmedEventIds: [], failedEventIds: [] };
     }
 
     const decision = shouldPublishGroupEvents({
@@ -155,15 +161,18 @@ export class SimulatedSyncDevice {
     });
 
     if (!decision.shouldPublish) {
-      return { pushed: false, count: 0, reason: decision.reason };
+      return { pushed: false, count: 0, reason: decision.reason, confirmedEventIds: [], failedEventIds: [] };
     }
 
     const eventsToPublish = decision.myEvents;
     const batches = partitionStrongBatches(eventsToPublish);
+    const confirmedEventIds: string[] = [];
+    const failedEventIds: string[] = [];
 
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       const batch = batches[batchIndex];
       const batchId = `sync-${this.deviceId}-${batchIndex}`;
+      const batchEventIds = batch.map((e) => e.id);
 
       const batchPayload = JSON.stringify(
         batch.map((e) => ({
@@ -198,16 +207,53 @@ export class SimulatedSyncDevice {
       } as UnsignedEvent;
 
       const signed = finalizeEvent(nostrEvent, this.keys.privateKey);
-      this.relay.publish(signed, batch.map((e) => e.id));
+      const pubRes = this.relay.publish(signed, batchEventIds);
+      if (pubRes.ok) {
+        confirmedEventIds.push(...batchEventIds);
+      } else {
+        failedEventIds.push(...batchEventIds);
+      }
     }
 
-    await this.tracker.markPublished(
-      eventsToPublish.map((e) => e.id),
-      this.keys.publicKey,
-    );
-    this.lastPushHash = decision.hash;
+    const outcome = processPushResult({
+      result: {
+        published: confirmedEventIds.length,
+        confirmedEventIds,
+        failedEventIds,
+        rejectedEventIds: [],
+        batches: [],
+      },
+      myEvents: eventsToPublish,
+      currentHash: decision.hash,
+    });
 
-    return { pushed: true, count: eventsToPublish.length };
+    if (outcome.eventsToMark.length > 0) {
+      await this.tracker.markPublished(
+        outcome.eventsToMark,
+        this.keys.publicKey,
+      );
+    }
+
+    if (outcome.shouldAdvanceHash) {
+      this.lastPushHash = decision.hash;
+    }
+
+    if (outcome.shouldThrow) {
+      return {
+        pushed: confirmedEventIds.length > 0,
+        count: confirmedEventIds.length,
+        reason: confirmedEventIds.length > 0 ? "partial-failure" : "relay-failed",
+        confirmedEventIds,
+        failedEventIds,
+      };
+    }
+
+    return {
+      pushed: true,
+      count: confirmedEventIds.length,
+      confirmedEventIds,
+      failedEventIds,
+    };
   }
 
   /**

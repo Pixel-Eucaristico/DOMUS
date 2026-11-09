@@ -16,6 +16,7 @@ import { createSyncGroupTracker } from "@/src/modules/syncGroupTracking";
 import {
   shouldPublishGroupEvents,
   processIncomingEvents,
+  processPushResult,
 } from "@/src/modules/syncDecisions";
 import { selectOldGroupPushEvents, selectStrongGroupPushEvents } from "@/src/modules/syncPayload";
 import { parseGroupSecret } from "@/src/modules/strongGroup/groupSecret";
@@ -160,10 +161,12 @@ export function useSyncEngine({
         // Namespace dedicado para evitar colisão NIP-33 com o lote 0 de transações do usuário
         const noticeDeviceId = `notice-${did}`;
         const warnEvent = createLegacyCutoffWarningEvent(noticeDeviceId);
-        const published = await publishSyncEvents(legacyGroup.keys, noticeDeviceId, [warnEvent]);
-        if (published > 0) {
-          await tracker.markPublished([warnEvent.id], legacyGroupId);
+        const result = await publishSyncEvents(legacyGroup.keys, noticeDeviceId, [warnEvent]);
+        if (result.published > 0) {
+          await tracker.markPublished(result.confirmedEventIds, legacyGroupId);
           await AsyncStorage.setItem(warnKey, "1");
+        } else {
+          console.warn("[Sync] Falha ao enviar aviso prévio no canal legado: nenhum relay aceitou o lote.");
         }
       } catch (err) {
         console.warn("[Sync] Falha ao enviar aviso prévio no canal legado:", err);
@@ -323,23 +326,24 @@ export function useSyncEngine({
       if (!decision.shouldPublish) return;
 
       const { myEvents, hash } = decision;
-      try {
-        const published = await publishSyncEvents(group.keys, did, myEvents);
-        if (published === 0 && myEvents.length > 0) {
-          throw new Error(`Falha ao publicar eventos no grupo ${groupId}: nenhum relay aceitou o lote.`);
-        }
-        await tracker.markPublished(
-          myEvents.map((e) => e.id),
-          groupId,
-        );
+      const result = await publishSyncEvents(group.keys, did, myEvents);
+      const outcome = processPushResult({ result, myEvents, currentHash: hash });
+
+      if (outcome.eventsToMark.length > 0) {
+        await tracker.markPublished(outcome.eventsToMark, groupId);
+      }
+
+      if (outcome.shouldAdvanceHash) {
         groupPushHashesRef.current[groupId] = hash;
         lastPushHashRef.current = hash;
         try {
           await AsyncStorage.setItem(LAST_PUSH_HASH_KEY, hash);
           await AsyncStorage.setItem(GROUP_PUSH_HASHES_KEY, JSON.stringify(groupPushHashesRef.current));
         } catch {}
-      } catch (err) {
-        throw err;
+      }
+
+      if (outcome.shouldThrow) {
+        throw new Error(outcome.errorMessage ?? `Falha ao publicar eventos no grupo ${groupId}`);
       }
     },
     [tracker],
@@ -362,23 +366,24 @@ export function useSyncEngine({
       });
       if (!decision.shouldPublish) return;
 
-      try {
-        const published = await publishSyncEvents(k, did, myEvents);
-        if (published === 0 && myEvents.length > 0) {
-          throw new Error(`Falha ao publicar eventos no grupo ${groupId}: nenhum relay aceitou o lote.`);
-        }
-        await tracker.markPublished(
-          myEvents.map((e) => e.id),
-          groupId,
-        );
+      const result = await publishSyncEvents(k, did, myEvents);
+      const outcome = processPushResult({ result, myEvents, currentHash: hash });
+
+      if (outcome.eventsToMark.length > 0) {
+        await tracker.markPublished(outcome.eventsToMark, groupId);
+      }
+
+      if (outcome.shouldAdvanceHash) {
         groupPushHashesRef.current[groupId] = hash;
         lastPushHashRef.current = hash;
         try {
           await AsyncStorage.setItem(LAST_PUSH_HASH_KEY, hash);
           await AsyncStorage.setItem(GROUP_PUSH_HASHES_KEY, JSON.stringify(groupPushHashesRef.current));
         } catch {}
-      } catch (err) {
-        throw err;
+      }
+
+      if (outcome.shouldThrow) {
+        throw new Error(outcome.errorMessage ?? `Falha ao publicar eventos no grupo ${groupId}`);
       }
     },
     [getMyEvents, tracker],

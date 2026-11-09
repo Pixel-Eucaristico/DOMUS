@@ -459,8 +459,8 @@ describe("Story 4.7: Verificação do contrato de useSyncEngine", () => {
     expect(engineSource).toContain("keepLegacy?: boolean");
   });
 
-  it("pushToGroup e pushMyEvents verificam published === 0 antes de marcar publicado", () => {
-    expect(engineSource).toContain("if (published === 0 && myEvents.length > 0)");
+  it("pushToGroup e pushMyEvents utilizam processPushResult para tratar o desfecho do push", () => {
+    expect(engineSource).toContain("processPushResult({ result, myEvents, currentHash: hash })");
   });
 
   it("discrimina eventos do canal legado com isStrongGroup: false na importação", () => {

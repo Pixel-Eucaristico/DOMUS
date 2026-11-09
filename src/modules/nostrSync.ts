@@ -460,12 +460,36 @@ export function partitionStrongBatches(
   return batches;
 }
 
+export interface BatchPublishResult {
+  batchIndex: number;
+  batchId: string;
+  eventIds: string[];
+  success: boolean;
+  error?: string;
+}
+
+export interface PublishSyncResult {
+  published: number;
+  confirmedEventIds: string[];
+  failedEventIds: string[];
+  rejectedEventIds?: string[];
+  batches: BatchPublishResult[];
+}
+
 export async function publishSyncEvents(
   keys: NostrSyncKeys,
   deviceId: string,
   events: SyncEvent[],
-): Promise<number> {
-  if (events.length === 0) return 0;
+): Promise<PublishSyncResult> {
+  const emptyResult: PublishSyncResult = {
+    published: 0,
+    confirmedEventIds: [],
+    failedEventIds: [],
+    rejectedEventIds: [],
+    batches: [],
+  };
+
+  if (events.length === 0) return emptyResult;
 
   const isStrong = Boolean(keys.isStrong);
 
@@ -473,22 +497,37 @@ export async function publishSyncEvents(
   // nunca sai por aqui. No Grupo forte, PAYSLIP_* é transmitido normalmente.
   if (!isStrong) {
     events = partitionOldGroupEvents(events).allowed;
-    if (events.length === 0) return 0;
+    if (events.length === 0) return emptyResult;
   }
 
   // Revisão 23/10: eventos próprios com deviceId "local"/vazio saem com o id deste
   // aparelho (a validação recusaria "local" e eles nunca chegariam aos outros).
   // Story 3.1: não publicar envelope que os outros aparelhos recusariam.
   const { valid: publishable, rejected } = partitionEnvelopes(eventsForExport(events, deviceId));
+  const rejectedEventIds = rejected
+    .map((r) => r.id)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+
   for (const r of rejected) {
     console.warn(`[NostrSync] Envelope inválido não publicado: ${describeRejection(r)}`);
   }
   events = publishable;
-  if (events.length === 0) return 0;
+  if (events.length === 0) {
+    return {
+      published: 0,
+      confirmedEventIds: [],
+      failedEventIds: [],
+      rejectedEventIds,
+      batches: [],
+    };
+  }
 
   const pool = getPool();
   const relays = getRelays();
   let published = 0;
+  const confirmedEventIds: string[] = [];
+  const failedEventIds: string[] = [];
+  const batchesResult: BatchPublishResult[] = [];
 
   const batches: SyncEvent[][] = isStrong
     ? partitionStrongBatches(events)
@@ -503,6 +542,7 @@ export async function publishSyncEvents(
   for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
     const batch = batches[batchIndex];
     const batchId = `sync-${deviceId}-${batchIndex}`;
+    const eventIds = batch.map((e) => e.id);
 
     const batchPayload = JSON.stringify(batch.map(formatEnvelope));
     const encrypted = isStrong
@@ -534,13 +574,35 @@ export async function publishSyncEvents(
         RELAY_TIMEOUT_MS,
         "publish batch",
       );
+      batchesResult.push({
+        batchIndex,
+        batchId,
+        eventIds,
+        success: true,
+      });
+      confirmedEventIds.push(...eventIds);
       published += batch.length;
-    } catch {
-      console.warn(`[NostrSync] Failed to publish batch ${batchId} to any relay.`);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.warn(`[NostrSync] Failed to publish batch ${batchId} to any relay: ${errorMsg}`);
+      batchesResult.push({
+        batchIndex,
+        batchId,
+        eventIds,
+        success: false,
+        error: errorMsg,
+      });
+      failedEventIds.push(...eventIds);
     }
   }
 
-  return published;
+  return {
+    published,
+    confirmedEventIds,
+    failedEventIds,
+    rejectedEventIds,
+    batches: batchesResult,
+  };
 }
 
 // Avisa uma vez por evento do relay na sessão (o pull se repete a cada poucos segundos).

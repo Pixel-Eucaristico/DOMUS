@@ -14,10 +14,16 @@ let lastSubFilter: any = null;
 // Último filtro do pull; o pool falso aplica `since` e `limit` como um relay.
 let lastQueryFilter: any = null;
 let lastSubHandler: any = null;
+let publishCalls = 0;
+let publishRejectCondition: ((ev: any, callIndex: number) => boolean) | null = null;
 
 vi.mock("nostr-tools/pool", () => ({
   SimplePool: class {
     publish(relays: string[], ev: any) {
+      publishCalls++;
+      if (publishRejectCondition && publishRejectCondition(ev, publishCalls)) {
+        return relays.map(() => Promise.reject(new Error("Relay rejected event")));
+      }
       published.push(ev);
       return relays.map(() => Promise.resolve("ok"));
     }
@@ -60,6 +66,17 @@ const valid = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+function makeStrongKeys(): NostrSyncKeys {
+  const secret = generateGroupSecret();
+  const strong = deriveStrongGroupKeys(secret);
+  return {
+    privateKey: strong.nostrPrivateKey,
+    publicKey: strong.nostrPublicKey,
+    encryptionKey: strong.encryptionKey,
+    isStrong: true,
+  };
+}
+
 const hex = (b: Uint8Array) => Array.from(b).map((x) => x.toString(16).padStart(2, "0")).join("");
 
 /** Mesmo formato de `encryptPayload` (XOR com sha256(chave||nonce)). */
@@ -93,6 +110,8 @@ beforeEach(() => {
   lastSubFilter = null;
   lastQueryFilter = null;
   lastSubHandler = null;
+  publishCalls = 0;
+  publishRejectCondition = null;
   warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 });
 afterEach(() => {
@@ -125,7 +144,7 @@ describe("publishSyncEvents + pullSyncEvents (ponta a ponta com pool falso)", ()
     const keys = await deriveKeysFromCode("TESTE-31");
     const events = [valid({ id: "a" }), valid({ id: "bad", timestamp: 1_700_000_000 }), valid({ id: "c" })] as any[];
     const n = await publishSyncEvents(keys, "dev-a", events);
-    expect(n).toBe(2);
+    expect(n.published).toBe(2);
     expect(published).toHaveLength(1);
     const logs = warn.mock.calls.map((c) => String(c[0])).join("\n");
     expect(logs).toContain("id=bad type=TRANSACTION_CREATED reason=invalid_timestamp");
@@ -144,7 +163,7 @@ describe("publishSyncEvents + pullSyncEvents (ponta a ponta com pool falso)", ()
       valid({ id: "normal", timestamp: now }),
       valid({ id: "adiantado", timestamp: now + 25 * 60 * 60 * 1000 }),
     ] as any[];
-    expect(await publishSyncEvents(keys, "dev-a", events)).toBe(2);
+    expect((await publishSyncEvents(keys, "dev-a", events)).published).toBe(2);
     relayEvents = published.map((ev) => ({ ...ev, id: "pub-35" }));
     const { events: pulled } = await pullSyncEvents(keys, "dev-b", true);
     expect(pulled.map((e) => [e.id, e.timestamp])).toEqual(events.map((e) => [e.id, e.timestamp]));
@@ -160,7 +179,7 @@ describe("publishSyncEvents + pullSyncEvents (ponta a ponta com pool falso)", ()
       valid({ id: "proprio", deviceId: "dev-a" }),
     ] as any[];
     const before = JSON.stringify(events);
-    expect(await publishSyncEvents(keys, "dev-a", events)).toBe(4);
+    expect((await publishSyncEvents(keys, "dev-a", events)).published).toBe(4);
     const logs = warn.mock.calls.map((c) => String(c[0])).join("\n");
     expect(logs).not.toContain("invalid_device_id");
     expect(JSON.stringify(events)).toBe(before);
@@ -287,7 +306,7 @@ describe("Story 11.4: PAYSLIP_* fora do Grupo antigo", () => {
     const keys = await deriveKeysFromCode("TESTE-114");
     const events = [valid({ id: "tx" }), payslip("rec"), payslip("del", "PAYSLIP_DELETED")] as any[];
     const before = JSON.stringify(events);
-    expect(await publishSyncEvents(keys, "dev-a", events)).toBe(1);
+    expect((await publishSyncEvents(keys, "dev-a", events)).published).toBe(1);
     expect(JSON.stringify(events)).toBe(before);
     expect(published).toHaveLength(1);
     const plain = decrypt(published[0].content, keys.encryptionKey);
@@ -301,7 +320,7 @@ describe("Story 11.4: PAYSLIP_* fora do Grupo antigo", () => {
   it("publish: lote só de holerites não publica nada e devolve 0", async () => {
     const keys = await deriveKeysFromCode("TESTE-114");
     const events = [payslip("rec"), payslip("del", "PAYSLIP_DELETED")] as any[];
-    expect(await publishSyncEvents(keys, "dev-a", events)).toBe(0);
+    expect((await publishSyncEvents(keys, "dev-a", events)).published).toBe(0);
     expect(published).toHaveLength(0);
   });
 
@@ -373,17 +392,6 @@ describe("revisão 11.4 — R12: publicador único do Grupo antigo", () => {
 });
 
 describe("Story 4.5: Publicar e ler eventos no Grupo forte", () => {
-  function makeStrongKeys(): NostrSyncKeys {
-    const secret = generateGroupSecret();
-    const strong = deriveStrongGroupKeys(secret);
-    return {
-      privateKey: strong.nostrPrivateKey,
-      publicKey: strong.nostrPublicKey,
-      encryptionKey: strong.encryptionKey,
-      isStrong: true,
-    };
-  }
-
   const payslip = (id: string, type = "PAYSLIP_RECORDED") =>
     valid({
       id,
@@ -403,7 +411,7 @@ describe("Story 4.5: Publicar e ler eventos no Grupo forte", () => {
     ] as any[];
 
     const count = await publishSyncEvents(keys, "dev-a", events);
-    expect(count).toBe(3);
+    expect(count.published).toBe(3);
     expect(published).toHaveLength(1);
 
     const ev = published[0];
@@ -438,7 +446,7 @@ describe("Story 4.5: Publicar e ler eventos no Grupo forte", () => {
     ) as any[];
 
     const count = await publishSyncEvents(keys, "dev-a", largeEvents);
-    expect(count).toBe(10);
+    expect(count.published).toBe(10);
     expect(published.length).toBeGreaterThan(1); // Particionado em ao menos 2 lotes
 
     // Cada lote publicado deve ser um evento Nostr com domus-gcm-v1. válido
@@ -564,7 +572,7 @@ describe("Story 4.5: Publicar e ler eventos no Grupo forte", () => {
     const events = Array.from({ length: 25 }, (_, i) => valid({ id: `item-${i}` }));
 
     const count = await publishSyncEvents(keys, "dev-a", events);
-    expect(count).toBe(25);
+    expect(count.published).toBe(25);
     expect(published).toHaveLength(2);
 
     expect(published[0].tags).toContainEqual(["batch", "20"]);
@@ -593,7 +601,7 @@ describe("Story 4.5: Publicar e ler eventos no Grupo forte", () => {
     const normalEvent = valid({ id: "normal-ok" });
 
     const count = await publishSyncEvents(keys, "dev-a", [giantEvent, normalEvent]);
-    expect(count).toBe(1);
+    expect(count.published).toBe(1);
     expect(published).toHaveLength(1);
 
     const res = decryptStrongPayload(published[0].content, {
@@ -660,5 +668,107 @@ describe("Story 4.5: Publicar e ler eventos no Grupo forte", () => {
     });
 
     await vi.waitFor(() => expect(got).toEqual(["valid-live"]));
+  });
+});
+
+describe("Story 5.2 - Confirmação de envio por lote e relatório discriminado (nostrSync)", () => {
+  it("lista vazia retorna resultado zerado e sem chamadas de rede", async () => {
+    const keys = makeStrongKeys();
+    const result = await publishSyncEvents(keys, "dev-a", []);
+    expect(result).toEqual({
+      published: 0,
+      confirmedEventIds: [],
+      failedEventIds: [],
+      rejectedEventIds: [],
+      batches: [],
+    });
+    expect(publishCalls).toBe(0);
+    expect(published).toHaveLength(0);
+  });
+
+  it("todos os lotes confirmados: retorna confirmedEventIds completos e failedEventIds vazio", async () => {
+    const keys = makeStrongKeys();
+    const events = Array.from({ length: 40 }, (_, i) => valid({ id: `evt-${i}` }));
+
+    const result = await publishSyncEvents(keys, "dev-a", events);
+    expect(result.published).toBe(40);
+    expect(result.confirmedEventIds).toHaveLength(40);
+    expect(result.confirmedEventIds).toEqual(events.map((e) => e.id));
+    expect(result.failedEventIds).toEqual([]);
+    expect(result.batches).toHaveLength(2);
+    expect(result.batches[0].success).toBe(true);
+    expect(result.batches[0].batchIndex).toBe(0);
+    expect(result.batches[0].batchId).toBe("sync-dev-a-0");
+    expect(result.batches[0].eventIds).toHaveLength(20);
+    expect(result.batches[1].success).toBe(true);
+    expect(result.batches[1].batchIndex).toBe(1);
+    expect(result.batches[1].batchId).toBe("sync-dev-a-1");
+    expect(result.batches[1].eventIds).toHaveLength(20);
+  });
+
+  it("falha parcial de lotes: Lote 0 confirmado, Lote 1 falha em todos os relays", async () => {
+    const keys = makeStrongKeys();
+    const events = Array.from({ length: 25 }, (_, i) => valid({ id: `evt-${i}` }));
+
+    // Rejeita a segunda chamada de publicação (Lote 1)
+    publishRejectCondition = (_ev, callIndex) => callIndex === 2;
+
+    const result = await publishSyncEvents(keys, "dev-a", events);
+    expect(result.published).toBe(20);
+    expect(result.confirmedEventIds).toHaveLength(20);
+    expect(result.failedEventIds).toHaveLength(5);
+    expect(result.confirmedEventIds).toEqual(events.slice(0, 20).map((e) => e.id));
+    expect(result.failedEventIds).toEqual(events.slice(20).map((e) => e.id));
+
+    expect(result.batches).toHaveLength(2);
+    expect(result.batches[0].success).toBe(true);
+    expect(result.batches[1].success).toBe(false);
+    expect(result.batches[1].error).toBeDefined();
+    expect(published).toHaveLength(1);
+  });
+
+  it("todos os lotes falharam: nenhum evento confirmado e todos listados em failedEventIds", async () => {
+    const keys = makeStrongKeys();
+    const events = Array.from({ length: 20 }, (_, i) => valid({ id: `evt-${i}` }));
+
+    // Todos os relays rejeitam
+    publishRejectCondition = () => true;
+
+    const result = await publishSyncEvents(keys, "dev-a", events);
+    expect(result.published).toBe(0);
+    expect(result.confirmedEventIds).toEqual([]);
+    expect(result.failedEventIds).toHaveLength(20);
+    expect(result.failedEventIds).toEqual(events.map((e) => e.id));
+    expect(result.batches).toHaveLength(1);
+    expect(result.batches[0].success).toBe(false);
+    expect(published).toHaveLength(0);
+  });
+
+  it("envelopes rejeitados por validação são discriminados em rejectedEventIds e não entram em failedEventIds", async () => {
+    const keys = makeStrongKeys();
+    const badTimestamp = valid({ id: "bad-time", timestamp: 1_700_000_000 }); // inválido em validateEnvelope (< 2020)
+    const validEvt = valid({ id: "good-evt" });
+
+    const result = await publishSyncEvents(keys, "dev-a", [badTimestamp, validEvt]);
+    expect(result.published).toBe(1);
+    expect(result.confirmedEventIds).toEqual(["good-evt"]);
+    expect(result.failedEventIds).toEqual([]);
+    expect(result.rejectedEventIds).toEqual(["bad-time"]);
+    expect(published).toHaveLength(1);
+  });
+
+  it("lote onde todos os envelopes são inválidos: retorna rejectedEventIds sem chamadas de rede aos relays", async () => {
+    const keys = makeStrongKeys();
+    const bad1 = valid({ id: "bad-1", timestamp: 1_000 });
+    const bad2 = valid({ id: "bad-2", payload: null as any });
+
+    const result = await publishSyncEvents(keys, "dev-a", [bad1, bad2]);
+    expect(result.published).toBe(0);
+    expect(result.confirmedEventIds).toEqual([]);
+    expect(result.failedEventIds).toEqual([]);
+    expect(result.rejectedEventIds).toEqual(["bad-1", "bad-2"]);
+    expect(result.batches).toEqual([]);
+    expect(publishCalls).toBe(0);
+    expect(published).toHaveLength(0);
   });
 });

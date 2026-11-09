@@ -7,6 +7,7 @@
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { SyncGroupTracker } from "./syncGroupTracking";
 import { selectOldGroupPushEvents, selectStrongGroupPushEvents } from "./syncPayload";
+import type { PublishSyncResult } from "./nostrSync";
 
 export type PublishDecisionReason = "no-events" | "up-to-date" | "pending-events" | "forced" | "hash-changed";
 
@@ -183,5 +184,53 @@ export function processIncomingEvents(params: ProcessIncomingEventsParams): Proc
     foreignEventIds,
     echoEventIds,
     duplicateEventIds,
+  };
+}
+
+export interface ProcessPushResultParams {
+  result: Pick<PublishSyncResult, "published" | "confirmedEventIds" | "failedEventIds"> & {
+    rejectedEventIds?: readonly string[];
+    batches?: readonly unknown[];
+  };
+  myEvents: readonly { id: string }[];
+  currentHash: string;
+}
+
+export interface ProcessPushOutcome {
+  eventsToMark: string[];
+  shouldAdvanceHash: boolean;
+  nextHash?: string;
+  shouldThrow: boolean;
+  errorMessage?: string;
+}
+
+/**
+ * Story 5.2: Processa o resultado do push de eventos e determina os efeitos:
+ * - `eventsToMark`: eventos confirmados pelos relays + eventos rejeitados por validação
+ *   (para que envelopes inválidos não fiquem em loop infinito de retentativa).
+ * - `shouldAdvanceHash`: verdadeiro apenas quando não houve nenhuma falha de lote (failedEventIds vazia)
+ *   e pelo menos um evento foi confirmado ou a lista local estava vazia.
+ * - `shouldThrow` / `errorMessage`: verdadeiro caso haja lotes com falha (failedEventIds.length > 0).
+ */
+export function processPushResult(params: ProcessPushResultParams): ProcessPushOutcome {
+  const { result, myEvents, currentHash } = params;
+  const rejected = result.rejectedEventIds ?? [];
+  const eventsToMark = [...result.confirmedEventIds, ...rejected];
+
+  const hasFailures = result.failedEventIds.length > 0;
+  const anyConfirmed = result.confirmedEventIds.length > 0;
+  const shouldAdvanceHash = !hasFailures && (anyConfirmed || myEvents.length === 0);
+
+  const shouldThrow = hasFailures;
+  const errorMessage = hasFailures
+    ? `Falha ao publicar eventos: ${result.failedEventIds.length} eventos em lotes não foram aceitos por nenhum relay.`
+    : undefined;
+
+  return {
+    eventsToMark,
+    shouldAdvanceHash,
+    nextHash: shouldAdvanceHash ? currentHash : undefined,
+    shouldThrow,
+    errorMessage,
   };
 }

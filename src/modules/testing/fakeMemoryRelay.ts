@@ -82,6 +82,15 @@ export function matchesFilter(event: NostrEvent, filter: NostrFilter): boolean {
 }
 
 export class FakeMemoryRelay {
+  /** Indica se o relay está temporariamente derrubado/indisponível */
+  private isDown = false;
+
+  /** IDs de lotes (tag "d") configurados para serem rejeitados para simular falhas parciais */
+  private rejectedBatchIds = new Set<string>();
+
+  /** Interceptador customizado opcional para controle fino em testes */
+  private publishInterceptor?: (event: NostrEvent) => { ok: boolean; reason?: string } | undefined;
+
   /** Armazenamento de eventos ativos indexados por chave única */
   private eventsByKey = new Map<string, NostrEvent>();
 
@@ -134,6 +143,41 @@ export class FakeMemoryRelay {
   }
 
   /**
+   * Controla o status de disponibilidade do relay (simula quedas/indisponibilidade).
+   */
+  setDown(down: boolean = true): void {
+    this.isDown = down;
+  }
+
+  /**
+   * Retorna se o relay está atualmente derrubado.
+   */
+  isDownRelay(): boolean {
+    return this.isDown;
+  }
+
+  /**
+   * Configura rejeição de um lote específico pela tag "d".
+   */
+  rejectBatch(batchId: string): void {
+    this.rejectedBatchIds.add(batchId);
+  }
+
+  /**
+   * Restaura a aceitação de um lote específico.
+   */
+  allowBatch(batchId: string): void {
+    this.rejectedBatchIds.delete(batchId);
+  }
+
+  /**
+   * Define um interceptador customizado de publicação para testes avançados.
+   */
+  setPublishInterceptor(fn?: (event: NostrEvent) => { ok: boolean; reason?: string } | undefined): void {
+    this.publishInterceptor = fn;
+  }
+
+  /**
    * Publica um evento Nostr no relay em memória.
    *
    * Aplica NIP-33 para eventos kind: 30333 (substitui caso `created_at` seja mais recente).
@@ -141,6 +185,22 @@ export class FakeMemoryRelay {
    * Dispara subscrições correspondentes de forma síncrona.
    */
   publish(event: NostrEvent, innerEventIds: string[] = []): { ok: boolean; reason?: string } {
+    if (this.isDown) {
+      return { ok: false, reason: "relay is down" };
+    }
+
+    const dTag = event.tags.find((t) => t[0] === "d")?.[1];
+    if (dTag && this.rejectedBatchIds.has(dTag)) {
+      return { ok: false, reason: `batch ${dTag} rejected` };
+    }
+
+    if (this.publishInterceptor) {
+      const intercepted = this.publishInterceptor(event);
+      if (intercepted && !intercepted.ok) {
+        return intercepted;
+      }
+    }
+
     const deviceId = this.extractDeviceId(event);
 
     // Telemetria por Nostr ID
@@ -178,10 +238,10 @@ export class FakeMemoryRelay {
       const existing = this.eventsByKey.get(key);
 
       if (existing) {
-        // Substituição NIP-33: mais novo por created_at; em caso de empate, menor id lexicográfico
+        // Substituição NIP-33: mais novo por created_at; em caso de empate, menor id lexicográfico (ou idêntico)
         const isNewer =
           event.created_at > existing.created_at ||
-          (event.created_at === existing.created_at && event.id < existing.id);
+          (event.created_at === existing.created_at && event.id <= existing.id);
 
         if (isNewer) {
           this.eventsByKey.set(key, event);
@@ -218,6 +278,10 @@ export class FakeMemoryRelay {
    * Consulta eventos no relay em memória filtrados pelas regras especificadas.
    */
   query(filter: NostrFilter): NostrEvent[] {
+    if (this.isDown) {
+      return [];
+    }
+
     if (filter.limit !== undefined && filter.limit <= 0) {
       return [];
     }
@@ -314,6 +378,9 @@ export class FakeMemoryRelay {
    * Limpa o estado interno do relay.
    */
   clear(): void {
+    this.isDown = false;
+    this.rejectedBatchIds.clear();
+    this.publishInterceptor = undefined;
     this.eventsByKey.clear();
     this.pubCountByNostrId.clear();
     this.pubCountByInnerEventId.clear();
@@ -329,10 +396,22 @@ export class FakeMemoryRelay {
     const relay = this;
     return {
       publish(_relays: string[], ev: NostrEvent) {
-        relay.publish(ev);
-        return [Promise.resolve("ok")];
+        if (relay.isDownRelay()) {
+          const list = _relays.length > 0 ? _relays : ["wss://relay.fake"];
+          return list.map(() => Promise.reject(new Error("Relay is down")));
+        }
+        const res = relay.publish(ev);
+        if (!res.ok) {
+          const list = _relays.length > 0 ? _relays : ["wss://relay.fake"];
+          return list.map(() => Promise.reject(new Error(res.reason || "publish failed")));
+        }
+        const list = _relays.length > 0 ? _relays : ["wss://relay.fake"];
+        return list.map(() => Promise.resolve("ok"));
       },
       querySync(_relays: string[], filter: NostrFilter) {
+        if (relay.isDownRelay()) {
+          return Promise.resolve([]);
+        }
         return Promise.resolve(relay.query(filter));
       },
       subscribeMany(_relays: string[], filter: NostrFilter, handler: { onevent?: (ev: NostrEvent) => void }) {

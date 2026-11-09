@@ -319,7 +319,7 @@ describe("Story 4.8: Publicação de 20 eventos locais no Grupo forte sem duplic
 
     // 2. Publica os 20 eventos locais no Grupo forte com cifra AES-GCM
     const publishedCount = await publishSyncEvents(strongGroup.keys, did, pendingBefore);
-    expect(publishedCount).toBe(20);
+    expect(publishedCount.published).toBe(20);
     expect(publishedNostrEvents.length).toBeGreaterThanOrEqual(1);
 
     // Verifica que o conteúdo publicado no relay está cifrado com AES-GCM
@@ -375,7 +375,7 @@ describe("Story 4.8: Publicação de 20 eventos locais no Grupo forte sem duplic
 
     // Publica e marca
     const count = await publishSyncEvents(strongGroup.keys, did, pending);
-    expect(count).toBe(20);
+    expect(count.published).toBe(20);
     await tracker.markPublished(
       pending.map((e) => e.id),
       strongGroupId,

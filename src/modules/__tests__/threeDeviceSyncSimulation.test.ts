@@ -17,6 +17,7 @@ import {
   shouldPublishGroupEvents,
   processIncomingEvents,
   computeEventHash,
+  processPushResult,
 } from "../syncDecisions";
 import { FakeMemoryRelay } from "../testing/fakeMemoryRelay";
 import {
@@ -831,5 +832,397 @@ describe("Story 5.1 - Simulação de sincronização com três aparelhos", () =>
     expect(stateA).toEqual(stateB);
     expect(stateA).toEqual(stateC);
     expect(stateA.accounts["acc-concurrent"].balance).toBe(1150);
+  });
+});
+
+describe("Story 5.2 - Confirmação por lote, reenvio e resiliência a relay derrubado", () => {
+  let relay: FakeMemoryRelay;
+  let sharedSecret: string;
+  let sharedKeys: NostrSyncKeys;
+  let deviceA: SimulatedSyncDevice;
+  let deviceB: SimulatedSyncDevice;
+  let deviceC: SimulatedSyncDevice;
+
+  beforeEach(async () => {
+    relay = new FakeMemoryRelay();
+    const rawSecret = generateGroupSecret();
+    sharedSecret = encodeGroupSecret(rawSecret);
+    const strongKeys = deriveStrongGroupKeys(rawSecret);
+    sharedKeys = {
+      privateKey: strongKeys.nostrPrivateKey,
+      publicKey: strongKeys.nostrPublicKey,
+      encryptionKey: strongKeys.encryptionKey,
+      isStrong: true,
+    };
+
+    deviceA = await createSimulatedDevice({
+      deviceId: "dev-A",
+      relay,
+      keys: sharedKeys,
+      groupSecret: sharedSecret,
+    });
+
+    deviceB = await createSimulatedDevice({
+      deviceId: "dev-B",
+      relay,
+      keys: sharedKeys,
+      groupSecret: sharedSecret,
+    });
+
+    deviceC = await createSimulatedDevice({
+      deviceId: "dev-C",
+      relay,
+      keys: sharedKeys,
+      groupSecret: sharedSecret,
+    });
+  });
+
+  it("FakeMemoryRelay: setDown e isDownRelay controlam adequadamente a resposta do relay e asPool", async () => {
+    expect(relay.isDownRelay()).toBe(false);
+
+    relay.setDown(true);
+    expect(relay.isDownRelay()).toBe(true);
+
+    const pubRes = relay.publish({
+      id: "ev-test",
+      pubkey: sharedKeys.publicKey,
+      created_at: 1000,
+      kind: 30333,
+      tags: [["d", "sync-test-0"]],
+      content: "secret",
+    });
+    expect(pubRes.ok).toBe(false);
+    expect(pubRes.reason).toBe("relay is down");
+
+    // Pool também rejeita publicações quando derrubado
+    const pool = relay.asPool();
+    const poolPromises = pool.publish(["wss://relay.fake"], {
+      id: "ev-test-pool",
+      pubkey: sharedKeys.publicKey,
+      created_at: 1000,
+      kind: 30333,
+      tags: [],
+      content: "pool",
+    });
+    await expect(poolPromises[0]).rejects.toThrow("Relay is down");
+
+    // Consultas retornam vazio
+    expect(relay.query({ kinds: [30333] })).toEqual([]);
+    expect(await pool.querySync(["wss://relay.fake"], { kinds: [30333] })).toEqual([]);
+
+    // Restaura
+    relay.setDown(false);
+    expect(relay.isDownRelay()).toBe(false);
+
+    const pubResRestored = relay.publish({
+      id: "ev-test-restored",
+      pubkey: sharedKeys.publicKey,
+      created_at: 1000,
+      kind: 30333,
+      tags: [["d", "sync-test-restored"]],
+      content: "restored",
+    });
+    expect(pubResRestored.ok).toBe(true);
+  });
+
+  it("relay derrubado e depois restaurado: nenhum lote é marcado durante a queda, hash não avança e todos convergem após restauração", async () => {
+    // Aparelho A gera conta e 4 transações locais (5 eventos)
+    deviceA.appendLocalEvent({
+      id: "acc-a",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-a", name: "Conta A", type: "checking", balance: 1000 },
+    });
+    for (let i = 1; i <= 4; i++) {
+      deviceA.appendLocalEvent({
+        id: `tx-a-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: {
+          id: `tx-a-${i}`,
+          accountId: "acc-a",
+          type: "income",
+          amount: 100 * i,
+          date: `2026-10-0${i}`,
+        },
+      });
+    }
+    expect(deviceA.getAllEvents()).toHaveLength(5);
+
+    // 1. Derruba o relay antes do push
+    relay.setDown(true);
+
+    const pushDown = await deviceA.push();
+    expect(pushDown.pushed).toBe(false);
+    expect(pushDown.count).toBe(0);
+    expect(pushDown.reason).toBe("relay-failed");
+    expect(pushDown.confirmedEventIds).toEqual([]);
+    expect(pushDown.failedEventIds).toHaveLength(5);
+
+    // Hash NÃO deve avançar
+    expect(deviceA.getLastPushHash()).toBe("empty");
+
+    // Nenhum evento foi marcado no tracker
+    const pendingDuringDown = deviceA.tracker.filterEventsToPublish(
+      deviceA.getAllEvents(),
+      deviceA.keys.publicKey,
+    );
+    expect(pendingDuringDown).toHaveLength(5);
+
+    // Aparelhos B e C tentam ler e não encontram nada
+    await deviceB.pull();
+    await deviceC.pull();
+    expect(deviceB.getAllEvents()).toHaveLength(0);
+    expect(deviceC.getAllEvents()).toHaveLength(0);
+
+    // 2. Restaura o relay
+    relay.setDown(false);
+
+    // Aparelho A realiza novo push: agora com sucesso
+    const pushRestored = await deviceA.push();
+    expect(pushRestored.pushed).toBe(true);
+    expect(pushRestored.count).toBe(5);
+    expect(pushRestored.confirmedEventIds).toHaveLength(5);
+    expect(pushRestored.failedEventIds).toHaveLength(0);
+
+    // Hash deve ter avançado
+    expect(deviceA.getLastPushHash()).not.toBe("empty");
+
+    // Todos os eventos devem estar assinalados no tracker
+    const pendingAfterRestore = deviceA.tracker.filterEventsToPublish(
+      deviceA.getAllEvents(),
+      deviceA.keys.publicKey,
+    );
+    expect(pendingAfterRestore).toHaveLength(0);
+
+    // 3. Aparelhos B e C puxam do relay e todos convergem
+    await deviceB.pull();
+    await deviceC.pull();
+
+    expect(deviceA.getAllEvents()).toHaveLength(5);
+    expect(deviceB.getAllEvents()).toHaveLength(5);
+    expect(deviceC.getAllEvents()).toHaveLength(5);
+
+    const stateA = deviceA.getState();
+    const stateB = deviceB.getState();
+    const stateC = deviceC.getState();
+
+    expect(stateA).toEqual(stateB);
+    expect(stateA).toEqual(stateC);
+    expect(stateA.accounts["acc-a"].balance).toBe(2000); // 1000 + 100 + 200 + 300 + 400
+  });
+
+  it("falha parcial de lotes: Lote 0 confirmado, Lote 1 rejeitado -> apenas Lote 0 é marcado e hash retido", async () => {
+    // Conta inicial
+    deviceA.appendLocalEvent({
+      id: "acc-part",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-part", name: "Conta Parcial", type: "checking", balance: 5000 },
+    });
+
+    // 24 transações adicionais (total 25 eventos -> Lote 0 com 20, Lote 1 com 5)
+    for (let i = 1; i <= 24; i++) {
+      deviceA.appendLocalEvent({
+        id: `tx-part-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: {
+          id: `tx-part-${i}`,
+          accountId: "acc-part",
+          type: "expense",
+          amount: 10,
+          date: "2026-10-01",
+        },
+      });
+    }
+    expect(deviceA.getAllEvents()).toHaveLength(25);
+
+    // Rejeita o Lote 1 no relay
+    relay.rejectBatch("sync-dev-A-1");
+
+    // Dispara push: Lote 0 confirma, Lote 1 falha
+    const partialPush = await deviceA.push();
+    expect(partialPush.pushed).toBe(true);
+    expect(partialPush.count).toBe(20);
+    expect(partialPush.reason).toBe("partial-failure");
+    expect(partialPush.confirmedEventIds).toHaveLength(20);
+    expect(partialPush.failedEventIds).toHaveLength(5);
+
+    // Tracker deve ter apenas os 20 confirmados marcados; os 5 restantes permanecem pendentes
+    const pendingEvents = deviceA.tracker.filterEventsToPublish(
+      deviceA.getAllEvents(),
+      deviceA.keys.publicKey,
+    );
+    expect(pendingEvents).toHaveLength(5);
+    expect(pendingEvents.map((e) => e.id)).toEqual(partialPush.failedEventIds);
+
+    // Hash de envio NÃO deve avançar
+    expect(deviceA.getLastPushHash()).toBe("empty");
+
+    // Aparelho B puxa do relay e recebe apenas o Lote 0 (20 eventos)
+    await deviceB.pull();
+    expect(deviceB.getAllEvents()).toHaveLength(20);
+
+    // Agora o relay aceita o Lote 1
+    relay.allowBatch("sync-dev-A-1");
+
+    // Próximo ciclo de push: detecta pendências no tracker e reenvia
+    const retryPush = await deviceA.push();
+    expect(retryPush.pushed).toBe(true);
+    expect(retryPush.count).toBe(25);
+    expect(retryPush.confirmedEventIds).toHaveLength(25);
+    expect(retryPush.failedEventIds).toHaveLength(0);
+
+    // Agora que todos os lotes foram confirmados, o hash avança
+    expect(deviceA.getLastPushHash()).not.toBe("empty");
+
+    // Nenhum evento pendente no tracker de A
+    const pendingFinal = deviceA.tracker.filterEventsToPublish(
+      deviceA.getAllEvents(),
+      deviceA.keys.publicKey,
+    );
+    expect(pendingFinal).toHaveLength(0);
+
+    // Aparelho B puxa o restante e todos convergem para os 25 eventos
+    await deviceB.pull();
+    expect(deviceA.getAllEvents()).toHaveLength(25);
+    expect(deviceB.getAllEvents()).toHaveLength(25);
+
+    expect(deviceA.getState()).toEqual(deviceB.getState());
+  });
+
+  it("todos os lotes falharam: nenhum evento é marcado no tracker e hash não avança", async () => {
+    deviceA.appendLocalEvent({
+      id: "acc-fail-all",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-fail-all", name: "Conta", type: "checking", balance: 100 },
+    });
+
+    relay.setDown(true);
+
+    const res = await deviceA.push();
+    expect(res.pushed).toBe(false);
+    expect(res.count).toBe(0);
+    expect(res.confirmedEventIds).toEqual([]);
+    expect(res.failedEventIds).toHaveLength(1);
+    expect(deviceA.getLastPushHash()).toBe("empty");
+
+    const pending = deviceA.tracker.filterEventsToPublish(
+      deviceA.getAllEvents(),
+      deviceA.keys.publicKey,
+    );
+    expect(pending).toHaveLength(1);
+  });
+});
+
+describe("processPushResult (syncDecisions)", () => {
+  it("todos confirmados: eventsToMark inclui confirmados, hash avança e não lança erro", () => {
+    const outcome = processPushResult({
+      result: {
+        published: 20,
+        confirmedEventIds: ["ev-1", "ev-2"],
+        failedEventIds: [],
+        rejectedEventIds: [],
+        batches: [],
+      },
+      myEvents: [{ id: "ev-1" }, { id: "ev-2" }],
+      currentHash: "hash-123",
+    });
+
+    expect(outcome.eventsToMark).toEqual(["ev-1", "ev-2"]);
+    expect(outcome.shouldAdvanceHash).toBe(true);
+    expect(outcome.nextHash).toBe("hash-123");
+    expect(outcome.shouldThrow).toBe(false);
+    expect(outcome.errorMessage).toBeUndefined();
+  });
+
+  it("falha parcial de lotes: eventsToMark tem confirmados, hash NÃO avança e shouldThrow é true", () => {
+    const outcome = processPushResult({
+      result: {
+        published: 10,
+        confirmedEventIds: ["ev-1"],
+        failedEventIds: ["ev-2"],
+        rejectedEventIds: [],
+        batches: [],
+      },
+      myEvents: [{ id: "ev-1" }, { id: "ev-2" }],
+      currentHash: "hash-456",
+    });
+
+    expect(outcome.eventsToMark).toEqual(["ev-1"]);
+    expect(outcome.shouldAdvanceHash).toBe(false);
+    expect(outcome.nextHash).toBeUndefined();
+    expect(outcome.shouldThrow).toBe(true);
+    expect(outcome.errorMessage).toContain("1 eventos em lotes não foram aceitos");
+  });
+
+  it("falha total: eventsToMark vazio, hash não avança e shouldThrow é true", () => {
+    const outcome = processPushResult({
+      result: {
+        published: 0,
+        confirmedEventIds: [],
+        failedEventIds: ["ev-1", "ev-2"],
+        rejectedEventIds: [],
+        batches: [],
+      },
+      myEvents: [{ id: "ev-1" }, { id: "ev-2" }],
+      currentHash: "hash-789",
+    });
+
+    expect(outcome.eventsToMark).toEqual([]);
+    expect(outcome.shouldAdvanceHash).toBe(false);
+    expect(outcome.shouldThrow).toBe(true);
+  });
+
+  it("envelopes rejeitados: são incluídos em eventsToMark para evitar loop infinito", () => {
+    const outcome = processPushResult({
+      result: {
+        published: 10,
+        confirmedEventIds: ["ev-valid"],
+        failedEventIds: [],
+        rejectedEventIds: ["ev-bad-1", "ev-bad-2"],
+        batches: [],
+      },
+      myEvents: [{ id: "ev-valid" }, { id: "ev-bad-1" }, { id: "ev-bad-2" }],
+      currentHash: "hash-rej",
+    });
+
+    // eventsToMark deve conter tanto o válido quanto os rejeitados
+    expect(outcome.eventsToMark).toEqual(["ev-valid", "ev-bad-1", "ev-bad-2"]);
+    expect(outcome.shouldAdvanceHash).toBe(true);
+    expect(outcome.shouldThrow).toBe(false);
+  });
+
+  it("lista de eventos locais vazia: hash avança e shouldThrow é false", () => {
+    const outcome = processPushResult({
+      result: {
+        published: 0,
+        confirmedEventIds: [],
+        failedEventIds: [],
+        rejectedEventIds: [],
+        batches: [],
+      },
+      myEvents: [],
+      currentHash: "empty",
+    });
+
+    expect(outcome.eventsToMark).toEqual([]);
+    expect(outcome.shouldAdvanceHash).toBe(true);
+    expect(outcome.shouldThrow).toBe(false);
+  });
+
+  it("apenas envelopes rejeitados (nenhum confirmado): eventsToMark tem os rejeitados e hash não avança", () => {
+    const outcome = processPushResult({
+      result: {
+        published: 0,
+        confirmedEventIds: [],
+        failedEventIds: [],
+        rejectedEventIds: ["bad-only"],
+        batches: [],
+      },
+      myEvents: [{ id: "bad-only" }],
+      currentHash: "hash-bad-only",
+    });
+
+    expect(outcome.eventsToMark).toEqual(["bad-only"]);
+    expect(outcome.shouldAdvanceHash).toBe(false);
+    expect(outcome.shouldThrow).toBe(false);
   });
 });

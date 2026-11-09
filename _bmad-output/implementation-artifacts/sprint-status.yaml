@@ -83,7 +83,7 @@ development_status:
 
   epic-5: in-progress
   5-1-testar-o-sync-com-três-aparelhos-simulados: done
-  5-2-confirmar-o-envio-por-lote-e-reenviar-os-perdidos: backlog
+  5-2-confirmar-o-envio-por-lote-e-reenviar-os-perdidos: done
   5-3-publicar-só-os-lotes-novos-no-grupo-forte: backlog
   5-4-ler-o-histórico-de-forma-incremental-e-paginada: backlog
   5-5-enfileirar-eventos-recebidos-em-rajada: backlog
