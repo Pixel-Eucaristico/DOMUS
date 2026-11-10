@@ -87,7 +87,7 @@ development_status:
   5-3-publicar-só-os-lotes-novos-no-grupo-forte: done
   5-4-ler-o-histórico-de-forma-incremental-e-paginada: done
   5-5-enfileirar-eventos-recebidos-em-rajada: done
-  5-6-nunca-republicar-o-que-veio-do-grupo: backlog
+  5-6-nunca-republicar-o-que-veio-do-grupo: done
   5-7-propagar-rápido-inclusive-depois-de-ficar-offline: backlog
   5-8-publicar-o-marcador-de-reset-e-de-restauração: backlog
   5-9-pedir-confirmação-antes-de-apagar-por-causa-de-um-marcador: backlog

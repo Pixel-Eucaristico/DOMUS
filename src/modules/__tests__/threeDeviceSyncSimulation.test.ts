@@ -55,11 +55,14 @@ function makeEvent(overrides: Partial<SyncEvent> = {}): SyncEvent {
 }
 
 describe("Story 5.1 - Decisões puras de sincronização (syncDecisions)", () => {
-  const dummyTracker = (published: string[] = []) => {
+  const dummyTracker = (published: string[] = [], received: string[] = []) => {
     const publishedSet = new Set(published);
+    const receivedSet = new Set(received);
     return {
       filterEventsToPublish: <T extends { id: string }>(events: readonly T[]) =>
-        events.filter((e) => !publishedSet.has(e.id)),
+        events.filter((e) => !publishedSet.has(e.id) && !receivedSet.has(e.id)),
+      hasReceived: (id: string, groupId?: string) => receivedSet.has(id),
+      hasPublished: (id: string, groupId?: string) => publishedSet.has(id),
     };
   };
 
@@ -95,9 +98,24 @@ describe("Story 5.1 - Decisões puras de sincronização (syncDecisions)", () =>
   });
 
   describe("shouldPublishGroupEvents", () => {
-    it("retorna shouldPublish: false e reason: 'no-events' quando não há eventos deste aparelho", () => {
+    it("retorna shouldPublish: false e reason: 'no-events' quando não há eventos deste aparelho ou todos já foram recebidos do grupo", () => {
       const decision = shouldPublishGroupEvents({
-        events: [makeEvent({ deviceId: "dev-other" })],
+        events: [makeEvent({ id: "peer-1", deviceId: "dev-other" })],
+        groupId: "group-1",
+        isStrong: true,
+        tracker: dummyTracker([], ["peer-1"]),
+        deviceId: "dev-me",
+      });
+
+      expect(decision.shouldPublish).toBe(false);
+      expect(decision.reason).toBe("no-events");
+      expect(decision.myEvents).toHaveLength(0);
+      expect(decision.hash).toBe("empty");
+    });
+
+    it("retorna shouldPublish: false e reason: 'no-events' para lista vazia de eventos", () => {
+      const decision = shouldPublishGroupEvents({
+        events: [],
         groupId: "group-1",
         isStrong: true,
         tracker: dummyTracker(),
@@ -108,6 +126,22 @@ describe("Story 5.1 - Decisões puras de sincronização (syncDecisions)", () =>
       expect(decision.reason).toBe("no-events");
       expect(decision.myEvents).toHaveLength(0);
       expect(decision.hash).toBe("empty");
+    });
+
+    it("permite publicação de evento de backup restaurado com deviceId antigo se não foi recebido do grupo", () => {
+      const backupEvt = makeEvent({ id: "backup-1", deviceId: "dev-old" });
+      const decision = shouldPublishGroupEvents({
+        events: [backupEvt],
+        groupId: "group-1",
+        isStrong: true,
+        tracker: dummyTracker([], []),
+        deviceId: "dev-new",
+      });
+
+      expect(decision.shouldPublish).toBe(true);
+      expect(decision.reason).toBe("pending-events");
+      expect(decision.myEvents).toEqual([backupEvt]);
+      expect(decision.pendingEvents).toEqual([backupEvt]);
     });
 
     it("com isStrong: false exclui eventos PAYSLIP_* (não publica se houver apenas holerites)", () => {
@@ -2064,5 +2098,351 @@ describe("Story 5.5 - Enfileirar eventos recebidos em rajada", () => {
     expect(deviceB.getExistingEventIds().has("tx-duplicate-1")).toBe(true);
 
     liveB.close();
+  });
+});
+
+describe("Story 5.6 - Nunca republicar o que veio do grupo", () => {
+  let relay: FakeMemoryRelay;
+  let groupSecret: string;
+  let deviceA: SimulatedSyncDevice;
+  let deviceB: SimulatedSyncDevice;
+  let deviceC: SimulatedSyncDevice;
+
+  beforeEach(async () => {
+    relay = new FakeMemoryRelay();
+    const secret = generateGroupSecret();
+    groupSecret = encodeGroupSecret(secret);
+
+    deviceA = await createSimulatedDevice({
+      deviceId: "dev-A",
+      relay,
+      groupSecret,
+    });
+    deviceB = await createSimulatedDevice({
+      deviceId: "dev-B",
+      relay,
+      groupSecret,
+    });
+    deviceC = await createSimulatedDevice({
+      deviceId: "dev-C",
+      relay,
+      groupSecret,
+    });
+  });
+
+  it("três aparelhos trocando N eventos geram exatamente N publicações no relay sem crescer ao longo do tempo", async () => {
+    // Aparelho A gera 3 eventos
+    deviceA.appendLocalEvent({
+      id: "tx-a-1",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-1", name: "Conta A", type: "checking", balance: 1000 },
+    });
+    deviceA.appendLocalEvent({
+      id: "tx-a-2",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-a-2", accountId: "acc-1", type: "expense", amount: 100, date: "2026-10-01" },
+    });
+    deviceA.appendLocalEvent({
+      id: "tx-a-3",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-a-3", accountId: "acc-1", type: "expense", amount: 50, date: "2026-10-02" },
+    });
+
+    // Aparelho B gera 2 eventos
+    deviceB.appendLocalEvent({
+      id: "tx-b-1",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-2", name: "Conta B", type: "savings", balance: 2000 },
+    });
+    deviceB.appendLocalEvent({
+      id: "tx-b-2",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-b-2", accountId: "acc-2", type: "income", amount: 300, date: "2026-10-03" },
+    });
+
+    // Aparelho C gera 4 eventos
+    deviceC.appendLocalEvent({
+      id: "tx-c-1",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-3", name: "Conta C", type: "checking", balance: 500 },
+    });
+    deviceC.appendLocalEvent({
+      id: "tx-c-2",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-c-2", accountId: "acc-3", type: "expense", amount: 40, date: "2026-10-04" },
+    });
+    deviceC.appendLocalEvent({
+      id: "tx-c-3",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-c-3", accountId: "acc-3", type: "expense", amount: 60, date: "2026-10-05" },
+    });
+    deviceC.appendLocalEvent({
+      id: "tx-c-4",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-c-4", accountId: "acc-3", type: "income", amount: 150, date: "2026-10-06" },
+    });
+
+    // Cada aparelho publica seus eventos locais para o relay
+    const pushA = await deviceA.push();
+    const pushB = await deviceB.push();
+    const pushC = await deviceC.push();
+
+    expect(pushA.pushed).toBe(true);
+    expect(pushA.count).toBe(3);
+    expect(pushB.pushed).toBe(true);
+    expect(pushB.count).toBe(2);
+    expect(pushC.pushed).toBe(true);
+    expect(pushC.count).toBe(4);
+
+    // Total de 9 eventos publicados no relay (3 lotes Nostr)
+    const relayPublishCount = relay.getTotalPublications();
+    expect(relayPublishCount).toBe(3);
+    expect(relay.getAllEvents()).toHaveLength(3);
+
+    // Todos os aparelhos puxam os eventos do relay
+    await deviceA.pull();
+    await deviceB.pull();
+    await deviceC.pull();
+
+    // Mais uma rodada de pull para convergência mútua
+    await deviceA.pull();
+    await deviceB.pull();
+    await deviceC.pull();
+
+    // Todos os 3 aparelhos possuem exatamente os 9 eventos
+    expect(deviceA.getAllEvents()).toHaveLength(9);
+    expect(deviceB.getAllEvents()).toHaveLength(9);
+    expect(deviceC.getAllEvents()).toHaveLength(9);
+
+    // Estados financeiros de domínio são idênticos em todos os aparelhos
+    expect(deviceB.getState()).toEqual(deviceA.getState());
+    expect(deviceC.getState()).toEqual(deviceA.getState());
+
+    // Executa múltiplos ciclos repetidos de push subsequentes em todos os nós
+    for (let round = 1; round <= 5; round++) {
+      const repA = await deviceA.push();
+      const repB = await deviceB.push();
+      const repC = await deviceC.push();
+
+      expect(repA.pushed).toBe(false);
+      expect(repA.count).toBe(0);
+      expect(repA.reason).toBe("up-to-date");
+
+      expect(repB.pushed).toBe(false);
+      expect(repB.count).toBe(0);
+      expect(repB.reason).toBe("up-to-date");
+
+      expect(repC.pushed).toBe(false);
+      expect(repC.count).toBe(0);
+      expect(repC.reason).toBe("up-to-date");
+    }
+
+    // A contagem de publicações no relay permaneceu rigorosamente constante (exatamente 3 lotes com 9 eventos)
+    expect(relay.getTotalPublications()).toBe(relayPublishCount);
+    expect(relay.getAllEvents()).toHaveLength(3);
+  });
+
+  it("aparelho que restaura backup com deviceId antigo publica os eventos no grupo forte com sucesso", async () => {
+    // Aparelho B restaura backup contendo eventos gerados por um deviceId antigo
+    const backupEvents: SyncEvent[] = [
+      {
+        id: "tx-backup-old-1",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-restored", name: "Conta Backup Restaurada", type: "checking", balance: 5000 },
+        timestamp: 1_690_000_000_000,
+        deviceId: "dev-legacy-backup-uuid",
+        signature: "sig-bkp-1",
+      },
+      {
+        id: "tx-backup-old-2",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-restored-2", accountId: "acc-restored", type: "expense", amount: 450, date: "2026-07-15" },
+        timestamp: 1_690_000_100_000,
+        deviceId: "dev-legacy-backup-uuid",
+        signature: "sig-bkp-2",
+      },
+    ];
+
+    deviceB.restoreBackupEvents(backupEvents);
+
+    // Os eventos estão no eventStore de B, mas com deviceId antigo ("dev-legacy-backup-uuid" !== "dev-B")
+    expect(deviceB.getAllEvents()).toHaveLength(2);
+    expect(deviceB.getAllEvents().every((e) => e.deviceId === "dev-legacy-backup-uuid")).toBe(true);
+
+    // Aparelho B faz push: os eventos de backup devem ser publicados no grupo forte pois ainda não constam no tracker
+    const pushResult = await deviceB.push();
+    expect(pushResult.pushed).toBe(true);
+    expect(pushResult.count).toBe(2);
+    expect(pushResult.confirmedEventIds).toEqual(["tx-backup-old-1", "tx-backup-old-2"]);
+
+    // Idempotência subsequente no próprio aparelho B: push repetido é no-op (up-to-date)
+    const repushB = await deviceB.push();
+    expect(repushB.pushed).toBe(false);
+    expect(repushB.reason).toBe("up-to-date");
+    expect(repushB.count).toBe(0);
+
+    // Aparelho A puxa do relay e importa os eventos de backup restaurados de B
+    const pullA = await deviceA.pull();
+    expect(pullA.importedCount).toBe(2);
+    expect(deviceA.getExistingEventIds().has("tx-backup-old-1")).toBe(true);
+    expect(deviceA.getExistingEventIds().has("tx-backup-old-2")).toBe(true);
+
+    // Estado financeiro em A reflete a conta e despesa do backup restaurado
+    const stateA = deviceA.getState();
+    const restoredAccount = stateA.accounts["acc-restored"];
+    expect(restoredAccount?.name).toBe("Conta Backup Restaurada");
+    expect(restoredAccount?.balance).toBe(4550); // 5000 - 450
+
+    // Aparelho A marcou os eventos no tracker como recebidos e jamais os republica
+    expect(deviceA.tracker.hasReceived("tx-backup-old-1", deviceA.keys.publicKey)).toBe(true);
+    expect(deviceA.tracker.hasReceived("tx-backup-old-2", deviceA.keys.publicKey)).toBe(true);
+
+    const repushA = await deviceA.push();
+    expect(repushA.pushed).toBe(false);
+    expect(repushA.count).toBe(0);
+  });
+
+  it("importação de eventos remotos de outro aparelho não altera o estado de gamificação (totalXp e conquistas)", async () => {
+    // Estado inicial de gamificação de B: 0 XP e sem troféus
+    const initialGamificationB = deviceB.getReplayResult().gamification;
+    expect(initialGamificationB.totalXp).toBe(0);
+    expect(initialGamificationB.level).toBe(1);
+    expect(initialGamificationB.unlockedAchievements).toHaveLength(0);
+    expect(initialGamificationB.currentStreak).toBe(0);
+
+    // Aparelho A cria 1 conta e 4 transações e publica no relay
+    deviceA.appendLocalEvent({
+      id: "acc-gamification-test",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-gam-1", name: "Conta Gamificação", type: "checking", balance: 1000 },
+    });
+    for (let i = 1; i <= 4; i++) {
+      deviceA.appendLocalEvent({
+        id: `tx-gam-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `tx-gam-${i}`, accountId: "acc-gam-1", type: "expense", amount: 10 * i, date: "2026-10-01" },
+      });
+    }
+
+    await deviceA.push();
+
+    // Aparelho B importa todos os eventos de A
+    const pullResult = await deviceB.pull();
+    expect(pullResult.importedCount).toBe(5);
+
+    // O domínio de B foi atualizado com as transações e o saldo correto
+    const stateB = deviceB.getState();
+    expect(Object.keys(stateB.transactions)).toHaveLength(4);
+    expect(stateB.accounts["acc-gam-1"]?.balance).toBe(900); // 1000 - 100
+
+    // A gamificação de B permaneceu rigorosamente intacta (sem concessão de XP nem troféus pelo tráfego)
+    const postSyncGamificationB = deviceB.getReplayResult().gamification;
+    expect(postSyncGamificationB.totalXp).toBe(0);
+    expect(postSyncGamificationB.level).toBe(1);
+    expect(postSyncGamificationB.unlockedAchievements).toEqual(initialGamificationB.unlockedAchievements);
+    expect(postSyncGamificationB.currentStreak).toBe(0);
+  });
+
+  it("aparelho que recebe evento do grupo nunca o devolve em ciclos de push subsequentes (supressão estrita de eco)", async () => {
+    // Aparelho A cria e publica evento
+    deviceA.appendLocalEvent({
+      id: "evt-no-echo-1",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-echo", name: "Conta Anti-Eco", type: "checking", balance: 750 },
+    });
+    await deviceA.push();
+
+    // Aparelho B puxa do relay
+    await deviceB.pull();
+    expect(deviceB.getExistingEventIds().has("evt-no-echo-1")).toBe(true);
+    expect(deviceB.tracker.hasReceived("evt-no-echo-1", deviceB.keys.publicKey)).toBe(true);
+
+    // Decisão pura de publicação em B exclui o evento recebido
+    const decisionB = shouldPublishGroupEvents({
+      events: deviceB.getAllEvents(),
+      groupId: deviceB.keys.publicKey,
+      isStrong: true,
+      tracker: deviceB.tracker,
+      deviceId: deviceB.deviceId,
+    });
+    expect(decisionB.shouldPublish).toBe(false);
+    expect(decisionB.reason).toBe("no-events");
+    expect(decisionB.myEvents).toHaveLength(0);
+
+    // Push em B não publica nada
+    const pushB1 = await deviceB.push();
+    expect(pushB1.pushed).toBe(false);
+    expect(pushB1.count).toBe(0);
+    expect(pushB1.reason).toBe("no-events");
+
+    // Agora Aparelho B cria um evento genuinamente local
+    deviceB.appendLocalEvent({
+      id: "evt-local-b-new",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-local-b", accountId: "acc-echo", type: "income", amount: 250, date: "2026-10-02" },
+    });
+
+    // Ao publicar, o lote de B contém APENAS o evento local de B, excluindo o evento recebido de A
+    const pushB2 = await deviceB.push();
+    expect(pushB2.pushed).toBe(true);
+    expect(pushB2.confirmedEventIds).toEqual(["evt-local-b-new"]);
+    expect(pushB2.confirmedEventIds).not.toContain("evt-no-echo-1");
+
+    // Aparelho A puxa e importa apenas o evento novo de B
+    const pullA = await deviceA.pull();
+    expect(pullA.importedCount).toBe(1);
+    expect(deviceA.getExistingEventIds().has("evt-local-b-new")).toBe(true);
+
+    // Aparelho A não republica o evento recebido de B
+    const pushA2 = await deviceA.push();
+    expect(pushA2.pushed).toBe(false);
+    expect(pushA2.count).toBe(0);
+  });
+
+  it("canal legado exclui PAYSLIP_* de backup restaurado mas forte aceita e publica", () => {
+    const dummy = (published: string[] = [], received: string[] = []) => {
+      const pSet = new Set(published);
+      const rSet = new Set(received);
+      return {
+        filterEventsToPublish: <T extends { id: string }>(evts: readonly T[]) =>
+          evts.filter((e) => !pSet.has(e.id) && !rSet.has(e.id)),
+        hasReceived: (id: string, groupId?: string) => rSet.has(id),
+        hasPublished: (id: string, groupId?: string) => pSet.has(id),
+      };
+    };
+
+    const payslipBackupEvt: SyncEvent = {
+      id: "bkp-payslip-1",
+      type: "PAYSLIP_RECORDED",
+      payload: { id: "p1", grossSalary: 8000 },
+      timestamp: 1_700_000_000_000,
+      deviceId: "dev-old-device",
+      signature: "sig-p1",
+    };
+
+    // No canal legado (isStrong: false), PAYSLIP_* é excluído e não é publicado
+    const legacyDecision = shouldPublishGroupEvents({
+      events: [payslipBackupEvt],
+      groupId: "legacy-group-pubkey",
+      isStrong: false,
+      tracker: dummy(),
+      deviceId: "dev-new-device",
+    });
+    expect(legacyDecision.shouldPublish).toBe(false);
+    expect(legacyDecision.reason).toBe("no-events");
+    expect(legacyDecision.myEvents).toHaveLength(0);
+
+    // No canal forte (isStrong: true), PAYSLIP_* de backup restaurado é aceito e elegível para envio
+    const strongDecision = shouldPublishGroupEvents({
+      events: [payslipBackupEvt],
+      groupId: "strong-group-pubkey",
+      isStrong: true,
+      tracker: dummy(),
+      deviceId: "dev-new-device",
+    });
+    expect(strongDecision.shouldPublish).toBe(true);
+    expect(strongDecision.reason).toBe("pending-events");
+    expect(strongDecision.myEvents).toEqual([payslipBackupEvt]);
+    expect(strongDecision.pendingEvents).toEqual([payslipBackupEvt]);
   });
 });

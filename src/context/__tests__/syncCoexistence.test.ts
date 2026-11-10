@@ -503,4 +503,25 @@ describe("Story 4.7: Verificação do contrato de useSyncEngine", () => {
     expect(engineSource).not.toMatch(/if\s*\(\s*isImporting\w*\s*\)\s*return/);
     expect(engineSource).not.toMatch(/if\s*\(\s*isImportingRef\.current\s*\)\s*return/);
   });
+
+  it("Story 5.6: shouldPublishGroupEvents não restringe a publicação por deviceId e usa tracker.hasReceived", () => {
+    const decisionsSource = readFileSync(
+      path.resolve(__dirname, "../../modules/syncDecisions.ts"),
+      "utf8",
+    );
+
+    // shouldPublishGroupEvents utiliza tracker.hasReceived para excluir eventos recebidos do grupo
+    expect(decisionsSource).toMatch(/tracker\.hasReceived/);
+    expect(decisionsSource).toMatch(/!tracker\.hasReceived\(e\.id,\s*groupId\)/);
+
+    // Não restringe a lista de eventos locais por deviceId === did
+    expect(decisionsSource).not.toMatch(/selectStrongGroupPushEvents\(events,\s*deviceId\)/);
+    expect(decisionsSource).not.toMatch(/selectOldGroupPushEvents\(events,\s*deviceId\)/);
+    expect(decisionsSource).not.toMatch(/e\.deviceId\s*===\s*deviceId/);
+
+    // pushToGroup em useSyncEngine passa todos os eventos e usa a decisão do tracker
+    expect(engineSource).toContain("shouldPublishGroupEvents({");
+    expect(engineSource).toContain("events: allEventsRef.current");
+    expect(engineSource).toContain("const eventsToPublish = group.isStrong ? pendingEvents : myEvents;");
+  });
 });

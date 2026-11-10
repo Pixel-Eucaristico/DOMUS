@@ -136,6 +136,17 @@ export class SimulatedSyncDevice {
   }
 
   /**
+   * Story 5.6: Simula a restauração de backup contendo eventos de um deviceId antigo,
+   * inserindo-os no banco de dados local sem registrá-los no tracker como recebidos
+   * nem publicados, tornando-os elegíveis para envio ao grupo caso o grupo ainda não os possua.
+   */
+  restoreBackupEvents(events: SyncEvent[]): void {
+    for (const evt of events) {
+      this.eventStore.appendEvent(evt);
+    }
+  }
+
+  /**
    * Retorna todos os eventos armazenados localmente.
    */
   getAllEvents(): SyncEvent[] {

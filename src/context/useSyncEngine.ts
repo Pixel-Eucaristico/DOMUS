@@ -368,6 +368,7 @@ export function useSyncEngine({
       const isStrong = typeof k.isStrong === "boolean" ? k.isStrong : isStrongGroupRef.current;
       const myEvents = getMyEvents(did, isStrong);
       const hash = computeEventHash(myEvents);
+      void hash;
       const decision = shouldPublishGroupEvents({
         events: allEventsRef.current,
         groupId,
@@ -379,20 +380,20 @@ export function useSyncEngine({
       });
       if (!decision.shouldPublish) return;
 
-      const { pendingEvents } = decision;
-      const eventsToPublish = isStrong ? pendingEvents : myEvents;
+      const { myEvents: groupMyEvents, pendingEvents, hash: groupHash } = decision;
+      const eventsToPublish = isStrong ? pendingEvents : groupMyEvents;
       const result = await publishSyncEvents(k, did, eventsToPublish);
-      const outcome = processPushResult({ result, myEvents: eventsToPublish, currentHash: hash });
+      const outcome = processPushResult({ result, myEvents: eventsToPublish, currentHash: groupHash });
 
       if (outcome.eventsToMark.length > 0) {
         await tracker.markPublished(outcome.eventsToMark, groupId);
       }
 
       if (outcome.shouldAdvanceHash) {
-        groupPushHashesRef.current[groupId] = hash;
-        lastPushHashRef.current = hash;
+        groupPushHashesRef.current[groupId] = groupHash;
+        lastPushHashRef.current = groupHash;
         try {
-          await AsyncStorage.setItem(LAST_PUSH_HASH_KEY, hash);
+          await AsyncStorage.setItem(LAST_PUSH_HASH_KEY, groupHash);
           await AsyncStorage.setItem(GROUP_PUSH_HASHES_KEY, JSON.stringify(groupPushHashesRef.current));
         } catch {}
       }

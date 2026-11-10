@@ -7,8 +7,7 @@
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { SyncGroupTracker } from "./syncGroupTracking";
 import {
-  selectOldGroupPushEvents,
-  selectStrongGroupPushEvents,
+  partitionOldGroupEvents,
   RELAY_CURSOR_OVERLAP_SEC,
 } from "./syncPayload";
 import type { PublishSyncResult } from "./nostrSync";
@@ -27,10 +26,10 @@ export interface ShouldPublishGroupEventsParams {
   events: readonly SyncEvent[];
   groupId: string;
   isStrong: boolean;
-  tracker: Pick<SyncGroupTracker, "filterEventsToPublish">;
+  tracker: Pick<SyncGroupTracker, "filterEventsToPublish" | "hasReceived">;
   lastHash?: string | null;
   force?: boolean;
-  deviceId: string;
+  deviceId?: string;
 }
 
 /**
@@ -49,22 +48,27 @@ export function computeEventHash(events: readonly { id: string }[]): string {
 }
 
 /**
- * Avalia se há eventos elegíveis para envio ao grupo Nostr (forte ou legado).
+ * Story 5.6: Avalia se há eventos elegíveis para envio ao grupo Nostr (forte ou legado).
  *
- * 1. Seleciona os eventos gerados por este `deviceId` com base no canal (`isStrong`).
- * 2. Se não houver eventos locais: `shouldPublish: false`, reason: "no-events".
- * 3. Consulta o tracker de grupo (`filterEventsToPublish`) para identificar pendências.
- * 4. Calcula o hash atual dos eventos selecionados.
- * 5. Se `force` for verdadeiro: `shouldPublish: true`, reason: "forced".
- * 6. Se não houver pendências e o hash coincidir com `lastHash`: `shouldPublish: false`, reason: "up-to-date".
- * 7. Caso contrário: `shouldPublish: true`, reason: "pending-events".
+ * 1. Seleciona os eventos candidatos com base no canal (exclui PAYSLIP_* / dados confessionais no grupo legado).
+ * 2. Exclui eventos recebidos deste grupo através de tracker.hasReceived (prevenção estrita de loop e eco).
+ *    Eventos locais (inclusive de backups restaurados com deviceId antigo) são mantidos como elegíveis.
+ * 3. Se não houver eventos locais/elegíveis: shouldPublish: false, reason: "no-events".
+ * 4. Consulta o tracker de grupo (filterEventsToPublish) para identificar pendências de publicação.
+ * 5. Calcula o hash canônico atual dos eventos elegíveis (computeEventHash(myEvents)).
+ * 6. Se force for verdadeiro: shouldPublish: true, reason: "forced".
+ * 7. Se não houver pendências e o hash coincidir com lastHash: shouldPublish: false, reason: "up-to-date".
+ * 8. Caso contrário: shouldPublish: true, reason: "pending-events" (ou "hash-changed" se pendências vazias mas hash alterado).
  */
 export function shouldPublishGroupEvents(params: ShouldPublishGroupEventsParams): PublishDecision {
-  const { events, groupId, isStrong, tracker, lastHash, force = false, deviceId } = params;
+  const { events, groupId, isStrong, tracker, lastHash, force = false } = params;
 
-  const myEvents = isStrong
-    ? selectStrongGroupPushEvents(events, deviceId)
-    : selectOldGroupPushEvents(events, deviceId);
+  const candidateEvents = isStrong
+    ? [...events]
+    : partitionOldGroupEvents(events).allowed;
+
+  // Story 5.6: Exclui eventos recebidos deste grupo (hasReceived)
+  const myEvents = candidateEvents.filter((e) => !tracker.hasReceived(e.id, groupId));
 
   if (myEvents.length === 0) {
     return {
