@@ -32,6 +32,10 @@ import {
   processIncomingEvents,
   processPushResult,
   resolvePullSyncOptions,
+  RESET_MARKER_EVENT_TYPE,
+  type ResetMarkerPayload,
+  createResetMarkerEvent,
+  filterEventsAgainstMarkers,
 } from "../syncDecisions";
 import { replayAllEvents, type ReplayResult } from "@/src/context/replay";
 import type { AppState } from "@packages/domain/src/state";
@@ -47,6 +51,12 @@ export {
   createSimulatedClock,
   type DeliveryLogEntry,
 } from "./fakeMemoryRelay";
+export {
+  RESET_MARKER_EVENT_TYPE,
+  type ResetMarkerPayload,
+  createResetMarkerEvent,
+  filterEventsAgainstMarkers,
+} from "../syncDecisions";
 
 export class MemoryTrackingStorage implements SyncGroupTrackingStorage {
   private map = new Map<string, string>();
@@ -91,6 +101,8 @@ export class SimulatedSyncDevice {
   readonly groupCode: string;
   readonly eventStore: SQLiteEventStore;
   readonly tracker: SyncGroupTracker;
+  readonly knownMarkers: ResetMarkerPayload[] = [];
+  private pendingMarkers: SyncEvent[] = [];
 
   private cursor: number | null = null;
   private seq = 0;
@@ -278,6 +290,8 @@ export class SimulatedSyncDevice {
       return { pushed: false, count: 0, reason: "offline", confirmedEventIds: [], failedEventIds: [] };
     }
 
+    await this.flushPendingMarkers();
+
     const decision = shouldPublishGroupEvents({
       events: this.getAllEvents(),
       groupId: this.keys.publicKey,
@@ -390,6 +404,177 @@ export class SimulatedSyncDevice {
     };
   }
 
+  /**
+   * Story 5.8: Retorna os marcadores conhecidos ativos neste aparelho.
+   */
+  getKnownMarkers(): readonly ResetMarkerPayload[] {
+    return this.knownMarkers;
+  }
+
+  /**
+   * Story 5.8: Registra manualmente um marcador no aparelho (para testes e simulação).
+   */
+  registerMarker(marker: ResetMarkerPayload | SyncEvent): void {
+    if (!marker || typeof marker !== "object") return;
+    if ("clearedEventIds" in marker && Array.isArray(marker.clearedEventIds)) {
+      this.knownMarkers.push(marker);
+    } else if ("type" in marker && marker.type === RESET_MARKER_EVENT_TYPE && marker.payload) {
+      let payload: ResetMarkerPayload | undefined;
+      try {
+        payload = (typeof marker.payload === "string" ? JSON.parse(marker.payload) : marker.payload) as ResetMarkerPayload;
+      } catch {
+        payload = undefined;
+      }
+      if (payload && typeof payload === "object" && Array.isArray(payload.clearedEventIds)) {
+        this.knownMarkers.push(payload);
+      }
+    }
+  }
+
+  /**
+   * Story 5.8: Publica um evento marcador no Grupo forte ou enfileira se offline.
+   */
+  async publishMarker(markerEvent: SyncEvent): Promise<boolean> {
+    if (this.keys.isStrong === false) {
+      return false;
+    }
+
+    if (!this.isOnline) {
+      if (!this.pendingMarkers.some((m) => m.id === markerEvent.id)) {
+        this.pendingMarkers.push(markerEvent);
+      }
+      return false;
+    }
+
+    const batch = [markerEvent];
+    const batchId = computeStrongBatchId(this.deviceId, batch);
+    const batchEventIds = [markerEvent.id];
+
+    const batchPayload = JSON.stringify([
+      {
+        id: markerEvent.id,
+        type: markerEvent.type,
+        payload: markerEvent.payload,
+        timestamp: markerEvent.timestamp,
+        deviceId: markerEvent.deviceId,
+        signature: markerEvent.signature || "",
+      },
+    ]);
+
+    const encrypted = encryptStrongPayload(batchPayload, {
+      encryptionKey: this.keys.encryptionKey,
+      nostrPublicKey: this.keys.publicKey,
+    });
+
+    const nowSec = Math.floor(this.getNow() / 1000);
+    this.lastCreatedAt = Math.max(nowSec, this.lastCreatedAt + 1, (this.cursor ?? 0) + 1);
+
+    const actionTag = (markerEvent.payload as ResetMarkerPayload)?.action ?? "reset";
+    const nostrEvent = {
+      kind: 30333,
+      created_at: this.lastCreatedAt,
+      tags: [
+        ["d", batchId],
+        ["t", "domus-sync"],
+        ["device", this.deviceId],
+        ["batch", "1"],
+        ["marker", actionTag],
+      ],
+      content: encrypted,
+      pubkey: this.keys.publicKey,
+    } as UnsignedEvent;
+
+    const signed = finalizeEvent(nostrEvent, this.keys.privateKey);
+    let batchConfirmed = false;
+    for (const r of this.relays) {
+      const pubRes = r.publish(signed, batchEventIds);
+      if (pubRes.ok) {
+        batchConfirmed = true;
+      }
+    }
+
+    if (batchConfirmed) {
+      await this.tracker.markPublished([markerEvent.id], this.keys.publicKey);
+      this.pendingMarkers = this.pendingMarkers.filter((m) => m.id !== markerEvent.id);
+    }
+
+    return batchConfirmed;
+  }
+
+  /**
+   * Story 5.8: Descarrega marcadores que foram gerados offline na reconexão.
+   */
+  private async flushPendingMarkers(): Promise<void> {
+    if (!this.isOnline || this.keys.isStrong === false || this.pendingMarkers.length === 0) {
+      return;
+    }
+    const toFlush = [...this.pendingMarkers];
+    this.pendingMarkers = [];
+    for (const marker of toFlush) {
+      const ok = await this.publishMarker(marker);
+      if (!ok) {
+        this.pendingMarkers.push(marker);
+      }
+    }
+  }
+
+  /**
+   * Story 5.8: Apaga o log local de eventos e publica um marcador de reset no Grupo forte.
+   */
+  async resetApp(): Promise<{ markerEvent: SyncEvent; published: boolean }> {
+    const currentEvents = this.getAllEvents();
+    const clearedEventIds = currentEvents.map((e) => e.id);
+    const now = this.getNow();
+
+    this.cursor = null;
+    this.lastCreatedAt = 0;
+    this.eventStore.clearAllEvents();
+
+    const markerEvent = createResetMarkerEvent({
+      action: "reset",
+      deviceId: this.deviceId,
+      clearedEventIds,
+      clearedBefore: now,
+      timestamp: now,
+    });
+
+    this.knownMarkers.push(markerEvent.payload as ResetMarkerPayload);
+
+    const published = await this.publishMarker(markerEvent);
+    return { markerEvent, published };
+  }
+
+  /**
+   * Story 5.8: Restaura eventos a partir de um backup, descartando os eventos locais anteriores
+   * e publicando um marcador de restauração no Grupo forte.
+   */
+  async restoreFromBackup(events: SyncEvent[]): Promise<{ markerEvent: SyncEvent; published: boolean }> {
+    const currentEvents = this.getAllEvents();
+    const restoredIds = new Set(events.map((e) => e.id));
+    const clearedEventIds = currentEvents
+      .filter((e) => !restoredIds.has(e.id))
+      .map((e) => e.id);
+    const now = this.getNow();
+
+    this.eventStore.clearAllEvents();
+    for (const evt of events) {
+      this.eventStore.appendEvent(evt);
+    }
+
+    const markerEvent = createResetMarkerEvent({
+      action: "restore",
+      deviceId: this.deviceId,
+      clearedEventIds,
+      clearedBefore: now,
+      timestamp: now,
+    });
+
+    this.knownMarkers.push(markerEvent.payload as ResetMarkerPayload);
+
+    const published = await this.publishMarker(markerEvent);
+    return { markerEvent, published };
+  }
+
   /** Retorna o cursor atual do relay (maior created_at de evento válido recebido) */
   getCursor(): number | null {
     return this.cursor;
@@ -479,8 +664,15 @@ export class SimulatedSyncDevice {
       const events = batch.map((b) => b.event);
       const createdAts = batch.map((b) => b.createdAt);
 
+      const domainEvents = events.filter((e) => e.type !== RESET_MARKER_EVENT_TYPE);
+      const filteredEvents = filterEventsAgainstMarkers({
+        incomingEvents: domainEvents,
+        markers: this.knownMarkers,
+        isStrong: this.keys.isStrong !== false,
+      });
+
       const incoming = processIncomingEvents({
-        incomingEvents: events,
+        incomingEvents: filteredEvents,
         currentDeviceId: this.deviceId,
         existingIds: this.getExistingEventIds(),
       });
@@ -596,6 +788,11 @@ export class SimulatedSyncDevice {
         const seenLocal = this.getExistingEventIds();
         const createdAts: number[] = [];
 
+        // Pré-passo (Story 5.8): Decifra e extrai todos os marcadores de controle em this.knownMarkers
+        // antes de importar os eventos de domínio, garantindo que marcadores de batches mais recentes
+        // estejam ativos mesmo se o relay entregar batches fora de ordem cronológica.
+        const decryptedBatches: { ne: NostrEvent; parsedEvents: SyncEvent[] }[] = [];
+
         for (const ne of allNostrEvents) {
           const res = decryptStrongPayload(ne.content, {
             encryptionKey: this.keys.encryptionKey,
@@ -606,8 +803,45 @@ export class SimulatedSyncDevice {
           createdAts.push(ne.created_at);
 
           const parsed = parseSyncPayloadDetailed(res.plaintext);
+          decryptedBatches.push({ ne, parsedEvents: parsed.events });
+
+          if (this.keys.isStrong !== false) {
+            for (const evt of parsed.events) {
+              if (evt && typeof evt === "object" && evt.type === RESET_MARKER_EVENT_TYPE && evt.payload) {
+                let payload: ResetMarkerPayload | undefined;
+                try {
+                  payload = (typeof evt.payload === "string" ? JSON.parse(evt.payload) : evt.payload) as ResetMarkerPayload;
+                } catch {
+                  payload = undefined;
+                }
+                if (
+                  payload &&
+                  typeof payload === "object" &&
+                  Array.isArray(payload.clearedEventIds) &&
+                  !this.knownMarkers.some(
+                    (m) =>
+                      m.timestamp === payload!.timestamp &&
+                      m.deviceId === payload!.deviceId &&
+                      m.action === payload!.action,
+                  )
+                ) {
+                  this.knownMarkers.push(payload);
+                }
+              }
+            }
+          }
+        }
+
+        for (const { parsedEvents } of decryptedBatches) {
+          const domainEvents = parsedEvents.filter((e) => e.type !== RESET_MARKER_EVENT_TYPE);
+          const filteredEvents = filterEventsAgainstMarkers({
+            incomingEvents: domainEvents,
+            markers: this.knownMarkers,
+            isStrong: this.keys.isStrong !== false,
+          });
+
           const incoming = processIncomingEvents({
-            incomingEvents: parsed.events,
+            incomingEvents: filteredEvents,
             currentDeviceId: this.deviceId,
             existingIds: seenLocal,
           });
@@ -680,7 +914,30 @@ export class SimulatedSyncDevice {
 
           const parsed = parseSyncPayloadDetailed(res.plaintext);
           if (parsed.events.length > 0) {
-            this.enqueueLiveBatch(parsed.events, ne.created_at, deliveryTimestamp);
+            if (this.keys.isStrong !== false) {
+              for (const evt of parsed.events) {
+                if (evt.type === RESET_MARKER_EVENT_TYPE && evt.payload) {
+                  let payload: ResetMarkerPayload | undefined;
+                  try {
+                    payload = (typeof evt.payload === "string" ? JSON.parse(evt.payload) : evt.payload) as ResetMarkerPayload;
+                  } catch {
+                    payload = undefined;
+                  }
+                  if (payload && !this.knownMarkers.some((m) => m.timestamp === payload!.timestamp && m.deviceId === payload!.deviceId && m.action === payload!.action)) {
+                    this.knownMarkers.push(payload);
+                  }
+                }
+              }
+            }
+            const domainEvents = parsed.events.filter((e) => e.type !== RESET_MARKER_EVENT_TYPE);
+            const filteredEvents = filterEventsAgainstMarkers({
+              incomingEvents: domainEvents,
+              markers: this.knownMarkers,
+              isStrong: this.keys.isStrong !== false,
+            });
+            if (filteredEvents.length > 0) {
+              this.enqueueLiveBatch(filteredEvents, ne.created_at, deliveryTimestamp);
+            }
           }
         },
       );
@@ -741,6 +998,7 @@ export class SimulatedSyncDevice {
     importedCount: number;
   }> {
     this.setOnline(true);
+    await this.flushPendingMarkers();
     return this.sync();
   }
 

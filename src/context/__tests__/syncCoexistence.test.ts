@@ -23,6 +23,12 @@ import {
 } from "@/src/modules/syncPayload";
 import { createSyncGroupTracker } from "@/src/modules/syncGroupTracking";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
+import {
+  RESET_MARKER_EVENT_TYPE,
+  createResetMarkerEvent,
+  filterEventsAgainstMarkers,
+  type ResetMarkerPayload,
+} from "@/src/modules/syncDecisions";
 
 // ─── Mocks de persistência em memória ─────────────────────────────────────────
 
@@ -534,5 +540,75 @@ describe("Story 4.7: Verificação do contrato de useSyncEngine", () => {
     // useSyncEngine escuta mudanças de estado da aplicação (RNAppState) para sincronizar imediatamente ao voltar ao foreground
     expect(engineSource).toMatch(/RNAppState\.addEventListener\(\s*["']change["'],/);
     expect(engineSource).toMatch(/if\s*\(\s*state\s*===\s*["']active["']\s*\)\s*\{\s*doSync\(\);?\s*\}/);
+  });
+
+  describe("Story 5.8: Contrato de marcadores de controle e autorização no Grupo forte", () => {
+    it("RESET_MARKER_EVENT_TYPE tem o valor canônico de controle SYNC_RESET_RECORDED", () => {
+      expect(RESET_MARKER_EVENT_TYPE).toBe("SYNC_RESET_RECORDED");
+    });
+
+    it("createResetMarkerEvent gera envelope compatível com validação e com campos obrigatórios", () => {
+      const now = 1_700_000_000_000;
+      const marker = createResetMarkerEvent({
+        action: "reset",
+        deviceId: "dev-test-contract",
+        clearedEventIds: ["evt-c1", "evt-c2"],
+        clearedBefore: now,
+        timestamp: now,
+      });
+
+      expect(marker.type).toBe(RESET_MARKER_EVENT_TYPE);
+      expect(marker.deviceId).toBe("dev-test-contract");
+      expect(marker.timestamp).toBe(now);
+
+      const payload = marker.payload as ResetMarkerPayload;
+      expect(payload.action).toBe("reset");
+      expect(payload.deviceId).toBe("dev-test-contract");
+      expect(payload.timestamp).toBe(now);
+      expect(payload.clearedBefore).toBe(now);
+      expect(payload.clearedEventIds).toEqual(["evt-c1", "evt-c2"]);
+    });
+
+    it("rejeita marcadores originados do Grupo legado (isStrong: false) e nunca suprime dados", () => {
+      const e1 = sampleEvent({ id: "e1" });
+      const e2 = sampleEvent({ id: "e2" });
+      const marker = createResetMarkerEvent({
+        action: "reset",
+        deviceId: "dev-legacy",
+        clearedEventIds: ["e1"],
+      });
+
+      // Sob isStrong: false, o marcador é explicitamente rejeitado
+      const result = filterEventsAgainstMarkers({
+        incomingEvents: [e1, e2],
+        markers: [marker],
+        isStrong: false,
+      });
+
+      expect(result).toHaveLength(2);
+      expect(result.map((e) => e.id)).toEqual(["e1", "e2"]);
+    });
+
+    it("aplica marcadores do Grupo forte (isStrong: true) suprimindo eventos de clearedEventIds e preservando outros", () => {
+      const e1 = sampleEvent({ id: "e1", deviceId: "dev-a" });
+      const e2 = sampleEvent({ id: "e2", deviceId: "dev-b" });
+      const e3 = sampleEvent({ id: "e3", deviceId: "dev-a" });
+
+      const marker = createResetMarkerEvent({
+        action: "reset",
+        deviceId: "dev-a",
+        clearedEventIds: ["e1"],
+      });
+
+      const result = filterEventsAgainstMarkers({
+        incomingEvents: [e1, e2, e3],
+        markers: [marker],
+        isStrong: true,
+      });
+
+      // e1 suprimido; e2 (outro aparelho) e e3 (não listado) preservados
+      expect(result).toHaveLength(2);
+      expect(result.map((e) => e.id)).toEqual(["e2", "e3"]);
+    });
   });
 });

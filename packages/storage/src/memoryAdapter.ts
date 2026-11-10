@@ -24,6 +24,12 @@ export function createMemoryAdapter(): DatabaseAdapter {
         return;
       }
 
+      if (/^DELETE\s+FROM\s+events(?:\s*;)?$/i.test(sql.trim())) {
+        if (!initialized) return;
+        tables.set("events", []);
+        return;
+      }
+
       if (trimmed.startsWith("INSERT")) {
         if (!initialized) return;
         const p = params ?? [];

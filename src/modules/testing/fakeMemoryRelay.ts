@@ -512,6 +512,10 @@ export class FakeMemoryRelay {
     return Array.from(this.eventsByKey.values());
   }
 
+  getEvents(): NostrEvent[] {
+    return this.getAllEvents();
+  }
+
   /**
    * Retorna o histórico de todas as consultas executadas via query().
    */

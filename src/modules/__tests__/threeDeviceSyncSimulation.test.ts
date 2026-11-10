@@ -19,6 +19,10 @@ import {
   computeEventHash,
   processPushResult,
   resolvePullSyncOptions,
+  RESET_MARKER_EVENT_TYPE,
+  type ResetMarkerPayload,
+  createResetMarkerEvent,
+  filterEventsAgainstMarkers,
 } from "../syncDecisions";
 import {
   FakeMemoryRelay,
@@ -32,6 +36,7 @@ import {
 import {
   generateGroupSecret,
   encodeGroupSecret,
+  parseGroupSecret,
   deriveStrongGroupKeys,
 } from "../strongGroup/groupSecret";
 import { encryptStrongPayload } from "../strongGroup/eventCipher";
@@ -3144,5 +3149,423 @@ describe("Story 5.7 - Propagar rápido, inclusive depois de ficar offline", () =
 
     // Saldo reflete a despesa perfeitamente (3000 - 150 = 2850)
     expect(tablet.getState().accounts["acc-pull"]?.balance).toBe(2850);
+  });
+
+  describe("Story 5.8 - Publicar o marcador de reset e de restauração", () => {
+    it("aparelho executa resetApp(), publica marcador no Grupo forte e pull subsequente não recria os eventos apagados", async () => {
+      const relay = new FakeMemoryRelay();
+      const secret = encodeGroupSecret(generateGroupSecret());
+
+      const device = await createSimulatedDevice({
+        deviceId: "dev-reset-1",
+        relay,
+        groupSecret: secret,
+      });
+
+      // 1. Aparelho cria conta e 2 despesas
+      device.appendLocalEvent({
+        id: "evt-acc-1",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-1", name: "Conta Principal", type: "checking", balance: 5000 },
+      });
+      device.appendLocalEvent({
+        id: "evt-tx-1",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-1", accountId: "acc-1", type: "expense", amount: 100, date: "2026-10-01" },
+      });
+      device.appendLocalEvent({
+        id: "evt-tx-2",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-2", accountId: "acc-1", type: "expense", amount: 200, date: "2026-10-02" },
+      });
+
+      // Publica no relay
+      const pushRes = await device.push();
+      expect(pushRes.pushed).toBe(true);
+      expect(pushRes.count).toBe(3);
+      expect(device.getAllEvents()).toHaveLength(3);
+      expect(device.getState().accounts["acc-1"]?.balance).toBe(4700);
+
+      // 2. Aparelho executa resetApp()
+      const { markerEvent, published } = await device.resetApp();
+      expect(published).toBe(true);
+      expect(markerEvent.type).toBe(RESET_MARKER_EVENT_TYPE);
+      expect((markerEvent.payload as ResetMarkerPayload).action).toBe("reset");
+      expect((markerEvent.payload as ResetMarkerPayload).clearedEventIds).toEqual(
+        expect.arrayContaining(["evt-acc-1", "evt-tx-1", "evt-tx-2"]),
+      );
+      expect(device.getAllEvents()).toHaveLength(0);
+
+      // 3. Pulls subsequentes NÃO ressuscitam os eventos apagados
+      const pull1 = await device.pull();
+      expect(pull1.importedCount).toBe(0);
+      expect(device.getAllEvents()).toHaveLength(0);
+
+      const pull2 = await device.pull();
+      expect(pull2.importedCount).toBe(0);
+      expect(device.getAllEvents()).toHaveLength(0);
+
+      // Verifica que knownMarkers retém o marcador
+      expect(device.getKnownMarkers().length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("aparelho executa restoreFromBackup(), publica marcador e pull subsequente não ressuscita eventos antigos descartados", async () => {
+      const relay = new FakeMemoryRelay();
+      const secret = encodeGroupSecret(generateGroupSecret());
+
+      const device = await createSimulatedDevice({
+        deviceId: "dev-restore-1",
+        relay,
+        groupSecret: secret,
+      });
+
+      // 1. Aparelho cria conta e 2 despesas e publica
+      const accEvt = makeEvent({
+        id: "evt-acc-orig",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-orig", name: "Conta", type: "checking", balance: 10000 },
+        deviceId: "dev-restore-1",
+      });
+      const txOld1 = makeEvent({
+        id: "evt-tx-old-1",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-old-1", accountId: "acc-orig", type: "expense", amount: 500, date: "2026-10-01" },
+        deviceId: "dev-restore-1",
+      });
+      const txOld2 = makeEvent({
+        id: "evt-tx-old-2",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-old-2", accountId: "acc-orig", type: "expense", amount: 1500, date: "2026-10-02" },
+        deviceId: "dev-restore-1",
+      });
+
+      device.appendLocalEvent(accEvt);
+      device.appendLocalEvent(txOld1);
+      device.appendLocalEvent(txOld2);
+      await device.push();
+      expect(device.getAllEvents()).toHaveLength(3);
+
+      // 2. Restaura backup que contém uma versão alternativa (accEvt e txBackup, descartando txOld1 e txOld2)
+      const txBackup = makeEvent({
+        id: "evt-tx-backup",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-bkp", accountId: "acc-orig", type: "expense", amount: 300, date: "2026-10-01" },
+        deviceId: "dev-restore-1",
+      });
+
+      const { markerEvent, published } = await device.restoreFromBackup([accEvt, txBackup]);
+      expect(published).toBe(true);
+      expect(markerEvent.type).toBe(RESET_MARKER_EVENT_TYPE);
+      expect((markerEvent.payload as ResetMarkerPayload).action).toBe("restore");
+      expect((markerEvent.payload as ResetMarkerPayload).clearedEventIds).toEqual(
+        expect.arrayContaining(["evt-tx-old-1", "evt-tx-old-2"]),
+      );
+      expect((markerEvent.payload as ResetMarkerPayload).clearedEventIds).not.toContain("evt-acc-orig");
+
+      // Eventos locais contêm apenas accEvt e txBackup
+      expect(device.getAllEvents().map((e) => e.id)).toEqual(["evt-acc-orig", "evt-tx-backup"]);
+
+      // 3. Pull subsequente: não ressuscita txOld1 nem txOld2
+      const pullRes = await device.pull();
+      expect(pullRes.importedCount).toBe(0);
+
+      const eventIdsAfter = device.getAllEvents().map((e) => e.id);
+      expect(eventIdsAfter).not.toContain("evt-tx-old-1");
+      expect(eventIdsAfter).not.toContain("evt-tx-old-2");
+      expect(eventIdsAfter).toContain("evt-acc-orig");
+      expect(eventIdsAfter).toContain("evt-tx-backup");
+
+      // Saldo reflete os dados do backup: 10000 - 300 = 9700
+      expect(device.getState().accounts["acc-orig"]?.balance).toBe(9700);
+    });
+
+    it("marcador originário do Grupo antigo (isStrong: false) é rejeitado e não apaga nem suprime dados", async () => {
+      // 1. Teste funcional puro via filterEventsAgainstMarkers
+      const evt1 = makeEvent({ id: "evt-leg-1", deviceId: "dev-leg-1" });
+      const evt2 = makeEvent({ id: "evt-leg-2", deviceId: "dev-leg-1" });
+
+      const legacyMarker = createResetMarkerEvent({
+        action: "reset",
+        deviceId: "dev-leg-1",
+        clearedEventIds: ["evt-leg-1", "evt-leg-2"],
+        timestamp: Date.now(),
+      });
+
+      // Com isStrong: false, o marcador é rejeitado e todos os eventos são mantidos
+      const filteredLegacy = filterEventsAgainstMarkers({
+        incomingEvents: [evt1, evt2],
+        markers: [legacyMarker],
+        isStrong: false,
+      });
+      expect(filteredLegacy).toHaveLength(2);
+      expect(filteredLegacy.map((e) => e.id)).toEqual(["evt-leg-1", "evt-leg-2"]);
+
+      // Com isStrong: true, o mesmo marcador é aceito e suprime os eventos
+      const filteredStrong = filterEventsAgainstMarkers({
+        incomingEvents: [evt1, evt2],
+        markers: [legacyMarker],
+        isStrong: true,
+      });
+      expect(filteredStrong).toHaveLength(0);
+
+      // 2. Teste comportamental em SimulatedSyncDevice com canal legado
+      const relay = new FakeMemoryRelay();
+      const secret = encodeGroupSecret(generateGroupSecret());
+      const parsedSecret = parseGroupSecret(secret);
+      if (!parsedSecret.ok) {
+        throw new Error("Falha ao analisar o segredo de grupo");
+      }
+      const strongKeys = deriveStrongGroupKeys(parsedSecret.secret);
+
+      const deviceLegacy = await createSimulatedDevice({
+        deviceId: "dev-legacy-node",
+        relay,
+        keys: {
+          privateKey: strongKeys.nostrPrivateKey,
+          publicKey: strongKeys.nostrPublicKey,
+          encryptionKey: strongKeys.encryptionKey,
+          isStrong: false, // Canal legado
+        },
+      });
+
+      deviceLegacy.appendLocalEvent(evt1);
+      deviceLegacy.appendLocalEvent(evt2);
+
+      // Tentar registrar marcador legado no aparelho
+      deviceLegacy.registerMarker(legacyMarker);
+
+      // Criar um nó par que publica um evento remoto
+      const peerNode = await createSimulatedDevice({
+        deviceId: "dev-legacy-peer",
+        relay,
+        keys: {
+          privateKey: strongKeys.nostrPrivateKey,
+          publicKey: strongKeys.nostrPublicKey,
+          encryptionKey: strongKeys.encryptionKey,
+          isStrong: false,
+        },
+      });
+      peerNode.appendLocalEvent({
+        id: "evt-leg-remote",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-rem", accountId: "acc-1", type: "income", amount: 1000, date: "2026-10-01" },
+      });
+      await peerNode.push();
+
+      // Pull no canal legado (isStrong: false) exercita pull() com isStrong: false e
+      // filterEventsAgainstMarkers({ isStrong: false }), importando o evento sem supressão
+      const pullResult = await deviceLegacy.pull();
+      expect(pullResult.importedCount).toBe(1);
+
+      // Pull no canal legado (isStrong: false) jamais suprime os dados locais nem remotos
+      const events = deviceLegacy.getAllEvents();
+      expect(events).toHaveLength(3);
+      expect(events.map((e) => e.id)).toEqual(["evt-leg-1", "evt-leg-2", "evt-leg-remote"]);
+    });
+
+    it("concorrência offline: Aparelho B offline cria despesas enquanto Aparelho A reseta; ao sincronizarem, as despesas de B são preservadas e integradas em A", async () => {
+      const relay = new FakeMemoryRelay();
+      const secret = encodeGroupSecret(generateGroupSecret());
+
+      const deviceA = await createSimulatedDevice({
+        deviceId: "dev-a-conc",
+        relay,
+        groupSecret: secret,
+      });
+
+      const deviceB = await createSimulatedDevice({
+        deviceId: "dev-b-conc",
+        relay,
+        groupSecret: secret,
+      });
+
+      // 1. Estado inicial compartilhado: Conta criada com R$ 10.000
+      const accShared = makeEvent({
+        id: "evt-acc-shared",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-shared", name: "Conta Conjunta", type: "checking", balance: 10000 },
+        deviceId: "dev-a-conc",
+      });
+      deviceA.appendLocalEvent(accShared);
+      await deviceA.push();
+      await deviceB.pull();
+
+      expect(deviceA.getState().accounts["acc-shared"]?.balance).toBe(10000);
+      expect(deviceB.getState().accounts["acc-shared"]?.balance).toBe(10000);
+
+      // 2. Aparelho B fica offline
+      deviceB.setOnline(false);
+
+      // 3. Enquanto B está offline:
+      // - B cria 2 despesas offline (R$ 200 e R$ 300)
+      deviceB.appendLocalEvent({
+        id: "evt-tx-b-1",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-b-1", accountId: "acc-shared", type: "expense", amount: 200, date: "2026-10-01" },
+        timestamp: 1_700_000_000_100,
+      });
+      deviceB.appendLocalEvent({
+        id: "evt-tx-b-2",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-b-2", accountId: "acc-shared", type: "expense", amount: 300, date: "2026-10-02" },
+        timestamp: 1_700_000_000_200,
+      });
+
+      // - A cria uma despesa de R$ 500 e publica
+      deviceA.appendLocalEvent({
+        id: "evt-tx-a-old",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-a-old", accountId: "acc-shared", type: "expense", amount: 500, date: "2026-10-01" },
+        timestamp: 1_700_000_000_150,
+      });
+      await deviceA.push();
+
+      // - A executa resetApp() e limpa seus dados locais
+      const { markerEvent, published } = await deviceA.resetApp();
+      expect(published).toBe(true);
+      expect(deviceA.getAllEvents()).toHaveLength(0);
+      expect((markerEvent.payload as ResetMarkerPayload).clearedEventIds).toEqual(
+        expect.arrayContaining(["evt-acc-shared", "evt-tx-a-old"]),
+      );
+
+      // 4. B reconecta e publica suas despesas offline no relay
+      const recResult = await deviceB.reconnect();
+      expect(recResult.pushed).toBe(true);
+      expect(recResult.pushCount).toBe(2);
+
+      // 5. A faz pull subsequente:
+      // - NÃO ressuscita evt-acc-shared nem evt-tx-a-old (suprimidos pelo marcador de reset)
+      // - MAS importa integralmente evt-tx-b-1 e evt-tx-b-2 gerados por B concorrentemente offline!
+      const pullA = await deviceA.pull();
+      expect(pullA.importedCount).toBe(2);
+
+      const aEventIds = deviceA.getAllEvents().map((e) => e.id);
+      expect(aEventIds).not.toContain("evt-acc-shared");
+      expect(aEventIds).not.toContain("evt-tx-a-old");
+      expect(aEventIds).toContain("evt-tx-b-1");
+      expect(aEventIds).toContain("evt-tx-b-2");
+      expect(deviceA.getAllEvents()).toHaveLength(2);
+    });
+
+    it("eventos no relay Nostr permanecem íntegros fisicamente após a publicação do marcador", async () => {
+      const relay = new FakeMemoryRelay();
+      const secret = encodeGroupSecret(generateGroupSecret());
+
+      const device = await createSimulatedDevice({
+        deviceId: "dev-retention-test",
+        relay,
+        groupSecret: secret,
+      });
+
+      // 1. Cria 3 eventos e publica no relay
+      device.appendLocalEvent({
+        id: "evt-ret-1",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-ret", name: "Conta Retenção", type: "checking", balance: 8000 },
+      });
+      device.appendLocalEvent({
+        id: "evt-ret-2",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-ret-1", accountId: "acc-ret", type: "expense", amount: 150, date: "2026-10-01" },
+      });
+      device.appendLocalEvent({
+        id: "evt-ret-3",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-ret-2", accountId: "acc-ret", type: "expense", amount: 250, date: "2026-10-02" },
+      });
+      await device.push();
+
+      const publicationsBeforeReset = relay.getTotalPublications();
+      const relayEventsBeforeReset = relay.getEvents().length;
+      expect(publicationsBeforeReset).toBeGreaterThanOrEqual(1);
+      expect(relayEventsBeforeReset).toBeGreaterThanOrEqual(1);
+
+      // 2. Aparelho executa resetApp() e publica marcador
+      const { published } = await device.resetApp();
+      expect(published).toBe(true);
+
+      // 3. Verifica que os eventos no relay Nostr NÃO foram apagados fisicamente
+      const publicationsAfterReset = relay.getTotalPublications();
+      const relayEventsAfterReset = relay.getEvents().length;
+
+      // Houve uma nova publicação (o próprio marcador), mas zero deleções
+      expect(publicationsAfterReset).toBe(publicationsBeforeReset + 1);
+      expect(relayEventsAfterReset).toBe(relayEventsBeforeReset + 1);
+
+      // Consulta ao relay por kind 30333 ainda retorna todos os eventos publicados
+      const queried = relay.query({ kinds: [30333], authors: [device.keys.publicKey] });
+      expect(queried.length).toBe(relayEventsAfterReset);
+
+      // O marcador está presente no relay
+      const hasMarkerEvent = queried.some((ne) => ne.tags.some(([t, v]) => t === "marker" && v === "reset"));
+      expect(hasMarkerEvent).toBe(true);
+
+      // Os lotes originais contendo os eventos continuam íntegros nos relays descentralizados
+      const hasOriginalBatches = queried.some((ne) => !ne.tags.some(([t]) => t === "marker"));
+      expect(hasOriginalBatches).toBe(true);
+    });
+
+    it("subscrição ao vivo: Aparelho B com startLiveSync() recebe marcador de Aparelho A em tempo real, registra em knownMarkers e não polui getAllEvents()", async () => {
+      const relay = new FakeMemoryRelay();
+      const secret = encodeGroupSecret(generateGroupSecret());
+
+      const deviceA = await createSimulatedDevice({
+        deviceId: "dev-live-a",
+        relay,
+        groupSecret: secret,
+      });
+
+      const deviceB = await createSimulatedDevice({
+        deviceId: "dev-live-b",
+        relay,
+        groupSecret: secret,
+      });
+
+      // 1. Estado inicial compartilhado
+      deviceA.appendLocalEvent({
+        id: "evt-acc-live",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-live", name: "Conta Live", type: "checking", balance: 5000 },
+      });
+      deviceA.appendLocalEvent({
+        id: "evt-tx-live",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-live-1", accountId: "acc-live", type: "expense", amount: 200, date: "2026-10-01" },
+      });
+      await deviceA.push();
+      await deviceB.pull();
+
+      expect(deviceA.getAllEvents()).toHaveLength(2);
+      expect(deviceB.getAllEvents()).toHaveLength(2);
+
+      // 2. Aparelho B ativa subscrição ao vivo
+      const liveSub = deviceB.startLiveSync();
+
+      // 3. Aparelho A executa resetApp() e publica o marcador no Grupo forte
+      const { markerEvent, published } = await deviceA.resetApp();
+      expect(published).toBe(true);
+      expect(markerEvent.type).toBe(RESET_MARKER_EVENT_TYPE);
+
+      // 4. Aparelho B processa a chegada do evento ao vivo
+      await deviceB.idle();
+
+      // Verifica que B registrou o marcador em knownMarkers
+      expect(deviceB.getKnownMarkers().length).toBeGreaterThanOrEqual(1);
+      const bMarker = deviceB.getKnownMarkers().find((m) => m.action === "reset" && m.deviceId === "dev-live-a");
+      expect(bMarker).toBeDefined();
+      expect(bMarker?.clearedEventIds).toEqual(expect.arrayContaining(["evt-acc-live", "evt-tx-live"]));
+
+      // Verifica que getAllEvents() de B NÃO foi poluído com RESET_MARKER_EVENT_TYPE
+      const bEventTypes = deviceB.getAllEvents().map((e) => e.type);
+      expect(bEventTypes).not.toContain(RESET_MARKER_EVENT_TYPE);
+
+      // Verifica que a Quarentena de B não contém erros de tipo desconhecido
+      const replay = deviceB.getReplayResult();
+      const unknownTypes = replay.quarantine.filter((q) => q.type === RESET_MARKER_EVENT_TYPE);
+      expect(unknownTypes).toHaveLength(0);
+
+      liveSub.close();
+      deviceB.stopLiveSync();
+    });
   });
 });

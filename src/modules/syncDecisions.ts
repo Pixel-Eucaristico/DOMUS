@@ -274,3 +274,102 @@ export function resolvePullSyncOptions(params: ResolvePullSyncOptionsParams): Re
   }
   return { cursor: null };
 }
+
+// ── Story 5.8: Marcadores de Controle de Reset e Restauração ─────────────────
+
+export const RESET_MARKER_EVENT_TYPE = "SYNC_RESET_RECORDED";
+
+export interface ResetMarkerPayload {
+  action: "reset" | "restore";
+  deviceId: string;
+  timestamp: number;
+  clearedEventIds: string[];
+  clearedBefore: number;
+}
+
+export interface CreateResetMarkerEventParams {
+  action: "reset" | "restore";
+  deviceId: string;
+  clearedEventIds: readonly string[];
+  clearedBefore?: number;
+  timestamp?: number;
+  id?: string;
+  signature?: string;
+}
+
+/**
+ * Story 5.8: Constrói o envelope de um evento marcador de controle (SYNC_RESET_RECORDED).
+ */
+export function createResetMarkerEvent(params: CreateResetMarkerEventParams): SyncEvent {
+  const timestamp = params.timestamp ?? Date.now();
+  const clearedBefore = params.clearedBefore ?? timestamp;
+  const payload: ResetMarkerPayload = {
+    action: params.action,
+    deviceId: params.deviceId,
+    timestamp,
+    clearedEventIds: [...params.clearedEventIds],
+    clearedBefore,
+  };
+  return {
+    id: params.id ?? `marker-${params.action}-${params.deviceId}-${timestamp}`,
+    type: RESET_MARKER_EVENT_TYPE,
+    payload,
+    timestamp,
+    deviceId: params.deviceId,
+    signature: params.signature ?? "",
+  };
+}
+
+export interface FilterEventsAgainstMarkersParams {
+  incomingEvents: readonly SyncEvent[];
+  markers?: readonly (ResetMarkerPayload | SyncEvent)[];
+  isStrong?: boolean;
+}
+
+/**
+ * Story 5.8: Filtra eventos recebidos contra marcadores de reset/restauração ativos.
+ * - Rejeita e ignora marcadores originários do Grupo antigo (!isStrong).
+ * - Suprime eventos contidos em clearedEventIds de marcadores autenticados do Grupo forte.
+ * - Preserva integralmente eventos concorrentes de outros aparelhos (deviceId !== marker.deviceId não listados em clearedEventIds).
+ */
+export function filterEventsAgainstMarkers(params: FilterEventsAgainstMarkersParams): SyncEvent[] {
+  const { incomingEvents, markers = [], isStrong = true } = params;
+
+  // Marcador do Grupo antigo é rejeitado de imediato
+  if (!isStrong) {
+    return [...incomingEvents];
+  }
+
+  if (!markers || markers.length === 0) {
+    return [...incomingEvents];
+  }
+
+  const clearedSet = new Set<string>();
+  for (const m of markers) {
+    if (!m || typeof m !== "object") continue;
+    if ("clearedEventIds" in m && Array.isArray(m.clearedEventIds)) {
+      for (const id of m.clearedEventIds) {
+        if (typeof id === "string") clearedSet.add(id);
+      }
+    } else if ("type" in m && m.type === RESET_MARKER_EVENT_TYPE && m.payload) {
+      let payload: ResetMarkerPayload | undefined;
+      try {
+        payload = (typeof m.payload === "string" ? JSON.parse(m.payload) : m.payload) as ResetMarkerPayload;
+      } catch {
+        payload = undefined;
+      }
+      if (payload && typeof payload === "object" && Array.isArray(payload.clearedEventIds)) {
+        for (const id of payload.clearedEventIds) {
+          if (typeof id === "string") clearedSet.add(id);
+        }
+      }
+    }
+  }
+
+  if (clearedSet.size === 0) {
+    return incomingEvents.filter((evt) => evt && typeof evt.id === "string");
+  }
+
+  return incomingEvents.filter((evt) => evt && typeof evt.id === "string" && !clearedSet.has(evt.id));
+}
+
