@@ -84,6 +84,10 @@ export class SimulatedSyncDevice {
   private isOnline = true;
   private liveSub: RelaySubscription | null = null;
   private lastCreatedAt = 0;
+  private importTail: Promise<void> = Promise.resolve();
+  private heldImports = 0;
+  private liveQueue: { event: SyncEvent; createdAt: number }[] = [];
+  private drainScheduled = false;
 
   constructor(params: {
     deviceId: string;
@@ -272,6 +276,101 @@ export class SimulatedSyncDevice {
   }
 
   /**
+   * Executa uma operação sob o mutex de importação (serializado via Promise tail).
+   */
+  withImportLock<T>(fn: () => Promise<T>): Promise<T> {
+    this.heldImports++;
+    const run = this.importTail.then(fn);
+    this.importTail = run.then(
+      () => {},
+      () => {},
+    );
+    return run.finally(() => {
+      this.heldImports--;
+    });
+  }
+
+  /**
+   * Retorna true enquanto houver importação em curso ou na fila do mutex.
+   */
+  isImporting(): boolean {
+    return this.heldImports > 0;
+  }
+
+  /**
+   * Enfileira evento recebido ao vivo para importação ordenada sob o mutex.
+   */
+  enqueueLive(event: SyncEvent, createdAt: number): void {
+    this.liveQueue.push({ event, createdAt });
+    this.scheduleDrain();
+  }
+
+  /**
+   * Enfileira rajada de eventos recebidos ao vivo em lote sob o mutex.
+   */
+  enqueueLiveBatch(events: SyncEvent[], createdAt: number): void {
+    if (events.length === 0) return;
+    for (const event of events) {
+      this.liveQueue.push({ event, createdAt });
+    }
+    this.scheduleDrain();
+  }
+
+  /**
+   * Resolve quando a fila e o mutex de importação estiverem ociosos (para testes).
+   */
+  async idle(): Promise<void> {
+    while (this.heldImports > 0 || this.drainScheduled) {
+      await this.importTail;
+      await Promise.resolve();
+    }
+  }
+
+  /**
+   * Retorna a quantidade de eventos na fila aguardando importação.
+   */
+  queueSize(): number {
+    return this.liveQueue.length;
+  }
+
+  private scheduleDrain(): void {
+    if (this.drainScheduled || this.liveQueue.length === 0) return;
+    this.drainScheduled = true;
+    void this.withImportLock(() => this.drainOnce()).catch(() => {});
+  }
+
+  private async drainOnce(): Promise<void> {
+    this.drainScheduled = false;
+    while (this.liveQueue.length > 0) {
+      const batch = this.liveQueue;
+      this.liveQueue = [];
+      const events = batch.map((b) => b.event);
+      const createdAts = batch.map((b) => b.createdAt);
+
+      const incoming = processIncomingEvents({
+        incomingEvents: events,
+        currentDeviceId: this.deviceId,
+        existingIds: this.getExistingEventIds(),
+      });
+
+      for (const evt of incoming.eventsToImport) {
+        this.eventStore.appendEvent(evt);
+      }
+
+      if (incoming.foreignEventIds.length > 0) {
+        await this.tracker.markReceived(incoming.foreignEventIds, this.keys.publicKey);
+      }
+
+      if (createdAts.length > 0) {
+        this.cursor = advanceRelayCursor(this.cursor, createdAts);
+        if (this.cursor !== null && this.cursor > this.lastCreatedAt) {
+          this.lastCreatedAt = this.cursor;
+        }
+      }
+    }
+  }
+
+  /**
    * Puxa eventos dos relays de forma incremental e paginada, decifra com a chave do Grupo forte,
    * processa via processIncomingEvents, grava apenas inéditos no eventStore e avança o cursor.
    */
@@ -280,112 +379,118 @@ export class SimulatedSyncDevice {
       return { importedCount: 0 };
     }
 
-    const pageSize = 500;
-    const { since } = resolvePullSyncOptions({
-      isRecovery: false,
-      isStrong: true,
-      cursor: this.cursor,
-    });
-    let currentUntil: number | undefined = undefined;
-    const pageMax = 50;
-    let pageCount = 0;
-    const seenNostrIds = new Set<string>();
-    const allNostrEvents: NostrEvent[] = [];
+    try {
+      return await this.withImportLock(async () => {
+        const pageSize = 500;
+        const { since } = resolvePullSyncOptions({
+          isRecovery: false,
+          isStrong: true,
+          cursor: this.cursor,
+        });
+        let currentUntil: number | undefined = undefined;
+        const pageMax = 50;
+        let pageCount = 0;
+        const seenNostrIds = new Set<string>();
+        const allNostrEvents: NostrEvent[] = [];
 
-    while (pageCount < pageMax) {
-      pageCount++;
-      const filter: NostrFilter = {
-        kinds: [30333],
-        authors: [this.keys.publicKey],
-        limit: pageSize,
-      };
-      if (since !== undefined) filter.since = since;
-      if (currentUntil !== undefined) filter.until = currentUntil;
+        while (pageCount < pageMax) {
+          pageCount++;
+          const filter: NostrFilter = {
+            kinds: [30333],
+            authors: [this.keys.publicKey],
+            limit: pageSize,
+          };
+          if (since !== undefined) filter.since = since;
+          if (currentUntil !== undefined) filter.until = currentUntil;
 
-      const page = this.relay.query(filter);
-      if (page.length === 0) break;
+          const page = this.relay.query(filter);
+          if (page.length === 0) break;
 
-      let newInPage = 0;
-      let minCreatedAt = Infinity;
-      let maxCreatedAt = -Infinity;
+          let newInPage = 0;
+          let minCreatedAt = Infinity;
+          let maxCreatedAt = -Infinity;
 
-      for (const ne of page) {
-        if (!seenNostrIds.has(ne.id)) {
-          seenNostrIds.add(ne.id);
-          allNostrEvents.push(ne);
-          newInPage++;
+          for (const ne of page) {
+            if (!seenNostrIds.has(ne.id)) {
+              seenNostrIds.add(ne.id);
+              allNostrEvents.push(ne);
+              newInPage++;
+            }
+            if (typeof ne.created_at === "number") {
+              if (ne.created_at < minCreatedAt) minCreatedAt = ne.created_at;
+              if (ne.created_at > maxCreatedAt) maxCreatedAt = ne.created_at;
+            }
+          }
+
+          if (newInPage === 0 || page.length < pageSize) {
+            break;
+          }
+
+          if (!Number.isFinite(minCreatedAt)) {
+            break;
+          }
+
+          if (minCreatedAt === maxCreatedAt) {
+            currentUntil = minCreatedAt - 1;
+          } else {
+            currentUntil = minCreatedAt;
+          }
+
+          if (since !== undefined && currentUntil < since) {
+            break;
+          }
         }
-        if (typeof ne.created_at === "number") {
-          if (ne.created_at < minCreatedAt) minCreatedAt = ne.created_at;
-          if (ne.created_at > maxCreatedAt) maxCreatedAt = ne.created_at;
+
+        let totalImported = 0;
+        const allForeignIds: string[] = [];
+        const seenLocal = this.getExistingEventIds();
+        const createdAts: number[] = [];
+
+        for (const ne of allNostrEvents) {
+          const res = decryptStrongPayload(ne.content, {
+            encryptionKey: this.keys.encryptionKey,
+            nostrPublicKey: this.keys.publicKey,
+          });
+          if (!res.ok) continue;
+
+          createdAts.push(ne.created_at);
+
+          const parsed = parseSyncPayloadDetailed(res.plaintext);
+          const incoming = processIncomingEvents({
+            incomingEvents: parsed.events,
+            currentDeviceId: this.deviceId,
+            existingIds: seenLocal,
+          });
+
+          if (incoming.foreignEventIds.length > 0) {
+            allForeignIds.push(...incoming.foreignEventIds);
+          }
+
+          for (const evt of incoming.eventsToImport) {
+            seenLocal.add(evt.id);
+            const appended = this.eventStore.appendEvent(evt);
+            if (appended) {
+              totalImported++;
+            }
+          }
         }
-      }
 
-      if (newInPage === 0 || page.length < pageSize) {
-        break;
-      }
+        if (allForeignIds.length > 0) {
+          await this.tracker.markReceived(allForeignIds, this.keys.publicKey);
+        }
 
-      if (!Number.isFinite(minCreatedAt)) {
-        break;
-      }
+        if (createdAts.length > 0) {
+          this.cursor = advanceRelayCursor(this.cursor, createdAts);
+          if (this.cursor !== null && this.cursor > this.lastCreatedAt) {
+            this.lastCreatedAt = this.cursor;
+          }
+        }
 
-      if (minCreatedAt === maxCreatedAt) {
-        currentUntil = minCreatedAt - 1;
-      } else {
-        currentUntil = minCreatedAt;
-      }
-
-      if (since !== undefined && currentUntil < since) {
-        break;
-      }
-    }
-
-    let totalImported = 0;
-    const allForeignIds: string[] = [];
-    const seenLocal = this.getExistingEventIds();
-    const createdAts: number[] = [];
-
-    for (const ne of allNostrEvents) {
-      const res = decryptStrongPayload(ne.content, {
-        encryptionKey: this.keys.encryptionKey,
-        nostrPublicKey: this.keys.publicKey,
+        return { importedCount: totalImported };
       });
-      if (!res.ok) continue;
-
-      createdAts.push(ne.created_at);
-
-      const parsed = parseSyncPayloadDetailed(res.plaintext);
-      const incoming = processIncomingEvents({
-        incomingEvents: parsed.events,
-        currentDeviceId: this.deviceId,
-        existingIds: seenLocal,
-      });
-
-      if (incoming.foreignEventIds.length > 0) {
-        allForeignIds.push(...incoming.foreignEventIds);
-      }
-
-      for (const evt of incoming.eventsToImport) {
-        seenLocal.add(evt.id);
-        const appended = this.eventStore.appendEvent(evt);
-        if (appended) {
-          totalImported++;
-        }
-      }
+    } finally {
+      this.scheduleDrain();
     }
-
-    if (allForeignIds.length > 0) {
-      await this.tracker.markReceived(allForeignIds, this.keys.publicKey);
-    }
-
-    if (createdAts.length > 0) {
-      this.cursor = advanceRelayCursor(this.cursor, createdAts);
-      if (this.cursor !== null && this.cursor > this.lastCreatedAt) {
-        this.lastCreatedAt = this.cursor;
-      }
-    }
-
-    return { importedCount: totalImported };
   }
 
   /**
@@ -415,7 +520,7 @@ export class SimulatedSyncDevice {
 
     this.liveSub = this.relay.subscribe(
       { kinds: [30333], authors: [this.keys.publicKey] },
-      async (ne) => {
+      (ne) => {
         if (!this.isOnline) return;
 
         const res = decryptStrongPayload(ne.content, {
@@ -425,18 +530,8 @@ export class SimulatedSyncDevice {
         if (!res.ok) return;
 
         const parsed = parseSyncPayloadDetailed(res.plaintext);
-        const incoming = processIncomingEvents({
-          incomingEvents: parsed.events,
-          currentDeviceId: this.deviceId,
-          existingIds: this.getExistingEventIds(),
-        });
-
-        if (incoming.foreignEventIds.length > 0) {
-          await this.tracker.markReceived(incoming.foreignEventIds, this.keys.publicKey);
-        }
-
-        for (const evt of incoming.eventsToImport) {
-          this.eventStore.appendEvent(evt);
+        if (parsed.events.length > 0) {
+          this.enqueueLiveBatch(parsed.events, ne.created_at);
         }
       },
     );

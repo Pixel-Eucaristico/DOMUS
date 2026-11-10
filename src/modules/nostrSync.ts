@@ -857,6 +857,7 @@ export function subscribeToSyncEvents(
   deviceId: string,
   since: number,
   onEvent: (event: SyncEvent, createdAt: number) => void,
+  onBatch?: (events: SyncEvent[], createdAt: number) => void,
 ): SubCloser {
   const pool = getPool();
   const isStrong = Boolean(keys.isStrong);
@@ -879,15 +880,23 @@ export function subscribeToSyncEvents(
         });
         if (!res.ok) return;
         const events = parseSyncPayload(res.plaintext, nostrEvent.id, true);
-        for (const evt of events) {
-          onEvent(evt, nostrEvent.created_at);
+        if (onBatch) {
+          onBatch(events, nostrEvent.created_at);
+        } else {
+          for (const evt of events) {
+            onEvent(evt, nostrEvent.created_at);
+          }
         }
       } else {
         decryptPayload(nostrEvent.content, keys.encryptionKey)
           .then((decrypted) => {
             const events = parseSyncPayload(decrypted, nostrEvent.id, false);
-            for (const evt of events) {
-              onEvent(evt, nostrEvent.created_at);
+            if (onBatch) {
+              onBatch(events, nostrEvent.created_at);
+            } else {
+              for (const evt of events) {
+                onEvent(evt, nostrEvent.created_at);
+              }
             }
           })
           .catch(() => {});

@@ -1755,3 +1755,314 @@ describe("Story 5.4 - Ler o histórico de forma incremental e paginada", () => {
     expect(deviceB.getCursor()).toBe(baseTime + 10);
   });
 });
+
+describe("Story 5.5 - Enfileirar eventos recebidos em rajada", () => {
+  let relay: FakeMemoryRelay;
+  let sharedSecret: string;
+  let sharedKeys: NostrSyncKeys;
+
+  let deviceA: SimulatedSyncDevice;
+  let deviceB: SimulatedSyncDevice;
+  let deviceC: SimulatedSyncDevice;
+
+  beforeEach(async () => {
+    relay = new FakeMemoryRelay();
+    const secretBytes = generateGroupSecret();
+    sharedSecret = encodeGroupSecret(secretBytes);
+    const strongKeys = deriveStrongGroupKeys(secretBytes);
+    sharedKeys = {
+      privateKey: strongKeys.nostrPrivateKey,
+      publicKey: strongKeys.nostrPublicKey,
+      encryptionKey: strongKeys.encryptionKey,
+      isStrong: true,
+    };
+
+    deviceA = await createSimulatedDevice({
+      deviceId: "dev-A",
+      relay,
+      keys: sharedKeys,
+      groupSecret: sharedSecret,
+    });
+
+    deviceB = await createSimulatedDevice({
+      deviceId: "dev-B",
+      relay,
+      keys: sharedKeys,
+      groupSecret: sharedSecret,
+    });
+
+    deviceC = await createSimulatedDevice({
+      deviceId: "dev-C",
+      relay,
+      keys: sharedKeys,
+      groupSecret: sharedSecret,
+    });
+  });
+
+  it("publicação de lote de 20 eventos por A é recebida integralmente por B e C via subscrição ao vivo sem perdas", async () => {
+    const liveB = deviceB.startLiveSync();
+    const liveC = deviceC.startLiveSync();
+
+    // Cria conta base e 19 transações (total 20 eventos em 1 lote de push)
+    deviceA.appendLocalEvent({
+      id: "acc-burst-base",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-burst-base", name: "Conta Rajada", type: "checking", balance: 5000 },
+      timestamp: 1_700_000_000_000,
+    });
+
+    for (let i = 1; i <= 19; i++) {
+      deviceA.appendLocalEvent({
+        id: `tx-burst-20-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: {
+          id: `tx-burst-20-${i}`,
+          accountId: "acc-burst-base",
+          type: "expense",
+          amount: 25 * i,
+          date: "2026-10-10",
+        },
+        timestamp: 1_700_000_000_000 + i * 1000,
+      });
+    }
+
+    expect(deviceA.getAllEvents()).toHaveLength(20);
+
+    const pushResult = await deviceA.push();
+    expect(pushResult.pushed).toBe(true);
+    expect(pushResult.count).toBe(20);
+
+    // Aguarda drenagem completa das filas assíncronas em B e C
+    await deviceB.idle();
+    await deviceC.idle();
+
+    // Todos os 20 eventos foram importados
+    expect(deviceB.getAllEvents()).toHaveLength(20);
+    expect(deviceC.getAllEvents()).toHaveLength(20);
+
+    expect(deviceB.getExistingEventIds().has("acc-burst-base")).toBe(true);
+    expect(deviceC.getExistingEventIds().has("acc-burst-base")).toBe(true);
+
+    for (let i = 1; i <= 19; i++) {
+      expect(deviceB.getExistingEventIds().has(`tx-burst-20-${i}`)).toBe(true);
+      expect(deviceC.getExistingEventIds().has(`tx-burst-20-${i}`)).toBe(true);
+    }
+
+    // Cursor do relay avançou em ambos
+    expect(deviceB.getCursor()).not.toBeNull();
+    expect(deviceC.getCursor()).not.toBeNull();
+    expect(deviceB.getCursor()).toBe(deviceC.getCursor());
+
+    // Estados financeiros idênticos
+    expect(deviceB.getState()).toEqual(deviceA.getState());
+    expect(deviceC.getState()).toEqual(deviceA.getState());
+
+    liveB.close();
+    liveC.close();
+  });
+
+  it("eventos ao vivo chegam enquanto B está ocupado com pull() (isImporting: true) e são importados logo após sem descarte", async () => {
+    // 1. A publica uma conta base que B irá puxar via pull()
+    deviceA.appendLocalEvent({
+      id: "acc-pull-base",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-pull-base", name: "Conta Inicial", type: "checking", balance: 1000 },
+      timestamp: 1_700_000_000_000,
+    });
+    await deviceA.push();
+
+    const liveB = deviceB.startLiveSync();
+
+    // 2. Intercepta o tracker de B para suspender o pull() no meio da importação
+    let releasePull!: () => void;
+    const pullGate = new Promise<void>((resolve) => {
+      releasePull = resolve;
+    });
+
+    const originalMarkReceived = deviceB.tracker.markReceived.bind(deviceB.tracker);
+    let pullBlocked = false;
+    deviceB.tracker.markReceived = async (ids, groupId) => {
+      pullBlocked = true;
+      await pullGate;
+      return originalMarkReceived(ids, groupId);
+    };
+
+    const pullPromise = deviceB.pull();
+
+    // Aguarda o pull de B começar e ficar retido no mutex
+    while (!pullBlocked) {
+      await new Promise((r) => setTimeout(r, 2));
+    }
+    expect(deviceB.isImporting()).toBe(true);
+
+    // 3. Enquanto B está ocupado (isImporting: true), chegam 5 novos eventos ao vivo via A.push()
+    for (let i = 1; i <= 5; i++) {
+      deviceA.appendLocalEvent({
+        id: `tx-during-pull-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: {
+          id: `tx-during-pull-${i}`,
+          accountId: "acc-pull-base",
+          type: "income",
+          amount: 50 * i,
+          date: "2026-10-10",
+        },
+        timestamp: 1_700_000_000_000 + (10 + i) * 1000,
+      });
+    }
+
+    const pushResult = await deviceA.push();
+    expect(pushResult.pushed).toBe(true);
+    expect(pushResult.count).toBe(5);
+
+    // B ainda está travado no pull original
+    expect(deviceB.isImporting()).toBe(true);
+    // Os 5 novos eventos estão enfileirados e NÃO foram descartados
+    for (let i = 1; i <= 5; i++) {
+      expect(deviceB.getExistingEventIds().has(`tx-during-pull-${i}`)).toBe(false);
+    }
+
+    // 4. Libera o pull
+    releasePull();
+    await pullPromise;
+
+    // 5. Aguarda drenagem da fila ao vivo sob o mutex
+    await deviceB.idle();
+
+    expect(deviceB.isImporting()).toBe(false);
+
+    // Todos os 5 eventos ao vivo e o evento inicial do pull foram integralmente importados
+    expect(deviceB.getAllEvents()).toHaveLength(6);
+    expect(deviceB.getExistingEventIds().has("acc-pull-base")).toBe(true);
+    for (let i = 1; i <= 5; i++) {
+      expect(deviceB.getExistingEventIds().has(`tx-during-pull-${i}`)).toBe(true);
+    }
+
+    expect(deviceB.getState()).toEqual(deviceA.getState());
+
+    liveB.close();
+  });
+
+  it("múltiplas rajadas sequenciais rápidas resultam em convergência completa e estados idênticos", async () => {
+    const liveA = deviceA.startLiveSync();
+    const liveB = deviceB.startLiveSync();
+    const liveC = deviceC.startLiveSync();
+
+    // Conta compartilhada criada no nó A
+    deviceA.appendLocalEvent({
+      id: "acc-shared",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-shared", name: "Conta Coletiva", type: "checking", balance: 5000 },
+      timestamp: 1_700_000_000_000,
+    });
+    await deviceA.push();
+    await deviceA.idle();
+    await deviceB.idle();
+    await deviceC.idle();
+
+    // 5 rajadas rápidas de 4 transações (20 transações no total, geradas por A, B e C)
+    // Disparadas em rápida sucessão sem esperar idle() intermediário
+    // Rajada 1 (A): 4 txs
+    for (let i = 1; i <= 4; i++) {
+      deviceA.appendLocalEvent({
+        id: `tx-burst1-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `tx-burst1-${i}`, accountId: "acc-shared", type: "income", amount: 10, date: "2026-10-10" },
+        timestamp: 1_700_000_000_000 + i * 10,
+      });
+    }
+    const p1 = deviceA.push();
+
+    // Rajada 2 (B): 4 txs
+    for (let i = 1; i <= 4; i++) {
+      deviceB.appendLocalEvent({
+        id: `tx-burst2-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `tx-burst2-${i}`, accountId: "acc-shared", type: "expense", amount: 5, date: "2026-10-10" },
+        timestamp: 1_700_000_000_000 + (10 + i) * 10,
+      });
+    }
+    const p2 = deviceB.push();
+
+    // Rajada 3 (C): 4 txs
+    for (let i = 1; i <= 4; i++) {
+      deviceC.appendLocalEvent({
+        id: `tx-burst3-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `tx-burst3-${i}`, accountId: "acc-shared", type: "income", amount: 20, date: "2026-10-10" },
+        timestamp: 1_700_000_000_000 + (20 + i) * 10,
+      });
+    }
+    const p3 = deviceC.push();
+
+    // Rajada 4 (A): 4 txs
+    for (let i = 1; i <= 4; i++) {
+      deviceA.appendLocalEvent({
+        id: `tx-burst4-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `tx-burst4-${i}`, accountId: "acc-shared", type: "expense", amount: 8, date: "2026-10-10" },
+        timestamp: 1_700_000_000_000 + (30 + i) * 10,
+      });
+    }
+    const p4 = deviceA.push();
+
+    // Rajada 5 (B): 4 txs
+    for (let i = 1; i <= 4; i++) {
+      deviceB.appendLocalEvent({
+        id: `tx-burst5-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `tx-burst5-${i}`, accountId: "acc-shared", type: "income", amount: 15, date: "2026-10-10" },
+        timestamp: 1_700_000_000_000 + (40 + i) * 10,
+      });
+    }
+    const p5 = deviceB.push();
+
+    await Promise.all([p1, p2, p3, p4, p5]);
+
+    // Drenagem de todas as filas
+    await deviceA.idle();
+    await deviceB.idle();
+    await deviceC.idle();
+
+    // Total: 1 conta + 20 transações = 21 eventos em todos os aparelhos
+    expect(deviceA.getAllEvents()).toHaveLength(21);
+    expect(deviceB.getAllEvents()).toHaveLength(21);
+    expect(deviceC.getAllEvents()).toHaveLength(21);
+
+    // Sem duplicações
+    expect(deviceA.getExistingEventIds().size).toBe(21);
+    expect(deviceB.getExistingEventIds().size).toBe(21);
+    expect(deviceC.getExistingEventIds().size).toBe(21);
+
+    // Estados convergem perfeitamente
+    expect(deviceB.getState()).toEqual(deviceA.getState());
+    expect(deviceC.getState()).toEqual(deviceA.getState());
+
+    liveA.close();
+    liveB.close();
+    liveC.close();
+  });
+
+  it("eventos duplicados dentro da mesma rajada são deduplicados sem erro", async () => {
+    const liveB = deviceB.startLiveSync();
+
+    const dupEvent: SyncEvent = {
+      id: "tx-duplicate-1",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-dup", name: "Conta Dup", type: "checking", balance: 500 },
+      timestamp: 1_700_000_000_000,
+      deviceId: "dev-A",
+      signature: "sig-dup",
+    };
+
+    // Enfileira rajada contendo 2 cópias do mesmo evento
+    deviceB.enqueueLiveBatch([dupEvent, dupEvent], 1_700_000_100);
+    await deviceB.idle();
+
+    // Apenas 1 evento importado no banco
+    expect(deviceB.getAllEvents()).toHaveLength(1);
+    expect(deviceB.getExistingEventIds().has("tx-duplicate-1")).toBe(true);
+
+    liveB.close();
+  });
+});

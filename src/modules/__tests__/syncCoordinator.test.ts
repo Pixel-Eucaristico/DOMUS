@@ -52,6 +52,7 @@ function setup(opts: {
   pull?: (req: string) => Promise<CoordinatorPullResult>;
   importEvents?: (events: SyncEvent[]) => Promise<number>;
   storage?: ReturnType<typeof memStorage>;
+  onLiveImported?: (imported: number) => void;
 } = {}) {
   const storage = opts.storage ?? memStorage();
   const mem = memLog();
@@ -63,6 +64,7 @@ function setup(opts: {
     pull: opts.pull ?? (async () => ({ events: [], maxCreatedAt: null })),
     now: () => nowMs,
     warn,
+    onLiveImported: opts.onLiveImported,
   });
   return { c, storage, log: mem.log, importEvents, warn };
 }
@@ -159,6 +161,67 @@ describe("createSyncCoordinator: fila e mutex", () => {
     expect(calls).toEqual([["p"], ["L"]]);
     expect(c.isImporting()).toBe(false);
     expect(c.getCursor()).toBe(T + 1);
+  });
+
+  it("enqueueLiveBatch: enfileira múltiplos eventos e drena em lote sob o mutex", async () => {
+    const calls: string[][] = [];
+    const importEvents = vi.fn(async (events: SyncEvent[]) => {
+      calls.push(events.map((e) => e.id));
+      return events.length;
+    });
+    const onLiveImported = vi.fn();
+    const { c } = setup({ importEvents, onLiveImported });
+
+    const batch = Array.from({ length: 20 }, (_, i) => ev(`batch-${i}`));
+    c.enqueueLiveBatch(batch, T + 10);
+    expect(c.isImporting()).toBe(true);
+    await c.idle();
+
+    expect(calls).toEqual([batch.map((e) => e.id)]);
+    expect(c.getCursor()).toBe(T + 10);
+    expect(onLiveImported).toHaveBeenCalledWith(20);
+    expect(c.isImporting()).toBe(false);
+  });
+
+  it("enqueueLiveBatch: rajada de 20 eventos durante importação bloqueada é enfileirada e importada sem perdas", async () => {
+    const gate = deferred<number>();
+    const calls: string[][] = [];
+    const importEvents = vi.fn(async (events: SyncEvent[]) => {
+      calls.push(events.map((e) => e.id));
+      if (events[0].id === "pull-evt") return gate.promise;
+      return events.length;
+    });
+    const { c } = setup({
+      importEvents,
+      pull: async () => ({ events: [ev("pull-evt")], maxCreatedAt: T }),
+    });
+
+    const pulling = c.runPull("req");
+    await flush();
+    expect(c.isImporting()).toBe(true);
+
+    const burstEvents = Array.from({ length: 20 }, (_, i) => ev(`burst-${i}`));
+    c.enqueueLiveBatch(burstEvents, T + 20);
+    await flush();
+
+    expect(c.queueSize()).toBe(20);
+    expect(calls).toEqual([["pull-evt"]]); // rajada ainda aguarda no mutex
+
+    gate.resolve(1);
+    await pulling;
+    await c.idle();
+
+    expect(calls).toEqual([["pull-evt"], burstEvents.map((e) => e.id)]);
+    expect(c.queueSize()).toBe(0);
+    expect(c.isImporting()).toBe(false);
+    expect(c.getCursor()).toBe(T + 20);
+  });
+
+  it("enqueueLiveBatch: lista vazia é no-op seguro", async () => {
+    const { c } = setup();
+    c.enqueueLiveBatch([], T);
+    expect(c.queueSize()).toBe(0);
+    expect(c.isImporting()).toBe(false);
   });
 
   it("a fila drena depois de um pull cuja importação lança", async () => {

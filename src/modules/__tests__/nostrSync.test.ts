@@ -578,6 +578,70 @@ describe("Story 4.5: Publicar e ler eventos no Grupo forte", () => {
     await vi.waitFor(() => expect(got).toEqual(["live-slip"]));
   });
 
+  it("Story 5.5: subscribeToSyncEvents despacha lote completo via onBatch quando fornecido", async () => {
+    const keys = makeStrongKeys();
+    const batchGot: { ids: string[]; createdAt: number }[] = [];
+    const singleGot: string[] = [];
+
+    const events = Array.from({ length: 5 }, (_, i) => valid({ id: `batch-live-${i}` }));
+    await publishSyncEvents(keys, "dev-a", events);
+    const liveNostrEvent = published[published.length - 1];
+
+    subscribeToSyncEvents(
+      keys,
+      "dev-b",
+      0,
+      (evt) => singleGot.push(evt.id),
+      (evts, createdAt) => batchGot.push({ ids: evts.map((e) => e.id), createdAt }),
+    );
+
+    lastSubHandler.onevent({
+      id: "live-batch-evt",
+      created_at: 1_700_000_150,
+      tags: [["t", "domus-sync"]],
+      content: liveNostrEvent.content,
+    });
+
+    await vi.waitFor(() => {
+      expect(batchGot).toEqual([
+        {
+          ids: ["batch-live-0", "batch-live-1", "batch-live-2", "batch-live-3", "batch-live-4"],
+          createdAt: 1_700_000_150,
+        },
+      ]);
+      expect(singleGot).toHaveLength(0);
+    });
+  });
+
+  it("Story 5.5: subscribeToSyncEvents despacha lote completo via onBatch no canal legado (XOR)", async () => {
+    const keys = await deriveKeysFromCode("LEGACY-BATCH-123");
+    const batchGot: { ids: string[]; createdAt: number }[] = [];
+    const singleGot: string[] = [];
+
+    const events = [valid({ id: "leg-batch-1" }), valid({ id: "leg-batch-2" })];
+    const encrypted = encrypt(JSON.stringify(events), keys.encryptionKey);
+
+    subscribeToSyncEvents(
+      keys,
+      "dev-b",
+      0,
+      (evt) => singleGot.push(evt.id),
+      (evts, createdAt) => batchGot.push({ ids: evts.map((e) => e.id), createdAt }),
+    );
+
+    lastSubHandler.onevent(relayEvent("live-leg-batch", encrypted, 1_700_000_333));
+
+    await vi.waitFor(() => {
+      expect(batchGot).toEqual([
+        {
+          ids: ["leg-batch-1", "leg-batch-2"],
+          createdAt: 1_700_000_333,
+        },
+      ]);
+      expect(singleGot).toHaveLength(0);
+    });
+  });
+
   it("teto de 20 itens por lote no Grupo forte: 25 eventos geram 2 lotes (20 e 5)", async () => {
     const keys = makeStrongKeys();
     const events = Array.from({ length: 25 }, (_, i) => valid({ id: `item-${i}` }));

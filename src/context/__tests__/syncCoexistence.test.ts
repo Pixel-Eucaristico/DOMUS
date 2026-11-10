@@ -487,4 +487,20 @@ describe("Story 4.7: Verificação do contrato de useSyncEngine", () => {
     expect(engineSource).toContain("resolvePullSyncOptions({");
     expect(engineSource).toContain("pullSyncEvents(req.keys, req.deviceId, req.isRecovery, pullOptions)");
   });
+
+  it("Story 5.5: useSyncEngine utiliza enqueueLiveBatch sob o coordenador e não possui flags booleanas de descarte em subscrição", () => {
+    // Tanto a subscrição do grupo forte quanto a do grupo legado usam coordinator.enqueueLiveBatch
+    const matches = engineSource.match(/coordinator\.enqueueLiveBatch\(/g);
+    expect(matches).not.toBeNull();
+    expect(matches!.length).toBeGreaterThanOrEqual(2);
+
+    // Subscrição legada utiliza onBatch para registrar IDs legados e enfileirar em lote
+    expect(engineSource).toMatch(
+      /legacySubRef\.current\s*=\s*subscribeToSyncEvents\([\s\S]*?legacyEventIdsRef\.current\.add[\s\S]*?coordinator\.enqueueLiveBatch/,
+    );
+
+    // Sem flags de descarte booleanas na subscrição
+    expect(engineSource).not.toMatch(/if\s*\(\s*isImporting\w*\s*\)\s*return/);
+    expect(engineSource).not.toMatch(/if\s*\(\s*isImportingRef\.current\s*\)\s*return/);
+  });
 });

@@ -52,6 +52,8 @@ export interface SyncCoordinator<P> {
   runPull(request: P): Promise<number>;
   /** Evento ao vivo: entra na fila e é importado assim que o mutex permitir. */
   enqueueLive(event: SyncEvent, createdAt: number): void;
+  /** Lote de eventos ao vivo em rajada: entram na fila de uma vez e drenam sob o mutex. */
+  enqueueLiveBatch(events: SyncEvent[], createdAt: number): void;
   /** Resolve quando a fila e o mutex estiverem ociosos (para testes). */
   idle(): Promise<void>;
   /** Sair/entrar num grupo: nova época, zera cursor e fila, apaga as chaves. */
@@ -175,6 +177,14 @@ export function createSyncCoordinator<P>(deps: SyncCoordinatorDeps<P>): SyncCoor
 
     enqueueLive(event, createdAt) {
       queue.push({ event, createdAt, attempts: 0 });
+      scheduleDrain();
+    },
+
+    enqueueLiveBatch(events, createdAt) {
+      if (events.length === 0) return;
+      for (const event of events) {
+        queue.push({ event, createdAt, attempts: 0 });
+      }
       scheduleDrain();
     },
 

@@ -644,6 +644,18 @@ export function useSyncEngine({
             }
             coordinator.enqueueLive(event, createdAt);
           },
+          (events, createdAt) => {
+            if (events.length === 0) return;
+            const incoming = processIncomingEvents({
+              incomingEvents: events,
+              currentDeviceId: deviceId,
+              existingIds: EMPTY_SET,
+            });
+            if (incoming.foreignEventIds.length > 0) {
+              tracker.markReceived(incoming.foreignEventIds, strongGroupId).catch(() => {});
+            }
+            coordinator.enqueueLiveBatch(events, createdAt);
+          },
         );
       } catch {}
     }
@@ -674,6 +686,26 @@ export function useSyncEngine({
               tracker.markReceived(incoming.foreignEventIds, legacyGroupId).catch(() => {});
             }
             coordinator.enqueueLive(event, createdAt);
+          },
+          (events, createdAt) => {
+            if (isLegacySyncDisabled({ now: now(), version })) {
+              legacySubRef.current?.close();
+              legacySubRef.current = null;
+              return;
+            }
+            if (events.length === 0) return;
+            for (const evt of events) {
+              legacyEventIdsRef.current.add(evt.id);
+            }
+            const incoming = processIncomingEvents({
+              incomingEvents: events,
+              currentDeviceId: deviceId,
+              existingIds: EMPTY_SET,
+            });
+            if (incoming.foreignEventIds.length > 0) {
+              tracker.markReceived(incoming.foreignEventIds, legacyGroupId).catch(() => {});
+            }
+            coordinator.enqueueLiveBatch(events, createdAt);
           },
         );
       } catch {}
