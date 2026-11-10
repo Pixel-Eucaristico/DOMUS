@@ -12,6 +12,7 @@ import {
   GROUP_CODE_KEY,
   STRONG_GROUP_SECRET_KEY,
   generateGroupCode,
+  PULL_INTERVAL_MS,
 } from "../syncStorage";
 import {
   OLD_GROUP_EXCLUDED_PREFIXES,
@@ -523,5 +524,15 @@ describe("Story 4.7: Verificação do contrato de useSyncEngine", () => {
     expect(engineSource).toContain("shouldPublishGroupEvents({");
     expect(engineSource).toContain("events: allEventsRef.current");
     expect(engineSource).toContain("const eventsToPublish = group.isStrong ? pendingEvents : myEvents;");
+  });
+
+  it("Story 5.7: contrato de propagação rápida (PULL_INTERVAL_MS <= 15000) e auto-sync em foreground via RNAppState", () => {
+    // Teto de propagação periódica em segundo plano de no máximo 15 segundos
+    expect(PULL_INTERVAL_MS).toBeLessThanOrEqual(15_000);
+    expect(PULL_INTERVAL_MS).toBeGreaterThan(0);
+
+    // useSyncEngine escuta mudanças de estado da aplicação (RNAppState) para sincronizar imediatamente ao voltar ao foreground
+    expect(engineSource).toMatch(/RNAppState\.addEventListener\(\s*["']change["'],/);
+    expect(engineSource).toMatch(/if\s*\(\s*state\s*===\s*["']active["']\s*\)\s*\{\s*doSync\(\);?\s*\}/);
   });
 });

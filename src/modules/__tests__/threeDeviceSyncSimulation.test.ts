@@ -20,7 +20,11 @@ import {
   processPushResult,
   resolvePullSyncOptions,
 } from "../syncDecisions";
-import { FakeMemoryRelay, type NostrEvent } from "../testing/fakeMemoryRelay";
+import {
+  FakeMemoryRelay,
+  createSimulatedClock,
+  type NostrEvent,
+} from "../testing/fakeMemoryRelay";
 import {
   createSimulatedDevice,
   type SimulatedSyncDevice,
@@ -2444,5 +2448,701 @@ describe("Story 5.6 - Nunca republicar o que veio do grupo", () => {
     expect(strongDecision.reason).toBe("pending-events");
     expect(strongDecision.myEvents).toEqual([payslipBackupEvt]);
     expect(strongDecision.pendingEvents).toEqual([payslipBackupEvt]);
+  });
+});
+
+describe("Story 5.7 - Propagar rápido, inclusive depois de ficar offline", () => {
+  it("propaga gasto do celular para o tablet em até 15 segundos medidos no relógio simulado", async () => {
+    let simTime = 1_700_000_000_000;
+    const now = () => simTime;
+
+    const relay = new FakeMemoryRelay({ now });
+    const secret = encodeGroupSecret(generateGroupSecret());
+
+    const phone = await createSimulatedDevice({
+      deviceId: "celular-1",
+      relay,
+      groupSecret: secret,
+      now,
+    });
+
+    const tablet = await createSimulatedDevice({
+      deviceId: "tablet-1",
+      relay,
+      groupSecret: secret,
+      now,
+    });
+
+    // Tablet inicia com assinatura ao vivo ativa
+    tablet.startLiveSync();
+
+    // Celular cria conta inicial e um gasto
+    const tStart = simTime;
+    phone.appendLocalEvent({
+      id: "evt-acc-phone",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-main", name: "Conta Corrente", type: "checking", balance: 1000 },
+      timestamp: tStart,
+    });
+    const expenseEvt = phone.appendLocalEvent({
+      id: "evt-tx-phone",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-lunch", accountId: "acc-main", type: "expense", amount: 45, description: "Almoço", date: "2026-10-01" },
+      timestamp: tStart + 100,
+    });
+
+    // Celular publica no relay
+    await phone.push();
+
+    // Simula atraso na rede de transmissão (2.500 ms)
+    simTime += 2500;
+
+    // Tablet drena a fila de eventos recebidos
+    await tablet.idle();
+    const tEnd = simTime;
+
+    // Latência total ponta a ponta medida no relógio simulado
+    const totalElapsed = tEnd - tStart;
+    expect(totalElapsed).toBeLessThanOrEqual(15_000);
+
+    const eventLatency = tablet.getPropagationLatency(expenseEvt.id);
+    expect(eventLatency).toBeDefined();
+    expect(eventLatency!).toBeLessThanOrEqual(15_000);
+
+    // Tablet reflete gasto no extrato e saldo
+    expect(tablet.getExistingEventIds().has("evt-tx-phone")).toBe(true);
+    const tabletState = tablet.getState();
+    expect(tabletState.accounts["acc-main"]?.balance).toBe(955);
+    expect(tabletState.transactions["tx-lunch"]).toBeDefined();
+    expect(tabletState.transactions["tx-lunch"]?.amount).toBe(45);
+
+    tablet.stopLiveSync();
+  });
+
+  it("entrega do mesmo evento por múltiplos relays concorrentes é estritamente idempotente (aplicado 1 vez)", async () => {
+    let simTime = 1_700_000_000_000;
+    const now = () => simTime;
+
+    const relay1 = new FakeMemoryRelay({ now });
+    const relay2 = new FakeMemoryRelay({ now });
+    const secret = encodeGroupSecret(generateGroupSecret());
+
+    const phone = await createSimulatedDevice({
+      deviceId: "celular-2",
+      relays: [relay1, relay2],
+      groupSecret: secret,
+      now,
+    });
+
+    const tablet = await createSimulatedDevice({
+      deviceId: "tablet-2",
+      relays: [relay1, relay2],
+      groupSecret: secret,
+      now,
+    });
+
+    tablet.startLiveSync();
+
+    // Celular cria conta e transação
+    phone.appendLocalEvent({
+      id: "evt-acc-multi",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-multi", name: "Conta Multi-Relay", type: "checking", balance: 500 },
+    });
+    phone.appendLocalEvent({
+      id: "evt-tx-multi",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-coffee", accountId: "acc-multi", type: "expense", amount: 15, date: "2026-10-01" },
+    });
+
+    // Celular publica nos 2 relays concorrentes
+    const pushRes = await phone.push();
+    expect(pushRes.pushed).toBe(true);
+
+    // Ambos os relays receberam o evento
+    expect(relay1.getPublicationCountByEventId("evt-tx-multi")).toBe(1);
+    expect(relay2.getPublicationCountByEventId("evt-tx-multi")).toBe(1);
+
+    // Tablet processa notificações de ambos os relays concorrentes
+    await tablet.idle();
+
+    // Evento aplicado uma única vez no banco do tablet
+    const tabletEvents = tablet.getAllEvents();
+    const txEvents = tabletEvents.filter((e) => e.id === "evt-tx-multi");
+    expect(txEvents).toHaveLength(1);
+
+    // Saldo debitado apenas uma vez (500 - 15 = 485)
+    expect(tablet.getState().accounts["acc-multi"]?.balance).toBe(485);
+
+    // Tracker registra recebimento
+    expect(tablet.tracker.hasReceived("evt-tx-multi", tablet.keys.publicKey)).toBe(true);
+
+    tablet.stopLiveSync();
+  });
+
+  it("corrida simultânea entre assinatura ao vivo e pull periódico processa de forma atômica sem duplicações", async () => {
+    let simTime = 1_700_000_000_000;
+    const now = () => simTime;
+
+    const relay = new FakeMemoryRelay({ now });
+    const secret = encodeGroupSecret(generateGroupSecret());
+
+    const phone = await createSimulatedDevice({
+      deviceId: "celular-race",
+      relay,
+      groupSecret: secret,
+      now,
+    });
+
+    const tablet = await createSimulatedDevice({
+      deviceId: "tablet-race",
+      relay,
+      groupSecret: secret,
+      now,
+    });
+
+    phone.appendLocalEvent({
+      id: "evt-acc-race",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-race", name: "Conta Corrida", type: "checking", balance: 2000 },
+    });
+    const txEvt = phone.appendLocalEvent({
+      id: "evt-tx-race",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-race-1", accountId: "acc-race", type: "expense", amount: 200, date: "2026-10-01" },
+    });
+
+    await phone.push();
+
+    // Tablet inicia live sync
+    tablet.startLiveSync();
+
+    // Simula chegada concorrente: enfileira o evento via liveQueue E dispara pull() ao mesmo tempo
+    tablet.enqueueLive(txEvt, Math.floor(simTime / 1000));
+    const pullPromise = tablet.pull();
+
+    await Promise.all([pullPromise, tablet.idle()]);
+
+    // Evento aplicado exatamente 1 vez
+    const count = tablet.getAllEvents().filter((e) => e.id === "evt-tx-race").length;
+    expect(count).toBe(1);
+
+    // Saldo consistente (2000 - 200 = 1800)
+    expect(tablet.getState().accounts["acc-race"]?.balance).toBe(1800);
+
+    tablet.stopLiveSync();
+  });
+
+  it("tablet offline enquanto celular lança 5 gastos reconecta autonomamente, reconcilia sem duplicar e não ecoa", async () => {
+    let simTime = 1_700_000_000_000;
+    const now = () => simTime;
+
+    const relay = new FakeMemoryRelay({ now });
+    const secret = encodeGroupSecret(generateGroupSecret());
+
+    const phone = await createSimulatedDevice({
+      deviceId: "celular-offline-test",
+      relay,
+      groupSecret: secret,
+      now,
+    });
+
+    const tablet = await createSimulatedDevice({
+      deviceId: "tablet-offline-test",
+      relay,
+      groupSecret: secret,
+      now,
+    });
+
+    // Ambos iniciam com a conta inicial sincronizada
+    phone.appendLocalEvent({
+      id: "evt-acc-base",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-base", name: "Conta Base", type: "checking", balance: 5000 },
+    });
+    await phone.push();
+    await tablet.pull();
+
+    expect(tablet.getState().accounts["acc-base"]?.balance).toBe(5000);
+
+    // Tablet fica offline
+    tablet.setOnline(false);
+
+    // Celular lança 5 gastos enquanto tablet está offline
+    const expenseAmounts = [100, 250, 75, 420, 155]; // Total = 1000
+    const expenseIds: string[] = [];
+
+    for (let i = 0; i < expenseAmounts.length; i++) {
+      simTime += 5000; // Relógio avança determinística e gradualmente
+      const id = `evt-expense-offline-${i + 1}`;
+      expenseIds.push(id);
+      phone.appendLocalEvent({
+        id,
+        type: "TRANSACTION_CREATED",
+        payload: {
+          id: `tx-off-${i + 1}`,
+          accountId: "acc-base",
+          type: "expense",
+          amount: expenseAmounts[i],
+          description: `Gasto offline ${i + 1}`,
+          date: "2026-10-01",
+        },
+      });
+    }
+
+    // Celular publica os 5 gastos no relay
+    const phonePush = await phone.push();
+    expect(phonePush.pushed).toBe(true);
+    expect(phonePush.count).toBe(5);
+
+    // Confirma que tablet ainda não recebeu nada por estar offline
+    expect(tablet.getAllEvents()).toHaveLength(1); // Somente ACCOUNT_CREATED
+
+    // Tablet volta online e reconecta de forma autônoma
+    const reconnectResult = await tablet.reconnect();
+    expect(reconnectResult.importedCount).toBe(5);
+
+    // Tablet reconciliou todos os 5 gastos sem duplicar nenhum
+    expect(tablet.getAllEvents()).toHaveLength(6);
+    for (const expId of expenseIds) {
+      expect(tablet.getExistingEventIds().has(expId)).toBe(true);
+    }
+
+    // Saldo consolidado confere exatamente com o do celular: 5000 - 1000 = 4000
+    const expectedBalance = 5000 - 1000;
+    expect(tablet.getState().accounts["acc-base"]?.balance).toBe(expectedBalance);
+    expect(phone.getState().accounts["acc-base"]?.balance).toBe(expectedBalance);
+
+    // Push subsequente do tablet NÃO republica nenhum dos 5 eventos recebidos (supressão estrita de eco)
+    const pubsBefore = relay.getTotalPublications();
+    const tabletPush = await tablet.push();
+    expect(tabletPush.pushed).toBe(false);
+    expect(tabletPush.count).toBe(0);
+    expect(tabletPush.reason).toBe("no-events");
+    expect(relay.getTotalPublications()).toBe(pubsBefore);
+  });
+
+  it("escrita concorrente offline bidirecional: celular (5 gastos) e tablet (2 gastos) convergem exatamente para 7 eventos", async () => {
+    let simTime = 1_700_000_000_000;
+    const now = () => simTime;
+
+    const relay = new FakeMemoryRelay({ now });
+    const secret = encodeGroupSecret(generateGroupSecret());
+
+    const phone = await createSimulatedDevice({
+      deviceId: "celular-bidi",
+      relay,
+      groupSecret: secret,
+      now,
+    });
+
+    const tablet = await createSimulatedDevice({
+      deviceId: "tablet-bidi",
+      relay,
+      groupSecret: secret,
+      now,
+    });
+
+    // Ambos começam com uma conta inicial comum
+    phone.appendLocalEvent({
+      id: "evt-acc-bidi",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-bidi", name: "Conta Bidirecional", type: "checking", balance: 10000 },
+      timestamp: 1_700_000_000_000,
+    });
+    await phone.push();
+    await tablet.pull();
+
+    // Ambos ficam offline
+    phone.setOnline(false);
+    tablet.setOnline(false);
+
+    // Celular cria 5 gastos offline (5 x 100 = 500)
+    for (let i = 1; i <= 5; i++) {
+      phone.appendLocalEvent({
+        id: `evt-phone-off-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `tx-p-${i}`, accountId: "acc-bidi", type: "expense", amount: 100, date: "2026-10-01" },
+        timestamp: 1_700_000_010_000 + i * 1000,
+      });
+    }
+
+    // Tablet cria 2 gastos offline (2 x 350 = 700)
+    for (let j = 1; j <= 2; j++) {
+      tablet.appendLocalEvent({
+        id: `evt-tablet-off-${j}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `tx-t-${j}`, accountId: "acc-bidi", type: "expense", amount: 350, date: "2026-10-01" },
+        timestamp: 1_700_000_020_000 + j * 1000,
+      });
+    }
+
+    // Celular tenta push offline -> falha / retorna offline
+    const phonePushOffline = await phone.push();
+    expect(phonePushOffline.pushed).toBe(false);
+
+    // Ambos reconectam
+    await phone.reconnect();
+    await tablet.reconnect();
+
+    // Celular puxa o que o tablet publicou, e tablet puxa o que o celular publicou
+    await phone.pull();
+    await tablet.pull();
+
+    // Ambos agora têm exatamente os mesmos 8 eventos (1 conta + 5 celular + 2 tablet)
+    const phoneEvents = phone.getAllEvents();
+    const tabletEvents = tablet.getAllEvents();
+    expect(phoneEvents).toHaveLength(8);
+    expect(tabletEvents).toHaveLength(8);
+
+    const phoneIds = new Set(phoneEvents.map((e) => e.id));
+    const tabletIds = new Set(tabletEvents.map((e) => e.id));
+    expect(phoneIds).toEqual(tabletIds);
+
+    // Saldo final idêntico em ambos: 10000 - 500 - 700 = 8800
+    const expectedBalance = 10000 - 500 - 700;
+    expect(phone.getState().accounts["acc-bidi"]?.balance).toBe(expectedBalance);
+    expect(tablet.getState().accounts["acc-bidi"]?.balance).toBe(expectedBalance);
+
+    // Total de publicações de gastos no relay foi de exatamente 7 eventos (sem republicações)
+    for (let i = 1; i <= 5; i++) {
+      expect(relay.getPublicationCountByEventId(`evt-phone-off-${i}`)).toBe(1);
+    }
+    for (let j = 1; j <= 2; j++) {
+      expect(relay.getPublicationCountByEventId(`evt-tablet-off-${j}`)).toBe(1);
+    }
+
+    // Pushes subsequentes não produzem novos eventos
+    const subPushPhone = await phone.push();
+    const subPushTablet = await tablet.push();
+    expect(subPushPhone.pushed).toBe(false);
+    expect(subPushTablet.pushed).toBe(false);
+  });
+
+  it("mede latência de ponta a ponta com atraso de rede simulado e confirma que é inferior a 15 segundos", async () => {
+    const clock = createSimulatedClock(1_700_000_000_000);
+    const relay = new FakeMemoryRelay({ clock });
+    const secret = encodeGroupSecret(generateGroupSecret());
+
+    const phone = await createSimulatedDevice({
+      deviceId: "celular-latency",
+      relay,
+      groupSecret: secret,
+      clock,
+    });
+
+    const tablet = await createSimulatedDevice({
+      deviceId: "tablet-latency",
+      relay,
+      groupSecret: secret,
+      clock,
+    });
+
+    tablet.startLiveSync();
+
+    // Celular cria gasto em t = 0
+    const tCreated = clock.now();
+    const evt = phone.appendLocalEvent({
+      id: "evt-timed-1",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-timed-1", accountId: "acc-1", type: "expense", amount: 80, date: "2026-10-01" },
+      timestamp: tCreated,
+    });
+
+    // Publicação enviada com 1.200 ms de atraso de rede até o relay
+    clock.advance(1200);
+
+    // Relay configurado com 3.300 ms de atraso de transmissão até o tablet
+    relay.setDeliveryDelay(3300);
+
+    await phone.push();
+    expect(relay.getPublicationTimestamp(evt.id)).toBe(tCreated + 1200);
+
+    await tablet.idle();
+
+    // Tablet recebeu e registrou o timestamp de recebimento
+    const tReceived = tablet.getEventReceivedAt(evt.id);
+    expect(tReceived).toBe(tCreated + 4500);
+
+    // Latência medida ponta a ponta
+    const latency = tablet.getPropagationLatency(evt.id);
+    expect(latency).toBe(4500);
+    expect(latency!).toBeLessThanOrEqual(15_000); // FR-6 (< 15 segundos)
+
+    tablet.stopLiveSync();
+  });
+
+  it("mesmo com rede lenta extrema (14.500 ms de latência), a propagação completa dentro do teto de 15s", async () => {
+    const clock = createSimulatedClock(1_700_000_000_000);
+    const relay = new FakeMemoryRelay({ clock });
+    const secret = encodeGroupSecret(generateGroupSecret());
+
+    const phone = await createSimulatedDevice({
+      deviceId: "celular-extreme",
+      relay,
+      groupSecret: secret,
+      clock,
+    });
+
+    const tablet = await createSimulatedDevice({
+      deviceId: "tablet-extreme",
+      relay,
+      groupSecret: secret,
+      clock,
+    });
+
+    tablet.startLiveSync();
+
+    const tStart = clock.now();
+    const evt = phone.appendLocalEvent({
+      id: "evt-extreme-1",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-extreme", accountId: "acc-1", type: "expense", amount: 99, date: "2026-10-01" },
+      timestamp: tStart,
+    });
+
+    // Atraso de 7.000 ms até o relay
+    clock.advance(7000);
+
+    // Atraso de 7.500 ms do relay até o tablet (total 14.500 ms)
+    relay.setDeliveryDelay(7500);
+
+    await phone.push();
+    await tablet.idle();
+
+    const latency = tablet.getPropagationLatency(evt.id);
+    expect(latency).toBe(14500);
+    expect(latency!).toBeLessThan(15000);
+    expect(tablet.getExistingEventIds().has("evt-extreme-1")).toBe(true);
+
+    tablet.stopLiveSync();
+  });
+
+  it("pull() multi-relay pagina ambos os relays independentemente sem interromper prematuramente", async () => {
+    const clock = createSimulatedClock(1_700_000_000_000);
+    const relay1 = new FakeMemoryRelay({ clock });
+    const relay2 = new FakeMemoryRelay({ clock });
+    const secret = encodeGroupSecret(generateGroupSecret());
+
+    const phone1 = await createSimulatedDevice({
+      deviceId: "celular-multi-1",
+      relay: relay1,
+      groupSecret: secret,
+      clock,
+    });
+    const phone2 = await createSimulatedDevice({
+      deviceId: "celular-multi-2",
+      relay: relay2,
+      groupSecret: secret,
+      clock,
+    });
+
+    // Celular 1 publica eventos exclusivos no relay 1
+    for (let i = 1; i <= 3; i++) {
+      phone1.appendLocalEvent({
+        id: `evt-r1-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `tx-r1-${i}`, accountId: "acc-1", type: "expense", amount: 10 * i, date: "2026-10-01" },
+      });
+    }
+    await phone1.push();
+
+    // Celular 2 publica eventos exclusivos no relay 2
+    for (let j = 1; j <= 2; j++) {
+      phone2.appendLocalEvent({
+        id: `evt-r2-${j}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `tx-r2-${j}`, accountId: "acc-1", type: "income", amount: 50 * j, date: "2026-10-01" },
+      });
+    }
+    await phone2.push();
+
+    // Celular compartilhado publica evento em ambos os relays simultaneamente (duplicata entre relays)
+    const phoneShared = await createSimulatedDevice({
+      deviceId: "celular-multi-shared",
+      relays: [relay1, relay2],
+      groupSecret: secret,
+      clock,
+    });
+    phoneShared.appendLocalEvent({
+      id: "evt-shared-both",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-shared", accountId: "acc-1", type: "expense", amount: 99, date: "2026-10-01" },
+    });
+    await phoneShared.push();
+
+    // Confirma que o evento compartilhado existe em ambos os relays
+    expect(relay1.getPublicationCountByEventId("evt-shared-both")).toBe(1);
+    expect(relay2.getPublicationCountByEventId("evt-shared-both")).toBe(1);
+
+    // Tablet conectado a ambos os relays
+    const tablet = await createSimulatedDevice({
+      deviceId: "tablet-multi-pull",
+      relays: [relay1, relay2],
+      groupSecret: secret,
+      clock,
+    });
+
+    // Executa pull() conectando nos 2 relays: unifica eventos exclusivos e descarta duplicata do evento compartilhado
+    const pullRes = await tablet.pull();
+    expect(pullRes.importedCount).toBe(6);
+
+    // Todos os eventos foram importados sem perdas
+    for (let i = 1; i <= 3; i++) {
+      expect(tablet.getExistingEventIds().has(`evt-r1-${i}`)).toBe(true);
+    }
+    for (let j = 1; j <= 2; j++) {
+      expect(tablet.getExistingEventIds().has(`evt-r2-${j}`)).toBe(true);
+    }
+    expect(tablet.getExistingEventIds().has("evt-shared-both")).toBe(true);
+
+    // Evento compartilhado presente exatamente 1 vez
+    const sharedEvents = tablet.getAllEvents().filter((e) => e.id === "evt-shared-both");
+    expect(sharedEvents).toHaveLength(1);
+
+    // Pull subsequente sem novos eventos é estritamente no-op
+    const pull2 = await tablet.pull();
+    expect(pull2.importedCount).toBe(0);
+  });
+
+  it("cenário de 3 aparelhos: A e B online transacionando em tempo real; C offline reconecta e reconcilia sem eco", async () => {
+    const clock = createSimulatedClock(1_700_000_000_000);
+    const relay = new FakeMemoryRelay({ clock });
+    const secret = encodeGroupSecret(generateGroupSecret());
+
+    const deviceA = await createSimulatedDevice({ deviceId: "dev-3a", relay, groupSecret: secret, clock });
+    const deviceB = await createSimulatedDevice({ deviceId: "dev-3b", relay, groupSecret: secret, clock });
+    const deviceC = await createSimulatedDevice({ deviceId: "dev-3c", relay, groupSecret: secret, clock });
+
+    // Todos criam e sincronizam a conta base inicialmente
+    deviceA.appendLocalEvent({
+      id: "evt-acc-shared",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-shared", name: "Conta Compartilhada", type: "checking", balance: 10000 },
+      timestamp: clock.now(),
+    });
+    await deviceA.push();
+    await deviceB.pull();
+    await deviceC.pull();
+
+    // Avança relógio para garantir ordenação causal estrita pós-criação da conta
+    clock.advance(1000);
+
+    // A e B iniciam assinatura ao vivo
+    deviceA.startLiveSync();
+    deviceB.startLiveSync();
+    deviceC.startLiveSync();
+
+    // C fica offline (setOnline(false) fecha liveSubs de C no relay)
+    deviceC.setOnline(false);
+
+    // A lança 3 transações (3 x 100 = 300)
+    for (let i = 1; i <= 3; i++) {
+      clock.advance(100);
+      deviceA.appendLocalEvent({
+        id: `evt-a-tx-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `tx-a-${i}`, accountId: "acc-shared", type: "expense", amount: 100, date: "2026-10-01" },
+      });
+      await deviceA.push();
+    }
+
+    // B lança 2 transações (2 x 200 = 400)
+    for (let j = 1; j <= 2; j++) {
+      clock.advance(100);
+      deviceB.appendLocalEvent({
+        id: `evt-b-tx-${j}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `tx-b-${j}`, accountId: "acc-shared", type: "expense", amount: 200, date: "2026-10-01" },
+      });
+      await deviceB.push();
+    }
+
+    // A e B processam em tempo real
+    await deviceA.idle();
+    await deviceB.idle();
+
+    // Saldo consolidado em A e B: 10000 - 300 - 400 = 9300
+    expect(deviceA.getState().accounts["acc-shared"]?.balance).toBe(9300);
+    expect(deviceB.getState().accounts["acc-shared"]?.balance).toBe(9300);
+
+    // C esteve offline e NÃO recebeu entregas enquanto desconectado
+    expect(deviceC.getAllEvents()).toHaveLength(1); // Somente ACCOUNT_CREATED
+
+    // C reconecta de forma autônoma
+    const recResult = await deviceC.reconnect();
+    expect(recResult.importedCount).toBe(5);
+
+    // C atinge exatamente o mesmo saldo consolidado que A e B
+    expect(deviceC.getState().accounts["acc-shared"]?.balance).toBe(9300);
+    expect(deviceC.getAllEvents()).toHaveLength(6);
+
+    // C faz push subsequente: zero publicações (supressão estrita de eco)
+    const pubsBefore = relay.getTotalPublications();
+    const pushC = await deviceC.push();
+    expect(pushC.pushed).toBe(false);
+    expect(pushC.count).toBe(0);
+    expect(relay.getTotalPublications()).toBe(pubsBefore);
+
+    deviceA.stopLiveSync();
+    deviceB.stopLiveSync();
+    deviceC.stopLiveSync();
+  });
+
+  it("propaga gasto via pull periódico em até 15 segundos sem depender de assinatura WebSocket", async () => {
+    const clock = createSimulatedClock(1_700_000_000_000);
+    const relay = new FakeMemoryRelay({ clock });
+    const secret = encodeGroupSecret(generateGroupSecret());
+
+    const phone = await createSimulatedDevice({
+      deviceId: "celular-pull-only",
+      relay,
+      groupSecret: secret,
+      clock,
+    });
+
+    const tablet = await createSimulatedDevice({
+      deviceId: "tablet-pull-only",
+      relay,
+      groupSecret: secret,
+      clock,
+    });
+
+    // Celular cria conta base e publica
+    phone.appendLocalEvent({
+      id: "evt-acc-pull-test",
+      type: "ACCOUNT_CREATED",
+      payload: { id: "acc-pull", name: "Conta Pull", type: "checking", balance: 3000 },
+      timestamp: clock.now(),
+    });
+    await phone.push();
+    await tablet.pull();
+
+    // Celular cria um novo gasto em t0
+    const t0 = clock.now();
+    phone.appendLocalEvent({
+      id: "evt-periodic-tx",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "tx-pull-1", accountId: "acc-pull", type: "expense", amount: 150, date: "2026-10-01" },
+      timestamp: t0,
+    });
+    await phone.push();
+
+    // Tablet opera estritamente sem live sub (sem WebSocket ativo)
+    // Simula o ciclo periódico de pull configurado no app (PULL_INTERVAL_MS = 8.000 ms <= 15.000 ms)
+    clock.advance(8000);
+    const pullResult = await tablet.pull();
+    const t1 = clock.now();
+
+    expect(pullResult.importedCount).toBe(1);
+    expect(tablet.getExistingEventIds().has("evt-periodic-tx")).toBe(true);
+
+    // Latência total do ciclo periódico é <= 15 segundos
+    const totalLatency = t1 - t0;
+    expect(totalLatency).toBe(8000);
+    expect(totalLatency).toBeLessThanOrEqual(15_000);
+
+    // Saldo reflete a despesa perfeitamente (3000 - 150 = 2850)
+    expect(tablet.getState().accounts["acc-pull"]?.balance).toBe(2850);
   });
 });

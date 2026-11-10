@@ -34,7 +34,7 @@ export interface NostrFilter {
 export interface RelaySubscription {
   id: string;
   filter: NostrFilter;
-  onEvent: (event: NostrEvent) => void;
+  onEvent: (event: NostrEvent, deliveryTimestamp?: number) => void;
   close: () => void;
 }
 
@@ -43,6 +43,37 @@ export interface PublicationLogEntry {
   deviceId?: string;
   innerEventIds: string[];
   timestamp: number;
+}
+
+export interface DeliveryLogEntry {
+  subId: string;
+  nostrEvent: NostrEvent;
+  timestamp: number;
+}
+
+export interface SimulatedClock {
+  now(): number;
+  advance(ms: number): number;
+  set(timeMs: number): void;
+}
+
+export function createSimulatedClock(initialTimeMs = 1_700_000_000_000): SimulatedClock {
+  let current = initialTimeMs;
+  return {
+    now: () => current,
+    advance: (ms: number) => {
+      current += ms;
+      return current;
+    },
+    set: (timeMs: number) => {
+      current = timeMs;
+    },
+  };
+}
+
+export interface FakeMemoryRelayOptions {
+  now?: () => number;
+  clock?: SimulatedClock | (() => number);
 }
 
 export function matchesFilter(event: NostrEvent, filter: NostrFilter): boolean {
@@ -112,6 +143,89 @@ export class FakeMemoryRelay {
   /** Subscrições ativas */
   private subscriptions = new Map<string, RelaySubscription>();
   private subSeq = 0;
+
+  /** Relógio simulado injetável para medição determinística de latência (Story 5.7) */
+  private clock?: SimulatedClock;
+  private nowFn: () => number = () => Date.now();
+  private currentTime: number | null = null;
+  private timeOffset = 0;
+  private deliveryLog: DeliveryLogEntry[] = [];
+  private deliveryDelayMs = 0;
+
+  constructor(options?: FakeMemoryRelayOptions) {
+    if (options?.clock) {
+      this.setClock(options.clock);
+    } else if (options?.now) {
+      this.nowFn = options.now;
+    } else {
+      this.nowFn = () => (this.currentTime !== null ? this.currentTime : Date.now());
+    }
+  }
+
+  /**
+   * Retorna o timestamp atual segundo o relógio simulado ou Date.now()
+   */
+  getNow(): number {
+    return this.nowFn() + this.timeOffset;
+  }
+
+  /**
+   * Associa um SimulatedClock ou gerador de timestamp ao relay.
+   */
+  setClock(clock?: SimulatedClock | (() => number)): void {
+    this.timeOffset = 0;
+    if (!clock) {
+      this.clock = undefined;
+      this.currentTime = null;
+      this.nowFn = () => Date.now();
+    } else if (typeof clock === "function") {
+      this.clock = undefined;
+      this.nowFn = clock;
+    } else {
+      this.clock = clock;
+      this.nowFn = () => clock.now();
+    }
+  }
+
+  getClock(): SimulatedClock | undefined {
+    return this.clock;
+  }
+
+  /**
+   * Configura atraso simulado de transmissão da rede aos assinantes (Story 5.7)
+   */
+  setDeliveryDelay(ms: number): void {
+    this.deliveryDelayMs = Math.max(0, ms);
+  }
+
+  getDeliveryDelay(): number {
+    return this.deliveryDelayMs;
+  }
+
+  /**
+   * Define o timestamp atual ou função geradora de tempo para controle determinístico
+   */
+  setNow(now: number | (() => number)): void {
+    if (typeof now === "function") {
+      this.setClock(now);
+      this.timeOffset = 0;
+    } else {
+      this.currentTime = now;
+      this.clock = undefined;
+      this.timeOffset = now - this.nowFn();
+    }
+  }
+
+  /**
+   * Avança o relógio simulado em `ms` milissegundos preservando a função nowFn
+   */
+  advanceTime(ms: number): number {
+    if (this.clock) {
+      return this.clock.advance(ms);
+    }
+    this.timeOffset += ms;
+    return this.getNow();
+  }
 
   /**
    * Extrai o identificador do aparelho a partir dos metadados do evento Nostr.
@@ -226,7 +340,7 @@ export class FakeMemoryRelay {
       nostrEvent: event,
       deviceId,
       innerEventIds: [...innerEventIds],
-      timestamp: Date.now(),
+      timestamp: this.getNow(),
     });
 
     // Armazenamento com NIP-33 e NIP-01 (desempate por event.id)
@@ -263,11 +377,19 @@ export class FakeMemoryRelay {
       return { ok: false, reason: "replaced" };
     }
 
+    // Story 5.7: Simulação de atraso de entrega de rede aos assinantes sem alterar o relógio do publicador
+    const deliveryTimestamp = this.getNow() + this.deliveryDelayMs;
+
     // Notificação imediata para subscrições ativas apenas se o evento foi aceito
     for (const sub of Array.from(this.subscriptions.values())) {
       if (matchesFilter(event, sub.filter)) {
+        this.deliveryLog.push({
+          subId: sub.id,
+          nostrEvent: event,
+          timestamp: deliveryTimestamp,
+        });
         try {
-          sub.onEvent(event);
+          sub.onEvent(event, deliveryTimestamp);
         } catch (err) {
           console.warn("[FakeMemoryRelay] Erro na notificação da subscrição:", err);
         }
@@ -307,7 +429,10 @@ export class FakeMemoryRelay {
   /**
    * Cria uma subscrição com filtro. Retorna handle de encerramento (`close`).
    */
-  subscribe(filter: NostrFilter, onEvent: (event: NostrEvent) => void): RelaySubscription {
+  subscribe(
+    filter: NostrFilter,
+    onEvent: (event: NostrEvent, deliveryTimestamp?: number) => void,
+  ): RelaySubscription {
     const subId = `sub-${++this.subSeq}`;
     const sub: RelaySubscription = {
       id: subId,
@@ -373,6 +498,14 @@ export class FakeMemoryRelay {
   }
 
   /**
+   * Retorna o timestamp de publicação de um evento de domínio no relay, se existir.
+   */
+  getPublicationTimestamp(eventId: string): number | undefined {
+    const entry = this.publicationLog.find((p) => p.innerEventIds.includes(eventId));
+    return entry?.timestamp;
+  }
+
+  /**
    * Retorna todos os eventos ativos armazenados.
    */
   getAllEvents(): NostrEvent[] {
@@ -387,10 +520,26 @@ export class FakeMemoryRelay {
   }
 
   /**
+   * Retorna o log de entregas realizadas a subscrições ativas.
+   */
+  getDeliveryLog(): readonly DeliveryLogEntry[] {
+    return [...this.deliveryLog];
+  }
+
+  /**
+   * Retorna o timestamp da última entrega feita a uma subscrição.
+   */
+  getLastDeliveryTimestamp(): number | undefined {
+    return this.deliveryLog[this.deliveryLog.length - 1]?.timestamp;
+  }
+
+  /**
    * Limpa o estado interno do relay.
    */
   clear(): void {
     this.isDown = false;
+    this.deliveryDelayMs = 0;
+    this.timeOffset = 0;
     this.rejectedBatchIds.clear();
     this.publishInterceptor = undefined;
     this.eventsByKey.clear();
@@ -398,6 +547,7 @@ export class FakeMemoryRelay {
     this.pubCountByInnerEventId.clear();
     this.pubCountByDeviceId.clear();
     this.publicationLog = [];
+    this.deliveryLog = [];
     this.queryLog = [];
     this.subscriptions.clear();
   }

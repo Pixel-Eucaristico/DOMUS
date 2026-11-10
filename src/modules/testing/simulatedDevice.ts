@@ -35,7 +35,18 @@ import {
 } from "../syncDecisions";
 import { replayAllEvents, type ReplayResult } from "@/src/context/replay";
 import type { AppState } from "@packages/domain/src/state";
-import type { FakeMemoryRelay, RelaySubscription, NostrEvent, NostrFilter } from "./fakeMemoryRelay";
+import type {
+  FakeMemoryRelay,
+  RelaySubscription,
+  NostrEvent,
+  NostrFilter,
+  SimulatedClock,
+} from "./fakeMemoryRelay";
+export {
+  type SimulatedClock,
+  createSimulatedClock,
+  type DeliveryLogEntry,
+} from "./fakeMemoryRelay";
 
 export class MemoryTrackingStorage implements SyncGroupTrackingStorage {
   private map = new Map<string, string>();
@@ -63,16 +74,19 @@ export interface DevicePushResult {
 
 export interface CreateSimulatedDeviceOptions {
   deviceId: string;
-  relay: FakeMemoryRelay;
+  relay?: FakeMemoryRelay;
+  relays?: FakeMemoryRelay[];
   groupSecret?: string;
   keys?: NostrSyncKeys;
   initialEvents?: readonly SyncEvent[];
   cursor?: number | null;
+  now?: () => number;
+  clock?: SimulatedClock | (() => number);
 }
 
 export class SimulatedSyncDevice {
   readonly deviceId: string;
-  readonly relay: FakeMemoryRelay;
+  readonly relays: FakeMemoryRelay[];
   readonly keys: NostrSyncKeys;
   readonly groupCode: string;
   readonly eventStore: SQLiteEventStore;
@@ -82,29 +96,123 @@ export class SimulatedSyncDevice {
   private seq = 0;
   private lastPushHash = "empty";
   private isOnline = true;
-  private liveSub: RelaySubscription | null = null;
+  private liveSubs: RelaySubscription[] = [];
+  private liveSyncActive = false;
   private lastCreatedAt = 0;
   private importTail: Promise<void> = Promise.resolve();
   private heldImports = 0;
-  private liveQueue: { event: SyncEvent; createdAt: number }[] = [];
+  private liveQueue: { event: SyncEvent; createdAt: number; deliveredAt?: number }[] = [];
   private drainScheduled = false;
+
+  private clock?: SimulatedClock;
+  private nowFn: () => number = () => Date.now();
+  private currentTime: number | null = null;
+  private hasCustomNow = false;
+  private receivedAtByEventId = new Map<string, number>();
+  private recentLiveImportedIds = new Set<string>();
 
   constructor(params: {
     deviceId: string;
-    relay: FakeMemoryRelay;
+    relay?: FakeMemoryRelay;
+    relays?: FakeMemoryRelay[];
     keys: NostrSyncKeys;
     groupCode: string;
     eventStore: SQLiteEventStore;
     tracker: SyncGroupTracker;
     cursor?: number | null;
+    now?: () => number;
+    clock?: SimulatedClock | (() => number);
   }) {
     this.deviceId = params.deviceId;
-    this.relay = params.relay;
+    if (params.relays && params.relays.length > 0) {
+      this.relays = [...params.relays];
+    } else if (params.relay) {
+      this.relays = [params.relay];
+    } else {
+      throw new Error("Pelo menos um relay deve ser fornecido ao SimulatedSyncDevice");
+    }
     this.keys = params.keys;
     this.groupCode = params.groupCode;
     this.eventStore = params.eventStore;
     this.tracker = params.tracker;
     this.cursor = params.cursor ?? null;
+
+    const clock = params.clock ?? this.relays[0].getClock?.();
+    if (clock) {
+      this.setClock(clock);
+    } else if (params.now) {
+      this.nowFn = params.now;
+      this.hasCustomNow = true;
+    } else if (this.relays.length > 0 && typeof this.relays[0].getNow === "function") {
+      this.nowFn = () => this.relays[0].getNow();
+      this.hasCustomNow = true;
+    } else {
+      this.nowFn = () => (this.currentTime !== null ? this.currentTime : Date.now());
+    }
+  }
+
+  get relay(): FakeMemoryRelay {
+    return this.relays[0];
+  }
+
+  getNow(): number {
+    return this.nowFn();
+  }
+
+  setClock(clock?: SimulatedClock | (() => number)): void {
+    if (!clock) {
+      this.clock = undefined;
+      this.currentTime = null;
+      this.hasCustomNow = false;
+      this.nowFn = () => Date.now();
+    } else if (typeof clock === "function") {
+      this.clock = undefined;
+      this.nowFn = clock;
+      this.hasCustomNow = true;
+    } else {
+      this.clock = clock;
+      this.nowFn = () => clock.now();
+      this.hasCustomNow = true;
+    }
+  }
+
+  getClock(): SimulatedClock | undefined {
+    return this.clock;
+  }
+
+  setNow(now: number | (() => number)): void {
+    if (typeof now === "function") {
+      this.setClock(now);
+    } else {
+      this.currentTime = now;
+      this.clock = undefined;
+      this.nowFn = () => this.currentTime!;
+      this.hasCustomNow = true;
+    }
+  }
+
+  advanceTime(ms: number): number {
+    if (this.clock) {
+      return this.clock.advance(ms);
+    }
+    const next = this.getNow() + ms;
+    this.setNow(next);
+    return next;
+  }
+
+  getEventReceivedAt(eventId: string): number | undefined {
+    return this.receivedAtByEventId.get(eventId);
+  }
+
+  getPropagationLatency(eventId: string, createdAt?: number): number | undefined {
+    const receivedAt = this.getEventReceivedAt(eventId);
+    if (receivedAt === undefined) return undefined;
+    if (createdAt !== undefined) {
+      const createdMs = createdAt < 1e11 ? createdAt * 1000 : createdAt;
+      return receivedAt - createdMs;
+    }
+    const ev = this.getAllEvents().find((e) => e.id === eventId);
+    return ev ? receivedAt - ev.timestamp : undefined;
   }
 
   /**
@@ -119,7 +227,7 @@ export class SimulatedSyncDevice {
   }): SyncEvent {
     this.seq++;
     const id = params.id ?? `${this.deviceId}-evt-${this.seq}`;
-    const timestamp = params.timestamp ?? 1_700_000_000_000 + this.seq * 1_000;
+    const timestamp = params.timestamp ?? (this.hasCustomNow ? this.getNow() : 1_700_000_000_000 + this.seq * 1_000);
     const signature = params.signature ?? `sig-${id}`;
 
     const event: SyncEvent = {
@@ -210,7 +318,7 @@ export class SimulatedSyncDevice {
         nostrPublicKey: this.keys.publicKey,
       });
 
-      const nowSec = Math.floor(Date.now() / 1000);
+      const nowSec = Math.floor(this.getNow() / 1000);
       this.lastCreatedAt = Math.max(nowSec, this.lastCreatedAt + 1, (this.cursor ?? 0) + 1);
 
       const nostrEvent = {
@@ -227,8 +335,14 @@ export class SimulatedSyncDevice {
       } as UnsignedEvent;
 
       const signed = finalizeEvent(nostrEvent, this.keys.privateKey);
-      const pubRes = this.relay.publish(signed, batchEventIds);
-      if (pubRes.ok) {
+      let batchConfirmed = false;
+      for (const r of this.relays) {
+        const pubRes = r.publish(signed, batchEventIds);
+        if (pubRes.ok) {
+          batchConfirmed = true;
+        }
+      }
+      if (batchConfirmed) {
         confirmedEventIds.push(...batchEventIds);
       } else {
         failedEventIds.push(...batchEventIds);
@@ -311,18 +425,18 @@ export class SimulatedSyncDevice {
   /**
    * Enfileira evento recebido ao vivo para importação ordenada sob o mutex.
    */
-  enqueueLive(event: SyncEvent, createdAt: number): void {
-    this.liveQueue.push({ event, createdAt });
+  enqueueLive(event: SyncEvent, createdAt: number, deliveredAt?: number): void {
+    this.liveQueue.push({ event, createdAt, deliveredAt });
     this.scheduleDrain();
   }
 
   /**
    * Enfileira rajada de eventos recebidos ao vivo em lote sob o mutex.
    */
-  enqueueLiveBatch(events: SyncEvent[], createdAt: number): void {
+  enqueueLiveBatch(events: SyncEvent[], createdAt: number, deliveredAt?: number): void {
     if (events.length === 0) return;
     for (const event of events) {
-      this.liveQueue.push({ event, createdAt });
+      this.liveQueue.push({ event, createdAt, deliveredAt });
     }
     this.scheduleDrain();
   }
@@ -331,10 +445,17 @@ export class SimulatedSyncDevice {
    * Resolve quando a fila e o mutex de importação estiverem ociosos (para testes).
    */
   async idle(): Promise<void> {
-    while (this.heldImports > 0 || this.drainScheduled) {
+    while (this.heldImports > 0 || this.drainScheduled || this.liveQueue.length > 0) {
       await this.importTail;
       await Promise.resolve();
     }
+    const now = this.getNow();
+    for (const id of this.recentLiveImportedIds) {
+      if (!this.receivedAtByEventId.has(id)) {
+        this.receivedAtByEventId.set(id, now);
+      }
+    }
+    this.recentLiveImportedIds.clear();
   }
 
   /**
@@ -364,7 +485,17 @@ export class SimulatedSyncDevice {
         existingIds: this.getExistingEventIds(),
       });
 
+      const now = this.getNow();
+      for (const item of batch) {
+        const evt = item.event;
+        const deliveredAt = item.deliveredAt ?? now;
+        if (!this.receivedAtByEventId.has(evt.id)) {
+          this.receivedAtByEventId.set(evt.id, deliveredAt);
+        }
+      }
+
       for (const evt of incoming.eventsToImport) {
+        this.recentLiveImportedIds.add(evt.id);
         this.eventStore.appendEvent(evt);
       }
 
@@ -397,58 +528,66 @@ export class SimulatedSyncDevice {
           isRecovery: false,
           isStrong: true,
           cursor: this.cursor,
+          nowSec: Math.floor(this.getNow() / 1000),
         });
-        let currentUntil: number | undefined = undefined;
         const pageMax = 50;
-        let pageCount = 0;
         const seenNostrIds = new Set<string>();
         const allNostrEvents: NostrEvent[] = [];
 
-        while (pageCount < pageMax) {
-          pageCount++;
-          const filter: NostrFilter = {
-            kinds: [30333],
-            authors: [this.keys.publicKey],
-            limit: pageSize,
-          };
-          if (since !== undefined) filter.since = since;
-          if (currentUntil !== undefined) filter.until = currentUntil;
+        for (const r of this.relays) {
+          const seenThisRelay = new Set<string>();
+          let currentUntil: number | undefined = undefined;
+          let pageCount = 0;
 
-          const page = this.relay.query(filter);
-          if (page.length === 0) break;
+          while (pageCount < pageMax) {
+            pageCount++;
+            const filter: NostrFilter = {
+              kinds: [30333],
+              authors: [this.keys.publicKey],
+              limit: pageSize,
+            };
+            if (since !== undefined) filter.since = since;
+            if (currentUntil !== undefined) filter.until = currentUntil;
 
-          let newInPage = 0;
-          let minCreatedAt = Infinity;
-          let maxCreatedAt = -Infinity;
+            const page = r.query(filter);
+            if (page.length === 0) break;
 
-          for (const ne of page) {
-            if (!seenNostrIds.has(ne.id)) {
-              seenNostrIds.add(ne.id);
-              allNostrEvents.push(ne);
-              newInPage++;
+            let newInPage = 0;
+            let minCreatedAt = Infinity;
+            let maxCreatedAt = -Infinity;
+
+            for (const ne of page) {
+              if (!seenThisRelay.has(ne.id)) {
+                seenThisRelay.add(ne.id);
+                newInPage++;
+                if (!seenNostrIds.has(ne.id)) {
+                  seenNostrIds.add(ne.id);
+                  allNostrEvents.push(ne);
+                }
+              }
+              if (typeof ne.created_at === "number") {
+                if (ne.created_at < minCreatedAt) minCreatedAt = ne.created_at;
+                if (ne.created_at > maxCreatedAt) maxCreatedAt = ne.created_at;
+              }
             }
-            if (typeof ne.created_at === "number") {
-              if (ne.created_at < minCreatedAt) minCreatedAt = ne.created_at;
-              if (ne.created_at > maxCreatedAt) maxCreatedAt = ne.created_at;
+
+            if (newInPage === 0 || page.length < pageSize) {
+              break;
             }
-          }
 
-          if (newInPage === 0 || page.length < pageSize) {
-            break;
-          }
+            if (!Number.isFinite(minCreatedAt)) {
+              break;
+            }
 
-          if (!Number.isFinite(minCreatedAt)) {
-            break;
-          }
+            if (minCreatedAt === maxCreatedAt) {
+              currentUntil = minCreatedAt - 1;
+            } else {
+              currentUntil = minCreatedAt;
+            }
 
-          if (minCreatedAt === maxCreatedAt) {
-            currentUntil = minCreatedAt - 1;
-          } else {
-            currentUntil = minCreatedAt;
-          }
-
-          if (since !== undefined && currentUntil < since) {
-            break;
+            if (since !== undefined && currentUntil < since) {
+              break;
+            }
           }
         }
 
@@ -477,10 +616,14 @@ export class SimulatedSyncDevice {
             allForeignIds.push(...incoming.foreignEventIds);
           }
 
+          const now = this.getNow();
           for (const evt of incoming.eventsToImport) {
             seenLocal.add(evt.id);
             const appended = this.eventStore.appendEvent(evt);
             if (appended) {
+              if (!this.receivedAtByEventId.has(evt.id)) {
+                this.receivedAtByEventId.set(evt.id, now);
+              }
               totalImported++;
             }
           }
@@ -521,43 +664,50 @@ export class SimulatedSyncDevice {
     };
   }
 
+  private openLiveSubscriptions(): void {
+    if (this.liveSubs.length > 0) return;
+    for (const relay of this.relays) {
+      const sub = relay.subscribe(
+        { kinds: [30333], authors: [this.keys.publicKey] },
+        (ne, deliveryTimestamp) => {
+          if (!this.isOnline) return;
+
+          const res = decryptStrongPayload(ne.content, {
+            encryptionKey: this.keys.encryptionKey,
+            nostrPublicKey: this.keys.publicKey,
+          });
+          if (!res.ok) return;
+
+          const parsed = parseSyncPayloadDetailed(res.plaintext);
+          if (parsed.events.length > 0) {
+            this.enqueueLiveBatch(parsed.events, ne.created_at, deliveryTimestamp);
+          }
+        },
+      );
+      this.liveSubs.push(sub);
+    }
+  }
+
   /**
-   * Inicia subscrição ao vivo de eventos do relay.
+   * Inicia subscrição ao vivo de eventos de todos os relays conectados.
    */
   startLiveSync(): { close: () => void } {
-    if (this.liveSub) {
-      return { close: () => this.stopLiveSync() };
+    this.liveSyncActive = true;
+    if (this.isOnline && this.liveSubs.length === 0) {
+      this.openLiveSubscriptions();
     }
-
-    this.liveSub = this.relay.subscribe(
-      { kinds: [30333], authors: [this.keys.publicKey] },
-      (ne) => {
-        if (!this.isOnline) return;
-
-        const res = decryptStrongPayload(ne.content, {
-          encryptionKey: this.keys.encryptionKey,
-          nostrPublicKey: this.keys.publicKey,
-        });
-        if (!res.ok) return;
-
-        const parsed = parseSyncPayloadDetailed(res.plaintext);
-        if (parsed.events.length > 0) {
-          this.enqueueLiveBatch(parsed.events, ne.created_at);
-        }
-      },
-    );
-
     return { close: () => this.stopLiveSync() };
   }
 
   /**
-   * Encerra a subscrição ao vivo.
+   * Encerra a subscrição ao vivo em todos os relays.
    */
   stopLiveSync(): void {
-    if (this.liveSub) {
-      this.liveSub.close();
-      this.liveSub = null;
+    this.liveSyncActive = false;
+    for (const sub of this.liveSubs) {
+      sub.close();
     }
+    this.liveSubs = [];
   }
 
   /**
@@ -565,10 +715,33 @@ export class SimulatedSyncDevice {
    */
   setOnline(online: boolean): void {
     this.isOnline = online;
+    if (!online) {
+      for (const sub of this.liveSubs) {
+        sub.close();
+      }
+      this.liveSubs = [];
+    } else {
+      if (this.liveSyncActive && this.liveSubs.length === 0) {
+        this.startLiveSync();
+      }
+    }
   }
 
   getOnline(): boolean {
     return this.isOnline;
+  }
+
+  /**
+   * Story 5.7: Reconecta o aparelho à rede e aos relays, restabelecendo a subscrição ao vivo
+   * (se estava ativa anteriormente) e executando reconciliação autônoma (sync: push + pull).
+   */
+  async reconnect(): Promise<{
+    pushed: boolean;
+    pushCount: number;
+    importedCount: number;
+  }> {
+    this.setOnline(true);
+    return this.sync();
   }
 
   /**
@@ -643,10 +816,13 @@ export async function createSimulatedDevice(
   return new SimulatedSyncDevice({
     deviceId: options.deviceId,
     relay: options.relay,
+    relays: options.relays,
     keys,
     groupCode,
     eventStore,
     tracker,
     cursor: options.cursor,
+    now: options.now,
+    clock: options.clock,
   });
 }
