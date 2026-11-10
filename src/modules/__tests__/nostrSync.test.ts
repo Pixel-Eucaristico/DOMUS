@@ -16,6 +16,7 @@ let lastQueryFilter: any = null;
 let lastSubHandler: any = null;
 let publishCalls = 0;
 let publishRejectCondition: ((ev: any, callIndex: number) => boolean) | null = null;
+let querySyncRejectError: Error | null = null;
 
 vi.mock("nostr-tools/pool", () => ({
   SimplePool: class {
@@ -28,8 +29,15 @@ vi.mock("nostr-tools/pool", () => ({
       return relays.map(() => Promise.resolve("ok"));
     }
     querySync(_relays: string[], filter: any) {
+      if (querySyncRejectError) {
+        return Promise.reject(querySyncRejectError);
+      }
       lastQueryFilter = filter;
-      let out = relayEvents.filter((e) => filter.since === undefined || (e.created_at ?? 0) >= filter.since);
+      let out = relayEvents.filter((e) => {
+        if (filter.since !== undefined && (e.created_at ?? 0) < filter.since) return false;
+        if (filter.until !== undefined && (e.created_at ?? 0) > filter.until) return false;
+        return true;
+      });
       if (filter.limit !== undefined) {
         // Como um relay: os mais recentes por created_at primeiro, cortados no limite.
         out = [...out].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0)).slice(0, filter.limit);
@@ -55,6 +63,7 @@ import {
   computeStrongBatchId,
   closePool,
   type NostrSyncKeys,
+  type PullSyncOptions,
 } from "../nostrSync";
 
 const valid = (over: Record<string, unknown> = {}) => ({
@@ -113,6 +122,7 @@ beforeEach(() => {
   lastSubHandler = null;
   publishCalls = 0;
   publishRejectCondition = null;
+  querySyncRejectError = null;
   warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 });
 afterEach(() => {
@@ -825,6 +835,121 @@ describe("Story 5.2 - Confirmação de envio por lote e relatório discriminado 
 
       expect(published).toHaveLength(1);
       expect(published[0].tags.find((t: string[]) => t[0] === "d")?.[1]).toBe(expectedBatchId);
+    });
+  });
+
+  describe("Story 5.4: leitura incremental e paginada (pullSyncEvents)", () => {
+    const baseTime = 1_700_000_000;
+
+    it("recupera histórico de 1.200 lotes via paginação retroativa sem cursor", async () => {
+      const keys = await deriveKeysFromCode("TESTE-54-PAG");
+      relayEvents = Array.from({ length: 1200 }, (_, i) =>
+        relayEvent(`r-${i}`, encrypt(JSON.stringify(valid({ id: `e-${i}` })), keys.encryptionKey), baseTime + i),
+      );
+
+      const { events, maxCreatedAt } = await pullSyncEvents(keys, "dev-b", true);
+      expect(events).toHaveLength(1200);
+      expect(maxCreatedAt).toBe(baseTime + 1199);
+      const ids = new Set(events.map((e) => e.id));
+      expect(ids.size).toBe(1200);
+    });
+
+    it("busca incremental com cursor: aplica since no filtro e busca apenas eventos posteriores", async () => {
+      const keys = await deriveKeysFromCode("TESTE-54-INCR");
+      relayEvents = Array.from({ length: 10 }, (_, i) =>
+        relayEvent(`r-${i}`, encrypt(JSON.stringify(valid({ id: `e-${i}` })), keys.encryptionKey), baseTime + i * 10),
+      );
+
+      const options: PullSyncOptions = { cursor: baseTime + 70 };
+      const { events, maxCreatedAt } = await pullSyncEvents(keys, "dev-b", true, options);
+      // Com janela de 60s, since é baseTime + 10 (70 - 60): traz os eventos com created_at >= baseTime + 10 (e-1..e-9)
+      expect(events).toHaveLength(9);
+      expect(maxCreatedAt).toBe(baseTime + 90);
+      expect(lastQueryFilter.since).toBe(baseTime + 10);
+    });
+
+    it("falha/rejeição de relays durante pullSyncEvents lança erro e não atualiza cursor", async () => {
+      const keys = await deriveKeysFromCode("TESTE-54-REJECT");
+      querySyncRejectError = new Error("Relay connection refused");
+      await expect(pullSyncEvents(keys, "dev-b", true)).rejects.toThrow("Relay connection refused");
+    });
+
+    it("paginação combinada (> 500 eventos) com filtro since/cursor ativo recupera todos os novos", async () => {
+      const keys = await deriveKeysFromCode("TESTE-54-PAG-SINCE");
+      // 1.200 eventos no relay
+      relayEvents = Array.from({ length: 1200 }, (_, i) =>
+        relayEvent(`r-${i}`, encrypt(JSON.stringify(valid({ id: `e-${i}` })), keys.encryptionKey), baseTime + i),
+      );
+
+      // Filtro since a partir de baseTime + 500 (devem vir 700 eventos: 500 a 1199)
+      const { events, maxCreatedAt } = await pullSyncEvents(keys, "dev-b", true, {
+        since: baseTime + 500,
+      });
+      expect(events).toHaveLength(700);
+      expect(maxCreatedAt).toBe(baseTime + 1199);
+      expect(events.map((e) => e.id)).toContain("e-500");
+      expect(events.map((e) => e.id)).toContain("e-1199");
+      expect(events.map((e) => e.id)).not.toContain("e-499");
+    });
+
+    it("aplica janela de sobreposição de 60 segundos em since derivado de cursor para tolerar clock skew", async () => {
+      const keys = await deriveKeysFromCode("TESTE-54-SKEW");
+      // Evento de peer com relógio 30s atrás do cursor do aparelho local
+      relayEvents = [
+        relayEvent("r-skewed", encrypt(JSON.stringify(valid({ id: "e-skewed" })), keys.encryptionKey), baseTime + 70),
+        relayEvent("r-current", encrypt(JSON.stringify(valid({ id: "e-current" })), keys.encryptionKey), baseTime + 105),
+      ];
+
+      // Cursor local está em baseTime + 100.
+      // Com tolerância de 60s, since enviado ao relay deve ser baseTime + 40 (100 - 60).
+      const { events } = await pullSyncEvents(keys, "dev-b", true, { cursor: baseTime + 100 });
+      expect(lastQueryFilter.since).toBe(baseTime + 40);
+      expect(events.map((e) => e.id)).toEqual(["e-current", "e-skewed"]);
+    });
+
+    it("parâmetro since explícito em options tem precedência e aplica filtro", async () => {
+      const keys = await deriveKeysFromCode("TESTE-54-SINCE");
+      relayEvents = [
+        relayEvent("r-old", encrypt(JSON.stringify(valid({ id: "e-old" })), keys.encryptionKey), baseTime + 10),
+        relayEvent("r-new", encrypt(JSON.stringify(valid({ id: "e-new" })), keys.encryptionKey), baseTime + 50),
+      ];
+
+      const { events } = await pullSyncEvents(keys, "dev-b", true, { since: baseTime + 30 });
+      expect(events.map((e) => e.id)).toEqual(["e-new"]);
+      expect(lastQueryFilter.since).toBe(baseTime + 30);
+    });
+
+    it("cursor nulo ou indefinido não inclui since no filtro (recuperação completa)", async () => {
+      const keys = await deriveKeysFromCode("TESTE-54-NOCURSOR");
+      relayEvents = [
+        relayEvent("r-1", encrypt(JSON.stringify(valid({ id: "e-1" })), keys.encryptionKey), baseTime + 10),
+      ];
+
+      await pullSyncEvents(keys, "dev-b", true, { cursor: null });
+      expect("since" in lastQueryFilter).toBe(false);
+    });
+
+    it("salvaguarda: fronteira com múltiplos eventos com mesmo created_at termina sem loop infinito", async () => {
+      const keys = await deriveKeysFromCode("TESTE-54-BOUNDARY");
+      relayEvents = Array.from({ length: 600 }, (_, i) =>
+        relayEvent(
+          `r-${i}`,
+          encrypt(JSON.stringify(valid({ id: `e-${i}` })), keys.encryptionKey),
+          i < 500 ? baseTime : baseTime - 1,
+        ),
+      );
+
+      const { events } = await pullSyncEvents(keys, "dev-b", true);
+      expect(events).toHaveLength(600);
+    });
+
+    it("salvaguarda: paginação para quando não há novos eventos retornados", async () => {
+      const keys = await deriveKeysFromCode("TESTE-54-EMPTY");
+      relayEvents = [];
+
+      const { events, maxCreatedAt } = await pullSyncEvents(keys, "dev-b", true);
+      expect(events).toEqual([]);
+      expect(maxCreatedAt).toBeNull();
     });
   });
 });

@@ -15,7 +15,7 @@ import {
   type SyncGroupTracker,
   type SyncGroupTrackingStorage,
 } from "../syncGroupTracking";
-import { parseSyncPayloadDetailed } from "../syncPayload";
+import { parseSyncPayloadDetailed, advanceRelayCursor } from "../syncPayload";
 import {
   encryptStrongPayload,
   decryptStrongPayload,
@@ -31,10 +31,11 @@ import {
   shouldPublishGroupEvents,
   processIncomingEvents,
   processPushResult,
+  resolvePullSyncOptions,
 } from "../syncDecisions";
 import { replayAllEvents, type ReplayResult } from "@/src/context/replay";
 import type { AppState } from "@packages/domain/src/state";
-import type { FakeMemoryRelay, RelaySubscription } from "./fakeMemoryRelay";
+import type { FakeMemoryRelay, RelaySubscription, NostrEvent, NostrFilter } from "./fakeMemoryRelay";
 
 export class MemoryTrackingStorage implements SyncGroupTrackingStorage {
   private map = new Map<string, string>();
@@ -66,6 +67,7 @@ export interface CreateSimulatedDeviceOptions {
   groupSecret?: string;
   keys?: NostrSyncKeys;
   initialEvents?: readonly SyncEvent[];
+  cursor?: number | null;
 }
 
 export class SimulatedSyncDevice {
@@ -76,6 +78,7 @@ export class SimulatedSyncDevice {
   readonly eventStore: SQLiteEventStore;
   readonly tracker: SyncGroupTracker;
 
+  private cursor: number | null = null;
   private seq = 0;
   private lastPushHash = "empty";
   private isOnline = true;
@@ -89,6 +92,7 @@ export class SimulatedSyncDevice {
     groupCode: string;
     eventStore: SQLiteEventStore;
     tracker: SyncGroupTracker;
+    cursor?: number | null;
   }) {
     this.deviceId = params.deviceId;
     this.relay = params.relay;
@@ -96,6 +100,7 @@ export class SimulatedSyncDevice {
     this.groupCode = params.groupCode;
     this.eventStore = params.eventStore;
     this.tracker = params.tracker;
+    this.cursor = params.cursor ?? null;
   }
 
   /**
@@ -191,7 +196,7 @@ export class SimulatedSyncDevice {
       });
 
       const nowSec = Math.floor(Date.now() / 1000);
-      this.lastCreatedAt = Math.max(nowSec, this.lastCreatedAt + 1);
+      this.lastCreatedAt = Math.max(nowSec, this.lastCreatedAt + 1, (this.cursor ?? 0) + 1);
 
       const nostrEvent = {
         kind: 30333,
@@ -256,30 +261,98 @@ export class SimulatedSyncDevice {
     };
   }
 
+  /** Retorna o cursor atual do relay (maior created_at de evento válido recebido) */
+  getCursor(): number | null {
+    return this.cursor;
+  }
+
+  /** Permite ajustar o cursor diretamente para cenários de teste */
+  setCursor(cursor: number | null): void {
+    this.cursor = cursor;
+  }
+
   /**
-   * Puxa eventos dos relays, decifra com a chave do Grupo forte, processa
-   * via processIncomingEvents e grava apenas inéditos no eventStore.
+   * Puxa eventos dos relays de forma incremental e paginada, decifra com a chave do Grupo forte,
+   * processa via processIncomingEvents, grava apenas inéditos no eventStore e avança o cursor.
    */
   async pull(): Promise<{ importedCount: number }> {
     if (!this.isOnline) {
       return { importedCount: 0 };
     }
 
-    const nostrEvents = this.relay.query({
-      kinds: [30333],
-      authors: [this.keys.publicKey],
+    const pageSize = 500;
+    const { since } = resolvePullSyncOptions({
+      isRecovery: false,
+      isStrong: true,
+      cursor: this.cursor,
     });
+    let currentUntil: number | undefined = undefined;
+    const pageMax = 50;
+    let pageCount = 0;
+    const seenNostrIds = new Set<string>();
+    const allNostrEvents: NostrEvent[] = [];
+
+    while (pageCount < pageMax) {
+      pageCount++;
+      const filter: NostrFilter = {
+        kinds: [30333],
+        authors: [this.keys.publicKey],
+        limit: pageSize,
+      };
+      if (since !== undefined) filter.since = since;
+      if (currentUntil !== undefined) filter.until = currentUntil;
+
+      const page = this.relay.query(filter);
+      if (page.length === 0) break;
+
+      let newInPage = 0;
+      let minCreatedAt = Infinity;
+      let maxCreatedAt = -Infinity;
+
+      for (const ne of page) {
+        if (!seenNostrIds.has(ne.id)) {
+          seenNostrIds.add(ne.id);
+          allNostrEvents.push(ne);
+          newInPage++;
+        }
+        if (typeof ne.created_at === "number") {
+          if (ne.created_at < minCreatedAt) minCreatedAt = ne.created_at;
+          if (ne.created_at > maxCreatedAt) maxCreatedAt = ne.created_at;
+        }
+      }
+
+      if (newInPage === 0 || page.length < pageSize) {
+        break;
+      }
+
+      if (!Number.isFinite(minCreatedAt)) {
+        break;
+      }
+
+      if (minCreatedAt === maxCreatedAt) {
+        currentUntil = minCreatedAt - 1;
+      } else {
+        currentUntil = minCreatedAt;
+      }
+
+      if (since !== undefined && currentUntil < since) {
+        break;
+      }
+    }
 
     let totalImported = 0;
     const allForeignIds: string[] = [];
     const seenLocal = this.getExistingEventIds();
+    const createdAts: number[] = [];
 
-    for (const ne of nostrEvents) {
+    for (const ne of allNostrEvents) {
       const res = decryptStrongPayload(ne.content, {
         encryptionKey: this.keys.encryptionKey,
         nostrPublicKey: this.keys.publicKey,
       });
       if (!res.ok) continue;
+
+      createdAts.push(ne.created_at);
 
       const parsed = parseSyncPayloadDetailed(res.plaintext);
       const incoming = processIncomingEvents({
@@ -303,6 +376,13 @@ export class SimulatedSyncDevice {
 
     if (allForeignIds.length > 0) {
       await this.tracker.markReceived(allForeignIds, this.keys.publicKey);
+    }
+
+    if (createdAts.length > 0) {
+      this.cursor = advanceRelayCursor(this.cursor, createdAts);
+      if (this.cursor !== null && this.cursor > this.lastCreatedAt) {
+        this.lastCreatedAt = this.cursor;
+      }
     }
 
     return { importedCount: totalImported };
@@ -461,5 +541,6 @@ export async function createSimulatedDevice(
     groupCode,
     eventStore,
     tracker,
+    cursor: options.cursor,
   });
 }

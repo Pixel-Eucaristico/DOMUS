@@ -9,6 +9,7 @@ import {
   describePullDiscards,
   parseSyncPayloadDetailed,
   partitionOldGroupEvents,
+  RELAY_CURSOR_OVERLAP_SEC,
   type ParsedSyncPayload,
 } from "./syncPayload";
 import {
@@ -672,26 +673,113 @@ export interface PullResult {
 }
 
 /**
- * Pull completo de propósito (até 500 eventos por relay), sem `since`: os lotes
- * são eventos substituíveis (tag `d`), republicados com `created_at` novo, e o
- * `created_at` vem do relógio de quem publica. Um `since` pelo cursor perderia
- * os lotes de um aparelho com relógio atrasado. Só a assinatura ao vivo usa o
- * cursor dos relays (Story 3.6).
+ * Story 5.4: Opções de paginação e leitura incremental para o pull.
+ */
+export interface PullSyncOptions {
+  cursor?: number | null;
+  since?: number | null;
+  pageSize?: number;
+  maxPages?: number;
+}
+
+/**
+ * Story 5.4: Pull paginado retroativamente e incremental.
+ *
+ * Se houver cursor registrado, consulta apenas eventos posteriores ou iguais ao cursor
+ * (`since: cursor`), economizando rede e bateria. Se não houver cursor (ou em recuperação),
+ * realiza busca paginada retroativa com páginas de até `pageSize` eventos (padrão 500) usando
+ * `until`, recuperando o histórico completo sem truncamento.
  */
 export async function pullSyncEvents(
   keys: NostrSyncKeys,
   deviceId: string,
-  includeMyEvents: boolean = false,
+  includeMyEvents: boolean | PullSyncOptions = false,
+  options?: PullSyncOptions,
 ): Promise<PullResult> {
   const pool = getPool();
   const relays = getRelays();
   const isStrong = Boolean(keys.isStrong);
 
-  const filter = {
-    kinds: [DOMUS_KIND],
-    authors: [keys.publicKey],
-    limit: 500,
-  };
+  const opts = typeof includeMyEvents === "object" && includeMyEvents !== null
+    ? includeMyEvents
+    : (options ?? {});
+
+  const rawSince = opts.since !== undefined
+    ? opts.since
+    : (opts.cursor != null && opts.cursor > 0 ? Math.max(0, Math.floor(opts.cursor) - RELAY_CURSOR_OVERLAP_SEC) : undefined);
+  const since = typeof rawSince === "number" && Number.isFinite(rawSince) && rawSince >= 0
+    ? Math.floor(rawSince)
+    : undefined;
+  const pageSize = opts.pageSize ?? 500;
+  const maxPages = opts.maxPages ?? 50;
+
+  async function fetchEventsFromRelay(relay: string): Promise<any[]> {
+    const allRelayEvents: any[] = [];
+    const seenRelayNostrIds = new Set<string>();
+    let currentUntil: number | undefined = undefined;
+    let pageCount = 0;
+
+    while (pageCount < maxPages) {
+      pageCount++;
+      const filter: Record<string, unknown> = {
+        kinds: [DOMUS_KIND],
+        authors: [keys.publicKey],
+        limit: pageSize,
+      };
+      if (since !== undefined) {
+        filter.since = since;
+      }
+      if (currentUntil !== undefined) {
+        filter.until = currentUntil;
+      }
+
+      const pageEvents = await withTimeout(
+        pool.querySync([relay], filter as any),
+        PULL_TIMEOUT_MS,
+        `pull from ${relay} (page ${pageCount})`,
+      );
+
+      if (!Array.isArray(pageEvents) || pageEvents.length === 0) {
+        break;
+      }
+
+      let newEventsInPage = 0;
+      let minCreatedAt = Infinity;
+      let maxCreatedAtInPage = -Infinity;
+
+      for (const ev of pageEvents) {
+        if (!seenRelayNostrIds.has(ev.id)) {
+          seenRelayNostrIds.add(ev.id);
+          allRelayEvents.push(ev);
+          newEventsInPage++;
+        }
+        if (typeof ev.created_at === "number") {
+          if (ev.created_at < minCreatedAt) minCreatedAt = ev.created_at;
+          if (ev.created_at > maxCreatedAtInPage) maxCreatedAtInPage = ev.created_at;
+        }
+      }
+
+      if (newEventsInPage === 0 || pageEvents.length < pageSize) {
+        break;
+      }
+
+      if (!Number.isFinite(minCreatedAt)) {
+        break;
+      }
+
+      if (minCreatedAt === maxCreatedAtInPage) {
+        currentUntil = minCreatedAt - 1;
+      } else {
+        currentUntil = minCreatedAt;
+      }
+
+      if (since !== undefined && currentUntil < since) {
+        break;
+      }
+    }
+
+    return allRelayEvents;
+  }
 
   const seenIds = new Set<string>();
   const syncEvents: SyncEvent[] = [];
@@ -703,17 +791,18 @@ export async function pullSyncEvents(
   const relayResults = await Promise.all(
     relays.map(async (relay) => {
       try {
-        const events = await withTimeout(
-          pool.querySync([relay], filter),
-          PULL_TIMEOUT_MS,
-          `pull from ${relay}`,
-        );
-        return { status: "fulfilled", value: events };
+        const events = await fetchEventsFromRelay(relay);
+        return { status: "fulfilled" as const, value: events };
       } catch (err) {
-        return { status: "rejected", reason: err };
+        return { status: "rejected" as const, reason: err };
       }
     }),
   );
+
+  if (relays.length > 0 && relayResults.every((r) => r.status === "rejected")) {
+    const firstError = (relayResults[0] as PromiseRejectedResult).reason;
+    throw firstError ?? new Error("Falha ao buscar eventos nos relays");
+  }
 
   for (const result of relayResults) {
     if (result.status !== "fulfilled") continue;

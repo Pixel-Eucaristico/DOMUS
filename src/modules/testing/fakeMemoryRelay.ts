@@ -106,6 +106,9 @@ export class FakeMemoryRelay {
   /** Histórico completo de publicações */
   private publicationLog: PublicationLogEntry[] = [];
 
+  /** Histórico completo de consultas realizadas via query() */
+  private queryLog: NostrFilter[] = [];
+
   /** Subscrições ativas */
   private subscriptions = new Map<string, RelaySubscription>();
   private subSeq = 0;
@@ -278,6 +281,8 @@ export class FakeMemoryRelay {
    * Consulta eventos no relay em memória filtrados pelas regras especificadas.
    */
   query(filter: NostrFilter): NostrEvent[] {
+    this.queryLog.push({ ...filter });
+
     if (this.isDown) {
       return [];
     }
@@ -375,6 +380,13 @@ export class FakeMemoryRelay {
   }
 
   /**
+   * Retorna o histórico de todas as consultas executadas via query().
+   */
+  getQueryLog(): readonly NostrFilter[] {
+    return [...this.queryLog];
+  }
+
+  /**
    * Limpa o estado interno do relay.
    */
   clear(): void {
@@ -386,6 +398,7 @@ export class FakeMemoryRelay {
     this.pubCountByInnerEventId.clear();
     this.pubCountByDeviceId.clear();
     this.publicationLog = [];
+    this.queryLog = [];
     this.subscriptions.clear();
   }
 

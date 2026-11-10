@@ -18,8 +18,9 @@ import {
   processIncomingEvents,
   computeEventHash,
   processPushResult,
+  resolvePullSyncOptions,
 } from "../syncDecisions";
-import { FakeMemoryRelay } from "../testing/fakeMemoryRelay";
+import { FakeMemoryRelay, type NostrEvent } from "../testing/fakeMemoryRelay";
 import {
   createSimulatedDevice,
   type SimulatedSyncDevice,
@@ -29,7 +30,9 @@ import {
   encodeGroupSecret,
   deriveStrongGroupKeys,
 } from "../strongGroup/groupSecret";
+import { encryptStrongPayload } from "../strongGroup/eventCipher";
 import { computeStrongBatchId, type NostrSyncKeys } from "../nostrSync";
+import { RELAY_CURSOR_OVERLAP_SEC } from "../syncPayload";
 
 function makeEvent(overrides: Partial<SyncEvent> = {}): SyncEvent {
   const id = overrides.id ?? "evt-1";
@@ -1229,6 +1232,72 @@ describe("processPushResult (syncDecisions)", () => {
   });
 });
 
+describe("resolvePullSyncOptions (syncDecisions)", () => {
+  it("modo recuperação (isRecovery = true): retorna cursor null e sem since mesmo com cursor salvo", () => {
+    const opts = resolvePullSyncOptions({
+      isRecovery: true,
+      isStrong: true,
+      cursor: 1_700_000_100,
+    });
+    expect(opts).toEqual({ cursor: null });
+    expect(opts.since).toBeUndefined();
+  });
+
+  it("grupo legado (isStrong = false): não usa cursor nem since para evitar contaminação", () => {
+    const opts = resolvePullSyncOptions({
+      isRecovery: false,
+      isStrong: false,
+      cursor: 1_700_000_100,
+    });
+    expect(opts).toEqual({ cursor: null });
+    expect(opts.since).toBeUndefined();
+  });
+
+  it("grupo forte com cursor ativo: preserva cursor e aplica janela de sobreposição de 60 segundos em since", () => {
+    const cursor = 1_700_000_100;
+    const opts = resolvePullSyncOptions({
+      isRecovery: false,
+      isStrong: true,
+      cursor,
+    });
+    expect(opts.cursor).toBe(cursor);
+    expect(opts.since).toBe(cursor - 60);
+  });
+
+  it("cursor nulo, indefinido ou <= 0: retorna cursor null e sem since", () => {
+    expect(resolvePullSyncOptions({ isStrong: true, cursor: null })).toEqual({ cursor: null });
+    expect(resolvePullSyncOptions({ isStrong: true, cursor: undefined })).toEqual({ cursor: null });
+    expect(resolvePullSyncOptions({ isStrong: true, cursor: 0 })).toEqual({ cursor: null });
+    expect(resolvePullSyncOptions({ isStrong: true, cursor: -10 })).toEqual({ cursor: null });
+    expect(resolvePullSyncOptions({ isStrong: true, cursor: Number.NaN })).toEqual({ cursor: null });
+    expect(resolvePullSyncOptions({ isStrong: true, cursor: Infinity })).toEqual({ cursor: null });
+    expect(resolvePullSyncOptions({ isStrong: true, cursor: -Infinity })).toEqual({ cursor: null });
+  });
+
+  it("limita since para não exceder nowSec - RELAY_CURSOR_OVERLAP_SEC em caso de relógio adiantado", () => {
+    const nowSec = 1_700_000_000;
+    const futureCursor = nowSec + 3600; // 1 hora no futuro
+    const opts = resolvePullSyncOptions({
+      isRecovery: false,
+      isStrong: true,
+      cursor: futureCursor,
+      nowSec,
+    });
+    expect(opts.cursor).toBe(futureCursor);
+    expect(opts.since).toBe(nowSec - RELAY_CURSOR_OVERLAP_SEC);
+  });
+
+  it("janela de sobreposição não produz timestamp negativo quando cursor < 60s", () => {
+    const opts = resolvePullSyncOptions({
+      isRecovery: false,
+      isStrong: true,
+      cursor: 30,
+    });
+    expect(opts.cursor).toBe(30);
+    expect(opts.since).toBe(0);
+  });
+});
+
 describe("Story 5.3 - Publicar só os lotes novos no Grupo forte (lotes imutáveis content-addressed)", () => {
   let relay: FakeMemoryRelay;
   let sharedSecret: string;
@@ -1458,5 +1527,231 @@ describe("Story 5.3 - Publicar só os lotes novos no Grupo forte (lotes imutáve
     expect(relay.getAllEvents()).toHaveLength(1);
     const dTag2 = relay.getAllEvents()[0].tags.find((t) => t[0] === "d")?.[1];
     expect(dTag1).toBe(dTag2);
+  });
+});
+
+describe("Story 5.4 - Ler o histórico de forma incremental e paginada", () => {
+  let relay: FakeMemoryRelay;
+  let sharedSecret: string;
+  let sharedKeys: NostrSyncKeys;
+  let deviceB: SimulatedSyncDevice;
+  const baseTime = 1_700_000_000;
+
+  beforeEach(async () => {
+    relay = new FakeMemoryRelay();
+    const rawSecret = generateGroupSecret();
+    sharedSecret = encodeGroupSecret(rawSecret);
+    const strongKeys = deriveStrongGroupKeys(rawSecret);
+    sharedKeys = {
+      privateKey: strongKeys.nostrPrivateKey,
+      publicKey: strongKeys.nostrPublicKey,
+      encryptionKey: strongKeys.encryptionKey,
+      isStrong: true,
+    };
+
+    deviceB = await createSimulatedDevice({
+      deviceId: "dev-B",
+      relay,
+      keys: sharedKeys,
+      groupSecret: sharedSecret,
+    });
+  });
+
+  it("histórico de 1.200 lotes no relay falso é lido por inteiro via paginação em páginas de até 500", async () => {
+    // 1. Popula o relay com 1.200 lotes Nostr válidos e decifráveis com chave forte
+    for (let i = 0; i < 1200; i++) {
+      const syncEvt: SyncEvent = {
+        id: `evt-hist-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `evt-hist-${i}`, accountId: "acc-1", type: "expense", amount: 10, date: "2026-10-01" },
+        timestamp: 1_700_000_000_000 + i * 1000,
+        deviceId: "dev-publisher",
+        signature: `sig-${i}`,
+      };
+      const ciphertext = encryptStrongPayload(JSON.stringify([syncEvt]), {
+        encryptionKey: sharedKeys.encryptionKey,
+        nostrPublicKey: sharedKeys.publicKey,
+      });
+      const nostrEvent: NostrEvent = {
+        id: `nostr-batch-${i}`,
+        pubkey: sharedKeys.publicKey,
+        created_at: baseTime + i,
+        kind: 30333,
+        tags: [
+          ["t", "domus-sync"],
+          ["d", `sync-dev-publisher-${i}`],
+        ],
+        content: ciphertext,
+      };
+      relay.publish(nostrEvent);
+    }
+
+    expect(relay.getAllEvents()).toHaveLength(1200);
+    expect(deviceB.getCursor()).toBeNull();
+
+    // 2. Aparelho B executa pull()
+    const pullResult = await deviceB.pull();
+    expect(pullResult.importedCount).toBe(1200);
+    expect(deviceB.getAllEvents()).toHaveLength(1200);
+
+    // 3. Comprova que a recuperação paginou em 3 páginas (500 + 500 + 200)
+    const queries = relay.getQueryLog();
+    expect(queries).toHaveLength(3);
+    // 1ª página: limit 500, sem since nem until
+    expect(queries[0].limit).toBe(500);
+    expect(queries[0].since).toBeUndefined();
+    expect(queries[0].until).toBeUndefined();
+    // 2ª página: limit 500, until definido pelo menor timestamp da 1ª página
+    expect(queries[1].limit).toBe(500);
+    expect(queries[1].until).toBe(baseTime + 700);
+    // 3ª página: limit 500, until definido pelo menor timestamp da 2ª página
+    expect(queries[2].limit).toBe(500);
+    expect(queries[2].until).toBe(baseTime + 201);
+
+    // 4. Cursor avançou para o maior created_at
+    expect(deviceB.getCursor()).toBe(baseTime + 1199);
+  });
+
+  it("ciclo subsequente com cursor ativo lê apenas o que chegou após o cursor", async () => {
+    // 1. Popula 1.200 lotes e faz a leitura inicial
+    for (let i = 0; i < 1200; i++) {
+      const syncEvt: SyncEvent = {
+        id: `evt-hist-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `evt-hist-${i}`, accountId: "acc-1", type: "expense", amount: 10, date: "2026-10-01" },
+        timestamp: 1_700_000_000_000 + i * 1000,
+        deviceId: "dev-publisher",
+        signature: `sig-${i}`,
+      };
+      const ciphertext = encryptStrongPayload(JSON.stringify([syncEvt]), {
+        encryptionKey: sharedKeys.encryptionKey,
+        nostrPublicKey: sharedKeys.publicKey,
+      });
+      relay.publish({
+        id: `nostr-batch-${i}`,
+        pubkey: sharedKeys.publicKey,
+        created_at: baseTime + i,
+        kind: 30333,
+        tags: [
+          ["t", "domus-sync"],
+          ["d", `sync-dev-publisher-${i}`],
+        ],
+        content: ciphertext,
+      });
+    }
+
+    await deviceB.pull();
+    expect(deviceB.getCursor()).toBe(baseTime + 1199);
+
+    // 2. Aparelho A publica 1 novo lote com timestamp mais recente
+    const newEvt: SyncEvent = {
+      id: "evt-subsequent-1",
+      type: "TRANSACTION_CREATED",
+      payload: { id: "evt-subsequent-1", accountId: "acc-1", type: "income", amount: 200, date: "2026-10-02" },
+      timestamp: 1_700_000_000_000 + 1300 * 1000,
+      deviceId: "dev-A",
+      signature: "sig-subsequent-1",
+    };
+    const newCiphertext = encryptStrongPayload(JSON.stringify([newEvt]), {
+      encryptionKey: sharedKeys.encryptionKey,
+      nostrPublicKey: sharedKeys.publicKey,
+    });
+    relay.publish({
+      id: "nostr-new-batch",
+      pubkey: sharedKeys.publicKey,
+      created_at: baseTime + 1250,
+      kind: 30333,
+      tags: [
+        ["t", "domus-sync"],
+        ["d", "sync-dev-A-new"],
+      ],
+      content: newCiphertext,
+    });
+
+    // 3. Aparelho B executa segundo pull: lê estritamente o novo lote
+    const queryCountBefore = relay.getQueryLog().length;
+    const secondPull = await deviceB.pull();
+    expect(secondPull.importedCount).toBe(1);
+    expect(deviceB.getAllEvents()).toHaveLength(1201);
+
+    // 4. Apenas 1 consulta foi realizada no segundo pull, com since: baseTime + 1199 - RELAY_CURSOR_OVERLAP_SEC
+    const secondQueries = relay.getQueryLog().slice(queryCountBefore);
+    expect(secondQueries).toHaveLength(1);
+    expect(secondQueries[0].since).toBe(baseTime + 1199 - RELAY_CURSOR_OVERLAP_SEC);
+    expect(secondQueries[0].until).toBeUndefined();
+
+    // 5. Cursor avançou para o timestamp do novo lote
+    expect(deviceB.getCursor()).toBe(baseTime + 1250);
+  });
+
+  it("ciclo subsequente sem novos eventos é no-op e mantém o cursor inalterado", async () => {
+    // 1. Popula 5 lotes e lê inicialmente
+    for (let i = 0; i < 5; i++) {
+      const syncEvt: SyncEvent = {
+        id: `evt-noop-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `evt-noop-${i}`, accountId: "acc-1", type: "expense", amount: 10, date: "2026-10-01" },
+        timestamp: 1_700_000_000_000 + i * 1000,
+        deviceId: "dev-publisher",
+        signature: `sig-${i}`,
+      };
+      const ciphertext = encryptStrongPayload(JSON.stringify([syncEvt]), {
+        encryptionKey: sharedKeys.encryptionKey,
+        nostrPublicKey: sharedKeys.publicKey,
+      });
+      relay.publish({
+        id: `nostr-noop-${i}`,
+        pubkey: sharedKeys.publicKey,
+        created_at: baseTime + i,
+        kind: 30333,
+        tags: [
+          ["t", "domus-sync"],
+          ["d", `sync-dev-publisher-${i}`],
+        ],
+        content: ciphertext,
+      });
+    }
+
+    await deviceB.pull();
+    expect(deviceB.getCursor()).toBe(baseTime + 4);
+
+    // 2. Terceiro pull sem nenhuma publicação nova
+    const pullNoOp = await deviceB.pull();
+    expect(pullNoOp.importedCount).toBe(0);
+    expect(deviceB.getCursor()).toBe(baseTime + 4);
+  });
+
+  it("fronteira de página com múltiplos lotes com mesmo created_at não duplica nem entra em loop", async () => {
+    // 600 lotes: 500 no baseTime + 10, e 100 no baseTime
+    for (let i = 0; i < 600; i++) {
+      const syncEvt: SyncEvent = {
+        id: `evt-boundary-${i}`,
+        type: "TRANSACTION_CREATED",
+        payload: { id: `evt-boundary-${i}`, accountId: "acc-1", type: "expense", amount: 10, date: "2026-10-01" },
+        timestamp: 1_700_000_000_000 + i * 1000,
+        deviceId: "dev-publisher",
+        signature: `sig-${i}`,
+      };
+      const ciphertext = encryptStrongPayload(JSON.stringify([syncEvt]), {
+        encryptionKey: sharedKeys.encryptionKey,
+        nostrPublicKey: sharedKeys.publicKey,
+      });
+      relay.publish({
+        id: `nostr-boundary-${i}`,
+        pubkey: sharedKeys.publicKey,
+        created_at: i < 500 ? baseTime + 10 : baseTime,
+        kind: 30333,
+        tags: [
+          ["t", "domus-sync"],
+          ["d", `sync-dev-publisher-${i}`],
+        ],
+        content: ciphertext,
+      });
+    }
+
+    const pullResult = await deviceB.pull();
+    expect(pullResult.importedCount).toBe(600);
+    expect(deviceB.getAllEvents()).toHaveLength(600);
+    expect(deviceB.getCursor()).toBe(baseTime + 10);
   });
 });

@@ -11,12 +11,13 @@ import {
 } from "@/src/modules/nostrSync";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { SubCloser } from "nostr-tools/pool";
-import { createSyncCoordinator } from "@/src/modules/syncCoordinator";
+import { createSyncCoordinator, type SyncCoordinator } from "@/src/modules/syncCoordinator";
 import { createSyncGroupTracker } from "@/src/modules/syncGroupTracking";
 import {
   shouldPublishGroupEvents,
   processIncomingEvents,
   processPushResult,
+  resolvePullSyncOptions,
 } from "@/src/modules/syncDecisions";
 import { selectOldGroupPushEvents, selectStrongGroupPushEvents } from "@/src/modules/syncPayload";
 import { parseGroupSecret } from "@/src/modules/strongGroup/groupSecret";
@@ -177,11 +178,17 @@ export function useSyncEngine({
     [now, version, tracker],
   );
 
-  const [coordinator] = useState(() =>
-    createSyncCoordinator<{ keys: NostrSyncKeys; deviceId: string; isRecovery: boolean }>({
+  const [coordinator] = useState(() => {
+    let self: SyncCoordinator<{ keys: NostrSyncKeys; deviceId: string; isRecovery: boolean }>;
+    const instance = createSyncCoordinator<{ keys: NostrSyncKeys; deviceId: string; isRecovery: boolean }>({
       storage: AsyncStorage,
       pull: async (req) => {
-        const result = await pullSyncEvents(req.keys, req.deviceId, req.isRecovery);
+        const pullOptions = resolvePullSyncOptions({
+          isRecovery: req.isRecovery,
+          isStrong: req.keys.isStrong,
+          cursor: self.getCursor(),
+        });
+        const result = await pullSyncEvents(req.keys, req.deviceId, req.isRecovery, pullOptions);
         if (!req.keys.isStrong) {
           for (const e of result.events) {
             legacyEventIdsRef.current.add(e.id);
@@ -200,7 +207,10 @@ export function useSyncEngine({
             )
             .catch(() => {});
         }
-        return result;
+        return {
+          events: result.events,
+          maxCreatedAt: req.keys.isStrong ? result.maxCreatedAt : null,
+        };
       },
       importEvents: async (events) => {
         if (pushDebounceRef.current) {
@@ -232,8 +242,10 @@ export function useSyncEngine({
         AsyncStorage.setItem(LAST_SYNC_KEY, ts.toString()).catch(() => {});
         setSyncStatus("connected");
       },
-    }),
-  );
+    });
+    self = instance;
+    return instance;
+  });
 
   // --- Load persisted state on mount ---
 

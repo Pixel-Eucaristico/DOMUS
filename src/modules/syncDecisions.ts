@@ -6,7 +6,11 @@
 
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { SyncGroupTracker } from "./syncGroupTracking";
-import { selectOldGroupPushEvents, selectStrongGroupPushEvents } from "./syncPayload";
+import {
+  selectOldGroupPushEvents,
+  selectStrongGroupPushEvents,
+  RELAY_CURSOR_OVERLAP_SEC,
+} from "./syncPayload";
 import type { PublishSyncResult } from "./nostrSync";
 
 export type PublishDecisionReason = "no-events" | "up-to-date" | "pending-events" | "forced" | "hash-changed";
@@ -233,4 +237,36 @@ export function processPushResult(params: ProcessPushResultParams): ProcessPushO
     shouldThrow,
     errorMessage,
   };
+}
+
+export interface ResolvePullSyncOptionsParams {
+  isRecovery?: boolean;
+  isStrong?: boolean;
+  cursor?: number | null;
+  nowSec?: number;
+}
+
+export interface ResolvedPullSyncOptions {
+  cursor: number | null;
+  since?: number;
+}
+
+/**
+ * Story 5.4: Resolve opções de pull incremental evitando contaminação de cursor
+ * entre grupos forte e legado (o grupo legado nunca usa cursor) e aplicando a janela
+ * de sobreposição de 60 segundos contra clock skew entre dispositivos, validando
+ * se o cursor é finito e limitando against relógios adiantados de peers.
+ */
+export function resolvePullSyncOptions(params: ResolvePullSyncOptionsParams): ResolvedPullSyncOptions {
+  const effectiveCursor = params.isRecovery || !params.isStrong ? null : (params.cursor ?? null);
+  if (effectiveCursor != null && Number.isFinite(effectiveCursor) && effectiveCursor > 0) {
+    const nowSec = typeof params.nowSec === "number" && Number.isFinite(params.nowSec)
+      ? params.nowSec
+      : Math.floor(Date.now() / 1000);
+    const maxSince = Math.max(0, Math.floor(nowSec) - RELAY_CURSOR_OVERLAP_SEC);
+    const rawSince = Math.max(0, Math.floor(effectiveCursor) - RELAY_CURSOR_OVERLAP_SEC);
+    const since = Math.min(rawSince, maxSince);
+    return { cursor: effectiveCursor, since };
+  }
+  return { cursor: null };
 }

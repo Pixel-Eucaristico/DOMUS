@@ -482,4 +482,9 @@ describe("Story 4.7: Verificação do contrato de useSyncEngine", () => {
   it("persiste hashes de envio por grupo no storage para evitar colisões", () => {
     expect(engineSource).toContain("GROUP_PUSH_HASHES_KEY");
   });
+
+  it("useSyncEngine chama resolvePullSyncOptions e repassa pullOptions para pullSyncEvents", () => {
+    expect(engineSource).toContain("resolvePullSyncOptions({");
+    expect(engineSource).toContain("pullSyncEvents(req.keys, req.deviceId, req.isRecovery, pullOptions)");
+  });
 });
