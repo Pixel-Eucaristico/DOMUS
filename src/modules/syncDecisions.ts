@@ -373,3 +373,163 @@ export function filterEventsAgainstMarkers(params: FilterEventsAgainstMarkersPar
   return incomingEvents.filter((evt) => evt && typeof evt.id === "string" && !clearedSet.has(evt.id));
 }
 
+// ── Story 5.9: Pedir Confirmação Antes de Apagar por Marcador Remoto ──────────
+
+export const RESET_MARKER_PROMPT_TITLES = {
+  reset: "Redefinição solicitada no grupo",
+  restore: "Restauração solicitada no grupo",
+} as const;
+
+export const RESET_MARKER_PROMPT_MESSAGES = {
+  reset: "Outro aparelho do grupo redefiniu os dados. Deseja apagar os dados locais deste aparelho?",
+  restore: "Outro aparelho do grupo restaurou um backup. Deseja apagar os dados locais para sincronizar com a restauração?",
+} as const;
+
+export const RESET_MARKER_PROMPT_CONFIRM_LABEL = "Apagar dados";
+export const RESET_MARKER_PROMPT_CANCEL_LABEL = "Manter dados";
+
+export interface ResetMarkerPromptResult {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  destructive: boolean;
+}
+
+/**
+ * Story 5.9: Formata os parâmetros do diálogo appConfirm para confirmação de marcador de reset/restauração.
+ */
+export function formatResetMarkerPrompt(payload: ResetMarkerPayload): ResetMarkerPromptResult {
+  const isRestore = payload.action === "restore";
+  return {
+    title: isRestore ? RESET_MARKER_PROMPT_TITLES.restore : RESET_MARKER_PROMPT_TITLES.reset,
+    message: isRestore ? RESET_MARKER_PROMPT_MESSAGES.restore : RESET_MARKER_PROMPT_MESSAGES.reset,
+    confirmLabel: RESET_MARKER_PROMPT_CONFIRM_LABEL,
+    cancelLabel: RESET_MARKER_PROMPT_CANCEL_LABEL,
+    destructive: true,
+  };
+}
+
+/**
+ * Story 5.9: Alias de compatibilidade para formatação de mensagem de prompt de marcador.
+ */
+export function formatResetMarkerPromptMessage(marker: ResetMarkerPayload): ResetMarkerPromptResult {
+  return formatResetMarkerPrompt(marker);
+}
+
+/**
+ * Story 5.9: Extrai o identificador canônico de um marcador de controle.
+ * Retorna preferencialmente o ID canônico sintético baseado no payload
+ * (`marker-${action}-${deviceId}-${timestamp}`) sempre que o payload estiver presente.
+ */
+export function getResetMarkerId(marker: ResetMarkerPayload | SyncEvent): string {
+  if (!marker || typeof marker !== "object") return "";
+
+  let payload: any = marker;
+  if ("payload" in marker && marker.payload) {
+    payload = typeof marker.payload === "string" ? (() => {
+      try { return JSON.parse(marker.payload); } catch { return null; }
+    })() : marker.payload;
+  }
+
+  if (payload && typeof payload === "object" && (payload.action === "reset" || payload.action === "restore" || payload.deviceId)) {
+    const action = payload.action ?? "reset";
+    const deviceId = payload.deviceId ?? "";
+    const timestamp = payload.timestamp ?? ("timestamp" in marker ? (marker as SyncEvent).timestamp : 0);
+    return `marker-${action}-${deviceId}-${timestamp}`;
+  }
+
+  if ("id" in marker && typeof (marker as any).id === "string" && (marker as any).id) {
+    return (marker as any).id;
+  }
+
+  return "";
+}
+
+export interface ShouldPromptForRemoteResetMarkerParams {
+  marker: ResetMarkerPayload | SyncEvent;
+  currentDeviceId: string | null;
+  isStrong?: boolean;
+  handledMarkerIds: ReadonlySet<string>;
+}
+
+/**
+ * Story 5.9: Avalia se um marcador de controle remoto exige apresentação de confirmação ao usuário.
+ *
+ * Regras:
+ * 1. Canal legado (isStrong === false) jamais aciona diálogo e é rejeitado de imediato.
+ * 2. Marcador do próprio aparelho (deviceId === currentDeviceId) é ignorado silenciosamente.
+ * 3. Marcador já tratado anteriormente (presente em handledMarkerIds por id explícito ou canônico) não pergunta de novo.
+ * 4. Marcadores inválidos, com clearedEventIds que não seja array ou com action diferente de "reset" | "restore" são rejeitados.
+ * 5. Caso contrário, retorna true para solicitar confirmação explícita via appConfirm.
+ */
+export function shouldPromptForRemoteResetMarker(params: ShouldPromptForRemoteResetMarkerParams): boolean {
+  const { marker, currentDeviceId, isStrong = true, handledMarkerIds } = params;
+
+  if (isStrong === false) {
+    return false;
+  }
+
+  if (!marker || typeof marker !== "object") {
+    return false;
+  }
+
+  let action: string | undefined;
+  let markerDeviceId: string | undefined;
+  let timestamp: number | undefined;
+  let explicitId: string | undefined;
+  let clearedEventIds: unknown;
+
+  if ("type" in marker) {
+    if (marker.type !== RESET_MARKER_EVENT_TYPE) {
+      return false;
+    }
+    explicitId = marker.id;
+    let payload = marker.payload;
+    if (typeof payload === "string") {
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        return false;
+      }
+    }
+    if (!payload || typeof payload !== "object") {
+      return false;
+    }
+    action = (payload as any).action;
+    markerDeviceId = marker.deviceId || (payload as any).deviceId;
+    timestamp = (payload as any).timestamp ?? marker.timestamp;
+    clearedEventIds = (payload as any).clearedEventIds;
+  } else {
+    action = marker.action;
+    markerDeviceId = marker.deviceId;
+    timestamp = marker.timestamp;
+    explicitId = (marker as any).id;
+    clearedEventIds = marker.clearedEventIds;
+  }
+
+  if (!Array.isArray(clearedEventIds)) {
+    return false;
+  }
+
+  if (action !== "reset" && action !== "restore") {
+    return false;
+  }
+
+  if (markerDeviceId && currentDeviceId && markerDeviceId === currentDeviceId) {
+    return false;
+  }
+
+  if (explicitId && handledMarkerIds.has(explicitId)) {
+    return false;
+  }
+
+  const synthId = `marker-${action}-${markerDeviceId ?? ""}-${timestamp ?? 0}`;
+  if (handledMarkerIds.has(synthId)) {
+    return false;
+  }
+
+  return true;
+}
+
+

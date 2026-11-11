@@ -36,6 +36,8 @@ import {
   type ResetMarkerPayload,
   createResetMarkerEvent,
   filterEventsAgainstMarkers,
+  shouldPromptForRemoteResetMarker,
+  getResetMarkerId,
 } from "../syncDecisions";
 import { replayAllEvents, type ReplayResult } from "@/src/context/replay";
 import type { AppState } from "@packages/domain/src/state";
@@ -56,6 +58,12 @@ export {
   type ResetMarkerPayload,
   createResetMarkerEvent,
   filterEventsAgainstMarkers,
+  shouldPromptForRemoteResetMarker,
+  getResetMarkerId,
+  formatResetMarkerPrompt,
+  formatResetMarkerPromptMessage,
+  type ShouldPromptForRemoteResetMarkerParams,
+  type ResetMarkerPromptResult,
 } from "../syncDecisions";
 
 export class MemoryTrackingStorage implements SyncGroupTrackingStorage {
@@ -92,6 +100,7 @@ export interface CreateSimulatedDeviceOptions {
   cursor?: number | null;
   now?: () => number;
   clock?: SimulatedClock | (() => number);
+  promptResetConfirmation?: (marker: ResetMarkerPayload) => Promise<boolean>;
 }
 
 export class SimulatedSyncDevice {
@@ -102,7 +111,9 @@ export class SimulatedSyncDevice {
   readonly eventStore: SQLiteEventStore;
   readonly tracker: SyncGroupTracker;
   readonly knownMarkers: ResetMarkerPayload[] = [];
+  readonly handledRemoteMarkerIds: Set<string> = new Set();
   private pendingMarkers: SyncEvent[] = [];
+  private promptResetConfirmation?: (marker: ResetMarkerPayload) => Promise<boolean>;
 
   private cursor: number | null = null;
   private seq = 0;
@@ -134,6 +145,7 @@ export class SimulatedSyncDevice {
     cursor?: number | null;
     now?: () => number;
     clock?: SimulatedClock | (() => number);
+    promptResetConfirmation?: (marker: ResetMarkerPayload) => Promise<boolean>;
   }) {
     this.deviceId = params.deviceId;
     if (params.relays && params.relays.length > 0) {
@@ -148,6 +160,7 @@ export class SimulatedSyncDevice {
     this.eventStore = params.eventStore;
     this.tracker = params.tracker;
     this.cursor = params.cursor ?? null;
+    this.promptResetConfirmation = params.promptResetConfirmation;
 
     const clock = params.clock ?? this.relays[0].getClock?.();
     if (clock) {
@@ -432,6 +445,99 @@ export class SimulatedSyncDevice {
   }
 
   /**
+   * Story 5.9: Define ou altera dinamicamente o manipulador de confirmação de reset remoto.
+   */
+  setPromptResetConfirmation(handler?: (marker: ResetMarkerPayload) => Promise<boolean>): void {
+    this.promptResetConfirmation = handler;
+  }
+
+  /**
+   * Story 5.9: Retorna o conjunto de IDs de marcadores remotos já tratados (aceitos ou dispensados).
+   */
+  getHandledRemoteMarkerIds(): ReadonlySet<string> {
+    return this.handledRemoteMarkerIds;
+  }
+
+  /**
+   * Story 5.9: Trata a chegada de um marcador de reset ou restauração de forma segura e determinística.
+   * Retorna true se o marcador foi aceito e os dados locais foram apagados; false caso contrário.
+   */
+  async handleRemoteMarker(marker: SyncEvent): Promise<boolean> {
+    if (this.keys.isStrong === false) {
+      return false;
+    }
+
+    if (!marker || marker.type !== RESET_MARKER_EVENT_TYPE || !marker.payload) {
+      return false;
+    }
+
+    let payload: ResetMarkerPayload | undefined;
+    try {
+      payload = (typeof marker.payload === "string" ? JSON.parse(marker.payload) : marker.payload) as ResetMarkerPayload;
+    } catch {
+      return false;
+    }
+
+    if (!payload || typeof payload !== "object" || !Array.isArray(payload.clearedEventIds)) {
+      return false;
+    }
+
+    const markerDeviceId = marker.deviceId || payload.deviceId;
+    if (markerDeviceId === this.deviceId) {
+      if (
+        !this.knownMarkers.some(
+          (m) =>
+            m.timestamp === payload!.timestamp &&
+            m.deviceId === payload!.deviceId &&
+            m.action === payload!.action,
+        )
+      ) {
+        this.knownMarkers.push(payload);
+      }
+      return false;
+    }
+
+    const shouldPrompt = shouldPromptForRemoteResetMarker({
+      marker,
+      currentDeviceId: this.deviceId,
+      isStrong: true,
+      handledMarkerIds: this.handledRemoteMarkerIds,
+    });
+
+    if (!shouldPrompt) {
+      return false;
+    }
+
+    const markerId = getResetMarkerId(marker);
+    if (marker.id) this.handledRemoteMarkerIds.add(marker.id);
+    if (markerId) this.handledRemoteMarkerIds.add(markerId);
+
+    if (this.promptResetConfirmation) {
+      const confirmed = await this.promptResetConfirmation(payload);
+      if (confirmed) {
+        this.eventStore.clearAllEvents();
+        this.cursor = null;
+        this.lastCreatedAt = 0;
+        if (
+          !this.knownMarkers.some(
+            (m) =>
+              m.timestamp === payload!.timestamp &&
+              m.deviceId === payload!.deviceId &&
+              m.action === payload!.action,
+          )
+        ) {
+          this.knownMarkers.push(payload);
+        }
+        return true;
+      }
+      return false;
+    }
+
+    // Sem manipulador confirmatório: o aparelho jamais apaga dados locais nem adiciona a knownMarkers sem resposta do usuário.
+    return false;
+  }
+
+  /**
    * Story 5.8: Publica um evento marcador no Grupo forte ou enfileira se offline.
    */
   async publishMarker(markerEvent: SyncEvent): Promise<boolean> {
@@ -664,6 +770,14 @@ export class SimulatedSyncDevice {
       const events = batch.map((b) => b.event);
       const createdAts = batch.map((b) => b.createdAt);
 
+      if (this.keys.isStrong !== false) {
+        for (const evt of events) {
+          if (evt && typeof evt === "object" && evt.type === RESET_MARKER_EVENT_TYPE) {
+            await this.handleRemoteMarker(evt);
+          }
+        }
+      }
+
       const domainEvents = events.filter((e) => e.type !== RESET_MARKER_EVENT_TYPE);
       const filteredEvents = filterEventsAgainstMarkers({
         incomingEvents: domainEvents,
@@ -807,25 +921,10 @@ export class SimulatedSyncDevice {
 
           if (this.keys.isStrong !== false) {
             for (const evt of parsed.events) {
-              if (evt && typeof evt === "object" && evt.type === RESET_MARKER_EVENT_TYPE && evt.payload) {
-                let payload: ResetMarkerPayload | undefined;
-                try {
-                  payload = (typeof evt.payload === "string" ? JSON.parse(evt.payload) : evt.payload) as ResetMarkerPayload;
-                } catch {
-                  payload = undefined;
-                }
-                if (
-                  payload &&
-                  typeof payload === "object" &&
-                  Array.isArray(payload.clearedEventIds) &&
-                  !this.knownMarkers.some(
-                    (m) =>
-                      m.timestamp === payload!.timestamp &&
-                      m.deviceId === payload!.deviceId &&
-                      m.action === payload!.action,
-                  )
-                ) {
-                  this.knownMarkers.push(payload);
+              if (evt && typeof evt === "object" && evt.type === RESET_MARKER_EVENT_TYPE) {
+                const wasReset = await this.handleRemoteMarker(evt);
+                if (wasReset) {
+                  seenLocal.clear();
                 }
               }
             }
@@ -914,30 +1013,7 @@ export class SimulatedSyncDevice {
 
           const parsed = parseSyncPayloadDetailed(res.plaintext);
           if (parsed.events.length > 0) {
-            if (this.keys.isStrong !== false) {
-              for (const evt of parsed.events) {
-                if (evt.type === RESET_MARKER_EVENT_TYPE && evt.payload) {
-                  let payload: ResetMarkerPayload | undefined;
-                  try {
-                    payload = (typeof evt.payload === "string" ? JSON.parse(evt.payload) : evt.payload) as ResetMarkerPayload;
-                  } catch {
-                    payload = undefined;
-                  }
-                  if (payload && !this.knownMarkers.some((m) => m.timestamp === payload!.timestamp && m.deviceId === payload!.deviceId && m.action === payload!.action)) {
-                    this.knownMarkers.push(payload);
-                  }
-                }
-              }
-            }
-            const domainEvents = parsed.events.filter((e) => e.type !== RESET_MARKER_EVENT_TYPE);
-            const filteredEvents = filterEventsAgainstMarkers({
-              incomingEvents: domainEvents,
-              markers: this.knownMarkers,
-              isStrong: this.keys.isStrong !== false,
-            });
-            if (filteredEvents.length > 0) {
-              this.enqueueLiveBatch(filteredEvents, ne.created_at, deliveryTimestamp);
-            }
+            this.enqueueLiveBatch(parsed.events, ne.created_at, deliveryTimestamp);
           }
         },
       );
@@ -1082,5 +1158,6 @@ export async function createSimulatedDevice(
     cursor: options.cursor,
     now: options.now,
     clock: options.clock,
+    promptResetConfirmation: options.promptResetConfirmation,
   });
 }

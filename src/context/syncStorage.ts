@@ -9,6 +9,7 @@ export const STRONG_GROUP_SECRET_KEY = "domus_strong_group_secret_v1";
 export const LAST_PUSH_HASH_KEY = "domus_nostr_last_push_hash";
 export const GROUP_PUSH_HASHES_KEY = "domus_group_push_hashes_v1";
 export const SYNC_GROUP_TRACKING_KEY = "domus_sync_group_tracking_v1";
+export const HANDLED_REMOTE_MARKERS_STORAGE_KEY = "@domus:handled_remote_markers";
 
 export const PULL_INTERVAL_MS = 8_000;
 
@@ -137,6 +138,38 @@ export async function clearStrongGroupSecret(): Promise<void> {
   }
   try {
     await AsyncStorage.removeItem(STRONG_GROUP_SECRET_KEY);
+  } catch {}
+}
+
+// ── Story 5.9: Marcadores remotos tratados (reset e restore) ─────────────────
+
+/**
+ * Lê os IDs de marcadores remotos já tratados (aceitos ou dispensados).
+ */
+export async function loadHandledRemoteMarkers(
+  storage: Pick<typeof AsyncStorage, "getItem"> = AsyncStorage,
+): Promise<string[]> {
+  try {
+    const raw = await storage.getItem(HANDLED_REMOTE_MARKERS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((id): id is string => typeof id === "string");
+    }
+  } catch {}
+  return [];
+}
+
+/**
+ * Persiste os IDs de marcadores remotos tratados no AsyncStorage.
+ */
+export async function saveHandledRemoteMarkers(
+  markerIds: readonly string[] | ReadonlySet<string>,
+  storage: Pick<typeof AsyncStorage, "setItem"> = AsyncStorage,
+): Promise<void> {
+  try {
+    const list = Array.from(markerIds);
+    await storage.setItem(HANDLED_REMOTE_MARKERS_STORAGE_KEY, JSON.stringify(list));
   } catch {}
 }
 

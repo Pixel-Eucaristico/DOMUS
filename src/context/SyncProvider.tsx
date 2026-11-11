@@ -34,7 +34,7 @@ interface SyncContextValue {
 const SyncContext = createContext<SyncContextValue | null>(null);
 
 export function SyncProvider({ children }: { children: ReactNode }) {
-  const { getAllEvents, importEvents, localEventCount, deviceId, loading } = useAppState();
+  const { getAllEvents, importEvents, localEventCount, deviceId, loading, resetApp } = useAppState();
 
   const appVersion =
     Constants.expoConfig?.version ?? process.env.EXPO_PUBLIC_APP_VERSION ?? "1.8.0";
@@ -46,6 +46,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     deviceId,
     loading,
     version: appVersion,
+    resetApp,
   });
 
   const relayCount = getRelays().length;

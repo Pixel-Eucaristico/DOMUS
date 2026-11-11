@@ -28,6 +28,14 @@ import {
   createResetMarkerEvent,
   filterEventsAgainstMarkers,
   type ResetMarkerPayload,
+  shouldPromptForRemoteResetMarker,
+  formatResetMarkerPrompt,
+  formatResetMarkerPromptMessage,
+  getResetMarkerId,
+  RESET_MARKER_PROMPT_TITLES,
+  RESET_MARKER_PROMPT_MESSAGES,
+  RESET_MARKER_PROMPT_CONFIRM_LABEL,
+  RESET_MARKER_PROMPT_CANCEL_LABEL,
 } from "@/src/modules/syncDecisions";
 
 // ─── Mocks de persistência em memória ─────────────────────────────────────────
@@ -609,6 +617,219 @@ describe("Story 4.7: Verificação do contrato de useSyncEngine", () => {
       // e1 suprimido; e2 (outro aparelho) e e3 (não listado) preservados
       expect(result).toHaveLength(2);
       expect(result.map((e) => e.id)).toEqual(["e2", "e3"]);
+    });
+  });
+
+  describe("Story 5.9: Pedir confirmação antes de apagar por causa de um marcador", () => {
+    it("shouldPromptForRemoteResetMarker: solicita confirmação para marcador remoto inédito do Grupo forte", () => {
+      const marker = createResetMarkerEvent({
+        action: "reset",
+        deviceId: "dev-remote",
+        clearedEventIds: ["evt-1"],
+      });
+      const handled = new Set<string>();
+
+      expect(
+        shouldPromptForRemoteResetMarker({
+          marker,
+          currentDeviceId: "dev-local",
+          isStrong: true,
+          handledMarkerIds: handled,
+        }),
+      ).toBe(true);
+    });
+
+    it("shouldPromptForRemoteResetMarker: rejeita marcadores do próprio aparelho", () => {
+      const marker = createResetMarkerEvent({
+        action: "reset",
+        deviceId: "dev-local",
+        clearedEventIds: ["evt-1"],
+      });
+      const handled = new Set<string>();
+
+      expect(
+        shouldPromptForRemoteResetMarker({
+          marker,
+          currentDeviceId: "dev-local",
+          isStrong: true,
+          handledMarkerIds: handled,
+        }),
+      ).toBe(false);
+    });
+
+    it("shouldPromptForRemoteResetMarker: rejeita marcadores originados do Grupo legado (isStrong: false)", () => {
+      const marker = createResetMarkerEvent({
+        action: "reset",
+        deviceId: "dev-remote",
+        clearedEventIds: ["evt-1"],
+      });
+      const handled = new Set<string>();
+
+      expect(
+        shouldPromptForRemoteResetMarker({
+          marker,
+          currentDeviceId: "dev-local",
+          isStrong: false,
+          handledMarkerIds: handled,
+        }),
+      ).toBe(false);
+    });
+
+    it("shouldPromptForRemoteResetMarker: não solicita confirmação para marcador já tratado em handledMarkerIds", () => {
+      const marker = createResetMarkerEvent({
+        action: "reset",
+        deviceId: "dev-remote",
+        clearedEventIds: ["evt-1"],
+      });
+      const handled = new Set<string>([marker.id]);
+
+      expect(
+        shouldPromptForRemoteResetMarker({
+          marker,
+          currentDeviceId: "dev-local",
+          isStrong: true,
+          handledMarkerIds: handled,
+        }),
+      ).toBe(false);
+    });
+
+    it("shouldPromptForRemoteResetMarker: solicita confirmação para novo marcador diferente mesmo após recusa anterior", () => {
+      const marker1 = createResetMarkerEvent({
+        action: "reset",
+        deviceId: "dev-remote",
+        clearedEventIds: ["evt-1"],
+        timestamp: 1000,
+        id: "marker-1",
+      });
+      const handled = new Set<string>([marker1.id]);
+
+      const marker2 = createResetMarkerEvent({
+        action: "restore",
+        deviceId: "dev-remote",
+        clearedEventIds: ["evt-2"],
+        timestamp: 2000,
+        id: "marker-2",
+      });
+
+      expect(
+        shouldPromptForRemoteResetMarker({
+          marker: marker2,
+          currentDeviceId: "dev-local",
+          isStrong: true,
+          handledMarkerIds: handled,
+        }),
+      ).toBe(true);
+    });
+
+    it("shouldPromptForRemoteResetMarker: rejeita eventos que não são marcadores ou payloads inválidos", () => {
+      const nonMarker: SyncEvent = {
+        id: "tx-1",
+        type: "TRANSACTION_CREATED",
+        payload: { amount: 100 },
+        timestamp: 1000,
+        deviceId: "dev-remote",
+        signature: "",
+      };
+      expect(
+        shouldPromptForRemoteResetMarker({
+          marker: nonMarker,
+          currentDeviceId: "dev-local",
+          isStrong: true,
+          handledMarkerIds: new Set(),
+        }),
+      ).toBe(false);
+    });
+
+    it("formatResetMarkerPrompt e formatResetMarkerPromptMessage: formata texto pt-BR com acentos completos", () => {
+      const resetPrompt = formatResetMarkerPrompt({
+        action: "reset",
+        deviceId: "dev-rem",
+        timestamp: 1000,
+        clearedEventIds: [],
+        clearedBefore: 1000,
+      });
+
+      expect(resetPrompt.title).toBe(RESET_MARKER_PROMPT_TITLES.reset);
+      expect(resetPrompt.title).toBe("Redefinição solicitada no grupo");
+      expect(resetPrompt.message).toBe(RESET_MARKER_PROMPT_MESSAGES.reset);
+      expect(resetPrompt.message).toBe(
+        "Outro aparelho do grupo redefiniu os dados. Deseja apagar os dados locais deste aparelho?",
+      );
+      expect(resetPrompt.confirmLabel).toBe(RESET_MARKER_PROMPT_CONFIRM_LABEL);
+      expect(resetPrompt.confirmLabel).toBe("Apagar dados");
+      expect(resetPrompt.cancelLabel).toBe(RESET_MARKER_PROMPT_CANCEL_LABEL);
+      expect(resetPrompt.cancelLabel).toBe("Manter dados");
+      expect(resetPrompt.destructive).toBe(true);
+
+      const restorePrompt = formatResetMarkerPromptMessage({
+        action: "restore",
+        deviceId: "dev-rem",
+        timestamp: 1000,
+        clearedEventIds: [],
+        clearedBefore: 1000,
+      });
+
+      expect(restorePrompt.title).toBe(RESET_MARKER_PROMPT_TITLES.restore);
+      expect(restorePrompt.title).toBe("Restauração solicitada no grupo");
+      expect(restorePrompt.message).toBe(RESET_MARKER_PROMPT_MESSAGES.restore);
+      expect(restorePrompt.message).toBe(
+        "Outro aparelho do grupo restaurou um backup. Deseja apagar os dados locais para sincronizar com a restauração?",
+      );
+      expect(restorePrompt.confirmLabel).toBe("Apagar dados");
+      expect(restorePrompt.cancelLabel).toBe("Manter dados");
+      expect(restorePrompt.destructive).toBe(true);
+    });
+
+    it("getResetMarkerId: gera IDs canônicos idênticos para envelope SyncEvent e ResetMarkerPayload puro", () => {
+      const payload: ResetMarkerPayload = {
+        action: "reset",
+        deviceId: "dev-device-1",
+        timestamp: 1_700_000_000,
+        clearedEventIds: ["evt-1", "evt-2"],
+        clearedBefore: 1_700_000_000,
+      };
+
+      const envelope: SyncEvent = {
+        id: "arbitrary-envelope-id-from-wire",
+        type: RESET_MARKER_EVENT_TYPE,
+        payload,
+        deviceId: "dev-device-1",
+        timestamp: 1_700_000_000,
+        signature: "sig",
+      };
+
+      const payloadId = getResetMarkerId(payload);
+      const envelopeId = getResetMarkerId(envelope);
+
+      expect(payloadId).toBe("marker-reset-dev-device-1-1700000000");
+      expect(envelopeId).toBe("marker-reset-dev-device-1-1700000000");
+      expect(envelopeId).toBe(payloadId);
+    });
+
+    it("shouldPromptForRemoteResetMarker: rejeita marcador se clearedEventIds não for array", () => {
+      const invalidMarker: any = {
+        action: "reset",
+        deviceId: "dev-remote",
+        clearedEventIds: "not-an-array",
+        timestamp: 1000,
+      };
+      expect(
+        shouldPromptForRemoteResetMarker({
+          marker: invalidMarker,
+          currentDeviceId: "dev-local",
+          isStrong: true,
+          handledMarkerIds: new Set(),
+        }),
+      ).toBe(false);
+    });
+
+    it("useSyncEngine: importa appConfirm, nunca chama Alert.alert, intercepta marcadores remotos e invoca coordinator.reset() após confirmação", () => {
+      expect(engineSource).toContain("import { appConfirm } from \"@/src/services/appAlert\";");
+      expect(engineSource).not.toMatch(/Alert\.alert/);
+      expect(engineSource).toContain("shouldPromptForRemoteResetMarker({");
+      expect(engineSource).toContain("formatResetMarkerPrompt(");
+      expect(engineSource).toContain("await appConfirm(promptParams)");
+      expect(engineSource).toContain("await coordinatorRef.current.reset()");
     });
   });
 });

@@ -3,12 +3,15 @@ import {
   GROUP_CODE_KEY,
   STRONG_GROUP_SECRET_KEY,
   SYNC_GROUP_TRACKING_KEY,
+  HANDLED_REMOTE_MARKERS_STORAGE_KEY,
   loadGroupCode,
   saveGroupCode,
   clearGroupCode,
   loadStrongGroupSecret,
   saveStrongGroupSecret,
   clearStrongGroupSecret,
+  loadHandledRemoteMarkers,
+  saveHandledRemoteMarkers,
 } from "../syncStorage";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -203,5 +206,32 @@ describe("segredo do grupo forte na web (Story 4.3)", () => {
     web.set(STRONG_GROUP_SECRET_KEY, SAMPLE_SECRET);
     await clearStrongGroupSecret();
     expect(web.has(STRONG_GROUP_SECRET_KEY)).toBe(false);
+  });
+});
+
+describe("marcadores remotos tratados (Story 5.9)", () => {
+  it("loadHandledRemoteMarkers retorna array vazio se não houver registros salvos", async () => {
+    expect(await loadHandledRemoteMarkers()).toEqual([]);
+  });
+
+  it("saveHandledRemoteMarkers e loadHandledRemoteMarkers persistem e recuperam IDs", async () => {
+    await saveHandledRemoteMarkers(["marker-1", "marker-2"]);
+    expect(legacy.get(HANDLED_REMOTE_MARKERS_STORAGE_KEY)).toBe(
+      JSON.stringify(["marker-1", "marker-2"]),
+    );
+
+    const loaded = await loadHandledRemoteMarkers();
+    expect(loaded).toEqual(["marker-1", "marker-2"]);
+  });
+
+  it("saveHandledRemoteMarkers aceita ReadonlySet", async () => {
+    const set = new Set(["marker-a", "marker-b"]);
+    await saveHandledRemoteMarkers(set);
+    expect(await loadHandledRemoteMarkers()).toEqual(["marker-a", "marker-b"]);
+  });
+
+  it("loadHandledRemoteMarkers trata payload inválido e devolve array vazio", async () => {
+    legacy.set(HANDLED_REMOTE_MARKERS_STORAGE_KEY, "invalid-json{");
+    expect(await loadHandledRemoteMarkers()).toEqual([]);
   });
 });

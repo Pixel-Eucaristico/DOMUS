@@ -18,7 +18,14 @@ import {
   processIncomingEvents,
   processPushResult,
   resolvePullSyncOptions,
+  RESET_MARKER_EVENT_TYPE,
+  type ResetMarkerPayload,
+  shouldPromptForRemoteResetMarker,
+  formatResetMarkerPrompt,
+  getResetMarkerId,
+  filterEventsAgainstMarkers,
 } from "@/src/modules/syncDecisions";
+import { appConfirm } from "@/src/services/appAlert";
 import { selectOldGroupPushEvents, selectStrongGroupPushEvents } from "@/src/modules/syncPayload";
 import { parseGroupSecret } from "@/src/modules/strongGroup/groupSecret";
 import {
@@ -40,9 +47,13 @@ import {
   LAST_PUSH_HASH_KEY,
   GROUP_PUSH_HASHES_KEY,
   SYNC_GROUP_TRACKING_KEY,
+  loadHandledRemoteMarkers,
+  saveHandledRemoteMarkers,
   PULL_INTERVAL_MS,
   computeEventHash,
 } from "./syncStorage";
+
+export { HANDLED_REMOTE_MARKERS_STORAGE_KEY } from "./syncStorage";
 
 export type SyncStatus = "idle" | "syncing" | "connected" | "offline" | "error";
 
@@ -56,6 +67,7 @@ interface UseSyncEngineArgs {
   loading: boolean;
   now?: () => number;
   version?: string;
+  resetApp?: () => Promise<void>;
 }
 
 export function useSyncEngine({
@@ -66,7 +78,12 @@ export function useSyncEngine({
   loading,
   now = () => Date.now(),
   version,
+  resetApp,
 }: UseSyncEngineArgs) {
+  const handledRemoteMarkerIdsRef = useRef<Set<string>>(new Set());
+  const knownMarkersRef = useRef<ResetMarkerPayload[]>([]);
+  const coordinatorRef = useRef<SyncCoordinator<{ keys: NostrSyncKeys; deviceId: string; isRecovery: boolean }> | null>(null);
+
   const [coexistingGroups, setCoexistingGroups] = useState<CoexistingGroups>({
     strong: null,
     legacy: null,
@@ -178,6 +195,70 @@ export function useSyncEngine({
     [now, version, tracker],
   );
 
+  const handleRemoteResetMarker = useCallback(
+    async (evt: SyncEvent, isStrong: boolean): Promise<boolean> => {
+      if (!isStrong) return false;
+      if (!evt || evt.type !== RESET_MARKER_EVENT_TYPE || !evt.payload) return false;
+
+      let payload: ResetMarkerPayload | undefined;
+      try {
+        payload = (typeof evt.payload === "string" ? JSON.parse(evt.payload) : evt.payload) as ResetMarkerPayload;
+      } catch {
+        return false;
+      }
+
+      if (!payload || typeof payload !== "object" || !Array.isArray(payload.clearedEventIds)) {
+        return false;
+      }
+
+      const shouldPrompt = shouldPromptForRemoteResetMarker({
+        marker: evt,
+        currentDeviceId: deviceId,
+        isStrong,
+        handledMarkerIds: handledRemoteMarkerIdsRef.current,
+      });
+
+      if (!shouldPrompt) return false;
+
+      const markerId = getResetMarkerId(evt);
+      const promptParams = formatResetMarkerPrompt(payload);
+      const confirmed = await appConfirm(promptParams);
+
+      // Registrar e persistir somente após a resolução de appConfirm
+      if (evt.id) handledRemoteMarkerIdsRef.current.add(evt.id);
+      if (markerId) handledRemoteMarkerIdsRef.current.add(markerId);
+      saveHandledRemoteMarkers(handledRemoteMarkerIdsRef.current).catch(() => {});
+
+      if (confirmed) {
+        if (
+          !knownMarkersRef.current.some(
+            (m) =>
+              m.timestamp === payload!.timestamp &&
+              m.deviceId === payload!.deviceId &&
+              m.action === payload!.action,
+          )
+        ) {
+          knownMarkersRef.current.push(payload);
+        }
+        if (resetApp) {
+          await resetApp();
+        }
+        if (coordinatorRef.current) {
+          await coordinatorRef.current.reset();
+        }
+        return true;
+      }
+
+      return false;
+    },
+    [deviceId, resetApp],
+  );
+
+  const handleRemoteMarkerRef = useRef(handleRemoteResetMarker);
+  useEffect(() => {
+    handleRemoteMarkerRef.current = handleRemoteResetMarker;
+  }, [handleRemoteResetMarker]);
+
   const [coordinator] = useState(() => {
     let self: SyncCoordinator<{ keys: NostrSyncKeys; deviceId: string; isRecovery: boolean }>;
     const instance = createSyncCoordinator<{ keys: NostrSyncKeys; deviceId: string; isRecovery: boolean }>({
@@ -194,8 +275,21 @@ export function useSyncEngine({
             legacyEventIdsRef.current.add(e.id);
           }
         }
+        if (req.keys.isStrong) {
+          for (const evt of result.events) {
+            if (evt.type === RESET_MARKER_EVENT_TYPE) {
+              await handleRemoteMarkerRef.current(evt, true);
+            }
+          }
+        }
+        const domainEvents = result.events.filter((e) => e.type !== RESET_MARKER_EVENT_TYPE);
+        const filteredEvents = filterEventsAgainstMarkers({
+          incomingEvents: domainEvents,
+          markers: knownMarkersRef.current,
+          isStrong: req.keys.isStrong,
+        });
         const incoming = processIncomingEvents({
-          incomingEvents: result.events,
+          incomingEvents: filteredEvents,
           currentDeviceId: req.deviceId,
           existingIds: new Set(allEventsRef.current.map((e) => e.id)),
         });
@@ -208,7 +302,7 @@ export function useSyncEngine({
             .catch(() => {});
         }
         return {
-          events: result.events,
+          events: filteredEvents,
           maxCreatedAt: req.keys.isStrong ? result.maxCreatedAt : null,
         };
       },
@@ -244,8 +338,10 @@ export function useSyncEngine({
       },
     });
     self = instance;
+    coordinatorRef.current = instance;
     return instance;
   });
+  coordinatorRef.current = coordinator;
 
   // --- Load persisted state on mount ---
 
@@ -258,6 +354,11 @@ export function useSyncEngine({
         try {
           groupPushHashesRef.current = JSON.parse(val);
         } catch {}
+      }
+    });
+    loadHandledRemoteMarkers().then((ids) => {
+      for (const id of ids) {
+        handledRemoteMarkerIdsRef.current.add(id);
       }
     });
     // O cursor carrega antes das chaves: a assinatura só nasce com as chaves e
@@ -634,28 +735,52 @@ export function useSyncEngine({
           strong.keys,
           deviceId,
           coordinator.liveSince(),
-          (event, createdAt) => {
-            const incoming = processIncomingEvents({
+          async (event, createdAt) => {
+            if (event.type === RESET_MARKER_EVENT_TYPE) {
+              await handleRemoteMarkerRef.current(event, true);
+              return;
+            }
+            const filtered = filterEventsAgainstMarkers({
               incomingEvents: [event],
-              currentDeviceId: deviceId,
-              existingIds: EMPTY_SET,
+              markers: knownMarkersRef.current,
+              isStrong: true,
             });
-            if (incoming.foreignEventIds.length > 0) {
-              tracker.markReceived(incoming.foreignEventIds, strongGroupId).catch(() => {});
-            }
-            coordinator.enqueueLive(event, createdAt);
-          },
-          (events, createdAt) => {
-            if (events.length === 0) return;
+            if (filtered.length === 0) return;
             const incoming = processIncomingEvents({
-              incomingEvents: events,
+              incomingEvents: filtered,
               currentDeviceId: deviceId,
               existingIds: EMPTY_SET,
             });
             if (incoming.foreignEventIds.length > 0) {
               tracker.markReceived(incoming.foreignEventIds, strongGroupId).catch(() => {});
             }
-            coordinator.enqueueLiveBatch(events, createdAt);
+            coordinator.enqueueLive(filtered[0], createdAt);
+          },
+          async (events, createdAt) => {
+            if (events.length === 0) return;
+            const domainEvents: SyncEvent[] = [];
+            for (const evt of events) {
+              if (evt.type === RESET_MARKER_EVENT_TYPE) {
+                await handleRemoteMarkerRef.current(evt, true);
+              } else {
+                domainEvents.push(evt);
+              }
+            }
+            const filtered = filterEventsAgainstMarkers({
+              incomingEvents: domainEvents,
+              markers: knownMarkersRef.current,
+              isStrong: true,
+            });
+            if (filtered.length === 0) return;
+            const incoming = processIncomingEvents({
+              incomingEvents: filtered,
+              currentDeviceId: deviceId,
+              existingIds: EMPTY_SET,
+            });
+            if (incoming.foreignEventIds.length > 0) {
+              tracker.markReceived(incoming.foreignEventIds, strongGroupId).catch(() => {});
+            }
+            coordinator.enqueueLiveBatch(filtered, createdAt);
           },
         );
       } catch {}

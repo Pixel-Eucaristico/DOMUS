@@ -11,7 +11,7 @@
  * Execução 100% no Vitest sem react-native, react ou APIs nativas do Expo (< 2s).
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import {
   shouldPublishGroupEvents,
@@ -3519,6 +3519,7 @@ describe("Story 5.7 - Propagar rápido, inclusive depois de ficar offline", () =
         deviceId: "dev-live-b",
         relay,
         groupSecret: secret,
+        promptResetConfirmation: async () => true,
       });
 
       // 1. Estado inicial compartilhado
@@ -3566,6 +3567,486 @@ describe("Story 5.7 - Propagar rápido, inclusive depois de ficar offline", () =
 
       liveSub.close();
       deviceB.stopLiveSync();
+    });
+  });
+
+  describe("Story 5.9 - Pedir confirmação antes de apagar por causa de um marcador", () => {
+    it("confirmação do usuário: Aparelho B aceita marcador de Aparelho A -> dados locais de B são apagados, marcador registrado e pull subsequente não ressuscita dados antigos", async () => {
+      const relay = new FakeMemoryRelay();
+      const secret = encodeGroupSecret(generateGroupSecret());
+
+      const promptMock = vi.fn(async (marker: ResetMarkerPayload) => true);
+
+      const deviceA = await createSimulatedDevice({
+        deviceId: "dev-confirm-a",
+        relay,
+        groupSecret: secret,
+      });
+
+      const deviceB = await createSimulatedDevice({
+        deviceId: "dev-confirm-b",
+        relay,
+        groupSecret: secret,
+        promptResetConfirmation: promptMock,
+      });
+
+      // 1. Estado compartilhado: Conta criada e despesa registrada
+      deviceA.appendLocalEvent({
+        id: "evt-acc-conf",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-conf", name: "Conta Confirmação", type: "checking", balance: 5000 },
+      });
+      deviceA.appendLocalEvent({
+        id: "evt-tx-conf",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-conf", accountId: "acc-conf", type: "expense", amount: 150, date: "2026-10-01" },
+      });
+      await deviceA.push();
+      await deviceB.pull();
+
+      expect(deviceA.getAllEvents()).toHaveLength(2);
+      expect(deviceB.getAllEvents()).toHaveLength(2);
+
+      // 2. Aparelho A executa resetApp() e publica marcador de reset no Grupo forte
+      const { markerEvent, published } = await deviceA.resetApp();
+      expect(published).toBe(true);
+      expect(markerEvent.type).toBe(RESET_MARKER_EVENT_TYPE);
+
+      // 3. Aparelho B realiza pull(): intercepta o marcador remoto inédito, aciona o prompt de confirmação
+      const pullResult = await deviceB.pull();
+      expect(pullResult.importedCount).toBe(0);
+
+      // Verifica que o prompt de confirmação foi acionado com o payload do marcador de A
+      expect(promptMock).toHaveBeenCalledTimes(1);
+      const passedPayload = promptMock.mock.calls[0][0];
+      expect(passedPayload.action).toBe("reset");
+      expect(passedPayload.deviceId).toBe("dev-confirm-a");
+
+      // Como o usuário respondeu true (confirmou):
+      // - Os dados locais de B foram apagados
+      expect(deviceB.getAllEvents()).toHaveLength(0);
+
+      // - O marcador foi registrado como aceito em knownMarkers
+      expect(deviceB.getKnownMarkers().some((m) => m.deviceId === "dev-confirm-a" && m.action === "reset")).toBe(true);
+
+      // - O marcador foi registrado em handledRemoteMarkerIds
+      expect(deviceB.getHandledRemoteMarkerIds().has(markerEvent.id)).toBe(true);
+
+      // 4. Pull subsequente de B não ressuscita os dados apagados
+      await deviceB.pull();
+      expect(deviceB.getAllEvents()).toHaveLength(0);
+      expect(promptMock).toHaveBeenCalledTimes(1); // Não pergunta de novo
+    });
+
+    it("recusa do usuário: Aparelho B recusa marcador de Aparelho A -> nada é apagado, marcador registrado em handledRemoteMarkerIds e pulls seguintes não perguntam de novo", async () => {
+      const relay = new FakeMemoryRelay();
+      const secret = encodeGroupSecret(generateGroupSecret());
+
+      let promptCount = 0;
+      const promptMock = vi.fn(async (marker: ResetMarkerPayload) => {
+        promptCount++;
+        return false; // Usuário recusa ("Manter dados")
+      });
+
+      const deviceA = await createSimulatedDevice({
+        deviceId: "dev-reject-a",
+        relay,
+        groupSecret: secret,
+      });
+
+      const deviceB = await createSimulatedDevice({
+        deviceId: "dev-reject-b",
+        relay,
+        groupSecret: secret,
+        promptResetConfirmation: promptMock,
+      });
+
+      // 1. Estado compartilhado inicial
+      deviceA.appendLocalEvent({
+        id: "evt-acc-rej",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-rej", name: "Conta Preservada", type: "checking", balance: 10000 },
+      });
+      deviceA.appendLocalEvent({
+        id: "evt-tx-rej",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-rej", accountId: "acc-rej", type: "income", amount: 2000, date: "2026-10-01" },
+      });
+      await deviceA.push();
+      await deviceB.pull();
+
+      expect(deviceB.getAllEvents()).toHaveLength(2);
+
+      // 2. Aparelho A executa resetApp() e publica marcador
+      const { markerEvent, published } = await deviceA.resetApp();
+      expect(published).toBe(true);
+
+      // 3. Aparelho B realiza pull(): recebe o marcador e o usuário recusa
+      await deviceB.pull();
+
+      expect(promptCount).toBe(1);
+      expect(promptMock).toHaveBeenCalledTimes(1);
+
+      // Como o usuário recusou:
+      // - Nenhum dado de B é apagado (preservados integralmente)
+      expect(deviceB.getAllEvents()).toHaveLength(2);
+      expect(deviceB.getAllEvents().map((e) => e.id)).toEqual(["evt-acc-rej", "evt-tx-rej"]);
+      expect(deviceB.getState().accounts["acc-rej"]?.balance).toBe(12000);
+
+      // - Marcador registrado como tratado/dispensado em handledRemoteMarkerIds
+      expect(deviceB.getHandledRemoteMarkerIds().has(markerEvent.id)).toBe(true);
+
+      // - Marcador NÃO foi aceito em knownMarkers
+      expect(deviceB.getKnownMarkers().some((m) => m.deviceId === "dev-reject-a" && m.action === "reset")).toBe(false);
+
+      // 4. Pull subsequente: não pergunta de novo e preserva dados
+      await deviceB.pull();
+      expect(promptCount).toBe(1); // Não perguntou de novo
+      expect(deviceB.getAllEvents()).toHaveLength(2);
+    });
+
+    it("segundo marcador diferente: Aparelho B que recusou marcador 1 é consultado novamente ao receber marcador 2", async () => {
+      const relay = new FakeMemoryRelay();
+      const secret = encodeGroupSecret(generateGroupSecret());
+
+      const promptedActions: string[] = [];
+      const promptMock = vi.fn(async (marker: ResetMarkerPayload) => {
+        promptedActions.push(marker.action);
+        // Recusa o 1º marcador (reset), aceita o 2º (restore)
+        return promptedActions.length > 1;
+      });
+
+      const deviceA = await createSimulatedDevice({
+        deviceId: "dev-two-a",
+        relay,
+        groupSecret: secret,
+      });
+
+      const deviceB = await createSimulatedDevice({
+        deviceId: "dev-two-b",
+        relay,
+        groupSecret: secret,
+        promptResetConfirmation: promptMock,
+      });
+
+      // 1. Estado compartilhado inicial
+      deviceA.appendLocalEvent({
+        id: "evt-acc-two",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-two", name: "Conta Dupla", type: "checking", balance: 3000 },
+      });
+      await deviceA.push();
+      await deviceB.pull();
+      expect(deviceB.getAllEvents()).toHaveLength(1);
+
+      // 2. Aparelho A emite marcador 1 (reset)
+      await deviceA.resetApp();
+
+      // 3. Aparelho B faz pull(): prompt é chamado, B recusa
+      await deviceB.pull();
+      expect(promptMock).toHaveBeenCalledTimes(1);
+      expect(promptedActions).toEqual(["reset"]);
+      expect(deviceB.getAllEvents()).toHaveLength(1); // Preservado
+
+      // 4. Aparelho A cria novo evento evt-tx-new e restaura backup substituindo-o, emitindo marcador 2 (restore)
+      deviceA.appendLocalEvent({
+        id: "evt-tx-new",
+        type: "TRANSACTION_CREATED",
+        payload: { id: "tx-new", accountId: "acc-two", type: "expense", amount: 100, date: "2026-10-01" },
+      });
+      const backupEvent = makeEvent({
+        id: "evt-backup-1",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-backup", name: "Conta Backup", type: "checking", balance: 8000 },
+        deviceId: "dev-two-a",
+      });
+      await deviceA.restoreFromBackup([backupEvent]);
+      await deviceA.push();
+
+      // 5. Aparelho B faz pull(): detecta marcador 2 (identificador diferente), pergunta novamente!
+      await deviceB.pull();
+      expect(promptMock).toHaveBeenCalledTimes(2);
+      expect(promptedActions).toEqual(["reset", "restore"]);
+
+      // Desta vez o usuário aceitou o marcador 2:
+      // Marcador 2 registrado e evento do backup importado com sucesso
+      expect(deviceB.getKnownMarkers().some((m) => m.action === "restore")).toBe(true);
+      expect(deviceB.getAllEvents().map((e) => e.id)).toContain("evt-backup-1");
+      expect(deviceB.getAllEvents().map((e) => e.id)).not.toContain("evt-tx-new");
+    });
+
+    it("marcador pendente de resposta do usuário: nenhum dado é apagado enquanto a Promise de confirmação não for resolvida", async () => {
+      const relay = new FakeMemoryRelay();
+      const secret = encodeGroupSecret(generateGroupSecret());
+
+      let resolvePrompt!: (val: boolean) => void;
+      const promptPromise = new Promise<boolean>((resolve) => {
+        resolvePrompt = resolve;
+      });
+
+      const promptMock = vi.fn(async () => promptPromise);
+
+      const deviceA = await createSimulatedDevice({
+        deviceId: "dev-pending-a",
+        relay,
+        groupSecret: secret,
+      });
+
+      const deviceB = await createSimulatedDevice({
+        deviceId: "dev-pending-b",
+        relay,
+        groupSecret: secret,
+        promptResetConfirmation: promptMock,
+      });
+
+      // 1. Estado inicial em B
+      deviceB.appendLocalEvent({
+        id: "evt-pending-local",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-pend", name: "Conta Pendente", type: "checking", balance: 500 },
+      });
+      expect(deviceB.getAllEvents()).toHaveLength(1);
+
+      // 2. Aparelho A reseta e publica marcador
+      await deviceA.resetApp();
+
+      // 3. Aparelho B inicia pull (o diálogo fica aberto aguardando resposta)
+      const pullPromise = deviceB.pull();
+
+      // Aguarda microtasks avançarem até o prompt ser chamado
+      await new Promise((r) => setTimeout(r, 20));
+      expect(promptMock).toHaveBeenCalledTimes(1);
+
+      // Enquanto a Promise de confirmação NÃO for resolvida:
+      // O aparelho NÃO apaga nada sem a resposta do usuário!
+      expect(deviceB.getAllEvents()).toHaveLength(1);
+      expect(deviceB.getAllEvents()[0].id).toBe("evt-pending-local");
+
+      // 4. Usuário finalmente clica em "Apagar dados" (resolve com true)
+      resolvePrompt(true);
+      await pullPromise;
+
+      // Agora que a Promise foi resolvida como positiva, os dados são apagados
+      expect(deviceB.getAllEvents()).toHaveLength(0);
+    });
+
+    it("marcador do próprio aparelho: Aparelho A que resetou recebe seu próprio marcador no pull e NUNCA abre diálogo", async () => {
+      const relay = new FakeMemoryRelay();
+      const secret = encodeGroupSecret(generateGroupSecret());
+
+      const promptMock = vi.fn(async () => true);
+
+      const deviceA = await createSimulatedDevice({
+        deviceId: "dev-own-a",
+        relay,
+        groupSecret: secret,
+        promptResetConfirmation: promptMock,
+      });
+
+      deviceA.appendLocalEvent({
+        id: "evt-own-1",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-own", name: "Conta Própria", type: "checking", balance: 1000 },
+      });
+      await deviceA.push();
+
+      // Aparelho A reseta e publica marcador
+      const { markerEvent } = await deviceA.resetApp();
+      expect(markerEvent.deviceId).toBe("dev-own-a");
+
+      // Aparelho A faz pull e encontra seu próprio marcador no relay
+      await deviceA.pull();
+
+      // O prompt de confirmação de exclusão NUNCA é chamado para marcadores do próprio aparelho
+      expect(promptMock).not.toHaveBeenCalled();
+    });
+
+    it("marcador do Grupo legado (isStrong: false): rejeitado de imediato, nenhum diálogo exibido e nenhum dado apagado", async () => {
+      const relay = new FakeMemoryRelay();
+      const promptMock = vi.fn(async () => true);
+
+      const secret = generateGroupSecret();
+      const strongKeys = deriveStrongGroupKeys(secret);
+      const legacyKeys: NostrSyncKeys = {
+        privateKey: strongKeys.nostrPrivateKey,
+        publicKey: strongKeys.nostrPublicKey,
+        encryptionKey: strongKeys.encryptionKey,
+        isStrong: false,
+      };
+
+      const deviceLegacy = await createSimulatedDevice({
+        deviceId: "dev-leg-prompt",
+        relay,
+        keys: legacyKeys,
+        groupSecret: "domus-legacy-code",
+        promptResetConfirmation: promptMock,
+      });
+
+      deviceLegacy.appendLocalEvent({
+        id: "evt-leg-save",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-leg", name: "Conta Legada Salva", type: "checking", balance: 4000 },
+      });
+
+      // Cria um evento marcador simulado
+      const fakeMarker = createResetMarkerEvent({
+        action: "reset",
+        deviceId: "dev-leg-other",
+        clearedEventIds: ["evt-leg-save"],
+      });
+
+      // Publica no relay como se viesse do canal legado
+      const batchPayload = JSON.stringify([fakeMarker]);
+      const nowSec = Math.floor(Date.now() / 1000);
+      const nostrEvent = {
+        id: "leg-marker-nostr-id",
+        kind: 30333,
+        created_at: nowSec,
+        tags: [["d", "leg-batch"], ["marker", "reset"]],
+        content: batchPayload,
+        pubkey: legacyKeys.publicKey,
+        sig: "fake-sig",
+      };
+      relay.publish(nostrEvent as any);
+
+      // Device Legacy faz pull
+      await deviceLegacy.pull();
+
+      // Diálogo de confirmação NUNCA é aberto para canal legado
+      expect(promptMock).not.toHaveBeenCalled();
+
+      // Nenhum dado apagado
+      expect(deviceLegacy.getAllEvents()).toHaveLength(1);
+      expect(deviceLegacy.getAllEvents()[0].id).toBe("evt-leg-save");
+    });
+
+    it("subscrição ao vivo: Aparelho B com startLiveSync() recebe marcador remoto em tempo real e pede confirmação antes de apagar", async () => {
+      const relay = new FakeMemoryRelay();
+      const secret = encodeGroupSecret(generateGroupSecret());
+
+      const promptMock = vi.fn(async (marker: ResetMarkerPayload) => true);
+
+      const deviceA = await createSimulatedDevice({
+        deviceId: "dev-live-conf-a",
+        relay,
+        groupSecret: secret,
+      });
+
+      const deviceB = await createSimulatedDevice({
+        deviceId: "dev-live-conf-b",
+        relay,
+        groupSecret: secret,
+        promptResetConfirmation: promptMock,
+      });
+
+      // 1. Estado inicial sincronizado
+      deviceA.appendLocalEvent({
+        id: "evt-acc-live-c",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-live-c", name: "Conta Ao Vivo", type: "checking", balance: 7500 },
+      });
+      await deviceA.push();
+      await deviceB.pull();
+      expect(deviceB.getAllEvents()).toHaveLength(1);
+
+      // 2. Aparelho B ativa live sync
+      const liveSub = deviceB.startLiveSync();
+
+      // 3. Aparelho A reseta e publica marcador
+      await deviceA.resetApp();
+
+      // 4. Aparelho B processa o evento recebido ao vivo
+      await deviceB.idle();
+
+      // Verifica que prompt foi acionado e dados foram apagados após confirmação
+      expect(promptMock).toHaveBeenCalledTimes(1);
+      expect(deviceB.getAllEvents()).toHaveLength(0);
+      expect(deviceB.getKnownMarkers().some((m) => m.deviceId === "dev-live-conf-a")).toBe(true);
+
+      liveSub.close();
+      deviceB.stopLiveSync();
+    });
+
+    it("subscrição ao vivo com recusa: Aparelho B com startLiveSync() recusa marcador e preserva dados locais", async () => {
+      const relay = new FakeMemoryRelay();
+      const secret = encodeGroupSecret(generateGroupSecret());
+
+      const promptMock = vi.fn(async (marker: ResetMarkerPayload) => false);
+
+      const deviceA = await createSimulatedDevice({
+        deviceId: "dev-live-rej-a",
+        relay,
+        groupSecret: secret,
+      });
+
+      const deviceB = await createSimulatedDevice({
+        deviceId: "dev-live-rej-b",
+        relay,
+        groupSecret: secret,
+        promptResetConfirmation: promptMock,
+      });
+
+      // 1. Estado inicial sincronizado
+      deviceA.appendLocalEvent({
+        id: "evt-acc-live-r",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-live-r", name: "Conta Preservada Live", type: "checking", balance: 9000 },
+      });
+      await deviceA.push();
+      await deviceB.pull();
+      expect(deviceB.getAllEvents()).toHaveLength(1);
+
+      // 2. Aparelho B ativa live sync
+      const liveSub = deviceB.startLiveSync();
+
+      // 3. Aparelho A reseta e publica marcador
+      await deviceA.resetApp();
+
+      // 4. Aparelho B processa o evento recebido ao vivo
+      await deviceB.idle();
+
+      // Verifica que prompt foi acionado e dados foram preservados após recusa
+      expect(promptMock).toHaveBeenCalledTimes(1);
+      expect(deviceB.getAllEvents()).toHaveLength(1);
+      expect(deviceB.getHandledRemoteMarkerIds().size).toBeGreaterThanOrEqual(1);
+      expect(deviceB.getKnownMarkers().some((m) => m.deviceId === "dev-live-rej-a")).toBe(false);
+
+      liveSub.close();
+      deviceB.stopLiveSync();
+    });
+
+    it("sem manipulador confirmatório: o aparelho não apaga dados nem adiciona a knownMarkers", async () => {
+      const relay = new FakeMemoryRelay();
+      const secret = encodeGroupSecret(generateGroupSecret());
+
+      const deviceA = await createSimulatedDevice({
+        deviceId: "dev-no-handler-a",
+        relay,
+        groupSecret: secret,
+      });
+
+      // Dispositivo B sem promptResetConfirmation
+      const deviceB = await createSimulatedDevice({
+        deviceId: "dev-no-handler-b",
+        relay,
+        groupSecret: secret,
+      });
+
+      deviceB.appendLocalEvent({
+        id: "evt-no-h",
+        type: "ACCOUNT_CREATED",
+        payload: { id: "acc-no-h", name: "Conta", type: "checking", balance: 100 },
+      });
+
+      // A emite reset
+      await deviceA.resetApp();
+
+      // B faz pull
+      await deviceB.pull();
+
+      // Sem resposta/confirmação, nenhum dado apagado e NÃO entra em knownMarkers
+      expect(deviceB.getAllEvents()).toHaveLength(1);
+      expect(deviceB.getKnownMarkers()).toHaveLength(0);
     });
   });
 });

@@ -81,7 +81,7 @@ development_status:
   4-10-reativar-ponta-a-ponta-no-texto-público-depois-do-corte: done
   epic-4-retrospective: done
 
-  epic-5: in-progress
+  epic-5: done
   5-1-testar-o-sync-com-três-aparelhos-simulados: done
   5-2-confirmar-o-envio-por-lote-e-reenviar-os-perdidos: done
   5-3-publicar-só-os-lotes-novos-no-grupo-forte: done
@@ -90,7 +90,7 @@ development_status:
   5-6-nunca-republicar-o-que-veio-do-grupo: done
   5-7-propagar-rápido-inclusive-depois-de-ficar-offline: done
   5-8-publicar-o-marcador-de-reset-e-de-restauração: done
-  5-9-pedir-confirmação-antes-de-apagar-por-causa-de-um-marcador: backlog
+  5-9-pedir-confirmação-antes-de-apagar-por-causa-de-um-marcador: done
   epic-5-retrospective: optional
 
   epic-6: backlog
