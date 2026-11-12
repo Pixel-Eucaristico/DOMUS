@@ -12,7 +12,13 @@ import {
   clearStrongGroupSecret,
   loadHandledRemoteMarkers,
   saveHandledRemoteMarkers,
+  _resetGroupCodeMemoryState,
 } from "../syncStorage";
+import { appAlert } from "@/src/services/appAlert";
+
+vi.mock("@/src/services/appAlert", () => ({
+  appAlert: vi.fn(),
+}));
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 // Módulos nativos substituídos por stubs em memória. vi.hoisted garante que o
@@ -22,7 +28,10 @@ const mocks = vi.hoisted(() => ({
   secure: new Map<string, string>(),
   legacy: new Map<string, string>(),
   secureFails: { value: false },
+  secureWriteFails: { value: false },
   web: new Map<string, string>(),
+  webFails: { value: false },
+  webRejects: { value: false },
 }));
 
 vi.mock("expo-secure-store", () => ({
@@ -31,7 +40,9 @@ vi.mock("expo-secure-store", () => ({
     return mocks.secure.get(key) ?? null;
   }),
   setItemAsync: vi.fn(async (key: string, value: string) => {
-    if (mocks.secureFails.value) throw new Error("keystore indisponível");
+    if (mocks.secureFails.value || mocks.secureWriteFails.value) {
+      throw new Error("keystore indisponível");
+    }
     mocks.secure.set(key, value);
   }),
   deleteItemAsync: vi.fn(async (key: string) => {
@@ -53,8 +64,13 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
 
 vi.mock("@/src/modules/security/infrastructure/webSecrets", () => ({
   webSecrets: {
-    get: vi.fn(async (key: string) => mocks.web.get(key) ?? null),
+    get: vi.fn(async (key: string) => {
+      if (mocks.webRejects.value) throw new Error("IndexedDB indisponível");
+      return mocks.web.get(key) ?? null;
+    }),
     set: vi.fn(async (key: string, value: string) => {
+      if (mocks.webRejects.value) throw new Error("IndexedDB indisponível");
+      if (mocks.webFails.value) return false;
       mocks.web.set(key, value);
       return true;
     }),
@@ -64,14 +80,18 @@ vi.mock("@/src/modules/security/infrastructure/webSecrets", () => ({
   },
 }));
 
-const { secure, legacy, secureFails, web } = mocks;
+const { secure, legacy, secureFails, secureWriteFails, web, webFails, webRejects } = mocks;
 
 beforeEach(() => {
   secure.clear();
   legacy.clear();
   web.clear();
   secureFails.value = false;
+  secureWriteFails.value = false;
+  webFails.value = false;
+  webRejects.value = false;
   process.env.EXPO_OS = "android";
+  _resetGroupCodeMemoryState();
   vi.clearAllMocks();
 });
 
@@ -105,18 +125,83 @@ describe("group code no nativo", () => {
     expect(await loadGroupCode()).toBeNull();
   });
 
-  it("cai para AsyncStorage se o SecureStore falhar ao gravar", async () => {
+  it("se o SecureStore falhar ao gravar, NÃO grava em AsyncStorage, mantém em memória e alerta o usuário uma vez", async () => {
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     secureFails.value = true;
     await saveGroupCode("ABC234");
-    expect(legacy.get(GROUP_CODE_KEY)).toBe("ABC234");
+
+    // 1. AsyncStorage NUNCA recebe o código
+    expect(legacy.has(GROUP_CODE_KEY)).toBe(false);
+
+    // 2. loadGroupCode retorna a partir da memória volátil (sync continua na sessão)
+    expect(await loadGroupCode()).toBe("ABC234");
+
+    // 3. Alerta o usuário uma vez com o texto explicativo
+    expect(appAlert).toHaveBeenCalledTimes(1);
+    expect(appAlert).toHaveBeenCalledWith(
+      "Armazenamento seguro indisponível",
+      expect.stringContaining("reabrir o aplicativo")
+    );
+
+    // 4. Nova chamada na mesma sessão atualiza memória e não duplica o alerta
+    await saveGroupCode("DEF567");
+    expect(appAlert).toHaveBeenCalledTimes(1);
+    expect(await loadGroupCode()).toBe("DEF567");
+    consoleWarnSpy.mockRestore();
   });
 
-  it("clearGroupCode remove dos dois armazenamentos", async () => {
+  it("saveGroupCode rejeita código vazio ou composto apenas por espaços", async () => {
+    await expect(saveGroupCode("")).rejects.toThrow("Código de grupo inválido (vazio).");
+    await expect(saveGroupCode("   \n")).rejects.toThrow("Código de grupo inválido (vazio).");
+  });
+
+  it("loadGroupCode retorna valor em memória se gravação falhou mas getItemAsync retornar null sem erro (Verification Gap)", async () => {
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // Apenas a gravação falha; a leitura subsequente retorna null normalmente
+    secureWriteFails.value = true;
+    await saveGroupCode("VOLATILE123");
+
+    // SecureStore.getItemAsync retorna null sem lançar exceção
+    expect(await loadGroupCode()).toBe("VOLATILE123");
+    consoleWarnSpy.mockRestore();
+  });
+
+  it("inMemoryGroupCode tem precedência sobre resíduo legado em AsyncStorage durante sessão ativa", async () => {
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // Simula chave legada antiga em AsyncStorage
+    legacy.set(GROUP_CODE_KEY, "OLD_LEGACY");
+    secureWriteFails.value = true;
+
+    // Usuário tenta salvar novo código nesta sessão, gravação no SecureStore falha
+    await saveGroupCode("NEW_SESSION");
+
+    // A leitura deve retornar o código novo da sessão ativa, e NÃO o antigo legado
+    expect(await loadGroupCode()).toBe("NEW_SESSION");
+    consoleWarnSpy.mockRestore();
+  });
+
+  it("clearGroupCode remove dos armazenamentos e limpa a memória volátil", async () => {
     secure.set(GROUP_CODE_KEY, "ABC234");
     legacy.set(GROUP_CODE_KEY, "ABC234");
     await clearGroupCode();
     expect(secure.has(GROUP_CODE_KEY)).toBe(false);
     expect(legacy.has(GROUP_CODE_KEY)).toBe(false);
+    expect(await loadGroupCode()).toBeNull();
+  });
+
+  it("clearGroupCode reseta a supressão de alerta permitindo alertar novamente em falha subsequente", async () => {
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    secureFails.value = true;
+    await saveGroupCode("FIRST_FAIL");
+    expect(appAlert).toHaveBeenCalledTimes(1);
+
+    // Limpa o código do grupo
+    await clearGroupCode();
+
+    // Nova falha deve disparar o alerta novamente
+    await saveGroupCode("SECOND_FAIL");
+    expect(appAlert).toHaveBeenCalledTimes(2);
+    consoleWarnSpy.mockRestore();
   });
 });
 
@@ -180,6 +265,35 @@ describe("group code na web", () => {
     web.set(GROUP_CODE_KEY, "WEB234");
     await clearGroupCode();
     expect(web.has(GROUP_CODE_KEY)).toBe(false);
+  });
+
+  it("se webSecrets.set retornar false na web, mantém em memória e alerta o usuário uma vez (Verification Gap)", async () => {
+    webFails.value = true;
+    await saveGroupCode("WEB_VOLATILE");
+
+    expect(appAlert).toHaveBeenCalledTimes(1);
+    expect(appAlert).toHaveBeenCalledWith(
+      "Armazenamento seguro indisponível",
+      expect.stringContaining("reabrir o aplicativo")
+    );
+
+    // loadGroupCode recupera da memória
+    expect(await loadGroupCode()).toBe("WEB_VOLATILE");
+
+    // Nova chamada não duplica alerta
+    await saveGroupCode("WEB_VOLATILE_2");
+    expect(appAlert).toHaveBeenCalledTimes(1);
+    expect(await loadGroupCode()).toBe("WEB_VOLATILE_2");
+  });
+
+  it("se webSecrets.set lançar exceção na web, mantém em memória e alerta o usuário", async () => {
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    webRejects.value = true;
+    await saveGroupCode("WEB_REJECTED");
+
+    expect(appAlert).toHaveBeenCalledTimes(1);
+    expect(await loadGroupCode()).toBe("WEB_REJECTED");
+    consoleWarnSpy.mockRestore();
   });
 });
 

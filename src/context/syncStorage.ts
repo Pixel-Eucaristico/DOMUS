@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { webSecrets } from "@/src/modules/security/infrastructure/webSecrets";
+import { appAlert } from "@/src/services/appAlert";
 
 export const DEVICE_ID_KEY = "domus_device_id";
 export const LAST_SYNC_KEY = "domus_last_sync_ts";
@@ -44,49 +45,127 @@ export async function loadOrCreateDeviceId(): Promise<string> {
 // `process.env.EXPO_OS` é trocado pela plataforma no build e dispensa importar react-native (testável no vitest).
 const isWeb = (): boolean => process.env.EXPO_OS === "web";
 
-/** Lê o group code; migra o valor legado de AsyncStorage para SecureStore. */
+export const SECURE_STORAGE_UNAVAILABLE_TITLE = "Armazenamento seguro indisponível";
+export const SECURE_STORAGE_UNAVAILABLE_MESSAGE =
+  "O código de pareamento foi mantido apenas na memória desta sessão porque o armazenamento protegido do aparelho falhou. O sincronismo continua funcionando agora, mas o pareamento pode ser solicitado novamente ao reabrir o aplicativo.";
+
+let inMemoryGroupCode: string | null = null;
+let hasWarnedSecureStorageFailure = false;
+
+/**
+ * Reseta o estado em memória para isolamento em testes unitários.
+ */
+export function _resetGroupCodeMemoryState(): void {
+  inMemoryGroupCode = null;
+  hasWarnedSecureStorageFailure = false;
+}
+
+/** Lê o group code; migra o valor legado de AsyncStorage para SecureStore; fallback para valor em memória. */
 export async function loadGroupCode(): Promise<string | null> {
-  if (isWeb()) return webSecrets.get(GROUP_CODE_KEY);
+  if (isWeb()) {
+    try {
+      const secure = await webSecrets.get(GROUP_CODE_KEY);
+      if (secure) return secure;
+    } catch (err) {
+      console.warn("[syncStorage] webSecrets falhou na leitura do group code.", err);
+    }
+    return inMemoryGroupCode;
+  }
 
   try {
     const secure = await SecureStore.getItemAsync(GROUP_CODE_KEY);
     if (secure) return secure;
-  } catch {
-    // SecureStore indisponível: cai para o valor legado abaixo
+  } catch (err) {
+    console.warn("[syncStorage] SecureStore falhou na leitura do group code.", err);
   }
 
-  const legacy = await AsyncStorage.getItem(GROUP_CODE_KEY);
-  if (legacy) {
+  // Se o código foi definido nesta sessão e está na memória (ex.: gravação falhou),
+  // a sessão ativa prevalece sobre qualquer resíduo legado desatualizado no AsyncStorage
+  if (inMemoryGroupCode) {
+    return inMemoryGroupCode;
+  }
+
+  try {
+    const legacy = await AsyncStorage.getItem(GROUP_CODE_KEY);
+    if (legacy && legacy.trim()) {
+      const trimmedLegacy = legacy.trim();
+      try {
+        await SecureStore.setItemAsync(GROUP_CODE_KEY, trimmedLegacy);
+        await AsyncStorage.removeItem(GROUP_CODE_KEY);
+      } catch {
+        // migração falhou: mantém o legado e tenta de novo no próximo boot
+      }
+      return trimmedLegacy;
+    }
+  } catch {}
+
+  return null;
+}
+
+/**
+ * Grava o group code em SecureStore (web: cifrado; no nativo, se SecureStore falhar,
+ * mantém em memória volátil e alerta o usuário uma vez sem gravar texto puro em AsyncStorage).
+ */
+export async function saveGroupCode(code: string): Promise<void> {
+  const trimmed = code?.trim();
+  if (!trimmed) {
+    throw new Error("Código de grupo inválido (vazio).");
+  }
+
+  if (isWeb()) {
     try {
-      await SecureStore.setItemAsync(GROUP_CODE_KEY, legacy);
-      await AsyncStorage.removeItem(GROUP_CODE_KEY);
-    } catch {
-      // migração falhou: mantém o legado e tenta de novo no próximo boot
+      const ok = await webSecrets.set(GROUP_CODE_KEY, trimmed);
+      if (!ok) {
+        inMemoryGroupCode = trimmed;
+        if (!hasWarnedSecureStorageFailure) {
+          hasWarnedSecureStorageFailure = true;
+          appAlert(SECURE_STORAGE_UNAVAILABLE_TITLE, SECURE_STORAGE_UNAVAILABLE_MESSAGE);
+        }
+      } else {
+        inMemoryGroupCode = null;
+      }
+      return;
+    } catch (err) {
+      console.warn(
+        "[syncStorage] webSecrets lançou erro ao gravar group code; mantendo em memória.",
+        err
+      );
+      inMemoryGroupCode = trimmed;
+      if (!hasWarnedSecureStorageFailure) {
+        hasWarnedSecureStorageFailure = true;
+        appAlert(SECURE_STORAGE_UNAVAILABLE_TITLE, SECURE_STORAGE_UNAVAILABLE_MESSAGE);
+      }
+      return;
     }
   }
-  return legacy;
-}
 
-/** Grava o group code em SecureStore (web: cifrado; AsyncStorage só se o SecureStore falhar no nativo). */
-export async function saveGroupCode(code: string): Promise<void> {
-  if (isWeb()) {
-    await webSecrets.set(GROUP_CODE_KEY, code);
-    return;
-  }
   try {
-    await SecureStore.setItemAsync(GROUP_CODE_KEY, code);
-    await AsyncStorage.removeItem(GROUP_CODE_KEY);
+    await SecureStore.setItemAsync(GROUP_CODE_KEY, trimmed);
+    await AsyncStorage.removeItem(GROUP_CODE_KEY).catch(() => {});
+    inMemoryGroupCode = null;
     return;
   } catch (err) {
-    console.warn("[syncStorage] SecureStore falhou ao gravar group code; usando AsyncStorage.", err);
+    console.warn(
+      "[syncStorage] SecureStore falhou ao gravar group code; mantendo apenas em memória.",
+      err
+    );
+    inMemoryGroupCode = trimmed;
+    if (!hasWarnedSecureStorageFailure) {
+      hasWarnedSecureStorageFailure = true;
+      appAlert(SECURE_STORAGE_UNAVAILABLE_TITLE, SECURE_STORAGE_UNAVAILABLE_MESSAGE);
+    }
+    // NUNCA grava em AsyncStorage em texto puro (Story 6.3, FR-23, NFR-1)
   }
-  await AsyncStorage.setItem(GROUP_CODE_KEY, code);
 }
 
-/** Remove o group code de todos os armazenamentos. */
+/** Remove o group code de todos os armazenamentos e zera a memória volátil. */
 export async function clearGroupCode(): Promise<void> {
+  inMemoryGroupCode = null;
+  hasWarnedSecureStorageFailure = false;
   if (isWeb()) {
-    await webSecrets.remove(GROUP_CODE_KEY);
+    try {
+      await webSecrets.remove(GROUP_CODE_KEY);
+    } catch {}
     return;
   }
   try {
@@ -94,7 +173,7 @@ export async function clearGroupCode(): Promise<void> {
   } catch {
     // chave pode não existir
   }
-  await AsyncStorage.removeItem(GROUP_CODE_KEY);
+  await AsyncStorage.removeItem(GROUP_CODE_KEY).catch(() => {});
 }
 
 // ── Strong group secret (Story 4.3) ──────────────────────────────────────────
