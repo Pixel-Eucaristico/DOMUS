@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
 import { useAppState } from "@/src/context/AppStateProvider";
@@ -8,9 +7,23 @@ import { GoogleDriveService } from "@/src/modules/backup/infrastructure/GoogleDr
 import { BACKUP_FILE_EXTENSION } from "@/src/modules/backup/domain/BackupMetadata";
 import { buildExportEvents } from "@/src/context/localEventLog";
 
+import {
+  DEVICE_KEY_STORAGE,
+  getDeviceBackupKey,
+  getOrCreateDeviceBackupKey,
+  clearDeviceBackupKey,
+  isWeb,
+} from "@/src/modules/backup/infrastructure/deviceBackupKey";
+
+export {
+  DEVICE_KEY_STORAGE,
+  getDeviceBackupKey,
+  getOrCreateDeviceBackupKey,
+  clearDeviceBackupKey,
+};
+
 // ─── constantes ──────────────────────────────────────────────────────────────
 
-const DEVICE_KEY_STORAGE = "domus_auto_backup_device_key";
 const LAST_AUTO_BACKUP_TS = "domus_auto_backup_last_ts";
 
 /** Intervalo entre auto-backups: 24 horas */
@@ -22,30 +35,6 @@ export function autoBackupFilePath(): string {
 }
 
 // ─── helpers públicos ─────────────────────────────────────────────────────────
-
-/** Retorna a chave de dispositivo já gerada, ou null se ainda não existir. */
-export async function getDeviceBackupKey(): Promise<string | null> {
-  return AsyncStorage.getItem(DEVICE_KEY_STORAGE);
-}
-
-/** Gera (ou retorna existente) a chave de dispositivo usada no auto-backup. */
-export async function getOrCreateDeviceBackupKey(): Promise<string> {
-  const existing = await AsyncStorage.getItem(DEVICE_KEY_STORAGE);
-  if (existing) return existing;
-
-  // 24 chars alfanuméricos, sem ambiguidade (sem 0/O/1/I)
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let key = "";
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  for (let i = 0; i < 24; i++) {
-    if (i > 0 && i % 6 === 0) key += "-";
-    key += chars[bytes[i] % chars.length];
-  }
-
-  await AsyncStorage.setItem(DEVICE_KEY_STORAGE, key);
-  return key;
-}
 
 /** Timestamp do último auto-backup bem-sucedido (null = nunca). */
 export async function getLastAutoBackupTs(): Promise<number | null> {
@@ -69,7 +58,7 @@ export function useAutoBackup() {
   const hasRunRef = useRef(false);
 
   useEffect(() => {
-    if (loading || hasRunRef.current || Platform.OS === "web") return;
+    if (loading || hasRunRef.current || isWeb()) return;
     hasRunRef.current = true;
 
     (async () => {
