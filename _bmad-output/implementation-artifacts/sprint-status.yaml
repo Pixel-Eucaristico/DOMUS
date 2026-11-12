@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-09-2026 16:56
+last_updated: 11-12-2026 12:34
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -91,7 +91,7 @@ development_status:
   5-7-propagar-rápido-inclusive-depois-de-ficar-offline: done
   5-8-publicar-o-marcador-de-reset-e-de-restauração: done
   5-9-pedir-confirmação-antes-de-apagar-por-causa-de-um-marcador: done
-  epic-5-retrospective: optional
+  epic-5-retrospective: done
 
   epic-6: backlog
   6-1-mover-a-chave-do-ocr-para-o-armazenamento-seguro: backlog
@@ -223,3 +223,23 @@ action_items:
     owner: "domus-architect"
     status: open
     ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-3-retro-2026-11-09.md"
+  - id: "epic-5-retro-item-8-decompor-usesyncengine-ts-em-sub-hooks-m"
+    epic: 5
+    action: "Decompor useSyncEngine.ts em sub-hooks modulares de transporte e ciclo
+      de vida"
+    owner: "domus-architect"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-5-retro-2026-11-12.md"
+  - id: "epic-5-retro-item-9-adicionar-timeout-de-seguranca-para-prom"
+    epic: 5
+    action: "Adicionar timeout de seguranca para prompts de marcador remoto pendentes"
+    owner: "domus-dev"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-5-retro-2026-11-12.md"
+  - id: "epic-5-retro-item-10-migrar-cursores-de-leitura-de-relays-de"
+    epic: 5
+    action: "Migrar cursores de leitura de relays de AsyncStorage para tabela transacional
+      SQLite"
+    owner: "domus-dev"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-5-retro-2026-11-12.md"
