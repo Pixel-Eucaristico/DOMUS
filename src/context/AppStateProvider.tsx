@@ -27,8 +27,13 @@ import {
   replayOptionsFor,
   type QuarantineEntry,
 } from "@/src/context/replay";
-import { appendGenerated, createXpRecoveryEvent, isXpRecoveryEvent } from "@/src/context/localEventLog";
+import { appendGenerated } from "@/src/context/localEventLog";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
+import {
+  createBootEffectsGate,
+  evaluateXpRecoveryEffect,
+  type BootEffectsGate,
+} from "@/src/modules/bootEffectsGate";
 
 // Extracted hooks
 import { useToastState } from "@/src/hooks/useToastState";
@@ -56,6 +61,9 @@ interface AppStateContextValue {
   budget: BudgetBreakdown;
   totalBalance: number;
   loading: boolean;
+  initialSyncReady: boolean;
+  bootEffectsGate: BootEffectsGate;
+  isDemoActive: boolean;
   dispatch: (event: AnyEvent) => void;
   dispatchDomainEvent: (event: DomainEvent) => void;
   setThemeMode: (mode: ThemeMode) => void;
@@ -96,6 +104,26 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const toast = useToastState();
   const debug = useDebugOverrides();
   const eventStore = useEventStore({ isDemoActive, dispatchDemoEvent });
+
+  // Story 7.2: Barreira do primeiro pull para efeitos automáticos de boot
+  const [initialSyncReady, setInitialSyncReady] = useState(false);
+  const [bootEffectsGate] = useState(() =>
+    createBootEffectsGate({
+      onReady: () => setInitialSyncReady(true),
+    }),
+  );
+
+  useEffect(() => {
+    if (bootEffectsGate.isReady()) {
+      setInitialSyncReady(true);
+    }
+    const unsubscribe = bootEffectsGate.subscribe(() => {
+      setInitialSyncReady(true);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [bootEffectsGate]);
 
   // Story 3.5: `nowTick` força um novo replay (com um novo `Date.now()`) quando um evento
   // em Quarentena por "horário no futuro" pode ter passado a valer: ao voltar para o
@@ -189,35 +217,36 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     monthsPlanned: season.history.length,
   });
 
-  // XP recovery effect
+  // XP recovery effect (Story 7.2: só roda após a liberação da barreira do primeiro pull)
   useEffect(() => {
-    if (isDemoActive || debug.debugXp !== null) return;
-    if (!eventStore.loading && eventStore.allEvents.length > 0 && eventStore.deviceId) {
-      const txCount = Object.keys(domain.transactions).length;
-      const currentXp = gamification.totalXp;
-      // Ids antigos com prefixo "xp-recovery-" e novos com a marca no payload.
-      const hasRecovery = eventStore.allEvents.some(isXpRecoveryEvent);
+    const recoveryEvents = evaluateXpRecoveryEffect({
+      loading: eventStore.loading,
+      initialSyncReady,
+      isDemoActive,
+      debugXp: debug.debugXp,
+      deviceId: eventStore.deviceId,
+      allEvents:
+        eventStore.allEventsRef.current.length >= eventStore.allEvents.length
+          ? eventStore.allEventsRef.current
+          : eventStore.allEvents,
+      transactions: domain.transactions,
+      totalXp: gamification.totalXp,
+    });
+    if (recoveryEvents.length === 0 || !eventStore.deviceId) return;
 
-      if (txCount > 0 && currentXp <= 5 && !hasRecovery) {
-        const recoveryAmount = Math.max(30, txCount * 15);
-        // Revisão 23/10: id e timestamp do mesmo instante (createEvent) e mesma regra do
-        // dispatch (carimbo antes de gravar, sem ids repetidos, ordem total).
-        const recoveryEvent = createXpRecoveryEvent(recoveryAmount, eventStore.deviceId);
-        const did = eventStore.deviceId;
-        const { events: next, added } = appendGenerated(eventStore.allEventsRef.current, [recoveryEvent], did);
-        if (added.length === 0) return;
-        eventStore.allEventsRef.current = next;
+    const did = eventStore.deviceId;
+    const { events: next, added } = appendGenerated(eventStore.allEventsRef.current, recoveryEvents, did);
+    if (added.length === 0) return;
+    eventStore.allEventsRef.current = next;
 
-        getEventStore().then((store) => {
-          added.forEach((evt) => store?.appendEvent(evt));
-        });
+    getEventStore().then((store) => {
+      added.forEach((evt) => store?.appendEvent(evt));
+    });
 
-        eventStore.setAllEvents((prev) => appendGenerated(prev, added, did).events);
-        eventStore.setLocalEventCount((c) => c + added.length);
-      }
-    }
+    eventStore.setAllEvents((prev) => appendGenerated(prev, added, did).events);
+    eventStore.setLocalEventCount((c) => c + added.length);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- eventStore é recriado a cada render; os campos realmente usados já estão nas deps e reexecutar dispararia o evento de recuperação de novo
-  }, [isDemoActive, eventStore.loading, eventStore.allEvents.length, domain.transactions, gamification.totalXp, eventStore.deviceId, debug.debugXp]);
+  }, [isDemoActive, eventStore.loading, initialSyncReady, eventStore.allEvents.length, domain.transactions, gamification.totalXp, eventStore.deviceId, debug.debugXp]);
 
   // Story 3.2: categorias padrão só quando o log não tem nenhum CATEGORY_CREATED
   // (mesmo que esses eventos estejam na Quarentena e não apareçam no estado).
@@ -233,6 +262,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     budget,
     deviceId: eventStore.deviceId,
     loading: eventStore.loading,
+    initialSyncReady,
     isDemoActive,
     debugXp: debug.debugXp,
     isCatholic: themePrefs.isCatholic,
@@ -291,6 +321,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       budget,
       totalBalance,
       loading: eventStore.loading,
+      initialSyncReady,
+      bootEffectsGate,
+      isDemoActive,
       dispatch: dispatchAny,
       dispatchDomainEvent: gamEffects.dispatchDomainEvent,
       setThemeMode: themePrefs.setThemeMode,
@@ -317,7 +350,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       debugBalance: debug.debugBalance,
       setDebugBalance: debug.setDebugBalance,
     }),
-    [domain, gamification, onboarding, season, wishlist, quarantine, themePrefs, levelInfo, budget, totalBalance, eventStore, dispatchAny, gamEffects.dispatchDomainEvent, resetApp, toast, debug],
+    [domain, gamification, onboarding, season, wishlist, quarantine, themePrefs, levelInfo, budget, totalBalance, eventStore, initialSyncReady, bootEffectsGate, isDemoActive, dispatchAny, gamEffects.dispatchDomainEvent, resetApp, toast, debug],
   );
 
   return (

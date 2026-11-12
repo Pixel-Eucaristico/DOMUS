@@ -214,6 +214,9 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
 
       if (newEvents.length > 0) {
         // Story 3.4: mesma normalização, deduplicação e ordem da hidratação.
+        // Story 7.2: atualiza o ref sincronicamente para que leituras logo após
+        // `await pullAllGroups()` enxerguem os eventos recém-importados.
+        allEventsRef.current = mergeImported(allEventsRef.current, newEvents, deviceId);
         setAllEvents((prev) => mergeImported(prev, newEvents, deviceId));
       }
       return newEvents.length;
@@ -247,6 +250,7 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
         for (const evt of sorted) store.appendEvent(evt);
       }
     }
+    allEventsRef.current = normalized;
     setAllEvents(normalized);
   }, [isDemoActive, deviceId]);
 

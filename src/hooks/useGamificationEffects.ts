@@ -23,10 +23,10 @@ import { shouldLevelUp } from "@packages/gamification/src/levelEngine";
 import { createXpPayload, getXpForAction, calculateBudgetAdherenceXp } from "@packages/gamification/src/xpEngine";
 import { updateStreak, type StreakState } from "@packages/gamification/src/streakEngine";
 import { generateId } from "@packages/events/src/factory";
-import { createDefaultCategories } from "@packages/domain/src/categories";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { getEventStore } from "./useEventStore";
 import { appendGenerated } from "@/src/context/localEventLog";
+import { evaluateDefaultCategoriesEffect } from "@/src/modules/bootEffectsGate";
 
 function todayStr(): string {
   const d = new Date();
@@ -39,6 +39,7 @@ export interface GamificationEffectsInput {
   budget: BudgetBreakdown;
   deviceId: string | null;
   loading: boolean;
+  initialSyncReady: boolean;
   isDemoActive: boolean;
   debugXp: number | null;
   isCatholic: boolean | null;
@@ -68,7 +69,7 @@ function createSyncEvent(event: GamificationEvent | DomainEvent, deviceId: strin
 
 export function useGamificationEffects(input: GamificationEffectsInput) {
   const {
-    domain, gamification, budget, deviceId, loading, isDemoActive,
+    domain, gamification, budget, deviceId, loading, initialSyncReady, isDemoActive,
     debugXp, isCatholic, allEventsLength, hasCategoryEvents,
     dispatch, setLocalEventCount, setAllEvents, allEventsRef,
     setPendingToast, setPendingMonthlyToast, setPendingSeasonalToast,
@@ -109,28 +110,34 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
     dispatchedSeasonalCompletionRef.current.clear();
   }, [loading, allEventsLength]);
 
-  // ── Initialize default categories if none exist ─────────────────────
+  // ── Initialize default categories if none exist (Story 7.2: aguarda primeiro pull) ──
   useEffect(() => {
-    if (isDemoActive) return;
-    if (defaultCategoriesCreatedRef.current || hasCategoryEvents) return;
-    if (!loading && deviceId && Object.keys(domain.categories).length === 0) {
-      defaultCategoriesCreatedRef.current = true;
-      const categoryEvents = createDefaultCategories();
-      const generated: SyncEvent[] = categoryEvents.map(evt => createSyncEvent(evt, deviceId));
+    const generated = evaluateDefaultCategoriesEffect({
+      loading,
+      initialSyncReady,
+      isDemoActive,
+      deviceId,
+      categories: domain.categories,
+      allEvents: allEventsRef.current,
+      hasCategoryEvents,
+      alreadyCreatedInSession: defaultCategoriesCreatedRef.current,
+    });
+    if (generated.length === 0 || !deviceId) return;
 
-      // Revisão 23/10: mesma regra do dispatch (carimbo, sem ids repetidos, ordem total).
-      const { events: next, added } = appendGenerated(allEventsRef.current, generated, deviceId);
-      if (added.length === 0) return;
-      allEventsRef.current = next;
+    defaultCategoriesCreatedRef.current = true;
 
-      getEventStore().then((store) => {
-        added.forEach(evt => store?.appendEvent(evt));
-      });
+    // Revisão 23/10: mesma regra do dispatch (carimbo, sem ids repetidos, ordem total).
+    const { events: next, added } = appendGenerated(allEventsRef.current, generated, deviceId);
+    if (added.length === 0) return;
+    allEventsRef.current = next;
 
-      setAllEvents((prev) => appendGenerated(prev, added, deviceId).events);
-      setLocalEventCount((c) => c + added.length);
-    }
-  }, [isDemoActive, loading, domain.categories, deviceId, hasCategoryEvents, setAllEvents, setLocalEventCount, allEventsRef]);
+    getEventStore().then((store) => {
+      added.forEach(evt => store?.appendEvent(evt));
+    });
+
+    setAllEvents((prev) => appendGenerated(prev, added, deviceId).events);
+    setLocalEventCount((c) => c + added.length);
+  }, [isDemoActive, loading, initialSyncReady, domain.categories, deviceId, hasCategoryEvents, setAllEvents, setLocalEventCount, allEventsRef]);
 
   // ── Monthly Trophy checker ──────────────────────────────────────────
   useEffect(() => {

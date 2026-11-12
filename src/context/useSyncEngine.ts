@@ -52,12 +52,14 @@ import {
   PULL_INTERVAL_MS,
   computeEventHash,
 } from "./syncStorage";
+import type { BootEffectsGate } from "@/src/modules/bootEffectsGate";
 
 export { HANDLED_REMOTE_MARKERS_STORAGE_KEY } from "./syncStorage";
 
 export type SyncStatus = "idle" | "syncing" | "connected" | "offline" | "error";
 
 const EMPTY_SET = new Set<string>();
+const defaultNow = () => Date.now();
 
 interface UseSyncEngineArgs {
   getAllEvents: () => SyncEvent[];
@@ -68,6 +70,7 @@ interface UseSyncEngineArgs {
   now?: () => number;
   version?: string;
   resetApp?: () => Promise<void>;
+  bootEffectsGate?: BootEffectsGate;
 }
 
 export function useSyncEngine({
@@ -76,9 +79,10 @@ export function useSyncEngine({
   localEventCount,
   deviceId,
   loading,
-  now = () => Date.now(),
+  now = defaultNow,
   version,
   resetApp,
+  bootEffectsGate,
 }: UseSyncEngineArgs) {
   const handledRemoteMarkerIdsRef = useRef<Set<string>>(new Set());
   const knownMarkersRef = useRef<ResetMarkerPayload[]>([]);
@@ -363,6 +367,7 @@ export function useSyncEngine({
     });
     // O cursor carrega antes das chaves: a assinatura só nasce com as chaves e
     // já monta o `since` com o cursor salvo. A chave antiga (`lastPullTs`) é apagada.
+    let foundActiveGroup = false;
     Promise.all([
       coordinator.load().catch(() => null),
       tracker.load().catch((err) => {
@@ -374,7 +379,9 @@ export function useSyncEngine({
         coexistingRef.current = coexisting;
         setCoexistingGroups(coexisting);
         const active = coexisting.strong ?? coexisting.legacy;
+        foundActiveGroup = Boolean(active);
         if (active) {
+          bootEffectsGate?.startGroupWait();
           isStrongGroupRef.current = active.isStrong;
           setGroupCode(active.code);
           setKeys(active.keys);
@@ -382,20 +389,26 @@ export function useSyncEngine({
           if (!active.isStrong && deviceId) {
             await publishLegacyCutoffWarningIfNeeded(active, deviceId);
           }
-        } else if (coexisting.legacyCutoff && coexisting.legacyCode) {
-          isStrongGroupRef.current = false;
-          setGroupCode(coexisting.legacyCode);
-          setKeys(null);
-          keysRef.current = null;
-          setSyncStatus("offline");
-          setErrorMessage(
-            coexisting.legacyCutoffReason === "version_deprecated"
-              ? LEGACY_VERSION_TOO_OLD_MESSAGE
-              : LEGACY_CUTOFF_MESSAGE,
-          );
+        } else {
+          bootEffectsGate?.markNoGroup();
+          if (coexisting.legacyCutoff && coexisting.legacyCode) {
+            isStrongGroupRef.current = false;
+            setGroupCode(coexisting.legacyCode);
+            setKeys(null);
+            keysRef.current = null;
+            setSyncStatus("offline");
+            setErrorMessage(
+              coexisting.legacyCutoffReason === "version_deprecated"
+                ? LEGACY_VERSION_TOO_OLD_MESSAGE
+                : LEGACY_CUTOFF_MESSAGE,
+            );
+          }
         }
       })
       .catch((err) => {
+        if (!foundActiveGroup) {
+          bootEffectsGate?.markNoGroup();
+        }
         console.warn("[Sync] Falha ao carregar grupos de sincronização:", err);
       });
     AsyncStorage.getItem(LAST_PUSH_HASH_KEY).then((val) => {
@@ -405,7 +418,7 @@ export function useSyncEngine({
     return () => {
       closePool();
     };
-  }, [coordinator, tracker, deviceId, now, version, publishLegacyCutoffWarningIfNeeded]);
+  }, [coordinator, tracker, deviceId, now, version, publishLegacyCutoffWarningIfNeeded, bootEffectsGate]);
 
   // --- Core sync operations ---
 
@@ -665,14 +678,23 @@ export function useSyncEngine({
     try {
       setSyncStatus("syncing");
 
-      await pushAllGroups(false);
-      await pullAllGroups();
-
-      initialSyncDoneRef.current = true;
+      if (!initialSyncDoneRef.current) {
+        await pullAllGroups();
+        initialSyncDoneRef.current = true;
+        bootEffectsGate?.markPullCompleted();
+        await pushAllGroups(false);
+      } else {
+        await pushAllGroups(false);
+        await pullAllGroups();
+        bootEffectsGate?.markPullCompleted();
+      }
 
       setSyncStatus("connected");
       setErrorMessage(null);
     } catch (err) {
+      if (!initialSyncDoneRef.current) {
+        bootEffectsGate?.markPullFailed();
+      }
       console.warn("[Sync] periodic sync failed (offline):", err);
       setSyncStatus("offline");
     }
@@ -684,6 +706,7 @@ export function useSyncEngine({
     now,
     version,
     publishLegacyCutoffWarningIfNeeded,
+    bootEffectsGate,
   ]);
 
   // --- Main sync effect ---
@@ -711,11 +734,23 @@ export function useSyncEngine({
 
     if (!initialSyncDoneRef.current) {
       setSyncStatus("syncing");
+      bootEffectsGate?.startGroupWait();
 
-      pushAllGroups(true)
-        .then(() => pullAllGroups())
+      pullAllGroups()
+        .then(
+          () => {
+            initialSyncDoneRef.current = true;
+            bootEffectsGate?.markPullCompleted();
+          },
+          (err) => {
+            initialSyncDoneRef.current = false;
+            bootEffectsGate?.markPullFailed();
+            throw err;
+          },
+        )
+        .then(() => new Promise((resolve) => setTimeout(resolve, 0)))
+        .then(() => pushAllGroups(true))
         .then(() => {
-          initialSyncDoneRef.current = true;
           setSyncStatus("connected");
           setErrorMessage(null);
         })
@@ -851,7 +886,7 @@ export function useSyncEngine({
         legacySubRef.current = null;
       }
     };
-  }, [coexistingGroups, deviceId, loading, doSync, pullAllGroups, pushAllGroups, coordinator, tracker, now, version]);
+  }, [coexistingGroups, deviceId, loading, doSync, pullAllGroups, pushAllGroups, coordinator, tracker, now, version, bootEffectsGate]);
 
   // --- Auto-push on local event changes ---
 
@@ -947,6 +982,7 @@ export function useSyncEngine({
         setSyncStatus("offline");
       }
 
+      bootEffectsGate?.markPullCompleted();
       await saveLastSync(Date.now());
       return group.code;
     } catch {
@@ -954,7 +990,7 @@ export function useSyncEngine({
       setErrorMessage("Falha ao criar grupo. Tente novamente.");
       return null;
     }
-  }, [deviceId, pushAllGroups, saveLastSync, coordinator, now, version]);
+  }, [deviceId, pushAllGroups, saveLastSync, coordinator, now, version, bootEffectsGate]);
 
   // Story 4.8: Migra aparelho do Grupo antigo para o Grupo forte mantendo coexistência (keepLegacy: true)
   const migrateToStrongGroup = useCallback(async (): Promise<string | null> => {
@@ -1005,11 +1041,14 @@ export function useSyncEngine({
         initialSyncDoneRef.current = false;
 
         try {
-          await pushAllGroups(true);
-        } catch {}
+          await pullAllGroups();
+          bootEffectsGate?.markPullCompleted();
+        } catch {
+          bootEffectsGate?.markPullFailed();
+        }
 
         try {
-          await pullAllGroups();
+          await pushAllGroups(true);
         } catch {}
 
         setSyncStatus("connected");
@@ -1025,7 +1064,7 @@ export function useSyncEngine({
         return false;
       }
     },
-    [deviceId, pushAllGroups, pullAllGroups, saveLastSync, coordinator, now, version],
+    [deviceId, pushAllGroups, pullAllGroups, saveLastSync, coordinator, now, version, bootEffectsGate],
   );
 
   const leaveGroup = useCallback(async () => {
@@ -1069,11 +1108,12 @@ export function useSyncEngine({
     groupPushHashesRef.current = {};
     lastPushHashRef.current = "empty";
     initialSyncDoneRef.current = false;
+    bootEffectsGate?.markNoGroup();
     await clearAllSyncGroupSecrets();
     await resetting;
     await AsyncStorage.removeItem(LAST_PUSH_HASH_KEY);
     await AsyncStorage.removeItem(GROUP_PUSH_HASHES_KEY);
-  }, [coordinator, tracker]);
+  }, [coordinator, tracker, bootEffectsGate]);
 
   const pushNow = useCallback(async () => {
     const { strong, legacy } = coexistingRef.current;

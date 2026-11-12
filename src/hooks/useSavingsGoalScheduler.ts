@@ -1,106 +1,28 @@
 import { useEffect, useRef } from "react";
 import { useAppState } from "@/src/context/AppStateProvider";
-import { createEvent, generateId } from "@packages/events/src/factory";
-import { EVENT_TYPES } from "@packages/events/src/types";
-import type { TransactionCreatedEvent } from "@packages/events/src/types";
+import {
+  alreadyScheduledInPeriod,
+  currentFortnight,
+  currentMonthPrefix,
+  currentWeek,
+  evaluateSavingsGoalScheduleEffect,
+  fmtDate,
+  monthlyContributionDate,
+} from "@/src/modules/bootEffectsGate";
 
-// ─── helpers de período ───────────────────────────────────────────────────────
-
-/** Retorna "YYYY-MM" do mês atual. */
-function currentMonthPrefix(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
-
-/**
- * Retorna o intervalo [início, fim] da quinzena atual no formato "YYYY-MM-DD".
- * 1ª quinzena: dia 1–15 | 2ª quinzena: dia 16–fim do mês.
- */
-function currentFortnight(): [string, string] {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth() + 1;
-  const mm = String(m).padStart(2, "0");
-  const lastDay = new Date(y, m, 0).getDate();
-  if (now.getDate() <= 15) {
-    return [`${y}-${mm}-01`, `${y}-${mm}-15`];
-  }
-  return [`${y}-${mm}-16`, `${y}-${mm}-${lastDay}`];
-}
-
-/**
- * Retorna o intervalo [início, fim] da semana atual (Segunda–Domingo) em "YYYY-MM-DD".
- */
-function currentWeek(): [string, string] {
-  const now = new Date();
-  const day = now.getDay(); // 0=Dom, 1=Seg, ...
-  const diffToMonday = (day === 0 ? -6 : 1 - day);
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diffToMonday);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  const fmt = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  return [fmt(monday), fmt(sunday)];
-}
-
-/**
- * Verifica se já existe aporte (pendente OU confirmado) no período atual.
- * Antes só verificava "pending" — ao confirmar, o app gerava duplicata.
- */
-function alreadyScheduledInPeriod(
-  transactions: ReturnType<typeof Object.values>,
-  accountId: string,
-  recurrence: "monthly" | "biweekly" | "weekly",
-  descPrefix: string,
-): boolean {
-  return transactions.some((tx) => {
-    if (
-      tx.accountId !== accountId ||
-      tx.type !== "income" ||
-      !tx.description?.startsWith(descPrefix)
-    )
-      return false;
-
-    // Aceita tanto pending quanto confirmed (fix: evita duplicata após confirmar)
-    if (tx.status !== "pending" && tx.status !== "confirmed") return false;
-
-    if (recurrence === "monthly") {
-      return tx.date?.startsWith(currentMonthPrefix());
-    }
-    if (recurrence === "biweekly") {
-      const [start, end] = currentFortnight();
-      return tx.date >= start && tx.date <= end;
-    }
-    // weekly
-    const [start, end] = currentWeek();
-    return tx.date >= start && tx.date <= end;
-  });
-}
-
-/** Formata data como "YYYY-MM-DD". */
-function fmtDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-/**
- * Para recorrência mensal, calcula a data do aporte no mês atual
- * usando o contributionDay configurado (padrão: dia 1).
- * Se o dia é maior que o último dia do mês (ex: 31 em fev), usa o último dia.
- */
-function monthlyContributionDate(contributionDay: number): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth() + 1;
-  const lastDay = new Date(y, m, 0).getDate();
-  const day = Math.min(contributionDay, lastDay);
-  return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
+export {
+  alreadyScheduledInPeriod,
+  currentFortnight,
+  currentMonthPrefix,
+  currentWeek,
+  fmtDate,
+  monthlyContributionDate,
+};
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 /**
- * Roda na inicialização do app (após loading=false).
+ * Roda na inicialização do app (após loading=false e initialSyncReady=true).
  * Para cada conta poupança com `savingsContributionAmount > 0`,
  * cria uma transação de receita pendente caso ainda não exista no período atual.
  *
@@ -112,62 +34,25 @@ function monthlyContributionDate(contributionDay: number): string {
  * Para mensal: só gera se hoje >= contributionDay do mês.
  */
 export function useSavingsGoalScheduler() {
-  const { domain, dispatchDomainEvent, deviceId, loading } = useAppState();
+  const { domain, dispatchDomainEvent, deviceId, loading, initialSyncReady, isDemoActive } = useAppState();
   const hasRunRef = useRef(false);
 
   useEffect(() => {
-    // Aguarda dados carregarem do SQLite antes de executar
-    if (loading || hasRunRef.current) return;
+    // Aguarda dados carregarem do SQLite e o primeiro pull do sync antes de executar
+    if (loading || !initialSyncReady || isDemoActive || hasRunRef.current) return;
     hasRunRef.current = true;
 
-    const did = deviceId ?? "local";
-    const today = new Date();
-    const todayStr = fmtDate(today);
+    const scheduledEvents = evaluateSavingsGoalScheduleEffect({
+      loading,
+      initialSyncReady,
+      isDemoActive,
+      deviceId,
+      accounts: domain.accounts,
+      transactions: domain.transactions,
+    });
 
-    const txList = Object.values(domain.transactions);
-
-    // Qualquer conta poupança com valor de aporte configurado
-    const savingsAccounts = Object.values(domain.accounts).filter(
-      (acc) => acc.type === "savings" && (acc.savingsContributionAmount ?? 0) > 0,
-    );
-
-    for (const acc of savingsAccounts) {
-      const amount = acc.savingsContributionAmount!;
-      const recurrence = acc.contributionRecurrence ?? "monthly";
-      const descPrefix = "Aporte poupança:";
-
-      // Para mensal: só gerar se hoje >= dia configurado do aporte
-      if (recurrence === "monthly") {
-        const contribDay = acc.contributionDay ?? 1;
-        if (today.getDate() < contribDay) continue;
-      }
-
-      if (alreadyScheduledInPeriod(txList, acc.id, recurrence, descPrefix)) continue;
-
-      const recurrenceLabel =
-        recurrence === "weekly" ? "semanal" : recurrence === "biweekly" ? "quinzenal" : "mensal";
-
-      // Para mensal, usa o dia configurado como data da transação
-      let txDate = todayStr;
-      if (recurrence === "monthly") {
-        txDate = monthlyContributionDate(acc.contributionDay ?? 1);
-      }
-
-      const txEvent = createEvent<TransactionCreatedEvent>(
-        EVENT_TYPES.TRANSACTION_CREATED,
-        {
-          id: generateId(),
-          accountId: acc.id,
-          type: "income",
-          amount,
-          categoryId: "outros",
-          date: txDate,
-          description: `Aporte poupança: ${acc.name} (${recurrenceLabel})`,
-          status: "pending",
-        },
-        did,
-      );
+    for (const txEvent of scheduledEvents) {
       dispatchDomainEvent(txEvent);
     }
-  }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loading, initialSyncReady, isDemoActive, domain.accounts, domain.transactions, deviceId, dispatchDomainEvent]);
 }
