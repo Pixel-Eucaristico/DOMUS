@@ -90,6 +90,7 @@ export function gamificationReducer(
       const { achievementId, rarity, xpReward } = event.payload;
       // Previne desbloquear a mesma conquista repetida se já estiver desbloqueada
       const existingAchs = state.unlockedAchievements ?? [];
+      if (existingAchs.some((a) => a.id === achievementId)) return state;
       const nextTotalXp = state.totalXp + xpReward;
 
       return {

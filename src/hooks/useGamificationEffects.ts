@@ -6,7 +6,11 @@ import type { AppState } from "@packages/domain/src/state";
 import { calculate503020, type BudgetBreakdown } from "@packages/domain/src/transactions";
 import type { GamificationEvent, GamificationState, AchievementUnlockedPayload, MonthlyTrophyCompletedPayload, SeasonalTrophyCompletedPayload, SeasonalTrophySelectedPayload } from "@packages/gamification/src/types";
 import { GAMIFICATION_EVENTS } from "@packages/gamification/src/types";
-import { checkNewAchievements, checkNewMonthlyTrophies } from "@packages/gamification/src/achievements";
+import {
+  checkNewAchievements,
+  checkNewMonthlyTrophies,
+  createAchievementUnlockedEvent,
+} from "@packages/gamification/src/achievements";
 import {
   ALL_SEASONAL_TROPHIES,
   pickSeasonalTrophy,
@@ -391,20 +395,7 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
           alreadyUnlocked,
         );
         for (const ach of newAchievements) {
-          dispatchGamEvent({
-            id: generateId(),
-            type: GAMIFICATION_EVENTS.ACHIEVEMENT_UNLOCKED,
-            payload: {
-              achievementId: ach.id,
-              name: ach.name,
-              description: ach.description,
-              rarity: ach.rarity,
-              xpReward: ach.xpReward,
-            },
-            timestamp: Date.now(),
-            deviceId: originDeviceId,
-            signature: "",
-          } as GamificationEvent);
+          dispatchGamEvent(createAchievementUnlockedEvent(ach, originDeviceId, Date.now()));
           setPendingToast({
             achievementId: ach.id,
             name: ach.name,

@@ -21,6 +21,9 @@ import { createDefaultCategories } from "@packages/domain/src/categories";
 import { diagnosticString } from "@packages/events/src/validateEnvelope";
 import { PAYLOAD_SPECS, validatePayload } from "../replayValidation";
 import { sortEvents } from "@packages/storage/src/eventOrder";
+import { createAchievementUnlockedEvent } from "@packages/gamification/src/achievements";
+import { selectEventsToImport } from "@/src/modules/syncPayload";
+import { mergeImported } from "@/src/context/localEventLog";
 
 // ─── Implementação anterior (AppStateProvider antes da Story 3.2), para comparação ──
 function legacyReplay(events: SyncEvent[]) {
@@ -332,5 +335,111 @@ describe("replayAllEvents — texto do motivo", () => {
   it("id com quebra de linha em envelope inválido sai escapado", () => {
     const result = replayAllEvents([{ id: "a\nb", type: "X", payload: null } as unknown as SyncEvent]);
     expect(result.quarantine[0]).toMatchObject({ id: "a\\nb", type: "X", kind: "invalid_envelope" });
+  });
+});
+
+describe("Story 7.1 — convergência de conquistas entre aparelhos no sync e replay", () => {
+  const tenTransactionsAch = {
+    id: "ten_transactions",
+    name: "Hábito Formado",
+    description: "Registre 10 transações",
+    rarity: "gold" as const,
+    xpReward: 100,
+  };
+
+  it("dois aparelhos cruzam a mesma conquista offline com ID determinístico ach:{achievementId} e sincronizam sem duplicar XP nem conquista", () => {
+    const achDevA = createAchievementUnlockedEvent(tenTransactionsAch, "dev-a", T0 + 10_000) as unknown as SyncEvent;
+    const achDevB = createAchievementUnlockedEvent(tenTransactionsAch, "dev-b", T0 + 20_000) as unknown as SyncEvent;
+
+    expect(achDevA.id).toBe("ach:ten_transactions");
+    expect(achDevB.id).toBe("ach:ten_transactions");
+
+    const logAInitial: SyncEvent[] = [account, achDevA];
+    const logBInitial: SyncEvent[] = [account, achDevB];
+
+    // Aparelho A importa o log de B; selectEventsToImport descarta o id repetido
+    const selectionOnA = selectEventsToImport(
+      logBInitial,
+      new Set(logAInitial.map((e) => e.id)),
+    );
+    expect(selectionOnA.toAppend).toHaveLength(0);
+    expect(selectionOnA.duplicates).toBe(2);
+    const mergedA = mergeImported(logAInitial, selectionOnA.toAppend, "dev-a");
+
+    // Aparelho B importa o log de A
+    const selectionOnB = selectEventsToImport(
+      logAInitial,
+      new Set(logBInitial.map((e) => e.id)),
+    );
+    expect(selectionOnB.toAppend).toHaveLength(0);
+    const mergedB = mergeImported(logBInitial, selectionOnB.toAppend, "dev-b");
+
+    const stateA = replayAllEvents(mergedA);
+    const stateB = replayAllEvents(mergedB);
+
+    expect(stateA.quarantine).toEqual([]);
+    expect(stateB.quarantine).toEqual([]);
+    expect(stateA.gamification.unlockedAchievements).toHaveLength(1);
+    expect(stateA.gamification.unlockedAchievements[0].id).toBe("ten_transactions");
+    expect(stateA.gamification.totalXp).toBe(100);
+    expect(stateA.gamification.seasonXp).toBe(100);
+    expect(stateA.gamification.completionCounts["ten_transactions"]).toBe(1);
+
+    // Convergência entre A e B nos totais e conquistas
+    expect(stateB.gamification.unlockedAchievements.map((a) => a.id)).toEqual(["ten_transactions"]);
+    expect(stateB.gamification.totalXp).toBe(stateA.gamification.totalXp);
+    expect(stateB.gamification.seasonXp).toBe(stateA.gamification.seasonXp);
+    expect(stateB.gamification.completionCounts).toEqual(stateA.gamification.completionCounts);
+  });
+
+  it("dois aparelhos com eventos legados da mesma conquista com IDs aleatórios diferentes (ou misto legado + determinístico) convergem para 1 conquista e 1 XP", () => {
+    const legacyDevA: SyncEvent = {
+      id: "rnd-legacy-a",
+      type: "ACHIEVEMENT_UNLOCKED",
+      payload: {
+        achievementId: "ten_transactions",
+        name: "Hábito Formado",
+        description: "Registre 10 transações",
+        rarity: "gold",
+        xpReward: 100,
+      },
+      timestamp: T0 + 10_000,
+      deviceId: "dev-a",
+      signature: "",
+    };
+    const legacyDevB: SyncEvent = {
+      ...legacyDevA,
+      id: "rnd-legacy-b",
+      timestamp: T0 + 20_000,
+      deviceId: "dev-b",
+    };
+    const deterministicDevB = createAchievementUnlockedEvent(
+      tenTransactionsAch,
+      "dev-b",
+      T0 + 30_000,
+    ) as unknown as SyncEvent;
+
+    const logAInitial: SyncEvent[] = [account, legacyDevA];
+    const logBInitial: SyncEvent[] = [account, legacyDevB, deterministicDevB];
+
+    // Sync bidirecional
+    const selA = selectEventsToImport(logBInitial, new Set(logAInitial.map((e) => e.id)));
+    const mergedA = mergeImported(logAInitial, selA.toAppend, "dev-a");
+
+    const selB = selectEventsToImport(logAInitial, new Set(logBInitial.map((e) => e.id)));
+    const mergedB = mergeImported(logBInitial, selB.toAppend, "dev-b");
+
+    const stateA = replayAllEvents(mergedA);
+    const stateB = replayAllEvents(mergedB);
+
+    expect(stateA.quarantine).toEqual([]);
+    expect(stateB.quarantine).toEqual([]);
+    expect(stateOf(stateA)).toEqual(stateOf(stateB));
+    expect(stateA.gamification.unlockedAchievements).toEqual([
+      { id: "ten_transactions", unlockedAt: T0 + 10_000, rarity: "gold" },
+    ]);
+    expect(stateA.gamification.totalXp).toBe(100);
+    expect(stateA.gamification.seasonXp).toBe(100);
+    expect(stateA.gamification.completionCounts["ten_transactions"]).toBe(1);
   });
 });

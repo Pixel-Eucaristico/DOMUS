@@ -101,8 +101,8 @@ development_status:
   6-5-barrar-por-teste-novo-segredo-em-asyncstorage: done
   epic-6-retrospective: done
 
-  epic-7: backlog
-  7-1-dar-id-determinístico-às-conquistas-e-deduplicar-no-reducer: backlog
+  epic-7: in-progress
+  7-1-dar-id-determinístico-às-conquistas-e-deduplicar-no-reducer: done
   7-2-rodar-os-efeitos-só-depois-do-primeiro-pull: backlog
   7-3-criar-o-aporte-pendente-uma-vez-por-período: backlog
   7-4-não-dar-xp-a-transação-pendente: backlog
@@ -215,7 +215,7 @@ action_items:
     epic: 3
     action: "Deduplicar conquistas no reducer de gamificacao na Story 7.1 (D31)"
     owner: "domus-dev"
-    status: open
+    status: done
     ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-3-retro-2026-11-09.md"
   - id: "epic-3-retro-item-7-introduzir-politica-de-descarte-para-orf"
     epic: 3

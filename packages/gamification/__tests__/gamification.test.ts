@@ -24,6 +24,11 @@ import {
   createInitialGamificationState,
   replayGamificationEvents,
 } from "../src/reducer";
+import {
+  ACHIEVEMENT_EVENT_ID_PREFIX,
+  getAchievementEventId,
+  createAchievementUnlockedEvent,
+} from "../src/achievements";
 import type { GamificationEvent, GamificationState } from "../src/types";
 import { GAMIFICATION_EVENTS } from "../src/types";
 
@@ -980,6 +985,152 @@ describe("Gamification Reducer", () => {
       expect(res2.currentStreak).toBe(2);
       expect(res2.lastActiveDate).toBe("2026-11-06");
       expect(res2.broken).toBe(false);
+    });
+  });
+
+  describe("Story 7.1: ID determinístico de conquistas e deduplicação no reducer", () => {
+    const firstTxAchievement = {
+      id: "first_transaction",
+      name: "Primeiro Passo",
+      description: "Registre sua primeira transação",
+      rarity: "silver" as const,
+      xpReward: 50,
+    };
+
+    const tenTxAchievement = {
+      id: "ten_transactions",
+      name: "Hábito Formado",
+      description: "Registre 10 transações",
+      rarity: "gold" as const,
+      xpReward: 100,
+    };
+
+    it("getAchievementEventId e createAchievementUnlockedEvent geram ID determinístico ach:{achievementId}", () => {
+      expect(ACHIEVEMENT_EVENT_ID_PREFIX).toBe("ach:");
+      expect(getAchievementEventId("first_transaction")).toBe("ach:first_transaction");
+
+      const evt = createAchievementUnlockedEvent(firstTxAchievement, "dev-a", 1000);
+      expect(evt).toEqual({
+        id: "ach:first_transaction",
+        type: GAMIFICATION_EVENTS.ACHIEVEMENT_UNLOCKED,
+        payload: {
+          achievementId: "first_transaction",
+          name: "Primeiro Passo",
+          description: "Registre sua primeira transação",
+          rarity: "silver",
+          xpReward: 50,
+        },
+        timestamp: 1000,
+        deviceId: "dev-a",
+        signature: "",
+      });
+
+      // Mesmo ID determinístico em aparelho e horário diferentes
+      const evtOtherDevice = createAchievementUnlockedEvent(firstTxAchievement, "dev-b", 9999);
+      expect(evtOtherDevice.id).toBe(evt.id);
+    });
+
+    it("deduplica quando dois aparelhos geram ACHIEVEMENT_UNLOCKED com o mesmo ID determinístico", () => {
+      const evtA = createAchievementUnlockedEvent(tenTxAchievement, "dev-a", 1000);
+      const evtB = createAchievementUnlockedEvent(tenTxAchievement, "dev-b", 2000);
+
+      const state = replayGamificationEvents([evtA, evtB]);
+      expect(state.unlockedAchievements).toEqual([
+        { id: "ten_transactions", unlockedAt: 1000, rarity: "gold" },
+      ]);
+      expect(state.totalXp).toBe(100);
+      expect(state.seasonXp).toBe(100);
+      expect(state.completionCounts["ten_transactions"]).toBe(1);
+    });
+
+    it("deduplica eventos legados da mesma conquista com IDs aleatórios diferentes (e misto legado + determinístico)", () => {
+      const legacy1: GamificationEvent = {
+        id: "rnd-1",
+        type: GAMIFICATION_EVENTS.ACHIEVEMENT_UNLOCKED,
+        payload: {
+          achievementId: "ten_transactions",
+          name: "Hábito Formado",
+          description: "Registre 10 transações",
+          rarity: "gold",
+          xpReward: 100,
+        },
+        timestamp: 1000,
+        deviceId: "dev-a",
+        signature: "",
+      };
+      const legacy2: GamificationEvent = {
+        ...legacy1,
+        id: "rnd-2",
+        timestamp: 2000,
+        deviceId: "dev-b",
+      };
+      const deterministic = createAchievementUnlockedEvent(tenTxAchievement, "dev-b", 3000);
+
+      const state1 = gamificationReducer(createInitialGamificationState(), legacy1);
+      const state2 = gamificationReducer(state1, legacy2);
+      const state3 = gamificationReducer(state2, deterministic);
+
+      // O segundo e o terceiro retornam a referência de state inalterada
+      expect(state2).toBe(state1);
+      expect(state3).toBe(state1);
+      expect(state3.unlockedAchievements).toEqual([
+        { id: "ten_transactions", unlockedAt: 1000, rarity: "gold" },
+      ]);
+      expect(state3.totalXp).toBe(100);
+      expect(state3.seasonXp).toBe(100);
+      expect(state3.completionCounts["ten_transactions"]).toBe(1);
+    });
+
+    it("barra duplicata da mesma conquista mesmo após rotação da janela de 1000 itens de processedEventIds", () => {
+      const firstAch = createAchievementUnlockedEvent(firstTxAchievement, "dev-a", 1000);
+      let state = gamificationReducer(createInitialGamificationState(), firstAch);
+      expect(state.totalXp).toBe(50);
+
+      // 1005 eventos XP_GAINED empurram "ach:first_transaction" para fora de processedEventIds (janela de 1000)
+      for (let i = 1; i <= 1005; i++) {
+        state = gamificationReducer(state, {
+          id: `xp-fill-${i}`,
+          type: GAMIFICATION_EVENTS.XP_GAINED,
+          payload: { amount: 1, source: "transaction_logged" },
+          timestamp: 1000 + i,
+          deviceId: "dev-a",
+          signature: "",
+        });
+      }
+      expect(state.processedEventIds).not.toContain("ach:first_transaction");
+      const xpBeforeDuplicate = state.totalXp;
+
+      // Reenvio com o mesmo ID determinístico (já fora de processedEventIds) e com ID legado diferente
+      const duplicateSameId = createAchievementUnlockedEvent(firstTxAchievement, "dev-b", 5000);
+      const duplicateRandomId: GamificationEvent = {
+        ...duplicateSameId,
+        id: "rnd-late-duplicate",
+        timestamp: 6000,
+      };
+
+      const afterSameId = gamificationReducer(state, duplicateSameId);
+      const afterRandomId = gamificationReducer(afterSameId, duplicateRandomId);
+
+      expect(afterSameId).toBe(state);
+      expect(afterRandomId).toBe(state);
+      expect(afterRandomId.totalXp).toBe(xpBeforeDuplicate);
+      expect(afterRandomId.unlockedAchievements).toHaveLength(1);
+      expect(afterRandomId.completionCounts["first_transaction"]).toBe(1);
+    });
+
+    it("acumula normalmente conquistas distintas em sequência", () => {
+      const evt1 = createAchievementUnlockedEvent(firstTxAchievement, "dev-a", 1000);
+      const evt2 = createAchievementUnlockedEvent(tenTxAchievement, "dev-a", 2000);
+
+      const state = replayGamificationEvents([evt1, evt2]);
+      expect(state.unlockedAchievements.map((a) => a.id)).toEqual([
+        "first_transaction",
+        "ten_transactions",
+      ]);
+      expect(state.totalXp).toBe(150);
+      expect(state.seasonXp).toBe(150);
+      expect(state.completionCounts["first_transaction"]).toBe(1);
+      expect(state.completionCounts["ten_transactions"]).toBe(1);
     });
   });
 });

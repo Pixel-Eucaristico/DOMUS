@@ -17,7 +17,7 @@ import { useAppState } from "@/src/context/AppStateProvider";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { ALL_SEASONAL_TROPHIES, getTierColor, getTierLabel } from "@packages/gamification/src/seasonalTrophies";
 import { ALL_LITURGICAL_TROPHIES } from "@packages/gamification/src/liturgicalTrophies";
-import { ALL_ACHIEVEMENTS, MONTHLY_TROPHIES } from "@packages/gamification/src/achievements";
+import { ALL_ACHIEVEMENTS, MONTHLY_TROPHIES, getAchievementEventId } from "@packages/gamification/src/achievements";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import type { ArchetypeType } from "@packages/personality/src/types";
@@ -532,11 +532,16 @@ export function DebugTools() {
                         };
                       }
                       
-                      dispatch(createEvent<{ type: string; payload: unknown }>(
+                      const baseEvent = createEvent<{ type: string; payload: unknown }>(
                         eventType,
                         payload,
                         deviceId || "local",
-                      ) as any);
+                      );
+                      const evt =
+                        eventType === "ACHIEVEMENT_UNLOCKED"
+                          ? { ...baseEvent, id: getAchievementEventId(selectedTrophy.id) }
+                          : baseEvent;
+                      dispatch(evt as any);
 
                       setSelectedTrophy(null);
                       setVisible(false);

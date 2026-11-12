@@ -42,6 +42,9 @@ export {
 
 export type { Achievement, AchievementRarity, AchievementSeries, MonthlyTrophy, MonthlyTrophyProgress } from "./src/achievements";
 export {
+  ACHIEVEMENT_EVENT_ID_PREFIX,
+  getAchievementEventId,
+  createAchievementUnlockedEvent,
   ALL_ACHIEVEMENTS,
   ACHIEVEMENT_SERIES,
   checkNewAchievements,

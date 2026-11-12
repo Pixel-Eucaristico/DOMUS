@@ -1,9 +1,37 @@
 import { calculate503020 } from "../../../domain/src/transactions";
 import type { AppState } from "../../../domain/src/state";
 import type { BudgetBreakdown } from "../../../domain/src/transactions";
-import type { GamificationState } from "../types";
+import { GAMIFICATION_EVENTS } from "../types";
+import type { AchievementUnlockedEvent, GamificationState } from "../types";
 import { ALL_ACHIEVEMENTS, MONTHLY_TROPHIES } from "./achievementData";
 import type { Achievement, MonthlyTrophy } from "./achievementData";
+
+export const ACHIEVEMENT_EVENT_ID_PREFIX = "ach:";
+
+export function getAchievementEventId(achievementId: string): string {
+  return `${ACHIEVEMENT_EVENT_ID_PREFIX}${achievementId}`;
+}
+
+export function createAchievementUnlockedEvent(
+  ach: Pick<Achievement, "id" | "name" | "description" | "rarity" | "xpReward">,
+  deviceId: string,
+  timestamp: number,
+): AchievementUnlockedEvent {
+  return {
+    id: getAchievementEventId(ach.id),
+    type: GAMIFICATION_EVENTS.ACHIEVEMENT_UNLOCKED,
+    payload: {
+      achievementId: ach.id,
+      name: ach.name,
+      description: ach.description,
+      rarity: ach.rarity,
+      xpReward: ach.xpReward,
+    },
+    timestamp,
+    deviceId,
+    signature: "",
+  };
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
