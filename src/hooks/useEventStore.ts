@@ -1,5 +1,4 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { SQLiteEventStore } from "@packages/storage/src/eventStore";
@@ -11,10 +10,15 @@ import {
   prepareBackupForStorage,
   prepareLocalLog,
 } from "@/src/context/localEventLog";
+import {
+  loadWebEventLog,
+  saveWebEventLogImmediate,
+  scheduleWebEventLogSave,
+} from "@/src/context/webEventLogStorage";
 import { stampSchemaVersion } from "@packages/events/src/schemaVersion";
 
 const DEVICE_ID_KEY = "domus_device_id";
-const EVENTS_BACKUP_KEY = "domus_events_v1";
+const isWeb = (): boolean => process.env.EXPO_OS === "web";
 
 function generateDeviceId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
@@ -24,7 +28,7 @@ let eventStoreInstance: SQLiteEventStore | null = null;
 let initializationInProgress = false;
 
 export async function getEventStore(): Promise<SQLiteEventStore | null> {
-  if (Platform.OS === "web") return null;
+  if (isWeb()) return null;
   if (eventStoreInstance) return eventStoreInstance;
   if (initializationInProgress) {
     // Wait up to 3s for concurrent init to finish
@@ -78,19 +82,26 @@ interface EventStoreOptions {
 export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOptions): EventStoreState {
   const [allEvents, setAllEvents] = useState<SyncEvent[]>([]);
   const allEventsRef = React.useRef(allEvents);
+  const lastPersistedWebEventsRef = React.useRef<readonly SyncEvent[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [localEventCount, setLocalEventCount] = useState(0);
 
-  // Keep ref in sync + web backup
+  // Keep ref in sync + web backup (cifrado e agrupado via webSecrets após hidratação)
   useEffect(() => {
     allEventsRef.current = allEvents;
-    if (Platform.OS === "web" && allEvents.length > 0) {
-      AsyncStorage.setItem(EVENTS_BACKUP_KEY, JSON.stringify(allEvents));
+    if (
+      isWeb() &&
+      !loading &&
+      allEvents.length > 0 &&
+      lastPersistedWebEventsRef.current !== allEvents
+    ) {
+      lastPersistedWebEventsRef.current = allEvents;
+      void scheduleWebEventLogSave(allEvents);
     }
-  }, [allEvents]);
+  }, [allEvents, loading]);
 
-  // Hydrate from SQLite/AsyncStorage
+  // Hydrate from SQLite/webSecrets
   useEffect(() => {
     let mounted = true;
     
@@ -112,11 +123,8 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
         if (mounted) setDeviceId(did);
 
         let events: unknown = [];
-        if (Platform.OS === "web") {
-          const backup = await AsyncStorage.getItem(EVENTS_BACKUP_KEY);
-          if (backup) {
-            try { events = JSON.parse(backup); } catch {}
-          }
+        if (isWeb()) {
+          events = await loadWebEventLog();
         } else {
           const store = await getEventStore();
           if (store) events = store.getAllEvents();
@@ -130,7 +138,13 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
           if (prepared.skippedIndexes.length > 0) {
             console.warn(`[EventStore] Itens ignorados na hidratação (não são objeto), índices: ${prepared.skippedIndexes.join(", ")}`);
           }
-          setAllEvents((prev) => mergeHydrated(prepared.events, prev, did));
+          setAllEvents((prev) => {
+            const merged = mergeHydrated(prepared.events, prev, did);
+            if (prev.length === 0) {
+              lastPersistedWebEventsRef.current = merged;
+            }
+            return merged;
+          });
           setLoading(false);
           clearTimeout(safetyTimeout);
         }
@@ -221,8 +235,11 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
     if (duplicateIds.length > 0) {
       console.warn(`[EventStore] Ids repetidos ignorados na restauração: ${duplicateIds.length}`);
     }
-    if (Platform.OS === "web") {
-      await AsyncStorage.setItem(EVENTS_BACKUP_KEY, JSON.stringify(sorted));
+    // Story 3.4: reordena depois de normalizar ("local" → id do aparelho muda o desempate).
+    const normalized = prepareLocalLog(sorted, deviceId).events;
+    if (isWeb()) {
+      lastPersistedWebEventsRef.current = normalized;
+      await saveWebEventLogImmediate(sorted);
     } else {
       const store = await getEventStore();
       if (store) {
@@ -230,13 +247,12 @@ export function useEventStore({ isDemoActive, dispatchDemoEvent }: EventStoreOpt
         for (const evt of sorted) store.appendEvent(evt);
       }
     }
-    // Story 3.4: reordena depois de normalizar ("local" → id do aparelho muda o desempate).
-    setAllEvents(prepareLocalLog(sorted, deviceId).events);
+    setAllEvents(normalized);
   }, [isDemoActive, deviceId]);
 
   const resetApp = useCallback(async (): Promise<void> => {
     await restoreFromBackup([]);
-    if (Platform.OS !== "web") {
+    if (!isWeb()) {
       try {
         const { SecureStorageService } = await import(
           "@/src/modules/security/infrastructure/SecureStorageService"

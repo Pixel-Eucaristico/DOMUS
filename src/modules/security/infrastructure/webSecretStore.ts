@@ -33,11 +33,15 @@ export interface WebSecretStore {
 
 const PREFIX = "v1:";
 const IV_BYTES = 12;
+const BASE64_CHUNK_SIZE = 0x8000;
 
 function toBase64(bytes: Uint8Array): string {
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin);
+  const chunks: string[] = [];
+  for (let i = 0; i < bytes.length; i += BASE64_CHUNK_SIZE) {
+    const slice = bytes.subarray(i, i + BASE64_CHUNK_SIZE);
+    chunks.push(String.fromCharCode.apply(null, slice as unknown as number[]));
+  }
+  return btoa(chunks.join(""));
 }
 
 function fromBase64(b64: string): Uint8Array {

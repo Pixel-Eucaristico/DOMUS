@@ -97,7 +97,7 @@ development_status:
   6-1-mover-a-chave-do-ocr-para-o-armazenamento-seguro: done
   6-2-mover-a-chave-do-auto-backup-para-o-armazenamento-seguro: done
   6-3-tirar-a-queda-silenciosa-do-securestore-para-o-asyncstorage: done
-  6-4-cifrar-o-log-de-eventos-da-web: backlog
+  6-4-cifrar-o-log-de-eventos-da-web: done
   6-5-barrar-por-teste-novo-segredo-em-asyncstorage: backlog
   epic-6-retrospective: optional
 
