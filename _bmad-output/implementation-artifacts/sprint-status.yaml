@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-12-2026 12:34
+last_updated: 11-12-2026 20:44
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -99,7 +99,7 @@ development_status:
   6-3-tirar-a-queda-silenciosa-do-securestore-para-o-asyncstorage: done
   6-4-cifrar-o-log-de-eventos-da-web: done
   6-5-barrar-por-teste-novo-segredo-em-asyncstorage: done
-  epic-6-retrospective: optional
+  epic-6-retrospective: done
 
   epic-7: backlog
   7-1-dar-id-determinístico-às-conquistas-e-deduplicar-no-reducer: backlog
@@ -243,3 +243,24 @@ action_items:
     owner: "domus-dev"
     status: open
     ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-5-retro-2026-11-12.md"
+  - id: "epic-6-retro-item-11-unificar-adaptadores-de-securestore-e-we"
+    epic: 6
+    action: "Unificar adaptadores de SecureStore e webSecrets em um helper compartilhado
+      sem react-native"
+    owner: "domus-architect"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-6-retro-2026-11-12.md"
+  - id: "epic-6-retro-item-12-limpar-entrada-em-memoria-do-websecrets"
+    epic: 6
+    action: "Limpar entrada em memoria do webSecrets quando saveSecureApiKey falhar
+      na migracao web do OCRConfigService"
+    owner: "domus-dev"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-6-retro-2026-11-12.md"
+  - id: "epic-6-retro-item-13-incluir-ai_settings_store_key-e-domus_ai"
+    epic: 6
+    action: "Incluir AI_SETTINGS_STORE_KEY e domus_ai_settings na lista nominal de
+      chaves protegidas de noSecretInAsyncStorage"
+    owner: "domus-dev"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-6-retro-2026-11-12.md"
