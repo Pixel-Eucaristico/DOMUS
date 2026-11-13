@@ -106,7 +106,7 @@ development_status:
   7-2-rodar-os-efeitos-só-depois-do-primeiro-pull: done
   7-3-criar-o-aporte-pendente-uma-vez-por-período: done
   7-4-não-dar-xp-a-transação-pendente: done
-  7-5-recuperar-o-xp-uma-vez-só: backlog
+  7-5-recuperar-o-xp-uma-vez-só: done
   7-6-categorias-sem-duplicar-entre-aparelhos: backlog
   7-7-emitir-cada-conquista-uma-vez-num-parcelamento: backlog
   7-8-derivar-o-nível-do-log: backlog

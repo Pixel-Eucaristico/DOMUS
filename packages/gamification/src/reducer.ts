@@ -2,6 +2,18 @@ import { GAMIFICATION_EVENTS } from "./types";
 import type { GamificationEvent, GamificationState } from "./types";
 import { calculateLevel } from "./levelEngine";
 
+export const XP_RECOVERY_EVENT_ID = "xp-recovery:v1";
+export const LEGACY_XP_RECOVERY_ID_PREFIX = "xp-recovery-";
+export const XP_RECOVERY_MARKER = "xp-recovery";
+
+export function isXpRecoveryGamificationEvent(event: GamificationEvent): boolean {
+  if (event.type !== GAMIFICATION_EVENTS.XP_GAINED) return false;
+  if (event.id === XP_RECOVERY_EVENT_ID) return true;
+  if (typeof event.id === "string" && event.id.startsWith(LEGACY_XP_RECOVERY_ID_PREFIX)) return true;
+  const payload = event.payload as { recovery?: unknown } | undefined;
+  return payload?.recovery === XP_RECOVERY_MARKER;
+}
+
 export function createInitialGamificationState(): GamificationState {
   return {
     totalXp: 0,
@@ -18,6 +30,7 @@ export function createInitialGamificationState(): GamificationState {
     completionCounts: {},
     processedEventIds: [],
     processedTransactionIds: [],
+    xpRecoveryApplied: false,
   };
 }
 
@@ -39,6 +52,13 @@ export function gamificationReducer(
     event.payload.transactionId &&
     processedTransactionIds.includes(event.payload.transactionId)
   ) {
+    return state;
+  }
+
+  // Story 7.5: a recuperação de XP vale uma vez só, mesmo com ids diferentes
+  // (ids antigos aleatórios `xp-recovery-*`, ou a marca no payload).
+  const isRecovery = isXpRecoveryGamificationEvent(event);
+  if (isRecovery && state.xpRecoveryApplied) {
     return state;
   }
 
@@ -65,6 +85,7 @@ export function gamificationReducer(
         ],
         processedEventIds: nextProcessedEventIds,
         processedTransactionIds: nextTransactionIds,
+        xpRecoveryApplied: state.xpRecoveryApplied || isRecovery,
       };
     }
 

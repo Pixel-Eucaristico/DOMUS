@@ -3,7 +3,6 @@ import {
   appendDispatched,
   appendGenerated,
   buildExportEvents,
-  compareEvents,
   createXpRecoveryEvent,
   isXpRecoveryEvent,
   mergeHydrated,
@@ -341,12 +340,12 @@ describe("Revisão 23/10 (frente C) — helpers usados pelos hooks", () => {
   });
 
   describe("recuperação de XP", () => {
-    it("createEvent: id e timestamp do mesmo instante, marca no payload, sem prefixo", () => {
+    it("createEvent: id fixo, timestamp do instante, marca no payload", () => {
       vi.useFakeTimers();
       vi.setSystemTime(T0);
       const e = createXpRecoveryEvent(45, "dev-1");
       expect(e.timestamp).toBe(T0);
-      expect(e.id.startsWith(T0.toString(36))).toBe(true);
+      expect(e.id).toBe("xp-recovery:v1");
       expect(e.id.startsWith("xp-recovery-")).toBe(false);
       expect(e.deviceId).toBe("dev-1");
       expect(e.type).toBe("XP_GAINED");
@@ -354,10 +353,30 @@ describe("Revisão 23/10 (frente C) — helpers usados pelos hooks", () => {
 
       const later = createXpRecoveryEvent(45, null);
       expect(later.deviceId).toBe("local");
-      expect(compareEvents(e, { ...later, deviceId: "dev-1" })).toBeLessThan(0);
+      expect(later.id).toBe(e.id);
     });
 
-    it("detecção: ids antigos com prefixo e os novos com a marca; o resto não", () => {
+    it("dois aparelhos geram o mesmo id e o replay conta uma só recuperação", () => {
+      const a = createXpRecoveryEvent(45, "dev-a");
+      const b = createXpRecoveryEvent(60, "dev-b");
+      expect(a.id).toBe(b.id);
+      const legacy = { ...createXpRecoveryEvent(30, "dev-c"), id: "xp-recovery-abc123" };
+      const r = replayAllEvents([a, b, legacy]);
+      expect(r.quarantine).toEqual([]);
+      expect(r.gamification.totalXp).toBe(45);
+      expect(r.gamification.seasonXp).toBe(45);
+    });
+
+    it("mergeImported: o evento de outro aparelho com o mesmo id não duplica no log", () => {
+      const a = createXpRecoveryEvent(45, "dev-a");
+      const b = createXpRecoveryEvent(45, "dev-b");
+      const merged = mergeImported([a], [b], "dev-a");
+      expect(merged.filter((e) => e.id === "xp-recovery:v1")).toHaveLength(1);
+      expect(replayAllEvents(merged).gamification.totalXp).toBe(45);
+    });
+
+    it("detecção: id fixo, ids antigos com prefixo e os novos com a marca; o resto não", () => {
+      expect(isXpRecoveryEvent({ id: "xp-recovery:v1", payload: {} })).toBe(true);
       expect(isXpRecoveryEvent({ id: "xp-recovery-abc", payload: {} })).toBe(true);
       expect(isXpRecoveryEvent(createXpRecoveryEvent(30, "dev-1"))).toBe(true);
       expect(isXpRecoveryEvent({ id: "abc", payload: { recovery: "outra" } })).toBe(false);
@@ -370,6 +389,7 @@ describe("Revisão 23/10 (frente C) — helpers usados pelos hooks", () => {
       const r = replayAllEvents([e]);
       expect(r.quarantine).toEqual([]);
       expect(r.gamification.totalXp).toBe(45);
+      expect(r.gamification.seasonXp).toBe(45);
     });
   });
 });

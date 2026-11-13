@@ -3,6 +3,11 @@ import { compareEvents, eventTimestampKey } from "@packages/storage/src/eventOrd
 import { createEvent } from "@packages/events/src/factory";
 import { SCHEMA_REGISTRY, stampSchemaVersion, type SchemaRegistry } from "@packages/events/src/schemaVersion";
 import { GAMIFICATION_EVENTS, type XpGainedEvent, type XpGainedPayload } from "@packages/gamification/src/types";
+import {
+  LEGACY_XP_RECOVERY_ID_PREFIX,
+  XP_RECOVERY_EVENT_ID,
+  XP_RECOVERY_MARKER,
+} from "@packages/gamification/src/reducer";
 
 /** Ordem total do log (Story 3.4): `(timestamp, deviceId, id)`. */
 export { compareEvents };
@@ -291,14 +296,15 @@ export function buildExportEvents(events: readonly SyncEvent[], deviceId: string
 
 // ─── Recuperação de XP ──────────────────────────────────────────────────────
 
-/** Prefixo dos ids da recuperação de XP gravados antes da revisão de 23/10. */
-export const LEGACY_XP_RECOVERY_ID_PREFIX = "xp-recovery-";
-/** Marca no payload da recuperação de XP (ids novos vêm do `createEvent`, sem prefixo). */
-export const XP_RECOVERY_MARKER = "xp-recovery";
+/**
+ * Constantes da recuperação de XP vêm do reducer (fonte única, Story 7.5):
+ * prefixo antigo `xp-recovery-`, marca `xp-recovery` no payload e id fixo `xp-recovery:v1`.
+ */
+export { LEGACY_XP_RECOVERY_ID_PREFIX, XP_RECOVERY_MARKER, XP_RECOVERY_EVENT_ID };
 
 /**
- * Evento de recuperação de XP: id e timestamp do mesmo instante (`createEvent`,
- * com o contador da 3.4) e a marca `recovery` no payload, que o reducer ignora.
+ * Evento de recuperação de XP: id fixo `xp-recovery:v1` (Story 7.5), timestamp do
+ * instante da criação e a marca `recovery` no payload, que o reducer ignora.
  */
 export function createXpRecoveryEvent(amount: number, deviceId: string | null): SyncEvent {
   const payload: XpGainedPayload & { description: string; recovery: string } = {
@@ -308,13 +314,14 @@ export function createXpRecoveryEvent(amount: number, deviceId: string | null): 
     recovery: XP_RECOVERY_MARKER,
   };
   const evt = createEvent<XpGainedEvent>(GAMIFICATION_EVENTS.XP_GAINED, payload, deviceId ?? "local");
-  return { ...evt, type: evt.type as string, payload };
+  return { ...evt, id: XP_RECOVERY_EVENT_ID, type: evt.type as string, payload };
 }
 
-/** Recuperação de XP, do formato antigo (prefixo no id) ou do novo (marca no payload). */
+/** Recuperação de XP: id fixo novo, prefixo antigo no id ou marca no payload. */
 export function isXpRecoveryEvent(e: unknown): boolean {
   if (typeof e !== "object" || e === null) return false;
   const { id, payload } = e as { id?: unknown; payload?: unknown };
+  if (id === XP_RECOVERY_EVENT_ID) return true;
   if (typeof id === "string" && id.startsWith(LEGACY_XP_RECOVERY_ID_PREFIX)) return true;
   return (
     typeof payload === "object" &&

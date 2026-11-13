@@ -1134,3 +1134,58 @@ describe("Gamification Reducer", () => {
     });
   });
 });
+
+describe("Story 7.5: recuperação de XP uma vez só", () => {
+  const recovery = (id: string, amount: number, extra: Record<string, unknown> = {}): GamificationEvent => ({
+    id,
+    type: GAMIFICATION_EVENTS.XP_GAINED,
+    payload: { amount, source: "streak_bonus", description: "Correção de XP Domus", ...extra },
+    timestamp: 1000,
+    deviceId: "dev-a",
+    signature: "",
+  });
+
+  it("dois eventos com o mesmo id fixo contam uma recuperação", () => {
+    const a = recovery("xp-recovery:v1", 45, { recovery: "xp-recovery" });
+    const b = { ...recovery("xp-recovery:v1", 60, { recovery: "xp-recovery" }), deviceId: "dev-b" };
+    const state = replayGamificationEvents([a, b]);
+    expect(state.totalXp).toBe(45);
+    expect(state.xpHistory).toHaveLength(1);
+    expect(state.xpRecoveryApplied).toBe(true);
+  });
+
+  it("evento antigo (prefixo) + evento novo contam uma só", () => {
+    const legacy = recovery("xp-recovery-abc123", 30);
+    const novo = recovery("xp-recovery:v1", 45, { recovery: "xp-recovery" });
+    const state = replayGamificationEvents([legacy, novo]);
+    expect(state.totalXp).toBe(30);
+    expect(state.xpHistory).toHaveLength(1);
+  });
+
+  it("dois eventos antigos com ids diferentes contam uma só", () => {
+    const state = replayGamificationEvents([
+      recovery("xp-recovery-abc", 30),
+      recovery("xp-recovery-def", 30),
+    ]);
+    expect(state.totalXp).toBe(30);
+  });
+
+  it("recuperação marcada só no payload (id aleatório) também conta uma vez", () => {
+    const state = replayGamificationEvents([
+      recovery("r1", 30, { recovery: "xp-recovery" }),
+      recovery("r2", 30, { recovery: "xp-recovery" }),
+    ]);
+    expect(state.totalXp).toBe(30);
+  });
+
+  it("XP comum depois da recuperação continua somando", () => {
+    const rec = recovery("xp-recovery:v1", 30, { recovery: "xp-recovery" });
+    const normal = makeGamEvent(
+      GAMIFICATION_EVENTS.XP_GAINED,
+      { amount: 5, source: "transaction_logged", transactionId: "tx-1" },
+      2000,
+    );
+    const state = replayGamificationEvents([rec, normal]);
+    expect(state.totalXp).toBe(35);
+  });
+});

@@ -163,6 +163,7 @@ export interface GamificationState {
   completionCounts: Record<string, number>;
   processedEventIds?: string[];
   processedTransactionIds?: string[];
+  xpRecoveryApplied?: boolean;
 }
 
 export interface BudgetFeedback {
