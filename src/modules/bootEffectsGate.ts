@@ -1,4 +1,4 @@
-import { createEvent, generateId } from "@packages/events/src/factory";
+import { createEvent } from "@packages/events/src/factory";
 import {
   EVENT_TYPES,
   type AccountPayload,
@@ -314,6 +314,30 @@ export function alreadyScheduledInPeriod(
   });
 }
 
+/**
+ * Chave do período do aporte: mensal `YYYY-MM`; quinzenal `YYYY-MM-Q1|Q2`;
+ * semanal = data (`YYYY-MM-DD`) da segunda-feira da semana.
+ */
+export function savingsContributionPeriodKey(
+  recurrence: "monthly" | "biweekly" | "weekly",
+  now: Date = new Date(),
+): string {
+  if (recurrence === "monthly") return currentMonthPrefix(now);
+  if (recurrence === "biweekly") {
+    return `${currentMonthPrefix(now)}-${now.getDate() <= 15 ? "Q1" : "Q2"}`;
+  }
+  return currentWeek(now)[0];
+}
+
+/** Id determinístico do aporte pendente: `savings:{accountId}:{período}`. */
+export function savingsContributionEventId(
+  accountId: string,
+  recurrence: "monthly" | "biweekly" | "weekly",
+  now: Date = new Date(),
+): string {
+  return `savings:${accountId}:${savingsContributionPeriodKey(recurrence, now)}`;
+}
+
 export interface SavingsGoalScheduleEffectInput {
   loading: boolean;
   initialSyncReady: boolean;
@@ -382,10 +406,11 @@ export function evaluateSavingsGoalScheduleEffect({
       txDate = monthlyContributionDate(acc.contributionDay ?? 1, now);
     }
 
-    const txEvent = createEvent<TransactionCreatedEvent>(
+    const contributionId = savingsContributionEventId(acc.id, recurrence, now);
+    const created = createEvent<TransactionCreatedEvent>(
       EVENT_TYPES.TRANSACTION_CREATED,
       {
-        id: generateId(),
+        id: contributionId,
         accountId: acc.id,
         type: "income",
         amount,
@@ -396,6 +421,7 @@ export function evaluateSavingsGoalScheduleEffect({
       },
       did,
     );
+    const txEvent: TransactionCreatedEvent = { ...created, id: contributionId };
     scheduledEvents.push(txEvent);
   }
 

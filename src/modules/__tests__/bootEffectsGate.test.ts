@@ -13,6 +13,8 @@ import {
   currentFortnight,
   currentWeek,
   monthlyContributionDate,
+  savingsContributionPeriodKey,
+  savingsContributionEventId,
 } from "../bootEffectsGate";
 import { createDefaultCategories } from "@packages/domain/src/categories";
 import { createEvent } from "@packages/events/src/factory";
@@ -596,5 +598,148 @@ describe("Story 7.2: Verificação de integração nos módulos e hooks", () => 
     const pushIdx = block.indexOf("pushAllGroups(true)");
     expect(pullIdx).toBeGreaterThan(0);
     expect(pushIdx).toBeGreaterThan(pullIdx);
+  });
+});
+
+describe("Story 7.3: aporte pendente com id determinístico por período", () => {
+  const acc = (over: Record<string, unknown> = {}) => ({
+    id: "acc-1",
+    name: "Meta",
+    type: "savings" as const,
+    balance: 1000,
+    savingsContributionAmount: 5000,
+    contributionRecurrence: "monthly" as const,
+    contributionDay: 1,
+    ...over,
+  });
+  const toSync = (e: TransactionCreatedEvent, deviceId: string): SyncEvent => ({
+    id: e.id,
+    type: e.type as string,
+    payload: e.payload,
+    timestamp: e.timestamp,
+    deviceId,
+    signature: "",
+  });
+  const run = (accounts: unknown[], transactions: unknown[], deviceId: string, now: Date) =>
+    evaluateSavingsGoalScheduleEffect({
+      loading: false,
+      initialSyncReady: true,
+      deviceId,
+      accounts: accounts as never,
+      transactions: transactions as never,
+      now,
+    });
+
+  it("gera chaves e ids distintos por recorrência e período", () => {
+    const d = (y: number, m: number, day: number) => new Date(y, m - 1, day, 12);
+    expect(savingsContributionPeriodKey("monthly", d(2026, 11, 12))).toBe("2026-11");
+    expect(savingsContributionPeriodKey("biweekly", d(2026, 11, 15))).toBe("2026-11-Q1");
+    expect(savingsContributionPeriodKey("biweekly", d(2026, 11, 16))).toBe("2026-11-Q2");
+    expect(savingsContributionPeriodKey("weekly", d(2026, 11, 12))).toBe("2026-11-09");
+    expect(savingsContributionPeriodKey("weekly", d(2026, 11, 15))).toBe("2026-11-09");
+    expect(savingsContributionPeriodKey("weekly", d(2026, 11, 16))).toBe("2026-11-16");
+    const ids = [
+      savingsContributionEventId("a", "monthly", d(2026, 10, 5)),
+      savingsContributionEventId("a", "monthly", d(2026, 11, 5)),
+      savingsContributionEventId("a", "biweekly", d(2026, 11, 5)),
+      savingsContributionEventId("a", "biweekly", d(2026, 11, 20)),
+      savingsContributionEventId("a", "weekly", d(2026, 11, 5)),
+      savingsContributionEventId("a", "weekly", d(2026, 11, 12)),
+    ];
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("mantém ':' do accountId sem alteração", () => {
+    expect(savingsContributionEventId("a:b", "monthly", new Date(2026, 10, 12))).toBe(
+      "savings:a:b:2026-11",
+    );
+  });
+
+  it("dois aparelhos geram o mesmo id e o merge resulta em uma só transação; efetivar soma uma vez", () => {
+    const now = new Date(2026, 10, 12, 10);
+    const accEvt = createEvent<AccountCreatedEvent>(
+      EVENT_TYPES.ACCOUNT_CREATED,
+      acc() as never,
+      "dev-a",
+    );
+    const accSync: SyncEvent = {
+      id: accEvt.id,
+      type: accEvt.type as string,
+      payload: accEvt.payload,
+      timestamp: 1_700_000_000_000,
+      deviceId: "dev-a",
+      signature: "",
+    };
+    const base = [accSync];
+    const a = run([acc()], [], "dev-a", now);
+    const b = run([acc()], [], "dev-b", now);
+    expect(a).toHaveLength(1);
+    expect(a[0].id).toBe("savings:acc-1:2026-11");
+    expect(a[0].payload.id).toBe(a[0].id);
+    expect(b[0].id).toBe(a[0].id);
+
+    const logB = mergeImported(
+      mergeImported(base, [toSync(b[0], "dev-b")], "dev-b"),
+      [toSync(a[0], "dev-a")],
+      "dev-b",
+    );
+    expect(logB.filter((e) => e.type === EVENT_TYPES.TRANSACTION_CREATED)).toHaveLength(1);
+    const pending = replayAllEvents(logB);
+    expect(Object.keys(pending.domain.transactions)).toEqual([a[0].id]);
+
+    const confirm: SyncEvent = {
+      id: "upd-1",
+      type: EVENT_TYPES.TRANSACTION_UPDATED as string,
+      payload: { id: a[0].id, status: "confirmed" },
+      timestamp: 1_800_000_000_000,
+      deviceId: "dev-b",
+      signature: "",
+    };
+    const done = replayAllEvents([...logB, confirm]);
+    expect(Object.keys(done.domain.transactions)).toHaveLength(1);
+    expect(done.domain.transactions[a[0].id].status).toBe("confirmed");
+    const before = pending.domain.accounts["acc-1"].balance;
+    expect(done.domain.accounts["acc-1"].balance).toBe(before + 5000);
+  });
+
+  it("aporte excluído no período não ressuscita com o mesmo id vindo de outro aparelho", () => {
+    const now = new Date(2026, 10, 12, 10);
+    const accSync: SyncEvent = {
+      id: "acc-evt",
+      type: EVENT_TYPES.ACCOUNT_CREATED as string,
+      payload: acc() as never,
+      timestamp: 1_700_000_000_000,
+      deviceId: "dev-a",
+      signature: "",
+    };
+    const a = run([acc()], [], "dev-a", now);
+    const del: SyncEvent = {
+      id: "del-1",
+      type: EVENT_TYPES.TRANSACTION_DELETED as string,
+      payload: { id: a[0].id },
+      timestamp: 1_800_000_000_000,
+      deviceId: "dev-a",
+      signature: "",
+    };
+    const logA = [accSync, toSync(a[0], "dev-a"), del];
+    const b = run([acc()], [], "dev-b", now);
+    const merged = mergeImported(logA, [toSync(b[0], "dev-b")], "dev-a");
+    const state = replayAllEvents(merged);
+    expect(Object.keys(state.domain.transactions)).toHaveLength(0);
+  });
+
+  it("aporte antigo com id aleatório no período não é recriado", () => {
+    const now = new Date(2026, 10, 12, 10);
+    const old = {
+      id: "random-old-id",
+      accountId: "acc-1",
+      type: "income",
+      amount: 5000,
+      categoryId: "outros",
+      date: "2026-11-01",
+      description: "Aporte poupança: Meta (mensal)",
+      status: "pending",
+    };
+    expect(run([acc()], [old], "dev-a", now)).toHaveLength(0);
   });
 });

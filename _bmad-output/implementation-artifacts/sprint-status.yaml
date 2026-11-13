@@ -104,7 +104,7 @@ development_status:
   epic-7: in-progress
   7-1-dar-id-determinístico-às-conquistas-e-deduplicar-no-reducer: done
   7-2-rodar-os-efeitos-só-depois-do-primeiro-pull: done
-  7-3-criar-o-aporte-pendente-uma-vez-por-período: backlog
+  7-3-criar-o-aporte-pendente-uma-vez-por-período: done
   7-4-não-dar-xp-a-transação-pendente: backlog
   7-5-recuperar-o-xp-uma-vez-só: backlog
   7-6-categorias-sem-duplicar-entre-aparelhos: backlog
