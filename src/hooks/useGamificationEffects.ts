@@ -27,6 +27,7 @@ import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { getEventStore } from "./useEventStore";
 import { appendGenerated } from "@/src/context/localEventLog";
 import { evaluateDefaultCategoriesEffect } from "@/src/modules/bootEffectsGate";
+import { transactionRewardEligibility } from "@/src/modules/transactionRewards";
 
 function todayStr(): string {
   const d = new Date();
@@ -303,8 +304,14 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
         // 1. TRANSACTION_DELETED nunca desconta XP (não pune correção de erros do usuário).
         // 2. TRANSACTION_CREATED concede XP apenas até a cota diária de 5 registros de hábito.
         // 3. Cadastros além da cota salvam normalmente sem XP adicional.
+        // 4. Transação pendente não paga XP/streak; a confirmação paga (idempotente por transactionId).
+        const reward = transactionRewardEligibility({
+          eventType: event.type,
+          payload: event.payload as { status?: string },
+          existing: domain.transactions[event.payload.id] as { status?: string } | undefined,
+        });
         let totalXpGain = 0;
-        if (event.type === EVENT_TYPES.TRANSACTION_CREATED) {
+        if (reward.awardXp) {
           const todayPrefix = todayStr();
           const todayXpEntries = (gamification.xpHistory ?? []).filter((entry) => {
             if (entry.source !== "transaction_logged") return false;
@@ -345,8 +352,8 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
           } as GamificationEvent);
         }
 
-        // Streak only for new transactions
-        if (event.type === EVENT_TYPES.TRANSACTION_CREATED) {
+        // Streak only for confirmed new transactions or pending→confirmed
+        if (reward.updateStreak) {
           const today = todayStr();
           const currentStreak: StreakState = {
             currentStreak: gamification.currentStreak,
