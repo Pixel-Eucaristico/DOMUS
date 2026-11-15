@@ -108,7 +108,7 @@ development_status:
   7-4-não-dar-xp-a-transação-pendente: done
   7-5-recuperar-o-xp-uma-vez-só: done
   7-6-categorias-sem-duplicar-entre-aparelhos: done
-  7-7-emitir-cada-conquista-uma-vez-num-parcelamento: backlog
+  7-7-emitir-cada-conquista-uma-vez-num-parcelamento: done
   7-8-derivar-o-nível-do-log: backlog
   7-9-derivar-o-streak-do-log: backlog
   7-10-criar-e-excluir-uma-transação-deixa-o-xp-igual: backlog

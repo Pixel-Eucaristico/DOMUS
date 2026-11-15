@@ -3,14 +3,10 @@ import { soundManager } from "@/src/services/SoundManager";
 import type { DomainEvent } from "@packages/events/src/types";
 import { EVENT_TYPES } from "@packages/events/src/types";
 import type { AppState } from "@packages/domain/src/state";
-import { calculate503020, type BudgetBreakdown } from "@packages/domain/src/transactions";
+import type { BudgetBreakdown } from "@packages/domain/src/transactions";
 import type { GamificationEvent, GamificationState, AchievementUnlockedPayload, MonthlyTrophyCompletedPayload, SeasonalTrophyCompletedPayload, SeasonalTrophySelectedPayload } from "@packages/gamification/src/types";
 import { GAMIFICATION_EVENTS } from "@packages/gamification/src/types";
-import {
-  checkNewAchievements,
-  checkNewMonthlyTrophies,
-  createAchievementUnlockedEvent,
-} from "@packages/gamification/src/achievements";
+import { checkNewMonthlyTrophies } from "@packages/gamification/src/achievements";
 import {
   ALL_SEASONAL_TROPHIES,
   pickSeasonalTrophy,
@@ -19,20 +15,13 @@ import {
 } from "@packages/gamification/src/seasonalTrophies";
 import type { LiturgicalTrophy } from "@packages/gamification/src/liturgicalTrophies";
 import { ALL_LITURGICAL_TROPHIES } from "@packages/gamification/src/liturgicalTrophies";
-import { shouldLevelUp } from "@packages/gamification/src/levelEngine";
-import { createXpPayload, getXpForAction, calculateBudgetAdherenceXp } from "@packages/gamification/src/xpEngine";
-import { updateStreak, type StreakState } from "@packages/gamification/src/streakEngine";
 import { generateId } from "@packages/events/src/factory";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { getEventStore } from "./useEventStore";
 import { appendGenerated } from "@/src/context/localEventLog";
+import { replayAllEvents, replayOptionsFor } from "@/src/context/replay";
 import { evaluateDefaultCategoriesEffect } from "@/src/modules/bootEffectsGate";
-import { transactionRewardEligibility } from "@/src/modules/transactionRewards";
-
-function todayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+import { computeDomainEventEffects } from "@/src/modules/domainEventEffects";
 
 export interface GamificationEffectsInput {
   domain: AppState;
@@ -271,188 +260,50 @@ export function useGamificationEffects(input: GamificationEffectsInput) {
     (event: DomainEvent) => {
       const originDeviceId = (event.deviceId && event.deviceId !== "local") ? event.deviceId : (deviceId || "local");
 
-      dispatch(createSyncEvent(event, originDeviceId));
-
-      // Skip gamification for non-local events
-      if (event.deviceId !== "local" && event.deviceId !== deviceId && event.deviceId !== undefined && event.deviceId !== null) return;
-
-      if (
-        event.type === EVENT_TYPES.TRANSACTION_CREATED ||
-        event.type === EVENT_TYPES.TRANSACTION_UPDATED ||
-        event.type === EVENT_TYPES.TRANSACTION_DELETED
-      ) {
-        // Predict next transaction state for correct XP calculation
-        const nextTransactions = { ...domain.transactions };
-        if (event.type === EVENT_TYPES.TRANSACTION_CREATED) {
-          nextTransactions[event.payload.id] = event.payload as any;
-        } else if (event.type === EVENT_TYPES.TRANSACTION_UPDATED) {
-          const existing = nextTransactions[event.payload.id];
-          if (existing) nextTransactions[event.payload.id] = { ...existing, ...event.payload } as any;
-        } else if (event.type === EVENT_TYPES.TRANSACTION_DELETED) {
-          delete nextTransactions[event.payload.id];
-        }
-
-        const now = new Date();
-        const nextBudget = calculate503020(
-          Object.values(nextTransactions),
-          domain.categories,
-          now.getMonth(),
-          now.getFullYear(),
-        );
-
-        // XP e Anti-farm:
-        // 1. TRANSACTION_DELETED nunca desconta XP (não pune correção de erros do usuário).
-        // 2. TRANSACTION_CREATED concede XP apenas até a cota diária de 5 registros de hábito.
-        // 3. Cadastros além da cota salvam normalmente sem XP adicional.
-        // 4. Transação pendente não paga XP/streak; a confirmação paga (idempotente por transactionId).
-        const reward = transactionRewardEligibility({
-          eventType: event.type,
-          payload: event.payload as { status?: string },
-          existing: domain.transactions[event.payload.id] as { status?: string } | undefined,
-        });
-        let totalXpGain = 0;
-        if (reward.awardXp) {
-          const todayPrefix = todayStr();
-          const todayXpEntries = (gamification.xpHistory ?? []).filter((entry) => {
-            if (entry.source !== "transaction_logged") return false;
-            const entryDate = new Date(entry.timestamp);
-            const y = entryDate.getFullYear();
-            const m = String(entryDate.getMonth() + 1).padStart(2, "0");
-            const d = String(entryDate.getDate()).padStart(2, "0");
-            return `${y}-${m}-${d}` === todayPrefix;
-          });
-
-          if (todayXpEntries.length < 5) {
-            const baseXp = getXpForAction("transaction_logged");
-            const prevMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
-            const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-            const prevBudget = calculate503020(
-              Object.values(nextTransactions),
-              domain.categories,
-              prevMonth,
-              prevYear,
-            );
-            const budgetBonus = calculateBudgetAdherenceXp(nextBudget, prevBudget);
-            totalXpGain = Math.max(0, baseXp + budgetBonus);
-          }
-        }
-
-        if (totalXpGain > 0) {
-          const xpPayload = {
-            ...createXpPayload("transaction_logged", totalXpGain),
-            transactionId: event.payload.id,
-          };
-          dispatchGamEvent({
-            id: generateId(),
-            type: GAMIFICATION_EVENTS.XP_GAINED,
-            payload: xpPayload,
-            timestamp: Date.now(),
-            deviceId: originDeviceId,
-            signature: "",
-          } as GamificationEvent);
-        }
-
-        // Streak only for confirmed new transactions or pending→confirmed
-        if (reward.updateStreak) {
-          const today = todayStr();
-          const currentStreak: StreakState = {
-            currentStreak: gamification.currentStreak,
-            longestStreak: gamification.longestStreak,
-            lastActiveDate: gamification.lastActiveDate,
-          };
-          const streakResult = updateStreak(currentStreak, today);
-          dispatchGamEvent({
-            id: generateId(),
-            type: GAMIFICATION_EVENTS.STREAK_UPDATED,
-            payload: streakResult,
-            timestamp: Date.now(),
-            deviceId: originDeviceId,
-            signature: "",
-          } as GamificationEvent);
-        }
-
-        // Level Up check
-        const currentTotalXp = gamification.totalXp;
-        const estimatedNewTotalXp = Math.max(0, currentTotalXp + totalXpGain);
-        const levelCheck = shouldLevelUp(currentTotalXp, estimatedNewTotalXp);
-
-        if (levelCheck.leveledUp) {
-          soundManager.play("levelUp");
-          dispatchGamEvent({
-            id: generateId(),
-            type: GAMIFICATION_EVENTS.LEVEL_UP,
-            payload: {
-              previousLevel: levelCheck.previousLevel,
-              newLevel: levelCheck.newLevel,
-              totalXp: estimatedNewTotalXp,
-            },
-            timestamp: Date.now(),
-            deviceId: originDeviceId,
-            signature: "",
-          } as GamificationEvent);
-        }
-
-        // Achievement checks
-        const estimatedNextGamification = {
-          ...gamification,
-          totalXp: estimatedNewTotalXp,
-          level: levelCheck.leveledUp ? levelCheck.newLevel : gamification.level,
-        };
-        const nextDomainForAchievements = { ...domain, transactions: nextTransactions };
-        const alreadyUnlocked = new Set(
-          (gamification.unlockedAchievements ?? []).map((a) => a.id),
-        );
-        const newAchievements = checkNewAchievements(
-          nextDomainForAchievements,
-          estimatedNextGamification,
-          nextBudget,
-          alreadyUnlocked,
-        );
-        for (const ach of newAchievements) {
-          dispatchGamEvent(createAchievementUnlockedEvent(ach, originDeviceId, Date.now()));
-          setPendingToast({
-            achievementId: ach.id,
-            name: ach.name,
-            description: ach.description,
-            rarity: ach.rarity,
-            xpReward: ach.xpReward,
-          });
-        }
-
-        // Monthly trophy checks
-        const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-        const completedMonthly = gamification.completedMonthlyTrophies ?? [];
-        const newMonthlyTrophies = checkNewMonthlyTrophies(
-          nextDomainForAchievements,
-          nextBudget,
-          completedMonthly,
-        );
-        for (const trophy of newMonthlyTrophies) {
-          dispatchGamEvent({
-            id: generateId(),
-            type: GAMIFICATION_EVENTS.MONTHLY_TROPHY_COMPLETED,
-            payload: {
-              trophyId: trophy.id,
-              monthKey,
-              name: trophy.name,
-              description: trophy.description,
-              xpReward: trophy.xpReward,
-            },
-            timestamp: Date.now(),
-            deviceId: originDeviceId,
-            signature: "",
-          } as GamificationEvent);
-          setPendingToast({
-            achievementId: trophy.id,
-            name: `📅 ${trophy.name}`,
-            description: trophy.description,
-            rarity: "gold",
-            xpReward: trophy.xpReward,
-          });
+      // Captura o estado anterior da transação antes do dispatch para detectar pending -> confirmed
+      let prevExistingTx: { status?: string } | undefined;
+      if (event.type === EVENT_TYPES.TRANSACTION_UPDATED) {
+        if (isDemoActive) {
+          prevExistingTx = domain.transactions[event.payload.id] as { status?: string } | undefined;
+        } else {
+          const prevDomain = replayAllEvents(
+            allEventsRef.current,
+            replayOptionsFor(false, deviceId),
+          ).domain;
+          prevExistingTx = prevDomain.transactions[event.payload.id] as { status?: string } | undefined;
         }
       }
+
+      const alreadyInLog =
+        !isDemoActive && allEventsRef.current.some((e) => e.id === event.id);
+
+      dispatch(createSyncEvent(event, originDeviceId));
+      if (alreadyInLog) return;
+
+      const effects = computeDomainEventEffects({
+        event,
+        deviceId,
+        useLogEvents: !isDemoActive,
+        logEvents: allEventsRef.current,
+        fallbackDomain: domain,
+        fallbackGamification: gamification,
+        prevExistingTx,
+      });
+
+      for (const gamEvt of effects.gamificationEvents) {
+        dispatchGamEvent(gamEvt);
+      }
+      if (effects.leveledUp) {
+        soundManager.play("levelUp");
+      }
+      for (const toast of effects.achievementToasts) {
+        setPendingToast(toast);
+      }
+      for (const toast of effects.monthlyToasts) {
+        setPendingToast(toast);
+      }
     },
-    [dispatch, dispatchGamEvent, gamification, deviceId, domain, setPendingToast],
+    [dispatch, dispatchGamEvent, gamification, deviceId, domain, isDemoActive, allEventsRef, setPendingToast],
   );
 
   return { dispatchDomainEvent };
