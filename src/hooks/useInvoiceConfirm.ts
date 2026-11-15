@@ -6,8 +6,7 @@ import {
   createInvoiceConfirmedEvent,
 } from "@packages/parsers";
 import { createTransactionEvent } from "@packages/domain/src/transactions";
-import { createEvent } from "@packages/events/src/factory";
-import { EVENT_TYPES, type CategoryCreatedEvent } from "@packages/events/src/types";
+import { createCategoryByNameEvent } from "@packages/domain/src/categories";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { CATEGORY_OPTIONS } from "@/src/constants/invoiceCategories";
 import { EditableItem } from "./useEditableItems";
@@ -85,7 +84,7 @@ export function useInvoiceConfirm(
       const option = CATEGORY_OPTIONS.find((c) => c.id === catId);
       if (!option) continue;
       dispatch(
-        createEvent<CategoryCreatedEvent>(EVENT_TYPES.CATEGORY_CREATED, {
+        createCategoryByNameEvent({
           id: option.id,
           name: option.name,
           group: option.group,

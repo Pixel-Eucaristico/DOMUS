@@ -1,5 +1,46 @@
 import { createEvent } from "@packages/events/src/factory";
-import { EVENT_TYPES, type CategoryCreatedEvent } from "@packages/events/src/types";
+import { EVENT_TYPES, type CategoryCreatedEvent, type CategoryGroup } from "@packages/events/src/types";
+
+export const DEFAULT_CATEGORY_EVENT_ID_PREFIX = "cats:default:";
+export const CUSTOM_CATEGORY_EVENT_ID_PREFIX = "cats:custom:";
+
+const COMBINING_MARKS = /[\u0300-\u036f]/g;
+
+export function defaultCategoryEventId(categoryId: string): string {
+  return `${DEFAULT_CATEGORY_EVENT_ID_PREFIX}${categoryId}`;
+}
+
+/**
+ * Gera um slug estável a partir do nome da categoria (sem acentos, minúsculas,
+ * separado por `-`). Usado para que dois aparelhos criem o mesmo `id` para a
+ * mesma categoria sob demanda.
+ */
+export function categorySlug(name: string): string {
+  const slug = name
+    .normalize("NFKD")
+    .replace(COMBINING_MARKS, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "categoria";
+}
+
+export function createCategoryByNameEvent(
+  params: { id?: string; name: string; group: CategoryGroup },
+  deviceId: string = "local",
+): CategoryCreatedEvent {
+  const catId = params.id && params.id.trim() ? params.id.trim() : categorySlug(params.name);
+  const evt = createEvent<CategoryCreatedEvent>(
+    EVENT_TYPES.CATEGORY_CREATED,
+    {
+      id: catId,
+      name: params.name,
+      group: params.group,
+    },
+    deviceId,
+  );
+  return { ...evt, id: `${CUSTOM_CATEGORY_EVENT_ID_PREFIX}${catId}` };
+}
 
 export function createDefaultCategories(): CategoryCreatedEvent[] {
   const defaults = [
@@ -23,11 +64,17 @@ export function createDefaultCategories(): CategoryCreatedEvent[] {
     { id: "investimentos", name: "Investimentos", group: "savings" as const },
   ];
 
-  return defaults.map(cat =>
-    createEvent<CategoryCreatedEvent>(
+  const baseNow = Date.now();
+  return defaults.map((cat, index) => {
+    const evt = createEvent<CategoryCreatedEvent>(
       EVENT_TYPES.CATEGORY_CREATED,
       cat,
-      "system"
-    )
-  );
+      "system",
+    );
+    return {
+      ...evt,
+      id: defaultCategoryEventId(cat.id),
+      timestamp: baseNow - (defaults.length - 1 - index),
+    };
+  });
 }

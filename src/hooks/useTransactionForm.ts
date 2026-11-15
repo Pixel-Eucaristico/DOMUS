@@ -9,6 +9,7 @@ import {
   updateTransactionEvent,
   deleteTransactionEvent,
 } from "@packages/domain/src/transactions";
+import { createCategoryByNameEvent } from "@packages/domain/src/categories";
 import { useInstallmentGroup } from "@/src/hooks/useInstallmentGroup";
 import type {
   TransactionItem,
@@ -17,11 +18,9 @@ import type {
   TransactionStatus,
   RecurrenceType,
   InstallmentAmountMode,
-  CategoryCreatedEvent,
   CategoryGroup,
 } from "@packages/events/src/types";
-import { createEvent, generateId } from "@packages/events/src/factory";
-import { EVENT_TYPES } from "@packages/events/src/types";
+import { generateId } from "@packages/events/src/factory";
 import {
   getCategoriesForType,
   TRANSACTION_CATEGORIES,
@@ -255,18 +254,21 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
     const typeCats = getCategoriesForType(txType);
     const cat = typeCats[selectedCategory] ?? typeCats[0]!;
 
-    // Find or create category in domain
-    const existingCat = Object.values(domain.categories).find((c) => c.name === cat.name);
+    // Find or create category in domain (check id first to preserve renamed categories)
+    const createdCategoryIds = new Set<string>();
+    const existingCat =
+      domain.categories[cat.id] ?? Object.values(domain.categories).find((c) => c.name === cat.name);
     let catId: string;
     if (existingCat) {
       catId = existingCat.id;
     } else {
-      catId = generateId();
-      const catEvent = createEvent<CategoryCreatedEvent>(EVENT_TYPES.CATEGORY_CREATED, {
-        id: catId,
+      const catEvent = createCategoryByNameEvent({
+        id: cat.id,
         name: cat.name,
         group: cat.group,
       });
+      catId = catEvent.payload.id;
+      createdCategoryIds.add(catId);
       dispatch(catEvent);
     }
 
@@ -275,20 +277,23 @@ export function useTransactionForm(txId?: string, onSuccess?: () => void): UseTr
       txItems = manualItems.map((mi) => {
         const itemCat =
           TRANSACTION_CATEGORIES.find((c) => c.id === mi.categoryId) ?? TRANSACTION_CATEGORIES[0]!;
-        const existingItemCat = Object.values(domain.categories).find(
-          (c) => c.name === itemCat.name,
-        );
+        const existingItemCat =
+          domain.categories[itemCat.id] ??
+          Object.values(domain.categories).find((c) => c.name === itemCat.name);
         let itemCatId: string;
         if (existingItemCat) {
           itemCatId = existingItemCat.id;
         } else {
-          itemCatId = generateId();
-          const ev = createEvent<CategoryCreatedEvent>(EVENT_TYPES.CATEGORY_CREATED, {
-            id: itemCatId,
+          const ev = createCategoryByNameEvent({
+            id: itemCat.id,
             name: itemCat.name,
             group: itemCat.group,
           });
-          dispatch(ev);
+          itemCatId = ev.payload.id;
+          if (!createdCategoryIds.has(itemCatId)) {
+            createdCategoryIds.add(itemCatId);
+            dispatch(ev);
+          }
         }
         return {
           description: mi.description,

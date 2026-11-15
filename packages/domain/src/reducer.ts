@@ -11,6 +11,10 @@ import type {
 } from "../../events/src/types";
 import { createInitialOutOfOrderState } from "./state";
 import type { AppState, OutOfOrderState, StoredPayslip } from "./state";
+import {
+  CUSTOM_CATEGORY_EVENT_ID_PREFIX,
+  DEFAULT_CATEGORY_EVENT_ID_PREFIX,
+} from "./categories";
 
 export function domainReducer(state: AppState, event: DomainEvent): AppState {
   switch (event.type) {
@@ -112,6 +116,14 @@ export function domainReducer(state: AppState, event: DomainEvent): AppState {
 
     case EVENT_TYPES.CATEGORY_CREATED: {
       const cat = event.payload;
+      if (
+        typeof event.id === "string" &&
+        (event.id.startsWith(DEFAULT_CATEGORY_EVENT_ID_PREFIX) ||
+          event.id.startsWith(CUSTOM_CATEGORY_EVENT_ID_PREFIX)) &&
+        hasOwn(state.categories, cat.id)
+      ) {
+        return state;
+      }
       return {
         ...state,
         categories: {
