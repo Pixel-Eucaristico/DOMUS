@@ -2022,3 +2022,78 @@ So that eu tenha prova de que o teclado nunca cobre o campo.
 **When** testo cada um no Android 16 e no navegador
 **Then** uma checklist em `docs/` registra o resultado de cada campo
 **And** a checklist anda junto da checklist da Story 1.3.
+
+## Epic 14: Polimento visual e correções de interface
+
+Todas as telas do app respeitam a área segura, exibem textos legíveis e sem erros de digitação, evitam sobreposições de botões e oferecem estados vazios úteis.
+
+*Incluído após revisão visual da Sally (UX) sobre capturas reais do app em 16/11/2026.*
+
+### Story 14.1: Proteger cabeçalhos e rolagem com área segura
+
+As a usuário do DOMUS,
+I want que nenhum título ou botão do topo seja cortado ou invada a barra de status do celular,
+So that eu consiga ler e tocar em todas as ações do cabeçalho sem dificuldade.
+
+**Acceptance Criteria:**
+
+**Given** a tela Início e a tela de edição de transação ao rolar para baixo
+**When** o conteúdo passa pelo topo da tela
+**Then** os títulos e campos (`Orçamento 50/30/20`, `PagBank(PJ)`) respeitam a área segura (`SafeArea`) sem sobrepor o relógio ou os ícones do Android
+**And** na barra superior da Home (`DOMUS`), todos os botões de ação (Sync, Scanner, IA e Engrenagem de Configurações) cabem inteiros dentro da largura da tela sem corte na borda direita.
+
+### Story 14.2: Evitar sobreposição de botões e colisões nas listas
+
+As a usuário do DOMUS,
+I want ler datas, valores e descrições das listas sem botões flutuantes ou de ação em cima do texto,
+So that eu toque no que desejo sem erros nem informação escondida.
+
+**Acceptance Criteria:**
+
+**Given** a tela de detalhe da conta (`Nubank (CPF)` ou similar) com uma transação pendente
+**When** a linha exibe conta de origem, destino, data e o botão `Efetivar`
+**Then** o texto da linha nunca invade nem passa por trás do botão `Efetivar`
+**And** na tela Início, o botão flutuante `+` não cobre o valor nem o botão de confirmar de `Cobranças pendentes` nem a última linha de `Últimas transações`
+**And** em `Últimas transações`, as datas são exibidas em formato pt-BR (`DD/MM/AAAA` ou `DD mes`) em vez de `YYYY-MM-DD`, e as conquistas em `Minha Jornada` não cortam no meio da primeira palavra.
+
+### Story 14.3: Corrigir contraste de botões bege e padronizar cor dos campos
+
+As a usuário do DOMUS,
+I want ler com facilidade textos sobre fundos bege claros e ver todos os campos de formulário no mesmo padrão visual,
+So that a interface seja acessível e consistente.
+
+**Acceptance Criteria:**
+
+**Given** os cards bege claros da Home (`XP Total`, `Nível`, `Streak`, `Saldo total`), a tab selecionada de `Editar transação` e o botão `+ Adicionar à lista`
+**When** são renderizados no tema escuro
+**Then** usam texto escuro de alto contraste sobre o fundo bege claro
+**And** todos os campos de texto (`Nome`, `E-mail`, `Assunto` em *Fale Conosco* e `Valor (R$)` em *Editar transação*) usam a mesma cor de superfície do tema escuro, sem fundo azul-marinho divergente
+**And** o texto explicativo do `ÁLBUM 2026` na tela `Temporada` tem contraste legível sobre o fundo escuro.
+
+### Story 14.4: Corrigir textos, grade de urgência e fluxo do modal de Desejos
+
+As a usuário do DOMUS,
+I want ver a tela de Desejos sem erros de digitação e preencher o modal de novo item de forma equilibrada,
+So that a experiência seja clara desde a primeira visita.
+
+**Acceptance Criteria:**
+
+**Given** a tela da Lista de Desejos
+**When** é aberta
+**Then** o título do cabeçalho exibe `Desejos` (corrigindo `Dedejo`) e o ícone de lixeira fica desabilitado ou oculto quando há 0 itens
+**And** no modal `Adicionar Item`, o placeholder do link aparece completo sem corte, os 4 chips de `URGÊNCIA` ficam alinhados de forma simétrica (sem `Futuro` órfão sozinho na 2ª linha) e o botão principal permanece como `Adicionar à lista` desabilitado quando o nome está vazio em vez de virar `Cancelar`.
+
+### Story 14.5: Melhorar estado vazio da IA, scanner de barras, Drive e Sobre
+
+As a usuário do DOMUS,
+I want ter atalhos úteis no chat vazio da IA, mira adequada para código de barras e espaçamento seguro nos ajustes,
+So that cada ferramenta do app seja intuitiva no dia a dia.
+
+**Acceptance Criteria:**
+
+**Given** a tela `DOMUS IA` sem mensagens
+**When** é aberta
+**Then** exibe sugestões clicáveis para análise local, o banner de configuração leva direto às configurações de IA ao tocar e a barra de formatação Markdown (`B`, `I`, `<>`, lista, `-`) é removida do campo de mensagem
+**And** no scanner de notas na aba `Cód. Barras`, a janela de mira é retangular horizontal
+**And** na aba `Drive` de *Backup & Restauração*, há espaçamento claro entre o e-mail truncado e o botão `Desconectar`
+**And** a tela *Sobre o DOMUS* usa título condizente com seu conteúdo (`Configurações e Sobre`) sem repetir `Pixel Eucarístico` duas vezes seguidas no mesmo card.

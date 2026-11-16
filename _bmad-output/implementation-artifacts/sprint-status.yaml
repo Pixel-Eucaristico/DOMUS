@@ -177,6 +177,14 @@ development_status:
   13-6-corrigir-a-digitação-manual-da-chave-da-nf-sobre-a-câmera: done
   13-7-verificar-todos-os-campos-no-aparelho: backlog
   epic-13-retrospective: optional
+
+  epic-14: backlog
+  14-1-proteger-cabecalhos-e-rolagem-com-area-segura: backlog
+  14-2-evitar-sobreposicao-de-botoes-e-colisoes-nas-listas: backlog
+  14-3-corrigir-contraste-de-botoes-bege-e-padronizar-cor-dos-campos: backlog
+  14-4-corrigir-textos-grade-de-urgencia-e-fluxo-do-modal-de-desejos: backlog
+  14-5-melhorar-estado-vazio-da-ia-scanner-de-barras-drive-e-sobre: backlog
+  epic-14-retrospective: optional
 action_items:
   - id: "epic-4-retro-item-1-limpar-credenciais-de-sync-no-resetapp-p"
     epic: 4
