@@ -34,10 +34,14 @@ import {
 import {
   buildSettingsSeedEvents,
   normalizeSupportModes,
+  resolveIsCatholicFromSettings,
   resolveSoundEnabledFromSettings,
   resolveSupportModesFromSettings,
   resolveThemeModeFromSettings,
+  syncIsCatholicIfStrongGroup,
 } from "@/src/modules/settings/syncedPreferences";
+import { loadStrongGroupSecret } from "@/src/context/syncStorage";
+import { parseGroupSecret } from "@/src/modules/strongGroup/groupSecret";
 import { AI_SETTINGS_STORE_KEY, type AISettings } from "@/src/modules/ai/domain/AISettings";
 import {
   AI_CUSTOM_PRICES_SETTING_KEY,
@@ -143,6 +147,7 @@ const AppStateContext = createContext<AppStateContextValue | null>(null);
 
 const THEME_MODE_KEY = "domus_theme_mode_v1";
 const SOUND_ENABLED_KEY = "domus_sound_enabled_v1";
+const IS_CATHOLIC_KEY = "domus_is_catholic_v1";
 
 // ── Provider Component ────────────────────────────────────────────────
 export function AppStateProvider({ children }: { children: ReactNode }) {
@@ -274,6 +279,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const syncedThemeMode = useMemo(() => resolveThemeModeFromSettings(settings), [settings]);
   const syncedSoundEnabled = useMemo(() => resolveSoundEnabledFromSettings(settings), [settings]);
+  const syncedIsCatholic = useMemo(() => resolveIsCatholicFromSettings(settings), [settings]);
   const syncedSupportModes = useMemo(() => resolveSupportModesFromSettings(settings), [settings]);
   const syncedCustomPrices = useMemo(() => resolveCustomPricesFromSettings(settings), [settings]);
   const syncedOCRConfig = useMemo(() => resolveOCRConfigFromSettings(settings), [settings]);
@@ -292,6 +298,27 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const handleSyncSoundEnabled = useCallback(
     (enabled: boolean) => {
       dispatchAny(createSettingChangedEvent("domus_sound_enabled_v1", enabled, eventStore.deviceId || "local"));
+    },
+    [dispatchAny, eventStore.deviceId],
+  );
+
+  const isDemoActiveRef = useRef(isDemoActive);
+  isDemoActiveRef.current = isDemoActive;
+
+  const handleSyncIsCatholic = useCallback(
+    (value: boolean) => {
+      if (isDemoActiveRef.current) return;
+      void syncIsCatholicIfStrongGroup({
+        value,
+        deviceId: eventStore.deviceId || "local",
+        isDemoActive: isDemoActiveRef.current,
+        loadStrongGroupSecret,
+        isStrongGroupSecretValid: (secret) => parseGroupSecret(secret).ok,
+        dispatch: (evt) => {
+          if (isDemoActiveRef.current) return;
+          dispatchAny(evt);
+        },
+      });
     },
     [dispatchAny, eventStore.deviceId],
   );
@@ -396,9 +423,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     monthsPlanned: season.history.length,
     syncedThemeMode,
     syncedSoundEnabled,
+    syncedIsCatholic,
     isDemoActive,
     onSyncThemeMode: handleSyncThemeMode,
     onSyncSoundEnabled: handleSyncSoundEnabled,
+    onSyncIsCatholic: handleSyncIsCatholic,
   });
 
   // Seed inicial das preferências locais para o log após liberação do primeiro pull (Story 9.3)
@@ -422,10 +451,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       try {
-        const [savedTheme, savedSound, savedSupport, savedAISettingsRaw, savedCustomPrices, savedOCRConfig, driveConnected, driveEmail] =
+        const [savedTheme, savedSound, savedCatholic, strongSecret, savedSupport, savedAISettingsRaw, savedCustomPrices, savedOCRConfig, driveConnected, driveEmail] =
           await Promise.all([
             AsyncStorage.getItem(THEME_MODE_KEY),
             AsyncStorage.getItem(SOUND_ENABLED_KEY),
+            AsyncStorage.getItem(IS_CATHOLIC_KEY),
+            loadStrongGroupSecret().catch(() => null),
             loadSupportModes(),
             SecureStorageService.get(AI_SETTINGS_STORE_KEY),
             TokenPricingService.getCustomPricesSnapshot(),
@@ -434,6 +465,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             GoogleDriveService.getConnectedEmail(),
           ]);
         if (cancelled || epoch !== seedEpochRef.current) return;
+
+        const isStrongGroup = Boolean(strongSecret && parseGroupSecret(strongSecret).ok);
 
         let savedAISettings: Partial<AISettings> | null = null;
         if (savedAISettingsRaw) {
@@ -456,6 +489,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             themeMode: savedTheme,
             soundEnabled: savedSound,
             supportModes: savedSupport,
+            isCatholic: savedCatholic,
+            isStrongGroup,
           }),
           ...buildAISettingsSeedEvents({
             allEvents: currentEvents,

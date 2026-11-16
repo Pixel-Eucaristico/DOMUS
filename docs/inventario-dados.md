@@ -43,7 +43,7 @@ Este documento inventaria e classifica todas as chaves persistidas fora do log d
 | `domus_auto_backup_last_ts` | AsyncStorage | `src/hooks/useAutoBackup.ts` | `não sincroniza` | Timestamp do último backup automático realizado por este aparelho. |
 | `domus_gdrive_last_sync` | AsyncStorage | `src/modules/backup/infrastructure/GoogleDriveService.ts` | `não sincroniza` | Timestamp do último envio de backup para o Google Drive a partir deste aparelho. |
 | `domus_gdrive_file_id` | AsyncStorage | `src/modules/backup/infrastructure/GoogleDriveService.ts` | `não sincroniza` | Cache local do ID do arquivo de backup no Google Drive. |
-| `domus_is_catholic_v1` | AsyncStorage | `src/hooks/useThemePreferences.ts` | `não sincroniza` | Dado religioso sensível; mantido fora do sync neste épico até a criptografia forte do Épico 10. |
+| `domus_is_catholic_v1` | AsyncStorage | `src/hooks/useThemePreferences.ts`, `src/context/AppStateProvider.tsx` | `vira evento` | Preferência religiosa sensível sincronizada exclusivamente no Grupo forte (Story 10.2); nunca trafega pelo Grupo antigo. |
 | `domus_analytics_settings_v1` | AsyncStorage | `src/modules/analytics/domain/AnalyticsSettings.ts`, `src/modules/analytics/application/AnalyticsSettingsStore.ts` | `não sincroniza` | Consentimento LGPD de telemetria, performance e crash reports por aparelho. |
 | `domus_personalized_ads_v1` | AsyncStorage | `src/modules/monetization/adConsent.ts` | `não sincroniza` | Consentimento de anúncios personalizados específico deste aparelho (AD-6). |
 | `domus_external_lookups_v1` | AsyncStorage | `src/modules/privacy/externalLookups.ts` | `não sincroniza` | Consentimento por aparelho para consultas a serviços externos (código de barras, NCM, preços e ícones) (AD-6). |

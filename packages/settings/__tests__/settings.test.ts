@@ -38,7 +38,7 @@ function makeSettingEvent(
 }
 
 describe("packages/settings — allowlist e criação de evento", () => {
-  it("contém exatamente as 8 chaves canônicas de docs/inventario-dados.md", () => {
+  it("contém exatamente as 9 chaves canônicas de docs/inventario-dados.md", () => {
     expect(ALLOWED_SETTING_KEYS).toEqual([
       "domus_theme_mode_v1",
       "domus_sound_enabled_v1",
@@ -48,6 +48,7 @@ describe("packages/settings — allowlist e criação de evento", () => {
       "domus_ai_settings_v1",
       "domus_ai_custom_prices",
       "domus_gdrive_backup_pref_v1",
+      "domus_is_catholic_v1",
     ]);
 
     for (const key of ALLOWED_SETTING_KEYS) {

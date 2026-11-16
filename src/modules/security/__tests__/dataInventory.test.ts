@@ -521,7 +521,7 @@ describe("Story 9.1: inventário e classificação de dados fora do log", () => 
     expect(missingOrigins).toEqual([]);
   });
 
-  it("registra AIDataPermissions como 'não sincroniza (consentimento por aparelho)' e domus_is_catholic_v1 como 'não sincroniza'", () => {
+  it("registra AIDataPermissions como 'não sincroniza (consentimento por aparelho)' e domus_is_catholic_v1 como 'vira evento' (exclusivo do Grupo forte)", () => {
     const aiPerms = inventory.find((e) =>
       e.rawKey.startsWith("AIDataPermissions"),
     );
@@ -535,7 +535,8 @@ describe("Story 9.1: inventário e classificação de dados fora do log", () => 
       (e) => e.normalizedKey === "domus_is_catholic_v1",
     );
     expect(catholic).toBeDefined();
-    expect(catholic?.classification).toBe("não sincroniza");
+    expect(catholic?.classification).toBe("vira evento");
+    expect(catholic?.reason).toMatch(/Grupo forte/i);
   });
 
   it("100% das chaves de AsyncStorage, SecureStore e webSecrets usadas em produção constam em docs/inventario-dados.md", () => {

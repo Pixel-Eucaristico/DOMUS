@@ -138,7 +138,7 @@ development_status:
 
   epic-10: in-progress
   10-1-registrar-a-exceção-do-ad-6-e-atualizar-os-textos: done
-  10-2-sincronizar-a-preferência-religiosa-só-pelo-grupo-forte: backlog
+  10-2-sincronizar-a-preferência-religiosa-só-pelo-grupo-forte: done
   10-3-ativar-o-sync-de-chaves-com-opt-in-explícito: backlog
   10-4-enviar-as-chaves-cifradas-ao-grupo-forte: backlog
   10-5-receber-as-chaves-em-outro-aparelho-nativo: backlog

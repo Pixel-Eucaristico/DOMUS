@@ -19,9 +19,11 @@ export interface ThemePreferencesInput {
   monthsPlanned: number;
   syncedThemeMode?: ThemeMode;
   syncedSoundEnabled?: boolean;
+  syncedIsCatholic?: boolean | null;
   isDemoActive?: boolean;
   onSyncThemeMode?: (mode: ThemeMode) => void;
   onSyncSoundEnabled?: (enabled: boolean) => void;
+  onSyncIsCatholic?: (value: boolean) => void;
 }
 
 export interface ThemePreferencesState {
@@ -41,16 +43,20 @@ export function useThemePreferences(input: ThemePreferencesInput): ThemePreferen
   const systemColorScheme = useColorScheme();
   const [themeMode, setThemeModeState] = useState<ThemeMode>(input.syncedThemeMode ?? "system");
   const [soundEnabled, setSoundEnabledState] = useState(input.syncedSoundEnabled ?? true);
-  const [isCatholic, setIsCatholicState] = useState<boolean | null>(null);
+  const [isCatholic, setIsCatholicState] = useState<boolean | null>(input.syncedIsCatholic ?? null);
 
   const syncedThemeModeRef = useRef(input.syncedThemeMode);
   syncedThemeModeRef.current = input.syncedThemeMode;
   const syncedSoundEnabledRef = useRef(input.syncedSoundEnabled);
   syncedSoundEnabledRef.current = input.syncedSoundEnabled;
+  const syncedIsCatholicRef = useRef(input.syncedIsCatholic);
+  syncedIsCatholicRef.current = input.syncedIsCatholic;
   const onSyncThemeModeRef = useRef(input.onSyncThemeMode);
   onSyncThemeModeRef.current = input.onSyncThemeMode;
   const onSyncSoundEnabledRef = useRef(input.onSyncSoundEnabled);
   onSyncSoundEnabledRef.current = input.onSyncSoundEnabled;
+  const onSyncIsCatholicRef = useRef(input.onSyncIsCatholic);
+  onSyncIsCatholicRef.current = input.onSyncIsCatholic;
   const isDemoActiveRef = useRef(Boolean(input.isDemoActive));
   isDemoActiveRef.current = Boolean(input.isDemoActive);
 
@@ -87,7 +93,11 @@ export function useThemePreferences(input: ThemePreferencesInput): ThemePreferen
       soundManager.init().catch(() => {});
 
       const savedCatholic = await AsyncStorage.getItem(IS_CATHOLIC_KEY);
-      if (savedCatholic !== null && mounted) {
+      if (
+        (savedCatholic === "true" || savedCatholic === "false") &&
+        mounted &&
+        (syncedIsCatholicRef.current === undefined || syncedIsCatholicRef.current === null)
+      ) {
         setIsCatholicState(savedCatholic === "true");
       }
     })();
@@ -112,6 +122,15 @@ export function useThemePreferences(input: ThemePreferencesInput): ThemePreferen
       void AsyncStorage.setItem(SOUND_ENABLED_KEY, input.syncedSoundEnabled ? "true" : "false").catch(() => {});
     }
   }, [input.syncedSoundEnabled]);
+
+  // Apply synced religious preference from event log
+  useEffect(() => {
+    if (input.syncedIsCatholic === undefined || input.syncedIsCatholic === null) return;
+    setIsCatholicState(input.syncedIsCatholic);
+    if (!isDemoActiveRef.current) {
+      void AsyncStorage.setItem(IS_CATHOLIC_KEY, input.syncedIsCatholic ? "true" : "false").catch(() => {});
+    }
+  }, [input.syncedIsCatholic]);
 
   const setThemeMode = useCallback(async (mode: ThemeMode) => {
     setThemeModeState(mode);
@@ -141,14 +160,23 @@ export function useThemePreferences(input: ThemePreferencesInput): ThemePreferen
   const resetLocalPreferences = useCallback(async () => {
     setThemeModeState("system");
     setSoundEnabledState(true);
+    setIsCatholicState(null);
     soundManager.setEnabled(true);
     await AsyncStorage.removeItem(THEME_MODE_KEY);
     await AsyncStorage.removeItem(SOUND_ENABLED_KEY);
+    await AsyncStorage.removeItem(IS_CATHOLIC_KEY);
   }, []);
 
   const setIsCatholic = useCallback(async (value: boolean) => {
     setIsCatholicState(value);
-    await AsyncStorage.setItem(IS_CATHOLIC_KEY, value ? "true" : "false");
+    onSyncIsCatholicRef.current?.(value);
+    if (!isDemoActiveRef.current) {
+      try {
+        await AsyncStorage.setItem(IS_CATHOLIC_KEY, value ? "true" : "false");
+      } catch {
+        // best-effort
+      }
+    }
   }, []);
 
   const archetype = useMemo<ArchetypeType>(() => {

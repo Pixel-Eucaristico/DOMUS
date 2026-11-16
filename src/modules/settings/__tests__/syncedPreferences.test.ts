@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   SETTINGS_EVENTS,
   createInitialSettingsState,
@@ -8,13 +8,16 @@ import {
 import { appendGenerated } from "@/src/context/localEventLog";
 import { replayAllEvents } from "@/src/context/replay";
 import {
+  IS_CATHOLIC_SETTING_KEY,
   SOUND_ENABLED_SETTING_KEY,
   SUPPORT_MODES_SETTING_KEY,
   THEME_MODE_SETTING_KEY,
   buildSettingsSeedEvents,
+  resolveIsCatholicFromSettings,
   resolveSoundEnabledFromSettings,
   resolveSupportModesFromSettings,
   resolveThemeModeFromSettings,
+  syncIsCatholicIfStrongGroup,
 } from "../syncedPreferences";
 
 function settingsWith(values: SettingsState["values"]): SettingsState {
@@ -58,6 +61,18 @@ describe("syncedPreferences — resolvers", () => {
     expect(resolveSupportModesFromSettings(settingsWith({ domus_support_modes_v2: "banners" }))).toBeUndefined();
     expect(resolveSupportModesFromSettings(settingsWith({ domus_support_modes_v2: null }))).toBeUndefined();
     expect(resolveSupportModesFromSettings(createInitialSettingsState())).toBeUndefined();
+  });
+
+  it("resolveIsCatholicFromSettings aceita booleano e strings 'true'/'false', retornando undefined para inválidos", () => {
+    expect(resolveIsCatholicFromSettings(settingsWith({ domus_is_catholic_v1: true }))).toBe(true);
+    expect(resolveIsCatholicFromSettings(settingsWith({ domus_is_catholic_v1: false }))).toBe(false);
+    expect(resolveIsCatholicFromSettings(settingsWith({ domus_is_catholic_v1: "true" }))).toBe(true);
+    expect(resolveIsCatholicFromSettings(settingsWith({ domus_is_catholic_v1: "false" }))).toBe(false);
+
+    expect(resolveIsCatholicFromSettings(settingsWith({ domus_is_catholic_v1: "sim" }))).toBeUndefined();
+    expect(resolveIsCatholicFromSettings(settingsWith({ domus_is_catholic_v1: 1 }))).toBeUndefined();
+    expect(resolveIsCatholicFromSettings(settingsWith({ domus_is_catholic_v1: null }))).toBeUndefined();
+    expect(resolveIsCatholicFromSettings(createInitialSettingsState())).toBeUndefined();
   });
 });
 
@@ -119,18 +134,41 @@ describe("syncedPreferences — seed inicial e isolamento", () => {
     expect(resolveSupportModesFromSettings(replayed.settings)).toEqual(["banners"]);
   });
 
-  it("domus_is_catholic_v1 nunca é emitido no seed inicial", () => {
-    const seed = buildSettingsSeedEvents({
+  it("domus_is_catholic_v1 não é emitido no seed inicial sem Grupo forte, mas é emitido quando isStrongGroup: true e valor definido", () => {
+    const seedWithoutStrongGroup = buildSettingsSeedEvents({
       allEvents: [],
       deviceId: "dev-a",
       themeMode: null,
       soundEnabled: null,
       supportModes: null,
+      isCatholic: true,
+      isStrongGroup: false,
     });
 
-    expect(seed.every((e) => e.type === SETTINGS_EVENTS.SETTING_CHANGED)).toBe(true);
-    expect(seed.some((e) => e.payload.key === "domus_is_catholic_v1")).toBe(false);
-    expect(seed.map((e) => e.payload.value)).toEqual(["system", true, ["links"]]);
+    expect(seedWithoutStrongGroup.every((e) => e.type === SETTINGS_EVENTS.SETTING_CHANGED)).toBe(true);
+    expect(seedWithoutStrongGroup.some((e) => e.payload.key === IS_CATHOLIC_SETTING_KEY)).toBe(false);
+    expect(seedWithoutStrongGroup.map((e) => e.payload.value)).toEqual(["system", true, ["links"]]);
+
+    const seedWithStrongGroupAndNull = buildSettingsSeedEvents({
+      allEvents: [],
+      deviceId: "dev-a",
+      isCatholic: null,
+      isStrongGroup: true,
+    });
+    expect(seedWithStrongGroupAndNull.some((e) => e.payload.key === IS_CATHOLIC_SETTING_KEY)).toBe(false);
+
+    const seedWithStrongGroup = buildSettingsSeedEvents({
+      allEvents: [],
+      deviceId: "dev-a",
+      themeMode: "dark",
+      soundEnabled: true,
+      supportModes: ["links"],
+      isCatholic: true,
+      isStrongGroup: true,
+    });
+    const catholicEvent = seedWithStrongGroup.find((e) => e.payload.key === IS_CATHOLIC_SETTING_KEY);
+    expect(catholicEvent).toBeDefined();
+    expect(catholicEvent?.payload.value).toBe(true);
   });
 });
 
@@ -178,5 +216,112 @@ describe("syncedPreferences — propagação entre dois aparelhos via replayAllE
     expect(resolveSupportModesFromSettings(replayedB.settings)).toEqual(["banners", "daily_ad"]);
 
     expect(replayedA.settings).toEqual(replayedB.settings);
+  });
+
+  it("domus_is_catholic_v1 converge entre aparelhos pela ordem FR-16", () => {
+    const t1 = 1_700_000_001_000;
+    const t2 = 1_700_000_002_000;
+
+    const evtFalse = {
+      ...createSettingChangedEvent(IS_CATHOLIC_SETTING_KEY, false, "dev-a"),
+      id: "catholic-1",
+      timestamp: t1,
+    };
+    const evtTrue = {
+      ...createSettingChangedEvent(IS_CATHOLIC_SETTING_KEY, true, "dev-b"),
+      id: "catholic-2",
+      timestamp: t2,
+    };
+
+    const replayed = replayAllEvents([evtTrue, evtFalse], {
+      currentDeviceId: "dev-a",
+      now: t2 + 1_000,
+    });
+    expect(replayed.quarantine).toEqual([]);
+    expect(resolveIsCatholicFromSettings(replayed.settings)).toBe(true);
+  });
+});
+
+describe("syncIsCatholicIfStrongGroup — guarda de Grupo forte (Story 10.2)", () => {
+  it("não lê segredo nem despacha quando modo demo está ativo", async () => {
+    const loadStrongGroupSecret = vi.fn(async () => "strong-secret");
+    const isStrongGroupSecretValid = vi.fn(() => true);
+    const dispatch = vi.fn();
+
+    const result = await syncIsCatholicIfStrongGroup({
+      value: true,
+      deviceId: "dev-a",
+      isDemoActive: true,
+      loadStrongGroupSecret,
+      isStrongGroupSecretValid,
+      dispatch,
+    });
+
+    expect(result).toBe(false);
+    expect(loadStrongGroupSecret).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it("não despacha quando não há segredo de Grupo forte ou ele é inválido", async () => {
+    const dispatch = vi.fn();
+
+    const missingResult = await syncIsCatholicIfStrongGroup({
+      value: true,
+      deviceId: "dev-a",
+      isDemoActive: false,
+      loadStrongGroupSecret: async () => null,
+      isStrongGroupSecretValid: () => true,
+      dispatch,
+    });
+    expect(missingResult).toBe(false);
+
+    const invalidResult = await syncIsCatholicIfStrongGroup({
+      value: false,
+      deviceId: "dev-a",
+      isDemoActive: false,
+      loadStrongGroupSecret: async () => "invalid",
+      isStrongGroupSecretValid: () => false,
+      dispatch,
+    });
+    expect(invalidResult).toBe(false);
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it("captura rejeição de loadStrongGroupSecret sem propagar erro e sem despachar", async () => {
+    const dispatch = vi.fn();
+
+    const result = await syncIsCatholicIfStrongGroup({
+      value: true,
+      deviceId: "dev-a",
+      isDemoActive: false,
+      loadStrongGroupSecret: async () => {
+        throw new Error("keystore unavailable");
+      },
+      isStrongGroupSecretValid: () => true,
+      dispatch,
+    });
+
+    expect(result).toBe(false);
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it("despacha SETTING_CHANGED para domus_is_catholic_v1 quando Grupo forte é válido", async () => {
+    const dispatch = vi.fn();
+
+    const result = await syncIsCatholicIfStrongGroup({
+      value: false,
+      deviceId: "dev-a",
+      isDemoActive: false,
+      loadStrongGroupSecret: async () => "strong-secret",
+      isStrongGroupSecretValid: (secret) => secret === "strong-secret",
+      dispatch,
+    });
+
+    expect(result).toBe(true);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    const dispatched = dispatch.mock.calls[0]?.[0];
+    expect(dispatched?.type).toBe(SETTINGS_EVENTS.SETTING_CHANGED);
+    expect(dispatched?.payload.key).toBe(IS_CATHOLIC_SETTING_KEY);
+    expect(dispatched?.payload.value).toBe(false);
   });
 });

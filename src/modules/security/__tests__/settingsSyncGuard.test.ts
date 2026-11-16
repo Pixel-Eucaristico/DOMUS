@@ -12,6 +12,12 @@ import {
   type SettingChangedEvent,
 } from "@packages/settings";
 import { replayAllEvents } from "@/src/context/replay";
+import {
+  partitionOldGroupEvents,
+  selectEventsToImport,
+  selectOldGroupPushEvents,
+  selectStrongGroupPushEvents,
+} from "@/src/modules/syncPayload";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 
 const ROOT = path.resolve(__dirname, "../../../..");
@@ -186,8 +192,6 @@ const EXPLICIT_LOCAL_AND_SECRET_KEYS: readonly string[] = [
   "domus_nostr_last_pull_ts",
   "domus_legacy_cutoff_warning_sent_*",
   "domus_legacy_cutoff_warning_sent_legacy-group",
-  // Dado religioso sensível mantido fora do sync neste épico
-  "domus_is_catholic_v1",
   // Variações de borda e prototype pollution
   " domus_security_settings_v1 ",
   "__proto__",
@@ -273,5 +277,42 @@ describe("Story 9.7 — barreira de sync para dados locais do aparelho e segredo
         }
       }
     }
+  });
+});
+
+describe("Story 10.2 — exclusividade de Grupo forte para domus_is_catholic_v1", () => {
+  it("exclui domus_is_catholic_v1 do Grupo antigo e mantém apenas no Grupo forte", () => {
+    const catholicEvent = createSettingChangedEvent(
+      "domus_is_catholic_v1",
+      true,
+      "dev-a",
+    ) as unknown as SyncEvent;
+
+    const themeEvent = createSettingChangedEvent(
+      "domus_theme_mode_v1",
+      "dark",
+      "dev-a",
+    ) as unknown as SyncEvent;
+
+    const events = [catholicEvent, themeEvent];
+
+    const partitioned = partitionOldGroupEvents(events);
+    expect(partitioned.allowed).toEqual([themeEvent]);
+    expect(partitioned.excluded).toEqual([catholicEvent]);
+
+    expect(selectOldGroupPushEvents(events, "dev-a")).toEqual([themeEvent]);
+    expect(selectStrongGroupPushEvents(events, "dev-a")).toEqual(events);
+
+    const oldGroupImport = selectEventsToImport(events, new Set(), {
+      isStrongGroup: false,
+    });
+    expect(oldGroupImport.toAppend).toEqual([themeEvent]);
+    expect(oldGroupImport.excluded).toBe(1);
+
+    const strongGroupImport = selectEventsToImport(events, new Set(), {
+      isStrongGroup: true,
+    });
+    expect(strongGroupImport.toAppend).toEqual(events);
+    expect(strongGroupImport.excluded).toBe(0);
   });
 });

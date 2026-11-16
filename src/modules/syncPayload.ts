@@ -60,23 +60,47 @@ export const OLD_GROUP_EXCLUDED_PREFIXES: readonly string[] = [
   "CONFESSIONAL_",
 ];
 
+/** Chaves de `SETTING_CHANGED` que nunca saem nem entram pelo Grupo antigo (Story 10.2). */
+export const OLD_GROUP_EXCLUDED_SETTING_KEYS: readonly string[] = [
+  "domus_is_catholic_v1",
+];
+
 /** `true` quando o tipo pode ser publicado/aceito no Grupo antigo. */
 export function isOldGroupPublishable(type: unknown): boolean {
   if (typeof type !== "string") return true;
   return !OLD_GROUP_EXCLUDED_PREFIXES.some((prefix) => type.startsWith(prefix));
 }
 
+/** `true` quando o evento pode ser publicado/aceito no Grupo antigo. */
+export function isOldGroupPublishableEvent(
+  event: { type?: unknown; payload?: unknown } | null | undefined,
+): boolean {
+  if (!event || !isOldGroupPublishable(event.type)) return false;
+  if (
+    event.type === "SETTING_CHANGED" &&
+    typeof event.payload === "object" &&
+    event.payload !== null
+  ) {
+    const key = (event.payload as { key?: unknown }).key;
+    if (typeof key === "string" && OLD_GROUP_EXCLUDED_SETTING_KEYS.includes(key)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
- * Separa os eventos que o Grupo antigo aceita dos excluídos (`PAYSLIP_*`), na
- * ordem recebida. Não altera a entrada.
+ * Separa os eventos que o Grupo antigo aceita dos excluídos (`PAYSLIP_*`,
+ * `RELIGIOUS_*`, `CONFESSIONAL_*` e `SETTING_CHANGED` de chaves restritas ao
+ * Grupo forte), na ordem recebida. Não altera a entrada.
  */
-export function partitionOldGroupEvents<T extends { type?: unknown }>(
+export function partitionOldGroupEvents<T extends { type?: unknown; payload?: unknown }>(
   events: readonly T[],
 ): { allowed: T[]; excluded: T[] } {
   const allowed: T[] = [];
   const excluded: T[] = [];
   for (const e of events) {
-    if (isOldGroupPublishable(e?.type)) allowed.push(e);
+    if (isOldGroupPublishableEvent(e)) allowed.push(e);
     else excluded.push(e);
   }
   return { allowed, excluded };
@@ -85,13 +109,14 @@ export function partitionOldGroupEvents<T extends { type?: unknown }>(
 /**
  * Eventos deste aparelho que o push do Grupo antigo publica (revisão R6): os
  * do `deviceId` e publicáveis. O hash do `pushMyEvents` é calculado sobre esta
- * lista, então gravar ou excluir um holerite não muda o hash nem republica tudo.
+ * lista, então gravar ou excluir um holerite ou preferência restrita não muda
+ * o hash nem republica tudo.
  */
-export function selectOldGroupPushEvents<T extends { deviceId?: unknown; type?: unknown }>(
+export function selectOldGroupPushEvents<T extends { deviceId?: unknown; type?: unknown; payload?: unknown }>(
   events: readonly T[],
   deviceId: string,
 ): T[] {
-  return events.filter((e) => e.deviceId === deviceId && isOldGroupPublishable(e.type));
+  return events.filter((e) => e.deviceId === deviceId && isOldGroupPublishableEvent(e));
 }
 
 /**

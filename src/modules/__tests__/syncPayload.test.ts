@@ -13,7 +13,9 @@ import {
   LEGACY_LAST_PULL_TS_KEY,
   RELAY_CURSOR_OVERLAP_SEC,
   OLD_GROUP_EXCLUDED_PREFIXES,
+  OLD_GROUP_EXCLUDED_SETTING_KEYS,
   isOldGroupPublishable,
+  isOldGroupPublishableEvent,
   partitionOldGroupEvents,
   selectOldGroupPushEvents,
   selectStrongGroupPushEvents,
@@ -392,5 +394,70 @@ describe("Story 4.5: importEvents e push no Grupo forte", () => {
     ];
     const pushed = selectStrongGroupPushEvents(log, "dev-a");
     expect(pushed.map((e) => e.id)).toEqual(["a", "p", "d"]);
+  });
+});
+
+describe("Story 10.2: domus_is_catholic_v1 exclusivo do Grupo forte", () => {
+  const tx = valid({ id: "tx-1", deviceId: "dev-a", type: "TRANSACTION_CREATED" });
+  const themeSetting = valid({
+    id: "set-theme",
+    deviceId: "dev-a",
+    type: "SETTING_CHANGED",
+    payload: { key: "domus_theme_mode_v1", value: "dark", schemaVersion: 1 },
+  });
+  const catholicSetting = valid({
+    id: "set-catholic",
+    deviceId: "dev-a",
+    type: "SETTING_CHANGED",
+    payload: { key: "domus_is_catholic_v1", value: true, schemaVersion: 1 },
+  });
+
+  it("OLD_GROUP_EXCLUDED_SETTING_KEYS contém domus_is_catholic_v1 e isOldGroupPublishableEvent bloqueia apenas essa chave", () => {
+    expect(OLD_GROUP_EXCLUDED_SETTING_KEYS).toEqual(["domus_is_catholic_v1"]);
+    expect(isOldGroupPublishableEvent(tx)).toBe(true);
+    expect(isOldGroupPublishableEvent(themeSetting)).toBe(true);
+    expect(isOldGroupPublishableEvent(catholicSetting)).toBe(false);
+  });
+
+  it("selectOldGroupPushEvents e partitionOldGroupEvents excluem domus_is_catholic_v1 mas mantêm transações e domus_theme_mode_v1", () => {
+    const events = [tx, themeSetting, catholicSetting];
+    const pushed = selectOldGroupPushEvents(events, "dev-a");
+    expect(pushed.map((e) => e.id)).toEqual(["tx-1", "set-theme"]);
+
+    const { allowed, excluded } = partitionOldGroupEvents(events);
+    expect(allowed.map((e) => e.id)).toEqual(["tx-1", "set-theme"]);
+    expect(excluded.map((e) => e.id)).toEqual(["set-catholic"]);
+  });
+
+  it("selectEventsToImport descarta domus_is_catholic_v1 quando isStrongGroup: false e registra apenas id/type", () => {
+    const warn = vi.fn();
+    const res = selectEventsToImport(
+      [tx, themeSetting, catholicSetting],
+      new Set(),
+      warn,
+      { isStrongGroup: false },
+    );
+
+    expect(res.toAppend.map((e) => e.id)).toEqual(["tx-1", "set-theme"]);
+    expect(res.excluded).toBe(1);
+    const logged = warn.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("id=set-catholic type=SETTING_CHANGED");
+    expect(logged).not.toContain("domus_is_catholic_v1");
+  });
+
+  it("selectStrongGroupPushEvents e selectEventsToImport com isStrongGroup: true publicam e importam domus_is_catholic_v1 normalmente", () => {
+    const pushed = selectStrongGroupPushEvents([tx, themeSetting, catholicSetting], "dev-a");
+    expect(pushed.map((e) => e.id)).toEqual(["tx-1", "set-theme", "set-catholic"]);
+
+    const warn = vi.fn();
+    const res = selectEventsToImport(
+      [tx, themeSetting, catholicSetting],
+      new Set(),
+      warn,
+      { isStrongGroup: true },
+    );
+    expect(res.toAppend.map((e) => e.id)).toEqual(["tx-1", "set-theme", "set-catholic"]);
+    expect(res.excluded).toBe(0);
+    expect(warn).not.toHaveBeenCalled();
   });
 });

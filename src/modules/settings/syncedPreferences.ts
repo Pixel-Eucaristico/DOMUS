@@ -11,6 +11,7 @@ import type { SupportMode } from "@/src/modules/monetization/MonetizationSetting
 export const THEME_MODE_SETTING_KEY = "domus_theme_mode_v1" as const;
 export const SOUND_ENABLED_SETTING_KEY = "domus_sound_enabled_v1" as const;
 export const SUPPORT_MODES_SETTING_KEY = "domus_support_modes_v2" as const;
+export const IS_CATHOLIC_SETTING_KEY = "domus_is_catholic_v1" as const;
 
 const VALID_THEME_MODES: readonly ThemeMode[] = ["system", "light", "dark"];
 const VALID_SUPPORT_MODES: readonly SupportMode[] = [
@@ -62,6 +63,16 @@ export function resolveSupportModesFromSettings(settings: SettingsState): Suppor
   return normalizeSupportModes(raw);
 }
 
+export function resolveIsCatholicFromSettings(settings: SettingsState): boolean | undefined {
+  const raw = settings.values[IS_CATHOLIC_SETTING_KEY];
+  if (typeof raw === "boolean") {
+    return raw;
+  }
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  return undefined;
+}
+
 function hasSettingChangedEvent(allEvents: readonly SyncEvent[], key: string): boolean {
   return allEvents.some(
     (evt) =>
@@ -86,19 +97,64 @@ function normalizeSoundEnabledForSeed(raw: unknown): boolean {
   return true;
 }
 
+function normalizeIsCatholicForSeed(raw: unknown): boolean | undefined {
+  if (typeof raw === "boolean") return raw;
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  return undefined;
+}
+
+export interface SyncIsCatholicParams {
+  value: boolean;
+  deviceId: string;
+  isDemoActive: boolean;
+  loadStrongGroupSecret: () => Promise<string | null>;
+  isStrongGroupSecretValid: (secret: string) => boolean;
+  dispatch: (event: SettingChangedEvent) => void;
+}
+
+/**
+ * Emite `SETTING_CHANGED` para `domus_is_catholic_v1` apenas quando não está
+ * em modo demo e há um segredo de Grupo forte válido no aparelho (Story 10.2).
+ */
+export async function syncIsCatholicIfStrongGroup(
+  params: SyncIsCatholicParams,
+): Promise<boolean> {
+  if (params.isDemoActive) return false;
+  try {
+    const strongSecret = await params.loadStrongGroupSecret();
+    if (!strongSecret || !params.isStrongGroupSecretValid(strongSecret)) {
+      return false;
+    }
+    params.dispatch(
+      createSettingChangedEvent(
+        IS_CATHOLIC_SETTING_KEY,
+        params.value,
+        params.deviceId || "local",
+      ),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface BuildSettingsSeedInput {
   allEvents: readonly SyncEvent[];
   deviceId: string;
   themeMode?: ThemeMode | string | null;
   soundEnabled?: boolean | string | null;
   supportModes?: readonly SupportMode[] | null;
+  isCatholic?: boolean | string | null;
+  isStrongGroup?: boolean;
 }
 
 /**
  * Gera eventos `SETTING_CHANGED` iniciais para tema, som e modos de apoio quando
  * o log ainda não possui nenhum evento para cada chave correspondente.
  *
- * Nunca emite evento para `domus_is_catholic_v1` (escopo estritamente local).
+ * Para `domus_is_catholic_v1`, só emite evento quando `isStrongGroup === true`
+ * e existe um valor booleano definido (Story 10.2).
  */
 export function buildSettingsSeedEvents(input: BuildSettingsSeedInput): SettingChangedEvent[] {
   const events: SettingChangedEvent[] = [];
@@ -134,6 +190,22 @@ export function buildSettingsSeedEvents(input: BuildSettingsSeedInput): SettingC
         input.deviceId,
       ),
     );
+  }
+
+  if (
+    input.isStrongGroup === true &&
+    !hasSettingChangedEvent(input.allEvents, IS_CATHOLIC_SETTING_KEY)
+  ) {
+    const normalizedCatholic = normalizeIsCatholicForSeed(input.isCatholic);
+    if (normalizedCatholic !== undefined) {
+      events.push(
+        createSettingChangedEvent(
+          IS_CATHOLIC_SETTING_KEY,
+          normalizedCatholic,
+          input.deviceId,
+        ),
+      );
+    }
   }
 
   return events;
