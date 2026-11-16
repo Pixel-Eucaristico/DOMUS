@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-16-2026 13:23
+last_updated: 11-16-2026 16:20
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -134,7 +134,7 @@ development_status:
   9-5-sincronizar-a-configuração-do-ocr-sem-a-chave: done
   9-6-sincronizar-a-preferência-do-backup-no-drive: done
   9-7-barrar-por-teste-dado-do-aparelho-no-sync: done
-  epic-9-retrospective: optional
+  epic-9-retrospective: done
 
   epic-10: backlog
   10-1-registrar-a-exceção-do-ad-6-e-atualizar-os-textos: backlog
@@ -300,3 +300,24 @@ action_items:
     owner: "domus-architect"
     status: open
     ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-7-retro-2026-11-16.md"
+  - id: "epic-9-retro-item-18-conectar-ou-reclassificar-domus_notifica"
+    epic: 9
+    action: "Conectar ou reclassificar domus_notification_settings_v1 (NotificationSettingsStore)
+      no sync de SETTING_CHANGED"
+    owner: "domus-dev"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-9-retro-2026-11-16.md"
+  - id: "epic-9-retro-item-19-uniformizar-guarda-de-isdemoactive-e-adi"
+    epic: 9
+    action: "Uniformizar guarda de isDemoActive e adicionar cachedModesPersisted em
+      MonetizationSettingsStore"
+    owner: "domus-dev"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-9-retro-2026-11-16.md"
+  - id: "epic-9-retro-item-20-extrair-usesyncedsettingscoordinator-de"
+    epic: 9
+    action: "Extrair useSyncedSettingsCoordinator de AppStateProvider.tsx e consolidar
+      helpers duplicados (hasSettingChangedEvent, isPlainObject)"
+    owner: "domus-architect"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-9-retro-2026-11-16.md"
