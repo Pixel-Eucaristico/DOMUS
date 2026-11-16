@@ -56,6 +56,14 @@ import {
   resolveOCRConfigFromSettings,
 } from "@/src/services/syncedOCRConfig";
 import {
+  DRIVE_BACKUP_PREF_SETTING_KEY,
+  buildDriveBackupPrefSeedEvents,
+  pickSyncedDriveBackupPref,
+  resolveDriveBackupPrefFromSettings,
+  type DriveBackupPreference,
+} from "@/src/modules/backup/domain/syncedDriveBackupPref";
+import { GoogleDriveService } from "@/src/modules/backup/infrastructure/GoogleDriveService";
+import {
   futureReleaseDelayMs,
   nextFutureReleaseAt,
   replayAllEvents,
@@ -106,6 +114,8 @@ interface AppStateContextValue {
   setSoundEnabled: (enabled: boolean) => void;
   setSupportModes: (modes: SupportMode[]) => void;
   setAISettings: (aiSettings: Partial<AISettings>) => void;
+  driveBackupPref: DriveBackupPreference | undefined;
+  setDriveBackupPref: (pref: DriveBackupPreference) => void;
   importEvents: (events: SyncEvent[], options?: { isStrongGroup?: boolean }) => Promise<number>;
   restoreFromBackup: (events: SyncEvent[]) => Promise<void>;
   resetApp: () => Promise<void>;
@@ -267,6 +277,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const syncedSupportModes = useMemo(() => resolveSupportModesFromSettings(settings), [settings]);
   const syncedCustomPrices = useMemo(() => resolveCustomPricesFromSettings(settings), [settings]);
   const syncedOCRConfig = useMemo(() => resolveOCRConfigFromSettings(settings), [settings]);
+  const driveBackupPref = useMemo(
+    () => (isDemoActive ? undefined : resolveDriveBackupPrefFromSettings(settings)),
+    [isDemoActive, settings],
+  );
 
   const handleSyncThemeMode = useCallback(
     (mode: ThemeMode) => {
@@ -309,6 +323,22 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       );
     },
     [dispatchAny, eventStore.deviceId],
+  );
+
+  const setDriveBackupPref = useCallback(
+    (pref: DriveBackupPreference) => {
+      if (isDemoActive) return;
+      const sanitized = pickSyncedDriveBackupPref(pref);
+      if (!sanitized) return;
+      dispatchAny(
+        createSettingChangedEvent(
+          DRIVE_BACKUP_PREF_SETTING_KEY,
+          sanitized,
+          eventStore.deviceId || "local",
+        ),
+      );
+    },
+    [dispatchAny, eventStore.deviceId, isDemoActive],
   );
 
   useEffect(() => {
@@ -392,7 +422,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       try {
-        const [savedTheme, savedSound, savedSupport, savedAISettingsRaw, savedCustomPrices, savedOCRConfig] =
+        const [savedTheme, savedSound, savedSupport, savedAISettingsRaw, savedCustomPrices, savedOCRConfig, driveConnected, driveEmail] =
           await Promise.all([
             AsyncStorage.getItem(THEME_MODE_KEY),
             AsyncStorage.getItem(SOUND_ENABLED_KEY),
@@ -400,6 +430,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             SecureStorageService.get(AI_SETTINGS_STORE_KEY),
             TokenPricingService.getCustomPricesSnapshot(),
             OCRConfigService.getSyncedOCRConfigSnapshot(),
+            GoogleDriveService.isConnected(),
+            GoogleDriveService.getConnectedEmail(),
           ]);
         if (cancelled || epoch !== seedEpochRef.current) return;
 
@@ -435,6 +467,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             allEvents: currentEvents,
             deviceId: did,
             ocrConfig: savedOCRConfig,
+          }),
+          ...buildDriveBackupPrefSeedEvents({
+            allEvents: currentEvents,
+            deviceId: did,
+            isConnected: driveConnected,
+            email: driveEmail,
           }),
         ];
         completed = true;
@@ -564,6 +602,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setSoundEnabled: themePrefs.setSoundEnabled,
       setSupportModes,
       setAISettings,
+      driveBackupPref,
+      setDriveBackupPref,
       importEvents: eventStore.importEvents,
       restoreFromBackup: eventStore.restoreFromBackup,
       resetApp,
@@ -586,7 +626,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       debugBalance: debug.debugBalance,
       setDebugBalance: debug.setDebugBalance,
     }),
-    [domain, gamification, onboarding, season, wishlist, settings, quarantine, themePrefs, levelInfo, budget, totalBalance, eventStore, initialSyncReady, bootEffectsGate, isDemoActive, dispatchAny, gamEffects.dispatchDomainEvent, setSupportModes, setAISettings, resetApp, toast, debug],
+    [domain, gamification, onboarding, season, wishlist, settings, quarantine, themePrefs, levelInfo, budget, totalBalance, eventStore, initialSyncReady, bootEffectsGate, isDemoActive, dispatchAny, gamEffects.dispatchDomainEvent, setSupportModes, setAISettings, driveBackupPref, setDriveBackupPref, resetApp, toast, debug],
   );
 
   return (

@@ -5,6 +5,8 @@ import type { DriveTokens } from "@/src/modules/backup/infrastructure/GoogleDriv
 import { ConnectivityService } from "@/src/modules/ai/infrastructure/ConnectivityService";
 import { getGoogleSignIn } from "@/src/modules/backup/infrastructure/GoogleNativeAuth";
 import { NATIVE_TOKEN_TTL_MS } from "@/src/modules/backup/infrastructure/driveTokens";
+import { useAppStateOptional } from "@/src/context/AppStateProvider";
+import { shouldPromptDriveConnectOnThisDevice } from "@/src/modules/backup/domain/syncedDriveBackupPref";
 
 // ─── Google OAuth ────────────────────────────────────────────────────────────
 // Android/iOS: Google Sign-In nativo, access token via Play Services (sem client secret).
@@ -13,7 +15,12 @@ const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 export function useGoogleDriveBackup() {
+  const appState = useAppStateOptional();
+  const driveBackupPref = appState?.driveBackupPref;
+  const setDriveBackupPref = appState?.setDriveBackupPref;
+
   const [isConnected, setIsConnected] = useState(false);
+  const [isDriveStateLoaded, setIsDriveStateLoaded] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -23,16 +30,25 @@ export function useGoogleDriveBackup() {
   // ── Load saved state on mount ────────────────────────────────────────────
 
   useEffect(() => {
+    let mounted = true;
     (async () => {
-      const [connected, connEmail, lastSync] = await Promise.all([
-        GoogleDriveService.isConnected(),
-        GoogleDriveService.getConnectedEmail(),
-        GoogleDriveService.getLastSyncAt(),
-      ]);
-      setIsConnected(connected);
-      setEmail(connEmail);
-      setLastSyncAt(lastSync);
+      try {
+        const [connected, connEmail, lastSync] = await Promise.all([
+          GoogleDriveService.isConnected(),
+          GoogleDriveService.getConnectedEmail(),
+          GoogleDriveService.getLastSyncAt(),
+        ]);
+        if (!mounted) return;
+        setIsConnected(connected);
+        setEmail(connEmail);
+        setLastSyncAt(lastSync);
+      } finally {
+        if (mounted) setIsDriveStateLoaded(true);
+      }
     })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // ── Actions ───────────────────────────────────────────────────────────────
@@ -64,8 +80,9 @@ export function useGoogleDriveBackup() {
 
     await GoogleDriveService.saveTokens(tokens);
     setIsConnected(true);
-    setEmail(userEmail);
-  }, []);
+    setEmail(userEmail || null);
+    setDriveBackupPref?.({ enabled: true, email: userEmail || undefined });
+  }, [setDriveBackupPref]);
 
   const connectNative = useCallback(async () => {
     const mod = getGoogleSignIn();
@@ -91,8 +108,9 @@ export function useGoogleDriveBackup() {
 
     await GoogleDriveService.saveTokens(tokens);
     setIsConnected(true);
-    setEmail(userEmail);
-  }, []);
+    setEmail(userEmail || null);
+    setDriveBackupPref?.({ enabled: true, email: userEmail || undefined });
+  }, [setDriveBackupPref]);
 
   const connect = useCallback(async () => {
     if (!WEB_CLIENT_ID) {
@@ -153,7 +171,8 @@ export function useGoogleDriveBackup() {
     setEmail(null);
     setLastSyncAt(null);
     setSyncError(null);
-  }, []);
+    setDriveBackupPref?.({ enabled: false });
+  }, [setDriveBackupPref]);
 
   /**
    * Faz upload de um conteudo (string) para o Google Drive.
@@ -182,6 +201,10 @@ export function useGoogleDriveBackup() {
   }, [isConnected]);
 
   const isConfigured = !!WEB_CLIENT_ID;
+  const needsLocalDriveLogin =
+    isDriveStateLoaded &&
+    shouldPromptDriveConnectOnThisDevice(driveBackupPref, isConnected);
+  const syncedAccountEmail = driveBackupPref?.email ?? null;
 
   return {
     isConnected,
@@ -191,6 +214,8 @@ export function useGoogleDriveBackup() {
     isSyncing,
     isConnecting,
     syncError,
+    needsLocalDriveLogin,
+    syncedAccountEmail,
     connect,
     disconnect,
     uploadContent,

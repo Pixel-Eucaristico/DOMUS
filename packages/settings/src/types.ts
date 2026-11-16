@@ -21,6 +21,7 @@ export const ALLOWED_SETTING_KEYS = [
   "@domus:ocr_config",
   "domus_ai_settings_v1",
   "domus_ai_custom_prices",
+  "domus_gdrive_backup_pref_v1",
 ] as const;
 
 export type AllowedSettingKey = (typeof ALLOWED_SETTING_KEYS)[number];

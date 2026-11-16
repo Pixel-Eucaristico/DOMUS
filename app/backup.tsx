@@ -360,6 +360,16 @@ export default function BackupScreen() {
                 </>
               ) : (
                 <>
+                  {drive.needsLocalDriveLogin && (
+                    <View style={[s.warnBanner, { borderColor: "#4285F440", backgroundColor: "#4285F412" }]}>
+                      <Feather name="info" size={14} color="#4285F4" />
+                      <Text style={[s.warnText, { color: theme.secondaryText }]}>
+                        {drive.syncedAccountEmail
+                          ? `O backup automático no Google Drive (${drive.syncedAccountEmail}) está ativo no grupo. Conecte o Drive neste aparelho para enviar o auto-backup.`
+                          : "O backup automático no Google Drive está ativo no grupo. Conecte o Drive neste aparelho para enviar o auto-backup."}
+                      </Text>
+                    </View>
+                  )}
                   <Text style={[s.hintText, { color: theme.secondaryText }]}>
                     Conecte sua conta Google para enviar o auto-backup diário automaticamente. O arquivo fica guardado na área privada do app no Google Drive (não aparece em &quot;Meu Drive&quot;).
                   </Text>
@@ -372,7 +382,13 @@ export default function BackupScreen() {
                     activeOpacity={0.8}
                   >
                     {drive.isConnecting ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="log-in" size={17} color="#fff" />}
-                    <Text style={s.actionBtnText}>{drive.isConnecting ? "Aguardando…" : "Conectar Google Drive"}</Text>
+                    <Text style={s.actionBtnText}>
+                      {drive.isConnecting
+                        ? "Aguardando…"
+                        : drive.needsLocalDriveLogin
+                          ? "Conectar o Drive neste aparelho"
+                          : "Conectar Google Drive"}
+                    </Text>
                   </TouchableOpacity>
                 </>
               )}
