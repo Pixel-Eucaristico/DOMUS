@@ -642,7 +642,7 @@ describe("Gamification Reducer", () => {
   });
 
   describe("gamificationReducer - STREAK_UPDATED", () => {
-    it("updates streak state when STREAK_UPDATED event occurs", () => {
+    it("ignores legacy STREAK_UPDATED payload without overwriting streak state", () => {
       const state = createInitialGamificationState();
       const event = makeGamEvent(GAMIFICATION_EVENTS.STREAK_UPDATED, {
         currentStreak: 5,
@@ -652,15 +652,19 @@ describe("Gamification Reducer", () => {
       });
 
       const newState = gamificationReducer(state, event);
-      expect(newState.currentStreak).toBe(5);
-      expect(newState.longestStreak).toBe(5);
-      expect(newState.lastActiveDate).toBe("2026-02-14");
+      expect(newState.currentStreak).toBe(0);
+      expect(newState.longestStreak).toBe(0);
+      expect(newState.lastActiveDate).toBe("");
+      expect(newState.processedEventIds).toContain(event.id);
     });
 
-    it("updates longest streak when it increases", () => {
-      let state = createInitialGamificationState();
-      state.currentStreak = 5;
-      state.longestStreak = 10;
+    it("does not overwrite existing streak when legacy STREAK_UPDATED arrives", () => {
+      const state = {
+        ...createInitialGamificationState(),
+        currentStreak: 5,
+        longestStreak: 10,
+        lastActiveDate: "2026-02-15",
+      };
 
       const event = makeGamEvent(GAMIFICATION_EVENTS.STREAK_UPDATED, {
         currentStreak: 1,
@@ -670,15 +674,17 @@ describe("Gamification Reducer", () => {
       });
 
       const newState = gamificationReducer(state, event);
-      expect(newState.currentStreak).toBe(1);
+      expect(newState.currentStreak).toBe(5);
       expect(newState.longestStreak).toBe(10);
-      expect(newState.lastActiveDate).toBe("2026-02-16");
+      expect(newState.lastActiveDate).toBe("2026-02-15");
     });
 
-    it("preserves XP when updating streak", () => {
-      let state = createInitialGamificationState();
-      state.totalXp = 300;
-      state.seasonXp = 200;
+    it("preserves XP when ignoring STREAK_UPDATED", () => {
+      const state = {
+        ...createInitialGamificationState(),
+        totalXp: 300,
+        seasonXp: 200,
+      };
 
       const event = makeGamEvent(GAMIFICATION_EVENTS.STREAK_UPDATED, {
         currentStreak: 3,
@@ -690,7 +696,7 @@ describe("Gamification Reducer", () => {
       const newState = gamificationReducer(state, event);
       expect(newState.totalXp).toBe(300);
       expect(newState.seasonXp).toBe(200);
-      expect(newState.currentStreak).toBe(3);
+      expect(newState.currentStreak).toBe(0);
     });
   });
 
@@ -748,9 +754,9 @@ describe("Gamification Reducer", () => {
       expect(state.totalXp).toBe(100);
       expect(state.seasonXp).toBe(100);
       expect(state.level).toBe(2);
-      expect(state.currentStreak).toBe(5);
-      expect(state.longestStreak).toBe(5);
-      expect(state.lastActiveDate).toBe("2026-02-14");
+      expect(state.currentStreak).toBe(0);
+      expect(state.longestStreak).toBe(0);
+      expect(state.lastActiveDate).toBe("");
     });
 
     it("maintains correct order of xpHistory from events", () => {
@@ -819,8 +825,8 @@ describe("Gamification Reducer", () => {
       expect(state.totalXp).toBe(110);
       expect(state.seasonXp).toBe(110);
       expect(state.level).toBe(2);
-      expect(state.currentStreak).toBe(1);
-      expect(state.longestStreak).toBe(1);
+      expect(state.currentStreak).toBe(0);
+      expect(state.longestStreak).toBe(0);
       expect(state.xpHistory).toHaveLength(3);
     });
   });

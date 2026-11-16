@@ -12,6 +12,7 @@ import { domainReducer } from "@packages/domain/src/reducer";
 import { createInitialState, type AppState } from "@packages/domain/src/state";
 import { GAMIFICATION_EVENTS, type GamificationEvent, type GamificationState } from "@packages/gamification/src/types";
 import { gamificationReducer, createInitialGamificationState } from "@packages/gamification/src/reducer";
+import { calculateStreakFromTransactions } from "@packages/gamification/src/streakEngine";
 import { ONBOARDING_EVENTS, type OnboardingEvent, type OnboardingState } from "@packages/onboarding/src/types";
 import { onboardingReducer, createInitialOnboardingState } from "@packages/onboarding/src/reducer";
 import { SEASON_EVENTS, type SeasonEvent, type SeasonState } from "@packages/season/src/types";
@@ -409,6 +410,14 @@ export function replayAllEvents(events: readonly SyncEvent[], options: ReplayOpt
       quarantine.push({ id, type, kind: "reducer_error", reason: errorReason(err) });
     }
   }
+
+  const derivedStreak = calculateStreakFromTransactions(domain.transactions);
+  gamification = {
+    ...gamification,
+    currentStreak: derivedStreak.currentStreak,
+    longestStreak: derivedStreak.longestStreak,
+    lastActiveDate: derivedStreak.lastActiveDate,
+  };
 
   return { domain, gamification, onboarding, season, wishlist, quarantine };
 }

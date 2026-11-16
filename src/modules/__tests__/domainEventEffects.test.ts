@@ -312,7 +312,7 @@ describe("Story 7.7: computeDomainEventEffects", () => {
     const afterConfirm = simulateDispatchDomainEvent(afterCreate.log, confirmEvt, now);
 
     expect(afterConfirm.effects.gamificationEvents.some((e) => e.type === GAMIFICATION_EVENTS.XP_GAINED)).toBe(true);
-    expect(afterConfirm.effects.gamificationEvents.some((e) => e.type === GAMIFICATION_EVENTS.STREAK_UPDATED)).toBe(true);
+    expect(afterConfirm.effects.gamificationEvents.some((e) => e.type === GAMIFICATION_EVENTS.STREAK_UPDATED)).toBe(false);
 
     const finalState = replayAllEvents(afterConfirm.log, replayOptionsFor(false, DEVICE_ID));
     expect(finalState.gamification.totalXp).toBeGreaterThan(0);
@@ -348,8 +348,53 @@ describe("Story 7.7: computeDomainEventEffects", () => {
     });
 
     expect(effects.gamificationEvents.some((e) => e.type === GAMIFICATION_EVENTS.XP_GAINED)).toBe(true);
-    expect(effects.gamificationEvents.some((e) => e.type === GAMIFICATION_EVENTS.STREAK_UPDATED)).toBe(true);
+    expect(effects.gamificationEvents.some((e) => e.type === GAMIFICATION_EVENTS.STREAK_UPDATED)).toBe(false);
     expect(effects.achievementToasts.map((t) => t.achievementId)).toContain("first_transaction");
+  });
+
+  it("modo demo (useLogEvents: false) deriva streak de nextDomain.transactions e desbloqueia streak_3", () => {
+    const now = new Date(2026, 10, 15, 16, 30, 0);
+    const { log: baseLog, accountId, categoryId } = createBaseLog(now);
+    const demoState = replayAllEvents(baseLog, replayOptionsFor(false, DEVICE_ID));
+
+    const txDay1 = createTransactionEvent(
+      { accountId, type: "expense", amount: 20, categoryId, date: "2026-11-13", status: "confirmed" },
+      "local",
+    )[0]!;
+    const txDay2 = createTransactionEvent(
+      { accountId, type: "expense", amount: 25, categoryId, date: "2026-11-14", status: "confirmed" },
+      "local",
+    )[0]!;
+    const txDay3 = createTransactionEvent(
+      { accountId, type: "expense", amount: 30, categoryId, date: "2026-11-15", status: "confirmed" },
+      "local",
+    )[0]!;
+
+    const fallbackDomain = {
+      ...demoState.domain,
+      transactions: {
+        [txDay1.payload.id]: txDay1.payload,
+        [txDay2.payload.id]: txDay2.payload,
+      },
+    };
+    const fallbackGamification = {
+      ...demoState.gamification,
+      currentStreak: 2,
+      longestStreak: 2,
+      lastActiveDate: "2026-11-14",
+    };
+
+    const effects = computeDomainEventEffects({
+      event: txDay3,
+      deviceId: DEVICE_ID,
+      useLogEvents: false,
+      logEvents: [],
+      fallbackDomain,
+      fallbackGamification,
+      now,
+    });
+
+    expect(effects.achievementToasts.map((t) => t.achievementId)).toContain("streak_3");
   });
 
   it("evento não-local (deviceId de outro aparelho) não emite efeitos de gamificação", () => {

@@ -2349,7 +2349,8 @@ describe("Story 5.6 - Nunca republicar o que veio do grupo", () => {
     expect(postSyncGamificationB.totalXp).toBe(0);
     expect(postSyncGamificationB.level).toBe(1);
     expect(postSyncGamificationB.unlockedAchievements).toEqual(initialGamificationB.unlockedAchievements);
-    expect(postSyncGamificationB.currentStreak).toBe(0);
+    // Story 7.9: streak é derivado das transações confirmadas presentes no log (4 transações em 2026-10-01 -> streak 1)
+    expect(postSyncGamificationB.currentStreak).toBe(1);
   });
 
   it("aparelho que recebe evento do grupo nunca o devolve em ciclos de push subsequentes (supressão estrita de eco)", async () => {

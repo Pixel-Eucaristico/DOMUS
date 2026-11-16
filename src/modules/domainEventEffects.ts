@@ -24,7 +24,7 @@ import {
   createXpPayload,
   getXpForAction,
 } from "@packages/gamification/src/xpEngine";
-import { updateStreak, type StreakState } from "@packages/gamification/src/streakEngine";
+import { calculateStreakFromTransactions } from "@packages/gamification/src/streakEngine";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { replayAllEvents, replayOptionsFor } from "@/src/context/replay";
 import { transactionRewardEligibility } from "@/src/modules/transactionRewards";
@@ -199,35 +199,30 @@ export function computeDomainEventEffects(
     } as GamificationEvent);
   }
 
-  // Streak only for confirmed new transactions or pending->confirmed
-  if (reward.updateStreak) {
-    const currentStreak: StreakState = {
-      currentStreak: currentGamification.currentStreak,
-      longestStreak: currentGamification.longestStreak,
-      lastActiveDate: currentGamification.lastActiveDate,
-    };
-    const streakResult = updateStreak(currentStreak, todayPrefix);
-    gamificationEvents.push({
-      id: generateId(),
-      type: GAMIFICATION_EVENTS.STREAK_UPDATED,
-      payload: streakResult,
-      timestamp: nowMs,
-      deviceId: originDeviceId,
-      signature: "",
-    } as GamificationEvent);
-  }
-
   // Level Up check (mantém `leveledUp` para efeito sonoro sem emitir evento LEVEL_UP)
   const currentTotalXp = currentGamification.totalXp;
   const estimatedNewTotalXp = Math.max(0, currentTotalXp + totalXpGain);
   const levelCheck = shouldLevelUp(currentTotalXp, estimatedNewTotalXp);
   const leveledUp = levelCheck.leveledUp;
 
+  // Story 7.9: streak é derivado das transações (não emite mais STREAK_UPDATED).
+  // No modo demo (!useLogEvents), recalcula sobre `nextDomain.transactions` para manter conquistas `streak_*` reativas.
+  const estimatedStreak = useLogEvents
+    ? {
+        currentStreak: currentGamification.currentStreak,
+        longestStreak: currentGamification.longestStreak,
+        lastActiveDate: currentGamification.lastActiveDate,
+      }
+    : calculateStreakFromTransactions(nextDomain.transactions);
+
   // Achievement checks
   const estimatedNextGamification: GamificationState = {
     ...currentGamification,
     totalXp: estimatedNewTotalXp,
     level: calculateLevel(estimatedNewTotalXp),
+    currentStreak: estimatedStreak.currentStreak,
+    longestStreak: estimatedStreak.longestStreak,
+    lastActiveDate: estimatedStreak.lastActiveDate,
   };
   const alreadyUnlocked = new Set(
     (currentGamification.unlockedAchievements ?? []).map((a) => a.id),

@@ -98,11 +98,9 @@ export function gamificationReducer(
     }
 
     case GAMIFICATION_EVENTS.STREAK_UPDATED: {
+      // Story 7.9: streak é derivado das transações no replay; ignora payload legado sem sobrescrever estado.
       return {
         ...state,
-        currentStreak: event.payload.currentStreak,
-        longestStreak: event.payload.longestStreak,
-        lastActiveDate: event.payload.lastActiveDate,
         processedEventIds: nextProcessedEventIds,
       };
     }

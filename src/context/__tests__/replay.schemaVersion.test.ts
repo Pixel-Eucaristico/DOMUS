@@ -20,6 +20,7 @@ import { domainReducer } from "@packages/domain/src/reducer";
 import { createInitialState } from "@packages/domain/src/state";
 import { GAMIFICATION_EVENTS, type GamificationEvent } from "@packages/gamification/src/types";
 import { gamificationReducer, createInitialGamificationState } from "@packages/gamification/src/reducer";
+import { calculateStreakFromTransactions } from "@packages/gamification/src/streakEngine";
 import { ONBOARDING_EVENTS, type OnboardingEvent } from "@packages/onboarding/src/types";
 import { onboardingReducer, createInitialOnboardingState } from "@packages/onboarding/src/reducer";
 import { SEASON_EVENTS, type SeasonEvent } from "@packages/season/src/types";
@@ -225,6 +226,8 @@ function legacyReplay(events: readonly SyncEvent[]) {
     if ((Object.values(SEASON_EVENTS) as string[]).includes(t)) season = seasonReducer(season, evt as unknown as SeasonEvent);
     if ((Object.values(WISHLIST_EVENTS) as string[]).includes(t)) wishlist = wishlistReducer(wishlist, evt as unknown as WishlistEvent);
   }
+  const derivedStreak = calculateStreakFromTransactions(domain.transactions);
+  gamification = { ...gamification, ...derivedStreak };
   return { domain, gamification, onboarding, season, wishlist };
 }
 

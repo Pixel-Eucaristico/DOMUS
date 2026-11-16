@@ -74,8 +74,10 @@ export {
   updateStreak,
   createInitialStreak,
   isStreakActive,
+  calculateStreakFromDates,
+  calculateStreakFromTransactions,
 } from "./src/streakEngine";
-export type { StreakState } from "./src/streakEngine";
+export type { StreakState, StreakTransactionInput } from "./src/streakEngine";
 
 export {
   gamificationReducer,

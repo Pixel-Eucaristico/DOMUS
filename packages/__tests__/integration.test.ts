@@ -7,7 +7,7 @@ import { createInitialState } from "../domain/src/state";
 import { calculate503020 } from "../domain/src/transactions";
 import { createXpPayload, calculateBudgetAdherenceXp } from "../gamification/src/xpEngine";
 import { calculateLevel, shouldLevelUp } from "../gamification/src/levelEngine";
-import { updateStreak, createInitialStreak } from "../gamification/src/streakEngine";
+import { updateStreak, createInitialStreak, calculateStreakFromDates } from "../gamification/src/streakEngine";
 import { gamificationReducer, createInitialGamificationState } from "../gamification/src/reducer";
 import { GAMIFICATION_EVENTS } from "../gamification/src/types";
 import type { GamificationEvent } from "../gamification/src/types";
@@ -225,7 +225,9 @@ describe("DOMUS Integration - Full User Journey", () => {
     allGamificationEvents.push(streakEvent);
     gamificationState = gamificationReducer(gamificationState, streakEvent);
 
-    expect(gamificationState.currentStreak).toBe(3);
+    // STREAK_UPDATED legado é ignorado pelo reducer; streak é derivado das datas/transações no replay
+    expect(gamificationState.currentStreak).toBe(0);
+    expect(calculateStreakFromDates(["2026-02-01", "2026-02-02", "2026-02-03"]).currentStreak).toBe(3);
   });
 
   it("10. detects archetype from scores", () => {
