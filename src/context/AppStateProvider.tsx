@@ -48,6 +48,13 @@ import {
 } from "@/src/modules/ai/domain/syncedAISettings";
 import { TokenPricingService } from "@/src/modules/ai/infrastructure/TokenPricingService";
 import { SecureStorageService } from "@/src/modules/security/infrastructure/SecureStorageService";
+import { OCRConfigService } from "@/src/services/ocrConfigService";
+import {
+  OCR_CONFIG_SETTING_KEY,
+  buildOCRConfigSeedEvents,
+  pickSyncedOCRConfig,
+  resolveOCRConfigFromSettings,
+} from "@/src/services/syncedOCRConfig";
 import {
   futureReleaseDelayMs,
   nextFutureReleaseAt,
@@ -259,6 +266,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const syncedSoundEnabled = useMemo(() => resolveSoundEnabledFromSettings(settings), [settings]);
   const syncedSupportModes = useMemo(() => resolveSupportModesFromSettings(settings), [settings]);
   const syncedCustomPrices = useMemo(() => resolveCustomPricesFromSettings(settings), [settings]);
+  const syncedOCRConfig = useMemo(() => resolveOCRConfigFromSettings(settings), [settings]);
 
   const handleSyncThemeMode = useCallback(
     (mode: ThemeMode) => {
@@ -325,6 +333,29 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     });
   }, [dispatchAny, eventStore.deviceId]);
 
+  useEffect(() => {
+    if (syncedOCRConfig === undefined) {
+      if (!isDemoActive) {
+        OCRConfigService.invalidateSyncedOCRConfigCache();
+      }
+      return;
+    }
+    void OCRConfigService.applySyncedOCRConfig(syncedOCRConfig, !isDemoActive);
+  }, [syncedOCRConfig, isDemoActive]);
+
+  useEffect(() => {
+    if (isDemoActive) return;
+    return OCRConfigService.registerOCRConfigSyncListener((config) => {
+      dispatchAny(
+        createSettingChangedEvent(
+          OCR_CONFIG_SETTING_KEY,
+          pickSyncedOCRConfig(config),
+          eventStore.deviceId || "local",
+        ),
+      );
+    });
+  }, [dispatchAny, eventStore.deviceId, isDemoActive]);
+
   // Theme + preferences (depends on derived state)
   const themePrefs = useThemePreferences({
     debugArchetype: debug.debugArchetype,
@@ -361,13 +392,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       try {
-        const [savedTheme, savedSound, savedSupport, savedAISettingsRaw, savedCustomPrices] =
+        const [savedTheme, savedSound, savedSupport, savedAISettingsRaw, savedCustomPrices, savedOCRConfig] =
           await Promise.all([
             AsyncStorage.getItem(THEME_MODE_KEY),
             AsyncStorage.getItem(SOUND_ENABLED_KEY),
             loadSupportModes(),
             SecureStorageService.get(AI_SETTINGS_STORE_KEY),
             TokenPricingService.getCustomPricesSnapshot(),
+            OCRConfigService.getSyncedOCRConfigSnapshot(),
           ]);
         if (cancelled || epoch !== seedEpochRef.current) return;
 
@@ -398,6 +430,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             deviceId: did,
             aiSettings: savedAISettings,
             customPrices: savedCustomPrices,
+          }),
+          ...buildOCRConfigSeedEvents({
+            allEvents: currentEvents,
+            deviceId: did,
+            ocrConfig: savedOCRConfig,
           }),
         ];
         completed = true;
@@ -496,6 +533,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     await resetLocalSupportModes();
     await TokenPricingService.resetLocalCustomPrices();
     await SecureStorageService.delete(AI_SETTINGS_STORE_KEY);
+    await OCRConfigService.resetLocalOCRConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- eventStore/themePrefs são recriados a cada render; os métodos usados já são deps
   }, [eventStore.resetApp, themePrefs.resetLocalPreferences]);
 

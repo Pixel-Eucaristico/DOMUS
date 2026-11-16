@@ -3,6 +3,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { webSecrets } from "@/src/modules/security/infrastructure/webSecrets";
 import type { CloudVisionConfig, OCRProvider } from "@packages/parsers";
 import type { AIProvider } from "@packages/ai";
+import {
+  hasSyncedOCRConfigChanged,
+  pickSyncedOCRConfig,
+  type SyncedOCRConfig,
+} from "./syncedOCRConfig";
 
 export const OCR_CONFIG_KEY = "@domus:ocr_config";
 export const OCR_API_KEY_SECURE_KEY = "domus_ocr_cloud_vision_api_key";
@@ -18,6 +23,22 @@ export interface OCRConfig {
 const DEFAULT_CONFIG: OCRConfig = {
   preferredProvider: "mlkit",
 };
+
+const ocrConfigSyncListeners = new Set<(config: SyncedOCRConfig) => void>();
+let cachedSyncedOCRConfig: SyncedOCRConfig | null = null;
+let cachedSyncedOCRConfigPersisted = false;
+
+function areSyncedOCRConfigsEqual(
+  a: SyncedOCRConfig | null,
+  b: SyncedOCRConfig,
+): boolean {
+  if (!a) return false;
+  return (
+    a.preferredProvider === b.preferredProvider &&
+    a.cloudVisionEndpoint === b.cloudVisionEndpoint &&
+    a.visionAIProvider === b.visionAIProvider
+  );
+}
 
 /**
  * process.env.EXPO_OS é definido pelo compilador do Expo (no build nativo é "android"/"ios", na web é "web")
@@ -88,11 +109,117 @@ export class OCRConfigService {
   static deleteSecureApiKey = deleteSecureApiKey;
 
   /**
+   * Registra ouvinte para emitir `SETTING_CHANGED` quando o usuário altera
+   * preferências sincronizáveis do OCR localmente.
+   */
+  static registerOCRConfigSyncListener(
+    listener: (config: SyncedOCRConfig) => void,
+  ): () => void {
+    ocrConfigSyncListeners.add(listener);
+    return () => {
+      ocrConfigSyncListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Retorna um snapshot sanitizado da configuração sincronizável de OCR atual
+   * (sem `cloudVisionApiKey`), ou `null` se nenhuma configuração local foi salva ainda.
+   */
+  static async getSyncedOCRConfigSnapshot(): Promise<SyncedOCRConfig | null> {
+    if (cachedSyncedOCRConfig !== null) {
+      return pickSyncedOCRConfig(cachedSyncedOCRConfig);
+    }
+    try {
+      const raw = await AsyncStorage.getItem(OCR_CONFIG_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as unknown;
+      const sanitized = pickSyncedOCRConfig(parsed);
+      return Object.keys(sanitized).length > 0 ? sanitized : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Aplica configuração de OCR vinda do log de eventos sincronizado.
+   * Nunca sobrescreve nem apaga `cloudVisionApiKey` do armazenamento seguro e não
+   * dispara o ouvinte de emissão de eventos (evita loops).
+   */
+  static async applySyncedOCRConfig(
+    config: SyncedOCRConfig,
+    persist: boolean = true,
+  ): Promise<void> {
+    const sanitized = pickSyncedOCRConfig(config);
+    if (
+      areSyncedOCRConfigsEqual(cachedSyncedOCRConfig, sanitized) &&
+      (!persist || cachedSyncedOCRConfigPersisted)
+    ) {
+      return;
+    }
+
+    if (!persist) {
+      cachedSyncedOCRConfig = { ...sanitized };
+      cachedSyncedOCRConfigPersisted = false;
+      return;
+    }
+
+    // Garante migração de chave legada em AsyncStorage antes de sobrescrever OCR_CONFIG_KEY
+    if (cachedSyncedOCRConfig === null) {
+      await this.loadConfig();
+    }
+
+    const nextStored: OCRConfig = {
+      ...DEFAULT_CONFIG,
+      ...sanitized,
+    };
+    try {
+      await AsyncStorage.setItem(OCR_CONFIG_KEY, JSON.stringify(nextStored));
+      cachedSyncedOCRConfig = { ...sanitized };
+      cachedSyncedOCRConfigPersisted = true;
+    } catch (error) {
+      cachedSyncedOCRConfig = { ...sanitized };
+      cachedSyncedOCRConfigPersisted = false;
+      console.error("[OCRConfigService] Erro ao persistir config sincronizada:", error);
+    }
+  }
+
+  /**
+   * Invalida o cache em memória para forçar releitura do armazenamento local
+   * (ex.: ao sair do modo demo).
+   */
+  static invalidateSyncedOCRConfigCache(): void {
+    cachedSyncedOCRConfig = null;
+    cachedSyncedOCRConfigPersisted = false;
+  }
+
+  /**
+   * Limpa a configuração local do OCR no reset do app sem emitir evento.
+   */
+  static async resetLocalOCRConfig(): Promise<void> {
+    cachedSyncedOCRConfig = null;
+    cachedSyncedOCRConfigPersisted = false;
+    try {
+      await AsyncStorage.removeItem(OCR_CONFIG_KEY);
+    } catch (error) {
+      console.error("[OCRConfigService] Erro ao limpar config local:", error);
+    }
+  }
+
+  /**
    * Carrega configuração do OCR.
    * Migra automaticamente chaves legadas gravadas em AsyncStorage para o armazenamento seguro.
    */
   static async loadConfig(): Promise<OCRConfig> {
     try {
+      if (cachedSyncedOCRConfig !== null) {
+        const secureKey = await loadSecureApiKey();
+        return {
+          ...DEFAULT_CONFIG,
+          ...cachedSyncedOCRConfig,
+          cloudVisionApiKey: secureKey || undefined,
+        };
+      }
+
       const json = await AsyncStorage.getItem(OCR_CONFIG_KEY);
       let config: OCRConfig = json ? JSON.parse(json) : { ...DEFAULT_CONFIG };
 
@@ -160,6 +287,22 @@ export class OCRConfigService {
       }
 
       await AsyncStorage.setItem(OCR_CONFIG_KEY, JSON.stringify(newConfig));
+
+      const sanitizedNewConfig = pickSyncedOCRConfig(newConfig);
+      if (cachedSyncedOCRConfig !== null) {
+        cachedSyncedOCRConfig = { ...sanitizedNewConfig };
+        cachedSyncedOCRConfigPersisted = true;
+      }
+
+      if (
+        hasSyncedOCRConfigChanged(config) ||
+        "cloudVisionEndpoint" in config ||
+        "visionAIProvider" in config
+      ) {
+        ocrConfigSyncListeners.forEach((listener) =>
+          listener({ ...sanitizedNewConfig }),
+        );
+      }
     } catch (error) {
       console.error("[OCRConfigService] Erro ao salvar config:", error);
       throw error;
@@ -183,7 +326,7 @@ export class OCRConfigService {
   /**
    * Atualiza provedor preferido
    */
-  static async setPreferredProvider(provider: OCRProvider): Promise<void> {
+  static async setPreferredProvider(provider: OCRProvider | "vision_ai"): Promise<void> {
     await this.saveConfig({ preferredProvider: provider });
   }
 
