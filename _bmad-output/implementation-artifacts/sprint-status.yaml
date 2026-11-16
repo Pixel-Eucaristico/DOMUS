@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-16-2026 16:20
+last_updated: 11-16-2026 20:39
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -136,7 +136,7 @@ development_status:
   9-7-barrar-por-teste-dado-do-aparelho-no-sync: done
   epic-9-retrospective: done
 
-  epic-10: in-progress
+  epic-10: done
   10-1-registrar-a-exceção-do-ad-6-e-atualizar-os-textos: done
   10-2-sincronizar-a-preferência-religiosa-só-pelo-grupo-forte: done
   10-3-ativar-o-sync-de-chaves-com-opt-in-explícito: done
@@ -144,7 +144,7 @@ development_status:
   10-5-receber-as-chaves-em-outro-aparelho-nativo: done
   10-6-desligar-o-sync-de-chaves: done
   10-7-backup-do-drive-com-o-mesmo-escopo-sem-chave-em-texto-puro: done
-  epic-10-retrospective: optional
+  epic-10-retrospective: done
 
   epic-11: in-progress
   11-1-criar-o-glossário-financeiro-e-o-balão-de-dica: review
@@ -321,3 +321,31 @@ action_items:
     owner: "domus-architect"
     status: open
     ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-9-retro-2026-11-16.md"
+  - id: "epic-10-retro-item-21-extrair-coordenador-puro-de-key-sync-key"
+    epic: 10
+    action: "Extrair coordenador puro de key-sync (keySyncCoordinator) de AppStateProvider.tsx
+      cobrindo fila, handledIds, catch-up de opt-in e reset em leaveGroup"
+    owner: "domus-architect"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-10-retro-2026-11-16.md"
+  - id: "epic-10-retro-item-22-atualizar-docs-data-safety-md-docs-polit"
+    epic: 10
+    action: "Atualizar docs/data-safety.md, docs/politica-de-privacidade.md e PLAY_STORE_LISTING.md
+      incluindo domus_is_catholic_v1 (opcional no Grupo forte)"
+    owner: "domus-dev"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-10-retro-2026-11-16.md"
+  - id: "epic-10-retro-item-23-notificar-instâncias-montadas-de-useaise"
+    epic: 10
+    action: "Notificar instâncias montadas de useAISettings quando storeSyncedAIKey
+      persistir chave recebida"
+    owner: "domus-dev"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-10-retro-2026-11-16.md"
+  - id: "epic-10-retro-item-24-consolidar-iswebenv-ai_synced_providers"
+    epic: 10
+    action: "Consolidar isWebEnv, AI_SYNCED_PROVIDERS e leitura única de segredo entre
+      keySyncOptIn.ts, keySyncCipher.ts, keySyncPublisher.ts e keySyncReceiver.ts"
+    owner: "domus-dev"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-10-retro-2026-11-16.md"
