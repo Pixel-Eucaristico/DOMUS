@@ -7,6 +7,7 @@ import {
 } from "@packages/ai";
 import type { ChatMessage, ConsultationResult, AIIntent } from "@packages/ai";
 import { generateId } from "@packages/events/src/factory";
+import { buildStaticWelcomeMessage } from "./WelcomeMessageBuilder";
 import { AIClientService } from "./AIClientService";
 import { ConfidenceValidator } from "./ConfidenceValidator";
 import { buildFinancialContext } from "./AIContextBuilder";
@@ -298,28 +299,7 @@ export class ConsultantChatUseCase {
     contextData: ContextData,
     settings: AISettings,
   ): string {
-    const lines: string[] = [];
-    lines.push("**Olá! Sou o DOMUS, seu consultor financeiro.**\n");
-
-    const { dataPermissions } = settings;
-
-    if (dataPermissions.gamification) {
-      const g = contextData.gamification;
-      if (g.currentStreak > 0) {
-        lines.push(`Você está com um streak de **${g.currentStreak} dias** consecutivos!`);
-      }
-      if (g.level > 1) {
-        lines.push(`Nível **${g.level}** com **${g.totalXp.toLocaleString("pt-BR")} XP**.`);
-      }
-    }
-
-    if (dataPermissions.accounts && contextData.accounts.length > 0) {
-      const total = contextData.accounts.reduce((s, a) => s + a.balance, 0);
-      lines.push(`\nSaldo total: **R$ ${total.toFixed(2)}** em ${contextData.accounts.length} conta${contextData.accounts.length > 1 ? "s" : ""}.`);
-    }
-
-    lines.push("\nComo posso te ajudar hoje?");
-    return lines.join("\n");
+    return buildStaticWelcomeMessage(contextData, settings);
   }
 
   private static buildLocalFallback(

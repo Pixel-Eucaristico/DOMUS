@@ -594,8 +594,8 @@ describe("Gamification Reducer", () => {
     });
   });
 
-  describe("gamificationReducer - LEVEL_UP", () => {
-    it("updates level when LEVEL_UP event occurs", () => {
+  describe("gamificationReducer - LEVEL_UP (legacy ignored)", () => {
+    it("ignores LEVEL_UP newLevel and keeps level derived from totalXp", () => {
       const state = createInitialGamificationState();
       const event = makeGamEvent(GAMIFICATION_EVENTS.LEVEL_UP, {
         previousLevel: 1,
@@ -604,10 +604,11 @@ describe("Gamification Reducer", () => {
       });
 
       const newState = gamificationReducer(state, event);
-      expect(newState.level).toBe(2);
+      expect(newState.level).toBe(1);
+      expect(newState.processedEventIds).toContain(event.id);
     });
 
-    it("can level up multiple times", () => {
+    it("ignores multiple legacy LEVEL_UP events when totalXp has not changed", () => {
       let state = createInitialGamificationState();
       for (let level = 2; level <= 5; level++) {
         const event = makeGamEvent(GAMIFICATION_EVENTS.LEVEL_UP, {
@@ -617,10 +618,10 @@ describe("Gamification Reducer", () => {
         });
         state = gamificationReducer(state, event);
       }
-      expect(state.level).toBe(5);
+      expect(state.level).toBe(1);
     });
 
-    it("preserves other state when leveling up", () => {
+    it("preserves other state and derives level from totalXp on legacy LEVEL_UP", () => {
       let state = createInitialGamificationState();
       state.totalXp = 200;
       state.seasonXp = 150;
@@ -628,7 +629,7 @@ describe("Gamification Reducer", () => {
 
       const event = makeGamEvent(GAMIFICATION_EVENTS.LEVEL_UP, {
         previousLevel: 1,
-        newLevel: 3,
+        newLevel: 10,
         totalXp: 200,
       });
 

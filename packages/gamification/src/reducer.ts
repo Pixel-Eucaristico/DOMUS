@@ -92,7 +92,7 @@ export function gamificationReducer(
     case GAMIFICATION_EVENTS.LEVEL_UP: {
       return {
         ...state,
-        level: Math.max(state.level, event.payload.newLevel, calculateLevel(state.totalXp)),
+        level: calculateLevel(state.totalXp),
         processedEventIds: nextProcessedEventIds,
       };
     }

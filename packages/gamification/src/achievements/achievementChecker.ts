@@ -5,6 +5,7 @@ import { GAMIFICATION_EVENTS } from "../types";
 import type { AchievementUnlockedEvent, GamificationState } from "../types";
 import { ALL_ACHIEVEMENTS, MONTHLY_TROPHIES } from "./achievementData";
 import type { Achievement, MonthlyTrophy } from "./achievementData";
+import { calculateLevel } from "../levelEngine";
 
 export const ACHIEVEMENT_EVENT_ID_PREFIX = "ach:";
 
@@ -93,10 +94,10 @@ function isUnlocked(
       );
 
     case "level_5":
-      return gamification.level >= 5;
+      return calculateLevel(gamification.totalXp) >= 5;
 
     case "level_10":
-      return gamification.level >= 10;
+      return calculateLevel(gamification.totalXp) >= 10;
 
     // ── Grupo A — Transações ──────────────────────────────────────────────
     case "tx_50":  return txList.length >= 50;
@@ -157,8 +158,8 @@ function isUnlocked(
       ) >= 3;
 
     // ── Grupo F — Nível ───────────────────────────────────────────────────
-    case "level_20": return gamification.level >= 20;
-    case "level_50": return gamification.level >= 50;
+    case "level_20": return calculateLevel(gamification.totalXp) >= 20;
+    case "level_50": return calculateLevel(gamification.totalXp) >= 50;
 
     // ── Grupo G — Uso completo ────────────────────────────────────────────
     case "first_income":

@@ -6,6 +6,7 @@ import type {
 import type { StoredInvoice } from "@packages/domain/src/state";
 import type { WishlistState } from "@packages/wishlist/src/types";
 import type { GamificationState } from "@packages/gamification/src/types";
+import { calculateLevel } from "@packages/gamification/src/levelEngine";
 import type { AIDataPermissions } from "../domain/AISettings";
 
 /** Max items to include to avoid blowing token budget */
@@ -123,8 +124,9 @@ export function buildFinancialContext(
     const g = data.gamification;
     const achieveCount = g.unlockedAchievements?.length ?? 0;
     const trophyCount = g.completedMonthlyTrophies?.length ?? 0;
+    const level = calculateLevel(g.totalXp);
     const lines = [
-      `- Nivel: ${g.level} | XP total: ${g.totalXp} | XP temporada: ${g.seasonXp}`,
+      `- Nivel: ${level} | XP total: ${g.totalXp} | XP temporada: ${g.seasonXp}`,
       `- Streak atual: ${g.currentStreak} dias | Maior streak: ${g.longestStreak} dias`,
       `- Conquistas desbloqueadas: ${achieveCount}`,
       `- Trofeus mensais completados: ${trophyCount}`,

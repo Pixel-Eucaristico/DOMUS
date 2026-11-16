@@ -18,7 +18,7 @@ import {
   checkNewMonthlyTrophies,
   createAchievementUnlockedEvent,
 } from "@packages/gamification/src/achievements";
-import { shouldLevelUp } from "@packages/gamification/src/levelEngine";
+import { calculateLevel, shouldLevelUp } from "@packages/gamification/src/levelEngine";
 import {
   calculateBudgetAdherenceXp,
   createXpPayload,
@@ -217,32 +217,17 @@ export function computeDomainEventEffects(
     } as GamificationEvent);
   }
 
-  // Level Up check
+  // Level Up check (mantém `leveledUp` para efeito sonoro sem emitir evento LEVEL_UP)
   const currentTotalXp = currentGamification.totalXp;
   const estimatedNewTotalXp = Math.max(0, currentTotalXp + totalXpGain);
   const levelCheck = shouldLevelUp(currentTotalXp, estimatedNewTotalXp);
   const leveledUp = levelCheck.leveledUp;
 
-  if (leveledUp) {
-    gamificationEvents.push({
-      id: generateId(),
-      type: GAMIFICATION_EVENTS.LEVEL_UP,
-      payload: {
-        previousLevel: levelCheck.previousLevel,
-        newLevel: levelCheck.newLevel,
-        totalXp: estimatedNewTotalXp,
-      },
-      timestamp: nowMs,
-      deviceId: originDeviceId,
-      signature: "",
-    } as GamificationEvent);
-  }
-
   // Achievement checks
   const estimatedNextGamification: GamificationState = {
     ...currentGamification,
     totalXp: estimatedNewTotalXp,
-    level: leveledUp ? levelCheck.newLevel : currentGamification.level,
+    level: calculateLevel(estimatedNewTotalXp),
   };
   const alreadyUnlocked = new Set(
     (currentGamification.unlockedAchievements ?? []).map((a) => a.id),
