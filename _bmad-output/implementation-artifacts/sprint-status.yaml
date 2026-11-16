@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-12-2026 20:44
+last_updated: 11-16-2026 13:23
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -112,7 +112,7 @@ development_status:
   7-8-derivar-o-nível-do-log: done
   7-9-derivar-o-streak-do-log: done
   7-10-criar-e-excluir-uma-transação-deixa-o-xp-igual: done
-  epic-7-retrospective: optional
+  epic-7-retrospective: done
 
   epic-8: backlog
   8-1-medir-a-linha-de-base-e-atualizar-para-o-expo-sdk-55: backlog
@@ -272,3 +272,31 @@ action_items:
     owner: "domus-dev"
     status: open
     ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-6-retro-2026-11-12.md"
+  - id: "epic-7-retro-item-14-filtrar-transacoes-pending-em-evaluatexp"
+    epic: 7
+    action: "Filtrar transacoes pending em evaluateXpRecoveryEffect para evitar +30
+      XP indevido"
+    owner: "domus-dev"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-7-retro-2026-11-16.md"
+  - id: "epic-7-retro-item-15-filtrar-transacoes-pending-em-achievemen"
+    epic: 7
+    action: "Filtrar transacoes pending em achievementChecker.ts para nao desbloquear
+      conquistas antes da confirmacao"
+    owner: "domus-dev"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-7-retro-2026-11-16.md"
+  - id: "epic-7-retro-item-16-unificar-monthlytoasts-para-setpendingmo"
+    epic: 7
+    action: "Unificar monthlyToasts para setPendingMonthlyToast e remover useEffect
+      morto de XP recovery em useGamificationEffects.ts"
+    owner: "domus-dev"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-7-retro-2026-11-16.md"
+  - id: "epic-7-retro-item-17-fatiar-booteffectsgate-ts-por-responsabi"
+    epic: 7
+    action: "Fatiar bootEffectsGate.ts por responsabilidade e extrair helper unico
+      de data civil YYYY-MM-DD/YYYY-MM"
+    owner: "domus-architect"
+    status: open
+    ref: "/config/workspace/DOMUS/_bmad-output/implementation-artifacts/epic-7-retro-2026-11-16.md"
