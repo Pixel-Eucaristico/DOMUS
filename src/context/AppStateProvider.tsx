@@ -47,6 +47,8 @@ import {
   publishAllLocalKeysIfOptedIn,
   publishEncryptedKeyIfOptedIn,
 } from "@/src/modules/strongGroup/keySyncPublisher";
+import { applyIncomingKeySyncEvents } from "@/src/modules/strongGroup/keySyncReceiver";
+import { AIClientService } from "@/src/modules/ai/application/AIClientService";
 import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
 import type { AIProvider } from "@packages/ai";
 import { AI_SETTINGS_STORE_KEY, type AISettings } from "@/src/modules/ai/domain/AISettings";
@@ -59,7 +61,7 @@ import {
 } from "@/src/modules/ai/domain/syncedAISettings";
 import { TokenPricingService } from "@/src/modules/ai/infrastructure/TokenPricingService";
 import { SecureStorageService } from "@/src/modules/security/infrastructure/SecureStorageService";
-import { OCRConfigService, loadSecureApiKey } from "@/src/services/ocrConfigService";
+import { OCRConfigService, loadSecureApiKey, saveSecureApiKey } from "@/src/services/ocrConfigService";
 import {
   OCR_CONFIG_SETTING_KEY,
   buildOCRConfigSeedEvents,
@@ -313,6 +315,46 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const isDemoActiveRef = useRef(isDemoActive);
   isDemoActiveRef.current = isDemoActive;
+
+  const handledKeySyncIdsRef = useRef<Set<string>>(new Set());
+  const keySyncQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  const importEvents = useCallback(
+    async (events: SyncEvent[], options?: { isStrongGroup?: boolean }): Promise<number> => {
+      const imported = await eventStore.importEvents(events, options);
+      if (imported > 0 && options?.isStrongGroup === true) {
+        const runKeySync = async () => {
+          await applyIncomingKeySyncEvents({
+            events,
+            isStrongGroup: true,
+            isDemoActive: isDemoActiveRef.current,
+            loadStrongGroupSecret,
+            storeAIKey: async (provider, apiKey) => {
+              await SecureKeyService.storeKey(provider as AIProvider, apiKey);
+              AIClientService.resetBreaker(provider as AIProvider);
+            },
+            storeOCRKey: saveSecureApiKey,
+            handledIds: handledKeySyncIdsRef.current,
+          });
+        };
+        const next = keySyncQueueRef.current.then(runKeySync, runKeySync);
+        keySyncQueueRef.current = next;
+        await next;
+      }
+      return imported;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- eventStore é recriado a cada render; importEvents já é estável
+    [eventStore.importEvents],
+  );
+
+  const restoreFromBackup = useCallback(
+    async (events: SyncEvent[]): Promise<void> => {
+      handledKeySyncIdsRef.current.clear();
+      await eventStore.restoreFromBackup(events);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- eventStore é recriado a cada render; restoreFromBackup já é estável
+    [eventStore.restoreFromBackup],
+  );
 
   const syncSavedKey = useCallback(
     async (slot: SyncedKeySlot, apiKey: string): Promise<boolean> => {
@@ -648,6 +690,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const resetApp = useCallback(async (): Promise<void> => {
     seedEpochRef.current += 1;
     hasRunSettingsSeedRef.current = true;
+    handledKeySyncIdsRef.current.clear();
     await eventStore.resetApp();
     await themePrefs.resetLocalPreferences();
     await resetLocalSupportModes();
@@ -688,8 +731,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setDriveBackupPref,
       syncSavedKey,
       syncAllSavedKeys,
-      importEvents: eventStore.importEvents,
-      restoreFromBackup: eventStore.restoreFromBackup,
+      importEvents,
+      restoreFromBackup,
       resetApp,
       getAllEvents: eventStore.getAllEvents,
       localEventCount: eventStore.localEventCount,
@@ -710,7 +753,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       debugBalance: debug.debugBalance,
       setDebugBalance: debug.setDebugBalance,
     }),
-    [domain, gamification, onboarding, season, wishlist, settings, quarantine, themePrefs, levelInfo, budget, totalBalance, eventStore, initialSyncReady, bootEffectsGate, isDemoActive, dispatchAny, gamEffects.dispatchDomainEvent, setSupportModes, setAISettings, driveBackupPref, setDriveBackupPref, syncSavedKey, syncAllSavedKeys, resetApp, toast, debug],
+    [domain, gamification, onboarding, season, wishlist, settings, quarantine, themePrefs, levelInfo, budget, totalBalance, eventStore, initialSyncReady, bootEffectsGate, isDemoActive, dispatchAny, gamEffects.dispatchDomainEvent, setSupportModes, setAISettings, driveBackupPref, setDriveBackupPref, syncSavedKey, syncAllSavedKeys, importEvents, restoreFromBackup, resetApp, toast, debug],
   );
 
   return (
