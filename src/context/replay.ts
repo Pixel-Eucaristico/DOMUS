@@ -20,6 +20,8 @@ import { seasonReducer, createInitialSeasonState } from "@packages/season/src/re
 import { WISHLIST_EVENTS, type WishlistEvent, type WishlistState } from "@packages/wishlist/src/types";
 import { wishlistReducer, createInitialWishlistState } from "@packages/wishlist/src/reducer";
 import { PERSONALITY_EVENTS } from "@packages/personality/src/types";
+import { SETTINGS_EVENTS, type SettingsEvent, type SettingsState } from "@packages/settings/src/types";
+import { settingsReducer, createInitialSettingsState } from "@packages/settings/src/reducer";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { eventTimestampKey, sortEvents } from "@packages/storage/src/eventOrder";
 import { isBlankDeviceId } from "./localEventLog";
@@ -65,6 +67,7 @@ export interface ReplayResult {
   onboarding: OnboardingState;
   season: SeasonState;
   wishlist: WishlistState;
+  settings: SettingsState;
   quarantine: QuarantineEntry[];
 }
 
@@ -86,6 +89,7 @@ const ONBOARDING_TYPES = new Set<string>(Object.values(ONBOARDING_EVENTS));
 const SEASON_TYPES = new Set<string>(Object.values(SEASON_EVENTS));
 const WISHLIST_TYPES = new Set<string>(Object.values(WISHLIST_EVENTS));
 const PERSONALITY_TYPES = new Set<string>(Object.values(PERSONALITY_EVENTS));
+const SETTINGS_TYPES = new Set<string>(Object.values(SETTINGS_EVENTS));
 
 /** União de todos os mapas de tipos dos pacotes; fora dela = tipo desconhecido. */
 export const KNOWN_EVENT_TYPES: ReadonlySet<string> = new Set<string>([
@@ -95,6 +99,7 @@ export const KNOWN_EVENT_TYPES: ReadonlySet<string> = new Set<string>([
   ...SEASON_TYPES,
   ...WISHLIST_TYPES,
   ...PERSONALITY_TYPES,
+  ...SETTINGS_TYPES,
 ]);
 
 export const MAX_REASON_LENGTH = 160;
@@ -125,6 +130,7 @@ export interface ReplayReducers {
   onboarding: (state: OnboardingState, event: OnboardingEvent) => OnboardingState;
   season: (state: SeasonState, event: SeasonEvent) => SeasonState;
   wishlist: (state: WishlistState, event: WishlistEvent) => WishlistState;
+  settings: (state: SettingsState, event: SettingsEvent) => SettingsState;
 }
 
 /**
@@ -298,6 +304,7 @@ const DEFAULT_REDUCERS: ReplayReducers = {
   onboarding: onboardingReducer,
   season: seasonReducer,
   wishlist: wishlistReducer,
+  settings: settingsReducer,
 };
 
 export function replayAllEvents(events: readonly SyncEvent[], options: ReplayOptions = {}): ReplayResult {
@@ -317,6 +324,7 @@ export function replayAllEvents(events: readonly SyncEvent[], options: ReplayOpt
   let onboarding = createInitialOnboardingState();
   let season = createInitialSeasonState();
   let wishlist = createInitialWishlistState();
+  let settings = createInitialSettingsState();
   const quarantine: QuarantineEntry[] = [];
 
   // Story 3.4: ordem total (timestamp, deviceId, id) numa cópia — o estado não
@@ -400,12 +408,16 @@ export function replayAllEvents(events: readonly SyncEvent[], options: ReplayOpt
       const nextWishlist = WISHLIST_TYPES.has(t)
         ? reducers.wishlist(wishlist, applied as unknown as WishlistEvent)
         : wishlist;
+      const nextSettings = SETTINGS_TYPES.has(t)
+        ? reducers.settings(settings, applied as unknown as SettingsEvent)
+        : settings;
 
       domain = nextDomain;
       gamification = nextGamification;
       onboarding = nextOnboarding;
       season = nextSeason;
       wishlist = nextWishlist;
+      settings = nextSettings;
     } catch (err) {
       quarantine.push({ id, type, kind: "reducer_error", reason: errorReason(err) });
     }
@@ -419,5 +431,5 @@ export function replayAllEvents(events: readonly SyncEvent[], options: ReplayOpt
     lastActiveDate: derivedStreak.lastActiveDate,
   };
 
-  return { domain, gamification, onboarding, season, wishlist, quarantine };
+  return { domain, gamification, onboarding, season, wishlist, settings, quarantine };
 }

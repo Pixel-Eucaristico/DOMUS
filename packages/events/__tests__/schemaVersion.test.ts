@@ -62,16 +62,19 @@ describe("readSchemaVersion", () => {
 });
 
 describe("registro", () => {
-  it("registro real: todos os tipos na v1; só PAYSLIP_* (Story 11.4) nascem carimbados", () => {
+  it("registro real: todos os tipos na v1; só PAYSLIP_* (Story 11.4) e SETTING_CHANGED (Story 9.2) nascem carimbados", () => {
     expect(SCHEMA_REGISTRY).toEqual({
       PAYSLIP_RECORDED: { current: 1, stamp: true },
       PAYSLIP_DELETED: { current: 1, stamp: true },
+      SETTING_CHANGED: { current: 1, stamp: true },
     });
     expect(currentSchemaVersion("ACCOUNT_CREATED")).toBe(1);
     expect(shouldStampSchemaVersion("ACCOUNT_CREATED")).toBe(false);
     expect(currentSchemaVersion("PAYSLIP_RECORDED")).toBe(1);
     expect(shouldStampSchemaVersion("PAYSLIP_RECORDED")).toBe(true);
     expect(shouldStampSchemaVersion("PAYSLIP_DELETED")).toBe(true);
+    expect(currentSchemaVersion("SETTING_CHANGED")).toBe(1);
+    expect(shouldStampSchemaVersion("SETTING_CHANGED")).toBe(true);
   });
 
   it("tipo fora do registro = v1; não herda do protótipo", () => {

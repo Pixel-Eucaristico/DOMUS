@@ -210,6 +210,8 @@ export const PAYLOAD_SPECS: Readonly<Record<string, PayloadSpec>> = {
   WISHLIST_ITEM_CONVERTED_TO_EXPENSE: { itemId: str },
   WISHLIST_SAVINGS_GOAL_SET: { itemId: str, savingsGoal: { kind: "object" } },
   WISHLIST_LIST_DELETED: { listId: str },
+  // Configurações / Preferências (Story 9.2)
+  SETTING_CHANGED: { key: { kind: "string", nonEmpty: true } },
 };
 
 function matchesKind(value: unknown, kind: Kind): boolean {

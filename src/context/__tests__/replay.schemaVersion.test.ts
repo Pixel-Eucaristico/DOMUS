@@ -27,6 +27,8 @@ import { SEASON_EVENTS, type SeasonEvent } from "@packages/season/src/types";
 import { seasonReducer, createInitialSeasonState } from "@packages/season/src/reducer";
 import { WISHLIST_EVENTS, type WishlistEvent } from "@packages/wishlist/src/types";
 import { wishlistReducer, createInitialWishlistState } from "@packages/wishlist/src/reducer";
+import { SETTINGS_EVENTS, type SettingsEvent } from "@packages/settings/src/types";
+import { settingsReducer, createInitialSettingsState } from "@packages/settings/src/reducer";
 import { sortEvents } from "@packages/storage/src/eventOrder";
 
 /**
@@ -218,6 +220,7 @@ function legacyReplay(events: readonly SyncEvent[]) {
   let onboarding = createInitialOnboardingState();
   let season = createInitialSeasonState();
   let wishlist = createInitialWishlistState();
+  let settings = createInitialSettingsState();
   for (const evt of events) {
     const t = evt.type;
     if ((Object.values(EVENT_TYPES) as string[]).includes(t)) domain = domainReducer(domain, evt as unknown as DomainEvent);
@@ -225,10 +228,11 @@ function legacyReplay(events: readonly SyncEvent[]) {
     if ((Object.values(ONBOARDING_EVENTS) as string[]).includes(t)) onboarding = onboardingReducer(onboarding, evt as unknown as OnboardingEvent);
     if ((Object.values(SEASON_EVENTS) as string[]).includes(t)) season = seasonReducer(season, evt as unknown as SeasonEvent);
     if ((Object.values(WISHLIST_EVENTS) as string[]).includes(t)) wishlist = wishlistReducer(wishlist, evt as unknown as WishlistEvent);
+    if ((Object.values(SETTINGS_EVENTS) as string[]).includes(t)) settings = settingsReducer(settings, evt as unknown as SettingsEvent);
   }
   const derivedStreak = calculateStreakFromTransactions(domain.transactions);
   gamification = { ...gamification, ...derivedStreak };
-  return { domain, gamification, onboarding, season, wishlist };
+  return { domain, gamification, onboarding, season, wishlist, settings };
 }
 
 describe("Story 3.8 — registro real (todos os tipos na v1)", () => {

@@ -11,6 +11,7 @@ import { createInitialOnboardingState } from "@packages/onboarding/src/reducer";
 import { createInitialSeasonState } from "@packages/season/src/reducer";
 import { WISHLIST_EVENTS, type WishlistEvent } from "@packages/wishlist/src/types";
 import { wishlistReducer, createInitialWishlistState } from "@packages/wishlist/src/reducer";
+import { createInitialSettingsState } from "@packages/settings/src/reducer";
 
 /**
  * Story 3.3: um evento de tipo que a versão antiga não conhece fica na
@@ -78,6 +79,7 @@ function applyInOrder(events: readonly SyncEvent[]) {
     onboarding: createInitialOnboardingState(),
     season: createInitialSeasonState(),
     wishlist,
+    settings: createInitialSettingsState(),
   };
 }
 
