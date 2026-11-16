@@ -126,7 +126,7 @@ development_status:
   8-9-explicar-a-reconexão-do-drive-ao-usuário: backlog
   epic-8-retrospective: optional
 
-  epic-9: in-progress
+  epic-9: done
   9-1-inventariar-e-classificar-tudo-que-o-app-guarda-fora-do-log: done
   9-2-criar-o-evento-de-preferência-e-o-reducer: done
   9-3-sincronizar-tema-som-e-modo-de-apoio: done
