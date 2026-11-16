@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useAppStateOptional } from "@/src/context/AppStateProvider";
 import {
   getCachedSupportModes,
   loadSupportModes,
@@ -35,6 +36,7 @@ interface UseSupportModesResult {
  * `MonetizationSettingsStore`: o seletor e os anúncios veem a mesma escolha.
  */
 export function useSupportModes(onChange?: (modes: SupportMode[]) => void): UseSupportModesResult {
+  const appState = useAppStateOptional();
   const [modes, setModes] = useState<Set<SupportMode>>(
     () => new Set(getCachedSupportModes() ?? [EXCLUSIVE_MODE]),
   );
@@ -64,11 +66,15 @@ export function useSupportModes(onChange?: (modes: SupportMode[]) => void): UseS
       const arr = Array.from(next);
       modesRef.current = next;
       setModes(next);
-      // Publica para os assinantes (anúncios) na hora e grava
-      void saveSupportModes(arr);
+      if (appState) {
+        appState.setSupportModes(arr);
+      } else {
+        // Publica para os assinantes (anúncios) na hora e grava
+        void saveSupportModes(arr);
+      }
       onChange?.(arr);
     },
-    [onChange],
+    [appState, onChange],
   );
 
   return { modes, toggleMode };

@@ -85,6 +85,48 @@ export async function saveSupportModes(modes: SupportMode[]): Promise<void> {
   }
 }
 
+function areSupportModesEqual(a: SupportMode[] | null, b: readonly SupportMode[]): boolean {
+  if (!a || a.length !== b.length) return false;
+  return a.every((mode, index) => mode === b[index]);
+}
+
+/**
+ * Aplica modos vindos do log de eventos sincronizado: só publica para assinantes
+ * e persiste no cache `AsyncStorage` quando houver mudança real, evitando loops.
+ */
+export async function applySyncedSupportModes(
+  modes: SupportMode[],
+  persist: boolean = true,
+): Promise<void> {
+  const filtered: SupportMode[] = [];
+  for (const m of modes) {
+    if (ALL_SUPPORT_MODES.includes(m) && !filtered.includes(m)) {
+      filtered.push(m);
+    }
+  }
+  const next = filtered.length > 0 ? filtered : [DEFAULT_SUPPORT_MODE];
+  if (areSupportModesEqual(cachedModes, next)) return;
+
+  publishSupportModes([...next]);
+  if (!persist) return;
+  try {
+    await AsyncStorage.setItem(STORAGE_KEY_SUPPORT_MODES, JSON.stringify(next));
+  } catch {
+    // best-effort
+  }
+}
+
+/** Limpa modos locais no reset do app sem emitir evento de sincronização. */
+export async function resetLocalSupportModes(): Promise<void> {
+  publishSupportModes([DEFAULT_SUPPORT_MODE]);
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEY_SUPPORT_MODES);
+    await AsyncStorage.removeItem(STORAGE_KEY_SUPPORT_MODE_LEGACY);
+  } catch {
+    // best-effort
+  }
+}
+
 /** Dia local (AAAA-MM-DD) usado na frequência do intersticial diário. */
 export function dailyAdDay(now: Date = new Date()): string {
   const y = now.getFullYear();

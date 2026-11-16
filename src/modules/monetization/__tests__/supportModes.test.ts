@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import {
+  applySyncedSupportModes,
   dailyAdDay,
   getCachedSupportModes,
   loadSupportModes,
+  resetLocalSupportModes,
   resetSupportModesCache,
   saveSupportModes,
   shouldShowDailyAd,
@@ -27,6 +29,9 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
     setItem: vi.fn(async (k: string, v: string) => {
       if (asyncStore.failWrites.value) throw new Error("disco cheio");
       asyncStore.map.set(k, v);
+    }),
+    removeItem: vi.fn(async (k: string) => {
+      asyncStore.map.delete(k);
     }),
   },
 }));
@@ -98,6 +103,42 @@ describe("modos de apoio: fonte única", () => {
     await saveSupportModes(modes);
     modes.push("daily_ad");
     expect(getCachedSupportModes()).toEqual(["banners"]);
+  });
+
+  it("applySyncedSupportModes filtra, deduplica, faz fallback para ['links'], notifica assinantes e evita no-op", async () => {
+    const seen: SupportMode[][] = [];
+    const unsub = subscribeSupportModes((m) => seen.push(m));
+
+    await applySyncedSupportModes(["banners", "invalido" as SupportMode, "banners", "daily_ad"]);
+    expect(getCachedSupportModes()).toEqual(["banners", "daily_ad"]);
+    expect(asyncStore.map.get("domus_support_modes_v2")).toBe(JSON.stringify(["banners", "daily_ad"]));
+    expect(seen).toEqual([["banners", "daily_ad"]]);
+
+    // Chamada repetida com mesmo conteúdo não notifica nem reescreve
+    await applySyncedSupportModes(["banners", "daily_ad"]);
+    expect(seen).toHaveLength(1);
+
+    // Lista inválida/vazia volta para ["links"]
+    await applySyncedSupportModes([]);
+    expect(getCachedSupportModes()).toEqual(["links"]);
+    expect(seen).toEqual([["banners", "daily_ad"], ["links"]]);
+
+    // persist = false (modo demo) atualiza cache em memória sem gravar AsyncStorage
+    await applySyncedSupportModes(["app_open"], false);
+    expect(getCachedSupportModes()).toEqual(["app_open"]);
+    expect(asyncStore.map.get("domus_support_modes_v2")).toBe(JSON.stringify(["links"]));
+
+    unsub();
+  });
+
+  it("resetLocalSupportModes restaura ['links'] e remove chaves locais", async () => {
+    asyncStore.map.set("domus_support_modes_v2", JSON.stringify(["banners"]));
+    asyncStore.map.set("domus_support_mode_v1", "native_ad");
+    await resetLocalSupportModes();
+
+    expect(getCachedSupportModes()).toEqual(["links"]);
+    expect(asyncStore.map.has("domus_support_modes_v2")).toBe(false);
+    expect(asyncStore.map.has("domus_support_mode_v1")).toBe(false);
   });
 });
 

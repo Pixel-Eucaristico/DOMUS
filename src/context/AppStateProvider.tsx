@@ -21,6 +21,24 @@ import type { ArchetypeType } from "@packages/personality/src/types";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import type { WishlistEvent, WishlistState } from "@packages/wishlist";
 import {
+  createSettingChangedEvent,
+  type SettingsEvent,
+  type SettingsState,
+} from "@packages/settings";
+import {
+  applySyncedSupportModes,
+  loadSupportModes,
+  resetLocalSupportModes,
+  type SupportMode,
+} from "@/src/modules/monetization/MonetizationSettingsStore";
+import {
+  buildSettingsSeedEvents,
+  normalizeSupportModes,
+  resolveSoundEnabledFromSettings,
+  resolveSupportModesFromSettings,
+  resolveThemeModeFromSettings,
+} from "@/src/modules/settings/syncedPreferences";
+import {
   futureReleaseDelayMs,
   nextFutureReleaseAt,
   replayAllEvents,
@@ -43,7 +61,7 @@ import { useEventStore, getEventStore } from "@/src/hooks/useEventStore";
 import { useGamificationEffects } from "@/src/hooks/useGamificationEffects";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-type AnyEvent = DomainEvent | GamificationEvent | OnboardingEvent | SeasonEvent | WishlistEvent;
+type AnyEvent = DomainEvent | GamificationEvent | OnboardingEvent | SeasonEvent | WishlistEvent | SettingsEvent;
 
 interface AppStateContextValue {
   domain: AppState;
@@ -51,6 +69,7 @@ interface AppStateContextValue {
   onboarding: OnboardingState;
   season: SeasonState;
   wishlist: WishlistState;
+  settings: SettingsState;
   /** Eventos isolados no replay (Story 3.2) — derivado, só em memória. */
   quarantine: QuarantineEntry[];
   archetype: ArchetypeType;
@@ -68,6 +87,7 @@ interface AppStateContextValue {
   dispatchDomainEvent: (event: DomainEvent) => void;
   setThemeMode: (mode: ThemeMode) => void;
   setSoundEnabled: (enabled: boolean) => void;
+  setSupportModes: (modes: SupportMode[]) => void;
   importEvents: (events: SyncEvent[], options?: { isStrongGroup?: boolean }) => Promise<number>;
   restoreFromBackup: (events: SyncEvent[]) => Promise<void>;
   resetApp: () => Promise<void>;
@@ -131,7 +151,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [nowTick, setNowTick] = useState(0);
 
   // Replay all events to derive state
-  const { domain, gamification: baseGamification, onboarding, season, wishlist, quarantine } = useMemo(
+  const { domain, gamification: baseGamification, onboarding, season, wishlist, settings, quarantine } = useMemo(
     // Story 3.5: "agora" = Date.now() a cada replay; o id do aparelho decide quais eventos são
     // de outro aparelho (no modo demo, nenhum: a regra do horário no futuro não se aplica).
     () => {
@@ -207,6 +227,55 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     );
   }, [domain.accounts, debug.debugBalance]);
 
+  // Wrap dispatch to accept AnyEvent (converts to SyncEvent)
+  const dispatchAny = useCallback(
+    (event: AnyEvent) => {
+      const syncEvt: SyncEvent = {
+        id: event.id,
+        type: event.type as string,
+        payload: (event as any).payload,
+        timestamp: event.timestamp,
+        deviceId: (event.deviceId && event.deviceId !== "local") ? event.deviceId : (eventStore.deviceId || "local"),
+        signature: event.signature,
+      };
+      eventStore.dispatch(syncEvt);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- eventStore é recriado a cada render; dispatch e deviceId (os membros usados) já são deps
+    [eventStore.dispatch, eventStore.deviceId],
+  );
+
+  const syncedThemeMode = useMemo(() => resolveThemeModeFromSettings(settings), [settings]);
+  const syncedSoundEnabled = useMemo(() => resolveSoundEnabledFromSettings(settings), [settings]);
+  const syncedSupportModes = useMemo(() => resolveSupportModesFromSettings(settings), [settings]);
+
+  const handleSyncThemeMode = useCallback(
+    (mode: ThemeMode) => {
+      dispatchAny(createSettingChangedEvent("domus_theme_mode_v1", mode, eventStore.deviceId || "local"));
+    },
+    [dispatchAny, eventStore.deviceId],
+  );
+
+  const handleSyncSoundEnabled = useCallback(
+    (enabled: boolean) => {
+      dispatchAny(createSettingChangedEvent("domus_sound_enabled_v1", enabled, eventStore.deviceId || "local"));
+    },
+    [dispatchAny, eventStore.deviceId],
+  );
+
+  const setSupportModes = useCallback(
+    (modes: SupportMode[]) => {
+      const normalized = normalizeSupportModes(modes);
+      void applySyncedSupportModes(normalized, !isDemoActive);
+      dispatchAny(createSettingChangedEvent("domus_support_modes_v2", normalized, eventStore.deviceId || "local"));
+    },
+    [dispatchAny, eventStore.deviceId, isDemoActive],
+  );
+
+  useEffect(() => {
+    if (syncedSupportModes === undefined) return;
+    void applySyncedSupportModes(syncedSupportModes, !isDemoActive);
+  }, [syncedSupportModes, isDemoActive]);
+
   // Theme + preferences (depends on derived state)
   const themePrefs = useThemePreferences({
     debugArchetype: debug.debugArchetype,
@@ -215,7 +284,79 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     budgetAdherenceScore: budget.adherenceScore,
     wishlistItemCount: Object.keys(wishlist?.items ?? {}).length,
     monthsPlanned: season.history.length,
+    syncedThemeMode,
+    syncedSoundEnabled,
+    isDemoActive,
+    onSyncThemeMode: handleSyncThemeMode,
+    onSyncSoundEnabled: handleSyncSoundEnabled,
   });
+
+  // Seed inicial das preferências locais para o log após liberação do primeiro pull (Story 9.3)
+  const hasRunSettingsSeedRef = useRef(false);
+  const seedEpochRef = useRef(0);
+  useEffect(() => {
+    if (
+      hasRunSettingsSeedRef.current ||
+      eventStore.loading ||
+      !initialSyncReady ||
+      isDemoActive ||
+      !eventStore.deviceId
+    ) {
+      return;
+    }
+    hasRunSettingsSeedRef.current = true;
+    let cancelled = false;
+    let completed = false;
+    const epoch = seedEpochRef.current;
+    const did = eventStore.deviceId;
+
+    (async () => {
+      try {
+        const [savedTheme, savedSound, savedSupport] = await Promise.all([
+          AsyncStorage.getItem(THEME_MODE_KEY),
+          AsyncStorage.getItem(SOUND_ENABLED_KEY),
+          loadSupportModes(),
+        ]);
+        if (cancelled || epoch !== seedEpochRef.current) return;
+
+        const currentEvents =
+          eventStore.allEventsRef.current.length >= eventStore.allEvents.length
+            ? eventStore.allEventsRef.current
+            : eventStore.allEvents;
+
+        const seedEvents = buildSettingsSeedEvents({
+          allEvents: currentEvents,
+          deviceId: did,
+          themeMode: savedTheme,
+          soundEnabled: savedSound,
+          supportModes: savedSupport,
+        });
+        completed = true;
+        if (seedEvents.length === 0) return;
+
+        const { events: next, added } = appendGenerated(eventStore.allEventsRef.current, seedEvents, did);
+        if (added.length === 0) return;
+        eventStore.allEventsRef.current = next;
+
+        getEventStore().then((store) => {
+          added.forEach((evt) => store?.appendEvent(evt));
+        });
+
+        eventStore.setAllEvents((prev) => appendGenerated(prev, added, did).events);
+        eventStore.setLocalEventCount((c) => c + added.length);
+      } catch {
+        // best-effort: não bloqueia o app se AsyncStorage falhar no seed inicial
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (!completed) {
+        hasRunSettingsSeedRef.current = false;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- executa uma única vez após boot + initialSyncReady
+  }, [eventStore.loading, initialSyncReady, isDemoActive, eventStore.deviceId]);
 
   // XP recovery effect (Story 7.2: só roda após a liberação da barreira do primeiro pull)
   useEffect(() => {
@@ -277,32 +418,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setPendingSeasonalToast: toast.setPendingSeasonalToast,
   });
 
-  // Wrap dispatch to accept AnyEvent (converts to SyncEvent)
-  const dispatchAny = useCallback(
-    (event: AnyEvent) => {
-      const syncEvt: SyncEvent = {
-        id: event.id,
-        type: event.type as string,
-        payload: (event as any).payload,
-        timestamp: event.timestamp,
-        deviceId: (event.deviceId && event.deviceId !== "local") ? event.deviceId : (eventStore.deviceId || "local"),
-        signature: event.signature,
-      };
-      eventStore.dispatch(syncEvt);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- eventStore é recriado a cada render; dispatch e deviceId (os membros usados) já são deps
-    [eventStore.dispatch, eventStore.deviceId],
-  );
-
-  // Reset app: clear events + reset theme/sound prefs
+  // Reset app: clear events + reset theme/sound/support prefs locally (without emitting SETTING_CHANGED)
   const resetApp = useCallback(async (): Promise<void> => {
+    seedEpochRef.current += 1;
+    hasRunSettingsSeedRef.current = true;
     await eventStore.resetApp();
-    themePrefs.setThemeMode("system");
-    await AsyncStorage.removeItem(THEME_MODE_KEY);
-    themePrefs.setSoundEnabled(true);
-    await AsyncStorage.removeItem(SOUND_ENABLED_KEY);
+    await themePrefs.resetLocalPreferences();
+    await resetLocalSupportModes();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- eventStore/themePrefs são recriados a cada render; os métodos usados já são deps
-  }, [eventStore.resetApp, themePrefs.setThemeMode, themePrefs.setSoundEnabled]);
+  }, [eventStore.resetApp, themePrefs.resetLocalPreferences]);
 
   // Assemble context value
   const value = useMemo<AppStateContextValue>(
@@ -312,6 +436,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       onboarding,
       season,
       wishlist,
+      settings,
       quarantine,
       archetype: themePrefs.archetype,
       themeMode: themePrefs.themeMode,
@@ -328,6 +453,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       dispatchDomainEvent: gamEffects.dispatchDomainEvent,
       setThemeMode: themePrefs.setThemeMode,
       setSoundEnabled: themePrefs.setSoundEnabled,
+      setSupportModes,
       importEvents: eventStore.importEvents,
       restoreFromBackup: eventStore.restoreFromBackup,
       resetApp,
@@ -350,7 +476,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       debugBalance: debug.debugBalance,
       setDebugBalance: debug.setDebugBalance,
     }),
-    [domain, gamification, onboarding, season, wishlist, quarantine, themePrefs, levelInfo, budget, totalBalance, eventStore, initialSyncReady, bootEffectsGate, isDemoActive, dispatchAny, gamEffects.dispatchDomainEvent, resetApp, toast, debug],
+    [domain, gamification, onboarding, season, wishlist, settings, quarantine, themePrefs, levelInfo, budget, totalBalance, eventStore, initialSyncReady, bootEffectsGate, isDemoActive, dispatchAny, gamEffects.dispatchDomainEvent, setSupportModes, resetApp, toast, debug],
   );
 
   return (
@@ -358,6 +484,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       {children}
     </AppStateContext.Provider>
   );
+}
+
+export function useAppStateOptional(): AppStateContextValue | null {
+  return useContext(AppStateContext);
 }
 
 export function useAppState(): AppStateContextValue {
