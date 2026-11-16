@@ -50,6 +50,7 @@ import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
 import { PixelText } from "@/src/components/pixel";
 import { TCard , TText } from "@/src/components/tamagui";
 import { HOME_HEADER_METRICS } from "@/src/modules/layout/homeHeaderLayout";
+import { getOnPrimaryTokens } from "@packages/theme";
 
 
 
@@ -58,6 +59,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { domain, gamification, levelInfo, totalBalance, archetype, theme, loading, dispatchDomainEvent, deviceId, season, isCatholic } =
     useAppState();
+  const onPrimary = getOnPrimaryTokens(theme.primaryColor);
   const { syncStatus } = useSync();
   const { isMobile, columns } = useResponsive();
   const webTopInset = 0;
@@ -371,25 +373,25 @@ export default function HomeScreen() {
                   style={[s.statCard, { backgroundColor: theme.primaryColor }]}
                   onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
                 >
-                  <Feather name="zap" size={18} color="rgba(255,255,255,0.7)" />
-                  <Text style={s.statValue}>{gamification.totalXp}</Text>
-                  <Text style={s.statLabel}>XP Total</Text>
+                  <Feather name="zap" size={18} color={onPrimary.muted} />
+                  <Text style={[s.statValue, { color: onPrimary.text }]}>{gamification.totalXp}</Text>
+                  <Text style={[s.statLabel, { color: onPrimary.muted }]}>XP Total</Text>
                 </Pressable>
                 <Pressable
                   style={[s.statCard, { backgroundColor: theme.primaryColor }]}
                   onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
                 >
-                  <Feather name="bar-chart-2" size={18} color="rgba(255,255,255,0.7)" />
-                  <Text style={s.statValue}>{levelInfo.level}</Text>
-                  <Text style={s.statLabel}>Nível</Text>
+                  <Feather name="bar-chart-2" size={18} color={onPrimary.muted} />
+                  <Text style={[s.statValue, { color: onPrimary.text }]}>{levelInfo.level}</Text>
+                  <Text style={[s.statLabel, { color: onPrimary.muted }]}>Nível</Text>
                 </Pressable>
                 <Pressable
                   style={[s.statCard, { backgroundColor: theme.primaryColor }]}
                   onPress={() => { soundManager.play("tap"); router.push("/(tabs)/season"); }}
                 >
-                  <MaterialCommunityIcons name="fire" size={20} color="rgba(255,255,255,0.7)" />
-                  <Text style={s.statValue}>{gamification.currentStreak}</Text>
-                  <Text style={s.statLabel}>Streak</Text>
+                  <MaterialCommunityIcons name="fire" size={20} color={onPrimary.muted} />
+                  <Text style={[s.statValue, { color: onPrimary.text }]}>{gamification.currentStreak}</Text>
+                  <Text style={[s.statLabel, { color: onPrimary.muted }]}>Streak</Text>
                 </Pressable>
               </View>
             </AnimatedCard>
@@ -422,12 +424,12 @@ export default function HomeScreen() {
               <View collapsable={false} style={[s.balanceCard, { backgroundColor: theme.primaryColor, marginHorizontal: 0, width: "100%" }]}>
                 <View style={s.balanceHeader}>
                   <View style={s.balanceLabelRow}>
-                    <Feather name="dollar-sign" size={16} color="rgba(255,255,255,0.7)" />
-                    <Text style={s.balanceLabel}>Saldo total</Text>
+                    <Feather name="dollar-sign" size={16} color={onPrimary.muted} />
+                    <Text style={[s.balanceLabel, { color: onPrimary.muted }]}>Saldo total</Text>
                   </View>
-                  <Text style={s.balanceCount}>{accountCount} contas</Text>
+                  <Text style={[s.balanceCount, { color: onPrimary.subtle }]}>{accountCount} contas</Text>
                 </View>
-                <Text style={s.balanceValue}>{formatCurrency(totalBalance)}</Text>
+                <Text style={[s.balanceValue, { color: onPrimary.text }]}>{formatCurrency(totalBalance)}</Text>
               </View>
             </AnimatedCard>
           </ResponsiveColumn>

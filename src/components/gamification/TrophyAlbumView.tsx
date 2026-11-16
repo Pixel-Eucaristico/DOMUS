@@ -62,7 +62,6 @@ export function TrophyAlbumView({
           letterSpacing={1}
           textTransform="uppercase"
           color={theme.secondaryText}
-          opacity={0.6}
         >
           Álbum {viewingYear}
         </TText>

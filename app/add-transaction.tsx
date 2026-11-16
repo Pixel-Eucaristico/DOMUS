@@ -36,6 +36,7 @@ import type { TransactionStatus, RecurrenceType } from "@packages/events/src/typ
 import { createTransactionEvent } from "@packages/domain/src/transactions";
 import { TButton, TInput } from "@/src/components/tamagui";
 import { AppAlertScreenHost } from "@/src/components/shared/AppAlertHost";
+import { getOnPrimaryTokens } from "@packages/theme";
 
 const STATUS_OPTIONS: { key: TransactionStatus; label: string; icon: string }[] = [
   { key: "confirmed", label: "Confirmado", icon: "check-circle" },
@@ -54,6 +55,7 @@ function AddTransactionScreen() {
   const insets = useSafeAreaInsets();
   const { txId } = useLocalSearchParams<{ txId?: string }>();
   const { domain, theme, dispatchDomainEvent } = useAppState();
+  const onPrimary = getOnPrimaryTokens(theme.primaryColor);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
   const form = useTransactionForm(txId);
@@ -160,10 +162,10 @@ function AddTransactionScreen() {
               <Feather
                 name={t.icon as any}
                 size={16}
-                color={form.txType === t.key ? "#FFF" : theme.secondaryText}
+                color={form.txType === t.key ? onPrimary.text : theme.secondaryText}
               />
               <Text
-                style={[s.typeBtnText, { color: form.txType === t.key ? "#FFF" : theme.textColor }]}
+                style={[s.typeBtnText, { color: form.txType === t.key ? onPrimary.text : theme.textColor }]}
               >
                 {t.label}
               </Text>
@@ -196,7 +198,7 @@ function AddTransactionScreen() {
               width="100%"
               height="auto"
               borderWidth={0}
-              background="transparent"
+              backgroundColor="transparent"
               paddingHorizontal={0}
               color={theme.textColor}
             />
@@ -471,7 +473,7 @@ function AddTransactionScreen() {
 
         {/* Save button */}
         <View style={{ marginTop: 8 }}>
-          <TButton variant="primary" backgroundColor={theme.primaryColor} icon={<Feather name="check" size={20} color="#FFF" />} onPress={form.handleSave}>
+          <TButton variant="primary" backgroundColor={theme.primaryColor} icon={<Feather name="check" size={20} color={onPrimary.text} />} onPress={form.handleSave}>
             {txId ? "Atualizar transação" : "Salvar transação"}
           </TButton>
         </View>

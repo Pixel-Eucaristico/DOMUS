@@ -264,7 +264,7 @@ export default function OCRSettingsScreen() {
               autoCorrect={false}
               secureTextEntry
               borderWidth={0}
-              background="transparent"
+              backgroundColor="transparent"
               height="auto"
               paddingHorizontal={0}
               color={theme.textColor}

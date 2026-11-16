@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { TInput } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
+import { getOnPrimaryTokens } from "@packages/theme";
 import { EmailService } from "@/src/modules/security/application/EmailService";
 import type { ContactFormData } from "@/src/modules/security/application/EmailService";
 import { DeviceInfoService } from "@/src/modules/security/infrastructure/DeviceInfoService";
@@ -21,6 +22,7 @@ interface ContactFormProps {
 }
 
 export function ContactForm({ theme }: ContactFormProps) {
+  const onPrimary = getOnPrimaryTokens(theme.primaryColor);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("");
@@ -125,11 +127,11 @@ export function ContactForm({ theme }: ContactFormProps) {
         activeOpacity={0.8}
       >
         {sending ? (
-          <ActivityIndicator size="small" color="#fff" />
+          <ActivityIndicator size="small" color={onPrimary.text} />
         ) : (
-          <Feather name="send" size={17} color="#fff" />
+          <Feather name="send" size={17} color={onPrimary.text} />
         )}
-        <Text style={s.submitBtnText}>
+        <Text style={[s.submitBtnText, { color: onPrimary.text }]}>
           {sending ? "Abrindo e-mail…" : "Enviar mensagem"}
         </Text>
       </TouchableOpacity>
@@ -213,7 +215,7 @@ const FormField = React.forwardRef<TextInput, FormFieldProps>(
             returnKeyType={returnKeyType}
             onSubmitEditing={onSubmitEditing}
             borderColor={error ? theme.danger : theme.border}
-            background={theme.background}
+            backgroundColor={theme.background}
             color={theme.textColor}
           />
         )}

@@ -1,3 +1,5 @@
+import * as React from "react";
+import { resolvePrimaryButtonTextColor } from "@packages/theme";
 import type { LooseComponent, TButtonProps } from "./types";
 import { styled, Button } from "tamagui";
 
@@ -50,5 +52,45 @@ const TButtonStyled = styled(Button, {
   },
 });
 
+const TButtonRaw = TButtonStyled as unknown as LooseComponent<TButtonProps>;
+
+const TButtonBase = React.forwardRef<unknown, TButtonProps>(
+  ({ variant, backgroundColor, bg, color, icon, ...rest }, ref) => {
+    const resolvedColor = resolvePrimaryButtonTextColor({
+      variant: typeof variant === "string" ? variant : undefined,
+      backgroundColor,
+      bg,
+      color,
+    });
+
+    let resolvedIcon: React.ReactNode = icon as React.ReactNode;
+    if (
+      resolvedColor === "#1A1814" &&
+      React.isValidElement<{ color?: unknown }>(icon) &&
+      typeof icon.props?.color === "string" &&
+      /^#fff(?:fff)?$/i.test(icon.props.color.trim())
+    ) {
+      resolvedIcon = React.cloneElement(icon, { color: resolvedColor });
+    }
+
+    return (
+      <TButtonRaw
+        ref={ref}
+        {...(variant !== undefined ? { variant: variant as TButtonProps["variant"] } : {})}
+        {...(backgroundColor !== undefined ? { backgroundColor } : {})}
+        {...(bg !== undefined ? { bg } : {})}
+        {...(color !== undefined
+          ? { color }
+          : resolvedColor !== undefined
+            ? { color: resolvedColor }
+            : {})}
+        {...(resolvedIcon !== undefined ? { icon: resolvedIcon as TButtonProps["icon"] } : {})}
+        {...rest}
+      />
+    );
+  },
+);
+TButtonBase.displayName = "TButton";
+
 // Tipos relaxados: o app passa cores do ThemeColors como string — ver types.ts
-export const TButton = TButtonStyled as unknown as LooseComponent<TButtonProps>;
+export const TButton = TButtonBase as unknown as LooseComponent<TButtonProps>;

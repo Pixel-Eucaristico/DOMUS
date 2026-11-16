@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { KeyboardSheet, useSheetBackdropPress } from "@/src/components/shared/KeyboardSheet";
 import { Feather } from "@expo/vector-icons";
-import type { ThemeColors } from "@packages/theme";
+import { getContrastTextColor, type ThemeColors } from "@packages/theme";
 import { URGENCY_ORDER } from "@packages/wishlist";
 import type { UrgencyLevel, WishlistItem } from "@packages/wishlist";
 import type { AccountPayload } from "@packages/events";
@@ -127,7 +127,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
             <TButton
               variant="primary"
               backgroundColor={theme.primaryColor}
-              icon={<Feather name={editItem ? "check" : "plus"} size={16} color="#fff" />}
+              icon={<Feather name={editItem ? "check" : "plus"} size={16} color={getContrastTextColor(theme.primaryColor)} />}
               onPress={() => { soundManager.play("success"); handleConfirm(); }}
             >
               {editItem ? "Salvar alterações" : "Adicionar à lista"}

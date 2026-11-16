@@ -181,7 +181,7 @@ development_status:
   epic-14: in-progress
   14-1-proteger-cabecalhos-e-rolagem-com-area-segura: done
   14-2-evitar-sobreposicao-de-botoes-e-colisoes-nas-listas: done
-  14-3-corrigir-contraste-de-botoes-bege-e-padronizar-cor-dos-campos: backlog
+  14-3-corrigir-contraste-de-botoes-bege-e-padronizar-cor-dos-campos: done
   14-4-corrigir-textos-grade-de-urgencia-e-fluxo-do-modal-de-desejos: backlog
   14-5-melhorar-estado-vazio-da-ia-scanner-de-barras-drive-e-sobre: backlog
   epic-14-retrospective: optional

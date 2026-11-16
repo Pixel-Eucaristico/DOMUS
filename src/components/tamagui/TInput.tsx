@@ -1,3 +1,4 @@
+import * as React from "react";
 import type { LooseComponent, TInputProps } from "./types";
 import { styled, Input } from "tamagui";
 
@@ -37,5 +38,21 @@ const TInputStyled = styled(Input, {
   } as const,
 });
 
+const TInputRaw = TInputStyled as unknown as LooseComponent<TInputProps>;
+
+const TInputBase = React.forwardRef<unknown, TInputProps>(
+  ({ background, backgroundColor, ...rest }, ref) => {
+    const resolvedBg = backgroundColor !== undefined ? backgroundColor : background;
+    return (
+      <TInputRaw
+        ref={ref}
+        {...(resolvedBg !== undefined ? { backgroundColor: resolvedBg } : {})}
+        {...rest}
+      />
+    );
+  },
+);
+TInputBase.displayName = "TInput";
+
 // Tipos relaxados: o app passa cores do ThemeColors como string — ver types.ts
-export const TInput = TInputStyled as unknown as LooseComponent<TInputProps>;
+export const TInput = TInputBase as unknown as LooseComponent<TInputProps>;

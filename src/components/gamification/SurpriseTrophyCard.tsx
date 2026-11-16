@@ -316,7 +316,6 @@ const s = StyleSheet.create({
     fontFamily: "DMSans_400Regular",
     fontSize: 11,
     marginTop: 1,
-    opacity: 0.7,
   },
   tierBadge: {
     paddingHorizontal: 10,
@@ -383,7 +382,6 @@ const s = StyleSheet.create({
     fontFamily: "DMSans_400Regular",
     fontSize: 13,
     lineHeight: 18,
-    opacity: 0.7,
   },
   goalBox: {
     flexDirection: "row",
@@ -443,7 +441,6 @@ const s = StyleSheet.create({
   tierRepeatText: {
     fontFamily: "DMSans_500Medium",
     fontSize: 11,
-    opacity: 0.6,
   },
   completedBadge: {
     flexDirection: "row",
@@ -462,7 +459,6 @@ const s = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     textAlign: "center",
-    opacity: 0.5,
     paddingHorizontal: 8,
   },
 });
