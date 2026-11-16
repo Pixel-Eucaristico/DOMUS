@@ -33,6 +33,11 @@ export interface ApplyIncomingKeySyncEventsParams {
   handledIds?: Set<string>;
 }
 
+export type ApplyRestoredKeySyncEventsParams = Omit<
+  ApplyIncomingKeySyncEventsParams,
+  "isStrongGroup"
+>;
+
 export interface ApplyIncomingKeySyncEventsResult {
   applied: number;
   ignored: number;
@@ -188,4 +193,46 @@ export async function applyIncomingKeySyncEvents(
   } catch {
     return { applied: 0, ignored: keySyncEvents.length, rejected: 0 };
   }
+}
+
+/**
+ * Aplica eventos `KEY_SYNC_UPDATED` vindos de um backup restaurado, derivando
+ * `isStrongGroup` a partir do segredo local antes de delegar para
+ * `applyIncomingKeySyncEvents` (que valida `!isWeb`, `!isDemoActive` e opt-in).
+ */
+export async function applyRestoredKeySyncEvents(
+  params: ApplyRestoredKeySyncEventsParams,
+): Promise<ApplyIncomingKeySyncEventsResult> {
+  const keySyncEvents = params.events.filter(
+    (evt): evt is SyncEvent => Boolean(evt && evt.type === KEY_SYNC_EVENT_TYPE),
+  );
+
+  if (keySyncEvents.length === 0) {
+    return { applied: 0, ignored: 0, rejected: 0 };
+  }
+
+  const isWeb = params.isWeb ?? isWebEnv();
+  if (isWeb || params.isDemoActive) {
+    return { applied: 0, ignored: keySyncEvents.length, rejected: 0 };
+  }
+
+  let isStrongGroup = false;
+  try {
+    const rawSecret = await params.loadStrongGroupSecret();
+    if (rawSecret) {
+      const parsed = parseGroupSecret(rawSecret);
+      if (parsed.ok) {
+        isStrongGroup = true;
+        parsed.secret.fill(0);
+      }
+    }
+  } catch {
+    return { applied: 0, ignored: keySyncEvents.length, rejected: 0 };
+  }
+
+  return applyIncomingKeySyncEvents({
+    ...params,
+    isWeb,
+    isStrongGroup,
+  });
 }

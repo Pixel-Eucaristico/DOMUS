@@ -47,7 +47,10 @@ import {
   publishAllLocalKeysIfOptedIn,
   publishEncryptedKeyIfOptedIn,
 } from "@/src/modules/strongGroup/keySyncPublisher";
-import { applyIncomingKeySyncEvents } from "@/src/modules/strongGroup/keySyncReceiver";
+import {
+  applyIncomingKeySyncEvents,
+  applyRestoredKeySyncEvents,
+} from "@/src/modules/strongGroup/keySyncReceiver";
 import { AIClientService } from "@/src/modules/ai/application/AIClientService";
 import { SecureKeyService } from "@/src/modules/ai/infrastructure/SecureKeyService";
 import type { AIProvider } from "@packages/ai";
@@ -319,6 +322,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const handledKeySyncIdsRef = useRef<Set<string>>(new Set());
   const keySyncQueueRef = useRef<Promise<void>>(Promise.resolve());
 
+  const storeSyncedAIKey = useCallback(async (provider: string, apiKey: string): Promise<void> => {
+    await SecureKeyService.storeKey(provider as AIProvider, apiKey);
+    AIClientService.resetBreaker(provider as AIProvider);
+  }, []);
+
   const importEvents = useCallback(
     async (events: SyncEvent[], options?: { isStrongGroup?: boolean }): Promise<number> => {
       const imported = await eventStore.importEvents(events, options);
@@ -329,10 +337,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             isStrongGroup: true,
             isDemoActive: isDemoActiveRef.current,
             loadStrongGroupSecret,
-            storeAIKey: async (provider, apiKey) => {
-              await SecureKeyService.storeKey(provider as AIProvider, apiKey);
-              AIClientService.resetBreaker(provider as AIProvider);
-            },
+            storeAIKey: storeSyncedAIKey,
             storeOCRKey: saveSecureApiKey,
             handledIds: handledKeySyncIdsRef.current,
           });
@@ -344,16 +349,30 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       return imported;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- eventStore é recriado a cada render; importEvents já é estável
-    [eventStore.importEvents],
+    [eventStore.importEvents, storeSyncedAIKey],
   );
 
   const restoreFromBackup = useCallback(
     async (events: SyncEvent[]): Promise<void> => {
-      handledKeySyncIdsRef.current.clear();
+      if (isDemoActiveRef.current) return;
       await eventStore.restoreFromBackup(events);
+      const runKeySync = async () => {
+        handledKeySyncIdsRef.current.clear();
+        await applyRestoredKeySyncEvents({
+          events,
+          isDemoActive: isDemoActiveRef.current,
+          loadStrongGroupSecret,
+          storeAIKey: storeSyncedAIKey,
+          storeOCRKey: saveSecureApiKey,
+          handledIds: handledKeySyncIdsRef.current,
+        });
+      };
+      const next = keySyncQueueRef.current.then(runKeySync, runKeySync);
+      keySyncQueueRef.current = next;
+      await next;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- eventStore é recriado a cada render; restoreFromBackup já é estável
-    [eventStore.restoreFromBackup],
+    [eventStore.restoreFromBackup, storeSyncedAIKey],
   );
 
   const syncSavedKey = useCallback(

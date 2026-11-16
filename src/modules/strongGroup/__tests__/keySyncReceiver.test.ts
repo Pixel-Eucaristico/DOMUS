@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { encodeGroupSecret, generateGroupSecret } from "../groupSecret";
 import { buildEncryptedKeySyncEvent } from "../keySyncPublisher";
-import { applyIncomingKeySyncEvents } from "../keySyncReceiver";
+import {
+  applyIncomingKeySyncEvents,
+  applyRestoredKeySyncEvents,
+} from "../keySyncReceiver";
 import { selectEventsToImport } from "@/src/modules/syncPayload";
 
 function makeNonKeyEvent(): SyncEvent {
@@ -503,5 +506,225 @@ describe("keySyncReceiver", () => {
     expect(result).toEqual({ applied: 1, ignored: 1, rejected: 0 });
     expect(storeAIKey).toHaveBeenCalledTimes(1);
     expect(handledIds.has(evt.id)).toBe(true);
+  });
+
+  describe("applyRestoredKeySyncEvents", () => {
+    it("aplica chaves quando nativo, fora do demo, Grupo forte válido e opt-in ligado", async () => {
+      const aiEvt = buildEncryptedKeySyncEvent({
+        secret,
+        slot: "ai:openai",
+        apiKey: "sk-restore-openai",
+        deviceId: "dev-origin",
+      });
+      const ocrEvt = buildEncryptedKeySyncEvent({
+        secret,
+        slot: "ocr:cloud_vision",
+        apiKey: "AIza-restore-ocr",
+        deviceId: "dev-origin",
+      });
+
+      const storeAIKey = vi.fn(async () => undefined);
+      const storeOCRKey = vi.fn(async () => undefined);
+
+      const result = await applyRestoredKeySyncEvents({
+        events: [makeNonKeyEvent(), aiEvt, ocrEvt],
+        isDemoActive: false,
+        isWeb: false,
+        getOptIn: async () => true,
+        loadStrongGroupSecret: async () => encodedSecret,
+        storeAIKey,
+        storeOCRKey,
+      });
+
+      expect(result).toEqual({ applied: 2, ignored: 0, rejected: 0 });
+      expect(storeAIKey).toHaveBeenCalledWith("openai", "sk-restore-openai");
+      expect(storeOCRKey).toHaveBeenCalledWith("AIza-restore-ocr");
+    });
+
+    it("ignora chaves quando aparelho não está no Grupo forte (segredo ausente ou legado)", async () => {
+      const aiEvt = buildEncryptedKeySyncEvent({
+        secret,
+        slot: "ai:openai",
+        apiKey: "sk-restore-no-group",
+        deviceId: "dev-origin",
+      });
+
+      const storeAIKey = vi.fn(async () => undefined);
+      const storeOCRKey = vi.fn(async () => undefined);
+
+      const resNull = await applyRestoredKeySyncEvents({
+        events: [aiEvt],
+        isDemoActive: false,
+        isWeb: false,
+        getOptIn: async () => true,
+        loadStrongGroupSecret: async () => null,
+        storeAIKey,
+        storeOCRKey,
+      });
+      expect(resNull).toEqual({ applied: 0, ignored: 1, rejected: 0 });
+
+      const resLegacy = await applyRestoredKeySyncEvents({
+        events: [aiEvt],
+        isDemoActive: false,
+        isWeb: false,
+        getOptIn: async () => true,
+        loadStrongGroupSecret: async () => "DOMUS-LEGACY-CODE",
+        storeAIKey,
+        storeOCRKey,
+      });
+      expect(resLegacy).toEqual({ applied: 0, ignored: 1, rejected: 0 });
+      expect(storeAIKey).not.toHaveBeenCalled();
+      expect(storeOCRKey).not.toHaveBeenCalled();
+    });
+
+    it("ignora chaves quando opt-in está desligado, em modo demo ou na web", async () => {
+      const aiEvt = buildEncryptedKeySyncEvent({
+        secret,
+        slot: "ai:openai",
+        apiKey: "sk-restore-blocked",
+        deviceId: "dev-origin",
+      });
+
+      const storeAIKey = vi.fn(async () => undefined);
+      const storeOCRKey = vi.fn(async () => undefined);
+
+      expect(
+        await applyRestoredKeySyncEvents({
+          events: [aiEvt],
+          isDemoActive: false,
+          isWeb: false,
+          getOptIn: async () => false,
+          loadStrongGroupSecret: async () => encodedSecret,
+          storeAIKey,
+          storeOCRKey,
+        }),
+      ).toEqual({ applied: 0, ignored: 1, rejected: 0 });
+
+      expect(
+        await applyRestoredKeySyncEvents({
+          events: [aiEvt],
+          isDemoActive: true,
+          isWeb: false,
+          getOptIn: async () => true,
+          loadStrongGroupSecret: async () => encodedSecret,
+          storeAIKey,
+          storeOCRKey,
+        }),
+      ).toEqual({ applied: 0, ignored: 1, rejected: 0 });
+
+      expect(
+        await applyRestoredKeySyncEvents({
+          events: [aiEvt],
+          isDemoActive: false,
+          isWeb: true,
+          getOptIn: async () => true,
+          loadStrongGroupSecret: async () => encodedSecret,
+          storeAIKey,
+          storeOCRKey,
+        }),
+      ).toEqual({ applied: 0, ignored: 1, rejected: 0 });
+
+      expect(storeAIKey).not.toHaveBeenCalled();
+      expect(storeOCRKey).not.toHaveBeenCalled();
+    });
+
+    it("retorna zerado sem erro quando lista está vazia ou sem eventos KEY_SYNC_UPDATED", async () => {
+      const loadStrongGroupSecret = vi.fn(async () => encodedSecret);
+      const storeAIKey = vi.fn(async () => undefined);
+      const storeOCRKey = vi.fn(async () => undefined);
+
+      expect(
+        await applyRestoredKeySyncEvents({
+          events: [],
+          isDemoActive: false,
+          isWeb: false,
+          getOptIn: async () => true,
+          loadStrongGroupSecret,
+          storeAIKey,
+          storeOCRKey,
+        }),
+      ).toEqual({ applied: 0, ignored: 0, rejected: 0 });
+
+      expect(
+        await applyRestoredKeySyncEvents({
+          events: [makeNonKeyEvent()],
+          isDemoActive: false,
+          isWeb: false,
+          getOptIn: async () => true,
+          loadStrongGroupSecret,
+          storeAIKey,
+          storeOCRKey,
+        }),
+      ).toEqual({ applied: 0, ignored: 0, rejected: 0 });
+
+      expect(loadStrongGroupSecret).not.toHaveBeenCalled();
+      expect(storeAIKey).not.toHaveBeenCalled();
+      expect(storeOCRKey).not.toHaveBeenCalled();
+    });
+
+    it("ignora sem lançar erro quando loadStrongGroupSecret lança exceção", async () => {
+      const aiEvt = buildEncryptedKeySyncEvent({
+        secret,
+        slot: "ai:openai",
+        apiKey: "sk-restore-throw",
+        deviceId: "dev-origin",
+      });
+      const storeAIKey = vi.fn(async () => undefined);
+      const storeOCRKey = vi.fn(async () => undefined);
+
+      const result = await applyRestoredKeySyncEvents({
+        events: [aiEvt],
+        isDemoActive: false,
+        isWeb: false,
+        getOptIn: async () => true,
+        loadStrongGroupSecret: async () => {
+          throw new Error("SecureStore unavailable");
+        },
+        storeAIKey,
+        storeOCRKey,
+      });
+
+      expect(result).toEqual({ applied: 0, ignored: 1, rejected: 0 });
+      expect(storeAIKey).not.toHaveBeenCalled();
+      expect(storeOCRKey).not.toHaveBeenCalled();
+    });
+
+    it("deduplica eventos já processados via handledIds entre chamadas", async () => {
+      const handledIds = new Set<string>();
+      const aiEvt = buildEncryptedKeySyncEvent({
+        secret,
+        slot: "ai:openai",
+        apiKey: "sk-restore-dedup",
+        deviceId: "dev-origin",
+      });
+      const storeAIKey = vi.fn(async () => undefined);
+      const storeOCRKey = vi.fn(async () => undefined);
+
+      const first = await applyRestoredKeySyncEvents({
+        events: [aiEvt],
+        isDemoActive: false,
+        isWeb: false,
+        getOptIn: async () => true,
+        loadStrongGroupSecret: async () => encodedSecret,
+        storeAIKey,
+        storeOCRKey,
+        handledIds,
+      });
+      expect(first).toEqual({ applied: 1, ignored: 0, rejected: 0 });
+      expect(handledIds.has(aiEvt.id)).toBe(true);
+
+      const second = await applyRestoredKeySyncEvents({
+        events: [aiEvt],
+        isDemoActive: false,
+        isWeb: false,
+        getOptIn: async () => true,
+        loadStrongGroupSecret: async () => encodedSecret,
+        storeAIKey,
+        storeOCRKey,
+        handledIds,
+      });
+      expect(second).toEqual({ applied: 0, ignored: 1, rejected: 0 });
+      expect(storeAIKey).toHaveBeenCalledTimes(1);
+    });
   });
 });
