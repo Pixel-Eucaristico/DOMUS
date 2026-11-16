@@ -27,8 +27,8 @@ import {
 import {
   canShowKeySyncOption,
   getKeySyncOptIn,
-  setKeySyncOptIn,
   subscribeKeySyncOptIn,
+  toggleKeySyncOptIn,
 } from "@/src/modules/strongGroup/keySyncOptIn";
 import { soundManager } from "@/src/services/SoundManager";
 import { appAlert, appConfirm } from "@/src/services/appAlert";
@@ -142,17 +142,20 @@ function SyncScreen() {
     setKeySyncOptInState(nextValue);
     setKeySyncSaving(true);
     try {
-      const saved = await setKeySyncOptIn(nextValue);
-      setKeySyncOptInState(saved);
-      if (saved) {
-        void syncAllSavedKeys();
-      }
-    } catch {
-      setKeySyncOptInState(previousValue);
-      appAlert(
-        "Erro",
-        "Não foi possível salvar a preferência de sincronização das chaves neste aparelho.",
-      );
+      await toggleKeySyncOptIn({
+        nextValue,
+        previousValue,
+        setEnabled: setKeySyncOptInState,
+        onEnabled: () => {
+          void syncAllSavedKeys();
+        },
+        onNotice: (notice) => appAlert(notice.title, notice.message),
+        onError: () =>
+          appAlert(
+            "Erro",
+            "Não foi possível salvar a preferência de sincronização das chaves neste aparelho.",
+          ),
+      });
     } finally {
       setKeySyncSaving(false);
     }

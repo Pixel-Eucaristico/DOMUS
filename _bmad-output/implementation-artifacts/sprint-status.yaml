@@ -142,7 +142,7 @@ development_status:
   10-3-ativar-o-sync-de-chaves-com-opt-in-explícito: done
   10-4-enviar-as-chaves-cifradas-ao-grupo-forte: done
   10-5-receber-as-chaves-em-outro-aparelho-nativo: done
-  10-6-desligar-o-sync-de-chaves: backlog
+  10-6-desligar-o-sync-de-chaves: done
   10-7-backup-do-drive-com-o-mesmo-escopo-sem-chave-em-texto-puro: backlog
   epic-10-retrospective: optional
 

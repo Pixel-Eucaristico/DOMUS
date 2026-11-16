@@ -11,6 +11,17 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const KEY_SYNC_OPT_IN_KEY = "domus_key_sync_opt_in_v1";
 
+export interface KeySyncDisableNotice {
+  readonly title: string;
+  readonly message: string;
+}
+
+export const KEY_SYNC_DISABLE_NOTICE: KeySyncDisableNotice = Object.freeze({
+  title: "Sincronização de chaves desligada",
+  message:
+    "Este aparelho parou de publicar e de receber chaves de IA e OCR. As chaves já salvas continuam no armazenamento seguro deste aparelho. Eventos cifrados já publicados continuam nos relays públicos e não podem ser apagados; para invalidá-los, troque a chave no provedor.",
+});
+
 export interface KeyValueStorage {
   getItem(key: string): Promise<string | null>;
   setItem(key: string, value: string): Promise<void>;
@@ -134,4 +145,70 @@ export async function setKeySyncOptIn(
   }
   notifyListeners(next);
   return next;
+}
+
+export interface DisableKeySyncOptInOptions extends KeySyncOptInOptions {
+  onNotice?: (notice: KeySyncDisableNotice) => void;
+}
+
+export interface DisableKeySyncOptInResult {
+  disabled: boolean;
+}
+
+/**
+ * Desliga o opt-in local de sincronização de chaves (Story 10.6).
+ * Na web é no-op e retorna `{ disabled: false }` sem tocar no storage nem emitir aviso.
+ * Em aparelho nativo, persiste `"false"` e aciona `onNotice` somente após gravação bem-sucedida.
+ */
+export async function disableKeySyncOptIn(
+  options: DisableKeySyncOptInOptions = {},
+): Promise<DisableKeySyncOptInResult> {
+  const isWeb = options.isWeb ?? isWebEnv();
+  if (isWeb) return { disabled: false };
+
+  await setKeySyncOptIn(false, options);
+  try {
+    options.onNotice?.(KEY_SYNC_DISABLE_NOTICE);
+  } catch {
+    // Isola falha de UI para não acionar rollback após a persistência já concluída
+  }
+  return { disabled: true };
+}
+
+export interface ToggleKeySyncOptInParams extends KeySyncOptInOptions {
+  nextValue: boolean;
+  previousValue: boolean;
+  setEnabled: (enabled: boolean) => void;
+  onEnabled?: () => void;
+  onNotice?: (notice: KeySyncDisableNotice) => void;
+  onError?: () => void;
+}
+
+/**
+ * Orquestra o toggle do opt-in de sincronização de chaves com rollback em caso de erro.
+ */
+export async function toggleKeySyncOptIn({
+  nextValue,
+  previousValue,
+  setEnabled,
+  onEnabled,
+  onNotice,
+  onError,
+  ...options
+}: ToggleKeySyncOptInParams): Promise<void> {
+  try {
+    if (nextValue) {
+      const saved = await setKeySyncOptIn(true, options);
+      setEnabled(saved);
+      if (saved) {
+        onEnabled?.();
+      }
+    } else {
+      await disableKeySyncOptIn({ ...options, onNotice });
+      setEnabled(false);
+    }
+  } catch {
+    setEnabled(previousValue);
+    onError?.();
+  }
 }
