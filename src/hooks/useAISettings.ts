@@ -14,6 +14,7 @@ import {
   resolveAISettingsFromSettings,
 } from "@/src/modules/ai/domain/syncedAISettings";
 import { useAppStateOptional } from "@/src/context/AppStateProvider";
+import { slotForAIProvider } from "@/src/modules/strongGroup/keySyncPublisher";
 import type { AIProvider } from "@packages/ai";
 
 const ALL_PROVIDERS: AIProvider[] = ["openai", "gemini", "claude", "deepseek", "qwen"];
@@ -35,6 +36,7 @@ export function useAISettings(): UseAISettingsResult {
   const appState = useAppStateOptional();
   const syncedSettingsState = appState?.settings;
   const setSyncedAISettings = appState?.setAISettings;
+  const syncSavedKey = appState?.syncSavedKey;
   const isDemoActive = appState?.isDemoActive ?? false;
 
   const syncedAISettings = useMemo(
@@ -156,12 +158,16 @@ export function useAISettings(): UseAISettingsResult {
           systemPromptSent: false,
         };
         await persist(next);
+        const slot = slotForAIProvider(provider as string);
+        if (slot && syncSavedKey) {
+          void syncSavedKey(slot, key);
+        }
         return true;
       } catch {
         return false;
       }
     },
-    [persist],
+    [persist, syncSavedKey],
   );
 
   const deleteApiKey = useCallback(

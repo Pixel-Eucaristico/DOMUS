@@ -79,7 +79,7 @@ function statusLabel(status: string): string {
 function SyncScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { theme } = useAppState();
+  const { theme, syncAllSavedKeys } = useAppState();
   const {
     groupId, isStrongGroup, canMigrate, migrateToStrongGroup, syncStatus, lastSyncTime, errorMessage,
     eventCount, relayCount, isAutoSyncEnabled,
@@ -144,6 +144,9 @@ function SyncScreen() {
     try {
       const saved = await setKeySyncOptIn(nextValue);
       setKeySyncOptInState(saved);
+      if (saved) {
+        void syncAllSavedKeys();
+      }
     } catch {
       setKeySyncOptInState(previousValue);
       appAlert(
@@ -153,7 +156,7 @@ function SyncScreen() {
     } finally {
       setKeySyncSaving(false);
     }
-  }, [keySyncLoading, keySyncOptIn, keySyncSaving]);
+  }, [keySyncLoading, keySyncOptIn, keySyncSaving, syncAllSavedKeys]);
 
   const handleCreateGroup = useCallback(async () => {
     haptic();

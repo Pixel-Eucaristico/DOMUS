@@ -38,6 +38,7 @@ export const STRONG_GROUP_LABELS = {
   salt: "domus/strong-group/v1",
   nostrIdentityInfo: "domus/strong-group/v1/nostr-identity",
   eventEncryptionInfo: "domus/strong-group/v1/event-encryption",
+  keySyncInfo: "domus/strong-group/v1/key-sync",
 } as const;
 
 /** Ordem do grupo do secp256k1 (n), em big-endian. */
@@ -215,6 +216,15 @@ export function deriveStrongGroupKeys(secret: Uint8Array): StrongGroupKeys {
   const encryptionKey = deriveKey(secret, STRONG_GROUP_LABELS.eventEncryptionInfo);
   const nostrPublicKey = getPublicKey(nostrPrivateKey);
   return { version: 1, nostrPrivateKey, nostrPublicKey, encryptionKey };
+}
+
+/**
+ * Deriva a chave simétrica dedicada ao sync de chaves de IA/OCR (Story 10.4).
+ * Separada de `nostrIdentityInfo` e `eventEncryptionInfo` via HKDF-SHA256.
+ */
+export function deriveKeySyncKey(secret: Uint8Array): Uint8Array {
+  assertSecret(secret);
+  return deriveKey(secret, STRONG_GROUP_LABELS.keySyncInfo);
 }
 
 /** Compara dois segredos em tempo constante (a 4.4 usa para "já é este grupo"). */

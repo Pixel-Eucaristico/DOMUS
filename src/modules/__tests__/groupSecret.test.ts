@@ -308,6 +308,7 @@ describe("deriveStrongGroupKeys", () => {
       salt: "domus/strong-group/v1",
       nostrIdentityInfo: "domus/strong-group/v1/nostr-identity",
       eventEncryptionInfo: "domus/strong-group/v1/event-encryption",
+      keySyncInfo: "domus/strong-group/v1/key-sync",
     });
   });
 

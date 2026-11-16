@@ -65,6 +65,7 @@ export const SCHEMA_REGISTRY: SchemaRegistry = {
   PAYSLIP_RECORDED: { current: 1, stamp: true },
   PAYSLIP_DELETED: { current: 1, stamp: true },
   SETTING_CHANGED: { current: 1, stamp: true },
+  KEY_SYNC_UPDATED: { current: 1, stamp: true },
 };
 
 export function currentSchemaVersion(type: string, registry: SchemaRegistry = SCHEMA_REGISTRY): number {

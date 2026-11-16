@@ -263,8 +263,8 @@ describe("replayAllEvents — payload por tipo", () => {
   /** Tipos que não leem nada do payload: `{}` é um evento válido. */
   const NO_FIELD_TYPES = new Set(["ONBOARDING_FINISHED", "SEASON_ENDED", "ARCHETYPE_UPDATED"]);
 
-  it("cobre os 41 tipos conhecidos (Story 11.4: + PAYSLIP_*, Tarefa 09: + OLERITE_*, Story 9.2: + SETTING_CHANGED)", () => {
-    expect(KNOWN_EVENT_TYPES.size).toBe(41);
+  it("cobre os 42 tipos conhecidos (Story 11.4: + PAYSLIP_*, Tarefa 09: + OLERITE_*, Story 9.2: + SETTING_CHANGED, Story 10.4: + KEY_SYNC_UPDATED)", () => {
+    expect(KNOWN_EVENT_TYPES.size).toBe(42);
     for (const t of KNOWN_EVENT_TYPES) {
       expect(NO_FIELD_TYPES.has(t) || PAYLOAD_SPECS[t] !== undefined, t).toBe(true);
     }

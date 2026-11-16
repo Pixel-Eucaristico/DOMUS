@@ -27,7 +27,7 @@ type OCRProviderExtended = OCRProvider | "vision_ai";
 export default function OCRSettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { theme } = useAppState();
+  const { theme, syncSavedKey } = useAppState();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -66,7 +66,9 @@ export default function OCRSettingsScreen() {
       await OCRConfigService.setPreferredProvider(provider as OCRProvider);
 
       if (apiKey.trim()) {
-        await OCRConfigService.setCloudVisionApiKey(apiKey.trim());
+        const trimmedKey = apiKey.trim();
+        await OCRConfigService.setCloudVisionApiKey(trimmedKey);
+        void syncSavedKey("ocr:cloud_vision", trimmedKey);
       } else {
         await OCRConfigService.clearCloudVisionApiKey();
       }

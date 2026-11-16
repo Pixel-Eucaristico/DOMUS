@@ -22,6 +22,7 @@ import { wishlistReducer, createInitialWishlistState } from "@packages/wishlist/
 import { PERSONALITY_EVENTS } from "@packages/personality/src/types";
 import { SETTINGS_EVENTS, type SettingsEvent, type SettingsState } from "@packages/settings/src/types";
 import { settingsReducer, createInitialSettingsState } from "@packages/settings/src/reducer";
+import { KEY_SYNC_EVENT_TYPE } from "@/src/modules/strongGroup/keySyncCipher";
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { eventTimestampKey, sortEvents } from "@packages/storage/src/eventOrder";
 import { isBlankDeviceId } from "./localEventLog";
@@ -100,6 +101,7 @@ export const KNOWN_EVENT_TYPES: ReadonlySet<string> = new Set<string>([
   ...WISHLIST_TYPES,
   ...PERSONALITY_TYPES,
   ...SETTINGS_TYPES,
+  KEY_SYNC_EVENT_TYPE,
 ]);
 
 export const MAX_REASON_LENGTH = 160;

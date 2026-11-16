@@ -262,13 +262,14 @@ describe("Story 3.6: cursor dos relays", () => {
 });
 
 describe("Story 11.4 e Story 4.7: isOldGroupPublishable / partitionOldGroupEvents", () => {
-  it("PAYSLIP_*, RELIGIOUS_* e CONFESSIONAL_* não são publicáveis no Grupo antigo; o resto é", () => {
-    expect(OLD_GROUP_EXCLUDED_PREFIXES).toEqual(["PAYSLIP_", "RELIGIOUS_", "CONFESSIONAL_"]);
+  it("PAYSLIP_*, RELIGIOUS_*, CONFESSIONAL_* e KEY_SYNC_* não são publicáveis no Grupo antigo; o resto é", () => {
+    expect(OLD_GROUP_EXCLUDED_PREFIXES).toEqual(["PAYSLIP_", "RELIGIOUS_", "CONFESSIONAL_", "KEY_SYNC_"]);
     expect(isOldGroupPublishable("PAYSLIP_RECORDED")).toBe(false);
     expect(isOldGroupPublishable("PAYSLIP_DELETED")).toBe(false);
     expect(isOldGroupPublishable("PAYSLIP_QUALQUER_FUTURO")).toBe(false);
     expect(isOldGroupPublishable("RELIGIOUS_AFFILIATION_UPDATED")).toBe(false);
     expect(isOldGroupPublishable("CONFESSIONAL_NOTE_ADDED")).toBe(false);
+    expect(isOldGroupPublishable("KEY_SYNC_UPDATED")).toBe(false);
     for (const t of ["TRANSACTION_CREATED", "ACCOUNT_CREATED", "XP_GAINED", "WISHLIST_ITEM_ADDED", "FUTURE_EVENT_X", "payslip_recorded"]) {
       expect(isOldGroupPublishable(t), t).toBe(true);
     }

@@ -58,6 +58,7 @@ export const OLD_GROUP_EXCLUDED_PREFIXES: readonly string[] = [
   "PAYSLIP_",
   "RELIGIOUS_",
   "CONFESSIONAL_",
+  "KEY_SYNC_",
 ];
 
 /** Chaves de `SETTING_CHANGED` que nunca saem nem entram pelo Grupo antigo (Story 10.2). */

@@ -1,6 +1,7 @@
 import type { SyncEvent } from "@packages/storage/src/eventStore";
 import { PAYSLIP_KINDS, PAYSLIP_SOURCES } from "@packages/events/src/types";
 import { PAYSLIP_PERIOD_PATTERN } from "@packages/domain/src/payslips";
+import { SYNCED_KEY_SLOTS } from "@/src/modules/strongGroup/keySyncCipher";
 
 /**
  * Conferências do replay local (Story 3.2) — puras, sem `react-native`.
@@ -212,6 +213,11 @@ export const PAYLOAD_SPECS: Readonly<Record<string, PayloadSpec>> = {
   WISHLIST_LIST_DELETED: { listId: str },
   // Configurações / Preferências (Story 9.2)
   SETTING_CHANGED: { key: { kind: "string", nonEmpty: true } },
+  // Sync de chaves de IA/OCR (Story 10.4) — payload tem slot, ciphertext e schemaVersion (retirado no upcast)
+  KEY_SYNC_UPDATED: {
+    slot: { kind: "string", enum: SYNCED_KEY_SLOTS },
+    ciphertext: { kind: "string", nonEmpty: true },
+  },
 };
 
 function matchesKind(value: unknown, kind: Kind): boolean {
