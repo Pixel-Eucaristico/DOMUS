@@ -50,8 +50,13 @@ busca na Amazon ou no Mercado Livre) só acontecem quando você os pede.
 - Ficam visíveis sem cifra: o identificador do aparelho gerado pelo app, o horário de
   publicação, a quantidade de registros de cada lote e a chave pública do grupo. Os relays
   também veem o endereço IP do aparelho.
+- Se você ativar a sincronização opcional de chaves de API (disponível apenas em aparelhos
+  nativos e em grupos com criptografia ponta a ponta via Segredo de grupo de 256 bits, desligada
+  por padrão), suas chaves de IA e de OCR (Google Cloud Vision) também viajam cifradas ponta a
+  ponta (AES-256-GCM com derivação de chave dedicada) pelos relays Nostr entre os seus aparelhos.
 - Os registros publicados continuam nos relays depois que você sai do grupo, reseta o app
-  ou o desinstala. O DOMUS não consegue apagá-los.
+  ou o desinstala (o mesmo vale para eventos de chaves já publicados caso você desligue a opção).
+  O DOMUS não consegue apagá-los.
 - **Sincronização.** Envia: seus registros a seis relays Nostr públicos, com criptografia ponta a ponta (AES-256-GCM); o identificador do aparelho, o horário, o tamanho de cada lote e a chave pública do grupo vão sem cifra, os relays veem o endereço IP e os registros continuam lá depois que você sai do grupo. Sem isso: seus dados ficam só neste aparelho, sem cópia nos seus outros aparelhos.
 
 ## 3. Assistente de IA (opcional)
