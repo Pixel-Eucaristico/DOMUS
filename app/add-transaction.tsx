@@ -107,14 +107,25 @@ function AddTransactionScreen() {
 
   return (
     <>
-    <KeyboardAwareScrollViewCompat
-      style={[s.root, { backgroundColor: theme.background }]}
-      contentContainerStyle={[
-        s.content,
-        { paddingTop: insets.top + webTopInset + 16, paddingBottom: insets.bottom + SCROLL_BOTTOM_PADDING },
+    <View
+      style={[
+        s.root,
+        {
+          backgroundColor: theme.background,
+          paddingTop: insets.top + webTopInset,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
       ]}
-      showsVerticalScrollIndicator={false}
     >
+      <KeyboardAwareScrollViewCompat
+        style={{ flex: 1 }}
+        contentContainerStyle={[
+          s.content,
+          { paddingTop: 16, paddingBottom: insets.bottom + SCROLL_BOTTOM_PADDING },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         <ResponsiveContainer>
         {/* Header */}
         <View style={s.topRow}>
@@ -475,6 +486,7 @@ function AddTransactionScreen() {
         )}
         </ResponsiveContainer>
       </KeyboardAwareScrollViewCompat>
+    </View>
 
       {/* Installment group save modal */}
       <SelectionModal

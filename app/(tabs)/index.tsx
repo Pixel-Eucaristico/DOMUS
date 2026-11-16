@@ -49,6 +49,7 @@ import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 import { CatholicHeaderIcon } from "@/src/components/shared/CatholicHeaderIcon";
 import { PixelText } from "@/src/components/pixel";
 import { TCard , TText } from "@/src/components/tamagui";
+import { HOME_HEADER_METRICS } from "@/src/modules/layout/homeHeaderLayout";
 
 
 
@@ -285,14 +286,24 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={[s.root, { backgroundColor: theme.background }]}>
+    <View
+      style={[
+        s.root,
+        {
+          backgroundColor: theme.background,
+          paddingTop: insets.top + webTopInset,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      ]}
+    >
       <ScrollView
         ref={scrollRef}
         style={s.scrollView}
         contentContainerStyle={[
           s.scrollContent,
           {
-            paddingTop: insets.top + webTopInset + 16,
+            paddingTop: 16,
             paddingBottom: insets.bottom + webBottomInset + 100,
           },
         ]}
@@ -303,12 +314,14 @@ export default function HomeScreen() {
         {/* ── HEADER ─────────────────────────────────────────────────────── */}
         <View style={Platform.OS === "web" ? { zIndex: 1, position: "relative" } : {}}>
           <View style={[s.header]}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <View style={s.headerBrand}>
               <DomusLogo size={36} theme={theme} />
               {isCatholic && <CatholicHeaderIcon theme={theme} size={16} opacity={0.3} level={levelInfo.level} />}
-              <View>
-                <PixelText size={16} color={theme.textColor}>DOMUS</PixelText>
-                <TText variant="caption" color={theme.secondaryText}>
+              <View style={s.headerBrandText}>
+                <PixelText size={16} color={theme.textColor} numberOfLines={1} adjustsFontSizeToFit>
+                  DOMUS
+                </PixelText>
+                <TText variant="caption" color={theme.secondaryText} numberOfLines={1}>
                   {archetype.charAt(0).toUpperCase() + archetype.slice(1)} / Nível{" "}
                   {levelInfo.level}
                 </TText>
@@ -621,15 +634,31 @@ const s = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: HOME_HEADER_METRICS.horizontalPadding,
+    gap: HOME_HEADER_METRICS.brandActionsGap,
     marginBottom: 4,
   },
-  headerActions: { flexDirection: "row", gap: 8 },
+  headerBrand: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
+  },
+  headerBrandText: {
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: HOME_HEADER_METRICS.actionsGap,
+    flexShrink: 0,
+  },
   greeting: { fontFamily: "DMSans_700Bold", fontSize: 22, letterSpacing: 1 },
   settingsBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: HOME_HEADER_METRICS.buttonSize,
+    height: HOME_HEADER_METRICS.buttonSize,
+    borderRadius: HOME_HEADER_METRICS.buttonSize / 2,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",

@@ -7,15 +7,28 @@ interface Props {
   size?: number;
   color?: string;
   style?: TextStyle;
+  numberOfLines?: number;
+  adjustsFontSizeToFit?: boolean;
 }
 
 /**
  * Texto com fonte pixel (Press Start 2P) — identidade Pixel Eucarístico.
  * Usar para títulos, logos, badges e elementos de destaque.
  */
-export function PixelText({ children, size = 10, color, style }: Props) {
+export function PixelText({
+  children,
+  size = 10,
+  color,
+  style,
+  numberOfLines,
+  adjustsFontSizeToFit,
+}: Props) {
   return (
-    <Text style={[s.text, { fontSize: size, color }, style]}>
+    <Text
+      style={[s.text, { fontSize: size, color }, style]}
+      numberOfLines={numberOfLines}
+      adjustsFontSizeToFit={adjustsFontSizeToFit}
+    >
       {children}
     </Text>
   );
