@@ -1,5 +1,9 @@
 import type { AIProvider, AIModelTier } from "@packages/ai";
 import { SecureStorageService } from "@/src/modules/security/infrastructure/SecureStorageService";
+import {
+  sanitizeCustomPrices,
+  type CustomPrices,
+} from "@/src/modules/ai/domain/syncedAISettings";
 
 // Prices in USD per 1 million tokens (average of input+output)
 // Atualizado em 2026-07-15 conforme as tabelas oficiais dos provedores.
@@ -25,10 +29,44 @@ export interface TokenPrice {
   brlPerMillion: number;
 }
 
-type CustomPrices = Partial<Record<AIProvider, Partial<Record<AIModelTier, number>>>>;
+export type { CustomPrices };
 
 let cachedRate: { value: number; timestamp: number } | null = null;
 let cachedCustomPrices: CustomPrices | null = null;
+let cachedCustomPricesPersisted = false;
+const customPricesSyncListeners = new Set<(prices: CustomPrices) => void>();
+
+function cloneCustomPrices(prices: CustomPrices): CustomPrices {
+  const copy: CustomPrices = {};
+  for (const [provider, tiers] of Object.entries(prices) as [
+    AIProvider,
+    Partial<Record<AIModelTier, number>> | undefined,
+  ][]) {
+    if (tiers && Object.keys(tiers).length > 0) {
+      copy[provider] = { ...tiers };
+    }
+  }
+  return copy;
+}
+
+function areCustomPricesEqual(a: CustomPrices | null, b: CustomPrices): boolean {
+  if (!a) return false;
+  const keysA = Object.keys(a) as AIProvider[];
+  const keysB = Object.keys(b) as AIProvider[];
+  if (keysA.length !== keysB.length) return false;
+  for (const provider of keysA) {
+    const tiersA = a[provider];
+    const tiersB = b[provider];
+    if (!tiersA || !tiersB) return false;
+    const tierKeysA = Object.keys(tiersA) as AIModelTier[];
+    const tierKeysB = Object.keys(tiersB) as AIModelTier[];
+    if (tierKeysA.length !== tierKeysB.length) return false;
+    for (const tier of tierKeysA) {
+      if (tiersA[tier] !== tiersB[tier]) return false;
+    }
+  }
+  return true;
+}
 
 /** Creates an AbortSignal with timeout, compatible with Hermes/RN */
 function timeoutSignal(ms: number): AbortSignal {
@@ -162,15 +200,75 @@ export class TokenPricingService {
     tier: AIModelTier,
     pricePerMillionBrl: number,
   ): Promise<void> {
-    const prices = await TokenPricingService.loadCustomPrices();
-    if (!prices[provider]) prices[provider] = {};
-    if (pricePerMillionBrl > 0) {
+    const prices = cloneCustomPrices(await TokenPricingService.loadCustomPrices());
+    if (pricePerMillionBrl > 0 && Number.isFinite(pricePerMillionBrl)) {
+      if (!prices[provider]) prices[provider] = {};
       prices[provider]![tier] = pricePerMillionBrl;
-    } else {
+    } else if (prices[provider]) {
       delete prices[provider]![tier];
+      if (Object.keys(prices[provider]!).length === 0) {
+        delete prices[provider];
+      }
     }
     cachedCustomPrices = prices;
+    cachedCustomPricesPersisted = true;
     await SecureStorageService.set(CUSTOM_PRICES_KEY, JSON.stringify(prices));
+    const snapshot = cloneCustomPrices(prices);
+    customPricesSyncListeners.forEach((listener) => listener(snapshot));
+  }
+
+  /** Registra ouvinte para emitir `SETTING_CHANGED` quando o usuário altera preços locais. */
+  static registerCustomPricesSyncListener(
+    listener: (prices: CustomPrices) => void,
+  ): () => void {
+    customPricesSyncListeners.add(listener);
+    return () => {
+      customPricesSyncListeners.delete(listener);
+    };
+  }
+
+  /** Retorna um snapshot sanitizado dos preços personalizados atuais. */
+  static async getCustomPricesSnapshot(): Promise<CustomPrices> {
+    const prices = await TokenPricingService.loadCustomPrices();
+    return sanitizeCustomPrices(prices) ?? {};
+  }
+
+  /**
+   * Aplica preços personalizados vindos do log de eventos sincronizado.
+   * Só atualiza cache e armazenamento quando houver mudança real, sem disparar
+   * o ouvinte de emissão de eventos (evita loops).
+   */
+  static async applySyncedCustomPrices(
+    prices: CustomPrices,
+    persist: boolean = true,
+  ): Promise<void> {
+    const sanitized = sanitizeCustomPrices(prices) ?? {};
+    if (
+      areCustomPricesEqual(cachedCustomPrices, sanitized) &&
+      (!persist || cachedCustomPricesPersisted)
+    ) {
+      return;
+    }
+    cachedCustomPrices = cloneCustomPrices(sanitized);
+    if (!persist) {
+      cachedCustomPricesPersisted = false;
+      return;
+    }
+    cachedCustomPricesPersisted = true;
+    await SecureStorageService.set(CUSTOM_PRICES_KEY, JSON.stringify(sanitized));
+  }
+
+  /** Invalida o cache em memória para forçar releitura do armazenamento local (ex.: ao sair do modo demo). */
+  static invalidateCustomPricesCache(): void {
+    cachedCustomPrices = null;
+    cachedCustomPricesPersisted = false;
+  }
+
+  /** Limpa os preços personalizados locais no reset do app sem emitir evento. */
+  static async resetLocalCustomPrices(): Promise<void> {
+    cachedCustomPrices = {};
+    cachedCustomPricesPersisted = true;
+    await SecureStorageService.delete(CUSTOM_PRICES_KEY);
   }
 
   /** Loads custom prices from storage (cached in memory). */
@@ -178,7 +276,8 @@ export class TokenPricingService {
     if (cachedCustomPrices) return cachedCustomPrices;
     try {
       const raw = await SecureStorageService.get(CUSTOM_PRICES_KEY);
-      cachedCustomPrices = raw ? (JSON.parse(raw) as CustomPrices) : {};
+      const parsed = raw ? (JSON.parse(raw) as unknown) : {};
+      cachedCustomPrices = sanitizeCustomPrices(parsed) ?? {};
       return cachedCustomPrices;
     } catch {
       return {};

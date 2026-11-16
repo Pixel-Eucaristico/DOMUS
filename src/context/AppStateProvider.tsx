@@ -38,6 +38,16 @@ import {
   resolveSupportModesFromSettings,
   resolveThemeModeFromSettings,
 } from "@/src/modules/settings/syncedPreferences";
+import { AI_SETTINGS_STORE_KEY, type AISettings } from "@/src/modules/ai/domain/AISettings";
+import {
+  AI_CUSTOM_PRICES_SETTING_KEY,
+  AI_SETTINGS_SETTING_KEY,
+  buildAISettingsSeedEvents,
+  pickSyncedAISettings,
+  resolveCustomPricesFromSettings,
+} from "@/src/modules/ai/domain/syncedAISettings";
+import { TokenPricingService } from "@/src/modules/ai/infrastructure/TokenPricingService";
+import { SecureStorageService } from "@/src/modules/security/infrastructure/SecureStorageService";
 import {
   futureReleaseDelayMs,
   nextFutureReleaseAt,
@@ -88,6 +98,7 @@ interface AppStateContextValue {
   setThemeMode: (mode: ThemeMode) => void;
   setSoundEnabled: (enabled: boolean) => void;
   setSupportModes: (modes: SupportMode[]) => void;
+  setAISettings: (aiSettings: Partial<AISettings>) => void;
   importEvents: (events: SyncEvent[], options?: { isStrongGroup?: boolean }) => Promise<number>;
   restoreFromBackup: (events: SyncEvent[]) => Promise<void>;
   resetApp: () => Promise<void>;
@@ -247,6 +258,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const syncedThemeMode = useMemo(() => resolveThemeModeFromSettings(settings), [settings]);
   const syncedSoundEnabled = useMemo(() => resolveSoundEnabledFromSettings(settings), [settings]);
   const syncedSupportModes = useMemo(() => resolveSupportModesFromSettings(settings), [settings]);
+  const syncedCustomPrices = useMemo(() => resolveCustomPricesFromSettings(settings), [settings]);
 
   const handleSyncThemeMode = useCallback(
     (mode: ThemeMode) => {
@@ -275,6 +287,43 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (syncedSupportModes === undefined) return;
     void applySyncedSupportModes(syncedSupportModes, !isDemoActive);
   }, [syncedSupportModes, isDemoActive]);
+
+  const setAISettings = useCallback(
+    (aiSettings: Partial<AISettings>) => {
+      const sanitized = pickSyncedAISettings(aiSettings);
+      if (Object.keys(sanitized).length === 0) return;
+      dispatchAny(
+        createSettingChangedEvent(
+          AI_SETTINGS_SETTING_KEY,
+          sanitized,
+          eventStore.deviceId || "local",
+        ),
+      );
+    },
+    [dispatchAny, eventStore.deviceId],
+  );
+
+  useEffect(() => {
+    if (syncedCustomPrices === undefined) {
+      if (!isDemoActive) {
+        TokenPricingService.invalidateCustomPricesCache();
+      }
+      return;
+    }
+    void TokenPricingService.applySyncedCustomPrices(syncedCustomPrices, !isDemoActive);
+  }, [syncedCustomPrices, isDemoActive]);
+
+  useEffect(() => {
+    return TokenPricingService.registerCustomPricesSyncListener((prices) => {
+      dispatchAny(
+        createSettingChangedEvent(
+          AI_CUSTOM_PRICES_SETTING_KEY,
+          prices,
+          eventStore.deviceId || "local",
+        ),
+      );
+    });
+  }, [dispatchAny, eventStore.deviceId]);
 
   // Theme + preferences (depends on derived state)
   const themePrefs = useThemePreferences({
@@ -312,25 +361,45 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       try {
-        const [savedTheme, savedSound, savedSupport] = await Promise.all([
-          AsyncStorage.getItem(THEME_MODE_KEY),
-          AsyncStorage.getItem(SOUND_ENABLED_KEY),
-          loadSupportModes(),
-        ]);
+        const [savedTheme, savedSound, savedSupport, savedAISettingsRaw, savedCustomPrices] =
+          await Promise.all([
+            AsyncStorage.getItem(THEME_MODE_KEY),
+            AsyncStorage.getItem(SOUND_ENABLED_KEY),
+            loadSupportModes(),
+            SecureStorageService.get(AI_SETTINGS_STORE_KEY),
+            TokenPricingService.getCustomPricesSnapshot(),
+          ]);
         if (cancelled || epoch !== seedEpochRef.current) return;
+
+        let savedAISettings: Partial<AISettings> | null = null;
+        if (savedAISettingsRaw) {
+          try {
+            savedAISettings = JSON.parse(savedAISettingsRaw) as Partial<AISettings>;
+          } catch {
+            savedAISettings = null;
+          }
+        }
 
         const currentEvents =
           eventStore.allEventsRef.current.length >= eventStore.allEvents.length
             ? eventStore.allEventsRef.current
             : eventStore.allEvents;
 
-        const seedEvents = buildSettingsSeedEvents({
-          allEvents: currentEvents,
-          deviceId: did,
-          themeMode: savedTheme,
-          soundEnabled: savedSound,
-          supportModes: savedSupport,
-        });
+        const seedEvents = [
+          ...buildSettingsSeedEvents({
+            allEvents: currentEvents,
+            deviceId: did,
+            themeMode: savedTheme,
+            soundEnabled: savedSound,
+            supportModes: savedSupport,
+          }),
+          ...buildAISettingsSeedEvents({
+            allEvents: currentEvents,
+            deviceId: did,
+            aiSettings: savedAISettings,
+            customPrices: savedCustomPrices,
+          }),
+        ];
         completed = true;
         if (seedEvents.length === 0) return;
 
@@ -425,6 +494,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     await eventStore.resetApp();
     await themePrefs.resetLocalPreferences();
     await resetLocalSupportModes();
+    await TokenPricingService.resetLocalCustomPrices();
+    await SecureStorageService.delete(AI_SETTINGS_STORE_KEY);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- eventStore/themePrefs são recriados a cada render; os métodos usados já são deps
   }, [eventStore.resetApp, themePrefs.resetLocalPreferences]);
 
@@ -454,6 +525,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setThemeMode: themePrefs.setThemeMode,
       setSoundEnabled: themePrefs.setSoundEnabled,
       setSupportModes,
+      setAISettings,
       importEvents: eventStore.importEvents,
       restoreFromBackup: eventStore.restoreFromBackup,
       resetApp,
@@ -476,7 +548,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       debugBalance: debug.debugBalance,
       setDebugBalance: debug.setDebugBalance,
     }),
-    [domain, gamification, onboarding, season, wishlist, settings, quarantine, themePrefs, levelInfo, budget, totalBalance, eventStore, initialSyncReady, bootEffectsGate, isDemoActive, dispatchAny, gamEffects.dispatchDomainEvent, setSupportModes, resetApp, toast, debug],
+    [domain, gamification, onboarding, season, wishlist, settings, quarantine, themePrefs, levelInfo, budget, totalBalance, eventStore, initialSyncReady, bootEffectsGate, isDemoActive, dispatchAny, gamEffects.dispatchDomainEvent, setSupportModes, setAISettings, resetApp, toast, debug],
   );
 
   return (

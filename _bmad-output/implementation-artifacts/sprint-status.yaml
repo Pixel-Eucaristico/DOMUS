@@ -130,7 +130,7 @@ development_status:
   9-1-inventariar-e-classificar-tudo-que-o-app-guarda-fora-do-log: done
   9-2-criar-o-evento-de-preferência-e-o-reducer: done
   9-3-sincronizar-tema-som-e-modo-de-apoio: done
-  9-4-sincronizar-a-configuração-de-ia-e-os-preços-personalizados: backlog
+  9-4-sincronizar-a-configuração-de-ia-e-os-preços-personalizados: done
   9-5-sincronizar-a-configuração-do-ocr-sem-a-chave: backlog
   9-6-sincronizar-a-preferência-do-backup-no-drive: backlog
   9-7-barrar-por-teste-dado-do-aparelho-no-sync: backlog
