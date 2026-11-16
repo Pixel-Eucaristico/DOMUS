@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Modal,
   Dimensions,
+  Switch,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
@@ -23,6 +24,12 @@ import {
   LEGACY_CUTOFF_MESSAGE,
   LEGACY_VERSION_TOO_OLD_MESSAGE,
 } from "@/src/context/strongGroupSync";
+import {
+  canShowKeySyncOption,
+  getKeySyncOptIn,
+  setKeySyncOptIn,
+  subscribeKeySyncOptIn,
+} from "@/src/modules/strongGroup/keySyncOptIn";
 import { soundManager } from "@/src/services/SoundManager";
 import { appAlert, appConfirm } from "@/src/services/appAlert";
 import { QRScannerModal } from "@/src/components/sync/QRScannerModal";
@@ -81,6 +88,9 @@ function SyncScreen() {
   } = useSync();
 
   const isLegacyCutoff = Boolean(coexistingGroups.legacyCutoff && !isStrongGroup);
+  const showKeySyncOption =
+    isAutoSyncEnabled &&
+    canShowKeySyncOption({ isStrongGroup, isWeb: Platform.OS === "web" });
 
   const [joinCode, setJoinCode] = useState("");
   const [showJoinInput, setShowJoinInput] = useState(false);
@@ -88,14 +98,62 @@ function SyncScreen() {
   const [showScanner, setShowScanner] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [keySyncOptIn, setKeySyncOptInState] = useState(false);
+  const [keySyncLoading, setKeySyncLoading] = useState(false);
+  const [keySyncSaving, setKeySyncSaving] = useState(false);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { showIntro, dismissIntro } = useScreenIntro("sync");
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
+  useEffect(() => {
+    if (!showKeySyncOption) {
+      setKeySyncOptInState(false);
+      setKeySyncLoading(false);
+      return;
+    }
+    let active = true;
+    setKeySyncLoading(true);
+    getKeySyncOptIn()
+      .then((enabled) => {
+        if (active) setKeySyncOptInState(enabled);
+      })
+      .finally(() => {
+        if (active) setKeySyncLoading(false);
+      });
+    const unsubscribe = subscribeKeySyncOptIn((enabled) => {
+      if (active) setKeySyncOptInState(enabled);
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [showKeySyncOption]);
+
   const haptic = () => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
+
+  const handleToggleKeySyncOptIn = useCallback(async (nextValue: boolean) => {
+    if (keySyncSaving || keySyncLoading) return;
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    soundManager.play("tap");
+    const previousValue = keySyncOptIn;
+    setKeySyncOptInState(nextValue);
+    setKeySyncSaving(true);
+    try {
+      const saved = await setKeySyncOptIn(nextValue);
+      setKeySyncOptInState(saved);
+    } catch {
+      setKeySyncOptInState(previousValue);
+      appAlert(
+        "Erro",
+        "Não foi possível salvar a preferência de sincronização das chaves neste aparelho.",
+      );
+    } finally {
+      setKeySyncSaving(false);
+    }
+  }, [keySyncLoading, keySyncOptIn, keySyncSaving]);
 
   const handleCreateGroup = useCallback(async () => {
     haptic();
@@ -587,6 +645,40 @@ function SyncScreen() {
               </>
             )}
 
+            {showKeySyncOption && (
+              <View
+                testID="key-sync-opt-in-card"
+                style={[
+                  s.keySyncCard,
+                  {
+                    backgroundColor: theme.cardBackground,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                <View style={s.keySyncRow}>
+                  <View style={s.keySyncTextWrap}>
+                    <Text style={[s.keySyncTitle, { color: theme.textColor }]}>
+                      Sincronizar minhas chaves de IA e OCR entre meus aparelhos
+                    </Text>
+                    <Text style={[s.keySyncDesc, { color: theme.secondaryText }]}>
+                      Quando ativado, suas chaves de API de IA e OCR viajam cifradas pelos relays públicos do Grupo seguro. Eventos já publicados não podem ser apagados dos relays. Esta preferência vale apenas para este aparelho.
+                    </Text>
+                  </View>
+                  <Switch
+                    testID="key-sync-opt-in-switch"
+                    accessibilityLabel="Sincronizar minhas chaves de IA e OCR entre meus aparelhos"
+                    accessibilityHint="Ativa ou desativa a sincronização cifrada das suas chaves de IA e OCR neste aparelho."
+                    value={keySyncOptIn}
+                    onValueChange={handleToggleKeySyncOptIn}
+                    trackColor={{ false: theme.border, true: theme.primaryColor }}
+                    thumbColor={Platform.OS === "ios" ? undefined : keySyncOptIn ? "#fff" : "#f4f3f4"}
+                    disabled={keySyncSaving || keySyncLoading}
+                  />
+                </View>
+              </View>
+            )}
+
             <View style={{ marginTop: 4 }}>
               <TButton variant="outline" borderColor={theme.border} color={theme.textColor} icon={<Feather name="log-out" size={16} color={theme.danger} />} onPress={handleLeaveGroup}>
                 Sair do grupo
@@ -818,6 +910,30 @@ const s = StyleSheet.create({
     marginBottom: 4,
   },
   cutoffDesc: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  keySyncCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+  },
+  keySyncRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  keySyncTextWrap: {
+    flex: 1,
+    gap: 6,
+  },
+  keySyncTitle: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  keySyncDesc: {
     fontFamily: "DMSans_400Regular",
     fontSize: 12,
     lineHeight: 18,
