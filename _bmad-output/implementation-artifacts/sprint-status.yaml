@@ -133,7 +133,7 @@ development_status:
   9-4-sincronizar-a-configuração-de-ia-e-os-preços-personalizados: done
   9-5-sincronizar-a-configuração-do-ocr-sem-a-chave: done
   9-6-sincronizar-a-preferência-do-backup-no-drive: done
-  9-7-barrar-por-teste-dado-do-aparelho-no-sync: backlog
+  9-7-barrar-por-teste-dado-do-aparelho-no-sync: done
   epic-9-retrospective: optional
 
   epic-10: backlog
