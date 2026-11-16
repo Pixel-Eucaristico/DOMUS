@@ -304,7 +304,7 @@ export default function HomeScreen() {
           s.scrollContent,
           {
             paddingTop: 16,
-            paddingBottom: insets.bottom + webBottomInset + 100,
+            paddingBottom: insets.bottom + webBottomInset + 164,
           },
         ]}
         showsVerticalScrollIndicator={false}

@@ -16,6 +16,7 @@ import { soundManager } from "@/src/services/SoundManager";
 import { InstallmentBadge } from "@/src/components/transaction/InstallmentBadge";
 import { updateTransactionEvent } from "@packages/domain/src/transactions";
 import { TCard, TText } from "@/src/components/tamagui";
+import { formatDatePtBr } from "@/src/utils/formatDate";
 
 function formatCurrency(v: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -306,16 +307,16 @@ export default function TransactionsScreen() {
                       ) : null}
                     </View>
                     <View style={s.txSub}>
-                      {!accountId && (
-                        <TText variant="caption" secondary>{acc?.name || "Conta"} • </TText>
+                      {!accountId && tx.type !== "transfer" && (
+                        <TText variant="caption" secondary flexShrink={1}>{acc?.name || "Conta"} •</TText>
                       )}
                       {tx.type === "transfer" && (
-                        <TText variant="caption" secondary>
+                        <TText variant="caption" secondary flexShrink={1}>
                           {acc?.name} → {targetAcc?.name} •
                         </TText>
                       )}
-                      <TText variant="caption" secondary>
-                        {tx.date.split("-").reverse().join("/")}
+                      <TText variant="caption" secondary flexShrink={1}>
+                        {formatDatePtBr(tx.date)}
                       </TText>
                     </View>
                   </View>
@@ -421,10 +422,10 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center"
   },
-  txMain: { flex: 1 },
+  txMain: { flex: 1, minWidth: 0 },
   txDescRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
-  txSub: { flexDirection: "row", alignItems: "center", marginTop: 4 },
-  txRight: { alignItems: "flex-end", gap: 4 },
+  txSub: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", columnGap: 4, rowGap: 2, marginTop: 4 },
+  txRight: { alignItems: "flex-end", gap: 4, flexShrink: 0 },
   pendingBadge: {
     backgroundColor: "#FEF3C7",
     borderRadius: 6,

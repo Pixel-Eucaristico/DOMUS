@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { soundManager } from "@/src/services/SoundManager";
 import { InstallmentBadge } from "@/src/components/transaction/InstallmentBadge";
 import { formatCurrency } from "@/src/utils/formatCurrency";
+import { formatDatePtBr } from "@/src/utils/formatDate";
 import Animated, { SlideInRight, Layout } from "react-native-reanimated";
 import { useDemoMode } from "@/src/context/DemoModeProvider";
 import { TText , TCard } from "@/src/components/tamagui";
@@ -90,7 +91,7 @@ export function RecentTransactionsList({ recentTxs, txCount, categories, theme }
                     </View>
                     <View style={s.txInfo}>
                       <View style={s.txDescRow}>
-                        <TText variant="body" fontWeight="500" color={theme.textColor}>
+                        <TText variant="body" fontWeight="500" color={theme.textColor} flexShrink={1}>
                           {tx.description || cat?.name || tx.type}
                         </TText>
                         {tx.installmentInfo && (
@@ -109,10 +110,10 @@ export function RecentTransactionsList({ recentTxs, txCount, categories, theme }
                         )}
                       </View>
                       <TText variant="caption" color={theme.secondaryText} marginTop={2}>
-                        {tx.date}
+                        {formatDatePtBr(tx.date)}
                       </TText>
                     </View>
-                    <TText variant="body" fontWeight="600" color={isExpense ? theme.danger : theme.success}>
+                    <TText variant="body" fontWeight="600" color={isExpense ? theme.danger : theme.success} flexShrink={0}>
                       {isExpense ? "-" : "+"}
                       {formatCurrency(tx.amount)}
                     </TText>
@@ -156,8 +157,8 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  txInfo: { flex: 1 },
-  txDescRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  txInfo: { flex: 1, minWidth: 0 },
+  txDescRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   pendingBadge: {
     backgroundColor: "#FEF3C7",
     borderRadius: 6,

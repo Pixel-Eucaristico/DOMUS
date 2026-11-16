@@ -76,14 +76,14 @@ export function GamificationWidget({
                 recentAchievements.map((ach, idx) => {
                   const fullAch = achievementPool.find(a => a.id === ach.id);
                   return (
-                    <View key={ach.id} style={{ alignItems: 'center', gap: 2 }}>
+                    <View key={ach.id} style={{ flex: 1, minWidth: 0, alignItems: "center", gap: 2 }}>
                       <Animated.View
                         entering={FadeIn.delay(idx * 150)}
                         style={[s.miniTrophy, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
                       >
                         <LottieTrophy trophyId={ach.id} type="achievement" rarity={ach.rarity} size={22} isStatic />
                       </Animated.View>
-                      <Text style={{ fontSize: 8, color: theme.secondaryText, width: 42, textAlign: 'center' }} numberOfLines={1}>
+                      <Text style={{ fontSize: 9, lineHeight: 12, color: theme.secondaryText, textAlign: "center" }} numberOfLines={2}>
                         {fullAch?.name || '---'}
                       </Text>
                     </View>
@@ -146,7 +146,7 @@ const s = StyleSheet.create({
     marginBottom: 8,
   },
   levelCircleText: { fontFamily: 'DMSans_800ExtraBold', fontSize: 20 },
-  recentAchsColumn: { flex: 1, justifyContent: 'space-between' },
+  recentAchsColumn: { flex: 1, minWidth: 0, justifyContent: 'space-between' },
   miniLabel: { fontFamily: 'DMSans_700Bold', fontSize: 9, letterSpacing: 0.5, opacity: 0.6 },
   achsRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
   miniTrophy: {
