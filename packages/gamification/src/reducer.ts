@@ -30,6 +30,7 @@ export function createInitialGamificationState(): GamificationState {
     completionCounts: {},
     processedEventIds: [],
     processedTransactionIds: [],
+    reversedTransactionIds: [],
     xpRecoveryApplied: false,
   };
 }
@@ -40,19 +41,22 @@ export function gamificationReducer(
 ): GamificationState {
   const processedEventIds = state.processedEventIds ?? [];
   const processedTransactionIds = state.processedTransactionIds ?? [];
+  const reversedTransactionIds = state.reversedTransactionIds ?? [];
 
   // Idempotência estrita por event.id
   if (event.id && processedEventIds.includes(event.id)) {
     return state;
   }
 
-  // Idempotência por transactionId em XP_GAINED
-  if (
-    event.type === GAMIFICATION_EVENTS.XP_GAINED &&
-    event.payload.transactionId &&
-    processedTransactionIds.includes(event.payload.transactionId)
-  ) {
-    return state;
+  // Idempotência por transactionId em XP_GAINED:
+  // - amount >= 0: concessão única por transactionId (processedTransactionIds)
+  // - amount < 0: estorno único por transactionId (reversedTransactionIds)
+  if (event.type === GAMIFICATION_EVENTS.XP_GAINED && event.payload.transactionId) {
+    const isReversal = event.payload.amount < 0;
+    const seenIds = isReversal ? reversedTransactionIds : processedTransactionIds;
+    if (seenIds.includes(event.payload.transactionId)) {
+      return state;
+    }
   }
 
   // Story 7.5: a recuperação de XP vale uma vez só, mesmo com ids diferentes
@@ -69,10 +73,16 @@ export function gamificationReducer(
   switch (event.type) {
     case GAMIFICATION_EVENTS.XP_GAINED: {
       const { amount, source, transactionId } = event.payload;
+      const isReversal = amount < 0;
       const nextTotalXp = Math.max(0, state.totalXp + amount);
-      const nextTransactionIds = transactionId
-        ? [...processedTransactionIds.slice(-999), transactionId]
-        : processedTransactionIds;
+      const nextTransactionIds =
+        transactionId && !isReversal
+          ? [...processedTransactionIds.slice(-999), transactionId]
+          : processedTransactionIds;
+      const nextReversedTransactionIds =
+        transactionId && isReversal
+          ? [...reversedTransactionIds.slice(-999), transactionId]
+          : reversedTransactionIds;
 
       return {
         ...state,
@@ -81,10 +91,16 @@ export function gamificationReducer(
         level: calculateLevel(nextTotalXp),
         xpHistory: [
           ...state.xpHistory,
-          { amount, source, timestamp: event.timestamp },
+          {
+            amount,
+            source,
+            timestamp: event.timestamp,
+            ...(transactionId ? { transactionId } : {}),
+          },
         ],
         processedEventIds: nextProcessedEventIds,
         processedTransactionIds: nextTransactionIds,
+        reversedTransactionIds: nextReversedTransactionIds,
         xpRecoveryApplied: state.xpRecoveryApplied || isRecovery,
       };
     }

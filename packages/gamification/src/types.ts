@@ -155,7 +155,12 @@ export interface GamificationState {
   currentStreak: number;
   longestStreak: number;
   lastActiveDate: string;
-  xpHistory: Array<{ amount: number; source: XpSource; timestamp: number }>;
+  xpHistory: Array<{
+    amount: number;
+    source: XpSource;
+    timestamp: number;
+    transactionId?: string;
+  }>;
   unlockedAchievements: UnlockedAchievement[];
   completedMonthlyTrophies: CompletedMonthlyTrophy[];
   selectedSeasonalTrophies: SelectedSeasonalTrophy[];
@@ -163,6 +168,7 @@ export interface GamificationState {
   completionCounts: Record<string, number>;
   processedEventIds?: string[];
   processedTransactionIds?: string[];
+  reversedTransactionIds?: string[];
   xpRecoveryApplied?: boolean;
 }
 

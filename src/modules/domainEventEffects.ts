@@ -158,14 +158,15 @@ export function computeDomainEventEffects(
   const todayPrefix = formatLocalDate(now);
 
   // XP e Anti-farm:
-  // 1. TRANSACTION_DELETED nunca desconta XP (não pune correção de erros do usuário).
+  // 1. TRANSACTION_DELETED estorna exatamente o XP concedido àquela transação (via `xpHistory.transactionId`).
+  //    Transações legadas sem `transactionId` em `xpHistory` mantêm soma 0 (sem dedução).
   // 2. TRANSACTION_CREATED concede XP apenas até a cota diária de 5 registros de hábito.
   // 3. Cadastros além da cota salvam normalmente sem XP adicional.
   // 4. Transação pendente não paga XP/streak; a confirmação paga (idempotente por transactionId).
   let totalXpGain = 0;
   if (reward.awardXp) {
     const todayXpEntries = (currentGamification.xpHistory ?? []).filter((entry) => {
-      if (entry.source !== "transaction_logged") return false;
+      if (entry.source !== "transaction_logged" || entry.amount <= 0) return false;
       return formatLocalDate(new Date(entry.timestamp)) === todayPrefix;
     });
 
@@ -182,9 +183,20 @@ export function computeDomainEventEffects(
       const budgetBonus = calculateBudgetAdherenceXp(nextBudget, prevBudget);
       totalXpGain = Math.max(0, baseXp + budgetBonus);
     }
+  } else if (event.type === EVENT_TYPES.TRANSACTION_DELETED) {
+    const txId = event.payload.id;
+    const paidForTx = txId
+      ? (currentGamification.xpHistory ?? []).reduce(
+          (sum, entry) => (entry.transactionId === txId ? sum + entry.amount : sum),
+          0,
+        )
+      : 0;
+    if (paidForTx > 0) {
+      totalXpGain = -paidForTx;
+    }
   }
 
-  if (totalXpGain > 0) {
+  if (totalXpGain !== 0) {
     const xpPayload = {
       ...createXpPayload("transaction_logged", totalXpGain),
       transactionId: event.payload.id,

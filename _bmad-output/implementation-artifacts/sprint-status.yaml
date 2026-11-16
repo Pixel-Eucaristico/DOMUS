@@ -101,7 +101,7 @@ development_status:
   6-5-barrar-por-teste-novo-segredo-em-asyncstorage: done
   epic-6-retrospective: done
 
-  epic-7: in-progress
+  epic-7: done
   7-1-dar-id-determinístico-às-conquistas-e-deduplicar-no-reducer: done
   7-2-rodar-os-efeitos-só-depois-do-primeiro-pull: done
   7-3-criar-o-aporte-pendente-uma-vez-por-período: done
@@ -111,7 +111,7 @@ development_status:
   7-7-emitir-cada-conquista-uma-vez-num-parcelamento: done
   7-8-derivar-o-nível-do-log: done
   7-9-derivar-o-streak-do-log: done
-  7-10-criar-e-excluir-uma-transação-deixa-o-xp-igual: backlog
+  7-10-criar-e-excluir-uma-transação-deixa-o-xp-igual: done
   epic-7-retrospective: optional
 
   epic-8: backlog

@@ -190,12 +190,15 @@ export function useSeasonData(params: UseSeasonDataParams) {
     } else if (series.id === "streak") {
       monthlyValue = gamification.currentStreak;
     } else if (series.id === "level") {
-      monthlyValue = (gamification.xpHistory ?? [])
-        .filter((h: any) => {
-          const d = new Date(h.timestamp);
-          return d.getMonth() === nowD.getMonth() && d.getFullYear() === nowD.getFullYear();
-        })
-        .reduce((s: number, h: any) => s + Math.max(0, h.amount), 0);
+      monthlyValue = Math.max(
+        0,
+        (gamification.xpHistory ?? [])
+          .filter((h: any) => {
+            const d = new Date(h.timestamp);
+            return d.getMonth() === nowD.getMonth() && d.getFullYear() === nowD.getFullYear();
+          })
+          .reduce((s: number, h: any) => s + h.amount, 0),
+      );
     }
 
     return { series, currentValue, nextTarget, progress, xpEarned, xpPossible, monthlyValue };
