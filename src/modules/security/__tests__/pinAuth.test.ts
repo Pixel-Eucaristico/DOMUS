@@ -259,4 +259,67 @@ describe("PinAuthService — migração do formato antigo (D8)", () => {
     await PinAuthService.verifyPin("1234", makeSettings({ pinHash, pinSalt: salt }));
     expect(save.mock.calls.at(-1)![0].pinSalt).toBe(salt);
   });
+
+  it("zera tentativas anteriores após expiração do lockout em vez de rebloquear no 1º erro", async () => {
+    const save = vi.mocked(SecurityService.saveSettings);
+    save.mockClear();
+    const salt = PinAuthService.generateSalt();
+    const pinHash = await PinAuthService.hashPin("1234", salt);
+    const result = await PinAuthService.verifyPin(
+      "9999",
+      makeSettings({
+        pinHash,
+        pinSalt: salt,
+        failedAttempts: MAX_PIN_ATTEMPTS,
+        lockedUntil: Date.now() - 1000,
+      }),
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.reason).toBe("wrong_pin");
+      expect(result.remainingAttempts).toBe(MAX_PIN_ATTEMPTS - 1);
+    }
+    const saved = save.mock.calls.at(-1)![0];
+    expect(saved.failedAttempts).toBe(1);
+    expect(saved.lockedUntil).toBeNull();
+  });
+
+  it("rejeita iterações acima do teto ou segmentos extras em storedIterations", () => {
+    const fakeHex = "a".repeat(64);
+    expect(PinAuthService.storedIterations(`pbkdf2-sha256$99999999$${fakeHex}`)).toBeNull();
+    expect(PinAuthService.storedIterations(`pbkdf2-sha256$30000$${fakeHex}$extra`)).toBeNull();
+    expect(PinAuthService.storedIterations(`pbkdf2-sha256$30000$short`)).toBeNull();
+  });
+
+  it("retorna not_configured quando pinHash ou pinSalt está ausente", async () => {
+    const result = await PinAuthService.verifyPin("1234", makeSettings({ pinHash: null, pinSalt: null }));
+    expect(result).toEqual({ success: false, reason: "not_configured" });
+  });
+});
+
+describe("PinAuthService.setupPin", () => {
+  it("persiste hash PBKDF2-SHA256, salt de 32 hex e zera tentativas/lockout", async () => {
+    const save = vi.mocked(SecurityService.saveSettings);
+    save.mockClear();
+    const updated = await PinAuthService.setupPin(
+      "1234",
+      makeSettings({ failedAttempts: 2, lockedUntil: Date.now() + 10_000 }),
+    );
+
+    expect(updated.pinSalt).toMatch(/^[0-9a-f]{32}$/);
+    expect(updated.pinHash).toMatch(/^pbkdf2-sha256\$30000\$[0-9a-f]{64}$/);
+    expect(updated.failedAttempts).toBe(0);
+    expect(updated.lockedUntil).toBeNull();
+    expect(save).toHaveBeenCalledWith(updated);
+
+    const verified = await PinAuthService.verifyPin("1234", updated);
+    expect(verified).toEqual({ success: true });
+  });
+
+  it("rejeita PIN vazio ou fora do formato de 4 a 8 dígitos", async () => {
+    await expect(PinAuthService.setupPin("", makeSettings())).rejects.toThrow("Formato de PIN inválido");
+    await expect(PinAuthService.setupPin("12", makeSettings())).rejects.toThrow("Formato de PIN inválido");
+    await expect(PinAuthService.setupPin("abcd", makeSettings())).rejects.toThrow("Formato de PIN inválido");
+  });
 });
