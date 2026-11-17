@@ -478,7 +478,7 @@ export default function AIChatScreen() {
 
   // ─── GiftedChat: Bubble with Markdown + Listen + Copy ─────────────────
   const [glossaryTip, setGlossaryTip] = useState<GlossaryEntry | null>(null);
-  const tooltipsEnabled = settings.tooltipsEnabled ?? true;
+  const tooltipsEnabled = !settingsLoading && (settings.tooltipsEnabled ?? true);
 
   const renderBubble = useCallback(
     (props: Readonly<BubbleProps<IMessage>>) => {
@@ -545,12 +545,12 @@ export default function AIChatScreen() {
                           key={term}
                           onPress={() => { soundManager.play("tap"); setGlossaryTip(FINANCIAL_GLOSSARY[term]); }}
                           style={[styles.glossaryChip, { borderColor: theme.border }]}
-                          hitSlop={{ top: 12, bottom: 12, left: 4, right: 4 }}
+                          hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
                           accessibilityRole="button"
                           accessibilityLabel={`O que é ${FINANCIAL_GLOSSARY[term].title}?`}
                         >
                           <Feather name="info" size={11} color={theme.primaryColor} />
-                          <Text style={{ color: theme.primaryColor, fontSize: 11 }}>O que é {FINANCIAL_GLOSSARY[term].title}?</Text>
+                          <Text style={{ color: theme.primaryColor, fontSize: 11, flexShrink: 1 }}>O que é {FINANCIAL_GLOSSARY[term].title}?</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -931,7 +931,8 @@ const styles = StyleSheet.create({
   glossaryRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
+    rowGap: 10,
+    columnGap: 6,
     marginTop: 8,
   },
   glossaryChip: {

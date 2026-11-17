@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Pressable } from "react-native";
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Pressable, ScrollView } from "react-native";
 import { TCard } from "@/src/components/tamagui";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
@@ -19,18 +19,40 @@ export function FinancialTooltip({ visible, title, content, onClose }: Financial
   const { theme } = useAppState();
 
   return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+    <Modal
+      transparent
+      visible={visible}
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent
+    >
       <Pressable style={styles.overlay} onPress={onClose}>
-        <TCard padding={20} gap={10} maxWidth={340} width="100%" backgroundColor={theme.cardBackground} borderColor={theme.border}>
-          <View style={styles.header}>
-            <Feather name="info" size={16} color={theme.primaryColor} />
-            <Text style={[styles.title, { color: theme.textColor }]}>{title}</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel="Fechar">
-              <Feather name="x" size={16} color={theme.secondaryText} />
-            </TouchableOpacity>
-          </View>
-          <Text style={[styles.content, { color: theme.secondaryText }]}>{content}</Text>
-        </TCard>
+        <View
+          onStartShouldSetResponder={() => true}
+          accessible
+          accessibilityViewIsModal
+          style={styles.cardWrap}
+        >
+          <TCard padding={20} gap={10} maxWidth={340} width="100%" backgroundColor={theme.cardBackground} borderColor={theme.border}>
+            <View style={styles.header}>
+              <Feather name="info" size={16} color={theme.primaryColor} />
+              <Text style={[styles.title, { color: theme.textColor }]}>{title}</Text>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar"
+              >
+                <Feather name="x" size={16} color={theme.secondaryText} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView bounces={false} style={styles.contentScroll}>
+              <Text style={[styles.content, { color: theme.textColor }]}>{content}</Text>
+            </ScrollView>
+          </TCard>
+        </View>
       </Pressable>
     </Modal>
   );
@@ -44,6 +66,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.4)",
     padding: 32,
   },
+  cardWrap: {
+    width: "100%",
+    maxWidth: 340,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -56,6 +82,9 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: 4,
+  },
+  contentScroll: {
+    maxHeight: 320,
   },
   content: {
     fontSize: 14,

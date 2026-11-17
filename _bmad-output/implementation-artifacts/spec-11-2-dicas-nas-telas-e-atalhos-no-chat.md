@@ -23,7 +23,7 @@ context:
 ## Implementation Notes
 
 - `app/(tabs)/index.tsx`: `InfoTip term="50/30/20"` ao lado do título do orçamento.
-- `src/components/transaction/TransactionBottomSheet.tsx`: `InfoTip term="limite_cdb"` ao lado de "É dividendo/rendimento".
+- `src/components/transaction/TransactionBottomSheet.tsx`: `InfoTip` com `title` e `content` próprios ao lado de "É dividendo/rendimento" (explicando o interruptor).
 - `app/ai-chat.tsx`: sob cada resposta da IA, até 3 atalhos "O que é …?" (`detectGlossaryTerms`, limite padrão 3) que abrem o `FinancialTooltip`; só com `settings.tooltipsEnabled ?? true`.
 - Conferência visual (web, Playwright): o balão do 50/30/20 abre ancorado abaixo do ícone com a seta no ícone e fecha ao tocar fora. Os atalhos do chat não foram vistos na tela (exigem chave de IA).
 - `npx tsc --noEmit`: 0 erros; `eslint` nos três arquivos: limpo.

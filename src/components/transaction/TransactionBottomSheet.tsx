@@ -443,7 +443,7 @@ export function TransactionBottomSheet({ visible, onClose, theme, initialType }:
             domain.accounts[form.selectedAccountId]?.linkedCreditCardId && (
               <View style={[s.row, { alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }]}>
                 <View style={s.labelWithTip}>
-                  <Text style={[s.label, { color: theme.secondaryText, marginBottom: 0 }]}>É dividendo/rendimento</Text>
+                  <Text style={[s.label, { color: theme.secondaryText, marginBottom: 0, flexShrink: 1 }]}>É dividendo/rendimento</Text>
                   <InfoTip
                     size={13}
                     title="Dividendo ou rendimento"

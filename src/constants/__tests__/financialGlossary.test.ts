@@ -1,5 +1,9 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, it, expect } from "vitest";
 import { detectGlossaryTerms, glossaryShortcuts, FINANCIAL_GLOSSARY } from "../financialGlossary";
+
+const ROOT_DIR = path.resolve(__dirname, "../../..");
 
 describe("detectGlossaryTerms", () => {
   it("encontra termos com acentos e caixa variados", () => {
@@ -60,6 +64,33 @@ describe("glossaryShortcuts", () => {
 
   it("nada quando a resposta não cita termo do glossário", () => {
     expect(glossaryShortcuts("Olá! Como posso ajudar?", { isUser: false, enabled: true })).toEqual([]);
+  });
+});
+
+describe("Story 11.2 UI & tooltip contracts", () => {
+  it("index.tsx exibe InfoTip 50/30/20 e TransactionBottomSheet exibe InfoTip de dividendo", () => {
+    const indexSrc = fs.readFileSync(path.join(ROOT_DIR, "app/(tabs)/index.tsx"), "utf8");
+    const sheetSrc = fs.readFileSync(path.join(ROOT_DIR, "src/components/transaction/TransactionBottomSheet.tsx"), "utf8");
+
+    expect(indexSrc).toContain('<InfoTip term="50/30/20" />');
+    expect(sheetSrc).toContain("É dividendo/rendimento");
+    expect(sheetSrc).toContain("<InfoTip");
+    expect(sheetSrc).toContain("flexShrink: 1");
+  });
+
+  it("ai-chat.tsx e FinancialTooltip.tsx mantêm fiação de tooltips, responder e scroll", () => {
+    const chatSrc = fs.readFileSync(path.join(ROOT_DIR, "app/ai-chat.tsx"), "utf8");
+    const tooltipSrc = fs.readFileSync(path.join(ROOT_DIR, "src/components/ai/FinancialTooltip.tsx"), "utf8");
+
+    expect(chatSrc).toContain("glossaryShortcuts(msg.text, { isUser, enabled: tooltipsEnabled })");
+    expect(chatSrc).toContain("!settingsLoading && (settings.tooltipsEnabled ?? true)");
+    expect(chatSrc).toContain("<FinancialTooltip");
+
+    expect(tooltipSrc).toContain("statusBarTranslucent");
+    expect(tooltipSrc).toContain("navigationBarTranslucent");
+    expect(tooltipSrc).toContain("onStartShouldSetResponder");
+    expect(tooltipSrc).toContain("accessibilityViewIsModal");
+    expect(tooltipSrc).toContain("ScrollView");
   });
 });
 
