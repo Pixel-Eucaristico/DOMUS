@@ -172,6 +172,7 @@ export function useBackupRestore({ getAllEvents, restoreFromBackup, deviceId }: 
 
   // Import
   const handlePickFile = useCallback(async () => {
+    if (importBusy.current) return;
     const seq = ++pickSeqRef.current;
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: "*/*", copyToCacheDirectory: true });
@@ -278,6 +279,12 @@ export function useBackupRestore({ getAllEvents, restoreFromBackup, deviceId }: 
     setImportStatus({ type: "idle" });
   }, []);
 
+  const cancelConfirmRestore = useCallback(() => {
+    setShowConfirmModal(false);
+    setPendingPayload(null);
+    setPendingSource(null);
+  }, []);
+
   // Auto-backup restore
   const handleRestoreAutoBackup = useCallback(async () => {
     if (importBusy.current || !autoKey) return;
@@ -345,5 +352,6 @@ export function useBackupRestore({ getAllEvents, restoreFromBackup, deviceId }: 
     setShowConfirmModal,
     pendingPayload,
     setPendingPayload,
+    cancelConfirmRestore,
   };
 }

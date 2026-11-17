@@ -22,7 +22,7 @@ context:
 
 ## Implementation Notes
 
-- `src/utils/confirmAsync.ts`: novo helper (Alert no nativo com Cancelar/confirmação destrutiva e `onDismiss` como cancelamento; `window.confirm` na web).
+- `src/utils/confirmAsync.ts`: novo helper (Alert no nativo com Cancelar/confirmação destrutiva e `onDismiss` como cancelamento; `window.confirm` na web). *(Atualizado na revisão `4b12026`: passou a delegar para `appConfirm` em todas as plataformas, e `confirmedExport.ts` extraiu `executePlainExportFlow` com cobertura em `confirmedExport.test.ts`.)*
 - `src/hooks/useBackupRestore.ts`: `handleExportPlain` pergunta antes; cancelado, retorna sem exportar nem mudar o status.
 - Sem teste automatizado: depende de `Alert`/`Platform` (`react-native` não carrega no vitest, AGENTS.md).
 - `npx tsc --noEmit`: 0 erros; `eslint` nos arquivos: limpo.

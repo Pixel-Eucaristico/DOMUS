@@ -187,7 +187,7 @@ export default function BackupScreen() {
                 <View style={[s.filePicker, { borderColor: bk.selectedFileUri ? "#10B981" : theme.border, backgroundColor: theme.background }]}>
                   <TouchableOpacity
                     style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10 }}
-                    disabled={isLoading(bk.importStatus)}
+                    disabled={isLoading(bk.importStatus) || isLoading(bk.autoRestoreStatus) || bk.showConfirmModal}
                     onPress={() => { soundManager.play("tap"); bk.handlePickFile(); }}
                     activeOpacity={0.7}
                   >
@@ -198,7 +198,7 @@ export default function BackupScreen() {
                   </TouchableOpacity>
                   {bk.selectedFileUri && (
                     <TouchableOpacity
-                      disabled={isLoading(bk.importStatus)}
+                      disabled={isLoading(bk.importStatus) || isLoading(bk.autoRestoreStatus) || bk.showConfirmModal}
                       onPress={() => { soundManager.play("tap"); bk.clearSelectedFile(); }}
                       hitSlop={12}
                     >
@@ -346,9 +346,9 @@ export default function BackupScreen() {
                     style={[s.actionBtn, { backgroundColor: "#4285F4" }, drive.isSyncing && s.actionBtnDisabled]}
                     onPress={async () => {
                       soundManager.play("pop");
-                      const filePath = autoBackupFilePath();
-                      const { FileSystemService } = await import("@/src/modules/backup/infrastructure/FileSystemService");
                       try {
+                        const filePath = autoBackupFilePath();
+                        const { FileSystemService } = await import("@/src/modules/backup/infrastructure/FileSystemService");
                         const content = await FileSystemService.read(filePath);
                         await drive.uploadContent(content);
                       } catch {
@@ -418,7 +418,7 @@ export default function BackupScreen() {
         preview={bk.pendingPayload?.preview ?? null}
         theme={theme}
         onConfirm={() => { soundManager.play("pop"); bk.handleConfirmRestore(); }}
-        onCancel={() => { soundManager.play("tap"); bk.setShowConfirmModal(false); bk.setPendingPayload(null); }}
+        onCancel={() => { soundManager.play("tap"); bk.cancelConfirmRestore(); }}
       />
       <ScreenIntroModal
         visible={showIntro}

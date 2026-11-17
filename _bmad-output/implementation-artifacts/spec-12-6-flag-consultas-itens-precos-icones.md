@@ -73,7 +73,7 @@ context:
 
 - Flag em `src/modules/privacy/externalLookups.ts` (`domus_external_lookups_v1`), hook `useExternalLookups`; leitura na raiz (`ExternalLookupsPreloader`) antes da introdução gravar `domus_welcome_done_v1`; aviso em `ExternalLookupsNoticeHost` dentro do `SecurityGuard`, com `window.confirm` na web.
 - Favicon movido para `src/components/wishlist/storeIcon.ts` (`resolveStoreIconUrl`, puro e testado) para cobrir a linha da matriz do ícone.
-- Linhas da matriz da lista de desejos (sem scraping com a flag desligada) ficam sem teste automatizado: não há infraestrutura de teste de hook (D21); conferir no aparelho.
+- Linhas da matriz da lista de desejos (sem scraping com a flag desligada) ficam sem teste automatizado: não há infraestrutura de teste de hook (D21); conferir no aparelho. *(Atualizado na revisão `d7da7ea`: a fila foi extraída para `src/modules/wishlist/application/priceRefreshQueue.ts` com testes em `priceRefreshQueue.test.ts`, e o aviso único em `app/_layout.tsx` usa `appConfirm` via `confirmAsync`.)*
 - Se a flag carregar antes dos timestamps de 24 h, o reenfileiramento ao ligar espera a próxima rolagem, como já acontecia antes.
 
 ## Spec Change Log

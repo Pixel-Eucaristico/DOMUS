@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-17-2026 18:55
+last_updated: 11-17-2026 19:17
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -397,26 +397,26 @@ action_items:
     action: "Mover autoBackupFilePath() para dentro do try em app/backup.tsx:349 e
       exibir appAlert em erro de externalLookups.setEnabled em app/about.tsx:146"
     owner: "domus-dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-12-retro-2026-11-17.md"
   - id: "epic-12-retro-item-32-proteger-handlepickfile-contra-corrida-c"
     epic: 12
     action: "Proteger handlePickFile contra corrida com handleRestoreAutoBackup/ConfirmRestoreModal
       e limpar pendingSource em useBackupRestore.ts e app/backup.tsx"
     owner: "domus-dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-12-retro-2026-11-17.md"
   - id: "epic-12-retro-item-33-atualizar-origem-de-price_refresh_timest"
     epic: 12
     action: "Atualizar origem de @price_refresh_timestamps em docs/inventario-dados.md:60
       e conciliar notas antigas em spec-12-2/12-5/12-6"
     owner: "domus-light"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-12-retro-2026-11-17.md"
   - id: "epic-12-retro-item-34-extrair-store-reativo-compartilhado-keyv"
     epic: 12
     action: "Extrair store reativo compartilhado (KeyValueStorage + cacheEpoch + writeTail)
       para unificar adConsent.ts e externalLookups.ts"
     owner: "domus-architect"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-12-retro-2026-11-17.md"

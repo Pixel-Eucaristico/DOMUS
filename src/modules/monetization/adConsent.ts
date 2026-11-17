@@ -9,20 +9,22 @@
 // testes não dependam do módulo nativo.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  createCachedStorageFlag,
+  type CachedReadResult,
+  type KeyValueStorage,
+} from "@/src/modules/privacy/cachedStorageFlag";
+
+export type { KeyValueStorage };
 
 export const PERSONALIZED_ADS_KEY = "domus_personalized_ads_v1";
-
-export interface KeyValueStorage {
-  getItem(key: string): Promise<string | null>;
-  setItem(key: string, value: string): Promise<void>;
-  removeItem?(key: string): Promise<void>;
-}
 
 export interface AdRequestOptions {
   requestNonPersonalizedAdsOnly: boolean;
 }
 
 const defaultStorage: KeyValueStorage = AsyncStorage;
+const flagStore = createCachedStorageFlag<boolean>(defaultStorage);
 
 /** Puro: monta as opções de pedido a partir do consentimento. */
 export function adRequestOptions(consent: boolean): AdRequestOptions {
@@ -46,54 +48,33 @@ export function shouldRequestAd(
   return enabled && loaded && !isWebEnv;
 }
 
-// ─── Cache em memória + assinantes (vários anúncios leem o mesmo valor) ─────
-
-let cached: boolean | null = null;
-let pending: Promise<boolean> | null = null;
-let cacheEpoch = 0;
-let writeTail: Promise<void> | null = null;
-const listeners = new Set<(consent: boolean) => void>();
-
-function publish(next: boolean): void {
-  cached = next;
-  listeners.forEach((l) => {
-    try {
-      l(next);
-    } catch {
-      // Isola falha de um assinante para não quebrar os demais
-    }
-  });
-}
-
 export function subscribePersonalizedAdsConsent(
   listener: (consent: boolean) => void,
 ): () => void {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
+  return flagStore.subscribe(listener);
 }
 
 /** Último valor lido nesta sessão, ou null se ainda não carregou. */
 export function getCachedPersonalizedAdsConsent(): boolean | null {
-  return cached;
+  return flagStore.getCached();
 }
 
 /** Só para testes: esquece o cache e os assinantes. */
 export function resetPersonalizedAdsConsentCache(): void {
-  cacheEpoch += 1;
-  cached = null;
-  pending = null;
-  writeTail = null;
-  listeners.clear();
+  flagStore.reset();
 }
 
-async function readFromStorage(storage: KeyValueStorage): Promise<boolean> {
+async function readFromStorage(
+  storage: KeyValueStorage,
+): Promise<CachedReadResult<boolean>> {
   try {
-    return (await storage.getItem(PERSONALIZED_ADS_KEY)) === "true";
+    return {
+      value: (await storage.getItem(PERSONALIZED_ADS_KEY)) === "true",
+      cacheable: true,
+    };
   } catch {
     // Falha de leitura: trata como sem consentimento
-    return false;
+    return { value: false, cacheable: true };
   }
 }
 
@@ -101,21 +82,7 @@ async function readFromStorage(storage: KeyValueStorage): Promise<boolean> {
 export async function loadPersonalizedAdsConsent(
   storage: KeyValueStorage = defaultStorage,
 ): Promise<boolean> {
-  if (storage !== defaultStorage) return readFromStorage(storage);
-  if (cached !== null) return cached;
-  if (!pending) {
-    const startEpoch = cacheEpoch;
-    pending = readFromStorage(storage).then((v) => {
-      if (cacheEpoch !== startEpoch) {
-        return v;
-      }
-      // Uma gravação feita durante a leitura vence
-      if (cached === null) publish(v);
-      pending = null;
-      return cached ?? v;
-    });
-  }
-  return pending;
+  return flagStore.load(storage, readFromStorage);
 }
 
 async function writeConsentToStorage(
@@ -134,11 +101,11 @@ async function writeConsentToStorage(
       } catch {
         // best-effort
       }
-      if (isDefault) publish(false);
+      if (isDefault) flagStore.publish(false);
     }
     throw err;
   }
-  if (isDefault) publish(consent);
+  if (isDefault) flagStore.publish(consent);
 }
 
 /**
@@ -151,21 +118,9 @@ export async function setPersonalizedAdsConsent(
   storage: KeyValueStorage = defaultStorage,
 ): Promise<void> {
   const isDefault = storage === defaultStorage;
-  if (!isDefault) {
-    return writeConsentToStorage(consent, storage, false);
-  }
-  const prev = writeTail;
-  const run = prev
-    ? prev.then(
-        () => writeConsentToStorage(consent, storage, true),
-        () => writeConsentToStorage(consent, storage, true),
-      )
-    : writeConsentToStorage(consent, storage, true);
-  const tracked = run.catch(() => {}).finally(() => {
-    if (writeTail === tracked) writeTail = null;
-  });
-  writeTail = tracked;
-  return run;
+  return flagStore.enqueueWrite(storage, () =>
+    writeConsentToStorage(consent, storage, isDefault),
+  );
 }
 
 /** Opções de pedido para o próximo anúncio, lendo o consentimento atual. */

@@ -57,6 +57,6 @@ Este documento inventaria e classifica todas as chaves persistidas fora do log d
 | `@domus/vision_ocr_result` | AsyncStorage | `app/ai-chat.tsx`, `app/import-invoice.tsx` | `não sincroniza` | Buffer temporário local para passagem de resultado de OCR por visão entre telas. |
 | `domus_ai_tokens_v1` | SecureStore (`SecureStorageService`) | `src/modules/ai/application/TokenTracker.ts` | `não sincroniza` | Contagem diária local de tokens e caracteres TTS consumidos neste aparelho. |
 | `domus_ai_tokens_monthly_v1` | SecureStore (`SecureStorageService`) | `src/modules/ai/application/TokenTracker.ts` | `não sincroniza` | Contagem mensal local de tokens consumidos neste aparelho. |
-| `@price_refresh_timestamps` | AsyncStorage | `src/hooks/usePriceRefresh.ts` | `não sincroniza` | Cache local de timestamps de atualização de preços da wishlist neste aparelho. |
+| `@price_refresh_timestamps` | AsyncStorage | `src/modules/wishlist/application/priceRefreshQueue.ts` | `não sincroniza` | Cache local de timestamps de atualização de preços da wishlist neste aparelho. |
 | `@domus/siscomex_ncm_cache` | AsyncStorage | `src/services/siscomexCacheService.ts` | `não sincroniza` | Cache local da tabela NCM do Siscomex (~2 MB) para evitar downloads repetidos. |
 | `@domus/siscomex_ncm_updated` | AsyncStorage | `src/services/siscomexCacheService.ts` | `não sincroniza` | Timestamp da última atualização do cache local da tabela NCM do Siscomex. |

@@ -24,7 +24,7 @@ context:
 
 - `git rm src/modules/backup/application/AutoBackupService.ts`: nenhum importador em `src/`, `app/` ou `packages/` (nem no histórico, desde `7d8a27f`), então nenhum aparelho tem as chaves dele e não há migração.
 - Comportamento do app inalterado: `useAutoBackup` continua gravando a cópia diária cifrada no aparelho e só envia ao Drive com o Drive conectado (`GoogleDriveService.isConnected()`).
-- A chave que cifra a cópia (`domus_auto_backup_device_key`) segue em `AsyncStorage` em texto puro; isso é da Story 6.2, revista para uma chave só.
+- A chave que cifra a cópia (`domus_auto_backup_device_key`) segue em `AsyncStorage` em texto puro; isso é da Story 6.2, revista para uma chave só. *(Atualizado pela Story 6.2 / revisão `d96b7c7`: em `deviceBackupKey.ts`, a chave agora é armazenada em `SecureStore` no nativo e `webSecrets` AES-GCM na web, migrando e removendo resíduos do `AsyncStorage`.)*
 - Plano alinhado: Story 12.2 e 6.2 em `epics.md`, nota no FR-28 do PRD, no `epic-12-context.md` e no D11.
 - `npx tsc --noEmit`: 0 erros; `npx vitest run src/modules/backup`: 28 passaram.
 
