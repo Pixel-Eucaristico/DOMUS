@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -36,6 +36,10 @@ export function SupportBanner({ onDismiss }: Props) {
   const [adError, setAdError] = useState(false);
   const { consent, loaded } = usePersonalizedAdsConsent();
 
+  useEffect(() => {
+    setAdError(false);
+  }, [consent, loaded]);
+
   if (Platform.OS === "web") {
     return <AffiliateBanner onDismiss={onDismiss} insets={insets} theme={theme} />;
   }
@@ -59,7 +63,7 @@ export function SupportBanner({ onDismiss }: Props) {
   if (!loaded) return null;
 
   return (
-    <View style={[st.container, { bottom: 0, paddingBottom: insets.bottom, backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+    <View style={[st.container, st.adContainer, { bottom: 0, paddingBottom: insets.bottom, backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
       <BannerAd
         // Remonta ao mudar o consentimento: o próximo pedido segue a escolha atual
         key={consent ? "personalized" : "non-personalized"}
@@ -68,7 +72,13 @@ export function SupportBanner({ onDismiss }: Props) {
         requestOptions={adRequestOptions(consent)}
         onAdFailedToLoad={() => setAdError(true)}
       />
-      <TouchableOpacity onPress={onDismiss} hitSlop={12} style={st.close}>
+      <TouchableOpacity
+        onPress={onDismiss}
+        hitSlop={12}
+        style={st.adClose}
+        accessibilityRole="button"
+        accessibilityLabel="Fechar anúncio"
+      >
         <Feather name="x" size={14} color={theme.secondaryText} />
       </TouchableOpacity>
     </View>
@@ -104,7 +114,13 @@ function AffiliateBanner({ onDismiss, insets, theme }: AffiliateBannerProps) {
       >
         <Text style={[st.pillText, { color: "#333" }]}>Mercado Livre</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={onDismiss} hitSlop={12} style={st.close}>
+      <TouchableOpacity
+        onPress={onDismiss}
+        hitSlop={12}
+        style={st.close}
+        accessibilityRole="button"
+        accessibilityLabel="Fechar anúncio"
+      >
         <Feather name="x" size={14} color={theme.secondaryText} />
       </TouchableOpacity>
     </View>
@@ -122,8 +138,19 @@ const st = StyleSheet.create({
     paddingTop: 6,
     gap: 8,
     borderTopWidth: 1,
-    zIndex: 0,
-    elevation: 0,
+    zIndex: 20,
+    elevation: 6,
+  },
+  adContainer: {
+    justifyContent: "center",
+    paddingHorizontal: 0,
+  },
+  adClose: {
+    position: "absolute",
+    top: 4,
+    right: 6,
+    padding: 4,
+    zIndex: 1,
   },
   label: {
     fontFamily: "DMSans_600SemiBold",

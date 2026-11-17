@@ -26,7 +26,9 @@ export function usePersonalizedAdsConsent(): UsePersonalizedAdsConsentResult {
       .then((c) => {
         if (active) setState(c);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active) setState(false);
+      });
     return () => {
       active = false;
       unsubscribe();

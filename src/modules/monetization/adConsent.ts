@@ -29,15 +29,40 @@ export function adRequestOptions(consent: boolean): AdRequestOptions {
   return { requestNonPersonalizedAdsOnly: consent !== true };
 }
 
+/** Puro: indica se há algum modo de apoio que solicita anúncios do Google. */
+export function hasAdSupportMode(modes: Iterable<string>): boolean {
+  for (const mode of modes) {
+    if (mode !== "links") return true;
+  }
+  return false;
+}
+
+/** Puro: determina se um componente de anúncio pode iniciar pedido na plataforma atual. */
+export function shouldRequestAd(
+  enabled: boolean,
+  loaded: boolean,
+  isWebEnv: boolean,
+): boolean {
+  return enabled && loaded && !isWebEnv;
+}
+
 // ─── Cache em memória + assinantes (vários anúncios leem o mesmo valor) ─────
 
 let cached: boolean | null = null;
 let pending: Promise<boolean> | null = null;
+let cacheEpoch = 0;
+let writeTail: Promise<void> | null = null;
 const listeners = new Set<(consent: boolean) => void>();
 
 function publish(next: boolean): void {
   cached = next;
-  listeners.forEach((l) => l(next));
+  listeners.forEach((l) => {
+    try {
+      l(next);
+    } catch {
+      // Isola falha de um assinante para não quebrar os demais
+    }
+  });
 }
 
 export function subscribePersonalizedAdsConsent(
@@ -56,8 +81,10 @@ export function getCachedPersonalizedAdsConsent(): boolean | null {
 
 /** Só para testes: esquece o cache e os assinantes. */
 export function resetPersonalizedAdsConsentCache(): void {
+  cacheEpoch += 1;
   cached = null;
   pending = null;
+  writeTail = null;
   listeners.clear();
 }
 
@@ -77,7 +104,11 @@ export async function loadPersonalizedAdsConsent(
   if (storage !== defaultStorage) return readFromStorage(storage);
   if (cached !== null) return cached;
   if (!pending) {
+    const startEpoch = cacheEpoch;
     pending = readFromStorage(storage).then((v) => {
+      if (cacheEpoch !== startEpoch) {
+        return v;
+      }
       // Uma gravação feita durante a leitura vence
       if (cached === null) publish(v);
       pending = null;
@@ -87,16 +118,11 @@ export async function loadPersonalizedAdsConsent(
   return pending;
 }
 
-/**
- * Grava o consentimento. Vale para o próximo anúncio pedido.
- * Revogar (`false`) vale nesta sessão mesmo se a gravação falhar; conceder só
- * vale se a gravação der certo (o erro é repassado).
- */
-export async function setPersonalizedAdsConsent(
+async function writeConsentToStorage(
   consent: boolean,
-  storage: KeyValueStorage = defaultStorage,
+  storage: KeyValueStorage,
+  isDefault: boolean,
 ): Promise<void> {
-  const isDefault = storage === defaultStorage;
   try {
     await storage.setItem(PERSONALIZED_ADS_KEY, consent ? "true" : "false");
   } catch (err) {
@@ -113,6 +139,33 @@ export async function setPersonalizedAdsConsent(
     throw err;
   }
   if (isDefault) publish(consent);
+}
+
+/**
+ * Grava o consentimento. Vale para o próximo anúncio pedido.
+ * Revogar (`false`) vale nesta sessão mesmo se a gravação falhar; conceder só
+ * vale se a gravação der certo (o erro é repassado).
+ */
+export async function setPersonalizedAdsConsent(
+  consent: boolean,
+  storage: KeyValueStorage = defaultStorage,
+): Promise<void> {
+  const isDefault = storage === defaultStorage;
+  if (!isDefault) {
+    return writeConsentToStorage(consent, storage, false);
+  }
+  const prev = writeTail;
+  const run = prev
+    ? prev.then(
+        () => writeConsentToStorage(consent, storage, true),
+        () => writeConsentToStorage(consent, storage, true),
+      )
+    : writeConsentToStorage(consent, storage, true);
+  const tracked = run.catch(() => {}).finally(() => {
+    if (writeTail === tracked) writeTail = null;
+  });
+  writeTail = tracked;
+  return run;
 }
 
 /** Opções de pedido para o próximo anúncio, lendo o consentimento atual. */

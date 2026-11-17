@@ -26,6 +26,7 @@ function loadAdmob(): AdmobModule | null {
 
 interface Props {
   onDismiss: () => void;
+  tabBarHeight?: number;
 }
 
 /**
@@ -33,11 +34,11 @@ interface Props {
  * nova arquitetura). Título, anunciante, mídia e botão do anunciante, com o
  * selo "Anúncio" sempre visível. Se falhar, não mostra nada.
  */
-export function NativeAdBanner({ onDismiss }: Props) {
+export function NativeAdBanner({ onDismiss, tabBarHeight: tabBarHeightProp }: Props) {
   "use no memo";
   const { theme } = useAppState();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = TAB_BAR_BASE_HEIGHT + insets.bottom;
+  const tabBarHeight = tabBarHeightProp ?? TAB_BAR_BASE_HEIGHT + insets.bottom;
   const [nativeAd, setNativeAd] = useState<NativeAdInstance | null>(null);
   const [adError, setAdError] = useState(false);
   const { consent, loaded } = usePersonalizedAdsConsent();
@@ -59,11 +60,15 @@ export function NativeAdBanner({ onDismiss }: Props) {
     admob.NativeAd.createForAdRequest(ADMOB_IDS.nativeAdvanced, {
       ...adRequestOptions(consent),
       // AdChoices sobre a mídia, longe do botão de fechar (canto superior direito)
-      adChoicesPlacement: admob.NativeAdChoicesPlacement.TOP_LEFT,
+      adChoicesPlacement: admob.NativeAdChoicesPlacement?.TOP_LEFT,
     })
       .then((ad) => {
         if (cancelled) {
-          ad.destroy();
+          try {
+            ad.destroy();
+          } catch {
+            // best-effort
+          }
           return;
         }
         current = ad;
@@ -76,10 +81,20 @@ export function NativeAdBanner({ onDismiss }: Props) {
     return () => {
       cancelled = true;
       setNativeAd(null);
-      try {
-        current?.destroy();
-      } catch {
-        // best-effort
+      const adToDestroy = current;
+      current = null;
+      if (!adToDestroy) return;
+      const destroySafely = () => {
+        try {
+          adToDestroy.destroy();
+        } catch {
+          // best-effort
+        }
+      };
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(destroySafely);
+      } else {
+        setTimeout(destroySafely, 0);
       }
     };
   }, [loaded, consent]);

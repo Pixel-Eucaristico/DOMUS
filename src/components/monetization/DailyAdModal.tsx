@@ -144,18 +144,37 @@ function AffiliateFallbackModal({ onClose }: { onClose: () => void }) {
   const { theme } = useAppState();
   const insets = useSafeAreaInsets();
   const [pixCopied, setPixCopied] = useState(false);
+  const pixTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (pixTimerRef.current) clearTimeout(pixTimerRef.current);
+    };
+  }, []);
 
   const handleCopyPix = useCallback(async () => {
-    soundManager.play("success");
     const ok = await ClipboardService.copy(DONATION_PIX_KEY);
-    if (ok) {
-      if (Platform.OS !== "web") {
+    if (!ok || !mountedRef.current) return;
+
+    soundManager.play("success");
+    if (Platform.OS !== "web") {
+      try {
         const Haptics = await import("expo-haptics");
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {
+        // Haptics é best-effort
       }
-      setPixCopied(true);
-      setTimeout(() => setPixCopied(false), PIX_COPIED_RESET_DELAY_MS);
     }
+    if (!mountedRef.current) return;
+    if (pixTimerRef.current) clearTimeout(pixTimerRef.current);
+    setPixCopied(true);
+    pixTimerRef.current = setTimeout(() => {
+      pixTimerRef.current = null;
+      if (mountedRef.current) setPixCopied(false);
+    }, PIX_COPIED_RESET_DELAY_MS);
   }, []);
 
   const handlePlayTap = useCallback((action: () => void) => {
@@ -193,6 +212,8 @@ function AffiliateFallbackModal({ onClose }: { onClose: () => void }) {
             style={[st.bigBtn, { backgroundColor: "#FF9900" }]}
             onPress={() => handlePlayTap(() => openAffiliateUrl(AFFILIATE_URLS.amazon))}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Comprar na Amazon"
           >
             <Feather name="shopping-cart" size={18} color="#111" />
             <Text style={[st.bigBtnText, { color: "#111" }]}>Comprar na Amazon</Text>
@@ -202,6 +223,8 @@ function AffiliateFallbackModal({ onClose }: { onClose: () => void }) {
             style={[st.bigBtn, { backgroundColor: "#FFE600" }]}
             onPress={() => handlePlayTap(() => openAffiliateUrl(AFFILIATE_URLS.mercadoLivre))}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Comprar no Mercado Livre"
           >
             <Feather name="shopping-bag" size={18} color="#333" />
             <Text style={[st.bigBtnText, { color: "#333" }]}>Comprar no Mercado Livre</Text>
@@ -224,6 +247,8 @@ function AffiliateFallbackModal({ onClose }: { onClose: () => void }) {
               ]}
               onPress={handleCopyPix}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Copiar chave Pix"
             >
               <Feather name={pixCopied ? "check" : "copy"} size={16} color={pixCopied ? "#FFF" : theme.primaryColor} />
               <Text style={[st.directBtnText, { color: pixCopied ? "#FFF" : theme.primaryColor }]}>
@@ -235,6 +260,8 @@ function AffiliateFallbackModal({ onClose }: { onClose: () => void }) {
               style={[st.directBtn, { backgroundColor: "#FF5E5B18", borderColor: "#FF5E5B40" }]}
               onPress={() => handlePlayTap(() => openAffiliateUrl(AFFILIATE_URLS.kofi))}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Apoiar no Ko-fi"
             >
               <Feather name="coffee" size={16} color="#FF5E5B" />
               <Text style={[st.directBtnText, { color: "#FF5E5B" }]}>Ko-fi</Text>
@@ -245,6 +272,8 @@ function AffiliateFallbackModal({ onClose }: { onClose: () => void }) {
             style={[st.closeBtn, { borderColor: theme.border }]}
             onPress={() => handlePlayTap(onClose)}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Fechar"
           >
             <Text style={[st.closeBtnText, { color: theme.secondaryText }]}>Fechar</Text>
           </TouchableOpacity>

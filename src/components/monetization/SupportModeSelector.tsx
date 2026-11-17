@@ -1,8 +1,9 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Switch } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { ThemeColors } from "@packages/theme";
 import type { SupportMode } from "@/src/modules/monetization/MonetizationSettingsStore";
+import { hasAdSupportMode } from "@/src/modules/monetization/adConsent";
 import { useSupportModes } from "@/src/hooks/useSupportModes";
 import { usePersonalizedAdsConsent } from "@/src/hooks/usePersonalizedAdsConsent";
 import { soundManager } from "@/src/services/SoundManager";
@@ -32,7 +33,7 @@ interface Props {
 export function SupportModeSelector({ theme, onChange }: Props) {
   const { modes, toggleMode } = useSupportModes(onChange);
   // Só os modos com anúncio do Google pedem anúncio; "links" não pede nenhum
-  const hasAdMode = Array.from(modes).some((m) => m !== "links");
+  const hasAdMode = hasAdSupportMode(modes);
 
   return (
     <View style={st.container}>
@@ -54,7 +55,15 @@ export function SupportModeSelector({ theme, onChange }: Props) {
 function PersonalizedAdsConsentRow({ theme }: { theme: ThemeColors }) {
   const { consent, loaded, setConsent } = usePersonalizedAdsConsent();
   const [saving, setSaving] = useState(false);
+  const mountedRef = useRef(true);
   const color = "#F59E0B";
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const handleChange = useCallback(
     (next: boolean) => {
@@ -62,9 +71,15 @@ function PersonalizedAdsConsentRow({ theme }: { theme: ThemeColors }) {
       setSaving(true);
       setConsent(next)
         .catch(() => {
-          appAlert("Erro", "Não foi possível salvar a sua escolha. Tente de novo.");
+          if (mountedRef.current) {
+            appAlert("Erro", "Não foi possível salvar a sua escolha. Tente de novo.");
+          }
         })
-        .finally(() => setSaving(false));
+        .finally(() => {
+          if (mountedRef.current) {
+            setSaving(false);
+          }
+        });
     },
     [setConsent],
   );
@@ -110,6 +125,9 @@ function SupportOptionItem({ option, active, onToggle, theme }: SupportOptionIte
       ]}
       onPress={() => onToggle(mode)}
       activeOpacity={0.75}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: active }}
+      accessibilityLabel={label}
     >
       <View style={st.btnRow}>
         <Text style={[st.btnText, { color: active ? color : theme.textColor, flex: 1 }]}>

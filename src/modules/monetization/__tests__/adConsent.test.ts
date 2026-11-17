@@ -5,9 +5,11 @@ import {
   adRequestOptions,
   getAdRequestOptions,
   getCachedPersonalizedAdsConsent,
+  hasAdSupportMode,
   loadPersonalizedAdsConsent,
   resetPersonalizedAdsConsentCache,
   setPersonalizedAdsConsent,
+  shouldRequestAd,
   subscribePersonalizedAdsConsent,
   type KeyValueStorage,
 } from "../adConsent";
@@ -174,5 +176,35 @@ describe("adConsent — armazenamento padrão com cache", () => {
     const reading = loadPersonalizedAdsConsent();
     await setPersonalizedAdsConsent(false);
     expect(await reading).toBe(false);
+  });
+
+  it("isola erro em assinante para não quebrar demais ouvintes nem setPersonalizedAdsConsent", async () => {
+    const seen: boolean[] = [];
+    subscribePersonalizedAdsConsent(() => {
+      throw new Error("listener boom");
+    });
+    subscribePersonalizedAdsConsent((c) => seen.push(c));
+
+    await setPersonalizedAdsConsent(true);
+    expect(seen).toEqual([true]);
+  });
+
+  it("resetPersonalizedAdsConsentCache invalida leitura em voo sem repovoar o cache", async () => {
+    asyncStore.map.set(PERSONALIZED_ADS_KEY, "true");
+    const reading = loadPersonalizedAdsConsent();
+    resetPersonalizedAdsConsentCache();
+    await reading;
+    expect(getCachedPersonalizedAdsConsent()).toBeNull();
+  });
+
+  it("hasAdSupportMode e shouldRequestAd aplicam o gating esperado", () => {
+    expect(hasAdSupportMode(["links"])).toBe(false);
+    expect(hasAdSupportMode(["links", "banners"])).toBe(true);
+    expect(hasAdSupportMode(["app_open"])).toBe(true);
+
+    expect(shouldRequestAd(true, false, false)).toBe(false);
+    expect(shouldRequestAd(false, true, false)).toBe(false);
+    expect(shouldRequestAd(true, true, true)).toBe(false);
+    expect(shouldRequestAd(true, true, false)).toBe(true);
   });
 });
