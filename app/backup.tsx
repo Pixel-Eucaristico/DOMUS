@@ -103,6 +103,7 @@ export default function BackupScreen() {
                   </View>
                   <Switch
                     value={bk.encryptExport}
+                    disabled={isLoading(bk.exportStatus) || bk.confirmingPlainExport}
                     onValueChange={(v) => { soundManager.play("tap"); bk.toggleEncrypt(v); }}
                     trackColor={{ false: "#F59E0B80", true: "#10B981" }}
                     thumbColor="#fff"
@@ -151,10 +152,10 @@ export default function BackupScreen() {
                   style={[
                     s.actionBtn,
                     { backgroundColor: bk.encryptExport ? theme.primaryColor : "#F59E0B" },
-                    (isLoading(bk.exportStatus) || (bk.encryptExport && (!bk.exportPassword || !bk.exportConfirm))) && s.actionBtnDisabled,
+                    (isLoading(bk.exportStatus) || bk.confirmingPlainExport || (bk.encryptExport && (!bk.exportPassword || !bk.exportConfirm))) && s.actionBtnDisabled,
                   ]}
                   onPress={() => { soundManager.play("pop"); (bk.encryptExport ? bk.handleExport : bk.handleExportPlain)(); }}
-                  disabled={isLoading(bk.exportStatus) || (bk.encryptExport && (!bk.exportPassword || !bk.exportConfirm))}
+                  disabled={isLoading(bk.exportStatus) || bk.confirmingPlainExport || (bk.encryptExport && (!bk.exportPassword || !bk.exportConfirm))}
                   activeOpacity={0.8}
                 >
                   {isLoading(bk.exportStatus)
@@ -183,21 +184,28 @@ export default function BackupScreen() {
               </View>
               <View style={[s.divider, { backgroundColor: theme.border }]} />
               <View style={[s.cardBody, { gap: 12 }]}>
-                <TouchableOpacity
-                  style={[s.filePicker, { borderColor: bk.selectedFileUri ? "#10B981" : theme.border, backgroundColor: theme.background }]}
-                  onPress={() => { soundManager.play("tap"); bk.handlePickFile(); }}
-                  activeOpacity={0.7}
-                >
-                  <Feather name={bk.selectedFileUri ? "check-circle" : "folder"} size={17} color={bk.selectedFileUri ? "#10B981" : theme.secondaryText} />
-                  <Text style={[s.filePickerText, { color: bk.selectedFileUri ? "#10B981" : theme.secondaryText }]} numberOfLines={1}>
-                    {bk.selectedFileName ?? "Selecionar arquivo…"}
-                  </Text>
+                <View style={[s.filePicker, { borderColor: bk.selectedFileUri ? "#10B981" : theme.border, backgroundColor: theme.background }]}>
+                  <TouchableOpacity
+                    style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10 }}
+                    disabled={isLoading(bk.importStatus)}
+                    onPress={() => { soundManager.play("tap"); bk.handlePickFile(); }}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name={bk.selectedFileUri ? "check-circle" : "folder"} size={17} color={bk.selectedFileUri ? "#10B981" : theme.secondaryText} />
+                    <Text style={[s.filePickerText, { color: bk.selectedFileUri ? "#10B981" : theme.secondaryText }]} numberOfLines={1}>
+                      {bk.selectedFileName ?? "Selecionar arquivo…"}
+                    </Text>
+                  </TouchableOpacity>
                   {bk.selectedFileUri && (
-                    <TouchableOpacity onPress={() => { soundManager.play("tap"); bk.clearSelectedFile(); }} hitSlop={12}>
+                    <TouchableOpacity
+                      disabled={isLoading(bk.importStatus)}
+                      onPress={() => { soundManager.play("tap"); bk.clearSelectedFile(); }}
+                      hitSlop={12}
+                    >
                       <Feather name="x" size={16} color={theme.secondaryText} />
                     </TouchableOpacity>
                   )}
-                </TouchableOpacity>
+                </View>
 
                 {bk.selectedFileUri && (
                   <>
