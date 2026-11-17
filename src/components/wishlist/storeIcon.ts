@@ -9,6 +9,12 @@ export function resolveStoreIconUrl(
   failed = false,
 ): string | null {
   if (!remoteEnabled || failed) return null;
-  const domain = baseUrls[0] ?? storeId;
-  return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+  const candidate = baseUrls.find((u) => u.trim().length > 0) ?? storeId;
+  const host = candidate
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .split("/")[0]
+    ?.trim();
+  if (!host) return null;
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`;
 }

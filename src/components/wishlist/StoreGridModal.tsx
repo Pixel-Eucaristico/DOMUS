@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
-  Dimensions,
+  useWindowDimensions,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { Feather } from "@expo/vector-icons";
@@ -21,32 +21,37 @@ import { KeyboardListSheet } from "@/src/components/shared/KeyboardListSheet";
 import { useSheetBackdropPress } from "@/src/components/shared/KeyboardSheet";
 
 const NUM_COLS = 5;
-const SCREEN_W = Dimensions.get("window").width;
 const H_PAD = 16 * 2; // paddingHorizontal do sheet
 const CARD_MARGIN = 4 * 2; // margin de cada lado
-const CARD_SIZE = Math.floor((SCREEN_W - H_PAD - CARD_MARGIN * NUM_COLS) / NUM_COLS);
+
+function computeCardSize(windowWidth: number): number {
+  return Math.max(40, Math.floor((windowWidth - H_PAD - CARD_MARGIN * NUM_COLS) / NUM_COLS));
+}
 
 interface StoreIconProps {
   store: IScraperStrategy;
   remoteEnabled: boolean;
   color: string;
+  cardSize: number;
 }
 
 /** Favicon da loja com a flag ligada; ícone genérico sem flag ou se a imagem falhar. */
-function StoreIcon({ store, remoteEnabled, color }: StoreIconProps) {
-  const [failed, setFailed] = useState(false);
-  const uri = resolveStoreIconUrl(store.id, store.baseUrls, remoteEnabled, failed);
+function StoreIcon({ store, remoteEnabled, color, cardSize }: StoreIconProps) {
+  const [failedUri, setFailedUri] = useState<string | null>(null);
+  const rawUri = resolveStoreIconUrl(store.id, store.baseUrls, remoteEnabled, false);
+  const uri = rawUri && failedUri !== rawUri ? rawUri : null;
+  const iconSize = Math.round(cardSize * 0.72);
 
   if (!uri) {
-    return <Feather name="shopping-bag" size={Math.round(CARD_SIZE * 0.4)} color={color} />;
+    return <Feather name="shopping-bag" size={Math.round(cardSize * 0.4)} color={color} />;
   }
 
   return (
     <Image
       source={{ uri }}
-      style={styles.iconImage}
+      style={{ width: iconSize, height: iconSize }}
       resizeMode="contain"
-      onError={() => setFailed(true)}
+      onError={() => setFailedUri(rawUri)}
     />
   );
 }
@@ -67,6 +72,8 @@ interface Props {
 }
 
 export function StoreGridModal({ visible, theme, searchQuery = "", onSelectStore, onCancel }: Props) {
+  const { width: windowWidth } = useWindowDimensions();
+  const cardSize = computeCardSize(windowWidth);
   const [query, setQuery] = useState("");
   const { enabled: externalLookupsEnabled } = useExternalLookups();
 
@@ -97,16 +104,17 @@ export function StoreGridModal({ visible, theme, searchQuery = "", onSelectStore
 
     return (
       <TouchableOpacity
-        style={styles.storeCell}
+        style={[styles.storeCell, { width: cardSize }]}
         onPress={() => handleSelect(item)}
         activeOpacity={0.75}
       >
-        <View style={[styles.iconSquare, { backgroundColor: bg }]}>
+        <View style={[styles.iconSquare, { width: cardSize, height: cardSize, backgroundColor: bg }]}>
           <StoreIcon
             key={item.id}
             store={item}
             remoteEnabled={externalLookupsEnabled}
             color={theme.textColor}
+            cardSize={cardSize}
           />
           {item.isSponsored && (
             <View style={styles.sponsoredBadge}>
@@ -114,7 +122,7 @@ export function StoreGridModal({ visible, theme, searchQuery = "", onSelectStore
             </View>
           )}
         </View>
-        <Text style={[styles.storeName, { color: theme.textColor }]} numberOfLines={1}>
+        <Text style={[styles.storeName, { width: cardSize, color: theme.textColor }]} numberOfLines={1}>
           {item.name}
         </Text>
       </TouchableOpacity>
@@ -221,21 +229,17 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 14, fontFamily: "DMSans_400Regular" },
   grid: { paddingBottom: 8 },
   storeCell: {
-    width: CARD_SIZE,
     margin: 4,
     alignItems: "center",
     gap: 4,
   },
   iconSquare: {
-    width: CARD_SIZE,
-    height: CARD_SIZE,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
-  iconImage: { width: CARD_SIZE * 0.72, height: CARD_SIZE * 0.72 },
-  storeName: { fontSize: 9, fontFamily: "DMSans_600SemiBold", textAlign: "center", width: CARD_SIZE },
+  storeName: { fontSize: 9, fontFamily: "DMSans_600SemiBold", textAlign: "center" },
   sponsoredBadge: {
     position: "absolute",
     bottom: 4,

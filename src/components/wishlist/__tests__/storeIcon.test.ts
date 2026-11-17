@@ -15,4 +15,11 @@ describe("resolveStoreIconUrl — flag de consultas", () => {
   it("flag ligada e imagem falhou: ícone genérico", () => {
     expect(resolveStoreIconUrl("amazon", ["amazon.com.br"], true, true)).toBeNull();
   });
+
+  it("normaliza protocolo/caminho e retorna null quando domínio está vazio", () => {
+    expect(resolveStoreIconUrl("amazon", ["https://www.amazon.com.br/dp/123"], true)).toBe(
+      "https://www.google.com/s2/favicons?domain=www.amazon.com.br&sz=128",
+    );
+    expect(resolveStoreIconUrl("", ["   "], true)).toBeNull();
+  });
 });

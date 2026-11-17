@@ -16,12 +16,16 @@ import {
 // armazenamento padrão; os demais testes injetam o próprio armazenamento.
 const asyncStore = vi.hoisted(() => ({
   map: new Map<string, string>(),
+  failReads: { value: false },
   failWrites: { value: false },
 }));
 
 vi.mock("@react-native-async-storage/async-storage", () => ({
   default: {
-    getItem: vi.fn(async (k: string) => asyncStore.map.get(k) ?? null),
+    getItem: vi.fn(async (k: string) => {
+      if (asyncStore.failReads.value) throw new Error("erro de leitura");
+      return asyncStore.map.get(k) ?? null;
+    }),
     setItem: vi.fn(async (k: string, v: string) => {
       if (asyncStore.failWrites.value) throw new Error("disco cheio");
       asyncStore.map.set(k, v);
@@ -161,5 +165,43 @@ describe("externalLookups — armazenamento padrão (cache e assinantes)", () =>
 
     expect(listener).not.toHaveBeenCalled();
     expect(getCachedExternalLookups()).toEqual({ enabled: true, noticeShown: false });
+  });
+
+  it("serializa setExternalLookupsEnabled e markExternalLookupsNoticeShown concorrentes", async () => {
+    asyncStore.map.set(WELCOME_KEY, "done");
+    await Promise.all([
+      setExternalLookupsEnabled(false),
+      markExternalLookupsNoticeShown(),
+    ]);
+
+    expect(getCachedExternalLookups()).toEqual({ enabled: false, noticeShown: true });
+    expect(JSON.parse(asyncStore.map.get(EXTERNAL_LOOKUPS_KEY)!)).toEqual({
+      enabled: false,
+      noticeShown: true,
+    });
+  });
+
+  it("isola erro em assinante para não quebrar demais ouvintes", async () => {
+    asyncStore.map.set(WELCOME_KEY, "done");
+    const seen: boolean[] = [];
+    subscribeExternalLookups(() => {
+      throw new Error("boom");
+    });
+    subscribeExternalLookups((s) => seen.push(s.enabled));
+
+    await loadExternalLookups();
+    await setExternalLookupsEnabled(false);
+
+    expect(seen).toEqual([true, false]);
+  });
+
+  it("falha transitória na leitura não envenena o cache para leituras seguintes", async () => {
+    asyncStore.map.set(EXTERNAL_LOOKUPS_KEY, JSON.stringify({ enabled: true, noticeShown: true }));
+    asyncStore.failReads.value = true;
+    expect(await loadExternalLookups()).toEqual({ enabled: false, noticeShown: true });
+    expect(getCachedExternalLookups()).toBeNull();
+
+    asyncStore.failReads.value = false;
+    expect(await loadExternalLookups()).toEqual({ enabled: true, noticeShown: true });
   });
 });
