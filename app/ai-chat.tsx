@@ -196,12 +196,12 @@ export default function AIChatScreen() {
     async (newMessages: IMessage[] = []) => {
       const text = newMessages[0]?.text?.trim();
       if (!text || isLoading) return;
-      // Guard: block sending if IA is disabled
-      if (!settings.isEnabled) return;
-      const missingPerm = detectMissingPermission(text, settings.dataPermissions);
-      if (missingPerm) {
-        setPermissionModal({ key: missingPerm, pendingText: text });
-        return;
+      if (settings.isEnabled) {
+        const missingPerm = detectMissingPermission(text, settings.dataPermissions);
+        if (missingPerm) {
+          setPermissionModal({ key: missingPerm, pendingText: text });
+          return;
+        }
       }
       soundManager.play("pop");
       setInputText("");
@@ -212,10 +212,9 @@ export default function AIChatScreen() {
 
   const handleQuickSuggestion = useCallback(
     (text: string) => {
-      if (!settings.isEnabled) return;
       handleSend([{ _id: Date.now(), text, createdAt: new Date(), user: HUMAN_USER }]);
     },
-    [handleSend, settings.isEnabled],
+    [handleSend],
   );
 
   const [visionLoading, setVisionLoading] = useState(false);
@@ -684,7 +683,7 @@ export default function AIChatScreen() {
             handleSend([{ _id: Date.now(), text: txt, createdAt: new Date(), user: HUMAN_USER }]);
           }}
           isEnabled={settings.isEnabled}
-          voiceEnabled={(settings.voiceEnabled ?? false) && (
+          voiceEnabled={settings.isEnabled && (settings.voiceEnabled ?? false) && (
             settings.provider === "openai" || settings.provider === "gemini" ||
             ((settings.provider === "claude" || settings.provider === "deepseek" || settings.provider === "qwen") && !!settings.audioProvider)
           )}
@@ -729,14 +728,20 @@ export default function AIChatScreen() {
 
       {/* Banner: IA desabilitada */}
       {!settings.isEnabled && (
-        <View style={[styles.banner, { backgroundColor: `${theme.warning}20`, borderColor: theme.warning }]}>
+        <TouchableOpacity
+          onPress={() => { soundManager.play("tap"); router.push("/ai-settings"); }}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+          style={[styles.banner, { backgroundColor: `${theme.warning}20`, borderColor: theme.warning }]}
+        >
           <Feather name="info" size={14} color={theme.warning} />
           <TText variant="caption" color={theme.warning} lineHeight={18} flex={1}>
             Configure sua chave de API em{" "}
-            <TText variant="caption" bold color={theme.warning} onPress={() => router.push("/ai-settings")}>Configurações</TText>
+            <TText variant="caption" bold color={theme.warning}>Configurações</TText>
             {" "}para ativar a IA. Análise local disponível.
           </TText>
-        </View>
+          <Feather name="chevron-right" size={14} color={theme.warning} />
+        </TouchableOpacity>
       )}
 
       {/* Vision loading banner */}
@@ -822,7 +827,7 @@ export default function AIChatScreen() {
           scrollToBottomOffset={200}
           scrollToBottomStyle={{ backgroundColor: theme.cardBackground, borderColor: theme.border, borderWidth: 1, borderRadius: 20 }}
           /* ── Quick suggestions as chat footer ── */
-          renderChatFooter={settings.isEnabled && !compact ? () => (
+          renderChatFooter={!compact ? () => (
             <View onLayout={onFooterLayout}>
               <QuickSuggestions onSelect={handleQuickSuggestion} hasMessages={messages.length > 0} />
             </View>

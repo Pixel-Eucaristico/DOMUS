@@ -183,7 +183,7 @@ development_status:
   14-2-evitar-sobreposicao-de-botoes-e-colisoes-nas-listas: done
   14-3-corrigir-contraste-de-botoes-bege-e-padronizar-cor-dos-campos: done
   14-4-corrigir-textos-grade-de-urgencia-e-fluxo-do-modal-de-desejos: done
-  14-5-melhorar-estado-vazio-da-ia-scanner-de-barras-drive-e-sobre: backlog
+  14-5-melhorar-estado-vazio-da-ia-scanner-de-barras-drive-e-sobre: done
   epic-14-retrospective: optional
 action_items:
   - id: "epic-4-retro-item-1-limpar-credenciais-de-sync-no-resetapp-p"

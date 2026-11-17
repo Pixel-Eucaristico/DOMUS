@@ -15,6 +15,22 @@ export const KEY_BAR_PADDING_BOTTOM = 20;
 /** Quantos dígitos tem a chave de acesso da NF. */
 export const CHAVE_DIGITS = 44;
 
+export type ScanMode = "qr" | "barcode";
+
+export interface ScanAimWindowLayout {
+  height: number;
+  focusedFlex: number;
+  hintMarginTop: number;
+}
+
+/** Dimensões da janela de mira da câmera conforme o modo de leitura. */
+export function getScanAimWindowLayout(scanMode: ScanMode): ScanAimWindowLayout {
+  if (scanMode === "barcode") {
+    return { height: 120, focusedFlex: 10, hintMarginTop: 76 };
+  }
+  return { height: 260, focusedFlex: 6, hintMarginTop: 146 };
+}
+
 const nonNegative = (n: number) => (Number.isFinite(n) && n > 0 ? n : 0);
 
 export interface QrKeyBarInput {

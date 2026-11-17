@@ -80,7 +80,7 @@ export default function AboutScreen() {
             <Feather name="arrow-left" size={22} color={theme.textColor} />
           </TouchableOpacity>
           <TText variant="subtitle" bold color={theme.textColor} flex={1}>
-            Sobre o DOMUS
+            Configurações e Sobre
           </TText>
         </View>
 
@@ -95,7 +95,6 @@ export default function AboutScreen() {
             title="Pixel Eucarístico"
             accentColor={theme.primaryColor}
           >
-            <PixelText size={9} color={theme.primaryColor} style={{ marginBottom: 8 }}>Pixel Eucarístico</PixelText>
             <TText variant="label" secondary lineHeight={20}>
               Tecnologia com propósito. A Pixel Eucarístico desenvolve
               soluções digitais que respeitam a privacidade do usuário e

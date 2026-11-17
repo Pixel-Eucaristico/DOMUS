@@ -324,7 +324,7 @@ export default function BackupScreen() {
                         {drive.email ?? "Conta Google conectada"}
                       </Text>
                     </View>
-                    <TouchableOpacity onPress={() => { soundManager.play("tap"); drive.disconnect(); }} hitSlop={10}>
+                    <TouchableOpacity onPress={() => { soundManager.play("tap"); drive.disconnect(); }} hitSlop={10} style={{ flexShrink: 0 }}>
                       <Text style={[s.driveDisconnect, { color: theme.danger }]}>Desconectar</Text>
                     </TouchableOpacity>
                   </View>
@@ -472,10 +472,10 @@ const s = StyleSheet.create({
   filePickerText: { flex: 1, fontFamily: "DMSans_500Medium", fontSize: 14 },
   keyRow: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 },
   keyText: { flex: 1, fontFamily: "DMSans_500Medium", fontSize: 13, letterSpacing: 1 },
-  driveAccountRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 },
-  driveAccountLeft: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
+  driveAccountRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 },
+  driveAccountLeft: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1, minWidth: 0 },
   driveAccountEmail: { fontFamily: "DMSans_500Medium", fontSize: 13, flex: 1 },
-  driveDisconnect: { fontFamily: "DMSans_500Medium", fontSize: 12 },
+  driveDisconnect: { fontFamily: "DMSans_500Medium", fontSize: 12, flexShrink: 0 },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 22 },
   statusText: { fontFamily: "DMSans_400Regular", fontSize: 13, flex: 1 },
   footer: { flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center", paddingVertical: 4 },

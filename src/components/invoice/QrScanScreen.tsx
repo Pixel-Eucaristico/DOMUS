@@ -11,15 +11,15 @@ import { TButton } from "@/src/components/tamagui";
 import { useKeyboardTargetHeight } from "@/src/components/shared/useKeyboardTargetHeight";
 import {
   computeQrKeyBarLayout,
+  getScanAimWindowLayout,
   keyBarFullHeight,
   nextKeyContentHeight,
   normalizeChaveInput,
   KEY_BAR_COMPACT_PADDING_TOP,
   KEY_BAR_PADDING_BOTTOM,
   KEY_BAR_PADDING_TOP,
+  type ScanMode,
 } from "./qrKeyBarLayout";
-
-type ScanMode = "qr" | "barcode";
 
 interface Props {
   theme: ThemeColors;
@@ -95,6 +95,7 @@ export function QrScanScreen({
     soundManager.play("tap");
     onManualChaveSubmit();
   };
+  const aimLayout = getScanAimWindowLayout(scanMode);
 
   return (
     <View style={s.container} onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}>
@@ -120,9 +121,9 @@ export function QrScanScreen({
       {permissionGranted && (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <View style={s.fade} />
-          <View style={s.middle}>
+          <View style={[s.middle, { height: aimLayout.height }]}>
             <View style={s.fade} />
-            <View style={[s.focused, { borderColor: theme.primaryColor }]} />
+            <View style={[s.focused, { flex: aimLayout.focusedFlex, borderColor: theme.primaryColor }]} />
             <View style={s.fade} />
           </View>
           <View style={s.fade} />
@@ -158,7 +159,7 @@ export function QrScanScreen({
 
       {/* Hint below focus area */}
       {!compact && (
-        <View style={s.hintWrap} pointerEvents="none">
+        <View style={[s.hintWrap, { marginTop: aimLayout.hintMarginTop }]} pointerEvents="none">
           <Text style={s.hintText}>
             {scanMode === "qr"
               ? "Aponte para o QR Code da NF-e"
@@ -273,7 +274,7 @@ const s = StyleSheet.create({
   tabTextActive: { color: "#FFF" },
   hintWrap: {
     position: "absolute", left: 0, right: 0,
-    top: "50%", marginTop: 60,
+    top: "50%",
     alignItems: "center",
   },
   hintText: {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   computeQrKeyBarLayout,
+  getScanAimWindowLayout,
   keyBarFullHeight,
   nextKeyContentHeight,
   normalizeChaveInput,
@@ -199,5 +200,20 @@ describe("normalizeChaveInput (D-2 b, R6)", () => {
   it("vazio → vazio; só dígitos até 44 fica igual", () => {
     expect(normalizeChaveInput("")).toBe("");
     expect(normalizeChaveInput("1234")).toBe("1234");
+  });
+});
+
+describe("getScanAimWindowLayout (Story 14.5)", () => {
+  it("modo QR retorna janela quadrada padrão", () => {
+    expect(getScanAimWindowLayout("qr")).toEqual({ height: 260, focusedFlex: 6, hintMarginTop: 146 });
+  });
+
+  it("modo código de barras retorna janela retangular horizontal mais baixa e mais larga", () => {
+    const qr = getScanAimWindowLayout("qr");
+    const barcode = getScanAimWindowLayout("barcode");
+    expect(barcode).toEqual({ height: 120, focusedFlex: 10, hintMarginTop: 76 });
+    expect(barcode.height).toBeLessThan(160);
+    expect(barcode.focusedFlex).toBeGreaterThan(qr.focusedFlex);
+    expect(barcode.hintMarginTop).toBeLessThan(qr.hintMarginTop);
   });
 });

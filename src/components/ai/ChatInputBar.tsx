@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   TextInput,
@@ -36,40 +36,6 @@ interface ChatInputBarProps {
   onAction: (action: ChatAction) => void;
 }
 
-// ─── MD Format Buttons ───────────────────────────────────────────────────────
-
-interface FormatBtn {
-  icon: keyof typeof Feather.glyphMap;
-  wrap: string;
-  label: string;
-}
-
-const MD_BUTTONS: FormatBtn[] = [
-  { icon: "bold", wrap: "**", label: "Negrito" },
-  { icon: "italic", wrap: "_", label: "Italico" },
-  { icon: "code", wrap: "`", label: "Código" },
-  { icon: "list", wrap: "- ", label: "Lista" },
-  { icon: "minus", wrap: "\n---\n", label: "Linha" },
-];
-
-function insertMarkdown(
-  text: string,
-  selStart: number,
-  selEnd: number,
-  wrapper: string,
-): string {
-  const isSingle = wrapper === "- " || wrapper.includes("---");
-  const selected = text.slice(selStart, selEnd);
-
-  if (isSingle) {
-    return text.slice(0, selStart) + wrapper + text.slice(selEnd);
-  }
-  if (selected) {
-    return text.slice(0, selStart) + wrapper + selected + wrapper + text.slice(selEnd);
-  }
-  return text.slice(0, selStart) + wrapper + wrapper + text.slice(selEnd);
-}
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function ChatInputBar({
@@ -87,13 +53,6 @@ export function ChatInputBar({
   onAction,
 }: ChatInputBarProps) {
   const { theme } = useAppState();
-  const [selection, setSelection] = useState({ start: 0, end: 0 });
-
-  const handleFormat = (wrapper: string) => {
-    soundManager.play("tap");
-    const newText = insertMarkdown(text, selection.start, selection.end, wrapper);
-    onChangeText(newText);
-  };
 
   const handleSend = () => {
     const trimmed = text.trim();
@@ -103,20 +62,6 @@ export function ChatInputBar({
 
   return (
     <View style={[s.container, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
-      {/* ── MD formatting bar ── */}
-      <View style={[s.mdBar, { borderBottomColor: theme.border }]}>
-        {MD_BUTTONS.map((btn) => (
-          <TouchableOpacity
-            key={btn.label}
-            onPress={() => handleFormat(btn.wrap)}
-            style={[s.mdBtn, { backgroundColor: `${theme.primaryColor}08` }]}
-            accessibilityLabel={btn.label}
-          >
-            <Feather name={btn.icon} size={14} color={theme.primaryColor} />
-          </TouchableOpacity>
-        ))}
-      </View>
-
       {/* ── Input row: [+] [input] [mic] [send] ── */}
       <View style={s.inputRow}>
         {isEnabled && (
@@ -131,7 +76,6 @@ export function ChatInputBar({
           }]}
           value={text}
           onChangeText={onChangeText}
-          onSelectionChange={(e) => setSelection(e.nativeEvent.selection)}
           placeholder="Pergunte sobre suas finanças..."
           placeholderTextColor={theme.secondaryText}
           multiline
@@ -181,21 +125,6 @@ export function ChatInputBar({
 const s = StyleSheet.create({
   container: {
     borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  mdBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  mdBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 6,
-    alignItems: "center",
-    justifyContent: "center",
   },
   inputRow: {
     flexDirection: "row",
