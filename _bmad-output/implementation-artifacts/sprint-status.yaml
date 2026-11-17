@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-17-2026 13:29
+last_updated: 11-17-2026 14:36
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -55,7 +55,7 @@ development_status:
   2-6-corrigir-os-erros-de-lint-reais-em-src-e-app: done
   2-7-usar-node-24-nos-workflows-e-declarar-a-versão: done
   2-8-barrar-lint-e-testes-na-ci: done
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
 
   epic-3: done
   3-1-validar-o-envelope-e-o-tipo-na-importação: done
@@ -363,3 +363,18 @@ action_items:
     owner: "domus-dev"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-17.md"
+  - id: "epic-2-retro-item-27-executar-apos-push-da-dev-os-disparos-pe"
+    epic: 2
+    action: "Executar apos push da dev os disparos pendentes de 2.8-6 e 2.8-7 (build-android.yml,
+      EAS preview Node 24.22.2, build-ios.yml se billing permitir e PR descartavel
+      do Gate)"
+    owner: "dono"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-11-17.md"
+  - id: "epic-2-retro-item-28-atualizar-code-map-e-implementation-note"
+    epic: 2
+    action: "Atualizar Code Map e Implementation Notes em spec-2-7-e-2-8-node-24-e-gate-de-ci.md
+      para refletir 9528bab, b13b6ad e 7b7cfe1"
+    owner: "domus-light"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-11-17.md"
