@@ -1,5 +1,9 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, it, expect } from "vitest";
 import { computeTipPlacement, TIP_MARGIN, TIP_MAX_WIDTH, TIP_ARROW } from "../infoTipPlacement";
+
+const ROOT_DIR = path.resolve(__dirname, "../../../..");
 
 const SCREEN_W = 400;
 const SCREEN_H = 800;
@@ -44,5 +48,26 @@ describe("computeTipPlacement", () => {
     const p = computeTipPlacement(icon(50, 100), 280, SCREEN_H, 100);
     expect(p.width).toBe(280 - TIP_MARGIN * 2);
     expect(p.left).toBe(TIP_MARGIN);
+  });
+
+  it("respeita safe-area insets e limita anchor.y fora da tela", () => {
+    const offTop = computeTipPlacement(icon(100, -40), SCREEN_W, SCREEN_H, 120, { top: 44, bottom: 34 });
+    expect(offTop.above).toBe(false);
+    expect(offTop.top).toBeGreaterThanOrEqual(52);
+
+    const offBottom = computeTipPlacement(icon(100, 900), SCREEN_W, SCREEN_H, 120, { top: 44, bottom: 34 });
+    expect(offBottom.above).toBe(true);
+    expect(offBottom.bottom).toBeGreaterThanOrEqual(42);
+  });
+
+  it("InfoTip.tsx mantém contratos de medição, acessibilidade, safe-area e contraste", () => {
+    const source = fs.readFileSync(path.join(ROOT_DIR, "src/components/shared/InfoTip.tsx"), "utf8");
+    expect(source).toContain("statusBarTranslucent");
+    expect(source).toContain("navigationBarTranslucent");
+    expect(source).toContain("onStartShouldSetResponder");
+    expect(source).toContain("Number.isFinite");
+    expect(source).toContain("useSafeAreaInsets");
+    expect(source).toContain("maxHeight: bubbleHeight === null ? undefined : placement.maxHeight");
+    expect(source).toContain("color: theme.textColor");
   });
 });

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -10,6 +10,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
@@ -43,6 +44,7 @@ const ESTIMATED_HEIGHT = 140;
 export function InfoTip({ term, title, content, size = 14, style }: InfoTipProps) {
   const { theme } = useAppState();
   const { width: screenW, height: screenH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const iconRef = useRef<View>(null);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [bubbleHeight, setBubbleHeight] = useState<number | null>(null);
@@ -51,9 +53,14 @@ export function InfoTip({ term, title, content, size = 14, style }: InfoTipProps
   const tipTitle = title ?? entry?.title ?? "";
   const tipContent = content ?? entry?.content ?? "";
 
+  useEffect(() => {
+    setAnchor(null);
+  }, [screenW, screenH]);
+
   const open = useCallback(() => {
     soundManager.play("tap");
     iconRef.current?.measureInWindow((x, y, width, height) => {
+      if (![x, y, width, height].every(Number.isFinite) || (width === 0 && height === 0)) return;
       setBubbleHeight(null);
       setAnchor({ x, y, width, height });
     });
@@ -64,7 +71,7 @@ export function InfoTip({ term, title, content, size = 14, style }: InfoTipProps
   if (!tipContent) return null;
 
   const placement = anchor
-    ? computeTipPlacement(anchor, screenW, screenH, bubbleHeight ?? ESTIMATED_HEIGHT)
+    ? computeTipPlacement(anchor, screenW, screenH, bubbleHeight ?? ESTIMATED_HEIGHT, insets)
     : null;
 
   return (
@@ -75,7 +82,7 @@ export function InfoTip({ term, title, content, size = 14, style }: InfoTipProps
         hitSlop={10}
         style={style}
         accessibilityRole="button"
-        accessibilityLabel={`O que é ${tipTitle}?`}
+        accessibilityLabel={tipTitle ? `O que é ${tipTitle}?` : "Mais informações"}
       >
         <Feather name="info" size={size} color={theme.secondaryText} />
       </Pressable>
@@ -96,7 +103,7 @@ export function InfoTip({ term, title, content, size = 14, style }: InfoTipProps
               onStartShouldSetResponder={() => true}
               onLayout={(e) => {
                 const h = e.nativeEvent.layout.height;
-                if (bubbleHeight === null) setBubbleHeight(h);
+                if (h > 0 && h !== bubbleHeight) setBubbleHeight(h);
               }}
               accessible
               accessibilityViewIsModal
@@ -109,7 +116,7 @@ export function InfoTip({ term, title, content, size = 14, style }: InfoTipProps
                   left: placement.left,
                   top: placement.top,
                   bottom: placement.bottom,
-                  maxHeight: placement.maxHeight,
+                  maxHeight: bubbleHeight === null ? undefined : placement.maxHeight,
                   // Invisível até medir, para não piscar no lado errado
                   opacity: bubbleHeight === null ? 0 : 1,
                   backgroundColor: theme.cardBackground,
@@ -124,9 +131,9 @@ export function InfoTip({ term, title, content, size = 14, style }: InfoTipProps
                   { left: placement.arrowLeft, backgroundColor: theme.cardBackground, borderColor: theme.border },
                 ]}
               />
-              <ScrollView bounces={false}>
+              <ScrollView bounces={false} contentContainerStyle={s.scrollContent}>
                 {!!tipTitle && <Text style={[s.title, { color: theme.textColor }]}>{tipTitle}</Text>}
-                <Text style={[s.content, { color: theme.secondaryText }]}>{tipContent}</Text>
+                <Text style={[s.content, { color: theme.textColor }]}>{tipContent}</Text>
               </ScrollView>
             </View>
           )}
@@ -142,7 +149,6 @@ const s = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     padding: 14,
-    gap: 6,
     shadowColor: "#000",
     shadowOpacity: 0.18,
     shadowRadius: 12,
@@ -158,6 +164,7 @@ const s = StyleSheet.create({
   },
   arrowUp: { top: -TIP_ARROW - 1, transform: [{ rotate: "45deg" }] },
   arrowDown: { bottom: -TIP_ARROW - 1, transform: [{ rotate: "225deg" }] },
+  scrollContent: { gap: 6 },
   title: { fontSize: 15, fontWeight: "700" },
   content: { fontSize: 13, lineHeight: 19 },
 });

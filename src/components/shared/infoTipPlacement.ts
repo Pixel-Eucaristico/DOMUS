@@ -20,6 +20,13 @@ export interface TipPlacement {
   maxHeight: number;
 }
 
+export interface TipSafeInsets {
+  top?: number;
+  bottom?: number;
+  left?: number;
+  right?: number;
+}
+
 export const TIP_MAX_WIDTH = 300;
 export const TIP_MARGIN = 12;
 export const TIP_ARROW = 8;
@@ -34,13 +41,20 @@ export function computeTipPlacement(
   screenW: number,
   screenH: number,
   bubbleHeight: number,
+  insets: TipSafeInsets = {},
 ): TipPlacement {
-  const width = Math.max(0, Math.min(TIP_MAX_WIDTH, screenW - TIP_MARGIN * 2));
-  const centerX = anchor.x + anchor.width / 2;
-  const left = Math.min(Math.max(centerX - width / 2, TIP_MARGIN), Math.max(TIP_MARGIN, screenW - width - TIP_MARGIN));
+  const leftMargin = Math.max(TIP_MARGIN, (insets.left ?? 0) + 8);
+  const rightMargin = Math.max(TIP_MARGIN, (insets.right ?? 0) + 8);
+  const topMargin = Math.max(TIP_MARGIN, (insets.top ?? 0) + 8);
+  const bottomMargin = Math.max(TIP_MARGIN, (insets.bottom ?? 0) + 8);
 
-  const spaceBelow = screenH - (anchor.y + anchor.height) - TIP_ARROW - TIP_MARGIN;
-  const spaceAbove = anchor.y - TIP_ARROW - TIP_MARGIN;
+  const width = Math.max(0, Math.min(TIP_MAX_WIDTH, screenW - leftMargin - rightMargin));
+  const centerX = anchor.x + anchor.width / 2;
+  const left = Math.min(Math.max(centerX - width / 2, leftMargin), Math.max(leftMargin, screenW - width - rightMargin));
+
+  const clampedY = Math.min(Math.max(anchor.y, 0), screenH);
+  const spaceBelow = screenH - (clampedY + anchor.height) - TIP_ARROW - bottomMargin;
+  const spaceAbove = clampedY - TIP_ARROW - topMargin;
   const fitsBelow = bubbleHeight <= spaceBelow;
   const fitsAbove = bubbleHeight <= spaceAbove;
   const above = !fitsBelow && (fitsAbove || spaceAbove > spaceBelow);
@@ -50,6 +64,20 @@ export function computeTipPlacement(
   const arrowLeft = Math.min(Math.max(centerX - left - TIP_ARROW, arrowMin), arrowMax);
 
   return above
-    ? { left, width, bottom: screenH - anchor.y + TIP_ARROW, above, arrowLeft, maxHeight: Math.max(0, spaceAbove) }
-    : { left, width, top: anchor.y + anchor.height + TIP_ARROW, above, arrowLeft, maxHeight: Math.max(0, spaceBelow) };
+    ? {
+        left,
+        width,
+        bottom: Math.max(bottomMargin, screenH - clampedY + TIP_ARROW),
+        above,
+        arrowLeft,
+        maxHeight: Math.max(0, spaceAbove),
+      }
+    : {
+        left,
+        width,
+        top: Math.max(topMargin, clampedY + anchor.height + TIP_ARROW),
+        above,
+        arrowLeft,
+        maxHeight: Math.max(0, spaceBelow),
+      };
 }

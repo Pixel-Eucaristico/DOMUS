@@ -23,15 +23,21 @@ describe("detectGlossaryTerms", () => {
   });
 
   it("aceita variações comuns", () => {
-    expect(detectGlossaryTerms("carteira diversificada e reserva emergencial", 9)).toEqual(["reserva_emergencia", "diversificacao"]);
+    expect(detectGlossaryTerms("carteira diversificada, diversifique os aportes, reserva emergencial e holerite", 9)).toEqual([
+      "reserva_emergencia",
+      "diversificacao",
+      "descontos_holerite",
+    ]);
   });
 
   it("não confunde quase-acertos", () => {
-    expect(detectGlossaryTerms("150/30/200; selico; fgtsx; salário mínimo; inssurance", 9)).toEqual([]);
+    expect(detectGlossaryTerms("150/30/200; selico; fgtsx; salário mínimo; inssurance; preserva de emergência", 9)).toEqual([]);
   });
 
-  it("texto vazio, limite padrão de 3 e termo repetido", () => {
+  it("texto vazio, limite <= 0, limite padrão de 3 e termo repetido", () => {
     expect(detectGlossaryTerms("")).toEqual([]);
+    expect(detectGlossaryTerms("selic fgts", 0)).toEqual([]);
+    expect(detectGlossaryTerms("selic fgts", -1)).toEqual([]);
     expect(detectGlossaryTerms("selic selic selic")).toEqual(["taxa_selic"]);
     expect(detectGlossaryTerms("50/30/20, selic, reserva de emergência e juros compostos")).toHaveLength(3);
   });

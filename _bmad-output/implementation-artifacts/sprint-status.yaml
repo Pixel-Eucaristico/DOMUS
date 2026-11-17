@@ -147,7 +147,7 @@ development_status:
   epic-10-retrospective: done
 
   epic-11: in-progress
-  11-1-criar-o-glossário-financeiro-e-o-balão-de-dica: review
+  11-1-criar-o-glossário-financeiro-e-o-balão-de-dica: done
   11-2-mostrar-dicas-nas-telas-e-atalhos-no-chat-da-ia: review
   11-3-extrair-os-dados-do-holerite-a-partir-do-texto-do-ocr: done
   11-4-registrar-o-holerite-como-evento-local: done

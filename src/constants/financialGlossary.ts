@@ -68,12 +68,12 @@ export type GlossaryTerm = keyof typeof FINANCIAL_GLOSSARY;
 const TERM_PATTERNS: Record<GlossaryTerm, RegExp> = {
   "50/30/20": /(?<!\d)50\s*\/\s*30\s*\/\s*20(?!\d)/,
   taxa_selic: /\bselic\b/,
-  reserva_emergencia: /reserva\s+(de\s+emergencia|emergencial)/,
-  juros_compostos: /juros\s+compostos/,
-  diversificacao: /\bdiversific\w*/,
-  salario_bruto: /salario\s+bruto/,
-  salario_liquido: /salario\s+liquido/,
-  descontos_holerite: /\b(inss|irrf)\b/,
+  reserva_emergencia: /\breserva\s+(de\s+emergencia|emergencial)\b/,
+  juros_compostos: /\bjuros\s+compostos\b/,
+  diversificacao: /\bdiversifi(?:c\w*|qu\w*)/,
+  salario_bruto: /\bsalario\s+bruto\b/,
+  salario_liquido: /\bsalario\s+liquido\b/,
+  descontos_holerite: /\b(inss|irrf|holerite|imposto\s+de\s+renda)\b/,
   fgts: /\bfgts\b/,
   limite_cdb: /\bcdb\b/,
   xp_nivel: /\bxp\b/,
@@ -81,6 +81,7 @@ const TERM_PATTERNS: Record<GlossaryTerm, RegExp> = {
 
 /** Termos do glossário citados no texto, na ordem do glossário (máx. `limit`) */
 export function detectGlossaryTerms(text: string, limit = 3): GlossaryTerm[] {
+  if (!text || limit <= 0) return [];
   const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   return (Object.keys(TERM_PATTERNS) as GlossaryTerm[])
     .filter((term) => TERM_PATTERNS[term].test(normalized))
