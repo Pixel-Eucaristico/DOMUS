@@ -21,7 +21,7 @@ App Android de finanças pessoais com gamificação (XP, streaks, arquétipos). 
 
 - Não há script `test` nem `typecheck` no `package.json`: use `npx vitest run` e `npx tsc --noEmit`. Os dois passam limpos no `dev` (vitest sem falhas, tsc com 0 erros): qualquer falha nova é da sua mudança. O workflow `Gate` (`.github/workflows/gate.yml`) roda `npx eslint .`, `npx vitest run` e `npx tsc --noEmit` em todo PR e em push na `dev`/`main`, e o `build-android.yml` e o `build-ios.yml` só buildam com ele verde.
 - `npm run android` tem `JAVA_HOME` de Windows fixo; no Mac use `npx expo run:android` (não verificado).
-- Local usa pnpm, mas a CI do GitHub roda `npm ci` com o Node de `.nvmrc` (repetido nos perfis do `eas.json`) e `package-lock.json` (não há `pnpm-lock.yaml`): dependência nova também precisa atualizar `package-lock.json`. O `.gitlab-ci.yml` (legado) segue no Node 20.
+- Local usa pnpm, mas a CI do GitHub roda `npm ci` com o Node de `.nvmrc` (repetido nos perfis do `eas.json`) e `package-lock.json` (não há `pnpm-lock.yaml`): após `pnpm add`, rode `npm install --package-lock-only --ignore-scripts` para atualizar o `package-lock.json`. O `.gitlab-ci.yml` (legado) segue no Node 20.
 
 ## Conventions that differ from defaults
 

@@ -16,8 +16,8 @@
     "server:prod": "NODE_ENV=production node server_dist/index.js",
     "db:push": "drizzle-kit push",
     "start": "npx expo start",
-    "lint": "npx expo lint",
-    "lint:fix": "npx expo lint --fix",
+    "lint": "npx eslint .",
+    "lint:fix": "npx eslint . --fix",
     "android": "JAVA_HOME=/c/Users/willianquintino/AppData/Local/Programs/Java/jdk-17 expo run:android",
     "ios": "expo run:ios"
   },

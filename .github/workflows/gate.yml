@@ -23,8 +23,8 @@ jobs:
     # No job (e não no topo) e com o nome do workflow na chave: chamado pelo
     # build-android.yml, o grupo leva o nome dele e não cancela o Gate de um PR.
     concurrency:
-      group: gate-${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
+      group: gate-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
     steps:
       - name: Checkout
@@ -49,4 +49,4 @@ jobs:
         run: npx vitest run
 
       - name: Tipos
-        run: npx tsc --noEmit
+        run: rm -f expo-env.d.ts && npx tsc --noEmit

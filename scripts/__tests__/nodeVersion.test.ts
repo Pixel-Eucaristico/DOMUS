@@ -42,18 +42,25 @@ function satisfaz(versao: string, faixa: string): boolean {
   const v = versaoExata(versao);
   if (!v) throw new Error(`versão inválida: "${versao}"`);
   return faixa.split("||").some((alt) => {
-    const m = /^\s*(\^|~|>=)?\s*(\S+)\s*$/.exec(alt);
-    const base = m ? versaoExata(m[2]) : null;
-    if (!m || !base) throw new Error(`faixa não suportada: "${alt.trim()}"`);
-    const op = m[1] ?? "";
-    if (op === "") return comparar(v, base) === 0;
-    if (comparar(v, base) < 0) return false;
-    if (op === ">=") return true;
-    if (op === "~") return v[0] === base[0] && v[1] === base[1];
-    // ^: mesmo primeiro componente diferente de zero.
-    if (base[0] !== 0) return v[0] === base[0];
-    if (base[1] !== 0) return v[0] === 0 && v[1] === base[1];
-    return comparar(v, base) === 0;
+    const parts = alt.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) throw new Error(`faixa não suportada: "${alt.trim()}"`);
+    return parts.every((part) => {
+      const m = /^(\^|~|>=|<=|<)?(\S+)$/.exec(part);
+      const base = m ? versaoExata(m[2]) : null;
+      if (!m || !base) throw new Error(`faixa não suportada: "${alt.trim()}"`);
+      const op = m[1] ?? "";
+      const cmp = comparar(v, base);
+      if (op === "") return cmp === 0;
+      if (op === "<") return cmp < 0;
+      if (op === "<=") return cmp <= 0;
+      if (cmp < 0) return false;
+      if (op === ">=") return true;
+      if (op === "~") return v[0] === base[0] && v[1] === base[1];
+      // ^: mesmo primeiro componente diferente de zero.
+      if (base[0] !== 0) return v[0] === base[0];
+      if (base[1] !== 0) return v[0] === 0 && v[1] === base[1];
+      return cmp === 0;
+    });
   });
 }
 
@@ -80,6 +87,7 @@ const apontaParaNvmrc = (v: unknown) => typeof v === "string" && v.trim().replac
 /** Problemas de versão do Node nos passos `actions/setup-node` de um YAML. */
 function problemasDoWorkflow(texto: string): string[] {
   const doc: unknown = YAML.parse(texto);
+  if (!ehMapa(doc)) return ["documento YAML inválido ou vazio"];
   const problemas: string[] = [];
   for (const passo of passosDoDocumento(doc).filter(ehSetupNode)) {
     const w = ehMapa(passo.with) ? passo.with : {};

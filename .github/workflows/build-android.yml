@@ -228,7 +228,7 @@ jobs:
 
       # No disparo manual, só publica com o input `publish` marcado (padrão).
       - name: Publish pre-release (push na main ou disparo manual com publish)
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish && !startsWith(github.ref, 'refs/tags/v'))
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: pre-${{ steps.apk.outputs.short_sha }}
@@ -241,7 +241,7 @@ jobs:
             ${{ steps.apk.outputs.aab_name }}
 
       - name: Publish release (tag v*.*.*)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || inputs.publish)
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ github.ref_name }}
