@@ -3,6 +3,7 @@
  * (lottieTierSelection.ts) — Story 11.8. Sem react-native.
  */
 import { describe, it, expect } from "vitest";
+import crypto from "node:crypto";
 import fs from "fs";
 import path from "path";
 import { APPROVED_LOTTIE } from "../approvedLottie";
@@ -262,5 +263,43 @@ describe("resolveLottieSource (fallback para o SVG)", () => {
     expect(staticLottieFrame({ op: 60 })).toBe(59);
     expect(staticLottieFrame(undefined)).toBe(89);
     expect(staticLottieFrame({})).toBe(89);
+  });
+});
+
+describe("Lottie na web (Story 11.9)", () => {
+  const ROOT = path.resolve(__dirname, "../../../..");
+
+  it("public/dotlottie-player.wasm existe e tem o mesmo SHA-256 de @lottiefiles/dotlottie-web", () => {
+    const publicWasm = path.join(ROOT, "public/dotlottie-player.wasm");
+    const pkgWasm = path.join(ROOT, "node_modules/@lottiefiles/dotlottie-web/dist/dotlottie-player.wasm");
+
+    expect(fs.existsSync(publicWasm)).toBe(true);
+    expect(fs.existsSync(pkgWasm)).toBe(true);
+
+    const hash = (p: string) => crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex");
+    expect(hash(publicWasm)).toBe(hash(pkgWasm));
+  });
+
+  it("lottieWasm.web.ts guarda SSR e usa setWasmUrl com baseURI", () => {
+    const src = fs.readFileSync(path.join(ROOT, "src/components/gamification/lottieWasm.web.ts"), "utf8");
+    expect(src).toContain('typeof window === "undefined"');
+    expect(src).toContain("document.baseURI");
+    expect(src).toContain("setWasmUrl");
+  });
+
+  it("LottieTrophy.tsx e StaticLottieWeb.web.tsx mantêm contratos de web, estático e fallback", () => {
+    const trophySrc = fs.readFileSync(path.join(ROOT, "src/components/gamification/LottieTrophy.tsx"), "utf8");
+    const staticWebSrc = fs.readFileSync(path.join(ROOT, "src/components/gamification/StaticLottieWeb.web.tsx"), "utf8");
+
+    expect(trophySrc).toContain("ensureLottieWasm()");
+    expect(trophySrc).toContain("isStatic && isWeb");
+    expect(trophySrc).toContain("webStyle={{ width: lottieSize, height: lottieSize, flexShrink: 0 }}");
+    expect(trophySrc).toContain("onAnimationFailure={markFailed}");
+    expect(trophySrc).toContain("onPress ? <Pressable onPress={onPress}>{fallback}</Pressable> : fallback");
+
+    expect(staticWebSrc).toContain("StaticLottieWebProps");
+    expect(staticWebSrc).toContain("dotLottie.setFrame(clamped)");
+    expect(staticWebSrc).toContain('addEventListener("load", seek)');
+    expect(staticWebSrc).toContain('addEventListener("loadError", fail)');
   });
 });

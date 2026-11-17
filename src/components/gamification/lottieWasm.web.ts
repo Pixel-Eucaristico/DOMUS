@@ -7,5 +7,10 @@ import { setWasmUrl } from "@lottiefiles/dotlottie-react";
  * copiado de `@lottiefiles/dotlottie-web`, mesma versão fixada no package.json).
  */
 export function configureLottieWasm(): void {
-  setWasmUrl("/dotlottie-player.wasm");
+  if (typeof window === "undefined") return;
+  const wasmUrl =
+    typeof document !== "undefined" && document.baseURI
+      ? new URL("dotlottie-player.wasm", document.baseURI).pathname
+      : "/dotlottie-player.wasm";
+  setWasmUrl(wasmUrl);
 }

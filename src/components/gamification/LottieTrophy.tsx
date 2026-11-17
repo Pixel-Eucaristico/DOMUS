@@ -15,7 +15,12 @@ import {
   type TrophyTier,
 } from "./lottieTierSelection";
 
-configureLottieWasm();
+let wasmConfigured = false;
+function ensureLottieWasm(): void {
+  if (wasmConfigured) return;
+  wasmConfigured = true;
+  configureLottieWasm();
+}
 
 interface Props {
   trophyId: string;
@@ -55,6 +60,7 @@ export function LottieTrophy({
   isStatic = false,
   onPress,
 }: Props) {
+  ensureLottieWasm();
   const lottieRef = useRef<LottieView>(null);
   const tierKey = lottieTierKey(type, { rarity, tier });
   const sourceKey = lottieSourceKey(trophyId, tierKey);
@@ -121,20 +127,21 @@ export function LottieTrophy({
   }
 
   // Fallback: SVG animado existente
-  if (type === "achievement") {
-    return <AnimatedTrophy rarity={rarity} size={Math.round(size * 0.75) + 2} spinning={!isStatic} />;
-  }
+  const fallback =
+    type === "achievement" ? (
+      <AnimatedTrophy rarity={rarity} size={Math.round(size * 0.75) + 2} spinning={!isStatic} />
+    ) : (
+      <AnimatedSeasonalTrophy
+        icon={icon}
+        id={trophyId}
+        size={size}
+        color={color}
+        isLiturgical={isLiturgical || type === "liturgical"}
+        isStatic={isStatic}
+      />
+    );
 
-  return (
-    <AnimatedSeasonalTrophy
-      icon={icon}
-      id={trophyId}
-      size={size}
-      color={color}
-      isLiturgical={isLiturgical || type === "liturgical"}
-      isStatic={isStatic}
-    />
-  );
+  return onPress ? <Pressable onPress={onPress}>{fallback}</Pressable> : fallback;
 }
 
 const s = StyleSheet.create({
