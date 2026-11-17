@@ -272,10 +272,7 @@ Nestes acessos, os serviços veem o endereço IP do aparelho; cada item diz o qu
   arquivos de backup que você exportou; e dados já enviados a provedores de IA, ao Firebase
   ou ao AdMob, que seguem as políticas desses serviços.
 - **Exportar seus dados:** use o backup.
-- **Parar envios:** saia do grupo de sincronização, desconecte o Google Drive, remova as
-  chaves de IA ou desligue as permissões de dados, desligue as estatísticas, desligue as
-  consultas de itens, preços e ícones, desligue os anúncios personalizados e escolha o modo
-  de apoio sem anúncios.
+- **Parar envios:** saia do grupo de sincronização (ou desligue a sincronização de chaves de API), desconecte o Google Drive, remova as chaves de IA ou desligue as permissões de dados, desligue as estatísticas, desligue as consultas de itens, preços e ícones, desligue os anúncios personalizados e escolha o modo de apoio sem anúncios.
 
 ## 9. Contato
 
@@ -329,8 +326,8 @@ Opcionais:
 ## Checklist antes do build
 
 - [x] `app.json` — package name definido
-- [x] `app.json` — versionCode: 1
-- [x] `app.json` — version: 1.0.0
+- [x] `app.json` — versionCode: 11
+- [x] `app.json` — version: 1.8.0
 - [x] `app.json` — adaptiveIcon configurado
 - [x] `app.json` — projectId do EAS
 - [x] `eas.json` — production profile com app-bundle

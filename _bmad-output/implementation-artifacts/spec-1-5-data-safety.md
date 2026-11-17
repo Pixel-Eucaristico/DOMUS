@@ -71,8 +71,7 @@ context:
 - Tipos de dado do Firebase e do AdMob seguem o que o código chama (`logEvent`, `logScreenView`, `recordError`, anúncios) e as categorias usuais desses SDKs; não verificados no tráfego real.
 
 ## Spec Change Log
-
-## Review Triage Log
+- **2026-11-17 (Review alignment):** Removido cabeçalho duplicado `## Review Triage Log`; `docs/data-safety.md` e `PLAY_STORE_LISTING.md` foram atualizados posteriormente pelas Stories `4.10`, `10.1`, `12.4`, `12.6`, `12.7` e revisão `1-5`.
 
 ## Verification
 
