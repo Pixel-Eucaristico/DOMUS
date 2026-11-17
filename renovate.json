@@ -2,5 +2,36 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "baseBranches": [
+    "dev"
+  ],
+  "packageRules": [
+    {
+      "groupName": "react-native-firebase",
+      "matchPackageNames": [
+        "@react-native-firebase/*"
+      ]
+    },
+    {
+      "description": "Hold Expo SDK, React Native and Tamagui upgrades for Epic 8",
+      "enabled": false,
+      "matchPackageNames": [
+        "expo",
+        "expo-*",
+        "babel-preset-expo",
+        "eslint-config-expo",
+        "react",
+        "react-dom",
+        "react-native",
+        "react-native-reanimated",
+        "react-native-screens",
+        "react-native-safe-area-context",
+        "react-native-gesture-handler",
+        "react-native-worklets",
+        "tamagui",
+        "@tamagui/*"
+      ]
+    }
   ]
 }
