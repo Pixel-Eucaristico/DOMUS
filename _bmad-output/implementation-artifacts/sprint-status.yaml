@@ -46,14 +46,14 @@ development_status:
   1-8-revogar-o-segredo-antigo-do-google-depois-da-adoção: backlog
   epic-1-retrospective: optional
 
-  epic-2: in-progress
+  epic-2: done
   2-1-alinhar-os-testes-de-xp-com-as-regras-de-xp-que-valem: done
   2-2-corrigir-os-testes-do-parser-sefaz: done
   2-3-corrigir-os-testes-de-erro-http-dos-adaptadores-de-ia: done
   2-4-resolver-o-teste-de-importinvoice-e-o-teste-de-season: done
   2-5-configurar-o-eslint-para-scripts-e-pastas-de-ferramentas: done
   2-6-corrigir-os-erros-de-lint-reais-em-src-e-app: done
-  2-7-usar-node-24-nos-workflows-e-declarar-a-versão: review
+  2-7-usar-node-24-nos-workflows-e-declarar-a-versão: done
   2-8-barrar-lint-e-testes-na-ci: done
   epic-2-retrospective: optional
 
