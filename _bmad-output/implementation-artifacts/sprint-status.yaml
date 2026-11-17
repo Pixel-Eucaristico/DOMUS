@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-17-2026 14:36
+last_updated: 11-17-2026 15:06
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -146,7 +146,7 @@ development_status:
   10-7-backup-do-drive-com-o-mesmo-escopo-sem-chave-em-texto-puro: done
   epic-10-retrospective: done
 
-  epic-11: in-progress
+  epic-11: done
   11-1-criar-o-glossário-financeiro-e-o-balão-de-dica: done
   11-2-mostrar-dicas-nas-telas-e-atalhos-no-chat-da-ia: done
   11-3-extrair-os-dados-do-holerite-a-partir-do-texto-do-ocr: done
@@ -156,7 +156,7 @@ development_status:
   11-7-gerar-o-lottie-dos-troféus-sem-animação-própria: done
   11-8-aprovar-os-novos-lottie-e-registrar-no-app: done
   11-9-fazer-o-lottie-funcionar-na-web: done
-  epic-11-retrospective: optional
+  epic-11-retrospective: done
 
   epic-12: in-progress
   12-1-nunca-enviar-o-código-do-grupo-à-ia: review
@@ -378,3 +378,17 @@ action_items:
     owner: "domus-light"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-11-17.md"
+  - id: "epic-11-retro-item-29-ajustar-lottiewasm-web-ts-para-rotas-web"
+    epic: 11
+    action: "Ajustar lottieWasm.web.ts para rotas web aninhadas e validar playback
+      Lottie no navegador e build Android release"
+    owner: "domus-dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-11-retro-2026-11-17.md"
+  - id: "epic-11-retro-item-30-registrar-nota-de-pivo-de-21-10-em-epic"
+    epic: 11
+    action: "Registrar nota de pivo de 21/10 em epic-11-context.md mantendo rastreabilidade
+      de D29 e D38"
+    owner: "domus-light"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-11-retro-2026-11-17.md"
