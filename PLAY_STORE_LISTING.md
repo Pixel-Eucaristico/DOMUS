@@ -58,7 +58,7 @@ SINCRONIZAÇÃO ENTRE APARELHOS (OPCIONAL)
 Sincronize seus aparelhos por relays Nostr públicos, com criptografia ponta a ponta (AES-256-GCM). Sem servidor do DOMUS. Os registros publicados continuam nos relays mesmo depois de sair do grupo.
 
 BACKUP CRIPTOGRAFADO
-Exporte todos os dados em arquivo .domusbackup protegido por senha (AES-256-GCM). Restaure em qualquer dispositivo. O app grava uma cópia cifrada no aparelho todo dia; conecte o Google Drive para enviá-la também à sua conta, automaticamente.
+Exporte todos os dados em arquivo .domusbackup protegido por senha (AES-256-GCM). Restaure em qualquer dispositivo. No Android e no iOS, o app grava uma cópia cifrada no aparelho todo dia (quando há registros); conecte o Google Drive para enviá-la também à sua conta, automaticamente.
 
 SEGURANÇA
 Proteja o app com PIN ou biometria (digital / Face ID). O app trava automaticamente ao ir para segundo plano.
@@ -124,14 +124,15 @@ busca na Amazon ou no Mercado Livre) só acontecem quando você os pede.
 
 ## 1. Dados no aparelho
 
-- **Seus registros:** transações, contas, orçamento, notas fiscais e lista de
+- **Seus registros:** transações, contas, orçamento, notas fiscais, holerites e lista de
   desejos ficam no banco de dados local do aparelho (SQLite). Esse banco não é cifrado pelo
   DOMUS; ele conta com a proteção do próprio sistema, que isola os dados de cada app. Na
-  versão web, os dados ficam no armazenamento do navegador, sem cifra.
-- **Segredos:** chaves de API, o segredo ou código do grupo de sincronização e o acesso ao Google Drive
-  ficam no armazenamento seguro do sistema (Keystore no Android, Keychain no iOS). Na web,
-  ficam cifrados com uma chave do próprio navegador. Exceções: a chave do Google Cloud Vision
-  e a chave da cópia automática de backup ficam no armazenamento comum do app, sem cifra.
+  versão web, o histórico de eventos é salvo cifrado (chave AES não extraível no IndexedDB
+  e conteúdo cifrado no armazenamento do navegador).
+- **Segredos:** chaves de API (incluindo Google Cloud Vision), o segredo do grupo de
+  sincronização, o acesso ao Google Drive e a chave da cópia automática de backup ficam no
+  armazenamento seguro do sistema (Keystore no Android, Keychain no iOS). Na web, ficam
+  cifrados com uma chave do próprio navegador.
 - **PIN e biometria:** o PIN é guardado só como hash PBKDF2-SHA256 (30 mil
   iterações) com salt aleatório, no armazenamento seguro; um PIN criado antes desta
   versão passa para esse formato no próximo desbloqueio por PIN. A biometria é processada
@@ -141,7 +142,7 @@ busca na Amazon ou no Mercado Livre) só acontecem quando você os pede.
 
 ## 2. Sincronização entre aparelhos (opcional)
 
-- Fica desligada até você criar ou entrar num grupo com um código ou segredo.
+- Fica desligada até você criar ou entrar num grupo com um segredo de grupo.
 - Quando ligada, o app publica seus registros em seis relays Nostr públicos, mantidos por
   terceiros: relay.damus.io, nos.lol, relay.snort.social, relay.primal.net,
   relay.nostr.com.br e nostr.bitcoiner.social.
@@ -177,7 +178,7 @@ busca na Amazon ou no Mercado Livre) só acontecem quando você os pede.
   taxa de poupança, índices de impulsividade e de variação dos gastos), a tendência de
   gastos, o preço do item e a sua pergunta.
 - Só se você liberar nas configurações da IA (todas começam desligadas): os dados listados
-  em "Acesso aos dados", abaixo. O código do grupo nunca é enviado à IA.
+  em "Acesso aos dados", abaixo. O código ou segredo do grupo nunca é enviado à IA.
 - Ao revisar uma nota fiscal, o nome de um item pode ser enviado ao provedor de IA
   configurado para sugerir a categoria.
 - **Voz (só se você ligar a voz):** o texto a ser falado vai ao provedor de áudio escolhido

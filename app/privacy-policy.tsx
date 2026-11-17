@@ -14,22 +14,17 @@ import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { TCard, TText } from "@/src/components/tamagui";
 import { appAlert } from "@/src/services/appAlert";
+import { safeOpenExternalUrl } from "@/src/utils/openExternalUrl";
 
 const LAST_UPDATED = "9 de novembro de 2026";
 const EXTERNAL_POLICY_URL =
   "https://pixel-eucaristico.com.br/domus/privacy";
 
-async function safeOpenUrl(url: string): Promise<void> {
-  try {
-    const supported = await Linking.canOpenURL(url);
-    if (!supported) {
-      appAlert("Erro", "Não foi possível abrir este link.");
-      return;
-    }
-    await Linking.openURL(url);
-  } catch {
-    appAlert("Erro", "Não foi possível abrir este link.");
-  }
+function safeOpenUrl(url: string): Promise<boolean> {
+  return safeOpenExternalUrl(url, {
+    openURL: (target) => Linking.openURL(target),
+    onError: () => appAlert("Erro", "Não foi possível abrir este link."),
+  });
 }
 
 export default function PrivacyPolicyScreen() {
@@ -49,7 +44,14 @@ export default function PrivacyPolicyScreen() {
         ]}
       >
         <TouchableOpacity
-          onPress={() => { soundManager.play("tap"); router.back(); }}
+          onPress={() => {
+            soundManager.play("tap");
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/");
+            }
+          }}
           accessibilityLabel="Voltar"
           accessibilityRole="button"
           style={s.backBtn}
@@ -97,20 +99,20 @@ export default function PrivacyPolicyScreen() {
         <PolicySection icon="database" title="Dados no aparelho" theme={theme}>
           <PolicyItem theme={theme}>
             <BoldText theme={theme}>Seus registros:</BoldText>
-            {" "}transações, contas, orçamento, notas fiscais e lista de
+            {" "}transações, contas, orçamento, notas fiscais, holerites e lista de
             desejos ficam no banco de dados local do aparelho (SQLite). Esse banco
             não é cifrado pelo DOMUS; ele conta com a proteção do próprio sistema,
-            que isola os dados de cada app. Na versão web, os dados ficam no
-            armazenamento do navegador, sem cifra.
+            que isola os dados de cada app. Na versão web, o histórico de eventos
+            é salvo cifrado (chave AES não extraível no IndexedDB e conteúdo cifrado
+            no armazenamento do navegador).
           </PolicyItem>
           <PolicyItem theme={theme}>
             <BoldText theme={theme}>Segredos:</BoldText>
-            {" "}chaves de API, o segredo ou código do grupo de sincronização e o acesso ao
-            Google Drive ficam no armazenamento seguro do sistema (Keystore no
-            Android, Keychain no iOS). Na web, ficam cifrados com uma chave do
-            próprio navegador. Exceções: a chave do Google Cloud Vision e a chave
-            da cópia automática de backup ficam no armazenamento comum do app, sem
-            cifra.
+            {" "}chaves de API (incluindo Google Cloud Vision), o segredo do grupo
+            de sincronização, o acesso ao Google Drive e a chave da cópia
+            automática de backup ficam no armazenamento seguro do sistema (Keystore
+            no Android, Keychain no iOS). Na web, ficam cifrados com uma chave do
+            próprio navegador.
           </PolicyItem>
           <PolicyItem theme={theme}>
             <BoldText theme={theme}>PIN e biometria:</BoldText>
@@ -129,7 +131,7 @@ export default function PrivacyPolicyScreen() {
         {/* 2. Sincronização */}
         <PolicySection icon="refresh-cw" title="Sincronização entre aparelhos (opcional)" theme={theme}>
           <PolicyItem theme={theme}>
-            Fica desligada até você criar ou entrar num grupo com um código ou segredo.
+            Fica desligada até você criar ou entrar num grupo com um segredo de grupo.
           </PolicyItem>
           <PolicyItem theme={theme}>
             Quando ligada, o app publica seus registros em seis{" "}
@@ -151,11 +153,19 @@ export default function PrivacyPolicyScreen() {
             pública do grupo. Os relays também veem o endereço IP do aparelho.
           </PolicyItem>
           <PolicyItem theme={theme}>
+            Se você ativar a sincronização opcional de chaves de API (disponível apenas
+            em aparelhos nativos e em grupos com criptografia ponta a ponta via Segredo
+            de grupo de 256 bits, desligada por padrão), suas chaves de IA e de OCR
+            (Google Cloud Vision) também viajam cifradas ponta a ponta (AES-256-GCM
+            com derivação de chave dedicada) pelos relays Nostr entre os seus aparelhos.
+          </PolicyItem>
+          <PolicyItem theme={theme}>
             <BoldText theme={theme}>
               Os registros publicados continuam nos relays
             </BoldText>{" "}
-            depois que você sai do grupo, reseta o app ou o desinstala. O DOMUS não
-            consegue apagá-los.
+            depois que você sai do grupo, reseta o app ou o desinstala (o mesmo vale
+            para eventos de chaves já publicados caso você desligue a opção). O DOMUS
+            não consegue apagá-los.
           </PolicyItem>
           <FlagItem
             theme={theme}
@@ -190,7 +200,7 @@ export default function PrivacyPolicyScreen() {
               Só se você liberar nas configurações da IA
             </BoldText>
             {" "}(todas começam desligadas): os dados listados em &quot;Acesso aos
-            dados&quot;, abaixo. O código do grupo nunca é enviado à IA.
+            dados&quot;, abaixo. O código ou segredo do grupo nunca é enviado à IA.
           </PolicyItem>
           <PolicyItem theme={theme}>
             Ao revisar uma nota fiscal, o nome de um item pode ser enviado ao
@@ -413,10 +423,11 @@ export default function PrivacyPolicyScreen() {
           </PolicyItem>
           <PolicyItem theme={theme}>
             • <BoldText theme={theme}>Parar envios:</BoldText> saia do grupo de
-            sincronização, desconecte o Google Drive, remova as chaves de IA ou
-            desligue as permissões de dados, desligue as estatísticas, desligue as
-            consultas de itens, preços e ícones, desligue os anúncios
-            personalizados e escolha o modo de apoio sem anúncios.
+            sincronização (ou desligue a sincronização de chaves de API), desconecte
+            o Google Drive, remova as chaves de IA ou desligue as permissões de
+            dados, desligue as estatísticas, desligue as consultas de itens, preços e
+            ícones, desligue os anúncios personalizados e escolha o modo de apoio sem
+            anúncios.
           </PolicyItem>
         </PolicySection>
 
