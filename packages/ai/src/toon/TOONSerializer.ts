@@ -55,10 +55,10 @@ export class TOONSerializer {
       snapshot.spendingTrend,
       "",
       "goal:",
-      goalDescription,
+      TOONSerializer.sanitize(goalDescription),
       "",
       "question:",
-      question,
+      TOONSerializer.sanitize(question),
     ].join("\n");
   }
 
@@ -74,7 +74,7 @@ export class TOONSerializer {
     const rows = input.transactions
       .map(
         (tx) =>
-          `${tx.id} | ${TOONSerializer.sanitize(tx.description)} | ${tx.amount.toFixed(2)}`,
+          `${TOONSerializer.sanitize(tx.id)} | ${TOONSerializer.sanitize(tx.description)} | ${tx.amount.toFixed(2)}`,
       )
       .join("\n");
 
@@ -118,7 +118,7 @@ export class TOONSerializer {
     return [
       "summary_request:",
       "month:",
-      month,
+      TOONSerializer.sanitize(month),
       "",
       "snapshot:",
       "balance | income | expenses | savings_rate | volatility",
@@ -132,6 +132,6 @@ export class TOONSerializer {
 
   /** Strip pipe characters and trim to avoid TOON parse errors */
   private static sanitize(text: string): string {
-    return text.replace(/\|/g, "-").replace(/\n/g, " ").trim();
+    return text.replace(/\|/g, "-").replace(/[\r\n]+/g, " ").trim();
   }
 }

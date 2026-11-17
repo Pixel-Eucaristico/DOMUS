@@ -130,7 +130,7 @@ export class ConsultantChatUseCase {
         `renda R$ ${snapshot.monthlyIncome.toFixed(2)}/mes, ` +
         `gastos R$ ${snapshot.monthlyExpenses.toFixed(2)}/mes, ` +
         `poupanca ${Math.round(snapshot.savingsRate)}%]\n\n`;
-      userContent = ctx + userMessage;
+      userContent = ctx + ConsultantChatUseCase.redactSyncLinks(userMessage);
     }
 
     // Append detailed financial data if user granted permissions
@@ -139,12 +139,18 @@ export class ConsultantChatUseCase {
     }
 
     // Build message list: system + last N history + user content
-    const historySlice = history.slice(-MAX_HISTORY_MESSAGES);
+    const dedupedHistory =
+      history[history.length - 1]?.role === "user" && history[history.length - 1]?.content === userMessage
+        ? history.slice(0, -1)
+        : history;
+    const historySlice = dedupedHistory
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .slice(-MAX_HISTORY_MESSAGES);
     const messages = [
       { role: "system" as const, content: SYSTEM_PROMPT },
       ...historySlice.map((m) => ({
         role: m.role as "user" | "assistant",
-        content: m.content,
+        content: ConsultantChatUseCase.redactSyncLinks(m.content),
       })),
       { role: "user" as const, content: userContent },
     ];
@@ -167,7 +173,7 @@ export class ConsultantChatUseCase {
 
       let textContent: string;
 
-      if (intent === "purchase_advice") {
+      if (intent === "purchase_advice" && wishlistItemPrice !== null) {
         const consultation = TOONParser.parseConsultationResponse(
           response.content,
         );
@@ -362,6 +368,10 @@ export class ConsultantChatUseCase {
       `${result.recommendation}\n\n` +
       `_${result.behaviorInsight}_`
     );
+  }
+
+  private static redactSyncLinks(text: string): string {
+    return text.replace(/domus:\/\/[^\s]+/gi, "[link-de-sincronizacao-removido]");
   }
 
   private static currentMonth(): string {

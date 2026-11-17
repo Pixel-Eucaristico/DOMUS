@@ -34,7 +34,7 @@ export interface SyncSource {
 /** Único ponto que converte o estado do sync para a IA: descarta o código do grupo (D10). */
 export function toSyncInfo(source: SyncSource): SyncInfo {
   return {
-    inGroup: !!source.groupId,
+    inGroup: Boolean(source.groupId?.trim()),
     eventCount: source.eventCount,
     relayCount: source.relayCount,
     isAutoSyncEnabled: source.isAutoSyncEnabled,
@@ -113,7 +113,10 @@ export function buildFinancialContext(
   if (permissions.wishlist && Object.keys(data.wishlist.items).length > 0) {
     const items = Object.values(data.wishlist.items);
     const lines = items.map((item) => {
-      const price = item.price != null ? `R$ ${item.price.toFixed(2)}` : "sem preco";
+      const price =
+        typeof item.price === "number" && Number.isFinite(item.price)
+          ? `R$ ${item.price.toFixed(2)}`
+          : "sem preco";
       return `- ${item.name} | ${item.urgencyLevel} | ${price}`;
     });
     sections.push(`LISTA DE DESEJOS (${items.length} itens):\n${lines.join("\n")}`);
@@ -137,9 +140,14 @@ export function buildFinancialContext(
   // Sync
   if (permissions.sync) {
     const s = data.sync;
-    const syncTime = s.lastSyncTime
-      ? new Date(s.lastSyncTime).toLocaleString("pt-BR")
-      : "nunca";
+    const syncDate =
+      typeof s.lastSyncTime === "number" && Number.isFinite(s.lastSyncTime) && s.lastSyncTime > 0
+        ? new Date(s.lastSyncTime)
+        : null;
+    const syncTime =
+      syncDate && !Number.isNaN(syncDate.getTime())
+        ? syncDate.toLocaleString("pt-BR")
+        : "nunca";
     const lines = [
       `- Grupo: ${s.inGroup ? "configurado" : "nenhum"}`,
       `- Auto-sync: ${s.isAutoSyncEnabled ? "ativado" : "desativado"}`,
