@@ -69,7 +69,7 @@ export async function deleteSecureDeviceKey(): Promise<void> {
 export function generateDeviceBackupKey(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let key = "";
-  const bytes = new Uint8Array(24);
+  let bytes = new Uint8Array(24);
   const cryptoObj =
     typeof globalThis !== "undefined" && globalThis.crypto
       ? globalThis.crypto
@@ -77,11 +77,27 @@ export function generateDeviceBackupKey(): string {
       ? crypto
       : undefined;
 
-  if (!cryptoObj?.getRandomValues) {
-    throw new Error("crypto.getRandomValues indisponível para geração de chave segura.");
+  if (cryptoObj?.getRandomValues) {
+    cryptoObj.getRandomValues(bytes);
+  } else {
+    let fallbackBytes: Uint8Array | null = null;
+    try {
+      // Lazy require evita puxar react-native em ambientes Node/Vitest com WebCrypto
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const expoCrypto = require("expo-crypto") as {
+        getRandomBytes?: (byteCount: number) => Uint8Array;
+      };
+      if (typeof expoCrypto.getRandomBytes === "function") {
+        fallbackBytes = expoCrypto.getRandomBytes(24);
+      }
+    } catch {
+      // expo-crypto indisponível
+    }
+    if (!fallbackBytes || fallbackBytes.length < 24) {
+      throw new Error("crypto.getRandomValues indisponível para geração de chave segura.");
+    }
+    bytes = new Uint8Array(fallbackBytes.subarray(0, 24));
   }
-
-  cryptoObj.getRandomValues(bytes);
   for (let i = 0; i < 24; i++) {
     if (i > 0 && i % 6 === 0) key += "-";
     key += chars[bytes[i] % chars.length];
@@ -117,7 +133,7 @@ export async function getDeviceBackupKey(): Promise<string | null> {
     // Se o SecureStore falhar na leitura (ex.: keystore corrompido ou bloqueado),
     // tenta verificar se há cópia legada em AsyncStorage como fallback emergencial
     const legacy = await AsyncStorage.getItem(DEVICE_KEY_STORAGE).catch(() => null);
-    if (legacy) return legacy;
+    if (legacy && legacy.trim()) return legacy.trim();
     // Se não há legado, propaga o erro para não presumir chave ausente
     throw err;
   }
@@ -147,6 +163,7 @@ export async function getDeviceBackupKey(): Promise<string | null> {
 }
 
 let inFlightPromise: Promise<string> | null = null;
+let keyGenerationEpoch = 0;
 
 /**
  * Gera (ou retorna existente) a chave de dispositivo usada no auto-backup.
@@ -156,26 +173,39 @@ let inFlightPromise: Promise<string> | null = null;
 export async function getOrCreateDeviceBackupKey(): Promise<string> {
   if (inFlightPromise) return inFlightPromise;
 
-  inFlightPromise = (async () => {
+  const startEpoch = keyGenerationEpoch;
+  let promise!: Promise<string>;
+  promise = (async () => {
     try {
       const existing = await getDeviceBackupKey();
       if (existing) return existing;
 
       const newKey = generateDeviceBackupKey();
+      if (keyGenerationEpoch !== startEpoch) {
+        throw new Error("Geração da chave de backup cancelada por limpeza concorrente.");
+      }
       await saveSecureDeviceKey(newKey);
       return newKey;
     } finally {
-      inFlightPromise = null;
+      if (inFlightPromise === promise) {
+        inFlightPromise = null;
+      }
     }
   })();
 
-  return inFlightPromise;
+  inFlightPromise = promise;
+  return promise;
 }
 
 /**
  * Remove a chave de dispositivo do armazenamento seguro e do AsyncStorage.
+ * Aguarda qualquer geração em voo para evitar corrida de regravação.
  */
 export async function clearDeviceBackupKey(): Promise<void> {
+  keyGenerationEpoch += 1;
+  if (inFlightPromise) {
+    await inFlightPromise.catch(() => {});
+  }
   await deleteSecureDeviceKey();
   if (!isWeb()) {
     await AsyncStorage.removeItem(DEVICE_KEY_STORAGE).catch(() => {});

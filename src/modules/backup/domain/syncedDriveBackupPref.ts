@@ -39,7 +39,11 @@ export function pickSyncedDriveBackupPref(
 
   if (typeof input.email === "string") {
     const trimmed = input.email.trim();
-    if (trimmed.length > 0) {
+    if (
+      trimmed.length > 0 &&
+      trimmed.length <= 254 &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)
+    ) {
       result.email = trimmed;
     }
   }
@@ -77,7 +81,8 @@ function hasSettingChangedEvent(
     (evt) =>
       evt?.type === SETTINGS_EVENTS.SETTING_CHANGED &&
       isPlainObject(evt.payload) &&
-      evt.payload.key === key,
+      evt.payload.key === key &&
+      pickSyncedDriveBackupPref(evt.payload.value) !== undefined,
   );
 }
 

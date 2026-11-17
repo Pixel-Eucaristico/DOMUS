@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
-import { Platform } from "react-native";
-import { GoogleDriveService } from "@/src/modules/backup/infrastructure/GoogleDriveService";
-import type { DriveTokens } from "@/src/modules/backup/infrastructure/GoogleDriveService";
-import { ConnectivityService } from "@/src/modules/ai/infrastructure/ConnectivityService";
-import { getGoogleSignIn } from "@/src/modules/backup/infrastructure/GoogleNativeAuth";
-import { NATIVE_TOKEN_TTL_MS } from "@/src/modules/backup/infrastructure/driveTokens";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAppStateOptional } from "@/src/context/AppStateProvider";
-import { shouldPromptDriveConnectOnThisDevice } from "@/src/modules/backup/domain/syncedDriveBackupPref";
+import {
+  computeNeedsLocalDriveLogin,
+  loadDriveState,
+  performDriveConnect,
+  performDriveDisconnect,
+  performDriveUpload,
+} from "@/src/modules/backup/application/driveBackupActions";
 
 // ─── Google OAuth ────────────────────────────────────────────────────────────
 // Android/iOS: Google Sign-In nativo, access token via Play Services (sem client secret).
@@ -27,21 +27,32 @@ export function useGoogleDriveBackup() {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
+  const isConnectedRef = useRef(false);
+  const isConnectingRef = useRef(false);
+  const activeUploadsRef = useRef(0);
+  const sessionEpochRef = useRef(0);
+
   // ── Load saved state on mount ────────────────────────────────────────────
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const [connected, connEmail, lastSync] = await Promise.all([
-          GoogleDriveService.isConnected(),
-          GoogleDriveService.getConnectedEmail(),
-          GoogleDriveService.getLastSyncAt(),
-        ]);
+        const state = await loadDriveState();
         if (!mounted) return;
-        setIsConnected(connected);
-        setEmail(connEmail);
-        setLastSyncAt(lastSync);
+        isConnectedRef.current = state.isConnected;
+        setIsConnected(state.isConnected);
+        setEmail(state.email);
+        setLastSyncAt(state.lastSyncAt);
+      } catch (err) {
+        if (!mounted) return;
+        isConnectedRef.current = false;
+        setIsConnected(false);
+        setSyncError(
+          err instanceof Error
+            ? err.message
+            : "Erro ao carregar estado do Google Drive.",
+        );
       } finally {
         if (mounted) setIsDriveStateLoaded(true);
       }
@@ -53,124 +64,40 @@ export function useGoogleDriveBackup() {
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
-  const connectWeb = useCallback(async () => {
-    const { signInWithGoogleWeb } = await import("@/src/modules/backup/infrastructure/GoogleOAuthWeb");
-    const result = await signInWithGoogleWeb(WEB_CLIENT_ID);
-    if (!result) return;
-
-    // Fetch user email with the access token
-    let userEmail = "";
-    try {
-      const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-        headers: { Authorization: `Bearer ${result.accessToken}` },
-      });
-      if (userRes.ok) {
-        const userData = await userRes.json();
-        userEmail = userData.email ?? "";
-      }
-    } catch {}
-
-    const tokens: DriveTokens = {
-      accessToken: result.accessToken,
-      refreshToken: "", // implicit flow doesn't provide refresh token
-      expiresAt: Date.now() + result.expiresIn * 1000,
-      email: userEmail,
-      clientId: WEB_CLIENT_ID,
-    };
-
-    await GoogleDriveService.saveTokens(tokens);
-    setIsConnected(true);
-    setEmail(userEmail || null);
-    setDriveBackupPref?.({ enabled: true, email: userEmail || undefined });
-  }, [setDriveBackupPref]);
-
-  const connectNative = useCallback(async () => {
-    const mod = getGoogleSignIn();
-    if (!mod) return;
-    const { GoogleSignin } = mod;
-
-    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-    const response = await GoogleSignin.signIn();
-
-    if (response.type !== "success") return;
-
-    const userEmail = response.data.user.email;
-    const { accessToken } = await GoogleSignin.getTokens();
-
-    const tokens: DriveTokens = {
-      accessToken,
-      refreshToken: "", // renovado pelo Play Services via getTokens(); não há refresh token
-      expiresAt: Date.now() + NATIVE_TOKEN_TTL_MS,
-      email: userEmail,
-      clientId: WEB_CLIENT_ID,
-      native: true,
-    };
-
-    await GoogleDriveService.saveTokens(tokens);
-    setIsConnected(true);
-    setEmail(userEmail || null);
-    setDriveBackupPref?.({ enabled: true, email: userEmail || undefined });
-  }, [setDriveBackupPref]);
-
   const connect = useCallback(async () => {
-    if (!WEB_CLIENT_ID) {
-      setSyncError(
-        "Google Client ID não configurado. Adicione EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID no .env",
-      );
-      return;
-    }
+    if (isConnectingRef.current) return;
+    isConnectingRef.current = true;
     setSyncError(null);
     setIsConnecting(true);
 
-    const online = await ConnectivityService.isOnline();
-    if (!online) {
-      setSyncError("Sem conexão com a internet. Verifique sua conexão e tente novamente.");
-      setIsConnecting(false);
-      return;
-    }
-
     try {
-      if (Platform.OS === "web") {
-        await connectWeb();
-      } else {
-        await connectNative();
-      }
-    } catch (e: any) {
-      const statusCodes = getGoogleSignIn()?.statusCodes;
-      if (statusCodes && e?.code === statusCodes.SIGN_IN_CANCELLED) {
-        // Usuário cancelou — não exibir erro
-      } else if (statusCodes && e?.code === statusCodes.IN_PROGRESS) {
-        setSyncError("Login já em andamento.");
-      } else if (statusCodes && e?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        setSyncError("Google Play Services não disponível.");
-      } else if (e?.code === "DEVELOPER_ERROR" || e?.code === 10 || /DEVELOPER_ERROR/.test(String(e?.message ?? ""))) {
-        // Erro de configuracao OAuth: o SHA-1 do certificado que assinou este
-        // build (EAS keystore ou chave do Play App Signing) nao esta registrado
-        // como cliente OAuth Android no Google Cloud Console.
-        setSyncError(
-          "Configuração OAuth inválida (DEVELOPER_ERROR): o SHA-1 do certificado deste build não está registrado no Google Cloud Console para o pacote br.com.pixeleucaristico.domus.",
-        );
-      } else {
-        setSyncError(e instanceof Error ? e.message : "Erro ao conectar com o Google.");
+      const result = await performDriveConnect(WEB_CLIENT_ID);
+      if (result.ok) {
+        isConnectedRef.current = true;
+        setIsConnected(true);
+        setEmail(result.email);
+        setDriveBackupPref?.({
+          enabled: true,
+          email: result.email ?? undefined,
+        });
+      } else if (result.error) {
+        setSyncError(result.error);
       }
     } finally {
+      isConnectingRef.current = false;
       setIsConnecting(false);
     }
-  }, [connectWeb, connectNative]);
+  }, [setDriveBackupPref]);
 
   const disconnect = useCallback(async () => {
-    if (Platform.OS !== "web") {
-      try {
-        await getGoogleSignIn()?.GoogleSignin.signOut();
-      } catch {
-        // Ignora erro ao deslogar do Google Sign-In
-      }
-    }
-    await GoogleDriveService.clearTokens();
+    sessionEpochRef.current += 1;
+    isConnectedRef.current = false;
     setIsConnected(false);
     setEmail(null);
     setLastSyncAt(null);
-    setSyncError(null);
+
+    const { error } = await performDriveDisconnect();
+    setSyncError(error);
     setDriveBackupPref?.({ enabled: false });
   }, [setDriveBackupPref]);
 
@@ -179,31 +106,38 @@ export function useGoogleDriveBackup() {
    * Pode ser chamado externamente (ex: useAutoBackup).
    */
   const uploadContent = useCallback(async (content: string): Promise<boolean> => {
-    if (!isConnected) return false;
-    const online = await ConnectivityService.isOnline();
-    if (!online) {
-      setSyncError("Sem conexão com a internet. Verifique sua conexão e tente novamente.");
-      return false;
-    }
+    if (!isConnectedRef.current) return false;
+
+    const uploadEpoch = sessionEpochRef.current;
+    activeUploadsRef.current += 1;
     setIsSyncing(true);
     setSyncError(null);
+
     try {
-      await GoogleDriveService.uploadBackup(content);
-      const ts = await GoogleDriveService.getLastSyncAt();
-      setLastSyncAt(ts);
-      return true;
-    } catch (e) {
-      setSyncError(e instanceof Error ? e.message : "Erro ao sincronizar com o Drive.");
+      const result = await performDriveUpload(content);
+      if (sessionEpochRef.current !== uploadEpoch) {
+        return false;
+      }
+      if (result.ok) {
+        setLastSyncAt(result.lastSyncAt);
+        return true;
+      }
+      setSyncError(result.error);
       return false;
     } finally {
-      setIsSyncing(false);
+      activeUploadsRef.current = Math.max(0, activeUploadsRef.current - 1);
+      if (activeUploadsRef.current === 0) {
+        setIsSyncing(false);
+      }
     }
-  }, [isConnected]);
+  }, []);
 
   const isConfigured = !!WEB_CLIENT_ID;
-  const needsLocalDriveLogin =
-    isDriveStateLoaded &&
-    shouldPromptDriveConnectOnThisDevice(driveBackupPref, isConnected);
+  const needsLocalDriveLogin = computeNeedsLocalDriveLogin(
+    isDriveStateLoaded,
+    driveBackupPref,
+    isConnected,
+  );
   const syncedAccountEmail = driveBackupPref?.email ?? null;
 
   return {

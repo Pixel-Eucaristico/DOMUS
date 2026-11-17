@@ -160,7 +160,7 @@ development_status:
 
   epic-12: in-progress
   12-1-nunca-enviar-o-código-do-grupo-à-ia: done
-  12-2-fazer-o-backup-automático-obedecer-ao-interruptor: review
+  12-2-fazer-o-backup-automático-obedecer-ao-interruptor: done
   12-3-proteger-o-pin-com-salt-criptográfico-e-derivação-lenta: review
   12-4-anúncio-personalizado-só-com-consentimento-no-modo-de-apoio: review
   12-5-avisar-antes-da-exportação-sem-criptografia: review

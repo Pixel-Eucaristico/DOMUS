@@ -320,4 +320,22 @@ describe("deviceBackupKey no ambiente Web (webSecrets)", () => {
     expect(legacy.has(DEVICE_KEY_STORAGE)).toBe(false);
     expect(await getDeviceBackupKey()).toBeNull();
   });
+
+  it("getDeviceBackupKey ignora legado só com espaços no fallback do SecureStore", async () => {
+    process.env.EXPO_OS = "android";
+    mocks.secureFails.value = true;
+    legacy.set(DEVICE_KEY_STORAGE, "   \n  ");
+
+    await expect(getDeviceBackupKey()).rejects.toThrow("keystore indisponível");
+  });
+
+  it("clearDeviceBackupKey cancela geração concorrente de getOrCreateDeviceBackupKey", async () => {
+    process.env.EXPO_OS = "android";
+    const p1 = getOrCreateDeviceBackupKey();
+    const p2 = clearDeviceBackupKey();
+
+    await Promise.allSettled([p1, p2]);
+    expect(secure.has(DEVICE_KEY_STORAGE)).toBe(false);
+    expect(legacy.has(DEVICE_KEY_STORAGE)).toBe(false);
+  });
 });

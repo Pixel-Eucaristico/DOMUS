@@ -158,4 +158,33 @@ describe("syncedDriveBackupPref (Story 9.6)", () => {
       expect(serializedAll).not.toContain(key);
     }
   });
+
+  it("descarta email malformado ou acima de 254 caracteres em pickSyncedDriveBackupPref", () => {
+    expect(pickSyncedDriveBackupPref({ enabled: true, email: "sem-arroba" })).toEqual({
+      enabled: true,
+    });
+    const longEmail = `${"a".repeat(250)}@b.com`;
+    expect(pickSyncedDriveBackupPref({ enabled: true, email: longEmail })).toEqual({
+      enabled: true,
+    });
+  });
+
+  it("buildDriveBackupPrefSeedEvents ignora evento prévio malformado e semeia preferência válida", () => {
+    const malformedEvt = createSettingChangedEvent(
+      DRIVE_BACKUP_PREF_SETTING_KEY,
+      { invalid: true },
+      "dev-x",
+    );
+    const seed = buildDriveBackupPrefSeedEvents({
+      allEvents: [malformedEvt],
+      deviceId: "dev-1",
+      isConnected: true,
+      email: "user@example.com",
+    });
+    expect(seed).toHaveLength(1);
+    expect(seed[0].payload.value).toEqual({
+      enabled: true,
+      email: "user@example.com",
+    });
+  });
 });
