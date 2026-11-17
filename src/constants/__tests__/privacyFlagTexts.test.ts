@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { readFileSync, readdirSync, statSync } from "fs";
 import path from "path";
 import {
@@ -14,7 +14,7 @@ const ROOT = path.resolve(__dirname, "../../..");
 
 /** Junta quebras de linha e espaços repetidos, como o Markdown e o JSX fazem. */
 function normalize(text: string): string {
-  return text.replace(/\s+/g, " ");
+  return text.replace(/\s+/g, " ").trim();
 }
 
 function read(relative: string): string {
@@ -24,11 +24,12 @@ function read(relative: string): string {
 /** Só o bloco da política dentro do listing, não a descrição da loja. */
 function listingPolicyCopy(): string {
   const raw = readFileSync(path.join(ROOT, "PLAY_STORE_LISTING.md"), "utf-8");
-  const start = raw.indexOf("````markdown");
-  const end = raw.indexOf("````", start + "````markdown".length);
-  expect(start).toBeGreaterThanOrEqual(0);
-  expect(end).toBeGreaterThan(start);
-  return normalize(raw.slice(start, end));
+  const anchor = raw.indexOf("Política de Privacidade");
+  const fence = "````markdown";
+  const start = raw.indexOf(fence, Math.max(0, anchor));
+  const end = start >= 0 ? raw.indexOf("````", start + fence.length) : -1;
+  if (start < 0 || end <= start) return "";
+  return normalize(raw.slice(start + fence.length, end));
 }
 
 const EXPECTED_FLAGS: PrivacyFlagId[] = [
@@ -66,9 +67,9 @@ describe("PRIVACY_FLAG_TEXTS", () => {
   });
 
   it.each(EXPECTED_FLAGS)("%s cabe num atributo JSX (sem aspas duplas, chaves, &, <, > nem quebra de linha)", (id) => {
-    const { sends, loses, title } = PRIVACY_FLAG_TEXTS[id];
-    for (const phrase of [sends, loses, title]) {
-      expect(phrase).not.toMatch(/["{}&<>\n]/);
+    const { sends, loses, title, shortDescription } = PRIVACY_FLAG_TEXTS[id];
+    for (const phrase of [sends, loses, title, ...(shortDescription ? [shortDescription] : [])]) {
+      expect(phrase).not.toMatch(/["{}&<>\r\n]/);
     }
   });
 
@@ -76,17 +77,25 @@ describe("PRIVACY_FLAG_TEXTS", () => {
     const short = PRIVACY_FLAG_TEXTS.externalLookups.shortDescription ?? "";
     expect(short.length).toBeGreaterThan(10);
     expect(short.length).toBeLessThanOrEqual(50);
-    expect(short).not.toMatch(/["{}&<>\n]/);
+    expect(short).not.toMatch(/["{}&<>\r\n]/);
   });
 
-  it("formata em duas linhas, Envia e Sem isso", () => {
+  it("formata em duas linhas, Envia e Sem isso (e retorna vazio para chave desconhecida)", () => {
     const t = PRIVACY_FLAG_TEXTS.sync;
     expect(formatPrivacyFlagText("sync")).toBe(`Envia: ${t.sends}\nSem isso: ${t.loses}`);
+    expect(formatPrivacyFlagText("unknown" as PrivacyFlagId)).toBe("");
   });
 });
 
 describe.each(Object.entries(COPIES))("cópia em %s", (_name, load) => {
-  const content = load();
+  let content = "";
+  beforeAll(() => {
+    content = load();
+  });
+
+  it("bloco da política está presente e não vazio", () => {
+    expect(content.length).toBeGreaterThan(100);
+  });
 
   it.each(EXPECTED_FLAGS)("contém as frases de %s", (id) => {
     const { sends, loses } = PRIVACY_FLAG_TEXTS[id];
@@ -100,10 +109,15 @@ function sourceFiles(dir: string): string[] {
   const out: string[] = [];
   for (const name of readdirSync(dir)) {
     const full = path.join(dir, name);
-    if (statSync(full).isDirectory()) {
-      if (name !== "__tests__" && name !== "node_modules") out.push(...sourceFiles(full));
-    } else if (/\.tsx?$/.test(name)) {
-      out.push(full);
+    try {
+      const st = statSync(full);
+      if (st.isDirectory()) {
+        if (name !== "__tests__" && name !== "node_modules") out.push(...sourceFiles(full));
+      } else if (/\.tsx?$/.test(name) && !/\.(test|spec)\.tsx?$/.test(name)) {
+        out.push(full);
+      }
+    } catch {
+      // ignora symlinks quebrados ou entradas inacessíveis
     }
   }
   return out;
@@ -124,9 +138,9 @@ describe("cada flag aparece no app", () => {
   });
 });
 
-describe("textos que contradiziam a política", () => {
-  it("a política cita os achados D17 e D22", () => {
-    const policy = read("docs/politica-de-privacidade.md");
+describe.each(Object.entries(COPIES))("textos que contradiziam a política em %s", (_name, load) => {
+  it("cita os achados D17 e D22", () => {
+    const policy = load();
     expect(policy).toContain("código de afiliado");
     expect(policy).toContain("ID da instalação do app");
     expect(policy).toContain("localização aproximada");

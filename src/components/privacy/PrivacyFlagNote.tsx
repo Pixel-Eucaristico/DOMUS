@@ -9,16 +9,25 @@ interface Props {
   flag: PrivacyFlagId;
   color: string;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }
 
 /**
  * Mostra, junto de uma flag, o que ela envia e o que se perde sem ela
  * (Story 12.7). As frases vêm de `PRIVACY_FLAG_TEXTS`, iguais às da política.
  */
-export function PrivacyFlagNote({ flag, color, style }: Props) {
+export function PrivacyFlagNote({ flag, color, style, testID }: Props) {
   const t = PRIVACY_FLAG_TEXTS[flag];
+  if (!t) return null;
+
   return (
-    <View style={[st.box, style]}>
+    <View
+      style={[st.box, style]}
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={`Envia: ${t.sends}. Sem isso: ${t.loses}`}
+      testID={testID}
+    >
       <Text style={[st.text, { color }]}>
         <Text style={st.label}>Envia: </Text>
         {t.sends}

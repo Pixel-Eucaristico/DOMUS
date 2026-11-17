@@ -130,5 +130,6 @@ export const PRIVACY_FLAG_TEXTS: Record<PrivacyFlagId, PrivacyFlagText> = {
 /** Texto de uma flag em duas linhas: "Envia: …" e "Sem isso: …". */
 export function formatPrivacyFlagText(id: PrivacyFlagId): string {
   const t = PRIVACY_FLAG_TEXTS[id];
+  if (!t) return "";
   return `Envia: ${t.sends}\nSem isso: ${t.loses}`;
 }
