@@ -25,6 +25,7 @@ import { WishlistSearchWebView } from "./WishlistSearchWebView";
 import { StoreGridModal } from "./StoreGridModal";
 import { SelectionModal } from "../shared/SelectionModal";
 import { useAddWishlistItem } from "@/src/hooks/useAddWishlistItem";
+import { WISHLIST_LINK_PLACEHOLDER } from "@/src/modules/wishlist/wishlistUiHelpers";
 import { soundManager } from "@/src/services/SoundManager";
 import { TButton, TInput } from "@/src/components/tamagui";
 
@@ -122,11 +123,12 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
               </TouchableOpacity>
             </View>
           }
-          footerVisible={isValid}
           footer={
             <TButton
               variant="primary"
               backgroundColor={theme.primaryColor}
+              disabled={!isValid}
+              opacity={isValid ? 1 : 0.45}
               icon={<Feather name={editItem ? "check" : "plus"} size={16} color={getContrastTextColor(theme.primaryColor)} />}
               onPress={() => { soundManager.play("success"); handleConfirm(); }}
             >
@@ -141,7 +143,9 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
               <View style={s.urlRow}>
                 <TInput
                   flex={1}
-                  placeholder="Cole o link ou use a lupa para pesquisar"
+                  placeholder={WISHLIST_LINK_PLACEHOLDER}
+                  fontSize={13}
+                  paddingHorizontal={12}
                   value={form.url}
                   onChangeText={(v) => updateField("url", v)}
                   onBlur={handleUrlBlur}
@@ -204,7 +208,10 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
                   onPress={() => { soundManager.play("tap"); updateField("urgencyLevel", level); }}
                   activeOpacity={0.7}
                 >
-                  <Text style={[s.urgencyText, { color: selected ? "#fff" : URGENCY_COLORS[level] }]}>
+                  <Text
+                    style={[s.urgencyText, { color: selected ? "#fff" : URGENCY_COLORS[level] }]}
+                    numberOfLines={1}
+                  >
                     {URGENCY_LABELS[level]}
                   </Text>
                 </TouchableOpacity>
@@ -529,7 +536,7 @@ const s = StyleSheet.create({
   stepperInput: { width: 52, height: 40, borderRadius: 10, borderWidth: 1, textAlign: "center", fontSize: 16, fontFamily: "DMSans_700Bold" },
   stepperTotal: { fontSize: 13, fontFamily: "DMSans_600SemiBold" },
   urgencyRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 2 },
-  urgencyChip: { borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
+  urgencyChip: { flexBasis: "48%", flexGrow: 1, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
   urgencyText: { fontSize: 12, fontFamily: "DMSans_600SemiBold" },
   categoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 2 },
   categoryChip: { borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },

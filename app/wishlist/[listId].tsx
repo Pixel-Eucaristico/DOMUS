@@ -12,6 +12,11 @@ import { useAppState } from "@/src/context/AppStateProvider";
 import { soundManager } from "@/src/services/SoundManager";
 import { ConfirmDeleteModal } from "@/src/components/shared/ConfirmDeleteModal";
 import { useWishlist } from "@/src/hooks/useWishlist";
+import {
+  getWishlistDisplayTitle,
+  isWishlistTrashDisabled,
+} from "@/src/modules/wishlist/wishlistUiHelpers";
+import { getContrastTextColor } from "@packages/theme";
 import { usePriceRefresh } from "@/src/hooks/usePriceRefresh";
 import { useExternalLookups } from "@/src/hooks/useExternalLookups";
 import { createEvent, generateId } from "@packages/events/src/factory";
@@ -221,6 +226,9 @@ export default function WishlistDetailScreen() {
     );
   }
 
+  const trashDisabled = isWishlistTrashDisabled(rawItems.length);
+  const displayTitle = getWishlistDisplayTitle(list.name);
+
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: theme.background }]}
@@ -238,21 +246,38 @@ export default function WishlistDetailScreen() {
           style={[styles.headerTitle, { color: theme.textColor }]}
           numberOfLines={1}
         >
-          {list.name}
+          {displayTitle}
         </Text>
         <TouchableOpacity
           onPress={() => setShowDeleteConfirm(true)}
-          style={styles.deleteBtn}
+          disabled={trashDisabled}
+          accessibilityRole="button"
+          accessibilityLabel="Excluir lista"
+          accessibilityState={{ disabled: trashDisabled }}
+          style={[
+            styles.deleteBtn,
+            trashDisabled && { opacity: 0.35 },
+          ]}
           activeOpacity={0.7}
         >
-          <Feather name="trash-2" size={18} color={theme.danger ?? "#DC2626"} />
+          <Feather
+            name="trash-2"
+            size={18}
+            color={
+              trashDisabled
+                ? theme.secondaryText
+                : (theme.danger ?? "#DC2626")
+            }
+          />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.addBtn, { backgroundColor: theme.primaryColor }]}
           onPress={() => { soundManager.play("pop"); setShowAddModal(true); }}
+          accessibilityRole="button"
+          accessibilityLabel="Adicionar item"
           activeOpacity={0.7}
         >
-          <Feather name="plus" size={20} color="#fff" />
+          <Feather name="plus" size={20} color={getContrastTextColor(theme.primaryColor)} />
         </TouchableOpacity>
       </View>
 
@@ -304,7 +329,7 @@ export default function WishlistDetailScreen() {
       <ConfirmDeleteModal
         visible={showDeleteConfirm}
         title="Excluir lista"
-        description={`Tem certeza que deseja excluir "${list.name}" e todos os seus itens? Esta ação não pode ser desfeita.`}
+        description={`Tem certeza que deseja excluir "${displayTitle}" e todos os seus itens? Esta ação não pode ser desfeita.`}
         onConfirm={() => { setShowDeleteConfirm(false); deleteList(list.id); router.back(); }}
         onCancel={() => setShowDeleteConfirm(false)}
         theme={theme}

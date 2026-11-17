@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { Animated, Platform } from "react-native";
 import { wishlistScraperService, AFFILIATE_CONFIG } from "@packages/wishlist";
 import type { UrgencyLevel, WishlistItem, SavingsGoalConfig, BundleItem } from "@packages/wishlist";
+import { isWishlistItemValid } from "@/src/modules/wishlist/wishlistUiHelpers";
 
 export interface WishlistFormState {
   name: string;
@@ -130,7 +131,7 @@ export function useAddWishlistItem({
     }
   }, [visible, editItem]);
 
-  const isValid = form.name.trim().length >= 2;
+  const isValid = isWishlistItemValid(form.name);
   const hasUrl = form.url.trim().length > 0;
 
   const handleUrlBlur = useCallback(() => {
