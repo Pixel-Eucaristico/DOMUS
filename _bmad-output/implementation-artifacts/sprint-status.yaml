@@ -178,7 +178,7 @@ development_status:
   13-7-verificar-todos-os-campos-no-aparelho: backlog
   epic-13-retrospective: optional
 
-  epic-14: in-progress
+  epic-14: done
   14-1-proteger-cabecalhos-e-rolagem-com-area-segura: done
   14-2-evitar-sobreposicao-de-botoes-e-colisoes-nas-listas: done
   14-3-corrigir-contraste-de-botoes-bege-e-padronizar-cor-dos-campos: done
