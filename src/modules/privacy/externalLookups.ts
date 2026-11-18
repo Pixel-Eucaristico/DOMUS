@@ -117,7 +117,7 @@ async function save(
 ): Promise<void> {
   // Grava primeiro: se falhar, o interruptor não mostra um valor que não ficou salvo
   await storage.setItem(EXTERNAL_LOOKUPS_KEY, JSON.stringify(next));
-  if (storage === defaultStorage) flagStore.publish(next);
+  if (storage === defaultStorage) flagStore.notify(next);
 }
 
 export async function setExternalLookupsEnabled(

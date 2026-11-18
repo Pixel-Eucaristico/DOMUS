@@ -101,11 +101,11 @@ async function writeConsentToStorage(
       } catch {
         // best-effort
       }
-      if (isDefault) flagStore.publish(false);
+      if (isDefault) flagStore.notify(false);
     }
     throw err;
   }
-  if (isDefault) flagStore.publish(consent);
+  if (isDefault) flagStore.notify(consent);
 }
 
 /**

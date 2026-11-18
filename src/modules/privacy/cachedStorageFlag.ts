@@ -10,7 +10,7 @@ export interface CachedReadResult<T> {
 }
 
 export interface CachedStorageFlag<T> {
-  publish: (next: T) => void;
+  notify: (next: T) => void;
   subscribe: (listener: (value: T) => void) => () => void;
   getCached: () => T | null;
   reset: () => void;
@@ -35,7 +35,7 @@ export function createCachedStorageFlag<T>(
   let activeWrites = 0;
   const listeners = new Set<(value: T) => void>();
 
-  function publish(next: T): void {
+  function notify(next: T): void {
     cached = next;
     listeners.forEach((listener) => {
       try {
@@ -80,7 +80,7 @@ export function createCachedStorageFlag<T>(
         .then(({ value, cacheable }) => {
           if (cacheEpoch !== startEpoch) return value;
           // Uma gravação feita durante a leitura vence
-          if (cached === null && cacheable) publish(value);
+          if (cached === null && cacheable) notify(value);
           return cached ?? value;
         })
         .finally(() => {
@@ -110,7 +110,7 @@ export function createCachedStorageFlag<T>(
   }
 
   return {
-    publish,
+    notify,
     subscribe,
     getCached,
     reset,
