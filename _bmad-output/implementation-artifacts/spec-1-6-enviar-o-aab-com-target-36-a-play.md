@@ -2,7 +2,7 @@
 title: 'Story 1.6: Enviar o AAB com target 36 à Play'
 type: 'chore'
 created: '2026-11-25'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'fa38032'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -45,8 +45,8 @@ context:
 **Execution:**
 - [x] Atualizar `app.json`, `package.json`, `package-lock.json` e `CHANGELOG.md` para `1.9.0` / `versionCode: 12`
 - [x] Corrigir testes dependentes da data de corte (`2026-11-20`) e CRLF para `npx vitest run` passar 100% no Windows e no CI Linux
-- [ ] Commitar e fazer push na `dev`, confirmar `Gate` verde e disparar `build-android.yml` (`workflow_dispatch`, `publish=false`) na `dev`
-- [ ] Baixar o AAB assinado dos artefatos do run, validar certificado (não debug), `targetSdkVersion=36`, `versionCode=12` e 0 ocorrências de segredo OAuth no `index.android.bundle`, e entregar caminho/evidência ao dono para upload no Play Console
+- [x] Commitar e fazer push na `dev` (`2e2de34`), confirmar `Gate` verde, configurar os 4 secrets oficiais `ANDROID_KEYSTORE_*` da credencial `YcceuoCtWl` no GitHub Actions e disparar `build-android.yml` (`workflow_dispatch`, `publish=false`) na `dev` (`runs/45688642633`)
+- [x] Baixar o AAB assinado dos artefatos do run `45688642633`, validar certificado de produção (`META-INF/A2DE3E38.RSA`, SHA-1 `27:FD:78:69:3F:03:BF:62:05:43:65:D9:1C:97:B1:7E:1C:B0:64:9F`), `targetSdkVersion=36`, `versionCode=12` e 0 ocorrências de segredo OAuth no `index.android.bundle`, registrando em `docs/verificacao-aab-1-9-0.md` para upload no Play Console pelo dono
 
 ## Verification
 
