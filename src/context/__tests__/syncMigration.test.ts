@@ -274,8 +274,9 @@ describe("Story 4.8: Convivência e Preservação do Grupo antigo na Migração"
     // Executa criação com convivência (keepLegacy: true)
     const strong = await createStrongSyncGroup({ keepLegacy: true });
 
-    // Ambos os grupos coexistem no armazenamento
-    const coexisting = await loadCoexistingGroups();
+    // Ambos os grupos coexistem no armazenamento (antes da data de corte do legado)
+    const preCutoff = Date.parse("2026-11-01T00:00:00.000Z");
+    const coexisting = await loadCoexistingGroups({ now: preCutoff });
     expect(coexisting.strong).not.toBeNull();
     expect(coexisting.strong?.code).toBe(strong.code);
     expect(coexisting.strong?.isStrong).toBe(true);
@@ -285,7 +286,7 @@ describe("Story 4.8: Convivência e Preservação do Grupo antigo na Migração"
     expect(coexisting.legacy?.isStrong).toBe(false);
 
     // loadActiveSyncGroup apresenta o Grupo forte como o principal
-    const active = await loadActiveSyncGroup();
+    const active = await loadActiveSyncGroup({ now: preCutoff });
     expect(active?.code).toBe(strong.code);
     expect(active?.isStrong).toBe(true);
   });

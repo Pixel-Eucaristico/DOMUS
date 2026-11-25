@@ -2,7 +2,7 @@
   "expo": {
     "name": "DOMUS",
     "slug": "domus",
-    "version": "1.8.0",
+    "version": "1.9.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "orcafacil",
@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "br.com.pixeleucaristico.domus",
-      "versionCode": 11,
+      "versionCode": 12,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#F5F7FA",

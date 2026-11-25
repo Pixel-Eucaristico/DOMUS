@@ -380,7 +380,7 @@ describe("revisão 11.4 — R12: publicador único do Grupo antigo", () => {
   }
 
   it("finalizeEvent( e .publish( só aparecem dentro de publishSyncEvents", () => {
-    const src = readFileSync(nostrSyncPath, "utf8");
+    const src = readFileSync(nostrSyncPath, "utf8").replace(/\r\n/g, "\n");
     const start = src.indexOf("export async function publishSyncEvents(");
     expect(start).toBeGreaterThan(-1);
     const end = src.indexOf("\n}\n", start);

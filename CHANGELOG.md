@@ -7,11 +7,23 @@ e segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
-> Nota: as versões 1.3.0–1.8.0 foram lançadas sem entrada neste arquivo (o histórico
-> parcial está em `docs/history/CHANGELOG.md` até a 1.6.0). Este changelog volta a ser
-> mantido a partir daqui.
+---
+
+## [1.9.0] - 2026-11-25 (`versionCode: 12`)
+
+### Adicionado
+- **Target API 36 (Android 16) e conformidade Google Play (Épico 1):** `compileSdkVersion`/`targetSdkVersion` 36, validação ponta a ponta no Android 16 (edge-to-edge, predictive back, tela grande), política de privacidade, descrição da loja e Data safety alinhados ao comportamento real do app, sem `EXPO_PUBLIC_GOOGLE_CLIENT_SECRET` no bundle e permissões não usadas bloqueadas.
+- **Grupo forte de sincronização (Épicos 4 e 5):** segredo de 256 bits (`DOMUS1-...`) com cifra autenticada AES-GCM, pareamento por QR Code/colagem, publicação paginada em lotes, cursores independentes, marcadores de reset/restauração com confirmação e corte definitivo do Grupo antigo em `2026-11-20`.
+- **Segurança e privacidade por escolha (Épicos 6 e 12):** chaves de OCR e auto-backup em armazenamento seguro (`SecureStore`/`webSecrets`), log de eventos cifrado na web, PIN com salt criptográfico e PBKDF2 lento com indicador de espera (`Verificando PIN…`/`Salvando PIN…`), anúncios não personalizados por padrão com opt-in, flags de controle de envio de dados e aviso antes de backup sem criptografia.
+- **Preferências e chaves sincronizadas (Épicos 9 e 10):** sincronização de preferências via evento `SETTING_CHANGED` e opt-in explícito para sincronização cifrada de chaves no Grupo forte.
+- **Holerites, glossário e troféus Lottie na web (Épico 11):** leitura/revisão manual e OCR de holerites com histórico e gráfico, glossário financeiro com dicas contextuais e reprodução Lottie na web.
+- **Teclado unificado em todo o app (Épico 13):** sistema único `react-native-keyboard-controller` com `KeyboardProvider` na raiz, `KeyboardAwareScrollViewCompat`, `KeyboardSheet`, `KeyboardListSheet`, chat da IA sem deslocamento duplo e barra de chave NF sobre a câmera, validados no Android 16 e na web.
+- **Polimento visual e UX (Épico 14):** contraste, áreas seguras, estados vazios e prevenção de colisões nas listas.
 
 ### Corrigido
+- **Android 16 (`SM-X510`):** crash `ViewGroup.dispatchDetachedFromWindow` ao pressionar Voltar na tela inicial (`patches/react-native-keyboard-controller+1.18.5.patch`), promoção `http://` → `https://` de URLs SEFAZ em target 36 (`qrcodeParser.ts`), e colapso para `0 px` de `<FlashList>` no `CategoryPickerModal` e `StoreGridModal` (`heightRatio` + `listSheetSize`).
+- **Integridade de replay e gamificação (Épicos 3 e 7):** quarentena de eventos inválidos, ordem total determinística, rejeição de timestamps futuros, derivação pura de nível/streak e deduplicação de conquistas/XP.
+- **Testes determinísticos pré-corte do Grupo antigo:** fixado `{ now }` antes de `2026-11-20` em `strongGroupSync.test.ts`, `syncCoexistence.test.ts` e `syncMigration.test.ts`, e normalização CRLF em `nostrSync.test.ts`.
 - **Grupo 50/30/20 de itens importados de nota fiscal**: itens com categorias constantes
   (ex.: `alimentacao`) eram todos contados como "Desejo" porque a categoria não existia no
   estado de domínio. Agora a importação emite `CATEGORY_CREATED` para categorias ausentes e

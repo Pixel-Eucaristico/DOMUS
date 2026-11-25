@@ -167,7 +167,7 @@ describe("Story 4.3: Carregamento do grupo ativo no boot", () => {
     const legacyCode = generateGroupCode();
     secure.set(GROUP_CODE_KEY, legacyCode);
 
-    const active = await loadActiveSyncGroup();
+    const active = await loadActiveSyncGroup({ now: Date.parse("2026-11-01T00:00:00.000Z") });
     expect(active).not.toBeNull();
     expect(active?.isStrong).toBe(false);
     expect(active?.keys.isStrong).toBe(false);
@@ -182,12 +182,14 @@ describe("Story 4.3: Carregamento do grupo ativo no boot", () => {
 });
 
 describe("Story 4.7: loadCoexistingGroups e convivência de canais", () => {
+  const preCutoff = Date.parse("2026-11-01T00:00:00.000Z");
+
   it("carrega ambos os grupos quando forte e legado coexistem", async () => {
     const strongGroup = await createStrongSyncGroup({ keepLegacy: true });
     secure.set(GROUP_CODE_KEY, "LEG123");
     legacy.set(GROUP_CODE_KEY, "LEG123");
 
-    const coexisting = await loadCoexistingGroups();
+    const coexisting = await loadCoexistingGroups({ now: preCutoff });
     expect(coexisting.strong).not.toBeNull();
     expect(coexisting.strong?.isStrong).toBe(true);
     expect(coexisting.strong?.code).toBe(strongGroup.code);
@@ -199,7 +201,7 @@ describe("Story 4.7: loadCoexistingGroups e convivência de canais", () => {
   it("carrega apenas strong quando não há código legado", async () => {
     const strongGroup = await createStrongSyncGroup();
 
-    const coexisting = await loadCoexistingGroups();
+    const coexisting = await loadCoexistingGroups({ now: preCutoff });
     expect(coexisting.strong).not.toBeNull();
     expect(coexisting.strong?.code).toBe(strongGroup.code);
     expect(coexisting.legacy).toBeNull();
@@ -209,7 +211,7 @@ describe("Story 4.7: loadCoexistingGroups e convivência de canais", () => {
     const legacyCode = generateGroupCode();
     secure.set(GROUP_CODE_KEY, legacyCode);
 
-    const coexisting = await loadCoexistingGroups();
+    const coexisting = await loadCoexistingGroups({ now: preCutoff });
     expect(coexisting.strong).toBeNull();
     expect(coexisting.legacy).not.toBeNull();
     expect(coexisting.legacy?.code).toBe(legacyCode);

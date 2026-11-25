@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-25-2026 13:51
+last_updated: 11-25-2026 14:49
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -38,10 +38,10 @@ development_status:
   epic-1: in-progress
   1-1-consolidar-as-correções-de-segredo-na-dev: done
   1-2-mirar-a-api-36-no-build-de-release: done
-  1-3-validar-no-android-16-e-corrigir-o-que-quebrar: review
+  1-3-validar-no-android-16-e-corrigir-o-que-quebrar: done
   1-4-corrigir-a-descrição-da-loja-e-a-política-de-privacidade: done
   1-5-alinhar-o-formulário-data-safety-ao-comportamento: done
-  1-6-enviar-o-aab-com-target-36-à-play-até-25-10-2026: backlog
+  1-6-enviar-o-aab-com-target-36-à-play-até-25-10-2026: in-progress
   1-7-verificar-que-o-build-publicado-não-tem-o-client_secret: backlog
   1-8-revogar-o-segredo-antigo-do-google-depois-da-adoção: backlog
   epic-1-retrospective: optional
@@ -168,14 +168,14 @@ development_status:
   12-7-dizer-em-cada-flag-o-que-transmite-e-o-que-se-perde: done
   epic-12-retrospective: done
 
-  epic-13: in-progress
+  epic-13: done
   13-1-ligar-o-sistema-único-de-teclado-na-raiz: done
   13-2-padronizar-a-rolagem-das-telas-com-campos: done
   13-3-fazer-os-modais-com-formulário-subirem: done
   13-4-fazer-as-buscas-e-diálogos-em-modal-subirem: done
   13-5-um-só-deslocamento-no-chat-da-ia: done
   13-6-corrigir-a-digitação-manual-da-chave-da-nf-sobre-a-câmera: done
-  13-7-verificar-todos-os-campos-no-aparelho: review
+  13-7-verificar-todos-os-campos-no-aparelho: done
   epic-13-retrospective: optional
 
   epic-14: done
