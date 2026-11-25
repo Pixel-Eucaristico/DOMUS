@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { PinPad } from "./PinPad";
 import { BiometricService } from "@/src/modules/security/application/BiometricService";
 import { PinAuthService } from "@/src/modules/security/application/PinAuthService";
 import { SecurityService } from "@/src/modules/security/application/SecurityService";
+import { createLockScreenPinVerifier } from "@/src/modules/security/application/pinVerificationFlow";
 import type { UserSecuritySettings } from "@/src/modules/security/domain/UserSecuritySettings";
 
 interface LockScreenProps {
@@ -25,6 +26,7 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
   const { theme } = useAppState();
   const [settings, setSettings] = useState<UserSecuritySettings | null>(null);
   const [pinError, setPinError] = useState<string | null>(null);
+  const [pinVerifying, setPinVerifying] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
@@ -86,49 +88,42 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- prompt biométrico deve disparar só quando o método muda; incluir tryBiometric repetiria o prompt a cada render do pai
   }, [settings?.method]);
 
-  const handlePinComplete = useCallback(
-    async (pin: string) => {
-      if (!settings) return;
-      setPinError(null);
+  const onUnlockRef = useRef(onUnlock);
+  onUnlockRef.current = onUnlock;
 
-      const result = await PinAuthService.verifyPin(pin, settings);
-
-      if (result.success) {
+  const pinVerifier = useRef(
+    createLockScreenPinVerifier({
+      verifyPin: (pin, current) => PinAuthService.verifyPin(pin, current),
+      loadSettings: () => SecurityService.loadSettings(),
+      getRemainingLockMs: (current) => PinAuthService.getRemainingLockMs(current),
+      setSettings,
+      setPinError,
+      setPinVerifying,
+      onUnlock: () => onUnlockRef.current(),
+      onSuccessFeedback: () => {
         if (Platform.OS !== "web") {
           Haptics.notificationAsync(
             Haptics.NotificationFeedbackType.Success,
           ).catch(() => {});
         }
-        onUnlock();
-        return;
-      }
-
-      if (Platform.OS !== "web") {
-        Haptics.notificationAsync(
-          Haptics.NotificationFeedbackType.Error,
-        ).catch(() => {});
-      }
-
-      const updated = await SecurityService.loadSettings();
-      setSettings(updated);
-
-      if (result.reason === "locked") {
-        const secs = Math.ceil(
-          PinAuthService.getRemainingLockMs(updated) / 1000,
-        );
-        setPinError(`Muitas tentativas. Aguarde ${secs}s.`);
-      } else {
-        const rem = result.remainingAttempts ?? 0;
-        if (rem === 0) {
-          setPinError("Conta bloqueada por 30 segundos.");
-        } else {
-          setPinError(
-            `PIN incorreto. ${rem} tentativa${rem === 1 ? "" : "s"} restante${rem === 1 ? "" : "s"}.`,
-          );
+      },
+      onErrorFeedback: () => {
+        if (Platform.OS !== "web") {
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Error,
+          ).catch(() => {});
         }
-      }
+      },
+    }),
+  ).current;
+
+  useEffect(() => () => pinVerifier.cancel(), [pinVerifier]);
+
+  const handlePinComplete = useCallback(
+    (pin: string) => {
+      void pinVerifier.verify(pin, settings);
     },
-    [settings, onUnlock],
+    [pinVerifier, settings],
   );
 
   if (!settings) {
@@ -189,6 +184,15 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
                 {pinError}
               </Text>
             )}
+          </View>
+        ) : pinVerifying ? (
+          <View style={styles.biometricSection}>
+            <ActivityIndicator size="large" color={theme.primaryColor} />
+            <Text
+              style={[styles.biometricHint, { color: theme.secondaryText }]}
+            >
+              Verificando PIN…
+            </Text>
           </View>
         ) : (
           <PinPad

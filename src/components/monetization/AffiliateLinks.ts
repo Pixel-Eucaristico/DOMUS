@@ -1,6 +1,8 @@
+import { AFFILIATE_CONFIG } from "@packages/wishlist/src/affiliateConfig";
+
 export const AFFILIATE_URLS = {
-  amazon: "https://www.amazon.com.br?tag=willianquinti-20",
-  mercadoLivre: "https://meli.la/2oDNho4",
+  amazon: `https://www.amazon.com.br?tag=${AFFILIATE_CONFIG.amazon.tag}`,
+  mercadoLivre: AFFILIATE_CONFIG.mercadolivre.link,
   kofi: "https://ko-fi.com/willianquintino33618",
 } as const;
 

@@ -6,21 +6,30 @@ export interface QRCodeData {
   chaveAcesso: string | null;
 }
 
+/**
+ * Promove URLs `http://` da SEFAZ para `https://` (D18 / Android 16 target 36
+ * bloqueia tráfego cleartext no WebView sem `usesCleartextTraffic`).
+ */
+export function upgradeSefazHttpToHttps(url: string): string {
+  return url.replace(/^http:\/\//i, "https://");
+}
+
 export function parseNFCeQRCode(rawData: string): QRCodeData | null {
   const trimmed = rawData.trim();
 
   const urlMatch = trimmed.match(SEFAZ_URL_PATTERN);
   if (!urlMatch) {
-    if (/^https?:\/\//.test(trimmed) && trimmed.includes("nfce")) {
+    if (/^https?:\/\//i.test(trimmed) && trimmed.toLowerCase().includes("nfce")) {
+      const upgraded = upgradeSefazHttpToHttps(trimmed);
       return {
-        url: trimmed,
-        chaveAcesso: extractChaveAcesso(trimmed),
+        url: upgraded,
+        chaveAcesso: extractChaveAcesso(upgraded),
       };
     }
     return null;
   }
 
-  const url = urlMatch[0];
+  const url = upgradeSefazHttpToHttps(urlMatch[0]);
   return {
     url,
     chaveAcesso: extractChaveAcesso(url),

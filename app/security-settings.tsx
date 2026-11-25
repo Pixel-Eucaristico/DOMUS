@@ -86,18 +86,33 @@ export default function SecuritySettingsScreen() {
     };
 
     const handler = handlerMap[local.step];
+    const savingLabel =
+      local.step === "verify_pin_to_disable" || local.step === "change_pin_current"
+        ? "Verificando PIN…"
+        : "Salvando PIN…";
 
     return (
       <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
         <View style={s.pinHeader}>
-          <TouchableOpacity onPress={() => { soundManager.play("tap"); dispatch({ type: "RESET" }); }} style={s.backBtn} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={() => {
+              soundManager.play("tap");
+              dispatch({ type: "RESET" });
+            }}
+            disabled={local.saving}
+            style={[s.backBtn, local.saving && { opacity: 0.4 }]}
+            activeOpacity={0.7}
+          >
             <Feather name="x" size={22} color={theme.textColor} />
           </TouchableOpacity>
           <TText variant="subtitle" bold color={theme.textColor} fontSize={20} flex={1}>Segurança</TText>
         </View>
         <View style={s.pinContainer}>
           {local.saving ? (
-            <ActivityIndicator color={theme.primaryColor} size="large" />
+            <View style={s.savingState}>
+              <ActivityIndicator color={theme.primaryColor} size="large" />
+              <Text style={[s.savingText, { color: theme.secondaryText }]}>{savingLabel}</Text>
+            </View>
           ) : (
             <PinPad
               theme={theme}
@@ -314,6 +329,8 @@ function dynamicStyles(theme: any) {
     securityNote: { flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center", paddingVertical: 4 },
     securityNoteText: { fontFamily: "DMSans_400Regular", fontSize: 10, textAlign: "center" },
     pinContainer: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 },
+    savingState: { alignItems: "center", gap: 14 },
+    savingText: { fontFamily: "DMSans_400Regular", fontSize: 14 },
     methodContainer: { flex: 1, paddingHorizontal: 24, paddingTop: 32, gap: 20 },
     methodTitle: { fontFamily: "DMSans_700Bold", fontSize: 20, textAlign: "center", marginBottom: 8 },
   });

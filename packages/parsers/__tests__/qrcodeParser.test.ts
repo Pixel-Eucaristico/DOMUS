@@ -43,6 +43,21 @@ describe("parseNFCeQRCode", () => {
     const result = parseNFCeQRCode(url);
     expect(result).not.toBeNull();
   });
+
+  it("promove URLs http:// da SEFAZ para https:// (D18 / Android 16 cleartext)", () => {
+    const chave = "35240100000000000000650010000000011000000010";
+    const sefazHttp = `http://www.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx?p=${chave}|2|1|1|00`;
+    const result = parseNFCeQRCode(sefazHttp);
+    expect(result).not.toBeNull();
+    expect(result!.url).toBe(
+      `https://www.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx?p=${chave}|2|1|1|00`,
+    );
+    expect(result!.chaveAcesso).toBe(chave);
+
+    const fallbackHttp = "HTTP://custom.nfce.example.com/view?id=123";
+    const fallbackResult = parseNFCeQRCode(fallbackHttp);
+    expect(fallbackResult?.url).toBe("https://custom.nfce.example.com/view?id=123");
+  });
 });
 
 describe("isValidSefazUrl", () => {

@@ -4,7 +4,7 @@
  */
 export const AFFILIATE_CONFIG = {
   amazon: {
-    tag: "willianquinti-20",
+    tag: "willianquin03-20",
     linkCode: "ll1",
     label: "Amazon Associates",
     description:

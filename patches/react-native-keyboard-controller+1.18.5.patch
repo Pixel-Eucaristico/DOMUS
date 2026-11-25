@@ -82,32 +82,3 @@ index e13177c..daa3615 100644
    // region View life cycles
    override fun onAttachedToWindow() {
      super.onAttachedToWindow()
-@@ -185,16 +251,19 @@
-   private fun removeKeyboardCallbacks() {
-     callback?.destroy()
- 
--    // capture view into closure, because if `onDetachedFromWindow` and `onAttachedToWindow`
--    // dispatched synchronously after each other (open application on Fabric), then `.post`
--    // will destroy just newly created view (if we have a reference via `this`)
--    // and we'll have a memory leak or zombie-view
-+    // Samsung Galaxy S24 (and similar devices) crash with:
-+    // "EdgeToEdgeReactViewGroup contains null child at index N when traversal in dispatchGetDisplayList"
-+    // This happens because the async removal via Handler.post creates a window where
-+    // the child is null but the children count hasn't updated yet during rendering.
-+    // Fix: remove the view synchronously to prevent the null child race condition.
-     val view = eventView
--    // we need to remove view asynchronously from `onDetachedFromWindow` method
--    // otherwise we may face NPE when app is getting opened via universal link
--    // see https://github.com/kirillzyusko/react-native-keyboard-controller/issues/242
--    // for more details
--    Handler(Looper.getMainLooper()).post { view.removeSelf() }
-+    try {
-+      view.removeSelf()
-+    } catch (e: Exception) {
-+      // If synchronous removal fails (e.g., universal link scenario from issue #242),
-+      // fall back to async removal
-+      Handler(Looper.getMainLooper()).post { view.removeSelf() }
-+    }
-   }
- 
-   private fun reApplyWindowInsets() {

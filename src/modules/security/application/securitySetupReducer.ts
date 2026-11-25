@@ -37,34 +37,35 @@ export type LocalAction =
 export function localReducer(state: LocalState, action: LocalAction): LocalState {
   switch (action.type) {
     case "START_ENABLE":
-      return { ...state, step: "choose_method", pinError: null };
+      return { ...state, step: "choose_method", pinError: null, saving: false };
     case "CHOOSE_PIN":
-      return { ...state, step: "set_pin_new", pinError: null };
+      return { ...state, step: "set_pin_new", pinError: null, saving: false };
     case "CHOOSE_BIOMETRIC":
-      return { ...state, step: "idle", pinError: null };
+      return { ...state, step: "idle", pinError: null, saving: false };
     case "PIN_NEW_DONE":
-      return { ...state, step: "set_pin_confirm", pendingPin: action.pin, pinError: null };
+      return { ...state, step: "set_pin_confirm", pendingPin: action.pin, pinError: null, saving: false };
     case "PIN_CONFIRM_DONE":
-      return { ...state, step: "idle", pendingPin: "", pinError: null };
+      return { ...state, step: "idle", pendingPin: "", pinError: null, saving: false };
     case "PIN_CONFIRM_MISMATCH":
       return {
         ...state,
         step: "set_pin_new",
         pendingPin: "",
         pinError: "Os PINs não coincidem. Tente novamente.",
+        saving: false,
       };
     case "START_DISABLE_PIN":
-      return { ...state, step: "verify_pin_to_disable", pinError: null };
+      return { ...state, step: "verify_pin_to_disable", pinError: null, saving: false };
     case "START_DISABLE_BIOMETRIC":
-      return { ...state, step: "verify_biometric_to_disable", pinError: null };
+      return { ...state, step: "verify_biometric_to_disable", pinError: null, saving: false };
     case "START_CHANGE_PIN":
-      return { ...state, step: "change_pin_current", pinError: null };
+      return { ...state, step: "change_pin_current", pinError: null, saving: false };
     case "CHANGE_CURRENT_DONE":
-      return { ...state, step: "change_pin_new", pendingPin: "", pinError: null };
+      return { ...state, step: "change_pin_new", pendingPin: "", pinError: null, saving: false };
     case "CHANGE_NEW_DONE":
-      return { ...state, step: "change_pin_confirm", pendingPin: action.pin, pinError: null };
+      return { ...state, step: "change_pin_confirm", pendingPin: action.pin, pinError: null, saving: false };
     case "SET_ERROR":
-      return { ...state, pinError: action.message };
+      return { ...state, pinError: action.message, saving: false };
     case "SET_SAVING":
       return { ...state, saving: action.value };
     case "RESET":
