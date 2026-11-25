@@ -15,4 +15,5 @@ Se a sessão principal já estiver no modelo certo, execute diretamente. Em caso
 
 # Git e BMad Workflows
 
-Sempre mantenha o `git status` limpo antes de iniciar workflows do BMad (`/bmad-build`, `/bmad-build-auto`), fazendo commit das alterações de configuração pendentes quando necessário.
+- **NUNCA crie outras branches** (nem feature branches, nem worktrees em nova branch, nem sugira abrir PR em branch separada): trabalhe e faça commit sempre direto na branch atual (`dev`).
+- Sempre mantenha o `git status` limpo antes de iniciar workflows do BMad (`/bmad-build`, `/bmad-build-auto`), fazendo commit das alterações de configuração pendentes quando necessário.
