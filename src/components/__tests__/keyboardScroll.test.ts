@@ -813,6 +813,10 @@ function keyboardListSheetViolations(source: string): string[] {
   if (/\bcompactHeader\b/.test(code)) hits.push("compactHeader (troca de cabeçalho remonta o campo)");
   // R5: a medida do título é descartada quando o measureKey muda.
   if (!/useEffect\s*\([\s\S]*?\[\s*measureKey\s*\]\s*\)/.test(code)) hits.push("measureKey não refaz a medida");
+  // Story 13.7: altura definida + flexGrow para FlashList vêm do listSheetSize e listFill.
+  if (!/\blistSheetSize\s*\(/.test(code)) hits.push("sem listSheetSize(…)");
+  if (!/\blistFill\s*:\s*\{[^}]*\bflexGrow\s*:\s*1\b/.test(code)) hits.push("listFill sem flexGrow: 1");
+  if (!/\bfillList\s*&&\s*s\.listFill\b/.test(code)) hits.push("list sem fillList && s.listFill");
   return hits;
 }
 
@@ -883,6 +887,8 @@ function modalListViolations(
   hits.push(...secondKeyboardSystems(source, segment, SECOND_KEYBOARD_SYSTEMS));
 
   // 4. toda rolagem do modal tem toque persistente e fica no list=, na contagem.
+  //    Quando list= usa FlashList, exige heightRatio= (sem altura definida o
+  //    FlashList colapsa para 0 px no Android nativo — Story 13.7).
   const listExpr = tags[0]?.exprs.list ?? "";
   let total = 0;
   let inList = 0;
@@ -896,6 +902,27 @@ function modalListViolations(
   }
   if (total !== scrolls) hits.push(`${total} × rolagem no modal (esperado ${scrolls})`);
   if (inList !== total) hits.push(`${total - inList} × rolagem fora do list=`);
+  const expandedList = expandLocalJsx(listExpr, source);
+  const flashNames = new Set(["FlashList"]);
+  for (const m of code.matchAll(/(?:^|[;\n])\s*import\s+(?!type\s)[^;]*?\{([^}]*)\}[^;]*?from\s*["'][^"']+["']/g)) {
+    for (const member of m[1].split(",")) {
+      const alias = member.trim().match(/^FlashList\s+as\s+([\w$]+)$/);
+      if (alias) flashNames.add(alias[1]);
+    }
+  }
+  const listUsesFlashList =
+    [...flashNames].some((fn) => scanJsxOpeningTags(expandedList, fn.replace(/\$/g, "\\$")).length > 0) ||
+    scanJsxOpeningTags(expandedList, "FlashList", true).length > 0;
+  const isValidHeightRatio = (expr: string | undefined): boolean => {
+    if (!expr) return false;
+    const trimmed = expr.trim();
+    if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(trimmed)) return false;
+    const n = Number(trimmed);
+    return Number.isFinite(n) && n > 0 && n <= 1;
+  };
+  if (listUsesFlashList && tags.some((tag) => !isValidHeightRatio(tag.exprs.heightRatio))) {
+    hits.push("FlashList em KeyboardListSheet sem heightRatio=");
+  }
 
   // 5. o toque no fundo passa pelo useSheetBackdropPress (salvo NO_BACKDROP).
   if (!noBackdrop) hits.push(...backdropViolations(code));
@@ -2987,12 +3014,38 @@ describe("auto-teste dos detectores", () => {
     const listBackdrop = `const onBackdrop = useSheetBackdropPress(close);\n`;
     const search = `const searchBar = (\n  <View>\n    <TextInput value={q} onChangeText={setQ} />\n  </View>\n);\n`;
     const flash = `<FlashList data={d} renderItem={r} keyboardShouldPersistTaps="handled" />`;
-    const okList = `${listImp}${listBackdrop}${search}return (\n  <Modal visible transparent>\n    <Pressable onPress={onBackdrop} />\n    <KeyboardListSheet\n      basePaddingBottom={20}\n      title={<Text>Título</Text>}\n      search={searchBar}\n      list={${flash}}\n    />\n  </Modal>\n);`;
+    const okList = `${listImp}${listBackdrop}${search}return (\n  <Modal visible transparent>\n    <Pressable onPress={onBackdrop} />\n    <KeyboardListSheet\n      heightRatio={0.8}\n      basePaddingBottom={20}\n      title={<Text>Título</Text>}\n      search={searchBar}\n      list={${flash}}\n    />\n  </Modal>\n);`;
     const one = { scrolls: 1 };
 
     it("aceita o padrão (busca declarada à parte ou direto no search)", () => {
       expect(modalListViolations(okList, one)).toEqual([]);
       expect(modalListViolations(okList.replace("search={searchBar}", "search={<TInput value={q} />}"), one)).toEqual([]);
+    });
+
+    it("acusa FlashList em KeyboardListSheet sem heightRatio= válido (ScrollView sem heightRatio passa)", () => {
+      const noHeight = okList.replace("      heightRatio={0.8}\n", "      maxHeightRatio={0.8}\n");
+      expect(modalListViolations(noHeight, one)).toContain("FlashList em KeyboardListSheet sem heightRatio=");
+      expect(modalListViolations(okList.replace("heightRatio={0.8}", "heightRatio={undefined}"), one)).toContain(
+        "FlashList em KeyboardListSheet sem heightRatio=",
+      );
+      expect(modalListViolations(okList.replace("heightRatio={0.8}", "heightRatio={0}"), one)).toContain(
+        "FlashList em KeyboardListSheet sem heightRatio=",
+      );
+      expect(modalListViolations(okList.replace("heightRatio={0.8}", "heightRatio={cond ? 0.8 : undefined}"), one)).toContain(
+        "FlashList em KeyboardListSheet sem heightRatio=",
+      );
+      expect(modalListViolations(okList.replace("heightRatio={0.8}", "heightRatio={1.5}"), one)).toContain(
+        "FlashList em KeyboardListSheet sem heightRatio=",
+      );
+      // FlashList atrás de variável local ou alias de import também é detectado
+      const viaLocal = noHeight
+        .replace(`list={${flash}}`, "list={myList}")
+        .replace(search, `${search}const myList = (${flash});\n`);
+      expect(modalListViolations(viaLocal, one)).toContain("FlashList em KeyboardListSheet sem heightRatio=");
+      const viaAlias = `import { FlashList as FL } from "@shopify/flash-list";\n${noHeight.replace("<FlashList", "<FL")}`;
+      expect(modalListViolations(viaAlias, one)).toContain("FlashList em KeyboardListSheet sem heightRatio=");
+      const withScrollView = noHeight.replace(flash, `<ScrollView keyboardShouldPersistTaps="handled" />`);
+      expect(modalListViolations(withScrollView, one)).toEqual([]);
     });
 
     it("acusa KeyboardListSheet fora de Modal, ausente ou sem import", () => {
@@ -3103,13 +3156,14 @@ describe("auto-teste dos detectores", () => {
     describe("keyboardListSheetViolations", () => {
       const listSheet = [
         `const keyboardHeight = useSheetKeyboardHeight();`,
+        `const { size, fillList, effectiveRatio } = listSheetSize(windowHeight, maxHeightRatio, heightRatio);`,
         `useEffect(() => {\n  setTitleHeight(0);\n}, [measureKey]);`,
         `return (`,
         `  <KeyboardSafeView liftDiscount={sheetLiftDiscount(pb)}>`,
-        `    <Reanimated.View style={s.sheet}>{listSheetSlots(collapsed).map((k) => (k ? slots[k] : null))}<View style={s.list}>{list}</View></Reanimated.View>`,
+        `    <Reanimated.View style={[s.sheet, size]}>{listSheetSlots(collapsed).map((k) => (k ? slots[k] : null))}<View style={[s.list, fillList && s.listFill]}>{list}</View></Reanimated.View>`,
         `  </KeyboardSafeView>`,
         `);`,
-        `const s = StyleSheet.create({ sheet: { flexShrink: 1, minHeight: 0 }, list: { flexShrink: 1, minHeight: 0 } });`,
+        `const s = StyleSheet.create({ sheet: { flexShrink: 1, minHeight: 0 }, list: { flexShrink: 1, minHeight: 0 }, listFill: { flexGrow: 1 } });`,
       ].join("\n");
 
       it("aceita o padrão (com o hook ou com os dois eventos)", () => {
@@ -3124,6 +3178,9 @@ describe("auto-teste dos detectores", () => {
       it.each([
         ["sheet: { flexShrink: 1, minHeight: 0 }", "sheet: { minHeight: 0 }", "sheet sem flexShrink: 1"],
         ["list: { flexShrink: 1, minHeight: 0 }", "list: { flexGrow: 1 }", "list sem flexShrink: 1"],
+        ["listFill: { flexGrow: 1 }", "listFill: { flexShrink: 1 }", "listFill sem flexGrow: 1"],
+        ["listSheetSize(windowHeight, maxHeightRatio, heightRatio)", "{ size: {}, fillList: false, effectiveRatio: 0.8 }", "sem listSheetSize(…)"],
+        ["[s.list, fillList && s.listFill]", "s.list", "list sem fillList && s.listFill"],
         ["liftDiscount={sheetLiftDiscount(pb)}", "liftDiscount={pb - 12}", "liftDiscount sem sheetLiftDiscount(…)"],
         ["{list}</View>", "{list}<FlashList data={d} /></View>", "<FlashList próprio"],
         ["{list}</View>", "{list}<ScrollView /></View>", "<ScrollView próprio"],

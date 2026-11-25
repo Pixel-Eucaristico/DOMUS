@@ -13,6 +13,7 @@ import { useSheetKeyboardHeight } from "@/src/components/shared/KeyboardSheet";
 import {
   computeKeyboardListSheetLayout,
   listSheetHeaderHeight,
+  listSheetSize,
   listSheetSlots,
   sheetLiftDiscount,
   sheetPaddingBottomFor,
@@ -44,10 +45,11 @@ interface KeyboardListSheetProps {
   sheetStyle?: ReanimatedViewProps["style"];
   /**
    * Altura máxima da folha como fração da janela (0,75, 0,80). Abaixo dela, a
-   * folha tem a altura do conteúdo (filtrar encolhe a folha, R-5).
+   * folha tem a altura do conteúdo (filtrar encolhe a folha, R-5). Só use com
+   * `ScrollView`/`FlatList`: `FlashList` exige altura definida (`heightRatio`).
    */
   maxHeightRatio?: number;
-  /** Altura fixa da folha como fração da janela (0,85 no DebugTools); encolhe com o teclado. */
+  /** Altura fixa da folha como fração da janela (0,75–0,85; obrigatória com `FlashList`); encolhe com o teclado. */
   heightRatio?: number;
   /** paddingBottom mínimo da folha; vale `max(insets.bottom, base)`. */
   basePaddingBottom: number;
@@ -95,7 +97,7 @@ export function KeyboardListSheet({
     setTitleHeight(0);
   }, [measureKey]);
 
-  const ratio = heightRatio ?? maxHeightRatio;
+  const { size, fillList, effectiveRatio } = listSheetSize(windowHeight, maxHeightRatio, heightRatio);
   const sheetPaddingBottom = sheetPaddingBottomFor(insets.bottom, basePaddingBottom);
   const rootPadding = sheetRootPadding(insets.top);
   const layout = computeKeyboardListSheetLayout({
@@ -104,7 +106,7 @@ export function KeyboardListSheet({
     insetTop: insets.top,
     sheetPaddingBottom,
     headerHeight: listSheetHeaderHeight(searchBottom, titleHeight, titleCollapsed),
-    maxHeightRatio: ratio,
+    maxHeightRatio: effectiveRatio,
   });
   // As medidas abaixo dependem de o título estar à mostra; guarda o estado em
   // que foram feitas.
@@ -128,13 +130,11 @@ export function KeyboardListSheet({
       </View>
     ),
     list: (
-      <View key="list" style={[s.list, heightRatio !== undefined && s.listFill]}>
+      <View key="list" style={[s.list, fillList && s.listFill]}>
         {list}
       </View>
     ),
   };
-
-  const size = heightRatio !== undefined ? { height: heightRatio * windowHeight } : { maxHeight: ratio * windowHeight };
 
   return (
     <KeyboardSafeView

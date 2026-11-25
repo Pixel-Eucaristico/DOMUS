@@ -297,6 +297,30 @@ export function listSheetSlots(titleCollapsed: boolean): readonly (ListSheetSlot
 export function listSheetHeaderHeight(searchBottom: number, titleHeight: number, titleCollapsed: boolean): number {
   return nonNegative(searchBottom) + (titleCollapsed ? nonNegative(titleHeight) : 0);
 }
+
+/**
+ * Tamanho da folha de busca e se a lista preenche o resto (`listFill`,
+ * `flexGrow: 1`). Com `heightRatio` válido em `(0, 1]`, aplica `{ height }`
+ * definido e `fillList: true` — obrigatório para `FlashList` no Android nativo
+ * não colapsar para 0 px (Story 13.7). Sem ele, aplica `{ maxHeight }` com
+ * `fillList: false` (a folha encolhe ao conteúdo para `ScrollView`/`FlatList`).
+ */
+export function listSheetSize(
+  windowHeight: number,
+  maxHeightRatio: number,
+  heightRatio?: number,
+): { size: { height: number } | { maxHeight: number }; fillList: boolean; effectiveRatio: number } {
+  const window = nonNegative(windowHeight);
+  const fixed =
+    heightRatio !== undefined && Number.isFinite(heightRatio) && heightRatio > 0
+      ? Math.min(heightRatio, 1)
+      : null;
+  if (fixed !== null) {
+    return { size: { height: fixed * window }, fillList: true, effectiveRatio: fixed };
+  }
+  const max = Math.min(nonNegative(maxHeightRatio), 1);
+  return { size: { maxHeight: max * window }, fillList: false, effectiveRatio: max };
+}
 export interface FocusScrollInput {
   /** Topo e fundo do campo focado, na coordenada da janela. */
   inputTop: number;

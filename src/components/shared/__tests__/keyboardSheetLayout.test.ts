@@ -6,6 +6,7 @@ import {
   computeKeyboardListSheetLayout,
   computeKeyboardSheetLayout,
   listSheetHeaderHeight,
+  listSheetSize,
   listSheetSlots,
   keyboardLift,
   sheetKeyboardHeight,
@@ -550,5 +551,56 @@ describe("folha de busca: o campo nunca remonta ao recolher o título (R1 da rev
     // Fechar o teclado mostra o título de novo.
     const closed = computeKeyboardListSheetLayout({ ...landscape, keyboardHeight: 0, headerHeight: listSheetHeaderHeight(60, 70, true) });
     expect(closed.titleCollapsed).toBe(false);
+  });
+});
+
+describe("listSheetSize (altura definida para FlashList — Story 13.7)", () => {
+  it("heightRatio válido devolve { height } definido e fillList: true", () => {
+    expect(listSheetSize(900, 0.8, 0.75)).toEqual({
+      size: { height: 675 },
+      fillList: true,
+      effectiveRatio: 0.75,
+    });
+    expect(listSheetSize(1024, 0.8, 0.85)).toEqual({
+      size: { height: 870.4 },
+      fillList: true,
+      effectiveRatio: 0.85,
+    });
+  });
+
+  it("sem heightRatio devolve { maxHeight } e fillList: false", () => {
+    expect(listSheetSize(900, 0.75, undefined)).toEqual({
+      size: { maxHeight: 675 },
+      fillList: false,
+      effectiveRatio: 0.75,
+    });
+  });
+
+  it("limita razões > 1 a 1 e cai no maxHeightRatio para heightRatio <= 0 ou NaN", () => {
+    expect(listSheetSize(900, 0.8, 1.5)).toEqual({
+      size: { height: 900 },
+      fillList: true,
+      effectiveRatio: 1,
+    });
+    expect(listSheetSize(900, 0.8, 0)).toEqual({
+      size: { maxHeight: 720 },
+      fillList: false,
+      effectiveRatio: 0.8,
+    });
+    expect(listSheetSize(900, 0.8, -0.5)).toEqual({
+      size: { maxHeight: 720 },
+      fillList: false,
+      effectiveRatio: 0.8,
+    });
+    expect(listSheetSize(900, 0.8, Number.NaN)).toEqual({
+      size: { maxHeight: 720 },
+      fillList: false,
+      effectiveRatio: 0.8,
+    });
+    expect(listSheetSize(-10, 2, undefined)).toEqual({
+      size: { maxHeight: 0 },
+      fillList: false,
+      effectiveRatio: 1,
+    });
   });
 });

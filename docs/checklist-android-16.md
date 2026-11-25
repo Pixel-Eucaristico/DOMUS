@@ -2,6 +2,7 @@
 
 **Story:** 1.3 — Validar no Android 16 e corrigir o que quebrar  
 **Data da execução:** 24–25/11/2026  
+**Checklist complementar (Epic 13 — Teclado):** [Checklist de Validação de Teclado — Android 16 e Web (Story 13.7)](./checklist-teclado-android-16.md)  
 **Commit base:** `4ef3eda9c7df6356b3bc5d764d29028955bcd6a8` (branch `dev`)  
 **Aparelho validado:** Samsung Galaxy Tab S9 FE (`SM-X510`, serial `RX2X101N87Y`)  
 **Sistema:** Android 16 (`ro.build.version.release=16`, `ro.build.version.sdk=36`, `arm64-v8a`, `1440×2304`, tela grande com barra de tarefas One UI)  

@@ -140,7 +140,7 @@ export function CategoryPickerModal({
       <View style={s.overlay}>
         <KeyboardListSheet
           sheetStyle={[s.sheet, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-          maxHeightRatio={0.8}
+          heightRatio={0.8}
           basePaddingBottom={30}
           title={
             <View style={s.header}>

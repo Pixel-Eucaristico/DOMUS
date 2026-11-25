@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-25-2026 11:29
+last_updated: 11-25-2026 13:51
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -175,7 +175,7 @@ development_status:
   13-4-fazer-as-buscas-e-diálogos-em-modal-subirem: done
   13-5-um-só-deslocamento-no-chat-da-ia: done
   13-6-corrigir-a-digitação-manual-da-chave-da-nf-sobre-a-câmera: done
-  13-7-verificar-todos-os-campos-no-aparelho: backlog
+  13-7-verificar-todos-os-campos-no-aparelho: review
   epic-13-retrospective: optional
 
   epic-14: done

@@ -140,3 +140,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/revisao-party-29-10.md`
   summary: D48 — Um push na `main` roda o Gate duas vezes (pelo próprio `gate.yml` e pelo `workflow_call` do build Android).
   evidence: revisão em party de 29/10 (Yui, Grumbal, Boundary); tirar `main` do push do `gate.yml` ou depender de status check obrigatório.
+- source_spec: `_bmad-output/implementation-artifacts/spec-13-7-verificar-todos-os-campos-no-aparelho.md`
+  summary: D49 — `autoFocus` no `<TInput>` dentro do `<Modal>` de `CreateListModal` não abre automaticamente o teclado virtual no Android 16 (diferente do `<TextInput autoFocus>` no `CategoryPickerModal`, que abre); exige toque explícito no campo.
+  evidence: observado no Samsung Galaxy Tab S9 FE (`SM-X510`, Android 16 / API 36, APK `release`) durante a Story 13.7; verificar se chamar `focus()` após a abertura do modal (`onShow`) ou alinhar com `TextInput` resolve de forma confiável sem regressão na web.

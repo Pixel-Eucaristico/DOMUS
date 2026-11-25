@@ -141,7 +141,7 @@ export function StoreGridModal({ visible, theme, searchQuery = "", onSelectStore
 
         <KeyboardListSheet
           sheetStyle={[styles.sheet, { backgroundColor: theme.background }]}
-          maxHeightRatio={0.75}
+          heightRatio={0.75}
           basePaddingBottom={20}
           title={
             <>
