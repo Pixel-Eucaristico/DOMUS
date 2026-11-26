@@ -289,7 +289,7 @@ LONGO PRAZO (quando houver tempo):
 
 ### Pendências da Fase 4
 - [ ] **Tooltips Inteligentes:** `react-native-smart-tooltip` (não instalado ainda)
-    - `react-native-sprinkle-toast` já está instalado e em uso
+    - `react-native-sprinkle-toast` removido na Story 8.6 (0 chamadas à API de toast)
 - [ ] **Upgrade de OCR:** Finalizar motor de Olerite/Holerite para automação total
     - MiniChart no chat já existe (`src/components/ai/MiniChart.tsx`)
     - FinancialCard e BudgetChart já existem

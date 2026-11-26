@@ -175,3 +175,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-5-atualizar-para-o-expo-sdk-57.md`
   summary: Validar em aparelho Android 16 (Story 8.6) o compartilhamento de imagem via captureRef do react-native-view-shot@5.1.0 (TurboModule RNViewShot) em SurpriseTrophyCard e useSeasonData.
   evidence: Salto major 4.0.3 -> 5.1.0 migrou para TurboModule NativeRNViewShot; os 6 pontos de chamada têm catch com fallback para Share.share texto puro e não executam no Vitest (react-native não roda no Vitest).
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-6-reavaliar-patches-e-tamagui-no-sdk-57-e-validar-os-fluxos.md`
+  summary: Avaliar a remoção definitiva de react-native-vision-camera@4.7.3 de package.json e app.json.
+  evidence: Auditoria da Story 8.6 confirmou 0 imports em app/, src/, packages/ e scripts/ (e rn-mlkit-ocr@0.3.1 não declara peer dependency sobre ele), enquanto o pacote ainda referencia StyleSheet.absoluteFillObject internamente em src/FpsGraph.tsx e adiciona artefatos nativos ao APK.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-6-reavaliar-patches-e-tamagui-no-sdk-57-e-validar-os-fluxos.md`
+  summary: Alinhar o range de @react-native-firebase/app (^23.8.6) em package.json com analytics, crashlytics e perf (^23.8.8).
+  evidence: package.json:33-36 mantém desalinhamento pré-existente de patch version entre @react-native-firebase/app e os demais módulos Firebase.

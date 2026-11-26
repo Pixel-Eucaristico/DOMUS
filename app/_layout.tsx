@@ -58,7 +58,6 @@ import {
   shouldShowDailyAd,
 } from "@/src/modules/monetization/MonetizationSettingsStore";
 import { useSupportModes } from "@/src/hooks/useSupportModes";
-import { ToastProvider } from "react-native-sprinkle-toast";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -409,10 +408,8 @@ function AppContainer({ children }: { children: React.ReactNode }) {
         <TamaguiProvider config={tamaguiConfig} defaultTheme={isDark ? "dark" : "light"}>
           <SafeAreaProvider>
             <ResponsiveLayoutProvider>
-              <ToastProvider>
-                {children}
-                <Scanlines opacity={0.025} spacing={3} color={isDark ? "#FFF" : "#000"} />
-              </ToastProvider>
+              {children}
+              <Scanlines opacity={0.025} spacing={3} color={isDark ? "#FFF" : "#000"} />
             </ResponsiveLayoutProvider>
           </SafeAreaProvider>
         </TamaguiProvider>

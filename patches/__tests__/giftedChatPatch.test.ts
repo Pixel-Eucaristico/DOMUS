@@ -34,10 +34,36 @@ describe("react-native-gifted-chat+3.3.2.patch (SDK 57 / RN 0.86)", () => {
     expect(patchLf).toContain("+  getColorScheme(): ColorSchemeName | null | undefined");
   });
 
-  it("fixa versão exata 3.3.2 em package.json", () => {
+  it("mantém apenas o único patch aprovado em patches/", () => {
+    const patchFiles = fs
+      .readdirSync(path.join(ROOT, "patches"))
+      .filter((name) => name.endsWith(".patch"))
+      .sort();
+    expect(patchFiles).toEqual(["react-native-gifted-chat+3.3.2.patch"]);
+  });
+
+  it("está aplicado em node_modules/react-native-gifted-chat/src/GiftedChatContext.ts", () => {
+    const contextPath = path.join(
+      ROOT,
+      "node_modules/react-native-gifted-chat/src/GiftedChatContext.ts",
+    );
+    expect(fs.existsSync(contextPath)).toBe(true);
+    const source = fs.readFileSync(contextPath, "utf8");
+    expect(source).toContain("import type { ColorSchemeName } from 'react-native'");
+    expect(source).toContain("getColorScheme(): ColorSchemeName | null | undefined");
+  });
+
+  it("fixa versão exata 3.3.2 em package.json e package-lock.json com patch-package no postinstall", () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")) as {
       dependencies?: Record<string, string>;
+      scripts?: Record<string, string>;
+    };
+    const lock = JSON.parse(fs.readFileSync(path.join(ROOT, "package-lock.json"), "utf8")) as {
+      packages?: Record<string, { version?: string; dependencies?: Record<string, string> }>;
     };
     expect(pkg.dependencies?.["react-native-gifted-chat"]).toBe("3.3.2");
+    expect(pkg.scripts?.postinstall ?? "").toMatch(/\bpatch-package\b/);
+    expect(lock.packages?.[""]?.dependencies?.["react-native-gifted-chat"]).toBe("3.3.2");
+    expect(lock.packages?.["node_modules/react-native-gifted-chat"]?.version).toBe("3.3.2");
   });
 });

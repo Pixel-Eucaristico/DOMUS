@@ -1290,7 +1290,7 @@ function chatRouteViolations(layoutSource: string, route = "ai-chat"): string[] 
 /**
  * Nada acima do `<RootLayoutNav />` (D-2 a, R4): o `RootLayout` chega nele só
  * pela cadeia ROOT_NAV_CHAIN, sem elemento antes dele em nenhum nível, e o
- * `AppContainer` renderiza `{children}` como primeiro filho do `ToastProvider`.
+ * `AppContainer` renderiza `{children}` como primeiro filho do `ResponsiveLayoutProvider`.
  */
 function rootNavViolations(layoutSource: string): string[] {
   const code = stripComments(layoutSource);
@@ -1323,8 +1323,8 @@ function rootNavViolations(layoutSource: string): string[] {
   const container = code.match(/function\s+AppContainer\s*\([^)]*\)[^{]*\{/);
   if (container) {
     const body = balancedBraces(code, (container.index ?? 0) + container[0].length - 1);
-    const toast = body.match(/<\s*ToastProvider\s*>([\s\S]*?)\{\s*children\s*\}/);
-    if (!toast || toast[1].trim() !== "") hits.push("AppContainer: {children} não é o primeiro filho do ToastProvider");
+    const responsive = body.match(/<\s*ResponsiveLayoutProvider\b[^>]*>([\s\S]*?)\{\s*children\s*\}/);
+    if (!responsive || responsive[1].trim() !== "") hits.push("AppContainer: {children} não é o primeiro filho do ResponsiveLayoutProvider");
   } else hits.push("sem function AppContainer");
   return hits;
 }
@@ -2562,10 +2562,10 @@ describe("auto-teste dos detectores", () => {
         `    <GestureHandlerRootView style={{ flex: 1 }}>`,
         `      <KeyboardProvider statusBarTranslucent navigationBarTranslucent>`,
         `        <SafeAreaProvider>`,
-        `          <ToastProvider>`,
+        `          <ResponsiveLayoutProvider>`,
         `            {children}`,
         `            <Scanlines opacity={0.025} />`,
-        `          </ToastProvider>`,
+        `          </ResponsiveLayoutProvider>`,
         `        </SafeAreaProvider>`,
         `      </KeyboardProvider>`,
         `    </GestureHandlerRootView>`,
@@ -2616,7 +2616,7 @@ describe("auto-teste dos detectores", () => {
         const before = root.replace("                        <RootLayoutNav />", "                        <View style={{ height: 40 }} />\n<RootLayoutNav />");
         expect(rootNavViolations(before)).toContain("elemento antes do <RootLayoutNav /> em <DesktopLayout>");
         const banner = root.replace("            {children}", "            <Banner />\n            {children}");
-        expect(rootNavViolations(banner)).toContain("AppContainer: {children} não é o primeiro filho do ToastProvider");
+        expect(rootNavViolations(banner)).toContain("AppContainer: {children} não é o primeiro filho do ResponsiveLayoutProvider");
         expect(rootNavViolations(root.replace("<RootLayoutNav />", "<Nav />"))).toEqual(["sem <RootLayoutNav /> no RootLayout"]);
       });
     });

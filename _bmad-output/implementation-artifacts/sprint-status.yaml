@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-26-2026 10:52
+last_updated: 11-26-2026 14:43
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -120,7 +120,7 @@ development_status:
   8-3-atualizar-para-o-expo-sdk-56-e-aplicar-o-codemod-do-expo-rou: done # consolidada na Story 8.5 (pulo 55 -> 57 aprovado em 26/11/2026)
   8-4-medir-a-memória-e-validar-o-sdk-56: done # pulada por decisão do dono em 26/11/2026 (regressão Hermes V1 no SDK 56; validação na 8.6)
   8-5-atualizar-para-o-expo-sdk-57: review
-  8-6-reavaliar-patches-e-tamagui-no-sdk-57-e-validar-os-fluxos: backlog
+  8-6-reavaliar-patches-e-tamagui-no-sdk-57-e-validar-os-fluxos: review
   8-7-decidir-a-biblioteca-do-novo-login-do-google: backlog
   8-8-migrar-o-login-e-a-autorização-do-drive: backlog
   8-9-explicar-a-reconexão-do-drive-ao-usuário: backlog
