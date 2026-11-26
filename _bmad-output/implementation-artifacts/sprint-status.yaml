@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-25-2026 17:25
+last_updated: 11-25-2026 21:51
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -114,8 +114,8 @@ development_status:
   7-10-criar-e-excluir-uma-transação-deixa-o-xp-igual: done
   epic-7-retrospective: done
 
-  epic-8: backlog
-  8-1-medir-a-linha-de-base-e-atualizar-para-o-expo-sdk-55: backlog
+  epic-8: in-progress
+  8-1-medir-a-linha-de-base-e-atualizar-para-o-expo-sdk-55: review
   8-2-reavaliar-patches-e-tamagui-no-sdk-55-e-validar-os-fluxos: backlog
   8-3-atualizar-para-o-expo-sdk-56-e-aplicar-o-codemod-do-expo-rou: backlog
   8-4-medir-a-memória-e-validar-o-sdk-56: backlog

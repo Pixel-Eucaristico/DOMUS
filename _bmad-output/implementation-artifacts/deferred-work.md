@@ -143,3 +143,15 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-13-7-verificar-todos-os-campos-no-aparelho.md`
   summary: D49 — `autoFocus` no `<TInput>` dentro do `<Modal>` de `CreateListModal` não abre automaticamente o teclado virtual no Android 16 (diferente do `<TextInput autoFocus>` no `CategoryPickerModal`, que abre); exige toque explícito no campo.
   evidence: observado no Samsung Galaxy Tab S9 FE (`SM-X510`, Android 16 / API 36, APK `release`) durante a Story 13.7; verificar se chamar `focus()` após a abertura do modal (`onShow`) ou alinhar com `TextInput` resolve de forma confiável sem regressão na web.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-1-medir-a-linha-de-base-e-atualizar-para-o-expo-sdk-55-2.md`
+  summary: Reavaliar no Android 16 (`SM-X510`) se `react-native-keyboard-controller@1.20.7` + RN `0.83.10` ainda exige portar `cleanNullChildren()` em `EdgeToEdgeReactViewGroup.kt` e atualizar `patches/__tests__/keyboardControllerPatch.test.ts` e o offset do chat (`CHAT_SENTINEL_VERSIONS` / Story 13.5) na Story 8.2.
+  evidence: Patch `react-native-keyboard-controller+1.18.5.patch` foi arquivado em `docs/patches-sdk-55-pendentes/` por incompatibilidade de versão na Story 8.1; `EdgeToEdgeReactViewGroup.kt` em `1.20.7` não tem `cleanNullChildren()` em `dispatchDraw`, deixando builds de `dev` sem essa mitigação até a Story 8.2 validar em aparelho real.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-1-medir-a-linha-de-base-e-atualizar-para-o-expo-sdk-55-2.md`
+  summary: Reavaliar `expo-audio@55.0.18` na Story 8.2 (recriar `expo-audio` patch ou migrar `SoundManager.ts` para `setAudioModeAsync({ interruptionMode: "mixWithOthers" })`), atualizar o comentário em `src/services/SoundManager.ts:85-88` e adicionar teste automatizado.
+  evidence: Patch `expo-audio+1.1.1.patch` foi arquivado em `docs/patches-sdk-55-pendentes/` na Story 8.1; em `expo-audio@55.0.18`, `AudioModule.kt:61` volta a inicializar `interruptionMode = null` e `AudioPlayer.kt:52` usa `AudioAttributes.DEFAULT`, regredindo foco de áudio no Android até a Story 8.2.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-1-medir-a-linha-de-base-e-atualizar-para-o-expo-sdk-55-2.md`
+  summary: Atualizar o bloco gerenciado de `AGENTS.md` via `bmad-project-context` após a estabilização dos saltos de SDK do Epic 8 (hoje ainda cita `Expo SDK 54, React Native 0.81`).
+  evidence: `AGENTS.md:6` ainda referencia `Expo SDK 54, React Native 0.81` enquanto `package.json` já está em `expo ~55.0.32` e `react-native 0.83.10`; edição em arquivo de contexto de agente é diferida conforme regra de triagem.

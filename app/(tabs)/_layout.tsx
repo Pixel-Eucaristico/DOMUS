@@ -1,6 +1,6 @@
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs } from "expo-router";
-import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
+import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { BlurView } from "expo-blur";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 import { Feather } from "@expo/vector-icons";
@@ -13,20 +13,20 @@ function NativeTabLayout() {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>Início</Label>
+        <NativeTabs.Trigger.Icon sf={{ default: "house", selected: "house.fill" }} />
+        <NativeTabs.Trigger.Label>Início</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="accounts">
-        <Icon sf={{ default: "creditcard", selected: "creditcard.fill" }} />
-        <Label>Contas</Label>
+        <NativeTabs.Trigger.Icon sf={{ default: "creditcard", selected: "creditcard.fill" }} />
+        <NativeTabs.Trigger.Label>Contas</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="wishlist">
-        <Icon sf={{ default: "heart", selected: "heart.fill" }} />
-        <Label>Desejos</Label>
+        <NativeTabs.Trigger.Icon sf={{ default: "heart", selected: "heart.fill" }} />
+        <NativeTabs.Trigger.Label>Desejos</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="season">
-        <Icon sf={{ default: "star", selected: "star.fill" }} />
-        <Label>Temporada</Label>
+        <NativeTabs.Trigger.Icon sf={{ default: "star", selected: "star.fill" }} />
+        <NativeTabs.Trigger.Label>Temporada</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
