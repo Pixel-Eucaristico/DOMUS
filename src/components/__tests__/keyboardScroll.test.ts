@@ -3302,5 +3302,17 @@ describe("auto-teste dos detectores", () => {
       expect(modalSegmentWith(code, "Z")).toBe(segs[1]);
       expect(modalSegmentWith(code, "W")).toBe("");
     });
+
+    it("react-native-keyboard-controller upstream preserva post assíncrono em removeKeyboardCallbacks e evita reflection bloqueada no Android 16", () => {
+      const ktPath = path.join(
+        ROOT,
+        "node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/views/EdgeToEdgeReactViewGroup.kt",
+      );
+      if (!fs.existsSync(ktPath)) return;
+      const kt = fs.readFileSync(ktPath, "utf8");
+      expect(kt).toContain("Handler(Looper.getMainLooper()).post {");
+      expect(kt).toContain("view.removeSelf()");
+      expect(kt).not.toContain('getDeclaredField("mChildren")');
+    });
   });
 });

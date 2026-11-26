@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import type { AudioPlayer } from "expo-audio";
+import { VOICE_PLAYBACK_AUDIO_MODE } from "../hooks/voiceRecorderLifecycle";
 import { File, Paths } from "expo-file-system";
 import type { AudioProvider } from "@packages/ai";
 import { AudioProviderFactory } from "@packages/../packages/ai/src/audio/AudioProviderFactory";
@@ -176,7 +177,7 @@ class VoiceOutputService {
     let tmpFile: File | null = null;
 
     try {
-      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+      await setAudioModeAsync(VOICE_PLAYBACK_AUDIO_MODE);
 
       // ── Download all chunks in parallel ───────────────────────────────────
       const results = await Promise.all(
@@ -239,6 +240,8 @@ class VoiceOutputService {
     this._isLoading = false;
     this._isSpeaking = true;
     this.notify();
+
+    await setAudioModeAsync(VOICE_PLAYBACK_AUDIO_MODE).catch(() => {});
 
     for (let i = 0; i < chunks.length; i++) {
       if (this._cancelled) break;

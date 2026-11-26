@@ -13,9 +13,9 @@ import { styled, Button } from "tamagui";
  *   <TButton variant="danger" onPress={fn}>Excluir</TButton>
  */
 const TButtonStyled = styled(Button, {
-  // @ts-expect-error — o config do styled(Button) não tipa fontFamily, mas o Tamagui aplica em runtime
   fontFamily: "$body",
   fontWeight: "600",
+  // @ts-expect-error — @tamagui/config/v5 usa onlyAllowShorthands: true ('rounded'), mas borderRadius é válido em runtime
   borderRadius: "$lg",
   height: "$btnHeight",
   paddingHorizontal: "$xl",

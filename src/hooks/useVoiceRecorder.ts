@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Platform } from "react-native";
 import {
   useAudioRecorder,
@@ -7,6 +7,12 @@ import {
   RecordingPresets,
 } from "expo-audio";
 import { File } from "expo-file-system";
+import {
+  cancelVoiceRecording,
+  startVoiceRecording,
+  stopVoiceRecording,
+  type VoiceRecorderState,
+} from "./voiceRecorderLifecycle";
 
 export interface VoiceRecorderResult {
   isRecording: boolean;
@@ -18,30 +24,41 @@ export interface VoiceRecorderResult {
 export function useVoiceRecorder(): VoiceRecorderResult {
   const [isRecording, setIsRecording] = useState(false);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const activeRef = useRef(false);
+  const stateRef = useRef<VoiceRecorderState>({ active: false });
+  const recorderRef = useRef(recorder);
+  recorderRef.current = recorder;
+
+  useEffect(() => {
+    const state = stateRef.current;
+    return () => {
+      if (state.active) {
+        void cancelVoiceRecording(state, {
+          setAudioMode: setAudioModeAsync,
+          recorder: recorderRef.current,
+        });
+      }
+    };
+  }, []);
 
   const startRecording = useCallback(async () => {
     if (Platform.OS === "web") return;
 
-    const { granted } = await requestRecordingPermissionsAsync();
-    if (!granted) throw new Error("Permissão de microfone negada");
-
-    await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-    await recorder.prepareToRecordAsync();
-    recorder.record();
-    activeRef.current = true;
-    setIsRecording(true);
+    const started = await startVoiceRecording(stateRef.current, {
+      requestPermissions: requestRecordingPermissionsAsync,
+      setAudioMode: setAudioModeAsync,
+      recorder,
+    });
+    if (started) setIsRecording(true);
   }, [recorder]);
 
   const stopRecording = useCallback(async (): Promise<{ uri: string; base64: string } | null> => {
-    if (!activeRef.current) return null;
+    if (!stateRef.current.active) return null;
 
     setIsRecording(false);
-    activeRef.current = false;
-    await recorder.stop();
-    await setAudioModeAsync({ allowsRecording: false });
-
-    const uri = recorder.uri;
+    const uri = await stopVoiceRecording(stateRef.current, {
+      setAudioMode: setAudioModeAsync,
+      recorder,
+    });
     if (!uri) return null;
 
     const base64 = await new File(uri).base64();
@@ -49,15 +66,12 @@ export function useVoiceRecorder(): VoiceRecorderResult {
   }, [recorder]);
 
   const cancelRecording = useCallback(async () => {
-    if (!activeRef.current) return;
+    if (!stateRef.current.active) return;
     setIsRecording(false);
-    activeRef.current = false;
-    try {
-      await recorder.stop();
-    } catch {
-      // ignore
-    }
-    await setAudioModeAsync({ allowsRecording: false });
+    await cancelVoiceRecording(stateRef.current, {
+      setAudioMode: setAudioModeAsync,
+      recorder,
+    });
   }, [recorder]);
 
   return { isRecording, startRecording, stopRecording, cancelRecording };

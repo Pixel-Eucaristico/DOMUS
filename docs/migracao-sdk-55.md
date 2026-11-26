@@ -64,10 +64,12 @@ Após instalar o SDK 55, `npx patch-package` (executado no `postinstall`) produz
 | `patches/react-native-gifted-chat+3.3.2.patch` | `3.3.2` | ✅ Aplicado | Mantida a remoção do `KeyboardProvider` interno (Story 13.5) e acrescido ajuste de tipo `import type { ColorSchemeName } from 'react-native'` + `getColorScheme(): ColorSchemeName \| null \| undefined` em `src/GiftedChatContext.ts` para compatibilidade com RN `0.83` (que incluiu `'unspecified'` em `ColorSchemeName`). Coberto por `patches/__tests__/giftedChatPatch.test.ts`. |
 | `patches/rn-tourguide+3.3.2.patch` | `3.3.2` | ✅ Aplicado | Aplicou sem conflito; reavaliação funcional permanece na Story 8.2. |
 
-### 2.2 Patches incompatíveis arquivados em `docs/patches-sdk-55-pendentes/`
+### 2.2 Patches incompatíveis arquivados na Story 8.1 (resolvidos na Story 8.2)
+
+> **Atualização (Story 8.2):** os 3 patches abaixo foram reavaliados, decididos e removidos definitivamente em [docs/reavaliacao-sdk-55.md](./reavaliacao-sdk-55.md); a pasta temporária `docs/patches-sdk-55-pendentes/` foi removida.
 
 #### 1) `expo-asset+12.0.13.patch` (`12.0.13` → `55.0.20`)
-- **Diff preservado em:** [docs/patches-sdk-55-pendentes/expo-asset+12.0.13.patch](./patches-sdk-55-pendentes/expo-asset+12.0.13.patch)
+- **Decisão final (Story 8.2):** removido definitivamente — ver [docs/reavaliacao-sdk-55.md](./reavaliacao-sdk-55.md).
 - **Erro exato do `patch-package`:**
 ```text
 **ERROR** Failed to apply patch for package expo-asset at path
@@ -87,7 +89,7 @@ Após instalar o SDK 55, `npx patch-package` (executado no `postinstall`) produz
 - **Nota factual para a Story 8.2:** inspeção de `node_modules/expo-asset/build/AssetSources.js` (linhas 37–41) em `55.0.20` mostra que o PR `expo/expo#42184` já foi incorporado upstream (`const scheme = manifestBaseUrl?.startsWith('https://') ? 'https://' : 'http://';`). A decisão formal de descarte definitivo cabe à Story 8.2.
 
 #### 2) `expo-audio+1.1.1.patch` (`1.1.1` → `55.0.18`)
-- **Diff preservado em:** [docs/patches-sdk-55-pendentes/expo-audio+1.1.1.patch](./patches-sdk-55-pendentes/expo-audio+1.1.1.patch)
+- **Decisão final (Story 8.2):** removido e substituído por `setAudioModeAsync({ interruptionMode: "mixWithOthers" })` — ver [docs/reavaliacao-sdk-55.md](./reavaliacao-sdk-55.md).
 - **Erro exato do `patch-package`:**
 ```text
 **ERROR** Failed to apply patch for package expo-audio at path
@@ -107,7 +109,7 @@ Após instalar o SDK 55, `npx patch-package` (executado no `postinstall`) produz
 - **Nota factual para a Story 8.2:** em `expo-audio@55.0.18`, `AudioModule.kt` (linha 61) ainda inicializa `private var interruptionMode: InterruptionMode? = null` e `AudioPlayer.kt` (linha 52) ainda usa `.setAudioAttributes(AudioAttributes.DEFAULT, false)`. Reavaliar na Story 8.2 se o patch será recriado sobre `55.0.18` ou substituído por configuração via API de `expo-audio`.
 
 #### 3) `react-native-keyboard-controller+1.18.5.patch` (`1.18.5` → `1.20.7`)
-- **Diff preservado em:** [docs/patches-sdk-55-pendentes/react-native-keyboard-controller+1.18.5.patch](./patches-sdk-55-pendentes/react-native-keyboard-controller+1.18.5.patch)
+- **Decisão final (Story 8.2):** removido após evidência de bloqueio `hiddenapi` no Android 16 e 0 crashes na `1.20.7` — ver [docs/reavaliacao-sdk-55.md](./reavaliacao-sdk-55.md).
 - **Erro exato do `patch-package`:**
 ```text
 **ERROR** Failed to apply patch for package react-native-keyboard-controller at path
@@ -157,8 +159,8 @@ Após instalar o SDK 55, `npx patch-package` (executado no `postinstall`) produz
 
 ## 5. Pendências Transferidas para a Story 8.2
 
-> [!WARNING]
-> **Não cortar release para o Google Play a partir da `dev` antes da conclusão da Story 8.2.** Enquanto os patches arquivados em `docs/patches-sdk-55-pendentes/` não forem reavaliados e decididos, builds gerados da `dev` no SDK 55 **não** contam com os ajustes anteriores de `expo-audio` (atributos de som/interrupção) nem de `react-native-keyboard-controller` (`cleanNullChildren()` em `EdgeToEdgeReactViewGroup.kt` para o Android 16).
+> [!NOTE]
+> **Concluído na Story 8.2:** todas as pendências abaixo (reavaliação dos 5 patches, atualização da Tamagui para `^2.7.7`, validação de `expo-share-intent@6.1.1`, fluxos FR-1 e medição de memória das 8 telas no `SM-X510`) foram resolvidas e registradas em [docs/reavaliacao-sdk-55.md](./reavaliacao-sdk-55.md).
 
 - Decidir o destino final de cada um dos 3 patches arquivados em `docs/patches-sdk-55-pendentes/` (`expo-asset`, `expo-audio`, `react-native-keyboard-controller`) e reavaliar `rn-tourguide` e `react-native-gifted-chat`.
 - Reavaliar a Tamagui (mantida em `^2.0.0-rc.26` nesta story).

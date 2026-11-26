@@ -155,3 +155,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-1-medir-a-linha-de-base-e-atualizar-para-o-expo-sdk-55-2.md`
   summary: Atualizar o bloco gerenciado de `AGENTS.md` via `bmad-project-context` após a estabilização dos saltos de SDK do Epic 8 (hoje ainda cita `Expo SDK 54, React Native 0.81`).
   evidence: `AGENTS.md:6` ainda referencia `Expo SDK 54, React Native 0.81` enquanto `package.json` já está em `expo ~55.0.32` e `react-native 0.83.10`; edição em arquivo de contexto de agente é diferida conforme regra de triagem.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-2-reavaliar-patches-e-tamagui-no-sdk-55-e-validar-os-fluxos.md`
+  summary: Eliminar as supressões `@ts-expect-error` em `src/components/tamagui/{TButton,TCard,TInput}.tsx` migrando para shorthands do `@tamagui/config/v5` (`rounded`, `px`, `bg`) ou definindo `onlyAllowShorthands: false` em `tamagui.config.ts`.
+  evidence: `TButton.tsx:18`, `TCard.tsx:13` e `TInput.tsx:17` suprimem erros de tipo de propriedades longas (`borderRadius`, `backgroundColor`, `paddingHorizontal`) sob `onlyAllowShorthands: true` do `@tamagui/config/v5`.

@@ -26,6 +26,7 @@ import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
 import { useAIConsultant } from "@/src/hooks/useAIConsultant";
 import { useAISettings } from "@/src/hooks/useAISettings";
 import { useVoiceRecorder } from "@/src/hooks/useVoiceRecorder";
+import { playVoiceReplay } from "@/src/hooks/voiceRecorderLifecycle";
 import { voiceOutputService } from "@/src/services/VoiceOutputService";
 import { AIUsageBar } from "@/src/components/ai/AIUsageBar";
 import {
@@ -424,7 +425,14 @@ export default function AIChatScreen() {
     if (!settings.isEnabled || !settings.voiceEnabled) return;
     if (isRecording) {
       setIsTranscribing(true);
-      const result = await stopRecording();
+      let result: { uri: string; base64: string } | null = null;
+      try {
+        result = await stopRecording();
+      } catch (e) {
+        console.warn("[VoiceStop] Erro:", e);
+        setIsTranscribing(false);
+        return;
+      }
       if (result) {
         pendingAudioUri.current = result.uri;
         const prov = settings.provider;
@@ -522,9 +530,10 @@ export default function AIChatScreen() {
                         const uri = audioUriMap.current[String(msg._id)];
                         if (!uri) return;
                         try {
-                          await setAudioMode({ playsInSilentMode: true, allowsRecording: false });
-                          const player = createPlayer({ uri });
-                          player.play();
+                          await playVoiceReplay(uri, {
+                            setAudioMode,
+                            createPlayer,
+                          });
                         } catch (e) { console.warn("[VoiceReplay]", e); }
                       }}
                       style={[styles.actionBtn, { borderColor: "rgba(255,255,255,0.3)" }]}
