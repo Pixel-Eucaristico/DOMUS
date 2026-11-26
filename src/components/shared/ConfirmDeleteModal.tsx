@@ -129,7 +129,7 @@ const s = StyleSheet.create({
   container: { flex: 1, justifyContent: "flex-end" },
   flex: { flex: 1 },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.5)",
   },
   sheet: {

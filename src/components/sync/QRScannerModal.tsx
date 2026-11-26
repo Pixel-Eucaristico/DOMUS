@@ -92,7 +92,7 @@ export function QRScannerModal({ visible, onClose, onScanned, theme }: QRScanner
           <View style={s.scannerCameraWrap}>
             {visible && (
             <CameraView
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
               facing="back"
               barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
               onBarcodeScanned={handleBarCodeScanned}
@@ -132,7 +132,7 @@ const s = StyleSheet.create({
   scannerPermBtn: { paddingHorizontal: 28, paddingVertical: 14, borderRadius: 14 },
   scannerPermBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 15, color: "#FFFFFF" },
   scannerCameraWrap: { flex: 1, position: "relative" as const },
-  scannerOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: "center", alignItems: "center", gap: 32 },
+  scannerOverlay: { ...StyleSheet.absoluteFill, justifyContent: "center", alignItems: "center", gap: 32 },
   scannerFrameOuter: { width: 260, height: 260, justifyContent: "center", alignItems: "center" },
   scannerFrame: { width: 220, height: 220, position: "relative" as const },
   scannerCorner: { position: "absolute" as const, width: 30, height: 30, borderColor: "#FFFFFF" },

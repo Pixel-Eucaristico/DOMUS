@@ -38,7 +38,7 @@ export function Scanlines({ opacity = 0.03, spacing = 3, color = "#000" }: Props
 
 const s = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: "hidden",
     zIndex: 999,
   },

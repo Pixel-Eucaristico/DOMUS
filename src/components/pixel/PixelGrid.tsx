@@ -32,7 +32,7 @@ export function PixelGrid({ cellSize = 8, color = "#000", opacity = 0.02 }: Prop
 
 const s = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 998,
   },
 });

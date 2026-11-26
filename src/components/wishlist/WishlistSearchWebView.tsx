@@ -160,7 +160,7 @@ const s = StyleSheet.create({
   abortBtn: { padding: 4 },
   webviewContainer: { flex: 1 },
   webview: { flex: 1 },
-  loadingOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: "center", alignItems: "center" },
+  loadingOverlay: { ...StyleSheet.absoluteFill, justifyContent: "center", alignItems: "center" },
   floatingBar: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1 },
   addProductBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",

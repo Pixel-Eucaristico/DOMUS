@@ -5,7 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
 import { KeyboardController, KeyboardStickyView } from "react-native-keyboard-controller";
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused } from "expo-router";
 import { soundManager } from "@/src/services/SoundManager";
 import { TButton } from "@/src/components/tamagui";
 import { useKeyboardTargetHeight } from "@/src/components/shared/useKeyboardTargetHeight";

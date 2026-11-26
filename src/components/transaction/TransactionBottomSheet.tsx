@@ -552,7 +552,7 @@ const s = StyleSheet.create({
   labelWithTip: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
   flex: { flex: 1 },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.45)",
   },
   sheet: {

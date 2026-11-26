@@ -729,7 +729,7 @@ function SavingsGoalSection({
 const s = StyleSheet.create({
   modalRoot: { flex: 1, justifyContent: "flex-end" },
   flex: { flex: 1 },
-  modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
+  modalOverlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.45)" },
   modalContent: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, width: "100%" },
   handle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 16 },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },

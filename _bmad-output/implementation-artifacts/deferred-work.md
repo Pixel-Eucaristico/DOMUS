@@ -159,3 +159,19 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-2-reavaliar-patches-e-tamagui-no-sdk-55-e-validar-os-fluxos.md`
   summary: Eliminar as supressões `@ts-expect-error` em `src/components/tamagui/{TButton,TCard,TInput}.tsx` migrando para shorthands do `@tamagui/config/v5` (`rounded`, `px`, `bg`) ou definindo `onlyAllowShorthands: false` em `tamagui.config.ts`.
   evidence: `TButton.tsx:18`, `TCard.tsx:13` e `TInput.tsx:17` suprimem erros de tipo de propriedades longas (`borderRadius`, `backgroundColor`, `paddingHorizontal`) sob `onlyAllowShorthands: true` do `@tamagui/config/v5`.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-5-atualizar-para-o-expo-sdk-57.md`
+  summary: Reabilitar gradualmente as 5 regras do React Compiler do eslint-plugin-react-hooks@7.1.1 desabilitadas globalmente em eslint.config.js (refs, set-state-in-effect, immutability, purity, preserve-manual-memoization) ou isolar overrides apenas nos arquivos legados.
+  evidence: app.json mantém experiments.reactCompiler=true em produção, mas 199 ocorrências pré-existentes (ex.: app/ocr-settings.tsx:38 e src/context/AppStateProvider.tsx:668) impediram manter as regras ativas durante o upgrade SDK 57.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-5-atualizar-para-o-expo-sdk-57.md`
+  summary: Migrar imports recém-deprecados no SDK 57: Tabs de "expo-router" para "expo-router/js-tabs" em app/(tabs)/_layout.tsx:2 e runOnJS de "react-native-reanimated" para scheduleOnRN de "react-native-worklets" em AnimatedSplash.tsx, AchievementToast.tsx e useKeyboardTargetHeight.ts (atualizando guarda em keyboardScroll.test.ts).
+  evidence: node_modules/expo-router/build/exports.d.ts:41-44 marca Tabs como @deprecated e react-native-reanimated@4.5.1 deprecou runOnJS; ambos seguem funcionais no SDK 57 mas podem ser removidos em SDK futuro.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-5-atualizar-para-o-expo-sdk-57.md`
+  summary: Atualizar referência obsoleta a StyleSheet.absoluteFillObject para StyleSheet.absoluteFill em AGENTS.md:35 e docs/tour-crash-fixes.md:24.
+  evidence: React Native 0.86.3 removeu StyleSheet.absoluteFillObject dos tipos e de StyleSheetExports.js; correção em arquivo de contexto de agente roteada para defer conforme regra de triage.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-5-atualizar-para-o-expo-sdk-57.md`
+  summary: Validar em aparelho Android 16 (Story 8.6) o compartilhamento de imagem via captureRef do react-native-view-shot@5.1.0 (TurboModule RNViewShot) em SurpriseTrophyCard e useSeasonData.
+  evidence: Salto major 4.0.3 -> 5.1.0 migrou para TurboModule NativeRNViewShot; os 6 pontos de chamada têm catch com fallback para Share.share texto puro e não executam no Vitest (react-native não roda no Vitest).

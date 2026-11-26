@@ -518,7 +518,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
 const s = StyleSheet.create({
   kav: { flex: 1, justifyContent: "flex-end" },
   flex: { flex: 1 },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.5)" },
   card: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, width: "100%" },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
   title: { fontSize: 18, fontFamily: "DMSans_700Bold" },

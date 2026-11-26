@@ -216,7 +216,7 @@ const s = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontWeight: "600", flex: 1, textAlign: "center" },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject, zIndex: 10,
+    ...StyleSheet.absoluteFill, zIndex: 10,
     justifyContent: "center", alignItems: "center", gap: 12,
   },
   loadingText: { marginTop: 16, fontSize: 15 },

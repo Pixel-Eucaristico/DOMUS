@@ -977,7 +977,7 @@ const ROOT_NAV_CHAIN = [
 ];
 
 /** Versões que a conta do offset do chat pressupõe (sentinela). */
-const CHAT_SENTINEL_VERSIONS = { giftedChat: "3.3.2", keyboardController: "1.20.7" };
+const CHAT_SENTINEL_VERSIONS = { giftedChat: "3.3.2", keyboardController: "1.21.9" };
 const CHAT_SENTINEL_FILES = {
   giftedPkg: "node_modules/react-native-gifted-chat/package.json",
   kcPkg: "node_modules/react-native-keyboard-controller/package.json",
@@ -2689,7 +2689,7 @@ describe("auto-teste dos detectores", () => {
     describe("sentinela de versão", () => {
       const ok: ChatSentinelSources = {
         giftedPkg: `{ "name": "react-native-gifted-chat", "version": "3.3.2" }`,
-        kcPkg: `{ "name": "react-native-keyboard-controller", "version": "1.20.7" }`,
+        kcPkg: `{ "name": "react-native-keyboard-controller", "version": "1.21.9" }`,
         giftedIndex: `<KeyboardAvoidingView behavior='translate-with-padding' keyboardVerticalOffset={insets.top} {...props.keyboardAvoidingViewProps}>`,
         kav: `const keyboardY =\n  screenHeight - keyboard.heightWhenOpened.value - keyboardVerticalOffset;\nreturn Math.max(frame.value.y + frame.value.height - keyboardY, 0);`,
       };
@@ -2700,7 +2700,7 @@ describe("auto-teste dos detectores", () => {
 
       it.each([
         ["giftedPkg", `"3.3.2"`, `"3.4.0"`],
-        ["kcPkg", `"1.20.7"`, `"1.21.0"`],
+        ["kcPkg", `"1.21.9"`, `"1.22.0"`],
         ["giftedPkg", `"version": "3.3.2"`, `"v": 1`],
         ["giftedIndex", ` {...props.keyboardAvoidingViewProps}>`, `>`],
         ["giftedIndex", `keyboardVerticalOffset={insets.top} {...props.keyboardAvoidingViewProps}`, `{...props.keyboardAvoidingViewProps} keyboardVerticalOffset={insets.top}`],

@@ -25,6 +25,14 @@ module.exports = defineConfig([
           message: SECRET_MESSAGE,
         },
       ],
+      // Novas regras do React Compiler introduzidas no eslint-plugin-react-hooks@7 (eslint-config-expo@57).
+      // Acusam 199 ocorrências pré-existentes (147 falsos positivos em hooks que retornam refs + estado).
+      // Mantemos rules-of-hooks e exhaustive-deps ativos; adoção gradual rastreada em docs/migracao-sdk-57.md.
+      "react-hooks/refs": "off",
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/immutability": "off",
+      "react-hooks/purity": "off",
+      "react-hooks/preserve-manual-memoization": "off",
     },
   },
   {

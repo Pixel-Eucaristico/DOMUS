@@ -3,10 +3,9 @@ import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-nati
 import { CameraView } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useIsFocused, useRouter } from "expo-router";
 import { ThemeColors } from "@packages/theme";
 import { EdgeInsets } from "react-native-safe-area-context";
-import { useIsFocused } from "@react-navigation/native";
 import { soundManager } from "@/src/services/SoundManager";
 import { TButton } from "@/src/components/tamagui";
 

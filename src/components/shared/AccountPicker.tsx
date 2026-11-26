@@ -330,7 +330,7 @@ const cs = StyleSheet.create({
   triggerLabel: { fontFamily: "DMSans_400Regular", fontSize: 11, marginBottom: 2 },
   triggerValue: { fontFamily: "DMSans_600SemiBold", fontSize: 15 },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.45)",
   },
   sheet: {

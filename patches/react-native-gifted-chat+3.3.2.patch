@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-gifted-chat/src/GiftedChat/index.tsx b/node_modules/react-native-gifted-chat/src/GiftedChat/index.tsx
-index 2858b6c..207029c 100644
+index 2858b6c..54bf36c 100644
 --- a/node_modules/react-native-gifted-chat/src/GiftedChat/index.tsx
 +++ b/node_modules/react-native-gifted-chat/src/GiftedChat/index.tsx
 @@ -19,7 +19,7 @@ import {
@@ -11,7 +11,15 @@ index 2858b6c..207029c 100644
  import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context'
  import { TEST_ID } from '../Constant'
  import { GiftedChatContext } from '../GiftedChatContext'
-@@ -346,21 +346,12 @@ function GiftedChat<TMessage extends IMessage = IMessage> (
+@@ -326,7 +326,6 @@ function GiftedChat<TMessage extends IMessage = IMessage> (
+           style={[stylesCommon.fill, styles.contentContainer]}
+           onLayout={onInitialLayoutViewLayout}
+         >
+-          {/* @ts-expect-error */}
+           <KeyboardAvoidingView
+             behavior='translate-with-padding'
+             keyboardVerticalOffset={insets.top}
+@@ -346,21 +345,12 @@ function GiftedChat<TMessage extends IMessage = IMessage> (
  }
  
  function GiftedChatWrapper<TMessage extends IMessage = IMessage> (props: GiftedChatProps<TMessage>) {

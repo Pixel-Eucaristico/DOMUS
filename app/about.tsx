@@ -440,7 +440,7 @@ function styles(theme: any) {
       paddingVertical: 10, paddingHorizontal: 14, alignSelf: "flex-start",
     },
     dangerBtnText: { color: "#FFF", fontFamily: "DMSans_700Bold", fontSize: 13 },
-    overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.6)" },
+    overlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.6)" },
     // Diálogo do KeyboardSheet placement="center": a margem de 20 em volta é da raiz.
     resetModal: { borderRadius: 18, padding: 24, width: "100%", maxWidth: 420 },
     resetModalTitle: { fontFamily: "DMSans_700Bold", fontSize: 18, textAlign: "center", marginBottom: 12 },

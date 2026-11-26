@@ -1,0 +1,38 @@
+diff --git a/node_modules/react-native-sprinkle-toast/src/Sprinkles.tsx b/node_modules/react-native-sprinkle-toast/src/Sprinkles.tsx
+index 99b89f4..0046bdd 100644
+--- a/node_modules/react-native-sprinkle-toast/src/Sprinkles.tsx
++++ b/node_modules/react-native-sprinkle-toast/src/Sprinkles.tsx
+@@ -120,5 +120,5 @@ export const Sprinkles: React.FC<Props> = ({
+ };
+ 
+ const styles = StyleSheet.create({
+-  container: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
++  container: { ...StyleSheet.absoluteFill, justifyContent: 'center', alignItems: 'center' },
+ });
+\ No newline at end of file
+diff --git a/node_modules/react-native-sprinkle-toast/src/ToastItem.tsx b/node_modules/react-native-sprinkle-toast/src/ToastItem.tsx
+index 400300a..da29678 100644
+--- a/node_modules/react-native-sprinkle-toast/src/ToastItem.tsx
++++ b/node_modules/react-native-sprinkle-toast/src/ToastItem.tsx
+@@ -149,7 +149,7 @@ export const ToastItem: React.FC<ToastOptions & { onRemove: (id: string) => void
+ 
+ const styles = StyleSheet.create({
+   wrapper: {
+-    ...StyleSheet.absoluteFillObject,
++    ...StyleSheet.absoluteFill,
+     zIndex: 9999999,
+     elevation: 10
+   },
+diff --git a/node_modules/react-native-sprinkle-toast/src/ToastProvider.tsx b/node_modules/react-native-sprinkle-toast/src/ToastProvider.tsx
+index 421748d..9ab1dd7 100644
+--- a/node_modules/react-native-sprinkle-toast/src/ToastProvider.tsx
++++ b/node_modules/react-native-sprinkle-toast/src/ToastProvider.tsx
+@@ -42,7 +42,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
+ 
+ const styles = StyleSheet.create({
+   overlay: {
+-    ...StyleSheet.absoluteFillObject,
++    ...StyleSheet.absoluteFill,
+     zIndex: 999999,
+     elevation: 999999,
+     justifyContent: 'flex-start',

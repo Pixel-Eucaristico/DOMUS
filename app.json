@@ -7,15 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "orcafacil",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F5F7FA",
-      "dark": {
-        "image": "./assets/images/splash-icon.png",
-        "backgroundColor": "#0F172A"
-      }
-    },
     "android": {
       "package": "br.com.pixeleucaristico.domus",
       "versionCode": 12,
@@ -62,7 +53,7 @@
             "targetSdkVersion": 36
           },
           "ios": {
-            "deploymentTarget": "15.1",
+            "deploymentTarget": "16.4",
             "useFrameworks": "static"
           }
         }
@@ -70,6 +61,19 @@
       [
         "expo-router",
         {}
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#F5F7FA",
+          "dark": {
+            "image": "./assets/images/splash-icon.png",
+            "backgroundColor": "#0F172A"
+          }
+        }
       ],
       "expo-font",
       "expo-web-browser",
