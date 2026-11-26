@@ -121,7 +121,7 @@
           "ocrUseBundled": true
         }
       ],
-      "@react-native-google-signin/google-signin",
+      "./plugins/withDomusGoogleAuth",
       "expo-notifications",
       [
         "@react-native-firebase/app",

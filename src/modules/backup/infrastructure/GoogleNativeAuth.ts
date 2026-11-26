@@ -1,54 +1,142 @@
-import { Platform } from "react-native";
+import { getDomusGoogleAuthModule } from "@/modules/domus-google-auth";
+import {
+  DomusGoogleAuthErrorCodes,
+  type DomusGoogleAuthNativeModule,
+  type DriveAuthorizationResult,
+  type GoogleSignInResult,
+} from "@/modules/domus-google-auth/src/types";
+import { isWeb } from "./deviceBackupKey";
 
-// Google Sign-In nativo (Android/iOS). O access token vem do Play Services via
-// `getTokens()`: não há refresh token nem troca de código, então nenhum client secret
-// precisa existir no app.
+// Login nativo Google (Android Credential Manager + Identity.getAuthorizationClient;
+// iOS GIDSignIn). O access token para `drive.appdata` é concedido sem refresh token
+// e sem client_secret no app.
 
-const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
-const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
+export const DRIVE_APPDATA_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
 
-type GoogleSignInModule = typeof import("@react-native-google-signin/google-signin");
+export { DomusGoogleAuthErrorCodes };
+export type { DriveAuthorizationResult, GoogleSignInResult };
 
-let configured = false;
+type NativeModuleLoader = () => DomusGoogleAuthNativeModule | null;
 
-/** Carrega e configura o Google Sign-In (só nativo). Devolve null na web. */
-export function getGoogleSignIn(): GoogleSignInModule | null {
-  if (Platform.OS === "web") return null;
-  // require tardio: o módulo nativo não existe no bundle web
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const mod = require("@react-native-google-signin/google-signin") as GoogleSignInModule;
-  if (!configured) {
-    mod.GoogleSignin.configure({ webClientId: WEB_CLIENT_ID, scopes: [DRIVE_SCOPE] });
-    configured = true;
+const defaultNativeModuleLoader: NativeModuleLoader = () => {
+  try {
+    return getDomusGoogleAuthModule();
+  } catch {
+    return null;
   }
-  return mod;
+};
+
+let nativeModuleLoader: NativeModuleLoader = defaultNativeModuleLoader;
+
+/** Apenas para testes unitários (substitui ou restaura o loader padrão do módulo nativo). */
+export function setDomusGoogleAuthLoaderForTests(loader: NativeModuleLoader | null): void {
+  nativeModuleLoader = loader ?? defaultNativeModuleLoader;
 }
 
-/** Access token novo para o Drive, ou null se não houver sessão do Google. */
-export async function getNativeAccessToken(staleAccessToken?: string): Promise<string | null> {
-  const mod = getGoogleSignIn();
+function hasDriveAppDataScope(result: DriveAuthorizationResult | null): boolean {
+  return Array.isArray(result?.grantedScopes) && result.grantedScopes.includes(DRIVE_APPDATA_SCOPE);
+}
+
+/** Carrega o módulo nativo local `domus-google-auth` (só nativo). Devolve null na web ou sem módulo nativo. */
+export function getDomusGoogleAuth(): DomusGoogleAuthNativeModule | null {
+  if (isWeb()) return null;
+  return nativeModuleLoader();
+}
+
+/** Autentica a conta Google via Android Credential Manager / iOS GIDSignIn. */
+export async function signInWithGoogleNative(
+  webClientId: string,
+): Promise<GoogleSignInResult> {
+  const mod = getDomusGoogleAuth();
+  if (!mod) {
+    throw new Error("Google Sign-In nativo indisponível neste ambiente.");
+  }
+  return mod.signIn(webClientId);
+}
+
+/**
+ * Solicita autorização do escopo `drive.appdata` via Android AuthorizationClient / iOS GIDSignIn.
+ * Valida se o escopo `drive.appdata` foi de fato concedido (consentimento granular do Google).
+ * Com `interactive = false`, devolve null sem abrir UI se precisar de consentimento ou faltar escopo.
+ */
+export async function authorizeDriveNative(
+  accountEmail?: string | null,
+  interactive = true,
+): Promise<DriveAuthorizationResult | null> {
+  const mod = getDomusGoogleAuth();
+  if (!mod) {
+    if (interactive) {
+      throw new Error("Google Sign-In nativo indisponível neste ambiente.");
+    }
+    return null;
+  }
+
+  const result = await mod.authorizeDrive(
+    [DRIVE_APPDATA_SCOPE],
+    accountEmail?.trim() ? accountEmail.trim() : null,
+    interactive,
+  );
+  if (!result) return null;
+
+  if (!hasDriveAppDataScope(result)) {
+    if (!interactive) return null;
+    throw Object.assign(
+      new Error(
+        "Permissão do Google Drive não concedida. Marque o acesso ao Google Drive na tela de consentimento e tente novamente.",
+      ),
+      { code: DomusGoogleAuthErrorCodes.RESOLUTION_REQUIRED },
+    );
+  }
+
+  return result;
+}
+
+/** Invalida no cache nativo um access token do Drive (best-effort; ignora ausência de módulo ou token vazio). */
+export async function clearCachedGoogleAccessToken(accessToken?: string): Promise<void> {
+  const trimmed = accessToken?.trim();
+  if (!trimmed) return;
+  const mod = getDomusGoogleAuth();
+  if (!mod) return;
+  await mod.clearCachedAccessToken(trimmed);
+}
+
+/**
+ * Obtém silenciosamente um access token válido para o Drive (`interactive = false`).
+ * Quando `staleAccessToken` é informado, limpa o cache local antes de renovar.
+ */
+export async function getNativeAccessToken(
+  staleAccessToken?: string,
+  accountEmail?: string,
+): Promise<string | null> {
+  const mod = getDomusGoogleAuth();
   if (!mod) return null;
-  const { GoogleSignin } = mod;
 
   try {
     if (staleAccessToken) {
       try {
-        await GoogleSignin.clearCachedAccessToken(staleAccessToken);
+        await mod.clearCachedAccessToken(staleAccessToken);
       } catch {
         // token pode já ter saído do cache
       }
     }
 
-    try {
-      return (await GoogleSignin.getTokens()).accessToken;
-    } catch {
-      // sem sessão em memória: tenta restaurar sem interação
+    const auth = await mod.authorizeDrive(
+      [DRIVE_APPDATA_SCOPE],
+      accountEmail?.trim() ? accountEmail.trim() : null,
+      false,
+    );
+    if (!auth?.accessToken || !hasDriveAppDataScope(auth)) {
+      return null;
     }
-
-    const silent = await GoogleSignin.signInSilently();
-    if (silent.type !== "success") return null;
-    return (await GoogleSignin.getTokens()).accessToken;
+    return auth.accessToken;
   } catch {
     return null;
   }
+}
+
+/** Encerra o estado de credencial nativo (Credential Manager / GIDSignIn). */
+export async function signOutGoogleNative(): Promise<void> {
+  const mod = getDomusGoogleAuth();
+  if (!mod) return;
+  await mod.signOut();
 }

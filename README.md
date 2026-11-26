@@ -105,7 +105,7 @@ Aplicativo mobile de finanças pessoais (orçamento 50/30/20, importação de no
 | [expo-auth-session](https://docs.expo.dev/versions/latest/sdk/auth-session) | ~7.0.10 | https://docs.expo.dev/versions/latest/sdk/auth-session |
 | [expo-crypto](https://docs.expo.dev/versions/latest/sdk/crypto) | ~15.0.8 | https://docs.expo.dev/versions/latest/sdk/crypto |
 | [expo-local-authentication](https://docs.expo.dev/versions/latest/sdk/local-authentication) | ~17.0.8 | https://docs.expo.dev/versions/latest/sdk/local-authentication |
-| [@react-native-google-signin/google-signin](https://react-native-google-signin.github.io/docs/setting-up/get-config-file) | ^16.1.2 | https://react-native-google-signin.github.io/docs/original |
+| [modules/domus-google-auth](./modules/domus-google-auth) | local (Expo Modules) | Android Credential Manager + `AuthorizationClient`, iOS `GIDSignIn` |
 | [@noble/ciphers](https://github.com/paulmillr/noble-ciphers) | ^2.1.1 | https://github.com/paulmillr/noble-ciphers |
 | [@noble/hashes](https://github.com/paulmillr/noble-hashes) | ^2.0.1 | https://github.com/paulmillr/noble-hashes |
 

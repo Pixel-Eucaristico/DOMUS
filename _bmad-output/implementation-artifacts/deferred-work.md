@@ -183,3 +183,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-6-reavaliar-patches-e-tamagui-no-sdk-57-e-validar-os-fluxos.md`
   summary: Alinhar o range de @react-native-firebase/app (^23.8.6) em package.json com analytics, crashlytics e perf (^23.8.8).
   evidence: package.json:33-36 mantém desalinhamento pré-existente de patch version entre @react-native-firebase/app e os demais módulos Firebase.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-8-migrar-o-login-e-a-autorizacao-do-drive.md`
+  summary: Adicionar harness de testes unitários nativos (JUnit/Robolectric para DomusGoogleAuthModule.kt e XCTest/compilação macOS para DomusGoogleAuthModule.swift) ou job de verificação nativa na CI.
+  evidence: gate.yml executa apenas eslint/vitest/tsc; o módulo local modules/domus-google-auth foi compilado e validado no Android 16 (SM-X510), mas não há suíte unitária nativa automatizada em PRs.

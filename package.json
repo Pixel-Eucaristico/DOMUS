@@ -34,7 +34,6 @@
     "@react-native-firebase/app": "^23.8.6",
     "@react-native-firebase/crashlytics": "^23.8.8",
     "@react-native-firebase/perf": "^23.8.8",
-    "@react-native-google-signin/google-signin": "^16.1.2",
     "@shopify/flash-list": "2.0.2",
     "@stardazed/streams-text-encoding": "^1.0.2",
     "@tamagui/config": "^2.7.7",

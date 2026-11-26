@@ -5,13 +5,14 @@ São 5 partes: **A)** Google Cloud/Firebase (uma vez), **B)** local (`.env`),
 **C)** GitHub (secrets do Actions), **D)** Expo/EAS, **E)** teste.
 
 O app usa 1 credencial em tempo de build e 1 registro no console. **O app não usa nem
-guarda o client secret do Google**: o token do Drive vem do Google Sign-In nativo
-(`GoogleSignin.getTokens()`), e qualquer `EXPO_PUBLIC_*` vai embutida no bundle.
+guarda o client secret do Google**: o login e o token do Drive vêm do módulo Expo local
+`modules/domus-google-auth` (Android **Credential Manager** + **`AuthorizationClient`**,
+iOS **`GIDSignIn`**), e qualquer `EXPO_PUBLIC_*` vai embutida no bundle.
 Se você ainda tem o secret em algum lugar, não o copie para variável de ambiente.
 
 | O quê | Onde é usado |
 |---|---|
-| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (cliente **Web**) | `GoogleSignin.configure` (`webClientId`) |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (cliente **Web**) | `modules/domus-google-auth` (`signIn(webClientId)` via Credential Manager / `serverClientID` no iOS) |
 | Cliente OAuth **Android** (package + SHA-1) | Validado pelo Google Play Services no aparelho — **sem ele o login falha com DEVELOPER_ERROR** |
 
 ---

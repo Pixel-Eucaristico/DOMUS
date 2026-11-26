@@ -1,0 +1,10 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["DomusGoogleAuthModule"],
+    "appDelegateSubscribers": ["DomusGoogleAuthAppDelegateSubscriber"]
+  },
+  "android": {
+    "modules": ["expo.modules.domusgoogleauth.DomusGoogleAuthModule"]
+  }
+}

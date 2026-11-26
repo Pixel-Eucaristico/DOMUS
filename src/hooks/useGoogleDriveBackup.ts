@@ -9,7 +9,7 @@ import {
 } from "@/src/modules/backup/application/driveBackupActions";
 
 // ─── Google OAuth ────────────────────────────────────────────────────────────
-// Android/iOS: Google Sign-In nativo, access token via Play Services (sem client secret).
+// Android: Credential Manager + AuthorizationClient; iOS: GIDSignIn (modules/domus-google-auth, sem client secret).
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
 
 // ─── hook ─────────────────────────────────────────────────────────────────────

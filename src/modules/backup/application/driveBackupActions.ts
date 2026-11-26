@@ -1,7 +1,15 @@
 import { GoogleDriveService } from "@/src/modules/backup/infrastructure/GoogleDriveService";
 import type { DriveTokens } from "@/src/modules/backup/infrastructure/GoogleDriveService";
 import { ConnectivityService } from "@/src/modules/ai/infrastructure/ConnectivityService";
-import { getGoogleSignIn } from "@/src/modules/backup/infrastructure/GoogleNativeAuth";
+import {
+  DRIVE_APPDATA_SCOPE,
+  DomusGoogleAuthErrorCodes,
+  authorizeDriveNative,
+  clearCachedGoogleAccessToken,
+  getDomusGoogleAuth,
+  signInWithGoogleNative,
+  signOutGoogleNative,
+} from "@/src/modules/backup/infrastructure/GoogleNativeAuth";
 import { NATIVE_TOKEN_TTL_MS } from "@/src/modules/backup/infrastructure/driveTokens";
 import {
   shouldPromptDriveConnectOnThisDevice,
@@ -89,27 +97,38 @@ export async function connectDriveWeb(
 export async function connectDriveNative(
   webClientId: string,
 ): Promise<{ email: string | null } | null> {
-  const mod = getGoogleSignIn();
-  if (!mod) {
+  if (!getDomusGoogleAuth()) {
     throw new Error("Google Sign-In nativo indisponível neste ambiente.");
   }
-  const { GoogleSignin } = mod;
 
-  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-  const response = await GoogleSignin.signIn();
+  const signInResult = await signInWithGoogleNative(webClientId);
+  const userEmail = signInResult.email;
 
-  if (response.type !== "success") return null;
+  const authorization = await authorizeDriveNative(userEmail, true);
+  if (!authorization?.accessToken) {
+    return null;
+  }
 
-  const userEmail = response.data.user.email;
-  const { accessToken } = await GoogleSignin.getTokens();
+  if (
+    !Array.isArray(authorization.grantedScopes) ||
+    !authorization.grantedScopes.includes(DRIVE_APPDATA_SCOPE)
+  ) {
+    throw Object.assign(
+      new Error(
+        "Permissão do Google Drive não concedida. Marque o acesso ao Google Drive na tela de consentimento e tente novamente.",
+      ),
+      { code: DomusGoogleAuthErrorCodes.RESOLUTION_REQUIRED },
+    );
+  }
 
   const tokens: DriveTokens = {
-    accessToken,
+    accessToken: authorization.accessToken,
     refreshToken: "",
     expiresAt: Date.now() + NATIVE_TOKEN_TTL_MS,
     email: userEmail,
     clientId: webClientId,
     native: true,
+    authProvider: "credential-manager",
   };
 
   await GoogleDriveService.saveTokens(tokens);
@@ -118,22 +137,42 @@ export async function connectDriveNative(
 
 export function formatDriveConnectError(err: unknown): string | null {
   const e = err as { code?: unknown; message?: unknown } | null;
-  const statusCodes = getGoogleSignIn()?.statusCodes;
-  if (statusCodes && e?.code === statusCodes.SIGN_IN_CANCELLED) {
+  const code = e?.code;
+  const message = String(e?.message ?? "");
+
+  if (code === DomusGoogleAuthErrorCodes.SIGN_IN_CANCELLED) {
     return null;
   }
-  if (statusCodes && e?.code === statusCodes.IN_PROGRESS) {
+  if (code === DomusGoogleAuthErrorCodes.IN_PROGRESS) {
     return "Login já em andamento.";
   }
-  if (statusCodes && e?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+  if (code === DomusGoogleAuthErrorCodes.PLAY_SERVICES_NOT_AVAILABLE) {
     return "Google Play Services não disponível.";
   }
+  if (code === DomusGoogleAuthErrorCodes.NO_CREDENTIAL) {
+    return "Nenhuma conta Google disponível neste aparelho. Adicione uma conta Google nas configurações do dispositivo e tente novamente.";
+  }
+  if (code === DomusGoogleAuthErrorCodes.NOT_CONFIGURED) {
+    return "Configuração do login Google incompleta neste build. Verifique as credenciais OAuth do aplicativo.";
+  }
+  if (code === DomusGoogleAuthErrorCodes.NO_ACTIVITY) {
+    return "Não foi possível abrir a tela de login Google agora. Volte ao aplicativo e tente novamente.";
+  }
+  if (code === DomusGoogleAuthErrorCodes.RESOLUTION_REQUIRED) {
+    return "Permissão do Google Drive não concedida. Autorize o acesso ao Drive e tente novamente.";
+  }
   if (
-    e?.code === "DEVELOPER_ERROR" ||
-    e?.code === 10 ||
-    /DEVELOPER_ERROR/.test(String(e?.message ?? ""))
+    code === DomusGoogleAuthErrorCodes.DEVELOPER_ERROR ||
+    code === 10 ||
+    /DEVELOPER_ERROR|28444/.test(message)
   ) {
+    if (process.env.EXPO_OS === "ios") {
+      return "Configuração OAuth inválida (DEVELOPER_ERROR): verifique o GIDClientID e o esquema de URL em GoogleService-Info.plist.";
+    }
     return "Configuração OAuth inválida (DEVELOPER_ERROR): o SHA-1 do certificado deste build não está registrado no Google Cloud Console para o pacote br.com.pixeleucaristico.domus.";
+  }
+  if (code === DomusGoogleAuthErrorCodes.AUTH_ERROR) {
+    return "Não foi possível concluir a autenticação com o Google. Tente novamente.";
   }
   return err instanceof Error ? err.message : "Erro ao conectar com o Google.";
 }
@@ -183,9 +222,18 @@ export async function performDriveConnect(
 export async function performDriveDisconnect(): Promise<{ error: string | null }> {
   if (!isWeb()) {
     try {
-      await getGoogleSignIn()?.GoogleSignin.signOut();
+      const existing = await GoogleDriveService.loadTokens();
+      if (existing?.accessToken) {
+        await clearCachedGoogleAccessToken(existing.accessToken);
+      }
     } catch {
-      // Ignora erro ao deslogar do Google Sign-In
+      // Ignora erro ao invalidar token em cache no Play Services / iOS
+    }
+
+    try {
+      await signOutGoogleNative();
+    } catch {
+      // Ignora erro ao encerrar credencial nativa
     }
   }
 
