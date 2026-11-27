@@ -1,5 +1,8 @@
 import { GoogleDriveService } from "@/src/modules/backup/infrastructure/GoogleDriveService";
-import type { DriveTokens } from "@/src/modules/backup/infrastructure/GoogleDriveService";
+import type {
+  DriveBackupFile,
+  DriveTokens,
+} from "@/src/modules/backup/infrastructure/GoogleDriveService";
 import { ConnectivityService } from "@/src/modules/ai/infrastructure/ConnectivityService";
 import {
   DRIVE_APPDATA_SCOPE,
@@ -10,40 +13,131 @@ import {
   signInWithGoogleNative,
   signOutGoogleNative,
 } from "@/src/modules/backup/infrastructure/GoogleNativeAuth";
-import { NATIVE_TOKEN_TTL_MS } from "@/src/modules/backup/infrastructure/driveTokens";
 import {
-  shouldPromptDriveConnectOnThisDevice,
-  type DriveBackupPreference,
-} from "@/src/modules/backup/domain/syncedDriveBackupPref";
+  NATIVE_TOKEN_TTL_MS,
+  isDriveConnected,
+  isLegacyDriveConnection,
+} from "@/src/modules/backup/infrastructure/driveTokens";
+import { DRIVE_RECONNECT_COPY } from "@/src/modules/backup/domain/driveReconnectCopy";
 import { isWeb } from "@/src/modules/backup/infrastructure/deviceBackupKey";
+
+export { computeNeedsLocalDriveLogin } from "./driveBackupState";
 
 const USERINFO_TIMEOUT_MS = 10_000;
 const DEFAULT_WEB_TOKEN_TTL_SEC = 3600;
 
-export interface LoadedDriveState {
+export interface LoadedDriveLocalState {
   isConnected: boolean;
+  needsLegacyReconnect: boolean;
   email: string | null;
   lastSyncAt: number | null;
 }
 
-export async function loadDriveState(): Promise<LoadedDriveState> {
-  const [isConnected, email, lastSyncAt] = await Promise.all([
-    GoogleDriveService.isConnected(),
-    GoogleDriveService.getConnectedEmail(),
-    GoogleDriveService.getLastSyncAt(),
-  ]);
-  return { isConnected, email, lastSyncAt };
+export interface LoadedDriveState extends LoadedDriveLocalState {
+  remoteBackups: DriveBackupFile[];
+  backupsLoadError: string | null;
 }
 
-export function computeNeedsLocalDriveLogin(
-  isDriveStateLoaded: boolean,
-  driveBackupPref: DriveBackupPreference | undefined,
-  isConnected: boolean,
-): boolean {
+export interface DriveBackupsFetchResult {
+  backups: DriveBackupFile[];
+  error: string | null;
+  authExpired: boolean;
+}
+
+export type PerformDriveConnectResult =
+  | {
+      ok: true;
+      email: string | null;
+      lastSyncAt: number | null;
+      remoteBackups: DriveBackupFile[];
+      backupsLoadError: string | null;
+    }
+  | { ok: false; cancelled: boolean; error: string | null };
+
+export type PerformDriveUploadResult =
+  | {
+      ok: true;
+      lastSyncAt: number | null;
+      remoteBackups: DriveBackupFile[] | null;
+      backupsLoadError: string | null;
+    }
+  | { ok: false; error: string };
+
+function isDriveAuthError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
   return (
-    isDriveStateLoaded &&
-    shouldPromptDriveConnectOnThisDevice(driveBackupPref, isConnected)
+    /Google Drive:\s*(401|403)\b/.test(msg) || /N[aã]o autenticado/i.test(msg)
   );
+}
+
+export async function fetchDriveBackups(options?: {
+  skipConnectivityCheck?: boolean;
+}): Promise<DriveBackupsFetchResult> {
+  try {
+    if (!options?.skipConnectivityCheck) {
+      const online = await ConnectivityService.isOnline();
+      if (!online) {
+        return {
+          backups: [],
+          error: DRIVE_RECONNECT_COPY.backupsLoadOffline,
+          authExpired: false,
+        };
+      }
+    }
+    const backups = await GoogleDriveService.listBackups();
+    return { backups, error: null, authExpired: false };
+  } catch (err) {
+    if (isDriveAuthError(err)) {
+      return {
+        backups: [],
+        error: DRIVE_RECONNECT_COPY.backupsLoadAuthError,
+        authExpired: true,
+      };
+    }
+    return {
+      backups: [],
+      error: DRIVE_RECONNECT_COPY.backupsLoadError,
+      authExpired: false,
+    };
+  }
+}
+
+export async function loadDriveLocalState(): Promise<LoadedDriveLocalState> {
+  const [tokens, lastSyncAt] = await Promise.all([
+    GoogleDriveService.loadTokens(),
+    GoogleDriveService.getLastSyncAt(),
+  ]);
+
+  const web = isWeb();
+  const needsLegacyReconnect = isLegacyDriveConnection(tokens, web);
+  const isConnected = !needsLegacyReconnect && isDriveConnected(tokens);
+  const email = tokens?.email?.trim() || null;
+
+  return {
+    isConnected,
+    needsLegacyReconnect,
+    email,
+    lastSyncAt,
+  };
+}
+
+export async function loadDriveState(): Promise<LoadedDriveState> {
+  const local = await loadDriveLocalState();
+
+  if (!local.isConnected) {
+    return {
+      ...local,
+      remoteBackups: [],
+      backupsLoadError: null,
+    };
+  }
+
+  const { backups, error } = await fetchDriveBackups();
+  return {
+    ...local,
+    remoteBackups: backups,
+    backupsLoadError: error,
+  };
 }
 
 export async function connectDriveWeb(
@@ -179,10 +273,7 @@ export function formatDriveConnectError(err: unknown): string | null {
 
 export async function performDriveConnect(
   webClientId: string,
-): Promise<
-  | { ok: true; email: string | null }
-  | { ok: false; cancelled: boolean; error: string | null }
-> {
+): Promise<PerformDriveConnectResult> {
   if (!webClientId) {
     return {
       ok: false,
@@ -209,7 +300,19 @@ export async function performDriveConnect(
     if (!connected) {
       return { ok: false, cancelled: true, error: null };
     }
-    return { ok: true, email: connected.email };
+
+    const [lastSyncAt, listResult] = await Promise.all([
+      GoogleDriveService.getLastSyncAt().catch(() => null),
+      fetchDriveBackups({ skipConnectivityCheck: true }),
+    ]);
+
+    return {
+      ok: true,
+      email: connected.email,
+      lastSyncAt,
+      remoteBackups: listResult.backups,
+      backupsLoadError: listResult.error,
+    };
   } catch (err) {
     const formatted = formatDriveConnectError(err);
     if (formatted === null) {
@@ -252,7 +355,7 @@ export async function performDriveDisconnect(): Promise<{ error: string | null }
 
 export async function performDriveUpload(
   content: string,
-): Promise<{ ok: true; lastSyncAt: number | null } | { ok: false; error: string }> {
+): Promise<PerformDriveUploadResult> {
   try {
     const online = await ConnectivityService.isOnline();
     if (!online) {
@@ -263,8 +366,16 @@ export async function performDriveUpload(
     }
 
     await GoogleDriveService.uploadBackup(content);
-    const lastSyncAt = await GoogleDriveService.getLastSyncAt();
-    return { ok: true, lastSyncAt };
+    const [lastSyncAt, listResult] = await Promise.all([
+      GoogleDriveService.getLastSyncAt().catch(() => null),
+      fetchDriveBackups({ skipConnectivityCheck: true }),
+    ]);
+    return {
+      ok: true,
+      lastSyncAt,
+      remoteBackups: listResult.error ? null : listResult.backups,
+      backupsLoadError: listResult.error,
+    };
   } catch (err) {
     return {
       ok: false,

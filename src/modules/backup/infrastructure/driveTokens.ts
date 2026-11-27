@@ -28,6 +28,21 @@ export const NATIVE_TOKEN_TTL_MS = 30 * 60 * 1000;
 export const EXPIRY_MARGIN_MS = 5 * 60 * 1000;
 
 /**
+ * Detecta sessão nativa legada (pré-Story 8.8, sem `authProvider: "credential-manager"`).
+ * Nunca dispara na web (`GoogleOAuthWeb.ts`).
+ */
+export function isLegacyDriveConnection(
+  tokens: DriveTokens | null,
+  isWebPlatform: boolean = false,
+): boolean {
+  if (isWebPlatform || !tokens) return false;
+  return (
+    (tokens.native === true || !!tokens.refreshToken) &&
+    tokens.authProvider !== "credential-manager"
+  );
+}
+
+/**
  * Conectado = refresh token legado, sessão nativa ou token web implícito ainda válido.
  * O fluxo web implícito não tem refresh token: conta como conectado enquanto o access token não expira.
  */

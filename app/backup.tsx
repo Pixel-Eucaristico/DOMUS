@@ -28,7 +28,13 @@ import { ScreenIntroModal } from "@/src/components/tour/ScreenIntroModal";
 import { useScreenIntro } from "@/src/hooks/useScreenIntro";
 import { SCREEN_INTROS } from "@/src/tour/screenIntroContent";
 import { PrivacyFlagNote } from "@/src/components/privacy/PrivacyFlagNote";
-import { appAlert } from "@/src/services/appAlert";
+import { appAlert, appConfirm } from "@/src/services/appAlert";
+import {
+  DRIVE_RECONNECT_COPY,
+  buildLegacyReconnectMessage,
+  formatBackupFileSize,
+  formatBackupModifiedTime,
+} from "@/src/modules/backup/domain/driveReconnectCopy";
 
 type TabId = "export" | "restore" | "drive";
 
@@ -47,6 +53,10 @@ export default function BackupScreen() {
   const drive = useGoogleDriveBackup();
   const { showIntro, dismissIntro } = useScreenIntro("backup");
   const eventCount = getAllEvents().length;
+  const hasValidLastSyncAt =
+    drive.lastSyncAt !== null &&
+    Number.isFinite(drive.lastSyncAt) &&
+    drive.lastSyncAt > 0;
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
@@ -71,6 +81,12 @@ export default function BackupScreen() {
               <Text style={[s.tabLabel, { color: active ? theme.primaryColor : theme.secondaryText }, active && s.tabLabelActive]}>
                 {tab.label}
               </Text>
+              {tab.id === "drive" && drive.needsLegacyReconnect && (
+                <View
+                  style={s.tabBadgeDot}
+                  accessibilityLabel="Reconexão do Google Drive necessária"
+                />
+              )}
             </TouchableOpacity>
           );
         })}
@@ -305,10 +321,12 @@ export default function BackupScreen() {
                 <TText variant="subtitle" bold color={theme.textColor} fontSize={14}>Google Drive</TText>
                 <Text style={[s.sectionSubtitle, { color: theme.secondaryText }]}>
                   {drive.isConnected
-                    ? drive.lastSyncAt
-                      ? `Último sync: ${new Date(drive.lastSyncAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+                    ? hasValidLastSyncAt
+                      ? `Último sync: ${formatBackupModifiedTime(drive.lastSyncAt)}`
                       : "Conectado — nunca sincronizado"
-                    : "Backup automático na nuvem"}
+                    : drive.needsLegacyReconnect
+                      ? DRIVE_RECONNECT_COPY.subtitleNeedsReconnect
+                      : "Backup automático na nuvem"}
                 </Text>
               </View>
             </View>
@@ -340,6 +358,69 @@ export default function BackupScreen() {
                     O auto-backup diário é enviado ao seu Google Drive automaticamente.
                     Arquivo: <Text style={{ fontFamily: "DMSans_500Medium" }}>domus-backup.domusbackup</Text>
                   </Text>
+
+                  <View style={[s.driveBackupsBox, { backgroundColor: theme.background, borderColor: theme.border }]}>
+                    <View style={s.driveBackupsHeader}>
+                      <View style={s.driveBackupsTitleRow}>
+                        <Feather name="hard-drive" size={13} color="#4285F4" />
+                        <Text style={[s.driveBackupsTitle, { color: theme.textColor }]}>
+                          {DRIVE_RECONNECT_COPY.backupsSectionTitle}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => { soundManager.play("tap"); drive.refreshBackups(); }}
+                        disabled={drive.isLoadingBackups}
+                        hitSlop={10}
+                        accessibilityRole="button"
+                        accessibilityLabel="Atualizar lista de backups do Google Drive"
+                      >
+                        {drive.isLoadingBackups ? (
+                          <ActivityIndicator size="small" color={theme.secondaryText} />
+                        ) : (
+                          <Feather name="refresh-cw" size={13} color={theme.secondaryText} />
+                        )}
+                      </TouchableOpacity>
+                    </View>
+
+                    {drive.isLoadingBackups && drive.remoteBackups.length === 0 ? (
+                      <Text style={[s.driveBackupsEmpty, { color: theme.secondaryText }]}>
+                        {DRIVE_RECONNECT_COPY.backupsLoading}
+                      </Text>
+                    ) : drive.remoteBackups.length > 0 ? (
+                      <View style={{ gap: 8 }}>
+                        {drive.remoteBackups.map((file) => (
+                          <View
+                            key={file.id}
+                            style={[s.driveBackupItem, { borderColor: theme.border }]}
+                          >
+                            <Feather name="file-text" size={14} color="#4285F4" style={{ marginTop: 2 }} />
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={[s.driveBackupName, { color: theme.textColor }]} numberOfLines={1}>
+                                {file.name}
+                              </Text>
+                              <Text style={[s.driveBackupMeta, { color: theme.secondaryText }]}>
+                                {formatBackupModifiedTime(file.modifiedTime)} · {formatBackupFileSize(file.size)}
+                              </Text>
+                            </View>
+                          </View>
+                        ))}
+                        {drive.backupsLoadError && (
+                          <Text style={[s.driveBackupsError, { color: "#F59E0B" }]}>
+                            {drive.backupsLoadError}
+                          </Text>
+                        )}
+                      </View>
+                    ) : drive.backupsLoadError ? (
+                      <Text style={[s.driveBackupsEmpty, { color: theme.secondaryText }]}>
+                        {drive.backupsLoadError}
+                      </Text>
+                    ) : (
+                      <Text style={[s.driveBackupsEmpty, { color: theme.secondaryText }]}>
+                        {DRIVE_RECONNECT_COPY.backupsEmpty}
+                      </Text>
+                    )}
+                  </View>
+
                   <PrivacyFlagNote flag="googleDrive" color={theme.secondaryText} />
                   {drive.syncError && <StatusRow status={{ type: "error", message: drive.syncError }} theme={theme} />}
                   <TouchableOpacity
@@ -368,7 +449,30 @@ export default function BackupScreen() {
                 </>
               ) : (
                 <>
-                  {drive.needsLocalDriveLogin && (
+                  {drive.needsLegacyReconnect ? (
+                    <View
+                      style={[s.warnBanner, { borderColor: "#F59E0B55", backgroundColor: "#F59E0B14" }]}
+                      accessible
+                      accessibilityRole="alert"
+                      accessibilityLabel={`${DRIVE_RECONNECT_COPY.bannerTitle}. ${buildLegacyReconnectMessage(drive.email)}`}
+                    >
+                      <Feather name="refresh-cw" size={15} color="#F59E0B" style={{ marginTop: 2 }} />
+                      <View style={{ flex: 1, gap: 4 }}>
+                        <Text style={[s.warnTitle, { color: theme.textColor }]}>
+                          {DRIVE_RECONNECT_COPY.bannerTitle}
+                        </Text>
+                        <Text style={[s.warnText, { color: theme.secondaryText }]}>
+                          {buildLegacyReconnectMessage(drive.email)}
+                        </Text>
+                        {hasValidLastSyncAt && (
+                          <Text style={[s.warnMeta, { color: theme.secondaryText }]}>
+                            {DRIVE_RECONNECT_COPY.lastRecordedBackupPrefix}{" "}
+                            {formatBackupModifiedTime(drive.lastSyncAt)}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  ) : drive.needsLocalDriveLogin ? (
                     <View style={[s.warnBanner, { borderColor: "#4285F440", backgroundColor: "#4285F412" }]}>
                       <Feather name="info" size={14} color="#4285F4" />
                       <Text style={[s.warnText, { color: theme.secondaryText }]}>
@@ -377,10 +481,12 @@ export default function BackupScreen() {
                           : "O backup automático no Google Drive está ativo no grupo. Conecte o Drive neste aparelho para enviar o auto-backup."}
                       </Text>
                     </View>
+                  ) : null}
+                  {!drive.needsLegacyReconnect && (
+                    <Text style={[s.hintText, { color: theme.secondaryText }]}>
+                      Conecte sua conta Google para enviar o auto-backup diário automaticamente. O arquivo fica guardado na área privada do app no Google Drive (não aparece em &quot;Meu Drive&quot;).
+                    </Text>
                   )}
-                  <Text style={[s.hintText, { color: theme.secondaryText }]}>
-                    Conecte sua conta Google para enviar o auto-backup diário automaticamente. O arquivo fica guardado na área privada do app no Google Drive (não aparece em &quot;Meu Drive&quot;).
-                  </Text>
                   <PrivacyFlagNote flag="googleDrive" color={theme.secondaryText} />
                   {drive.syncError && <StatusRow status={{ type: "error", message: drive.syncError }} theme={theme} />}
                   <TouchableOpacity
@@ -393,11 +499,38 @@ export default function BackupScreen() {
                     <Text style={s.actionBtnText}>
                       {drive.isConnecting
                         ? "Aguardando…"
-                        : drive.needsLocalDriveLogin
-                          ? "Conectar o Drive neste aparelho"
-                          : "Conectar Google Drive"}
+                        : drive.needsLegacyReconnect
+                          ? DRIVE_RECONNECT_COPY.bannerCta
+                          : drive.needsLocalDriveLogin
+                            ? "Conectar o Drive neste aparelho"
+                            : "Conectar Google Drive"}
                     </Text>
                   </TouchableOpacity>
+                  {drive.needsLegacyReconnect && (
+                    <TouchableOpacity
+                      style={s.legacyDisconnectBtn}
+                      onPress={async () => {
+                        soundManager.play("tap");
+                        const confirmed = await appConfirm({
+                          title: DRIVE_RECONNECT_COPY.disconnectLegacyConfirmTitle,
+                          message: DRIVE_RECONNECT_COPY.disconnectLegacyConfirmMessage,
+                          confirmLabel: DRIVE_RECONNECT_COPY.disconnectLegacyConfirmCta,
+                          destructive: true,
+                        });
+                        if (confirmed) {
+                          await drive.disconnect();
+                        }
+                      }}
+                      disabled={drive.isConnecting}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={DRIVE_RECONNECT_COPY.disconnectLegacyLabel}
+                    >
+                      <Text style={[s.driveDisconnect, { color: theme.danger }]}>
+                        {DRIVE_RECONNECT_COPY.disconnectLegacyLabel}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </>
               )}
             </View>
@@ -458,6 +591,7 @@ const s = StyleSheet.create({
   tabItemActive: { shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
   tabLabel: { fontFamily: "DMSans_500Medium", fontSize: 13 },
   tabLabelActive: { fontFamily: "DMSans_700Bold" },
+  tabBadgeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#F59E0B" },
   content: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: SCROLL_BOTTOM_PADDING, gap: 12 },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
   sectionIconBg: { width: 34, height: 34, borderRadius: 10, justifyContent: "center", alignItems: "center" },
@@ -470,7 +604,9 @@ const s = StyleSheet.create({
   encryptToggleLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
   encryptToggleLabel: { fontFamily: "DMSans_600SemiBold", fontSize: 14 },
   warnBanner: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderWidth: 1, borderRadius: 10, padding: 10 },
+  warnTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 13, lineHeight: 18 },
   warnText: { flex: 1, fontFamily: "DMSans_400Regular", fontSize: 12, lineHeight: 17 },
+  warnMeta: { fontFamily: "DMSans_500Medium", fontSize: 11, lineHeight: 16 },
   hintRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
   hintText: { flex: 1, fontFamily: "DMSans_400Regular", fontSize: 12, lineHeight: 18 },
   actionBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 12, marginTop: 2 },
@@ -484,6 +620,16 @@ const s = StyleSheet.create({
   driveAccountLeft: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1, minWidth: 0 },
   driveAccountEmail: { fontFamily: "DMSans_500Medium", fontSize: 13, flex: 1 },
   driveDisconnect: { fontFamily: "DMSans_500Medium", fontSize: 12, flexShrink: 0 },
+  legacyDisconnectBtn: { alignSelf: "center", paddingVertical: 6, paddingHorizontal: 10 },
+  driveBackupsBox: { borderWidth: 1, borderRadius: 10, padding: 11, gap: 8 },
+  driveBackupsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  driveBackupsTitleRow: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
+  driveBackupsTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 12 },
+  driveBackupsEmpty: { fontFamily: "DMSans_400Regular", fontSize: 12, lineHeight: 17 },
+  driveBackupsError: { fontFamily: "DMSans_500Medium", fontSize: 11, lineHeight: 16 },
+  driveBackupItem: { flexDirection: "row", alignItems: "flex-start", gap: 8, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth },
+  driveBackupName: { fontFamily: "DMSans_500Medium", fontSize: 13 },
+  driveBackupMeta: { fontFamily: "DMSans_400Regular", fontSize: 11, marginTop: 2 },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 22 },
   statusText: { fontFamily: "DMSans_400Regular", fontSize: 13, flex: 1 },
   footer: { flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center", paddingVertical: 4 },

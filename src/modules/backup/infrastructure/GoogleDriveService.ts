@@ -6,12 +6,20 @@ import { isWeb } from "./deviceBackupKey";
 import { getNativeAccessToken } from "./GoogleNativeAuth";
 import {
   isDriveConnected,
+  isLegacyDriveConnection,
   refreshExpiredAccessToken,
   resolveAccessToken,
 } from "./driveTokens";
 import type { DriveTokens } from "./driveTokens";
 
 export type { DriveTokens } from "./driveTokens";
+
+export interface DriveBackupFile {
+  id: string;
+  name: string;
+  modifiedTime: string | null;
+  size: number | null;
+}
 
 // SecureStore não existe na web; lá os tokens ficam cifrados por webSecrets (AES-GCM).
 const secureGet = async (key: string): Promise<string | null> => {
@@ -32,6 +40,7 @@ const secureDelete = async (key: string): Promise<void> => {
 const TOKENS_KEY = "domus_gdrive_tokens_v1";
 const LAST_SYNC_KEY = "domus_gdrive_last_sync";
 const FILE_ID_KEY = "domus_gdrive_file_id";
+const LIST_BACKUPS_TIMEOUT_MS = 15_000;
 
 export const DRIVE_BACKUP_FILENAME = `domus-backup${BACKUP_FILE_EXTENSION}`;
 
@@ -113,10 +122,107 @@ async function uploadBackupInternal(
   await AsyncStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
 }
 
+function parseDriveFileSize(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0) {
+    return raw;
+  }
+  if (typeof raw === "string" && raw.trim() !== "") {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+async function listBackupsInternal(options: {
+  retried401: boolean;
+  tokenOverride?: string;
+}): Promise<DriveBackupFile[]> {
+  const accessToken =
+    options.tokenOverride ?? (await GoogleDriveService.getValidAccessToken());
+  if (!accessToken) throw new Error("Não autenticado no Google Drive.");
+
+  const epoch = tokenSessionEpoch;
+  const query = encodeURIComponent("trashed=false");
+  const orderBy = encodeURIComponent("modifiedTime desc");
+  const fields = encodeURIComponent("files(id,name,modifiedTime,size)");
+  const url = `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${query}&orderBy=${orderBy}&fields=${fields}`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LIST_BACKUPS_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (!res.ok) {
+    if (res.status === 401 && !options.retried401) {
+      const freshToken = await GoogleDriveService.refreshAccessTokenOnUnauthorized();
+      if (freshToken) {
+        return listBackupsInternal({
+          retried401: true,
+          tokenOverride: freshToken,
+        });
+      }
+    }
+
+    const err = await res.text();
+    throw new Error(`Google Drive: ${res.status} ${err}`);
+  }
+
+  const data = (await res.json()) as { files?: unknown; nextPageToken?: unknown };
+  const rawFiles = Array.isArray(data?.files) ? data.files : [];
+  const files: DriveBackupFile[] = [];
+
+  for (const item of rawFiles) {
+    if (!item || typeof item !== "object") continue;
+    const f = item as Record<string, unknown>;
+    if (typeof f.id !== "string" || !f.id || typeof f.name !== "string" || !f.name) {
+      continue;
+    }
+    files.push({
+      id: f.id,
+      name: f.name,
+      modifiedTime:
+        typeof f.modifiedTime === "string" && f.modifiedTime.trim() !== ""
+          ? f.modifiedTime
+          : null,
+      size: parseDriveFileSize(f.size),
+    });
+  }
+
+  if (epoch === tokenSessionEpoch) {
+    const primaryFile = files.find((f) => f.name === DRIVE_BACKUP_FILENAME);
+    if (primaryFile) {
+      await AsyncStorage.setItem(FILE_ID_KEY, primaryFile.id);
+    } else if (!data?.nextPageToken) {
+      await AsyncStorage.removeItem(FILE_ID_KEY);
+    }
+  }
+
+  return files;
+}
+
 export const GoogleDriveService = {
   // ── Token persistence ─────────────────────────────────────────────────────
 
   async saveTokens(tokens: DriveTokens): Promise<void> {
+    const prev = await this.loadTokens();
+    const prevEmail = prev?.email?.trim().toLowerCase() ?? "";
+    const nextEmail = tokens.email?.trim().toLowerCase() ?? "";
+    if (prevEmail && prevEmail !== nextEmail) {
+      tokenSessionEpoch += 1;
+      await Promise.all([
+        AsyncStorage.removeItem(LAST_SYNC_KEY),
+        AsyncStorage.removeItem(FILE_ID_KEY),
+      ]);
+    }
     await secureSet(TOKENS_KEY, JSON.stringify(tokens));
   },
 
@@ -139,12 +245,16 @@ export const GoogleDriveService = {
   },
 
   async isConnected(): Promise<boolean> {
-    return isDriveConnected(await this.loadTokens());
+    const tokens = await this.loadTokens();
+    if (isLegacyDriveConnection(tokens, isWeb())) {
+      return false;
+    }
+    return isDriveConnected(tokens);
   },
 
   async getConnectedEmail(): Promise<string | null> {
     const t = await this.loadTokens();
-    return t?.email ?? null;
+    return t?.email || null;
   },
 
   // ── Access token ──────────────────────────────────────────────────────────
@@ -154,6 +264,7 @@ export const GoogleDriveService = {
     const epoch = tokenSessionEpoch;
     const tokens = await this.loadTokens();
     if (epoch !== tokenSessionEpoch) return null;
+    if (isLegacyDriveConnection(tokens, isWeb())) return null;
 
     const provider = isWeb() ? null : getNativeAccessToken;
     const resolved = await resolveAccessToken(tokens, provider);
@@ -171,6 +282,7 @@ export const GoogleDriveService = {
     const epoch = tokenSessionEpoch;
     const tokens = await this.loadTokens();
     if (epoch !== tokenSessionEpoch) return null;
+    if (isLegacyDriveConnection(tokens, isWeb())) return null;
 
     const refreshed = await refreshExpiredAccessToken(tokens, getNativeAccessToken);
     if (!refreshed || epoch !== tokenSessionEpoch) return null;
@@ -195,6 +307,11 @@ export const GoogleDriveService = {
   },
 
   // ── Drive file operations ─────────────────────────────────────────────────
+
+  /** Lista os arquivos de backup existentes em appDataFolder ordenados pelo mais recente. */
+  async listBackups(): Promise<DriveBackupFile[]> {
+    return listBackupsInternal({ retried401: false });
+  },
 
   /** Busca o ID do arquivo de backup no Drive (cache local + API se necessário). */
   async findBackupFileId(accessToken: string): Promise<string | null> {
@@ -227,6 +344,9 @@ export const GoogleDriveService = {
 
   async getLastSyncAt(): Promise<number | null> {
     const v = await AsyncStorage.getItem(LAST_SYNC_KEY);
-    return v ? parseInt(v, 10) : null;
+    if (!v) return null;
+    const trimmed = v.trim();
+    const parsed = /^\d+$/.test(trimmed) ? Number(trimmed) : Number.NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   },
 };

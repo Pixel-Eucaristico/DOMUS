@@ -5,6 +5,7 @@ import {
   EXPIRY_MARGIN_MS,
   NATIVE_TOKEN_TTL_MS,
   isDriveConnected,
+  isLegacyDriveConnection,
   refreshExpiredAccessToken,
   resolveAccessToken,
   type DriveTokens,
@@ -66,6 +67,50 @@ describe("isDriveConnected", () => {
 
   it("é falso para token web implícito já expirado (sem refresh token)", () => {
     expect(isDriveConnected(tokens({ expiresAt: NOW - 1 }), NOW)).toBe(false);
+  });
+});
+
+describe("isLegacyDriveConnection (Story 8.9)", () => {
+  it("é falso sem tokens (nativo e web)", () => {
+    expect(isLegacyDriveConnection(null, false)).toBe(false);
+    expect(isLegacyDriveConnection(null, true)).toBe(false);
+  });
+
+  it("detecta sessão nativa legada com native: true sem authProvider", () => {
+    expect(isLegacyDriveConnection(tokens({ native: true }), false)).toBe(true);
+  });
+
+  it("detecta sessão nativa legada com refreshToken sem authProvider", () => {
+    expect(isLegacyDriveConnection(tokens({ refreshToken: "rt-antigo" }), false)).toBe(true);
+  });
+
+  it("é falso para sessão nativa moderna (credential-manager)", () => {
+    expect(
+      isLegacyDriveConnection(
+        tokens({ native: true, authProvider: "credential-manager" }),
+        false,
+      ),
+    ).toBe(false);
+    expect(
+      isLegacyDriveConnection(
+        tokens({ refreshToken: "rt", authProvider: "credential-manager" }),
+        false,
+      ),
+    ).toBe(false);
+  });
+
+  it("é falso no nativo se não for sessão nativa nem tiver refreshToken", () => {
+    expect(isLegacyDriveConnection(tokens({ native: undefined, refreshToken: "" }), false)).toBe(
+      false,
+    );
+  });
+
+  it("nunca dispara na web, mesmo sem authProvider", () => {
+    expect(isLegacyDriveConnection(tokens({ native: true }), true)).toBe(false);
+    expect(isLegacyDriveConnection(tokens({ refreshToken: "rt-antigo" }), true)).toBe(false);
+    expect(isLegacyDriveConnection(tokens({ native: undefined, refreshToken: "" }), true)).toBe(
+      false,
+    );
   });
 });
 
