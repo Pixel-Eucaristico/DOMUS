@@ -326,8 +326,8 @@ Opcionais:
 ## Checklist antes do build
 
 - [x] `app.json` — package name definido
-- [x] `app.json` — versionCode: 12
-- [x] `app.json` — version: 1.9.0
+- [x] `app.json` — versionCode: 13
+- [x] `app.json` — version: 1.10.0
 - [x] `app.json` — adaptiveIcon configurado
 - [x] `app.json` — projectId do EAS
 - [x] `eas.json` — production profile com app-bundle

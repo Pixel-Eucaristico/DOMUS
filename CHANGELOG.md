@@ -9,6 +9,18 @@ e segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.10.0] - 2026-11-27 (`versionCode: 13`)
+
+### Adicionado
+- **Plataforma moderna — Expo SDK 57 (Épico 8):** atualização do app para Expo SDK 57 (`expo ~57.0.34`, `react-native 0.86.3`, `expo-router ~57.0.32`, `tamagui ^2.7.7`, `react-native-keyboard-controller 1.21.9`), zero imports de `@react-navigation/*`, plugin `expo-splash-screen`, remoção de dependências obsoletas (`rn-tourguide`, `react-native-sprinkle-toast`, `zod-validation-error`) e redução de 5 para 1 patch nativo, mantendo o pico de memória no Android 16 em `+4,35%` vs linha de base SDK 54 (teto `+20%`).
+- **Login Google e Google Drive modernos (`modules/domus-google-auth`):** módulo Expo local usando Android Credential Manager + `AuthorizationClient` (`drive.appdata`) e iOS `GIDSignIn ~> 8.0`, removendo 100% do `@react-native-google-signin/google-signin` legado e `getTokens()`, sem `client_secret` no app.
+- **Reconexão única explicada e listagem de backups do Drive (Story 8.9):** detecção automática de sessões nativas antigas sem apagar metadados nem o backup salvo, aviso em pt-BR com acentuação completa garantindo que o backup continua intacto, listagem de backups em `appDataFolder` (nome, data/hora e tamanho) e botão inline para reconectar em caso de expiração/revogação (`authExpired`).
+
+### Corrigido
+- **Resiliência do Google Drive, áudio/voz, teclado e build:** guardas de `tokenSessionEpoch` em uploads/listagens/troca de conta no `GoogleDriveService`, máquina de estado pura `driveBackupState.ts`, controle de concorrência/limpeza em `voiceRecorderLifecycle.ts` e `SoundManager.ts` (`keepAudioSessionActive`), `Keyboard.dismiss()` ao abrir `AccountPicker`/`StoreGridModal`, correção de `KeyboardListSheet` sob Fabric e `useWindowDimensions` no `WelcomeCarousel`, robustez de `webSecretStore.ts` (D1), correção de CRLF em `plugins/withReleaseSigning.js` e migração `.npmrc` → `pnpm-workspace.yaml`.
+
+---
+
 ## [1.9.0] - 2026-11-25 (`versionCode: 12`)
 
 ### Adicionado
