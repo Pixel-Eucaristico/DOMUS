@@ -56,23 +56,36 @@ export function createWebSecretStore(deps: WebSecretStoreDeps): WebSecretStore {
   let keyPromise: Promise<CryptoKey | null> | null = null;
 
   const getKey = (): Promise<CryptoKey | null> => {
-    keyPromise ??= (async () => {
-      try {
-        const subtle = deps.getCrypto()?.subtle;
-        if (!subtle) return null;
-        const existing = await deps.vault.load();
-        if (existing) return existing;
-        const key = await subtle.generateKey({ name: "AES-GCM", length: 256 }, false, [
-          "encrypt",
-          "decrypt",
-        ]);
-        // Se não der para guardar a chave, o texto cifrado ficaria ilegível depois: não use.
-        await deps.vault.save(key);
-        return key;
-      } catch {
-        return null;
-      }
-    })();
+    if (!keyPromise) {
+      let current: Promise<CryptoKey | null>;
+      current = (async () => {
+        try {
+          const subtle = deps.getCrypto()?.subtle;
+          if (!subtle) return null;
+          const existing = await deps.vault.load();
+          if (existing) return existing;
+          const key = await subtle.generateKey({ name: "AES-GCM", length: 256 }, false, [
+            "encrypt",
+            "decrypt",
+          ]);
+          // Se não der para guardar a chave, o texto cifrado ficaria ilegível depois: não use.
+          await deps.vault.save(key);
+          return key;
+        } catch {
+          return null;
+        }
+      })().then(
+        (key) => {
+          if (!key && keyPromise === current) keyPromise = null;
+          return key;
+        },
+        () => {
+          if (keyPromise === current) keyPromise = null;
+          return null;
+        },
+      );
+      keyPromise = current;
+    }
     return keyPromise;
   };
 
@@ -103,8 +116,6 @@ export function createWebSecretStore(deps: WebSecretStoreDeps): WebSecretStore {
     memory.set(key, value);
     const cryptoKey = await getKey();
     if (!cryptoKey) {
-      // Não deixa texto puro no disco (inclui valor legado).
-      await deps.storage.removeItem(key);
       return false;
     }
     await deps.storage.setItem(key, await encrypt(cryptoKey, value));
@@ -119,8 +130,11 @@ export function createWebSecretStore(deps: WebSecretStoreDeps): WebSecretStore {
     if (stored === null) return null;
 
     if (!stored.startsWith(PREFIX)) {
-      // Valor legado em texto puro: migra para a forma cifrada.
-      await set(key, stored);
+      // Valor legado em texto puro: migra para a forma cifrada; sem WebCrypto/cofre, não deixa texto puro no disco.
+      const persisted = await set(key, stored);
+      if (!persisted) {
+        await deps.storage.removeItem(key);
+      }
       return stored;
     }
 

@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-27-2026 10:06
+last_updated: 11-27-2026 11:55
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -425,7 +425,7 @@ action_items:
     action: "Conectar authExpired de fetchDriveBackups em driveBackupState.ts e app/backup.tsx
       com CTA inline de reconexao e testar isConnected false em autoBackupRunner.test.ts"
     owner: "domus-dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-27.md"
   - id: "epic-8-retro-item-36-proteger-uploadbackupinternal-findbackup"
     epic: 8
@@ -433,7 +433,7 @@ action_items:
       e saveTokens com tokenSessionEpoch em GoogleDriveService.ts e corrigir corridas
       em driveBackupState.ts e useGoogleDriveBackup.ts"
     owner: "domus-architect"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-27.md"
   - id: "epic-8-retro-item-37-corrigir-bordas-de-domusgoogleauthmodule"
     epic: 8
@@ -441,7 +441,7 @@ action_items:
       adicionar CLIENT_ID/REVERSED_CLIENT_ID no GoogleService-Info.plist e substituir
       assercao tautologica em withDomusGoogleAuth.test.ts"
     owner: "domus-architect"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-27.md"
   - id: "epic-8-retro-item-38-blindar-startvoicerecording-e-playvoicer"
     epic: 8
@@ -449,7 +449,7 @@ action_items:
       em voiceRecorderLifecycle.ts/ai-chat.tsx, passar keepAudioSessionActive e limpar
       initPromise em SoundManager.ts e pinar contrato upstream de expo-audio"
     owner: "domus-dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-27.md"
   - id: "epic-8-retro-item-39-mover-public-hoist-pattern-de-npmrc-para"
     epic: 8
@@ -457,7 +457,7 @@ action_items:
       retorno silencioso em keyboardScroll.test.ts:3311 e isolar overrides do React
       Compiler em eslint.config.js a allowlist legada"
     owner: "domus-dev"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-27.md"
   - id: "epic-8-retro-item-40-limpar-codigo-morto-e-duplicacoes-pos-ep"
     epic: 8
@@ -465,14 +465,14 @@ action_items:
       DRIVE_APPDATA_SCOPE duplicado, expo-auth-session, react-native-vision-camera,
       @react-native-firebase/app e @ts-expect-error Tamagui)"
     owner: "domus-dev"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-27.md"
   - id: "epic-8-retro-item-41-reconciliar-agents-md-readme-md-docs-dat"
     epic: 8
     action: "Reconciliar AGENTS.md, README.md, docs/data-safety.md (F2), docs/setup-google-login.md,
       remover stub spec-8-1 blocked e anotar itens resolvidos em deferred-work.md"
     owner: "domus-light"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-27.md"
   - id: "epic-8-retro-item-42-validar-build-ios-em-macos-xcode-domusgo"
     epic: 8
@@ -486,14 +486,14 @@ action_items:
     action: "Corrigir abertura de KeyboardListSheet aninhado com teclado aberto (AccountPicker/StoreGridModal)
       e re-execucao de scrollFocusedIntoView ao trocar foco no KeyboardSheet"
     owner: "domus-dev"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-27.md"
   - id: "epic-13-retro-item-44-corrigir-reset-on-mount-de-titleheight-e"
     epic: 13
     action: "Corrigir reset on-mount de titleHeight e setTitleCollapsed em render
       no KeyboardListSheet e migrar SCREEN_W de WelcomeCarousel para useWindowDimensions"
     owner: "domus-dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-27.md"
   - id: "epic-13-retro-item-45-descontar-insets-top-e-proteger-onerow-c"
     epic: 13
@@ -507,7 +507,7 @@ action_items:
     action: "Migrar runOnJS para scheduleOnRN e adicionar sync pos-mount em useKeyboardTargetHeight.ts
       e incluir mode em KEYBOARD_ONLY_PROPS de keyboardScrollDefaults.ts"
     owner: "domus-dev"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-27.md"
   - id: "epic-13-retro-item-47-fatiar-keyboardscroll-test-ts-3318-linha"
     epic: 13
@@ -529,7 +529,7 @@ action_items:
       domus_is_catholic_v1, linhas e manifesto) e PLAY_STORE_LISTING.md (versionCode,
       checklist e remover docs/risco-residual-xor.md)"
     owner: "domus-dev"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-27.md"
   - id: "epic-1-retro-item-50-endurecer-regra-eslint-expo_public_-d4-d"
     epic: 1
@@ -537,7 +537,7 @@ action_items:
       teste unitario), incluir modules/ em noSecretInAsyncStorage.test.ts, testar
       targetSdkVersion>=36/blockedPermissions em app.json e auditar AAB no build-android.yml"
     owner: "domus-architect"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-27.md"
   - id: "epic-1-retro-item-51-corrigir-bug-crlf-em-plugins-withrelease"
     epic: 1
@@ -545,7 +545,7 @@ action_items:
       de withReleaseSigning.test.ts:83 no Windows) e atualizar fixture para template
       do Expo SDK 57"
     owner: "domus-dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-27.md"
   - id: "epic-1-retro-item-52-corrigir-robustez-do-websecretstore-ts-d"
     epic: 1
@@ -553,7 +553,7 @@ action_items:
       nao apagar ciphertext sem chave e tratar retorno false de webSecrets.set em
       GoogleDriveService.ts:30)"
     owner: "domus-architect"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-27.md"
   - id: "epic-1-retro-item-53-publicar-aab-definitivo-na-play-subindo"
     epic: 1
@@ -571,3 +571,4 @@ action_items:
     owner: "domus-light"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-27.md"
+  

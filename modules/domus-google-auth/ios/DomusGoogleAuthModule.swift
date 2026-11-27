@@ -77,15 +77,19 @@ public class DomusGoogleAuthModule: Module {
       }
 
       let startInteractiveSignIn: () -> Void = {
-        guard let clientID = self.resolveIosClientId() else {
-          promise.reject(
-            "NOT_CONFIGURED",
-            "GIDClientID não encontrado no Info.plist nem em GoogleService-Info.plist."
-          )
+        guard !self.isSigningIn else {
+          promise.reject("IN_PROGRESS", "Login já em andamento.")
           return
         }
 
         if GIDSignIn.sharedInstance.configuration == nil {
+          guard let clientID = self.resolveIosClientId() else {
+            promise.reject(
+              "NOT_CONFIGURED",
+              "GIDClientID não encontrado no Info.plist nem em GoogleService-Info.plist."
+            )
+            return
+          }
           GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
         }
 
@@ -97,11 +101,14 @@ public class DomusGoogleAuthModule: Module {
           return
         }
 
+        self.isSigningIn = true
         GIDSignIn.sharedInstance.signIn(
           withPresenting: presenter,
           hint: accountEmail,
           additionalScopes: normalizedScopes
         ) { result, error in
+          self.isSigningIn = false
+
           if let error = error {
             self.rejectGoogleError(error, promise: promise)
             return
@@ -110,6 +117,14 @@ public class DomusGoogleAuthModule: Module {
           guard let authorizedUser = result?.user,
                 !authorizedUser.accessToken.tokenString.isEmpty else {
             promise.reject("AUTH_ERROR", "Token de acesso do Google Drive não retornado.")
+            return
+          }
+
+          guard self.matchesRequestedAccount(authorizedUser, accountEmail: accountEmail) else {
+            promise.reject(
+              "AUTH_ERROR",
+              "A conta autorizada no Google Drive não corresponde à conta selecionada."
+            )
             return
           }
 
@@ -170,6 +185,11 @@ public class DomusGoogleAuthModule: Module {
           return
         }
 
+        guard !self.isSigningIn else {
+          promise.reject("IN_PROGRESS", "Autorização do Google Drive já em andamento.")
+          return
+        }
+
         guard let presenter = self.topViewController() else {
           promise.reject(
             "NO_ACTIVITY",
@@ -178,7 +198,10 @@ public class DomusGoogleAuthModule: Module {
           return
         }
 
+        self.isSigningIn = true
         user.addScopes(missing, presenting: presenter) { result, error in
+          self.isSigningIn = false
+
           if let error = error {
             self.rejectGoogleError(error, promise: promise)
             return
@@ -199,7 +222,18 @@ public class DomusGoogleAuthModule: Module {
         }
       }
 
-      if GIDSignIn.sharedInstance.configuration == nil, let clientID = self.resolveIosClientId() {
+      if GIDSignIn.sharedInstance.configuration == nil {
+        guard let clientID = self.resolveIosClientId() else {
+          if !interactive {
+            promise.resolve(nil)
+          } else {
+            promise.reject(
+              "NOT_CONFIGURED",
+              "GIDClientID não encontrado no Info.plist nem em GoogleService-Info.plist."
+            )
+          }
+          return
+        }
         GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
       }
 
@@ -285,10 +319,31 @@ public class DomusGoogleAuthModule: Module {
     return current
   }
 
+  private func isDeveloperError(_ nsError: NSError) -> Bool {
+    let combined = [
+      nsError.localizedDescription,
+      nsError.localizedFailureReason ?? "",
+      String(describing: nsError.userInfo)
+    ].joined(separator: " ").lowercased()
+
+    return combined.contains("invalid_client") ||
+      combined.contains("invalid client") ||
+      combined.contains("url scheme") ||
+      combined.contains("cfbundleurlschemes") ||
+      combined.contains("cfbundleurltypes") ||
+      combined.contains("reversed_client_id") ||
+      combined.contains("gidclientid") ||
+      combined.contains("developer_error")
+  }
+
   private func rejectGoogleError(_ error: Error, promise: Promise) {
     let nsError = error as NSError
     if nsError.domain == kGIDSignInErrorDomain && nsError.code == GIDSignInError.canceled.rawValue {
       promise.reject("SIGN_IN_CANCELLED", "Login cancelado pelo usuário.")
+      return
+    }
+    if self.isDeveloperError(nsError) {
+      promise.reject("DEVELOPER_ERROR", error.localizedDescription)
       return
     }
     promise.reject("AUTH_ERROR", error.localizedDescription)

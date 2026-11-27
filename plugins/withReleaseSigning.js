@@ -17,7 +17,7 @@ const BUILD_TYPE_MARK = "// withReleaseSigning: buildTypes.release";
 const HAS_UPLOAD_KEY = "project.hasProperty('MYAPP_UPLOAD_STORE_FILE')";
 const RELEASE_SIGNING_LINE = `signingConfig ${HAS_UPLOAD_KEY} ? signingConfigs.release : signingConfigs.debug ${BUILD_TYPE_MARK}`;
 
-function releaseConfigBlock(indent) {
+function releaseConfigBlock(indent, eol = "\n") {
   const i1 = indent;
   const i2 = indent + "    ";
   const i3 = i2 + "    ";
@@ -31,7 +31,7 @@ function releaseConfigBlock(indent) {
     `${i3}keyPassword MYAPP_UPLOAD_KEY_PASSWORD`,
     `${i2}}`,
     `${i1}}`,
-  ].join("\n");
+  ].join(eol);
 }
 
 /**
@@ -41,7 +41,7 @@ function releaseConfigBlock(indent) {
 function maskCode(src) {
   const out = src.split("");
   const blank = (from, to) => {
-    for (let k = from; k < to; k++) if (out[k] !== "\n") out[k] = " ";
+    for (let k = from; k < to; k++) if (out[k] !== "\n" && out[k] !== "\r") out[k] = " ";
   };
   let i = 0;
   while (i < src.length) {
@@ -141,22 +141,24 @@ function lineIndent(text, index) {
 
 function addReleaseSigning(gradle) {
   let out = gradle;
+  const eol = out.includes("\r\n") ? "\r\n" : "\n";
 
   // 1) buildTypes.release: troca só a linha `signingConfig ...` do release.
   let loc = locate(out);
   const releaseBody = out.slice(loc.releaseType.open + 1, loc.releaseType.close);
   if (!releaseBody.includes(BUILD_TYPE_MARK)) {
     const maskedBody = loc.masked.slice(loc.releaseType.open + 1, loc.releaseType.close);
-    const match = /(^|\n)([ \t]*)signingConfig\b[^\n]*/.exec(maskedBody);
+    const match = /(^|\n)([ \t]*)signingConfig\b[^\r\n]*/.exec(maskedBody);
     if (match) {
       const lineStart = loc.releaseType.open + 1 + match.index + match[1].length + match[2].length;
       let lineEnd = out.indexOf("\n", lineStart);
       if (lineEnd < 0) lineEnd = out.length;
+      if (lineEnd > lineStart && out[lineEnd - 1] === "\r") lineEnd--;
       out = out.slice(0, lineStart) + RELEASE_SIGNING_LINE + out.slice(lineEnd);
     } else {
       const indent = lineIndent(out, loc.releaseType.start) + "    ";
       const at = loc.releaseType.open + 1;
-      out = out.slice(0, at) + `\n${indent}${RELEASE_SIGNING_LINE}` + out.slice(at);
+      out = out.slice(0, at) + `${eol}${indent}${RELEASE_SIGNING_LINE}` + out.slice(at);
     }
   }
 
@@ -171,7 +173,7 @@ function addReleaseSigning(gradle) {
     }
     const indent = lineIndent(out, loc.signingConfigs.start) + "    ";
     const at = loc.signingConfigs.open + 1;
-    out = out.slice(0, at) + "\n" + releaseConfigBlock(indent) + out.slice(at);
+    out = out.slice(0, at) + eol + releaseConfigBlock(indent, eol) + out.slice(at);
   }
 
   return out;

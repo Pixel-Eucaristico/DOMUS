@@ -112,6 +112,9 @@ describe("SoundManager (foco de áudio via expo-audio sem patch nativo)", () => 
     expect(SOUND_EFFECT_AUDIO_MODE).toEqual({ interruptionMode: "mixWithOthers" });
     expect(callOrder[0]).toBe("setAudioModeAsync");
     expect(createAudioPlayer).toHaveBeenCalledTimes(Object.keys(FAKE_ASSETS).length);
+    for (const asset of Object.values(FAKE_ASSETS)) {
+      expect(createAudioPlayer).toHaveBeenCalledWith(asset, { keepAudioSessionActive: true });
+    }
 
     await mgr.play("tap");
     expect(fakePlayer.seekTo).toHaveBeenCalledWith(0);
@@ -154,32 +157,80 @@ describe("SoundManager (foco de áudio via expo-audio sem patch nativo)", () => 
     expect(createAudioPlayer).toHaveBeenCalledTimes(Object.keys(FAKE_ASSETS).length);
   });
 
-  it("não cria players órfãos se unload() ocorrer enquanto init() aguarda setAudioModeAsync", async () => {
+  it("não cria players órfãos se unload() ocorrer enquanto init() aguarda setAudioModeAsync e permite novo init() imediato", async () => {
     process.env.EXPO_OS = "android";
-    let resolveAudioMode!: () => void;
-    const setAudioModeAsync = vi.fn(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveAudioMode = resolve;
-        }),
-    );
-    const createAudioPlayer = vi.fn(() => ({
+    let resolveFirstAudioMode!: () => void;
+    let calls = 0;
+    const setAudioModeAsync = vi.fn(() => {
+      calls++;
+      if (calls === 1) {
+        return new Promise<void>((resolve) => {
+          resolveFirstAudioMode = resolve;
+        });
+      }
+      return Promise.resolve();
+    });
+    const fakePlayer = {
       seekTo: vi.fn(async () => {}),
       play: vi.fn(),
       remove: vi.fn(),
-    }));
+    };
+    const createAudioPlayer = vi.fn(() => fakePlayer);
 
     const mgr = new SoundManager({
       loadAssets: () => FAKE_ASSETS,
       loadExpoAudio: () => ({ createAudioPlayer, setAudioModeAsync }),
     });
 
-    const initPromise = mgr.init();
+    const firstInit = mgr.init();
     await mgr.unload();
-    resolveAudioMode();
-    await initPromise;
 
-    expect(createAudioPlayer).not.toHaveBeenCalled();
+    // Novo init() não deve ficar preso na promise antiga limpa por unload()
+    const secondInit = mgr.init();
+    await secondInit;
+    expect(setAudioModeAsync).toHaveBeenCalledTimes(2);
+    expect(createAudioPlayer).toHaveBeenCalledTimes(Object.keys(FAKE_ASSETS).length);
+
+    // Quando o primeiro setAudioModeAsync finalmente resolver, não pode criar players duplicados
+    resolveFirstAudioMode();
+    await firstInit;
+    expect(createAudioPlayer).toHaveBeenCalledTimes(Object.keys(FAKE_ASSETS).length);
+  });
+
+  it("não deixa audioModeConfigured=true se unload() acontecer durante setAudioModeAsync", async () => {
+    process.env.EXPO_OS = "android";
+    let resolveFirst!: () => void;
+    let first = true;
+    const setAudioModeAsync = vi.fn(() => {
+      if (first) {
+        first = false;
+        return new Promise<void>((resolve) => {
+          resolveFirst = resolve;
+        });
+      }
+      return Promise.reject(new Error("falha transitória"));
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const createAudioPlayer = vi.fn(() => ({
+      seekTo: vi.fn(async () => {}),
+      play: vi.fn(),
+      remove: vi.fn(),
+    }));
+    const mgr = new SoundManager({
+      loadAssets: () => FAKE_ASSETS,
+      loadExpoAudio: () => ({ createAudioPlayer, setAudioModeAsync }),
+    });
+
+    const staleInit = mgr.init();
+    await mgr.unload();
+    resolveFirst();
+    await staleInit;
+
+    // Novo init() rejeita setAudioModeAsync -> play() deve tentar reconfigurar (audioModeConfigured não foi corrompido pelo init obsoleto)
+    await mgr.init();
+    await mgr.play("tap");
+    expect(setAudioModeAsync).toHaveBeenCalledTimes(3);
+    warnSpy.mockRestore();
   });
 
   it("tenta configurar interruptionMode novamente no play() se setAudioModeAsync rejeitou no init()", async () => {
@@ -284,25 +335,96 @@ describe("SoundManager (foco de áudio via expo-audio sem patch nativo)", () => 
     expect(setAudioMode).toHaveBeenLastCalledWith(VOICE_IDLE_AUDIO_MODE);
   });
 
-  it("playVoiceReplay configura VOICE_PLAYBACK_AUDIO_MODE (mixWithOthers) antes de tocar e libera o player ao terminar", async () => {
+  it("bloqueia double-tap concorrente em startVoiceRecording antes do primeiro await", async () => {
+    const state: VoiceRecorderState = { active: false };
+    let resolvePermissions!: (res: { granted: boolean }) => void;
+    const requestPermissions = vi.fn(
+      () =>
+        new Promise<{ granted: boolean }>((resolve) => {
+          resolvePermissions = resolve;
+        }),
+    );
+    const setAudioMode = vi.fn(async () => {});
+    const recorder = {
+      prepareToRecordAsync: vi.fn(async () => {}),
+      record: vi.fn(),
+      stop: vi.fn(async () => {}),
+      uri: "file:///tmp/rec.m4a",
+    };
+
+    const p1 = startVoiceRecording(state, { requestPermissions, setAudioMode, recorder });
+    const p2 = startVoiceRecording(state, { requestPermissions, setAudioMode, recorder });
+
+    expect(await p2).toBe(false);
+    expect(requestPermissions).toHaveBeenCalledTimes(1);
+
+    resolvePermissions({ granted: true });
+    expect(await p1).toBe(true);
+    expect(state.active).toBe(true);
+    expect(state.starting).toBe(false);
+    expect(recorder.record).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancelVoiceRecording durante prepareToRecordAsync pendente impede record() e restaura VOICE_IDLE_AUDIO_MODE", async () => {
+    const state: VoiceRecorderState = { active: false };
+    let resolvePrepare!: () => void;
+    const setAudioMode = vi.fn(async () => {});
+    const recorder = {
+      prepareToRecordAsync: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolvePrepare = resolve;
+          }),
+      ),
+      record: vi.fn(),
+      stop: vi.fn(async () => {}),
+      uri: "file:///tmp/rec.m4a",
+    };
+
+    const startPromise = startVoiceRecording(state, {
+      requestPermissions: async () => ({ granted: true }),
+      setAudioMode,
+      recorder,
+    });
+
+    // Aguarda até prepareToRecordAsync ter sido chamado
+    await vi.waitFor(() => expect(recorder.prepareToRecordAsync).toHaveBeenCalledTimes(1));
+    expect(state.starting).toBe(true);
+    expect(state.active).toBe(false);
+
+    await cancelVoiceRecording(state, { setAudioMode, recorder });
+    expect(state.cancelled).toBe(true);
+
+    resolvePrepare();
+    expect(await startPromise).toBe(false);
+    expect(recorder.record).not.toHaveBeenCalled();
+    expect(state.active).toBe(false);
+    expect(state.starting).toBe(false);
+    expect(setAudioMode).toHaveBeenLastCalledWith(VOICE_IDLE_AUDIO_MODE);
+  });
+
+  it("playVoiceReplay configura VOICE_PLAYBACK_AUDIO_MODE (mixWithOthers) antes de tocar e libera o player ao terminar, em erro ou via stop()", async () => {
     const callOrder: string[] = [];
     const setAudioMode = vi.fn(async () => {
       callOrder.push("setAudioMode");
     });
-    let onStatus: ((s: { didJustFinish?: boolean }) => void) | undefined;
+    let onStatus: ((s: { didJustFinish?: boolean; error?: string | null }) => void) | undefined;
     const subRemove = vi.fn();
     const player = {
       play: vi.fn(() => {
         callOrder.push("play");
       }),
+      pause: vi.fn(),
       remove: vi.fn(),
-      addListener: vi.fn((_ev: "playbackStatusUpdate", cb: (s: { didJustFinish?: boolean }) => void) => {
-        onStatus = cb;
-        return { remove: subRemove };
-      }),
+      addListener: vi.fn(
+        (_ev: "playbackStatusUpdate", cb: (s: { didJustFinish?: boolean; error?: string | null }) => void) => {
+          onStatus = cb;
+          return { remove: subRemove };
+        },
+      ),
     };
 
-    await playVoiceReplay("file:///tmp/msg.m4a", {
+    const handle = await playVoiceReplay("file:///tmp/msg.m4a", {
       setAudioMode,
       createPlayer: vi.fn(() => player),
     });
@@ -318,6 +440,69 @@ describe("SoundManager (foco de áudio via expo-audio sem patch nativo)", () => 
     onStatus?.({ didJustFinish: true });
     expect(subRemove).toHaveBeenCalledTimes(1);
     expect(player.remove).toHaveBeenCalledTimes(1);
+    // stop() é idempotente após cleanup automático
+    handle.stop();
+    expect(player.remove).toHaveBeenCalledTimes(1);
+
+    // Cleanup em status.error
+    let onErrStatus: ((s: { didJustFinish?: boolean; error?: string | null }) => void) | undefined;
+    const errSubRemove = vi.fn();
+    const errPlayer = {
+      play: vi.fn(),
+      pause: vi.fn(),
+      remove: vi.fn(),
+      addListener: vi.fn(
+        (_ev: "playbackStatusUpdate", cb: (s: { didJustFinish?: boolean; error?: string | null }) => void) => {
+          onErrStatus = cb;
+          return { remove: errSubRemove };
+        },
+      ),
+    };
+    await playVoiceReplay("file:///tmp/err.m4a", {
+      setAudioMode,
+      createPlayer: vi.fn(() => errPlayer),
+    });
+    onErrStatus?.({ error: "decoder failed" });
+    expect(errSubRemove).toHaveBeenCalledTimes(1);
+    expect(errPlayer.remove).toHaveBeenCalledTimes(1);
+
+    // Cleanup se player.play() lançar erro síncrono
+    const throwSubRemove = vi.fn();
+    const throwPlayer = {
+      play: vi.fn(() => {
+        throw new Error("play failed");
+      }),
+      pause: vi.fn(),
+      remove: vi.fn(),
+      addListener: vi.fn(() => ({ remove: throwSubRemove })),
+    };
+    await expect(
+      playVoiceReplay("file:///tmp/throw.m4a", {
+        setAudioMode,
+        createPlayer: vi.fn(() => throwPlayer),
+      }),
+    ).rejects.toThrow("play failed");
+    expect(throwSubRemove).toHaveBeenCalledTimes(1);
+    expect(throwPlayer.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it("expo-audio upstream Android preserva MIX_WITH_OTHERS sem roubar foco e setAudioAttributes(..., false)", () => {
+    const audioModulePath = path.join(
+      ROOT,
+      "node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt",
+    );
+    const audioPlayerPath = path.join(
+      ROOT,
+      "node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt",
+    );
+    expect(fs.existsSync(audioModulePath)).toBe(true);
+    expect(fs.existsSync(audioPlayerPath)).toBe(true);
+
+    const audioModuleKt = fs.readFileSync(audioModulePath, "utf8");
+    const audioPlayerKt = fs.readFileSync(audioPlayerPath, "utf8");
+
+    expect(audioModuleKt).toContain("InterruptionMode.MIX_WITH_OTHERS");
+    expect(audioPlayerKt).toMatch(/setAudioAttributes\s*\([^,]+,\s*false\s*\)/);
   });
 
   it("nenhum caller real de setAudioModeAsync/setAudioMode em app/, src/ ou packages/ omite interruptionMode", () => {

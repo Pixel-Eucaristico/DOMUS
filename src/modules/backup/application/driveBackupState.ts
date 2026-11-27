@@ -33,6 +33,7 @@ export interface DriveBackupState {
   remoteBackups: DriveBackupFile[];
   isLoadingBackups: boolean;
   backupsLoadError: string | null;
+  authExpired: boolean;
   isSyncing: boolean;
   syncError: string | null;
   isConnecting: boolean;
@@ -47,6 +48,7 @@ export const INITIAL_DRIVE_BACKUP_STATE: DriveBackupState = {
   remoteBackups: [],
   isLoadingBackups: false,
   backupsLoadError: null,
+  authExpired: false,
   isSyncing: false,
   syncError: null,
   isConnecting: false,
@@ -57,7 +59,7 @@ export type DriveBackupAction =
   | { type: "LOCAL_LOAD_ERROR"; error: string }
   | { type: "BACKUPS_FETCH_START" }
   | { type: "BACKUPS_FETCH_SUCCESS"; backups: DriveBackupFile[] }
-  | { type: "BACKUPS_FETCH_ERROR"; error: string }
+  | { type: "BACKUPS_FETCH_ERROR"; error: string; authExpired: boolean }
   | { type: "CONNECT_START" }
   | {
       type: "CONNECT_SUCCESS";
@@ -69,7 +71,11 @@ export type DriveBackupAction =
   | { type: "CONNECT_FAILURE"; error: string | null }
   | { type: "CONNECT_SETTLE" }
   | { type: "DISCONNECT_START" }
-  | { type: "DISCONNECT_DONE"; error: string | null }
+  | {
+      type: "DISCONNECT_DONE";
+      error: string | null;
+      rehydrated?: LoadedDriveLocalState;
+    }
   | { type: "UPLOAD_START" }
   | {
       type: "UPLOAD_SUCCESS";
@@ -96,6 +102,7 @@ export function driveBackupReducer(
         isLoadingBackups: action.payload.isConnected,
         remoteBackups: action.payload.isConnected ? state.remoteBackups : [],
         backupsLoadError: null,
+        authExpired: false,
       };
     case "LOCAL_LOAD_ERROR":
       return {
@@ -106,6 +113,7 @@ export function driveBackupReducer(
         remoteBackups: [],
         isLoadingBackups: false,
         backupsLoadError: null,
+        authExpired: false,
         syncError: action.error,
       };
     case "BACKUPS_FETCH_START":
@@ -120,12 +128,14 @@ export function driveBackupReducer(
         isLoadingBackups: false,
         remoteBackups: action.backups,
         backupsLoadError: null,
+        authExpired: false,
       };
     case "BACKUPS_FETCH_ERROR":
       return {
         ...state,
         isLoadingBackups: false,
         backupsLoadError: action.error,
+        authExpired: action.authExpired,
       };
     case "CONNECT_START":
       return {
@@ -146,6 +156,7 @@ export function driveBackupReducer(
         lastSyncAt: action.lastSyncAt,
         remoteBackups: action.remoteBackups,
         backupsLoadError: action.backupsLoadError,
+        authExpired: false,
         syncError: null,
       };
     case "CONNECT_FAILURE":
@@ -168,9 +179,22 @@ export function driveBackupReducer(
         lastSyncAt: null,
         remoteBackups: [],
         backupsLoadError: null,
+        authExpired: false,
         syncError: null,
       };
     case "DISCONNECT_DONE":
+      if (action.rehydrated) {
+        return {
+          ...state,
+          isDriveStateLoaded: true,
+          isConnected: action.rehydrated.isConnected,
+          needsLegacyReconnect: action.rehydrated.needsLegacyReconnect,
+          email: action.rehydrated.email,
+          lastSyncAt: action.rehydrated.lastSyncAt,
+          isLoadingBackups: false,
+          syncError: action.error,
+        };
+      }
       return {
         ...state,
         syncError: action.error,
@@ -184,12 +208,14 @@ export function driveBackupReducer(
     case "UPLOAD_SUCCESS":
       return {
         ...state,
-        lastSyncAt: action.lastSyncAt,
+        isLoadingBackups: false,
+        lastSyncAt: action.lastSyncAt ?? state.lastSyncAt,
         remoteBackups:
           action.remoteBackups !== null
             ? action.remoteBackups
             : state.remoteBackups,
         backupsLoadError: action.backupsLoadError,
+        authExpired: action.backupsLoadError ? state.authExpired : false,
       };
     case "UPLOAD_ERROR":
       return {
@@ -265,6 +291,7 @@ export function createDriveBackupController(
   let activeUploads = 0;
   let sessionEpoch = 0;
   let backupsReqId = 0;
+  let connectReqId = 0;
 
   const dispatch = (action: DriveBackupAction) => {
     if (!mounted) return;
@@ -294,7 +321,11 @@ export function createDriveBackupController(
         return;
       }
       if (remote.error) {
-        dispatch({ type: "BACKUPS_FETCH_ERROR", error: remote.error });
+        dispatch({
+          type: "BACKUPS_FETCH_ERROR",
+          error: remote.error,
+          authExpired: remote.authExpired,
+        });
       } else {
         dispatch({ type: "BACKUPS_FETCH_SUCCESS", backups: remote.backups });
       }
@@ -313,11 +344,16 @@ export function createDriveBackupController(
 
   const unmount = (): void => {
     mounted = false;
+    sessionEpoch += 1;
+    backupsReqId += 1;
+    connectReqId += 1;
+    isConnecting = false;
   };
 
   const connect = async (): Promise<void> => {
     if (isConnecting) return;
     isConnecting = true;
+    const myConnectId = ++connectReqId;
     const connectEpoch = sessionEpoch;
     dispatch({ type: "CONNECT_START" });
 
@@ -344,25 +380,41 @@ export function createDriveBackupController(
         dispatch({ type: "CONNECT_FAILURE", error: result.error });
       }
     } finally {
-      isConnecting = false;
-      dispatch({ type: "CONNECT_SETTLE" });
+      if (connectReqId === myConnectId) {
+        isConnecting = false;
+        dispatch({ type: "CONNECT_SETTLE" });
+      }
     }
   };
 
   const disconnect = async (): Promise<void> => {
     sessionEpoch += 1;
     backupsReqId += 1;
+    connectReqId += 1;
     isConnected = false;
+    isConnecting = false;
     const disconnectEpoch = sessionEpoch;
     dispatch({ type: "DISCONNECT_START" });
 
     const { error } = await deps.performDriveDisconnect();
     if (!mounted || sessionEpoch !== disconnectEpoch) return;
 
-    dispatch({ type: "DISCONNECT_DONE", error });
     if (!error) {
+      dispatch({ type: "DISCONNECT_DONE", error: null });
       deps.setDriveBackupPref?.({ enabled: false });
+      return;
     }
+
+    let rehydrated: LoadedDriveLocalState | undefined;
+    try {
+      const local = await deps.loadDriveLocalState();
+      if (!mounted || sessionEpoch !== disconnectEpoch) return;
+      isConnected = local.isConnected;
+      rehydrated = local;
+    } catch {
+      if (!mounted || sessionEpoch !== disconnectEpoch) return;
+    }
+    dispatch({ type: "DISCONNECT_DONE", error, rehydrated });
   };
 
   const refreshBackups = async (): Promise<void> => {
@@ -385,7 +437,11 @@ export function createDriveBackupController(
       if (!mounted || sessionEpoch !== epoch || backupsReqId !== reqId) return;
 
       if (remote.error) {
-        dispatch({ type: "BACKUPS_FETCH_ERROR", error: remote.error });
+        dispatch({
+          type: "BACKUPS_FETCH_ERROR",
+          error: remote.error,
+          authExpired: remote.authExpired,
+        });
       } else {
         dispatch({ type: "BACKUPS_FETCH_SUCCESS", backups: remote.backups });
       }
@@ -394,6 +450,7 @@ export function createDriveBackupController(
       dispatch({
         type: "BACKUPS_FETCH_ERROR",
         error: DRIVE_RECONNECT_COPY.backupsLoadError,
+        authExpired: false,
       });
     }
   };

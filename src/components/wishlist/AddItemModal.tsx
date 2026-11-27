@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Animated,
   Pressable,
+  Keyboard,
 } from "react-native";
 import { KeyboardSheet, useSheetBackdropPress } from "@/src/components/shared/KeyboardSheet";
 import { Feather } from "@expo/vector-icons";
@@ -498,7 +499,7 @@ export function AddItemModal({ visible, listId, theme, accounts = [], editItem, 
             },
             {
               label: "Mais lojas...", icon: "grid", color: theme.secondaryText,
-              onPress: () => { setStoreGridVisible(true); },
+              onPress: () => { Keyboard.dismiss(); setStoreGridVisible(true); },
             },
           ]}
         />

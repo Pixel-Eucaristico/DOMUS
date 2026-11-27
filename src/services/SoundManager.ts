@@ -34,7 +34,10 @@ interface NativeAudioPlayer {
 }
 
 interface ExpoAudioAdapter {
-  createAudioPlayer: (source: unknown) => NativeAudioPlayer;
+  createAudioPlayer: (
+    source: unknown,
+    options?: { keepAudioSessionActive?: boolean },
+  ) => NativeAudioPlayer;
   setAudioModeAsync: (mode: { interruptionMode?: "mixWithOthers" | "doNotMix" | "duckOthers" }) => Promise<void>;
 }
 
@@ -93,10 +96,13 @@ export class SoundManager {
     if (this.initPromise) return this.initPromise;
 
     const generation = ++this.initGeneration;
-    this.initPromise = this.performInit(generation).finally(() => {
-      this.initPromise = null;
+    const promise = this.performInit(generation).finally(() => {
+      if (this.initPromise === promise) {
+        this.initPromise = null;
+      }
     });
-    return this.initPromise;
+    this.initPromise = promise;
+    return promise;
   }
 
   private async performInit(generation: number) {
@@ -132,15 +138,17 @@ export class SoundManager {
         const { createAudioPlayer, setAudioModeAsync } = this.deps.loadExpoAudio();
         try {
           await setAudioModeAsync(SOUND_EFFECT_AUDIO_MODE);
+          if (generation !== this.initGeneration) return;
           this.audioModeConfigured = true;
         } catch (err) {
+          if (generation !== this.initGeneration) return;
           this.audioModeConfigured = false;
           console.warn("Could not configure audio interruptionMode:", err);
         }
         if (generation !== this.initGeneration) return;
         for (const [key, asset] of Object.entries(assets)) {
           try {
-            const player = createAudioPlayer(asset);
+            const player = createAudioPlayer(asset, { keepAudioSessionActive: true });
             this.players.set(key as SoundEffect, player);
           } catch (err) {
             console.warn(`Could not load sound ${key}:`, err);
@@ -191,6 +199,7 @@ export class SoundManager {
 
   public async unload() {
     this.initGeneration++;
+    this.initPromise = null;
     for (const player of this.players.values()) {
       player.remove();
     }

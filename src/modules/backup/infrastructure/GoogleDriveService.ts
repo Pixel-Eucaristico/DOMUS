@@ -27,7 +27,13 @@ const secureGet = async (key: string): Promise<string | null> => {
   return SecureStore.getItemAsync(key);
 };
 const secureSet = async (key: string, value: string): Promise<void> => {
-  if (isWeb()) { await webSecrets.set(key, value); return; }
+  if (isWeb()) {
+    const saved = await webSecrets.set(key, value);
+    if (!saved) {
+      throw new Error("Não foi possível salvar credenciais do Google Drive com segurança.");
+    }
+    return;
+  }
   await SecureStore.setItemAsync(key, value);
 };
 const secureDelete = async (key: string): Promise<void> => {
@@ -53,11 +59,18 @@ async function uploadBackupInternal(
   content: string,
   options: { retried401: boolean; retried404: boolean; tokenOverride?: string },
 ): Promise<void> {
+  const epoch = tokenSessionEpoch;
   const accessToken =
     options.tokenOverride ?? (await GoogleDriveService.getValidAccessToken());
+  if (epoch !== tokenSessionEpoch) {
+    throw new Error("Sessão do Google Drive alterada.");
+  }
   if (!accessToken) throw new Error("Não autenticado no Google Drive.");
 
   const existingId = await GoogleDriveService.findBackupFileId(accessToken);
+  if (epoch !== tokenSessionEpoch) {
+    throw new Error("Sessão do Google Drive alterada.");
+  }
   const boundary = "------domus_boundary_7x2k9";
   const metadata = JSON.stringify({
     name: DRIVE_BACKUP_FILENAME,
@@ -90,10 +103,17 @@ async function uploadBackupInternal(
     body,
   });
 
+  if (epoch !== tokenSessionEpoch) {
+    throw new Error("Sessão do Google Drive alterada.");
+  }
+
   if (!res.ok) {
     // Se 401 com token em cache, limpa cache e tenta renovar silenciosamente 1x antes de falhar
     if (res.status === 401 && !options.retried401) {
       const freshToken = await GoogleDriveService.refreshAccessTokenOnUnauthorized();
+      if (epoch !== tokenSessionEpoch) {
+        throw new Error("Sessão do Google Drive alterada.");
+      }
       if (freshToken) {
         return uploadBackupInternal(content, {
           retried401: true,
@@ -105,7 +125,13 @@ async function uploadBackupInternal(
 
     // Se 404 (arquivo deletado pelo usuário), limpa cache e tenta criar novo 1x
     if (res.status === 404 && !options.retried404) {
+      if (epoch !== tokenSessionEpoch) {
+        throw new Error("Sessão do Google Drive alterada.");
+      }
       await AsyncStorage.removeItem(FILE_ID_KEY);
+      if (epoch !== tokenSessionEpoch) {
+        throw new Error("Sessão do Google Drive alterada.");
+      }
       return uploadBackupInternal(content, {
         retried401: options.retried401,
         retried404: true,
@@ -118,7 +144,13 @@ async function uploadBackupInternal(
   }
 
   const data = await res.json();
+  if (epoch !== tokenSessionEpoch) {
+    throw new Error("Sessão do Google Drive alterada.");
+  }
   if (data.id) await AsyncStorage.setItem(FILE_ID_KEY, data.id);
+  if (epoch !== tokenSessionEpoch) {
+    throw new Error("Sessão do Google Drive alterada.");
+  }
   await AsyncStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
 }
 
@@ -162,9 +194,9 @@ async function listBackupsInternal(options: {
   }
 
   if (!res.ok) {
-    if (res.status === 401 && !options.retried401) {
+    if (res.status === 401 && !options.retried401 && epoch === tokenSessionEpoch) {
       const freshToken = await GoogleDriveService.refreshAccessTokenOnUnauthorized();
-      if (freshToken) {
+      if (freshToken && epoch === tokenSessionEpoch) {
         return listBackupsInternal({
           retried401: true,
           tokenOverride: freshToken,
@@ -213,15 +245,23 @@ export const GoogleDriveService = {
   // ── Token persistence ─────────────────────────────────────────────────────
 
   async saveTokens(tokens: DriveTokens): Promise<void> {
+    const saveEpoch = tokenSessionEpoch;
     const prev = await this.loadTokens();
+    if (saveEpoch !== tokenSessionEpoch) {
+      return;
+    }
     const prevEmail = prev?.email?.trim().toLowerCase() ?? "";
     const nextEmail = tokens.email?.trim().toLowerCase() ?? "";
-    if (prevEmail && prevEmail !== nextEmail) {
+    if (prev !== null && prevEmail !== nextEmail) {
       tokenSessionEpoch += 1;
+      const switchEpoch = tokenSessionEpoch;
       await Promise.all([
         AsyncStorage.removeItem(LAST_SYNC_KEY),
         AsyncStorage.removeItem(FILE_ID_KEY),
       ]);
+      if (switchEpoch !== tokenSessionEpoch) {
+        return;
+      }
     }
     await secureSet(TOKENS_KEY, JSON.stringify(tokens));
   },
@@ -291,21 +331,6 @@ export const GoogleDriveService = {
     return refreshed.accessToken;
   },
 
-  // ── User info ─────────────────────────────────────────────────────────────
-
-  async fetchUserEmail(accessToken: string): Promise<string> {
-    try {
-      const res = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!res.ok) return "";
-      const data = await res.json();
-      return data.email ?? "";
-    } catch {
-      return "";
-    }
-  },
-
   // ── Drive file operations ─────────────────────────────────────────────────
 
   /** Lista os arquivos de backup existentes em appDataFolder ordenados pelo mais recente. */
@@ -315,23 +340,26 @@ export const GoogleDriveService = {
 
   /** Busca o ID do arquivo de backup no Drive (cache local + API se necessário). */
   async findBackupFileId(accessToken: string): Promise<string | null> {
+    const epoch = tokenSessionEpoch;
     const cached = await AsyncStorage.getItem(FILE_ID_KEY);
+    if (epoch !== tokenSessionEpoch) return null;
     if (cached) return cached;
 
-    try {
-      const query = encodeURIComponent(`name='${DRIVE_BACKUP_FILENAME}' and trashed=false`);
-      const res = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)&spaces=appDataFolder`,
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      );
-      if (!res.ok) return null;
-      const data = await res.json();
-      const fileId = data.files?.[0]?.id ?? null;
-      if (fileId) await AsyncStorage.setItem(FILE_ID_KEY, fileId);
-      return fileId;
-    } catch {
-      return null;
+    const query = encodeURIComponent(`name='${DRIVE_BACKUP_FILENAME}' and trashed=false`);
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)&spaces=appDataFolder`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Google Drive: ${res.status} ${err}`);
     }
+    const data = await res.json();
+    const fileId = data.files?.[0]?.id ?? null;
+    if (fileId && epoch === tokenSessionEpoch) {
+      await AsyncStorage.setItem(FILE_ID_KEY, fileId);
+    }
+    return fileId;
   },
 
   /**

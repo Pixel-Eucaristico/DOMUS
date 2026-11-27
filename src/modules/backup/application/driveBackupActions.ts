@@ -5,7 +5,6 @@ import type {
 } from "@/src/modules/backup/infrastructure/GoogleDriveService";
 import { ConnectivityService } from "@/src/modules/ai/infrastructure/ConnectivityService";
 import {
-  DRIVE_APPDATA_SCOPE,
   DomusGoogleAuthErrorCodes,
   authorizeDriveNative,
   clearCachedGoogleAccessToken,
@@ -31,11 +30,6 @@ export interface LoadedDriveLocalState {
   needsLegacyReconnect: boolean;
   email: string | null;
   lastSyncAt: number | null;
-}
-
-export interface LoadedDriveState extends LoadedDriveLocalState {
-  remoteBackups: DriveBackupFile[];
-  backupsLoadError: string | null;
 }
 
 export interface DriveBackupsFetchResult {
@@ -121,25 +115,6 @@ export async function loadDriveLocalState(): Promise<LoadedDriveLocalState> {
   };
 }
 
-export async function loadDriveState(): Promise<LoadedDriveState> {
-  const local = await loadDriveLocalState();
-
-  if (!local.isConnected) {
-    return {
-      ...local,
-      remoteBackups: [],
-      backupsLoadError: null,
-    };
-  }
-
-  const { backups, error } = await fetchDriveBackups();
-  return {
-    ...local,
-    remoteBackups: backups,
-    backupsLoadError: error,
-  };
-}
-
 export async function connectDriveWeb(
   webClientId: string,
 ): Promise<{ email: string | null } | null> {
@@ -201,18 +176,6 @@ export async function connectDriveNative(
   const authorization = await authorizeDriveNative(userEmail, true);
   if (!authorization?.accessToken) {
     return null;
-  }
-
-  if (
-    !Array.isArray(authorization.grantedScopes) ||
-    !authorization.grantedScopes.includes(DRIVE_APPDATA_SCOPE)
-  ) {
-    throw Object.assign(
-      new Error(
-        "Permissão do Google Drive não concedida. Marque o acesso ao Google Drive na tela de consentimento e tente novamente.",
-      ),
-      { code: DomusGoogleAuthErrorCodes.RESOLUTION_REQUIRED },
-    );
   }
 
   const tokens: DriveTokens = {

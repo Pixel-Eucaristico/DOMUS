@@ -126,4 +126,47 @@ describe("webSecretStore sem WebCrypto ou cofre", () => {
     expect(await store.set("k", "ABC234")).toBe(false);
     expect(storage.data.has("k")).toBe(false);
   });
+
+  it("D1: falha transitória no IndexedDB não fixa keyPromise em null e recupera na tentativa seguinte", async () => {
+    let failNext = true;
+    const flakyVault: KeyVault = {
+      load: async () => {
+        if (failNext) {
+          failNext = false;
+          throw new Error("IndexedDB temporariamente bloqueado");
+        }
+        return vault.load();
+      },
+      save: async (k) => vault.save(k),
+    };
+    const store = make({ vault: flakyVault });
+
+    expect(await store.set("k", "PRIMEIRO")).toBe(false);
+    expect(storage.data.has("k")).toBe(false);
+
+    // Próxima chamada tenta carregar/criar a chave novamente e persiste cifrado
+    expect(await store.set("k", "SEGUNDO")).toBe(true);
+    expect(storage.data.get("k")?.startsWith("v1:")).toBe(true);
+    expect(await make().get("k")).toBe("SEGUNDO");
+  });
+
+  it("D1: set() sem cryptoKey não apaga texto cifrado pré-existente no storage", async () => {
+    await make().set("k", "VALOR_ANTIGO");
+    const existingCiphertext = storage.data.get("k")!;
+    expect(existingCiphertext.startsWith("v1:")).toBe(true);
+
+    const flakyStore = make({
+      vault: {
+        load: async () => {
+          throw new Error("IndexedDB indisponível");
+        },
+        save: async () => {
+          throw new Error("IndexedDB indisponível");
+        },
+      },
+    });
+
+    expect(await flakyStore.set("k", "VALOR_NOVO")).toBe(false);
+    expect(storage.data.get("k")).toBe(existingCiphertext);
+  });
 });

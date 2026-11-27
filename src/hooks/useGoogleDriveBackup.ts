@@ -23,12 +23,15 @@ const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
 export function useGoogleDriveBackup() {
   const appState = useAppStateOptional();
   const driveBackupPref = appState?.driveBackupPref;
-  const setDriveBackupPrefRef = useRef(appState?.setDriveBackupPref);
-  setDriveBackupPrefRef.current = appState?.setDriveBackupPref;
+  const setDriveBackupPref = appState?.setDriveBackupPref;
+  const setDriveBackupPrefRef = useRef(setDriveBackupPref);
 
-  const controllerRef = useRef<DriveBackupController | null>(null);
-  if (!controllerRef.current) {
-    controllerRef.current = createDriveBackupController({
+  useEffect(() => {
+    setDriveBackupPrefRef.current = setDriveBackupPref;
+  }, [setDriveBackupPref]);
+
+  const [controller] = useState<DriveBackupController>(() =>
+    createDriveBackupController({
       webClientId: WEB_CLIENT_ID,
       loadDriveLocalState,
       fetchDriveBackups,
@@ -36,9 +39,8 @@ export function useGoogleDriveBackup() {
       performDriveDisconnect,
       performDriveUpload,
       setDriveBackupPref: (pref) => setDriveBackupPrefRef.current?.(pref),
-    });
-  }
-  const controller = controllerRef.current;
+    }),
+  );
 
   const [state, setState] = useState(() => INITIAL_DRIVE_BACKUP_STATE);
 
@@ -75,6 +77,7 @@ export function useGoogleDriveBackup() {
     remoteBackups: state.remoteBackups,
     isLoadingBackups: state.isLoadingBackups,
     backupsLoadError: state.backupsLoadError,
+    authExpired: state.authExpired,
     connect,
     disconnect,
     uploadContent,

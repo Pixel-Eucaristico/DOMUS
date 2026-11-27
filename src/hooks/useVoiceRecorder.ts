@@ -24,14 +24,17 @@ export interface VoiceRecorderResult {
 export function useVoiceRecorder(): VoiceRecorderResult {
   const [isRecording, setIsRecording] = useState(false);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const stateRef = useRef<VoiceRecorderState>({ active: false });
+  const stateRef = useRef<VoiceRecorderState>({ active: false, starting: false, cancelled: false });
   const recorderRef = useRef(recorder);
-  recorderRef.current = recorder;
+
+  useEffect(() => {
+    recorderRef.current = recorder;
+  }, [recorder]);
 
   useEffect(() => {
     const state = stateRef.current;
     return () => {
-      if (state.active) {
+      if (state.active || state.starting) {
         void cancelVoiceRecording(state, {
           setAudioMode: setAudioModeAsync,
           recorder: recorderRef.current,
@@ -66,7 +69,7 @@ export function useVoiceRecorder(): VoiceRecorderResult {
   }, [recorder]);
 
   const cancelRecording = useCallback(async () => {
-    if (!stateRef.current.active) return;
+    if (!stateRef.current.active && !stateRef.current.starting) return;
     setIsRecording(false);
     await cancelVoiceRecording(stateRef.current, {
       setAudioMode: setAudioModeAsync,

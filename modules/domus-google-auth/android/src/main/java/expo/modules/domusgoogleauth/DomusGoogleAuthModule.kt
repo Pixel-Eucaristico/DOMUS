@@ -178,6 +178,23 @@ class DomusGoogleAuthModule : Module() {
           )
           return@AsyncFunction
         }
+        val availability = GoogleApiAvailability.getInstance()
+        val playServicesStatus = availability.isGooglePlayServicesAvailable(initialActivity)
+        if (playServicesStatus != ConnectionResult.SUCCESS) {
+          if (availability.isUserResolvableError(playServicesStatus)) {
+            initialActivity.runOnUiThread {
+              if (!initialActivity.isFinishing && !initialActivity.isDestroyed) {
+                availability.getErrorDialog(initialActivity, playServicesStatus, 0)?.show()
+              }
+            }
+          }
+          promise.reject(
+            CODE_PLAY_SERVICES_NOT_AVAILABLE,
+            "Google Play Services não disponível.",
+            null
+          )
+          return@AsyncFunction
+        }
         Identity.getAuthorizationClient(initialActivity)
       } else {
         when {
@@ -240,12 +257,17 @@ class DomusGoogleAuthModule : Module() {
             }
 
             activeActivity.runOnUiThread {
+              if (pendingAuthPromise.get() !== promise) {
+                return@runOnUiThread
+              }
               if (activeActivity.isFinishing || activeActivity.isDestroyed) {
-                pendingAuthPromise.getAndSet(null)?.reject(
-                  CODE_NO_ACTIVITY,
-                  "Activity encerrada antes de exibir o consentimento do Google Drive.",
-                  null
-                )
+                if (pendingAuthPromise.compareAndSet(promise, null)) {
+                  promise.reject(
+                    CODE_NO_ACTIVITY,
+                    "Activity encerrada antes de exibir o consentimento do Google Drive.",
+                    null
+                  )
+                }
                 return@runOnUiThread
               }
               try {
@@ -260,17 +282,21 @@ class DomusGoogleAuthModule : Module() {
                   null
                 )
               } catch (e: IntentSender.SendIntentException) {
-                pendingAuthPromise.getAndSet(null)?.reject(
-                  CODE_AUTH_ERROR,
-                  "Falha ao abrir tela de consentimento do Google Drive: ${e.message}",
-                  e
-                )
+                if (pendingAuthPromise.compareAndSet(promise, null)) {
+                  promise.reject(
+                    CODE_AUTH_ERROR,
+                    "Falha ao abrir tela de consentimento do Google Drive: ${e.message}",
+                    e
+                  )
+                }
               } catch (e: Exception) {
-                pendingAuthPromise.getAndSet(null)?.reject(
-                  CODE_AUTH_ERROR,
-                  e.localizedMessage ?: "Falha ao solicitar consentimento do Google Drive.",
-                  e
-                )
+                if (pendingAuthPromise.compareAndSet(promise, null)) {
+                  promise.reject(
+                    CODE_AUTH_ERROR,
+                    e.localizedMessage ?: "Falha ao solicitar consentimento do Google Drive.",
+                    e
+                  )
+                }
               }
             }
           } else {
@@ -418,6 +444,9 @@ class DomusGoogleAuthModule : Module() {
     }
 
     OnActivityDestroys {
+      if (appContext.currentActivity?.isChangingConfigurations == true) {
+        return@OnActivityDestroys
+      }
       pendingAuthPromise.getAndSet(null)?.reject(
         CODE_SIGN_IN_CANCELLED,
         "Activity encerrada durante a autorização do Google Drive.",

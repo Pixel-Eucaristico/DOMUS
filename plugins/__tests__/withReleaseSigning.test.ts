@@ -76,11 +76,28 @@ describe("withReleaseSigning sobre o build.gradle do template SDK 54", () => {
   });
 
   it("só mexe nos dois pontos: o resto do arquivo é idêntico", () => {
-    const out = addReleaseSigning(TEMPLATE);
-    const reverted = out
-      .replace(`${NEW_SIGNING} ${BUILD_TYPE_MARK}`, "signingConfig signingConfigs.debug")
-      .replace(/\n {8}release \{\n {12}\/\/ withReleaseSigning: signingConfigs\.release[\s\S]*?\n {8}\}/, "");
-    expect(reverted).toBe(TEMPLATE);
+    for (const variant of [
+      TEMPLATE.replace(/\r\n/g, "\n"),
+      TEMPLATE.replace(/\r?\n/g, "\r\n"),
+    ]) {
+      const out = addReleaseSigning(variant);
+      const reverted = out
+        .replace(`${NEW_SIGNING} ${BUILD_TYPE_MARK}`, "signingConfig signingConfigs.debug")
+        .replace(/\r?\n {8}release \{\r?\n {12}\/\/ withReleaseSigning: signingConfigs\.release[\s\S]*?\r?\n {8}\}/, "");
+      expect(reverted).toBe(variant);
+    }
+  });
+
+  it("preserva quebras de linha CRLF (Windows) e LF (Linux) sem misturar", () => {
+    const lf = TEMPLATE.replace(/\r\n/g, "\n");
+    const crlf = lf.replace(/\n/g, "\r\n");
+
+    const outLf = addReleaseSigning(lf);
+    expect(outLf).not.toContain("\r\n");
+
+    const outCrlf = addReleaseSigning(crlf);
+    expect(outCrlf.replace(/\r\n/g, "")).not.toContain("\n");
+    expect(outCrlf.replace(/\r\n/g, "\n")).toBe(outLf);
   });
 
   it("é idempotente: rodar de novo não muda nada", () => {

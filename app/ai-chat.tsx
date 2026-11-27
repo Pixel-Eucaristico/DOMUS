@@ -26,7 +26,7 @@ import { TokenTracker } from "@/src/modules/ai/application/TokenTracker";
 import { useAIConsultant } from "@/src/hooks/useAIConsultant";
 import { useAISettings } from "@/src/hooks/useAISettings";
 import { useVoiceRecorder } from "@/src/hooks/useVoiceRecorder";
-import { playVoiceReplay } from "@/src/hooks/voiceRecorderLifecycle";
+import { playVoiceReplay, type VoiceReplayHandle } from "@/src/hooks/voiceRecorderLifecycle";
 import { voiceOutputService } from "@/src/services/VoiceOutputService";
 import { AIUsageBar } from "@/src/components/ai/AIUsageBar";
 import {
@@ -108,6 +108,14 @@ export default function AIChatScreen() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   // Map message IDs to their recorded audio URIs for replay
   const audioUriMap = useRef<Record<string, string>>({});
+  // Active voice replay player handle (stopped before a new replay, recording, or unmount)
+  const activeReplayRef = useRef<VoiceReplayHandle | null>(null);
+  const replayRequestIdRef = useRef(0);
+  const stopActiveReplay = useCallback(() => {
+    replayRequestIdRef.current += 1;
+    activeReplayRef.current?.stop();
+    activeReplayRef.current = null;
+  }, []);
   // Pending audio URI to associate with next user message
   const pendingAudioUri = useRef<string | null>(null);
   // Map message ID → provider (built from messages, cached in ref)
@@ -123,8 +131,11 @@ export default function AIChatScreen() {
   // Subscribe to TTS state changes for UI feedback
   useEffect(() => {
     const unsub = voiceOutputService.subscribe(setTtsState);
-    return unsub;
-  }, []);
+    return () => {
+      unsub();
+      stopActiveReplay();
+    };
+  }, [stopActiveReplay]);
 
   // Associate pending audio URI with the latest user message
   useEffect(() => {
@@ -479,10 +490,11 @@ export default function AIChatScreen() {
         setIsTranscribing(false);
       }
     } else {
+      stopActiveReplay();
       await voiceOutputService.stop();
       try { await startRecording(); } catch { /* ignore */ }
     }
-  }, [isRecording, stopRecording, startRecording, settings.provider, settings.audioProvider, settings.isEnabled, settings.voiceEnabled, settings.dataPermissions, sendMessage]);
+  }, [isRecording, stopRecording, startRecording, stopActiveReplay, settings.provider, settings.audioProvider, settings.isEnabled, settings.voiceEnabled, settings.dataPermissions, sendMessage]);
 
   // ─── GiftedChat: Bubble with Markdown + Listen + Copy ─────────────────
   const [glossaryTip, setGlossaryTip] = useState<GlossaryEntry | null>(null);
@@ -529,11 +541,18 @@ export default function AIChatScreen() {
                       onPress={async () => {
                         const uri = audioUriMap.current[String(msg._id)];
                         if (!uri) return;
+                        stopActiveReplay();
+                        const reqId = replayRequestIdRef.current;
                         try {
-                          await playVoiceReplay(uri, {
+                          const handle = await playVoiceReplay(uri, {
                             setAudioMode,
                             createPlayer,
                           });
+                          if (replayRequestIdRef.current !== reqId) {
+                            handle.stop();
+                            return;
+                          }
+                          activeReplayRef.current = handle;
                         } catch (e) { console.warn("[VoiceReplay]", e); }
                       }}
                       style={[styles.actionBtn, { borderColor: "rgba(255,255,255,0.3)" }]}
@@ -610,7 +629,7 @@ export default function AIChatScreen() {
         />
       );
     },
-    [theme, speakText, ttsState, settings.voiceEnabled, settings.isEnabled, tooltipsEnabled],
+    [theme, speakText, stopActiveReplay, ttsState, settings.voiceEnabled, settings.isEnabled, tooltipsEnabled],
   );
 
   // ─── GiftedChat: Custom view for FinancialCard ────────────────────────

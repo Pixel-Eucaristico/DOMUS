@@ -3308,7 +3308,7 @@ describe("auto-teste dos detectores", () => {
         ROOT,
         "node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/views/EdgeToEdgeReactViewGroup.kt",
       );
-      if (!fs.existsSync(ktPath)) return;
+      expect(fs.existsSync(ktPath)).toBe(true);
       const kt = fs.readFileSync(ktPath, "utf8");
       expect(kt).toContain("Handler(Looper.getMainLooper()).post {");
       expect(kt).toContain("view.removeSelf()");

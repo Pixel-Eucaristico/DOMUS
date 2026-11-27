@@ -23,6 +23,7 @@ export const KEYBOARD_ONLY_PROPS = [
   "extraKeyboardSpace",
   "disableScrollOnKeyboardHide",
   "enabled",
+  "mode",
   "ScrollViewComponent",
 ] as const;
 

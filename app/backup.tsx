@@ -268,7 +268,7 @@ export default function BackupScreen() {
                     <TText variant="subtitle" bold color={theme.textColor} fontSize={14}>Auto-backup local</TText>
                     <Text style={[s.sectionSubtitle, { color: theme.secondaryText }]}>
                       {bk.autoTs
-                        ? `Último: ${new Date(bk.autoTs).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`
+                        ? `Último: ${formatBackupModifiedTime(bk.autoTs)}`
                         : "Nunca executado"}
                     </Text>
                   </View>
@@ -418,6 +418,33 @@ export default function BackupScreen() {
                       <Text style={[s.driveBackupsEmpty, { color: theme.secondaryText }]}>
                         {DRIVE_RECONNECT_COPY.backupsEmpty}
                       </Text>
+                    )}
+
+                    {drive.isConnected && drive.authExpired && (
+                      <TouchableOpacity
+                        style={[
+                          s.driveReconnectInlineBtn,
+                          { backgroundColor: "#4285F4" },
+                          (drive.isConnecting || !drive.canConnect) && s.actionBtnDisabled,
+                        ]}
+                        onPress={() => {
+                          soundManager.play("pop");
+                          drive.connect();
+                        }}
+                        disabled={drive.isConnecting || !drive.canConnect}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel={DRIVE_RECONNECT_COPY.bannerCta}
+                      >
+                        {drive.isConnecting ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <Feather name="refresh-cw" size={14} color="#fff" />
+                        )}
+                        <Text style={s.driveReconnectInlineText}>
+                          {drive.isConnecting ? "Aguardando…" : DRIVE_RECONNECT_COPY.bannerCta}
+                        </Text>
+                      </TouchableOpacity>
                     )}
                   </View>
 
@@ -627,6 +654,8 @@ const s = StyleSheet.create({
   driveBackupsTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 12 },
   driveBackupsEmpty: { fontFamily: "DMSans_400Regular", fontSize: 12, lineHeight: 17 },
   driveBackupsError: { fontFamily: "DMSans_500Medium", fontSize: 11, lineHeight: 16 },
+  driveReconnectInlineBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 38, borderRadius: 9, marginTop: 2 },
+  driveReconnectInlineText: { fontFamily: "DMSans_700Bold", fontSize: 13, color: "#fff" },
   driveBackupItem: { flexDirection: "row", alignItems: "flex-start", gap: 8, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth },
   driveBackupName: { fontFamily: "DMSans_500Medium", fontSize: 13 },
   driveBackupMeta: { fontFamily: "DMSans_400Regular", fontSize: 11, marginTop: 2 },

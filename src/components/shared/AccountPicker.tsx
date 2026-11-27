@@ -7,6 +7,7 @@ import {
   Modal,
   TextInput,
   ScrollView,
+  Keyboard,
 } from "react-native";
 import Animated, { SlideInDown, SlideOutDown, FadeIn, FadeOut, Easing } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
@@ -91,7 +92,7 @@ function CompactAccountPicker({
             borderColor: selCfg ? selCfg.color : theme.border,
           },
         ]}
-        onPress={() => { soundManager.play("pop"); setOpen(true); }}
+        onPress={() => { Keyboard.dismiss(); soundManager.play("pop"); setOpen(true); }}
       >
         <View style={[cs.triggerIcon, { backgroundColor: selCfg ? `${selCfg.color}18` : `${theme.primaryColor}12` }]}>
           <Feather

@@ -29,16 +29,18 @@ describe("withKeyboardScrollDefaults (Story 13.2)", () => {
     expect(withKeyboardScrollDefaults({ bottomOffset: 176 }, "android")).toMatchObject({ bottomOffset: 176 });
   });
 
-  it("web: tira as props do teclado e mantém o resto", () => {
+  it("web: tira as props do teclado (incluindo mode) e mantém o resto", () => {
     const props = {
       bottomOffset: 50,
       extraKeyboardSpace: 10,
       disableScrollOnKeyboardHide: true,
       enabled: true,
+      mode: "bottom" as const,
       ScrollViewComponent: () => null,
       showsVerticalScrollIndicator: false,
     };
     const r = withKeyboardScrollDefaults(props, "web") as Record<string, unknown>;
+    expect(KEYBOARD_ONLY_PROPS).toContain("mode");
     for (const key of KEYBOARD_ONLY_PROPS) expect(r).not.toHaveProperty(key);
     expect(r).toEqual({ showsVerticalScrollIndicator: false, keyboardShouldPersistTaps: "handled" });
   });

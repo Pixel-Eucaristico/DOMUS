@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import * as SecureStore from "expo-secure-store";
+import { webSecrets } from "@/src/modules/security/infrastructure/webSecrets";
 import type { DriveTokens } from "../driveTokens";
 import { GoogleDriveService } from "../GoogleDriveService";
 
@@ -606,5 +608,169 @@ describe("GoogleDriveService", () => {
       mocks.asyncStorage.set("domus_gdrive_last_sync", invalid);
       expect(await GoogleDriveService.getLastSyncAt(), `valor "${invalid}"`).toBeNull();
     }
+  });
+
+  it("uploadBackup() aborta sem gravar metadados se clearTokens() ou troca de conta ocorrer em voo", async () => {
+    // Caso 1: clearTokens() durante upload bem-sucedido
+    await GoogleDriveService.saveTokens(makeTokens({ email: "conta-a@example.com" }));
+    mocks.asyncStorage.set("domus_gdrive_file_id", "file-a");
+
+    let resolveFetch!: (res: unknown) => void;
+    let notifyFetchStarted!: () => void;
+    const fetchStarted = new Promise<void>((resolve) => {
+      notifyFetchStarted = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFetch = resolve;
+            notifyFetchStarted();
+          }),
+      ),
+    );
+
+    const uploadPromise = GoogleDriveService.uploadBackup("payload-a");
+    await fetchStarted;
+    await GoogleDriveService.clearTokens();
+
+    resolveFetch({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "file-zumbi" }),
+    });
+
+    await expect(uploadPromise).rejects.toThrow("Sessão do Google Drive alterada.");
+    expect(mocks.asyncStorage.has("domus_gdrive_file_id")).toBe(false);
+    expect(mocks.asyncStorage.has("domus_gdrive_last_sync")).toBe(false);
+
+    // Caso 2: troca de conta via saveTokens() durante upload que recebe HTTP 404 (não limpa FILE_ID_KEY da conta nova nem faz retry)
+    await GoogleDriveService.saveTokens(makeTokens({ email: "conta-a@example.com" }));
+    mocks.asyncStorage.set("domus_gdrive_file_id", "file-a");
+
+    let resolveFetch2!: (res: unknown) => void;
+    let notifyFetchStarted2!: () => void;
+    const fetchStarted2 = new Promise<void>((resolve) => {
+      notifyFetchStarted2 = resolve;
+    });
+    const fetchMock2 = vi.fn().mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch2 = resolve;
+          notifyFetchStarted2();
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock2);
+
+    const uploadPromise2 = GoogleDriveService.uploadBackup("payload-a");
+    await fetchStarted2;
+
+    await GoogleDriveService.saveTokens(makeTokens({ email: "conta-b@example.com", accessToken: "tok-b" }));
+    mocks.asyncStorage.set("domus_gdrive_file_id", "file-b");
+
+    resolveFetch2({
+      ok: false,
+      status: 404,
+      text: async () => "Not Found",
+    });
+
+    await expect(uploadPromise2).rejects.toThrow("Sessão do Google Drive alterada.");
+    expect(fetchMock2).toHaveBeenCalledTimes(1);
+    expect(mocks.asyncStorage.get("domus_gdrive_file_id")).toBe("file-b");
+    expect(mocks.asyncStorage.has("domus_gdrive_last_sync")).toBe(false);
+  });
+
+  it("listBackups() em HTTP 401 após clearTokens() em voo não tenta renovar token", async () => {
+    await GoogleDriveService.saveTokens(makeTokens());
+    mocks.getNativeAccessToken.mockResolvedValue("tok-nao-deveria-renovar");
+
+    let resolveFetch!: (res: unknown) => void;
+    let notifyFetchStarted!: () => void;
+    const fetchStarted = new Promise<void>((resolve) => {
+      notifyFetchStarted = resolve;
+    });
+    const fetchMock = vi.fn().mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = resolve;
+          notifyFetchStarted();
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const listPromise = GoogleDriveService.listBackups();
+    await fetchStarted;
+    await GoogleDriveService.clearTokens();
+
+    resolveFetch({
+      ok: false,
+      status: 401,
+      text: async () => "Unauthorized",
+    });
+
+    await expect(listPromise).rejects.toThrow("Google Drive: 401 Unauthorized");
+    expect(mocks.getNativeAccessToken).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(await GoogleDriveService.loadTokens()).toBeNull();
+  });
+
+  it("findBackupFileId() lança erro em HTTP 500 e impede uploadBackup() de criar arquivo duplicado", async () => {
+    await GoogleDriveService.saveTokens(makeTokens());
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      text: async () => "Internal Server Error",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(GoogleDriveService.uploadBackup("payload")).rejects.toThrow(
+      "Google Drive: 500 Internal Server Error",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(mocks.asyncStorage.has("domus_gdrive_file_id")).toBe(false);
+    expect(mocks.asyncStorage.has("domus_gdrive_last_sync")).toBe(false);
+  });
+
+  it("saveTokens() aborta sem gravar se clearTokens() ocorrer durante loadTokens(), e limpa metadados ao sair de e-mail vazio", async () => {
+    // 1) Corrida entre saveTokens() e clearTokens() durante loadTokens()
+    let resolveLoad!: (raw: string | null) => void;
+    let notifyLoadStarted!: () => void;
+    const loadStarted = new Promise<void>((resolve) => {
+      notifyLoadStarted = resolve;
+    });
+    vi.mocked(SecureStore.getItemAsync).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveLoad = resolve;
+          notifyLoadStarted();
+        }),
+    );
+
+    const savePromise = GoogleDriveService.saveTokens(makeTokens({ accessToken: "tok-zumbi" }));
+    await loadStarted;
+    await GoogleDriveService.clearTokens();
+    resolveLoad(null);
+    await savePromise;
+
+    expect(await GoogleDriveService.loadTokens()).toBeNull();
+
+    // 2) Transição de e-mail vazio para preenchido limpa LAST_SYNC_KEY e FILE_ID_KEY
+    await GoogleDriveService.saveTokens(makeTokens({ email: "" }));
+    mocks.asyncStorage.set("domus_gdrive_last_sync", "1700000000000");
+    mocks.asyncStorage.set("domus_gdrive_file_id", "file-sem-email");
+
+    await GoogleDriveService.saveTokens(makeTokens({ email: "nova@example.com" }));
+    expect(mocks.asyncStorage.has("domus_gdrive_last_sync")).toBe(false);
+    expect(mocks.asyncStorage.has("domus_gdrive_file_id")).toBe(false);
+  });
+
+  it("saveTokens() na web lança erro quando webSecrets.set retorna false", async () => {
+    mocks.isWeb = true;
+    vi.mocked(webSecrets.set).mockResolvedValueOnce(false);
+
+    await expect(
+      GoogleDriveService.saveTokens(makeTokens({ native: undefined, authProvider: undefined })),
+    ).rejects.toThrow("Não foi possível salvar credenciais do Google Drive com segurança.");
   });
 });

@@ -195,4 +195,23 @@ describe("autoBackupRunner", () => {
     });
     expect(res3).toEqual({ completed: true, localSaved: true, driveUploaded: true });
   });
+
+  it("salva backup local e não envia ao Drive quando sessão está desconectada ou legada (isConnected=false)", async () => {
+    const now = 1_700_000_000_000;
+    mocks.isConnected.mockResolvedValueOnce(false);
+
+    const res = await runAutoBackupIfDue({
+      getAllEvents: () => [SAMPLE_EVENT],
+      deviceId: "dev-1",
+      now,
+    });
+
+    expect(res).toEqual({ completed: true, localSaved: true, driveUploaded: false });
+    expect(mocks.saveLocal).toHaveBeenCalledTimes(1);
+    expect(mocks.isConnected).toHaveBeenCalledTimes(1);
+    expect(mocks.readFile).not.toHaveBeenCalled();
+    expect(mocks.uploadBackup).not.toHaveBeenCalled();
+    expect(await getLastAutoBackupTs()).toBe(now);
+    expect(await getLastDriveAutoBackupTs()).toBeNull();
+  });
 });

@@ -15,7 +15,7 @@ import path from "path";
  */
 
 const ROOT = path.resolve(__dirname, "../../../..");
-const DIRS = ["app", "src", "packages", "components", "lib", "constants"];
+const DIRS = ["app", "src", "packages", "components", "lib", "constants", "modules"];
 const SOURCE = /\.(ts|tsx|js|jsx)$/;
 
 export interface AsyncStorageSecretException {

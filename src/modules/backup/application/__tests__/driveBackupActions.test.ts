@@ -7,7 +7,6 @@ import {
   fetchDriveBackups,
   formatDriveConnectError,
   loadDriveLocalState,
-  loadDriveState,
   performDriveConnect,
   performDriveDisconnect,
   performDriveUpload,
@@ -135,12 +134,12 @@ describe("driveBackupActions", () => {
     expect(computeNeedsLocalDriveLogin(true, { enabled: true }, false, true)).toBe(false);
   });
 
-  it("loadDriveState propaga rejeição de loadTokens para o caller tratar em try/catch", async () => {
+  it("loadDriveLocalState propaga rejeição de loadTokens para o caller tratar em try/catch", async () => {
     mocks.loadTokens.mockRejectedValueOnce(new Error("keystore failed"));
-    await expect(loadDriveState()).rejects.toThrow("keystore failed");
+    await expect(loadDriveLocalState()).rejects.toThrow("keystore failed");
   });
 
-  it("loadDriveLocalState lê loadTokens() apenas 1x e detecta conexão legada preservando email/lastSyncAt", async () => {
+  it("loadDriveLocalState lê loadTokens() apenas 1x e detecta conexão legada preservando email/lastSyncAt sem limpar tokens", async () => {
     mocks.loadTokens.mockResolvedValueOnce({
       accessToken: "old-tok",
       refreshToken: "",
@@ -162,35 +161,11 @@ describe("driveBackupActions", () => {
     expect(mocks.loadTokens).toHaveBeenCalledTimes(1);
     expect(mocks.isConnected).not.toHaveBeenCalled();
     expect(mocks.getConnectedEmail).not.toHaveBeenCalled();
-  });
-
-  it("loadDriveState detecta conexão legada no nativo preservando email/lastSyncAt sem listar backups nem limpar tokens", async () => {
-    mocks.loadTokens.mockResolvedValueOnce({
-      accessToken: "old-tok",
-      refreshToken: "",
-      expiresAt: Date.now() + 60_000,
-      email: "legado@example.com",
-      clientId: "cid",
-      native: true,
-    });
-    mocks.getLastSyncAt.mockResolvedValueOnce(1_700_000_000_000);
-
-    const state = await loadDriveState();
-
-    expect(state).toEqual({
-      isConnected: false,
-      needsLegacyReconnect: true,
-      email: "legado@example.com",
-      lastSyncAt: 1_700_000_000_000,
-      remoteBackups: [],
-      backupsLoadError: null,
-    });
-    expect(mocks.loadTokens).toHaveBeenCalledTimes(1);
     expect(mocks.listBackups).not.toHaveBeenCalled();
     expect(mocks.clearTokens).not.toHaveBeenCalled();
   });
 
-  it("loadDriveState lista backups em sessão moderna conectada e nunca marca web como legada", async () => {
+  it("loadDriveLocalState + fetchDriveBackups cobrem sessão moderna conectada e nunca marcam web como legada", async () => {
     const existingBackup: DriveBackupFile = {
       id: "file-1",
       name: "domus-backup.domusbackup",
@@ -209,14 +184,18 @@ describe("driveBackupActions", () => {
     mocks.getLastSyncAt.mockResolvedValueOnce(1_700_000_555_000);
     mocks.listBackups.mockResolvedValueOnce([existingBackup]);
 
-    const state = await loadDriveState();
-    expect(state).toEqual({
+    const local = await loadDriveLocalState();
+    const remote = await fetchDriveBackups();
+    expect(local).toEqual({
       isConnected: true,
       needsLegacyReconnect: false,
       email: "willian@example.com",
       lastSyncAt: 1_700_000_555_000,
-      remoteBackups: [existingBackup],
-      backupsLoadError: null,
+    });
+    expect(remote).toEqual({
+      backups: [existingBackup],
+      error: null,
+      authExpired: false,
     });
 
     // Na web sem authProvider não dispara needsLegacyReconnect
@@ -228,11 +207,10 @@ describe("driveBackupActions", () => {
       email: "web@example.com",
       clientId: "cid",
     });
-    mocks.listBackups.mockResolvedValueOnce([]);
 
-    const webState = await loadDriveState();
-    expect(webState.isConnected).toBe(true);
-    expect(webState.needsLegacyReconnect).toBe(false);
+    const webLocal = await loadDriveLocalState();
+    expect(webLocal.isConnected).toBe(true);
+    expect(webLocal.needsLegacyReconnect).toBe(false);
   });
 
   it("fetchDriveBackups diferencia offline, erro de autorização (401/403/Não autenticado) e erro genérico de rede", async () => {
@@ -270,46 +248,6 @@ describe("driveBackupActions", () => {
       error: "Não foi possível listar os backups agora. Sua conexão continua ativa.",
       authExpired: false,
     });
-  });
-
-  it("loadDriveState mantém conexão ativa sem crash quando listBackups falha ou está offline", async () => {
-    mocks.loadTokens.mockResolvedValueOnce({
-      accessToken: "mod-tok",
-      refreshToken: "",
-      expiresAt: Date.now() + 60_000,
-      email: "willian@example.com",
-      clientId: "cid",
-      native: true,
-      authProvider: "credential-manager",
-    });
-    mocks.getLastSyncAt.mockResolvedValueOnce(1_700_000_999_000);
-    mocks.listBackups.mockRejectedValueOnce(new Error("network timeout"));
-
-    const state = await loadDriveState();
-    expect(state.isConnected).toBe(true);
-    expect(state.needsLegacyReconnect).toBe(false);
-    expect(state.lastSyncAt).toBe(1_700_000_999_000);
-    expect(state.remoteBackups).toEqual([]);
-    expect(state.backupsLoadError).toBe(
-      "Não foi possível listar os backups agora. Sua conexão continua ativa.",
-    );
-
-    mocks.loadTokens.mockResolvedValueOnce({
-      accessToken: "mod-tok",
-      refreshToken: "",
-      expiresAt: Date.now() + 60_000,
-      email: "willian@example.com",
-      clientId: "cid",
-      native: true,
-      authProvider: "credential-manager",
-    });
-    mocks.isOnline.mockResolvedValueOnce(false);
-    const offlineState = await loadDriveState();
-    expect(offlineState.isConnected).toBe(true);
-    expect(offlineState.remoteBackups).toEqual([]);
-    expect(offlineState.backupsLoadError).toBe(
-      "Sem conexão com a internet para listar os backups agora.",
-    );
   });
 
   it("performDriveConnect nativo autentica via Credential Manager, autoriza Drive, salva authProvider e lista backup existente", async () => {
@@ -360,11 +298,15 @@ describe("driveBackupActions", () => {
     });
   });
 
-  it("performDriveConnect recusa autorização quando grantedScopes omite drive.appdata", async () => {
-    mocks.authorizeDriveNative.mockResolvedValueOnce({
-      accessToken: "tok-sem-drive",
-      grantedScopes: ["email"],
-    });
+  it("performDriveConnect propaga erro RESOLUTION_REQUIRED quando authorizeDriveNative recusa escopo ausente", async () => {
+    mocks.authorizeDriveNative.mockRejectedValueOnce(
+      Object.assign(
+        new Error(
+          "Permissão do Google Drive não concedida. Marque o acesso ao Google Drive na tela de consentimento e tente novamente.",
+        ),
+        { code: DomusGoogleAuthErrorCodes.RESOLUTION_REQUIRED },
+      ),
+    );
 
     const res = await performDriveConnect("web-client-id");
     expect(res.ok).toBe(false);

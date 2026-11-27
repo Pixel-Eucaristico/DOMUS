@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
   Platform,
   ActivityIndicator,
   Linking,
@@ -43,7 +42,6 @@ import { KeyboardSheet } from "@/src/components/shared/KeyboardSheet";
 import { skipHeaderMinHeight } from "@/src/components/tour/welcomeCarouselLayout";
 
 const FIREBASE_FLAGS: PrivacyFlagId[] = ["firebaseAnalytics", "firebasePerformance", "firebaseCrashlytics"];
-const { width: SCREEN_W } = Dimensions.get("window");
 /** Topo do botão "Pular" (absoluto, no cabeçalho). */
 const SKIP_TOP = Platform.OS === "ios" ? 56 : 20;
 const TOTAL_SLIDES = 6;
@@ -70,7 +68,7 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
   const scrollRef = useRef<ScrollView>(null);
   // Rolagem vertical do KeyboardSheet (uma só para todos os slides).
   const sheetScrollRef = useRef<ScrollView>(null);
-  const { fontScale } = useWindowDimensions();
+  const { width: screenW, fontScale } = useWindowDimensions();
   const [slide, setSlide] = useState(0);
 
   // Slide 1: católico
@@ -123,7 +121,7 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
   }, []);
 
   const goTo = (idx: number) => {
-    scrollRef.current?.scrollTo({ x: idx * SCREEN_W, animated: true });
+    scrollRef.current?.scrollTo({ x: idx * screenW, animated: true });
     // Cada slide começa do topo, mesmo que o anterior tenha rolado (R7).
     sheetScrollRef.current?.scrollTo({ y: 0, animated: false });
     setSlide(idx);
@@ -308,7 +306,7 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
             style={st.pager}
           >
             {/* Slide 0: Boas-vindas */}
-            <SlideWrapper>
+            <SlideWrapper width={screenW}>
               <View style={[st.iconCircle, { backgroundColor: `${theme.primaryColor}20` }]}>
                 <Text style={{ fontSize: 40 }}>🏠</Text>
               </View>
@@ -331,7 +329,7 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
             </SlideWrapper>
 
             {/* Slide 1: Católico? */}
-            <SlideWrapper>
+            <SlideWrapper width={screenW}>
               <Text style={{ fontSize: 48 }}>✝️</Text>
               <Text style={[st.title, { color: theme.textColor }]}>Você é católico(a)?</Text>
               <Text style={[st.subtitle, { color: theme.secondaryText }]}>
@@ -372,7 +370,7 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
             </SlideWrapper>
 
             {/* Slide 2: Permissões */}
-            <SlideWrapper>
+            <SlideWrapper width={screenW}>
               <View style={[st.iconCircle, { backgroundColor: "#6366F118" }]}>
                 <Feather name="lock" size={36} color="#6366F1" />
               </View>
@@ -403,7 +401,7 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
             </SlideWrapper>
 
             {/* Slide 3: Analytics */}
-            <SlideWrapper>
+            <SlideWrapper width={screenW}>
               <View style={[st.iconCircle, { backgroundColor: "#6366F118" }]}>
                 <Feather name="bar-chart" size={36} color="#6366F1" />
               </View>
@@ -457,7 +455,7 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
             </SlideWrapper>
 
             {/* Slide 4: Transparência & Apoio */}
-            <SlideWrapper>
+            <SlideWrapper width={screenW}>
               <View style={[st.iconCircle, { backgroundColor: "#F59E0B18" }]}>
                 <Text style={{ fontSize: 32 }}>🔗</Text>
               </View>
@@ -496,7 +494,7 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
             </SlideWrapper>
 
             {/* Slide 5: IA */}
-            <SlideWrapper>
+            <SlideWrapper width={screenW}>
               <View style={[st.iconCircle, { backgroundColor: "#06B6D418" }]}>
                 <Feather name="cpu" size={36} color="#06B6D4" />
               </View>
@@ -569,9 +567,9 @@ export function WelcomeCarousel({ visible, onComplete }: Props) {
 }
 
 
-function SlideWrapper({ children }: { children: React.ReactNode }) {
+function SlideWrapper({ width, children }: { width: number; children: React.ReactNode }) {
   return (
-    <View style={{ width: SCREEN_W, paddingHorizontal: 28, paddingTop: 8, alignItems: "center", gap: 16 }}>
+    <View style={{ width, paddingHorizontal: 28, paddingTop: 8, alignItems: "center", gap: 16 }}>
       {children}
     </View>
   );

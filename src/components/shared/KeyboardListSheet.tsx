@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   StyleSheet,
@@ -91,9 +91,12 @@ export function KeyboardListSheet({
   const [titleHeight, setTitleHeight] = useState(0);
   const [searchBottom, setSearchBottom] = useState(0);
   const [titleCollapsed, setTitleCollapsed] = useState(false);
+  const prevMeasureKeyRef = useRef(measureKey);
 
-  // Título de outra altura (outra aba): mede de novo a partir do zero (R5).
+  // Título de outra altura (outra aba): mede de novo a partir do zero (R5), só quando measureKey muda.
   useEffect(() => {
+    if (prevMeasureKeyRef.current === measureKey) return;
+    prevMeasureKeyRef.current = measureKey;
     setTitleHeight(0);
   }, [measureKey]);
 
@@ -108,9 +111,12 @@ export function KeyboardListSheet({
     headerHeight: listSheetHeaderHeight(searchBottom, titleHeight, titleCollapsed),
     maxHeightRatio: effectiveRatio,
   });
-  // As medidas abaixo dependem de o título estar à mostra; guarda o estado em
-  // que foram feitas.
-  if (layout.titleCollapsed !== titleCollapsed) setTitleCollapsed(layout.titleCollapsed);
+  // As medidas abaixo dependem de o título estar à mostra; sincroniza após o render.
+  useEffect(() => {
+    if (layout.titleCollapsed !== titleCollapsed) {
+      setTitleCollapsed(layout.titleCollapsed);
+    }
+  }, [layout.titleCollapsed, titleCollapsed]);
 
   const onTitleLayout = (e: LayoutChangeEvent) => setTitleHeight(e.nativeEvent.layout.height);
   const onSearchLayout = (e: LayoutChangeEvent) => {

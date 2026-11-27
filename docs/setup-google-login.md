@@ -102,10 +102,11 @@ O workflow já injeta tudo sozinho — ele só precisa dos secrets existirem.
 
    | Secret | Valor |
    |---|---|
-   | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Client ID do cliente **Web** (A3) |
-   | `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` | Client ID do cliente **Android** criado pelo Firebase para o SHA-1 do keystore do GitHub (visível em Cloud Console → Credentials) |
+   | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Client ID do cliente **Web** (A3) — única variável lida pelo app em tempo de build |
    | `ANDROID_KEYSTORE_BASE64` | `base64 -w0 release.keystore` (se ainda não existir) |
    | `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD` | Dados do mesmo keystore |
+
+   > Nota: `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` não é mais lida pelo app (o cliente OAuth Android é validado pelo Google Play Services via package name + SHA-1 do certificado).
 
    > Sem os secrets de keystore o workflow gera APK **não assinado** — o login
    > Google nunca funcionará nesse APK. E o SHA-1 desse keystore PRECISA estar
@@ -114,7 +115,6 @@ O workflow já injeta tudo sozinho — ele só precisa dos secrets existirem.
 2. Pelo terminal, se preferir (com o GitHub CLI autenticado):
    ```bash
    gh secret set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID --body "123456789-xxx.apps.googleusercontent.com"
-   gh secret set EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID --body "123456789-yyy.apps.googleusercontent.com"
    ```
 
 3. Dispare um build: push na `main` ou **Actions → Build Android & Web →
@@ -160,8 +160,8 @@ As `EXPO_PUBLIC_*` precisam existir no ambiente do EAS **no momento do build**
 
    | Mensagem | Causa | Correção |
    |---|---|---|
-   | "Google Client ID nao configurado" | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` não estava no ambiente do build | Partes B/C/D |
-   | "Configuracao OAuth invalida (DEVELOPER_ERROR)..." | SHA-1 do certificado deste build não registrado | Partes A1/A2 |
+   | "Google Client ID não configurado" | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` não estava no ambiente do build | Partes B/C/D |
+   | "Configuração OAuth inválida (DEVELOPER_ERROR)..." | SHA-1 do certificado deste build não registrado | Partes A1/A2 |
 
 3. Usuários que já tinham conectado antes: **Desconectar → Conectar** de novo
    para renovar os tokens.
