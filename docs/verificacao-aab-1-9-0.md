@@ -32,7 +32,11 @@
 - **ID de Associado Amazon (`willianquin03-20`):** `1` ocorrência confirmada
 - **Variável pública legada removida também do ambiente `production` no EAS:** confirmada presença apenas de `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` e `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`.
 
-## 4. Próximo passo manual (Play Console)
+## 4. Conclusão da Story 1.7 (Verificação sem `client_secret` + Drive real)
 
-- Fazer upload de `domus-v1.9.0-2e2de34.aab` (disponível no artefato `domus-android-1.9.0-2e2de34` do run `45688642633` e em cópia local) no Google Play Console e confirmar aceitação sem aviso de *target API*.
-- Após publicação/instalação em aparelho Android real, validar Drive + backup completo para fechar a Story 1.7.
+- **Auditoria do AAB `1.9.0` (`run 45688642633`, `base/assets/index.android.bundle`, `22.720.304` bytes):** `0` ocorrências de `GOCSPX-`, `0` ocorrências de `CLIENT_SECRET`.
+- **Reauditoria no APK release pós-Epic 8 (`Expo SDK 57`, `assets/index.android.bundle`, `24.220.764` bytes, 27/11/2026):** `0` ocorrências de `GOCSPX-`, `0` ocorrências de `CLIENT_SECRET` (`domus-backup` confirmado no bundle); `git grep` em `app/`, `src/`, `components/`, `plugins/`, `modules/`, `.github/` e `app.json` com `0` ocorrências.
+- **Validação em Android 16 real (`Samsung Galaxy Tab S9 FE`, `SM-X510`, API 36):**
+  - Pré-Epic 8 (`25/11/2026`, `docs/checklist-android-16.md`): conexão nativa ao Google Drive sem `client_secret` e upload completo (`domus-backup.domusbackup`, `Último sync: 25/11, 00:38`).
+  - Pós-Epic 8 (`26/11/2026`, Stories 8.8 e 8.9): login moderno via Credential Manager + `AuthorizationClient` (`gamerwyll@gmail.com`), upload completo de `domus-backup.domusbackup` para `appDataFolder` e listagem ao vivo (`26/11/2026, 18:38 · 8,6 KB`) com `0` erros no `logcat`.
+- **Próximo passo pós-adoção (Story 1.8):** após confirmar a publicação/adoção da versão sem segredo nos aparelhos ativos, revogar/rotacionar o `client_secret` antigo no Google Cloud Console (mantendo a Story 1.8 em `backlog` até esse marco).

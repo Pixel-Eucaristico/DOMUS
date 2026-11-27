@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-27-2026 08:44
+last_updated: 11-27-2026 10:06
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -41,10 +41,10 @@ development_status:
   1-3-validar-no-android-16-e-corrigir-o-que-quebrar: done
   1-4-corrigir-a-descrição-da-loja-e-a-política-de-privacidade: done
   1-5-alinhar-o-formulário-data-safety-ao-comportamento: done
-  1-6-enviar-o-aab-com-target-36-à-play-até-25-10-2026: review
-  1-7-verificar-que-o-build-publicado-não-tem-o-client_secret: backlog
+  1-6-enviar-o-aab-com-target-36-à-play-até-25-10-2026: done
+  1-7-verificar-que-o-build-publicado-não-tem-o-client_secret: done
   1-8-revogar-o-segredo-antigo-do-google-depois-da-adoção: backlog
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
 
   epic-2: done
   2-1-alinhar-os-testes-de-xp-com-as-regras-de-xp-que-valem: done
@@ -523,3 +523,51 @@ action_items:
     owner: "domus-light"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-27.md"
+  - id: "epic-1-retro-item-49-atualizar-docs-data-safety-md-f2-credent"
+    epic: 1
+    action: "Atualizar docs/data-safety.md (F2 Credential Manager, email em domus_gdrive_backup_pref_v1,
+      domus_is_catholic_v1, linhas e manifesto) e PLAY_STORE_LISTING.md (versionCode,
+      checklist e remover docs/risco-residual-xor.md)"
+    owner: "domus-dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-27.md"
+  - id: "epic-1-retro-item-50-endurecer-regra-eslint-expo_public_-d4-d"
+    epic: 1
+    action: "Endurecer regra ESLint EXPO_PUBLIC_* (D4: desestruturacao, TOKEN/KEY,
+      teste unitario), incluir modules/ em noSecretInAsyncStorage.test.ts, testar
+      targetSdkVersion>=36/blockedPermissions em app.json e auditar AAB no build-android.yml"
+    owner: "domus-architect"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-27.md"
+  - id: "epic-1-retro-item-51-corrigir-bug-crlf-em-plugins-withrelease"
+    epic: 1
+    action: "Corrigir bug CRLF em plugins/withReleaseSigning.js:153 (eliminando falha
+      de withReleaseSigning.test.ts:83 no Windows) e atualizar fixture para template
+      do Expo SDK 57"
+    owner: "domus-dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-27.md"
+  - id: "epic-1-retro-item-52-corrigir-robustez-do-websecretstore-ts-d"
+    epic: 1
+    action: "Corrigir robustez do webSecretStore.ts (D1: nao cachear keyPromise null,
+      nao apagar ciphertext sem chave e tratar retorno false de webSecrets.set em
+      GoogleDriveService.ts:30)"
+    owner: "domus-architect"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-27.md"
+  - id: "epic-1-retro-item-53-publicar-aab-definitivo-na-play-subindo"
+    epic: 1
+    action: "Publicar AAB definitivo na Play (subindo versionCode para 13+ se levar
+      o Epic 8), sincronizar politica/Data safety no Console e site (D14/D45), validar
+      cupom NFC-e fisico (2.2) e executar Story 1.8 revogando o client_secret antigo
+      apos adocao"
+    owner: "dono"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-27.md"
+  - id: "epic-1-retro-item-54-marcar-d2-d3-d6-d15-e-d18-sefaz-como-res"
+    epic: 1
+    action: "Marcar D2, D3, D6, D15 e D18 (SEFAZ) como resolvidos em deferred-work.md
+      e corrigir NSMicrophoneUsageDescription em app.json:41"
+    owner: "domus-light"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-27.md"
