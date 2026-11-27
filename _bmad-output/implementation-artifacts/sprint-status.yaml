@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-15-2026 14:00
-last_updated: 11-26-2026 21:10
+last_updated: 11-27-2026 08:29
 project: DOMUS
 project_key: NOKEY
 tracking_system: file-system
@@ -114,17 +114,17 @@ development_status:
   7-10-criar-e-excluir-uma-transação-deixa-o-xp-igual: done
   epic-7-retrospective: done
 
-  epic-8: in-progress
-  8-1-medir-a-linha-de-base-e-atualizar-para-o-expo-sdk-55: review
-  8-2-reavaliar-patches-e-tamagui-no-sdk-55-e-validar-os-fluxos: review
+  epic-8: done
+  8-1-medir-a-linha-de-base-e-atualizar-para-o-expo-sdk-55: done
+  8-2-reavaliar-patches-e-tamagui-no-sdk-55-e-validar-os-fluxos: done
   8-3-atualizar-para-o-expo-sdk-56-e-aplicar-o-codemod-do-expo-rou: done # consolidada na Story 8.5 (pulo 55 -> 57 aprovado em 26/11/2026)
   8-4-medir-a-memória-e-validar-o-sdk-56: done # pulada por decisão do dono em 26/11/2026 (regressão Hermes V1 no SDK 56; validação na 8.6)
-  8-5-atualizar-para-o-expo-sdk-57: review
-  8-6-reavaliar-patches-e-tamagui-no-sdk-57-e-validar-os-fluxos: review
+  8-5-atualizar-para-o-expo-sdk-57: done
+  8-6-reavaliar-patches-e-tamagui-no-sdk-57-e-validar-os-fluxos: done
   8-7-decidir-a-biblioteca-do-novo-login-do-google: done
-  8-8-migrar-o-login-e-a-autorização-do-drive: review
-  8-9-explicar-a-reconexão-do-drive-ao-usuário: review
-  epic-8-retrospective: optional
+  8-8-migrar-o-login-e-a-autorização-do-drive: done
+  8-9-explicar-a-reconexão-do-drive-ao-usuário: done
+  epic-8-retrospective: done
 
   epic-9: done
   9-1-inventariar-e-classificar-tudo-que-o-app-guarda-fora-do-log: done
@@ -420,3 +420,64 @@ action_items:
     owner: "domus-architect"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-12-retro-2026-11-17.md"
+  - id: "epic-8-retro-item-35-conectar-authexpired-de-fetchdrivebackup"
+    epic: 8
+    action: "Conectar authExpired de fetchDriveBackups em driveBackupState.ts e app/backup.tsx
+      com CTA inline de reconexao e testar isConnected false em autoBackupRunner.test.ts"
+    owner: "domus-dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-27.md"
+  - id: "epic-8-retro-item-36-proteger-uploadbackupinternal-findbackup"
+    epic: 8
+    action: "Proteger uploadBackupInternal, findBackupFileId, ramo 401 de listBackupsInternal
+      e saveTokens com tokenSessionEpoch em GoogleDriveService.ts e corrigir corridas
+      em driveBackupState.ts e useGoogleDriveBackup.ts"
+    owner: "domus-architect"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-27.md"
+  - id: "epic-8-retro-item-37-corrigir-bordas-de-domusgoogleauthmodule"
+    epic: 8
+    action: "Corrigir bordas de DomusGoogleAuthModule.kt e DomusGoogleAuthModule.swift,
+      adicionar CLIENT_ID/REVERSED_CLIENT_ID no GoogleService-Info.plist e substituir
+      assercao tautologica em withDomusGoogleAuth.test.ts"
+    owner: "domus-architect"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-27.md"
+  - id: "epic-8-retro-item-38-blindar-startvoicerecording-e-playvoicer"
+    epic: 8
+    action: "Blindar startVoiceRecording e playVoiceReplay contra reentrancia e vazamento
+      em voiceRecorderLifecycle.ts/ai-chat.tsx, passar keepAudioSessionActive e limpar
+      initPromise em SoundManager.ts e pinar contrato upstream de expo-audio"
+    owner: "domus-dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-27.md"
+  - id: "epic-8-retro-item-39-mover-public-hoist-pattern-de-npmrc-para"
+    epic: 8
+    action: "Mover public-hoist-pattern de .npmrc para pnpm-workspace.yaml, remover
+      retorno silencioso em keyboardScroll.test.ts:3311 e isolar overrides do React
+      Compiler em eslint.config.js a allowlist legada"
+    owner: "domus-dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-27.md"
+  - id: "epic-8-retro-item-40-limpar-codigo-morto-e-duplicacoes-pos-ep"
+    epic: 8
+    action: "Limpar codigo morto e duplicacoes pos-Epic 8 (fetchUserEmail, loadDriveState,
+      DRIVE_APPDATA_SCOPE duplicado, expo-auth-session, react-native-vision-camera,
+      @react-native-firebase/app e @ts-expect-error Tamagui)"
+    owner: "domus-dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-27.md"
+  - id: "epic-8-retro-item-41-reconciliar-agents-md-readme-md-docs-dat"
+    epic: 8
+    action: "Reconciliar AGENTS.md, README.md, docs/data-safety.md (F2), docs/setup-google-login.md,
+      remover stub spec-8-1 blocked e anotar itens resolvidos em deferred-work.md"
+    owner: "domus-light"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-27.md"
+  - id: "epic-8-retro-item-42-validar-build-ios-em-macos-xcode-domusgo"
+    epic: 8
+    action: "Validar build iOS em macOS/Xcode (DomusGoogleAuthModule.swift e ShareExtension
+      16.4) e fumaca de rede real do fetch global SDK 57 com Nostr e IA"
+    owner: "dono"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-27.md"
